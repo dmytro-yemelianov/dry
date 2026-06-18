@@ -28,6 +28,7 @@ dist/
 # wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)
 web/pkg/
 web/pkg-node/
+sdk/ts/wasm/
 
 # Playwright MCP scratch (headless verification)
 .playwright-mcp/

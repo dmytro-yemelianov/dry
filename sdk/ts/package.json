@@ -1,0 +1,20 @@
+{
+  "name": "@dry/sdk",
+  "version": "0.0.0",
+  "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the Dry engine (Rust, via wasm).",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/dmytro-yemelianov/dry",
+  "type": "commonjs",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": ["dist/src", "wasm"],
+  "scripts": {
+    "build": "bash build.sh",
+    "tsc": "tsc -p tsconfig.json",
+    "test": "node --test dist/test/*.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

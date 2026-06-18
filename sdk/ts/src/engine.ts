@@ -1,0 +1,32 @@
+// Loads the Dry wasm engine (nodejs target, CommonJS) and exposes typed, low-level resolve calls.
+// The .wasm + JS glue are built into ../wasm by build.sh. This module is the only place that touches
+// the binding; everything else works in terms of typed ops.
+import * as path from 'node:path';
+import { createRequire } from 'node:module';
+import type { Metrics, Op, ResolveParams, Toolpath } from './ops';
+
+interface DryWasm {
+  resolve_gcode(opsJson: string, paramsJson: string, relativeE: boolean): string[];
+  resolve_metrics(opsJson: string, paramsJson: string): string;
+  resolve_ir(opsJson: string, paramsJson: string): string;
+}
+
+// compiled to dist/src/engine.js, so the wasm dir is two levels up (dist/src -> dist -> ts/wasm... two
+// `..` reach the package root). Resolved relative to this file so it works regardless of cwd.
+const requireWasm = createRequire(__filename);
+const wasm: DryWasm = requireWasm(path.join(__dirname, '..', '..', 'wasm', 'dry_wasm.js'));
+
+/** Resolve a design and emit motion g-code. */
+export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true): string[] {
+  return wasm.resolve_gcode(JSON.stringify(ops), JSON.stringify(params), relativeE);
+}
+
+/** Resolve a design and return its simulation metrics. */
+export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
+  return JSON.parse(wasm.resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
+}
+
+/** Resolve a design to the L2 Dry IR. */
+export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
+  return JSON.parse(wasm.resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
+}
