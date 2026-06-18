@@ -1,0 +1,79 @@
+{
+  "design": "ramp_speed",
+  "oracle": "fullcontrol",
+  "ir": {
+    "version": 0,
+    "segments": [
+      {
+        "start": [
+          null,
+          null,
+          null
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.3
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 0.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.3
+        ],
+        "end": [
+          15.0,
+          0.0,
+          0.3
+        ],
+        "travel": false,
+        "speed": 2400.0,
+        "length": 15.0,
+        "volume": 1.7999999999999998,
+        "filament": 0.7483530385382181,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          15.0,
+          0.0,
+          0.3
+        ],
+        "end": [
+          15.0,
+          9.0,
+          0.3
+        ],
+        "travel": false,
+        "speed": 1200.0,
+        "length": 9.0,
+        "volume": 1.08,
+        "filament": 0.4490118231229309,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      }
+    ]
+  },
+  "params": {
+    "relative_e": true,
+    "travel_g1_e0": false,
+    "flavor": "marlin"
+  },
+  "expected": [
+    "G1 F1000 X0 Y0 Z0.3 E0",
+    "G1 F2400 X15 E0.748353",
+    "G1 F1200 Y9 E0.449012"
+  ]
+}

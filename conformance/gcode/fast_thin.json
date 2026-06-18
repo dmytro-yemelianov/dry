@@ -1,0 +1,58 @@
+{
+  "design": "fast_thin",
+  "oracle": "fullcontrol",
+  "ir": {
+    "version": 0,
+    "segments": [
+      {
+        "start": [
+          null,
+          null,
+          null
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.1
+        ],
+        "travel": false,
+        "speed": 6000.0,
+        "length": 0.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.4,
+        "height": 0.1,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.1
+        ],
+        "end": [
+          40.0,
+          0.0,
+          0.1
+        ],
+        "travel": false,
+        "speed": 6000.0,
+        "length": 40.0,
+        "volume": 1.6000000000000003,
+        "filament": 0.6652027009228607,
+        "width": 0.4,
+        "height": 0.1,
+        "kind": "line"
+      }
+    ]
+  },
+  "params": {
+    "relative_e": true,
+    "travel_g1_e0": false,
+    "flavor": "marlin"
+  },
+  "expected": [
+    "G1 F6000 X0 Y0 Z0.1 E0",
+    "G1 X40 E0.665203"
+  ]
+}

@@ -1,0 +1,268 @@
+{
+  "design": "stack3",
+  "oracle": "fullcontrol",
+  "ir": {
+    "version": 0,
+    "segments": [
+      {
+        "start": [
+          null,
+          null,
+          null
+        ],
+        "end": [
+          6.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 0.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          6.0,
+          6.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          6.0,
+          0.2
+        ],
+        "end": [
+          0.0,
+          6.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          6.0,
+          0.2
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          6.0,
+          0.0,
+          0.4
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.003332407921453,
+        "volume": 0.7203998889505744,
+        "filament": 0.2995074699215318,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          0.0,
+          0.4
+        ],
+        "end": [
+          6.0,
+          6.0,
+          0.4
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          6.0,
+          0.4
+        ],
+        "end": [
+          0.0,
+          6.0,
+          0.4
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          6.0,
+          0.4
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.4
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.4
+        ],
+        "end": [
+          6.0,
+          0.0,
+          0.6
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.003332407921453,
+        "volume": 0.7203998889505744,
+        "filament": 0.2995074699215318,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          0.0,
+          0.6
+        ],
+        "end": [
+          6.0,
+          6.0,
+          0.6
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          6.0,
+          6.0,
+          0.6
+        ],
+        "end": [
+          0.0,
+          6.0,
+          0.6
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          6.0,
+          0.6
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.6
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 6.0,
+        "volume": 0.72,
+        "filament": 0.29934121541528724,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      }
+    ]
+  },
+  "params": {
+    "relative_e": true,
+    "travel_g1_e0": false,
+    "flavor": "marlin"
+  },
+  "expected": [
+    "G1 F1000 X6 Y0 Z0.2 E0",
+    "G1 Y6 E0.299341",
+    "G1 X0 E0.299341",
+    "G1 Y0 E0.299341",
+    "G1 X6 Z0.4 E0.299507",
+    "G1 Y6 E0.299341",
+    "G1 X0 E0.299341",
+    "G1 Y0 E0.299341",
+    "G1 X6 Z0.6 E0.299507",
+    "G1 Y6 E0.299341",
+    "G1 X0 E0.299341",
+    "G1 Y0 E0.299341"
+  ]
+}

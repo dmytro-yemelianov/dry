@@ -5,14 +5,17 @@
 //! analysis (`simulate`), validated against the FullControl behavioural oracle (`docs/03-conformance.md`)
 //! — clean-room: Dry reproduces FullControl's *outputs*, never its code (`docs/CLEANROOM.md`).
 //!
-//! Status: **P0** — the simulate vertical slice. Units-typing of the IR fields, the binary encoding, and
-//! the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
+//! Status: **P0** — `simulate` + Marlin `emit`, both gated byte-for-output against the FullControl
+//! oracle. Units-typing of the IR fields, the binary encoding, and the lowering passes are the next
+//! P0/P1 increments (`docs/04-tasks.md`).
 
 #![forbid(unsafe_code)]
 
+pub mod emit;
 pub mod engine;
 pub mod ir;
 pub mod units;
 
+pub use emit::{emit, EmitParams};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
