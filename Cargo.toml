@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/core", "crates/cli"]
-# `py/` (the PyO3 binding) is a maturin project, excluded from the core workspace so the engine stays
-# Python-free; it is built + tested by its own CI job. crates/wasm + the TS SDK land in later phases.
-exclude = ["py"]
+# `py/` (PyO3) and `crates/wasm` (wasm-bindgen) are bindings excluded from the core workspace so the
+# engine stays binding-free; each is built + tested by its own CI job. The TS SDK lands in P4.
+exclude = ["py", "crates/wasm"]
 
 [workspace.package]
 version = "0.0.0"

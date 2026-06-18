@@ -25,6 +25,13 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)
+web/pkg/
+web/pkg-node/
+
+# Playwright MCP scratch (headless verification)
+.playwright-mcp/
+
 # OS / editor
 .DS_Store
 .idea/
