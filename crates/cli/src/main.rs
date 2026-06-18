@@ -71,13 +71,28 @@ fn run(cli: Cli) -> ExitCode {
             let m = simulate(&tp);
             let b = bbox(&tp);
             println!("inspect: {file}");
-            println!("  segments:  {} ({} moves with length)", tp.segments.len(), m.segment_count);
-            println!("  time:      {:.1}s (print {:.1}s, travel {:.1}s)", m.total_time_s, m.print_time_s, m.travel_time_s);
-            println!("  material:  {:.4}mm filament, {:.3}mm^3 deposited", m.filament_length, m.extruded_volume);
-            println!("  distance:  {:.1}mm extruding, {:.1}mm travel", m.extruding_distance, m.travel_distance);
+            println!(
+                "  segments:  {} ({} moves with length)",
+                tp.segments.len(),
+                m.segment_count
+            );
+            println!(
+                "  time:      {:.1}s (print {:.1}s, travel {:.1}s)",
+                m.total_time_s, m.print_time_s, m.travel_time_s
+            );
+            println!(
+                "  material:  {:.4}mm filament, {:.3}mm^3 deposited",
+                m.filament_length, m.extruded_volume
+            );
+            println!(
+                "  distance:  {:.1}mm extruding, {:.1}mm travel",
+                m.extruding_distance, m.travel_distance
+            );
             println!("  peak flow: {:.2}mm^3/s", m.max_flow_rate);
-            println!("  bbox:      X[{:.2}, {:.2}] Y[{:.2}, {:.2}] Z[{:.2}, {:.2}]",
-                b[0][0], b[0][1], b[1][0], b[1][1], b[2][0], b[2][1]);
+            println!(
+                "  bbox:      X[{:.2}, {:.2}] Y[{:.2}, {:.2}] Z[{:.2}, {:.2}]",
+                b[0][0], b[0][1], b[1][0], b[1][1], b[2][0], b[2][1]
+            );
             ExitCode::SUCCESS
         }
         Cmd::Simulate { file, json } => {
@@ -85,14 +100,27 @@ fn run(cli: Cli) -> ExitCode {
             if json {
                 println!("{}", serde_json::to_string_pretty(&m).unwrap());
             } else {
-                println!("time {:.3}s | {} segments | {:.4}mm filament | {:.3}mm^3 | peak {:.2}mm^3/s",
-                    m.total_time_s, m.segment_count, m.filament_length, m.extruded_volume, m.max_flow_rate);
+                println!(
+                    "time {:.3}s | {} segments | {:.4}mm filament | {:.3}mm^3 | peak {:.2}mm^3/s",
+                    m.total_time_s,
+                    m.segment_count,
+                    m.filament_length,
+                    m.extruded_volume,
+                    m.max_flow_rate
+                );
             }
             ExitCode::SUCCESS
         }
-        Cmd::Emit { file, absolute_e, out } => {
+        Cmd::Emit {
+            file,
+            absolute_e,
+            out,
+        } => {
             let tp = load(&file);
-            let params = EmitParams { relative_e: !absolute_e, travel_g1_e0: false };
+            let params = EmitParams {
+                relative_e: !absolute_e,
+                travel_g1_e0: false,
+            };
             let gcode = emit(&tp, &params).join("\n");
             match out {
                 Some(path) => fs::write(&path, gcode + "\n")
