@@ -1,0 +1,100 @@
+{
+  "design": "travel_mix",
+  "oracle": "fullcontrol",
+  "ir": {
+    "version": 0,
+    "segments": [
+      {
+        "start": [
+          null,
+          null,
+          null
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 0.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          8.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 8.0,
+        "volume": 0.96,
+        "filament": 0.3991216205537163,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          8.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          20.0,
+          0.0,
+          0.2
+        ],
+        "travel": true,
+        "speed": 8000.0,
+        "length": 12.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          20.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          28.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 8.0,
+        "volume": 0.96,
+        "filament": 0.3991216205537163,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      }
+    ]
+  },
+  "expected": {
+    "total_time_s": 1.0499999999999998,
+    "print_time_s": 0.96,
+    "travel_time_s": 0.09,
+    "extruding_distance": 16.0,
+    "travel_distance": 12.0,
+    "extruded_volume": 1.92,
+    "filament_length": 0.7982432411074326,
+    "segment_count": 3,
+    "max_flow_rate": 2.0
+  }
+}

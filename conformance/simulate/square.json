@@ -1,0 +1,120 @@
+{
+  "design": "square",
+  "oracle": "fullcontrol",
+  "ir": {
+    "version": 0,
+    "segments": [
+      {
+        "start": [
+          null,
+          null,
+          null
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 0.0,
+        "volume": 0.0,
+        "filament": 0.0,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          10.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          10.0,
+          0.0,
+          0.2
+        ],
+        "end": [
+          10.0,
+          10.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          10.0,
+          10.0,
+          0.2
+        ],
+        "end": [
+          0.0,
+          10.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      },
+      {
+        "start": [
+          0.0,
+          10.0,
+          0.2
+        ],
+        "end": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "travel": false,
+        "speed": 1000.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "line"
+      }
+    ]
+  },
+  "expected": {
+    "total_time_s": 2.4,
+    "print_time_s": 2.4,
+    "travel_time_s": 0.0,
+    "extruding_distance": 40.0,
+    "travel_distance": 0.0,
+    "extruded_volume": 4.8,
+    "filament_length": 1.9956081027685817,
+    "segment_count": 4,
+    "max_flow_rate": 2.0
+  }
+}
