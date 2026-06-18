@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["crates/core"]
+# crates/cli, crates/py, crates/wasm and the SDKs are added as their phases land (see docs/04-tasks.md).
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-only"
+repository = "https://github.com/dmytro-yemelianov/dry"
+
+[profile.release]
+lto = true
+codegen-units = 1

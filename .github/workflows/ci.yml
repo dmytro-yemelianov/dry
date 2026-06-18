@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  core:
+    name: core (fmt + clippy + test, native + wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - name: fmt
+        run: cargo fmt --all --check
+      # The standing discipline (inherited from the FullControl fork): clippy is -D warnings with NO
+      # #[allow] silencing — fix structurally. Enforced on the native AND wasm targets.
+      - name: clippy (native)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: clippy (wasm)
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      - name: test
+        run: cargo test --all
+      - name: build (wasm)
+        run: cargo build --target wasm32-unknown-unknown
+
+  # conformance: ported from the FullControl fork (golden / byte-identity / gallery / profiles / round-trip).
+  # Added in P0.4/P0.5 once the corpora export + runner exist — see docs/03-conformance.md.

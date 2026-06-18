@@ -1,0 +1,13 @@
+[package]
+name = "dry-core"
+description = "Dry IR + engine: the dependency-free core (no PyO3/numpy). LLVM/MLIR for machine motion."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The core MUST stay dependency-light and compile to wasm32-unknown-unknown unmodified (see docs).
+# Bindings (PyO3, wasm-bindgen) live in sibling crates, never here.
+[dependencies]
+
+[dev-dependencies]

@@ -1,0 +1,74 @@
+# Dry — conformance & correctness bootstrapping
+
+The rewrite's survival depends on **not re-discovering the fork's hard-won correctness as bugs**. The
+strategy: turn the fork's accumulated correctness (~906 tests, golden g-code, ~695 device profiles, the
+27-design gallery, the soapdish/"half-the-gallery-was-off" lessons) into a **conformance suite** that
+gates every phase. The new engine is only "done" for a phase when it reproduces the fork on those
+fixtures.
+
+## The five conformance corpora (ported from the fork → `conformance/`)
+
+1. **Golden output** (`from tests/unit/test_golden_output.py` + `golden/`): full g-code + plot for
+   representative designs, numbers normalised to 3dp. → the new `emit` must reproduce them.
+2. **G-code byte-identity** (the fork's drift-guard / `test_gcode_rust.py` corpus): per-design
+   byte-for-byte Marlin/Klipper/Duet output. → the strictest `emit` gate.
+3. **Gallery designs** (the 27 `examples/`): each authored design + its expected metrics, invariants, and
+   g-code. → the *authoring* gate (the SDK must reproduce them) and the regression net against the
+   fidelity bugs we fixed (soapdish, etc.).
+4. **Device profiles** (`fullcontrol/devices/`, ~695): each profile's init data + start/end procedures.
+   → `emit` must honour them; a sampled subset runs per-CI, the full set nightly.
+5. **Round-trip & simulate** (`test_gcode_roundtrip.py`, `test_*simulate*`): `emit(parse(g)) == g`, and
+   simulate metric parity. → the `parse`/`simulate` gates.
+
+Each corpus is a directory of `{input, expected}` pairs + a runner that diffs new-engine output. The
+corpora are *generated from the fork* by a one-time export script, then frozen (the fork is the oracle).
+
+## The parity gates (per phase)
+
+| Phase | Gate | Tolerance |
+|---|---|---|
+| P0 | `simulate` + Marlin `emit` on golden corpus, native **and** wasm | byte-identical g-code; sims bit-equal (or ≤1e-12 for cross-lang float sums) |
+| P1 | `emit` Marlin/Klipper/Duet + `verify` messages on corpora 1,2,4 | byte-identical g-code; identical validation messages |
+| P2 | gallery designs authored in the new Python SDK → `emit` | matches the fork per-design (byte-identical where the fork is; else documented geometric tolerance) |
+| P3 | `emit(parse(g)) == g`; opt-pass invariants | byte-identical round-trip; material conserved ≤1e-6 |
+| P4 | same design in Python/TS/Rust → Dry IR | byte-equal IR (normalised key order) |
+| P6 | the **entire** suite | all green |
+
+## Float & cross-language determinism (a known trap)
+
+The fork hit a **1-ULP** mismatch between Rust `f64::sin` (LTO) and CPython libm, fixed by binding the
+platform C `sin/cos/atan2/hypot`. The new core must adopt the same discipline from day one:
+- A single, documented math backend used by **all** builds (native + wasm) so geometry is bit-stable.
+- `serde_json` vs other JSON parsers can round a decimal literal differently by 1 ULP → cross-language IR
+  comparison uses a ≤1e-12 tolerance on numeric fields, *not* byte-equality, except where a canonical
+  encoder guarantees it.
+- No `Date.now()`/`random()` in the core (the fork banned these for resume-determinism) — RNG/clock are
+  injected, never ambient.
+
+## Lessons encoded as conformance (don't re-introduce these bugs)
+
+- **Verify the actual shape, not a metric.** The soapdish matched a z-distribution yet was the wrong
+  geometry; "half the gallery was off" passed bbox/harmonic checks but failed the eye. → gallery
+  conformance compares the **toolpath geometry** (point cloud / per-layer footprint), not just summary
+  metrics; where a real reference exists (downloaded g-code), the fixture is that reference.
+- **Strip machine preamble before comparing geometry** (the primer/procedures contaminated the fork's
+  reverse-engineering). → conformance separates *procedure* from *design motion*.
+- **Mutable, non-hashed assets cache stale** (the demo's `designs.js`). → any published artifact (Dry IR
+  spec vectors, wasm) is content-hashed or `must-revalidate`.
+
+## CI shape
+
+- **Per-PR (fast):** golden corpus, a sampled profile subset, the gallery, round-trip — native + wasm
+  build, Rust `fmt`+`clippy -D warnings` (no `#[allow]` silencing — the fork's standing rule), SDK
+  lint/typecheck.
+- **Nightly (full):** all ~695 profiles, the full gallery at full resolution, cross-SDK IR equality,
+  large-print streaming/perf benchmarks.
+- **Release:** publish the Dry IR spec + conformance **test vectors** so external implementations can
+  self-certify.
+
+## Bootstrapping order (do this in P0, before any new feature)
+
+1. Write the export script: fork → `conformance/{golden,gcode,gallery,profiles,roundtrip}/`.
+2. Stand up the runner + the native/wasm build matrix in CI.
+3. Only then start P1 — every subsequent task is "make corpus N pass" with a green diff as the
+   definition of done.
