@@ -1,0 +1,67 @@
+// The Dry L1 op vocabulary and the engine's data shapes. The SDK is logic-free: it builds these ops
+// and hands them to the wasm engine, which resolves / simulates / emits them. This is the same op
+// shape the Python SDK and the conformance oracle use.
+
+export type Op =
+  | { op: 'geometry'; width: number; height: number }
+  | { op: 'extruder'; on: boolean }
+  | { op: 'speed'; print: number }
+  | { op: 'move'; x: number | null; y: number | null; z: number | null }
+  | {
+      op: 'arc';
+      cx: number;
+      cy: number;
+      x: number | null;
+      y: number | null;
+      z: number | null;
+      clockwise: boolean;
+    };
+
+/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
+export interface ResolveParams {
+  print_speed: number;
+  travel_speed: number;
+  dia: number;
+}
+
+/** Simulation metrics returned by `simulate`. */
+export interface Metrics {
+  total_time_s: number;
+  print_time_s: number;
+  travel_time_s: number;
+  extruding_distance: number;
+  travel_distance: number;
+  extruded_volume: number;
+  filament_length: number;
+  segment_count: number;
+  max_flow_rate: number;
+}
+
+/** One resolved L2 motion segment. */
+export interface Segment {
+  start: (number | null)[];
+  end: (number | null)[];
+  travel: boolean;
+  speed: number;
+  length: number;
+  volume: number;
+  filament: number;
+  width: number | null;
+  height: number | null;
+  kind: string;
+  centre: [number, number] | null;
+  clockwise: boolean;
+}
+
+/** The resolved L2 Dry IR. */
+export interface Toolpath {
+  version: number;
+  segments: Segment[];
+}
+
+/** Device defaults (the generic printer). More profiles land with the device-profile work. */
+export const PRINTERS: Record<string, ResolveParams> = {
+  generic: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
+};
+
+export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
