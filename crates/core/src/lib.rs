@@ -14,8 +14,10 @@
 pub mod emit;
 pub mod engine;
 pub mod ir;
+pub mod resolve;
 pub mod units;
 
 pub use emit::{emit, EmitParams};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
+pub use resolve::{resolve, Design, Op, ResolveParams};
