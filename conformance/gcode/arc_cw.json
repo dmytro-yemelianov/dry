@@ -1,5 +1,5 @@
 {
-  "design": "fast_thin",
+  "design": "arc_cw",
   "oracle": "fullcontrol",
   "ir": {
     "version": 0,
@@ -12,16 +12,16 @@
         ],
         "end": [
           0.0,
-          0.0,
-          0.1
+          10.0,
+          0.2
         ],
         "travel": false,
-        "speed": 6000.0,
+        "speed": 1000.0,
         "length": 0.0,
         "volume": 0.0,
         "filament": 0.0,
-        "width": 0.4,
-        "height": 0.1,
+        "width": 0.6,
+        "height": 0.2,
         "kind": "line",
         "centre": null,
         "clockwise": false
@@ -29,24 +29,27 @@
       {
         "start": [
           0.0,
-          0.0,
-          0.1
+          10.0,
+          0.2
         ],
         "end": [
-          40.0,
+          10.0,
           0.0,
-          0.1
+          0.2
         ],
         "travel": false,
-        "speed": 6000.0,
-        "length": 40.0,
-        "volume": 1.6000000000000003,
-        "filament": 0.6652027009228607,
-        "width": 0.4,
-        "height": 0.1,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false
+        "speed": 1000.0,
+        "length": 15.707963267948966,
+        "volume": 1.8849555921538759,
+        "filament": 0.7836734693877552,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "arc",
+        "centre": [
+          0.0,
+          0.0
+        ],
+        "clockwise": true
       }
     ]
   },
@@ -56,7 +59,7 @@
     "flavor": "marlin"
   },
   "expected": [
-    "G1 F6000 X0 Y0 Z0.1 E0",
-    "G1 X40 E0.665203"
+    "G1 F1000 X0 Y10 Z0.2 E0",
+    "G2 X10 Y0 I0 J-10 E0.783673"
   ]
 }

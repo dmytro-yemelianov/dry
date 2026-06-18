@@ -27,9 +27,15 @@ pub struct Segment {
     pub filament: f64,
     pub width: Option<f64>,
     pub height: Option<f64>,
-    /// `"line"` or `"arc"` (v0; becomes an enum with arc parameters in P1).
+    /// `"line"` or `"arc"` (v0; becomes an enum in P1).
     #[serde(default = "default_kind")]
     pub kind: String,
+    /// Arc centre `(cx, cy)` in absolute mm — present only when `kind == "arc"`.
+    #[serde(default)]
+    pub centre: Option<[f64; 2]>,
+    /// Arc direction: `true` → G2 (clockwise), `false` → G3.
+    #[serde(default)]
+    pub clockwise: bool,
 }
 
 fn default_kind() -> String {

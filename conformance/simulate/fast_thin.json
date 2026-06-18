@@ -22,7 +22,9 @@
         "filament": 0.0,
         "width": 0.4,
         "height": 0.1,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       },
       {
         "start": [
@@ -42,7 +44,9 @@
         "filament": 0.6652027009228607,
         "width": 0.4,
         "height": 0.1,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       }
     ]
   },

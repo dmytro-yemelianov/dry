@@ -22,7 +22,9 @@
         "filament": 0.0,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       },
       {
         "start": [
@@ -42,7 +44,9 @@
         "filament": 0.3991216205537163,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       },
       {
         "start": [
@@ -62,7 +66,9 @@
         "filament": 0.0,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       },
       {
         "start": [
@@ -82,7 +88,9 @@
         "filament": 0.3991216205537163,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line"
+        "kind": "line",
+        "centre": null,
+        "clockwise": false
       }
     ]
   },

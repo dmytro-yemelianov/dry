@@ -1,5 +1,5 @@
 {
-  "design": "travel_mix",
+  "design": "arcs_mix",
   "oracle": "fullcontrol",
   "ir": {
     "version": 0,
@@ -11,9 +11,9 @@
           null
         ],
         "end": [
-          0.0,
-          0.0,
-          0.2
+          20.0,
+          5.0,
+          0.4
         ],
         "travel": false,
         "speed": 1000.0,
@@ -28,20 +28,45 @@
       },
       {
         "start": [
-          0.0,
-          0.0,
-          0.2
+          20.0,
+          5.0,
+          0.4
         ],
         "end": [
-          8.0,
           0.0,
-          0.2
+          5.0,
+          0.4
         ],
         "travel": false,
-        "speed": 1000.0,
-        "length": 8.0,
-        "volume": 0.96,
-        "filament": 0.3991216205537163,
+        "speed": 1800.0,
+        "length": 31.41592653589793,
+        "volume": 3.7699111843077517,
+        "filament": 1.5673469387755103,
+        "width": 0.6,
+        "height": 0.2,
+        "kind": "arc",
+        "centre": [
+          10.0,
+          5.0
+        ],
+        "clockwise": true
+      },
+      {
+        "start": [
+          0.0,
+          5.0,
+          0.4
+        ],
+        "end": [
+          0.0,
+          15.0,
+          0.4
+        ],
+        "travel": false,
+        "speed": 1800.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
         "width": 0.6,
         "height": 0.2,
         "kind": "line",
@@ -50,47 +75,28 @@
       },
       {
         "start": [
-          8.0,
           0.0,
-          0.2
+          15.0,
+          0.4
         ],
         "end": [
           20.0,
-          0.0,
-          0.2
-        ],
-        "travel": true,
-        "speed": 8000.0,
-        "length": 12.0,
-        "volume": 0.0,
-        "filament": 0.0,
-        "width": 0.6,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false
-      },
-      {
-        "start": [
-          20.0,
-          0.0,
-          0.2
-        ],
-        "end": [
-          28.0,
-          0.0,
-          0.2
+          15.0,
+          0.4
         ],
         "travel": false,
-        "speed": 1000.0,
-        "length": 8.0,
-        "volume": 0.96,
-        "filament": 0.3991216205537163,
+        "speed": 1800.0,
+        "length": 31.41592653589793,
+        "volume": 3.7699111843077517,
+        "filament": 1.5673469387755103,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false
+        "kind": "arc",
+        "centre": [
+          10.0,
+          15.0
+        ],
+        "clockwise": true
       }
     ]
   },
@@ -100,9 +106,9 @@
     "flavor": "marlin"
   },
   "expected": [
-    "G1 F1000 X0 Y0 Z0.2 E0",
-    "G1 X8 E0.399122",
-    "G0 F8000 X20",
-    "G1 F1000 X28 E0.399122"
+    "G1 F1000 X20 Y5 Z0.4 E0",
+    "G2 F1800 X0 Y5 I-10 J0 E1.567347",
+    "G1 Y15 E0.498902",
+    "G2 X20 Y15 I10 J0 E1.567347"
   ]
 }

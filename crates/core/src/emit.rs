@@ -52,20 +52,45 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let letters = ['X', 'Y', 'Z'];
 
     for s in &tp.segments {
-        let mut toks = vec![if s.travel { "G0" } else { "G1" }.to_string()];
+        let is_arc = s.kind == "arc" && s.centre.is_some();
+        let cmd = if s.travel {
+            "G0"
+        } else if is_arc {
+            if s.clockwise {
+                "G2"
+            } else {
+                "G3"
+            }
+        } else {
+            "G1"
+        };
+        let mut toks = vec![cmd.to_string()];
 
         if prev_speed != Some(s.speed) {
             toks.push(format!("F{}", num(s.speed)));
             prev_speed = Some(s.speed);
         }
 
+        // arc I/J is the centre offset from the move's START (the position before this move).
+        let arc_start = [pos[0], pos[1]];
         for (i, &letter) in letters.iter().enumerate() {
             if let Some(v) = s.end[i] {
-                if pos[i] != Some(v) {
+                // arcs always state the end X and Y (the plane end point); Z, and all line axes, are
+                // emitted only when they change.
+                let force = is_arc && i < 2;
+                if force || pos[i] != Some(v) {
                     toks.push(format!("{letter}{}", num(v)));
                 }
                 pos[i] = Some(v);
             }
+        }
+
+        if is_arc {
+            let [cx, cy] = s.centre.unwrap();
+            let sx = arc_start[0].unwrap_or(0.0);
+            let sy = arc_start[1].unwrap_or(0.0);
+            toks.push(format!("I{}", num(cx - sx)));
+            toks.push(format!("J{}", num(cy - sy)));
         }
 
         if p.relative_e {

@@ -32,7 +32,9 @@ def seg_to_dry(s: Segment) -> dict:
             'end': [_a(s.end[0]), _a(s.end[1]), _a(s.end[2])], 'travel': bool(s.travel),
             'speed': float(s.speed), 'length': float(s.length), 'volume': float(s.deposited_volume),
             'filament': float(s.filament_length), 'width': None if s.width is None else float(s.width),
-            'height': None if s.height is None else float(s.height), 'kind': s.kind}
+            'height': None if s.height is None else float(s.height), 'kind': s.kind,
+            'centre': None if s.centre is None else [float(s.centre[0]), float(s.centre[1])],
+            'clockwise': bool(s.clockwise)}
 
 
 def sim_metrics(tp) -> dict:
@@ -71,3 +73,14 @@ write('fast_thin', [fc.ExtrusionGeometry(width=0.4, height=0.1), ON(), fc.Printe
                     fc.Point(x=0, y=0, z=0.1), fc.Point(x=40, y=0, z=0.1)])
 write('ramp_speed', [G(), ON(), fc.Point(x=0, y=0, z=0.3), fc.Printer(print_speed=2400),
                      fc.Point(x=15, y=0, z=0.3), fc.Printer(print_speed=1200), fc.Point(x=15, y=9, z=0.3)])
+
+# arcs: native G2/G3 (the thing Dry keeps as an arc; FullControl emits one arc move per fc.Arc)
+write('arc_ccw', [G(), ON(), fc.Point(x=10, y=0, z=0.2),
+                  fc.Arc(centre=fc.Point(x=0, y=0), end=fc.Point(x=0, y=10), direction='anticlockwise'),
+                  fc.Point(x=0, y=20, z=0.2)])
+write('arc_cw', [G(), ON(), fc.Point(x=0, y=10, z=0.2),
+                 fc.Arc(centre=fc.Point(x=0, y=0), end=fc.Point(x=10, y=0), direction='clockwise')])
+write('arcs_mix', [G(), ON(), fc.Point(x=20, y=5, z=0.4), fc.Printer(print_speed=1800),
+                   fc.Arc(centre=fc.Point(x=10, y=5), end=fc.Point(x=0, y=5), direction='clockwise'),
+                   fc.Point(x=0, y=15, z=0.4),
+                   fc.Arc(centre=fc.Point(x=10, y=15), end=fc.Point(x=20, y=15), direction='clockwise')])

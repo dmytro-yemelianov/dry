@@ -1,5 +1,5 @@
 {
-  "design": "ramp_speed",
+  "design": "arc_ccw",
   "oracle": "fullcontrol",
   "ir": {
     "version": 0,
@@ -11,9 +11,9 @@
           null
         ],
         "end": [
+          10.0,
           0.0,
-          0.0,
-          0.3
+          0.2
         ],
         "travel": false,
         "speed": 1000.0,
@@ -28,42 +28,45 @@
       },
       {
         "start": [
+          10.0,
           0.0,
-          0.0,
-          0.3
+          0.2
         ],
         "end": [
-          15.0,
           0.0,
-          0.3
+          10.0,
+          0.2
         ],
         "travel": false,
-        "speed": 2400.0,
-        "length": 15.0,
-        "volume": 1.7999999999999998,
-        "filament": 0.7483530385382181,
+        "speed": 1000.0,
+        "length": 15.707963267948966,
+        "volume": 1.8849555921538759,
+        "filament": 0.7836734693877552,
         "width": 0.6,
         "height": 0.2,
-        "kind": "line",
-        "centre": null,
+        "kind": "arc",
+        "centre": [
+          0.0,
+          0.0
+        ],
         "clockwise": false
       },
       {
         "start": [
-          15.0,
           0.0,
-          0.3
+          10.0,
+          0.2
         ],
         "end": [
-          15.0,
-          9.0,
-          0.3
+          0.0,
+          20.0,
+          0.2
         ],
         "travel": false,
-        "speed": 1200.0,
-        "length": 9.0,
-        "volume": 1.08,
-        "filament": 0.4490118231229309,
+        "speed": 1000.0,
+        "length": 10.0,
+        "volume": 1.2,
+        "filament": 0.4989020256921454,
         "width": 0.6,
         "height": 0.2,
         "kind": "line",
@@ -72,14 +75,15 @@
       }
     ]
   },
-  "params": {
-    "relative_e": true,
-    "travel_g1_e0": false,
-    "flavor": "marlin"
-  },
-  "expected": [
-    "G1 F1000 X0 Y0 Z0.3 E0",
-    "G1 F2400 X15 E0.748353",
-    "G1 F1200 Y9 E0.449012"
-  ]
+  "expected": {
+    "total_time_s": 1.542477796076938,
+    "print_time_s": 1.542477796076938,
+    "travel_time_s": 0.0,
+    "extruding_distance": 25.707963267948966,
+    "travel_distance": 0.0,
+    "extruded_volume": 3.084955592153876,
+    "filament_length": 1.2825754950799007,
+    "segment_count": 2,
+    "max_flow_rate": 2.0
+  }
 }
