@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dry — toolpath compiler, in your browser</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e;
+          --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  header { padding:18px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
+  header h1 b { color:var(--accent); }
+  header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+  main { display:grid; grid-template-columns: 360px 1fr 360px; gap:1px; background:var(--line);
+         height: calc(100vh - 75px); }
+  section { background:var(--bg); padding:16px; overflow:auto; }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
+       margin:0 0 12px; font-weight:600; }
+  select, label { font:inherit; }
+  select { width:100%; background:var(--panel); color:var(--fg); border:1px solid var(--line);
+           border-radius:6px; padding:8px; margin-bottom:14px; }
+  .row { display:flex; gap:10px; margin-bottom:8px; }
+  .toggle { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  canvas { width:100%; aspect-ratio:1/1; background:var(--panel); border-radius:8px;
+           border:1px solid var(--line); }
+  .legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--muted); }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px;
+            vertical-align:middle; }
+  .metrics { display:grid; grid-template-columns:1fr auto; gap:4px 12px; }
+  .metrics dt { color:var(--muted); }
+  .metrics dd { margin:0; text-align:right; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;
+        font-size:12px; white-space:pre; overflow:auto; margin:0; max-height:38vh; }
+  .gcode-meta { color:var(--muted); font-size:11px; margin:10px 0 6px; }
+  footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
+  code { color:var(--extrude); }
+</style>
+</head>
+<body>
+<header>
+  <h1><b>Dry</b> — one engine: native · Python · wasm</h1>
+  <p>The same Rust toolpath compiler that powers the CLI and the Python SDK, resolving an L1 design
+     to g-code in your browser. Output is byte-identical to the conformance oracle.</p>
+</header>
+<main>
+  <section>
+    <h2>Design</h2>
+    <select id="design"></select>
+    <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
+    <h2 style="margin-top:22px">Metrics</h2>
+    <dl class="metrics" id="metrics"></dl>
+  </section>
+  <section>
+    <h2>Toolpath</h2>
+    <canvas id="view" width="700" height="700"></canvas>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
+      <span><span class="swatch" style="background:var(--travel)"></span>travel</span>
+    </div>
+  </section>
+  <section>
+    <h2>G-code</h2>
+    <div class="gcode-meta" id="gcodeMeta"></div>
+    <pre id="gcode">loading wasm…</pre>
+  </section>
+</main>
+<footer>Dry is clean-room (Apache-2.0). FullControl is the behavioral oracle, never shipped.</footer>
+
+<script type="module">
+import init, { resolve_gcode, resolve_metrics, resolve_ir } from './pkg/dry_wasm.js';
+import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
+
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
+
+function drawIR(canvas, ir) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, pad = 40;
+  ctx.clearRect(0, 0, W, H);
+  // sample every segment into polyline points (arcs subdivided) and collect bounds
+  const polys = []; let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  const see = (x, y) => { if (x < minX) minX = x; if (y < minY) minY = y;
+                          if (x > maxX) maxX = x; if (y > maxY) maxY = y; };
+  for (const s of ir.segments) {
+    const pts = [];
+    const [sx, sy] = s.start, [ex, ey] = s.end;
+    if (s.kind === 'arc' && s.centre) {
+      const [cx, cy] = s.centre;
+      let a0 = Math.atan2(sy - cy, sx - cx), a1 = Math.atan2(ey - cy, ex - cx);
+      const r = Math.hypot(sx - cx, sy - cy);
+      let sweep = s.clockwise ? a0 - a1 : a1 - a0;
+      sweep = ((sweep % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) || Math.PI * 2;
+      const steps = Math.max(8, Math.ceil((sweep / (Math.PI * 2)) * 64));
+      for (let i = 0; i <= steps; i++) {
+        const a = a0 + (s.clockwise ? -1 : 1) * sweep * (i / steps);
+        const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+        pts.push([x, y]); see(x, y);
+      }
+    } else {
+      pts.push([sx, sy], [ex, ey]); see(sx, sy); see(ex, ey);
+    }
+    polys.push({ travel: s.travel, pts });
+  }
+  if (minX > maxX) return;
+  const scale = Math.min((W - 2 * pad) / Math.max(maxX - minX, 1e-6),
+                         (H - 2 * pad) / Math.max(maxY - minY, 1e-6));
+  const tx = (x) => pad + (x - minX) * scale;
+  const ty = (y) => H - pad - (y - minY) * scale;   // flip Y so it reads like a build plate
+  ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const seg of polys) {
+    if (seg.travel) { ctx.setLineDash([4, 4]); ctx.strokeStyle = '#f85149'; }
+    else { ctx.setLineDash([]); ctx.strokeStyle = '#58a6ff'; }
+    ctx.beginPath();
+    seg.pts.forEach(([x, y], i) => i ? ctx.lineTo(tx(x), ty(y)) : ctx.moveTo(tx(x), ty(y)));
+    ctx.stroke();
+  }
+}
+
+function render(key, relE) {
+  const ops = JSON.stringify(DESIGNS[key].ops);
+  const params = JSON.stringify(RESOLVE_PARAMS);
+  const gcode = resolve_gcode(ops, params, relE);
+  const m = JSON.parse(resolve_metrics(ops, params));
+  const ir = JSON.parse(resolve_ir(ops, params));
+
+  $('gcode').textContent = gcode.join('\n');
+  $('gcodeMeta').textContent = `${gcode.length} motion lines · ${relE ? 'relative' : 'absolute'} E`;
+  $('metrics').innerHTML = [
+    ['segments', m.segment_count],
+    ['print time (s)', fmt(m.print_time_s)],
+    ['travel time (s)', fmt(m.travel_time_s)],
+    ['total time (s)', fmt(m.total_time_s)],
+    ['extruded vol (mm³)', fmt(m.extruded_volume)],
+    ['filament (mm)', fmt(m.filament_length)],
+    ['extrude dist (mm)', fmt(m.extruding_distance)],
+    ['max flow (mm³/s)', fmt(m.max_flow_rate)],
+  ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  drawIR($('view'), ir);
+  window.__dry = { gcode, metrics: m, ir };   // for headless verification
+}
+
+(async () => {
+  await init();
+  const sel = $('design');
+  for (const [k, d] of Object.entries(DESIGNS)) {
+    const o = document.createElement('option'); o.value = k; o.textContent = d.label; sel.appendChild(o);
+  }
+  const go = () => render(sel.value, $('relE').checked);
+  sel.addEventListener('change', go);
+  $('relE').addEventListener('change', go);
+  go();
+  window.__dryReady = true;
+})();
+</script>
+</body>
+</html>

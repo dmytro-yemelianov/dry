@@ -82,6 +82,14 @@ print(d.simulate())           # -> {time, distances, material, peak flow, ...}
 ```
 Build the module: `cd py && maturin develop` (in a venv).
 
+Browser / wasm — the *same* Rust engine, compiled to wasm, resolving a design client-side:
+```bash
+bash web/build.sh        # -> web/pkg/ (wasm + JS glue)
+python3 -m http.server   # then open http://localhost:8000/web/  (design picker + canvas + g-code + metrics)
+```
+The wasm output is byte-identical to the CLI and the Python SDK — proven in CI, where Node runs the
+wasm engine against the conformance oracle (`web/smoke.cjs`).
+
 ## Repository layout
 
 ```
@@ -89,7 +97,8 @@ docs/            the specification, roadmap, conformance plan, task backlog
 crates/
   core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit]
   cli/           the `dry` command (inspect/simulate/emit; +optimise)  [done: inspect/simulate/emit]
-  wasm/          the wasm-bindgen binding                              [P3.4]
+  wasm/          the wasm-bindgen binding                              [done]
+web/             the browser demo (build.sh, index.html, node smoke)   [done]
 py/              the PyO3 binding + Python authoring SDK (`dry`)        [done]
 sdk/
   ts/            the TypeScript authoring SDK                          [P4.1]
