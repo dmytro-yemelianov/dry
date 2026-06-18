@@ -57,10 +57,12 @@ corpora** (`docs/03-conformance.md`). Every phase is gated on reproducing the fo
 
 ## Licence
 
-**GPLv3** (see [`LICENSE`](LICENSE)) — Dry derives from FullControl, which is GPLv3, so the engine is
-GPLv3 too. Note: the *Dry IR specification + conformance test vectors* may be published under a more
-permissive licence so the **format is an open standard** even though the reference engine is copyleft —
-to be decided (see `docs/00-vision-and-scope.md`).
+**Apache-2.0** (see [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE)). Dry is an **independent, clean-room**
+implementation: FullControl (GPLv3) is used only as design *inspiration* and a dev/CI *behavioural
+oracle* — never copied into Dry's source, never shipped or linked into a release. That separation is
+what makes the permissive licence available and lets the **Dry IR be an open standard**. See
+[`docs/CLEANROOM.md`](docs/CLEANROOM.md). *(Not legal advice — confirm with counsel before a public
+release.)*
 
 ## Repository layout (planned)
 
