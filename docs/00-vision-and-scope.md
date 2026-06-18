@@ -14,7 +14,7 @@ We are not building "a better FullControl." We are building **toolpath compiler 
 "LLVM/MLIR for machine motion." The product is the **IR + engine**; authoring *languages* and target
 *machines* are interchangeable front-ends and back-ends hanging off it.
 
-This is justified by direct evidence: the FullControl fork (the FullControl fork) already pushed the hot path into
+This is justified by direct evidence: the FullControl fork already pushed the hot path into
 a Rust kernel, hardened a serialized IR, added a second authoring front-end (TypeScript), a g-code
 verify/optimise engine, and a wasm runtime — *without a rewrite*. The clean-slate system is the same
 architecture taken to its logical end, freed from the FC API and byte-compat constraints. The prior-art
@@ -26,8 +26,8 @@ survey (`docs/ir_prior_art.md`) confirms the niche — a typed, units-aware, mul
 The fork proved the layering works but is held back by FC's legacy: pydantic step objects, a stateful
 `resolve` entangled with authoring, an XYZ-centric `Segment` that fights non-planar/5-axis, units as
 convention, and a Python-as-implementation core. A no-back-compat rewrite lets the **IR and the Rust
-engine become the product**, with Python demoted to one binding among several. We reach it by *finishing
-the strangler-fig and cutting the cord* (see `02-roadmap.md`), not from a blank page.
+engine become the product**, with Python demoted to one binding among several. We reach it by *a
+clean-room reimplementation against a behavioural oracle* (see `02-roadmap.md` + `CLEANROOM.md`) — independent and Apache-2.0, not a blank-page gamble.
 
 ## In scope
 
@@ -55,7 +55,7 @@ the strangler-fig and cutting the cord* (see `02-roadmap.md`), not from a blank 
 
 ## Success criteria
 
-1. **Parity, then beyond.** Reach FFF-3-axis output parity with the fork (gated by ported conformance
+1. **Parity, then beyond.** Reach FFF-3-axis output parity with the fork (gated by oracle-generated conformance
    fixtures — see `03-conformance.md`), *then* do what FC can't: native non-planar + 5-axis, units-safe
    by construction, splines/clothoids, streaming million-segment prints.
 2. **Multi-front-end.** ≥2 authoring SDKs (Python + TypeScript) producing identical IR for the same
@@ -65,22 +65,30 @@ the strangler-fig and cutting the cord* (see `02-roadmap.md`), not from a blank 
 5. **Verifiable.** Designs declare contracts the compiler enforces; arbitrary machine code can be
    parsed, verified, optimised.
 
-## Relationship to the FullControl fork
+## Relationship to FullControl (inspiration + oracle, not code)
 
-The fork is the **bootstrap source**, not a dependency to preserve:
-- **Reuse the substance:** `rust_kernel/` (walk/metrics/gcode/parser), the IR (`fullcontrol/ir/`),
-  serialize, the optimisation passes, the columnar fast-path, the ~695 device profiles, and the ~906
-  tests + golden g-code — ported as **conformance fixtures** so the rewrite is fed by accumulated
-  correctness, not starting blind.
-- **Drop the surface:** the FC Python API, pydantic step objects, the stateful resolve, the XYZ-centric
-  Segment, the `lab/` split.
-- **Migration:** the new Python SDK keeps FC-flavored ergonomics so the existing community (Colab,
-  fullcontrol.xyz) can move with a thin compat shim; the old FC API is cut **last**, only after parity.
+Dry is **independent and Apache-2.0**; FullControl (and its fork) are GPLv3. Dry is therefore a
+**clean-room** implementation — FullControl is used only as a reference, never as code. See
+`CLEANROOM.md` for the full discipline.
+- **Inspiration:** the design ideas — the multi-level IR, passes, flavors, the gallery of demos. Ideas
+  and architecture are not copyrightable; Dry reimplements them from this spec and first principles.
+- **A behavioural oracle (dev/CI only):** FullControl is *run* to generate the expected outputs (g-code,
+  metrics) that Dry's conformance tests target — matching functional output is interoperability, not
+  copying. The oracle lives under `conformance/oracle/`, is **never shipped or linked into Dry**, and is
+  retired once Dry is self-consistent (FullControl's role asymptotes to zero — a fading scent).
+- **No reuse of code, tests, or profile files.** Every line of Dry is written fresh; device profiles are
+  regenerated from primary sources; conformance corpora are *generated* by the oracle, not vendored.
+- **Drop, don't port:** the FC Python API, pydantic step objects, the stateful resolve, the XYZ-centric
+  Segment, the `lab/` split — these are simply not carried over.
+- **Migration:** the new Python SDK offers FC-flavored ergonomics so the existing community (Colab,
+  fullcontrol.xyz) can move easily — as an independent, behaviourally-compatible reimplementation.
 
 ## The honest risk (stated up front)
 
-A clean slate re-pays the correctness tax (profiles, flavor edge cases, byte-identity), ships nothing
-during the rewrite, and has a far larger surface than FFF-3-axis. This only makes sense **because the
-goal is the platform/standard**, and is only survivable **because we bootstrap from the fork's tests and
-profiles and gate every phase on conformance**. See `02-roadmap.md` for the risk register and the
-strangler-fig sequencing that de-risks it.
+Clean-room means Dry is **reimplemented, not lifted** — you forgo a copy-paste shortcut and re-establish
+the correctness (profiles, flavor edge cases, byte-identity) yourself; it ships nothing during the
+build-up and has a far larger surface than FFF-3-axis. This is survivable because **the oracle makes
+clean-room cheap**: FullControl hands you the exact target output, so you implement until the diff is
+zero rather than flying blind, and every phase is gated on that conformance. It is worth it because the
+goal is the **open standard/platform** — for which Apache-2.0 + true independence are prerequisites. See
+`02-roadmap.md` for the risk register and the sequencing that de-risks it.

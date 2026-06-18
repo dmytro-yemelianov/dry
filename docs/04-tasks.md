@@ -20,10 +20,10 @@ Legend: `[ ]` todo. IDs are stable references.
 ## Phase 1 — Typed core: simulate / verify / emit at parity
 
 - `[ ]` **P1.1** (M) `simulate(ir@L2) -> Metrics` (time/distance/material/peak-flow), columnar fold. *Dep: P0.3. Accept:* metric parity with the fork's `simulate` on the corpus (≤1e-12).
-- `[ ]` **P1.2** (L) `emit(ir@L2, Marlin) -> gcode`, porting `gcode.rs` + flavor vocab + the F/E/arc/retraction state machine. *Dep: P0.3. Accept:* byte-identical Marlin on corpora 1,2.
+- `[ ]` **P1.2** (L) `emit(ir@L2, Marlin) -> gcode` (reimplemented; oracle = `gcode.rs` + flavor vocab) + the F/E/arc/retraction state machine. *Dep: P0.3. Accept:* byte-identical Marlin on corpora 1,2.
 - `[ ]` **P1.3** (M) Klipper + Duet flavors. *Dep: P1.2. Accept:* byte-identical on the flavor corpus.
-- `[ ]` **P1.4** (M) Device-profile model + start/end procedures (port `devices/` + `import_printer`). *Dep: P1.2. Accept:* sampled profiles emit identical preamble/postamble; full set nightly.
-- `[ ]` **P1.5** (M) `verify(ir, contracts) -> Report`: port the validate rules + `check_invariants` (bounds/cold-extrusion/temp/speed/first-layer/retraction/flow/monotonic-z). *Dep: P0.2. Accept:* identical messages/locations vs the fork's validate on its corpus.
+- `[ ]` **P1.4** (M) Device-profile model + start/end procedures (regenerated from primary sources; cross-checked vs `devices/`). *Dep: P1.2. Accept:* sampled profiles emit identical preamble/postamble; full set nightly.
+- `[ ]` **P1.5** (M) `verify(ir, contracts) -> Report`: reimplement the validate rules + invariants (oracle-gated) (bounds/cold-extrusion/temp/speed/first-layer/retraction/flow/monotonic-z). *Dep: P0.2. Accept:* identical messages/locations vs the fork's validate on its corpus.
 - `[ ]` **P1.6** (M) PyO3 binding + a minimal **CLI** (`inspect`/`verify`/`emit`). *Dep: P1.1–P1.5. Accept:* `cli emit design.tpir` produces the gated g-code; exit codes per verify.
 - **P1 exit gate:** byte-identical g-code Marlin/Klipper/Duet + identical verify messages on corpora 1,2,4.
 
@@ -33,23 +33,23 @@ Legend: `[ ]` todo. IDs are stable references.
 - `[ ]` **P2.2** (L) `resolve: L1 -> L2` lowering (deposition math + state propagation: running toolframe, extruder e-ratio, channel propagation) as a **pure pass**. *Dep: P2.1, P1.1. Accept:* a hand-written L1 design resolves to L2 that simulates/emits to the gated output.
 - `[ ]` **P2.3** (M) `expand_features: L0 -> L1` (Repeat/Group/Feature@pose). *Dep: P2.1. Accept:* a feature graph expands to the same L1 as the hand-written equivalent.
 - `[ ]` **P2.4** (L) **Python authoring SDK** (FC-flavored builders emitting L0/L1). *Dep: P2.1. Accept:* authoring a square/vase produces L1 that lowers to the gated g-code.
-- `[ ]` **P2.5** (L) Port the **27 gallery designs** to the new SDK as the authoring conformance suite (geometry-level comparison, not just metrics — per `03`). *Dep: P2.4, P0.4. Accept:* each ported design lowers+emits to match the fork within the documented tolerance and passes its declared invariants.
-- **P2 exit gate:** every ported gallery design authored in the new Python SDK reproduces the fork's output + invariants.
+- `[ ]` **P2.5** (L) Reimplement (clean-room) the **27 gallery designs** to the new SDK as the authoring conformance suite (geometry-level comparison, not just metrics — per `03`). *Dep: P2.4, P0.4. Accept:* each design lowers+emits to match the fork within the documented tolerance and passes its declared invariants.
+- **P2 exit gate:** every gallery design authored in the new Python SDK reproduces the fork's output + invariants.
 
 ## Phase 3 — Optimise, parse, reverse, web
 
-- `[ ]` **P3.1** (L) Optimisation passes on L2 (arc_fit/travel_reorder/adaptive_speed/simplify/coasting/z_hop) with per-pass invariant tests (port `gcode_engine/passes/` + `ir/passes.py`). *Dep: P1.1. Accept:* each pass conserves its invariant; material ≤1e-6; arc_fit emits G2/G3.
-- `[ ]` **P3.2** (M) `parse(gcode, flavor) -> L2` (port `parser.rs`), byte-identical round-trip. *Dep: P1.2. Accept:* `emit(parse(g)) == g` on the round-trip corpus.
-- `[ ]` **P3.3** (M) `reverse(toolpath) -> design` (port `reverse_engineer`). *Dep: P3.2. Accept:* recovers lobes/waves/profile on the fork's reverse-engineering fixtures.
-- `[ ]` **P3.4** (M) **wasm build** + adapter; web playground + realistic viewer (port `web/`). *Dep: P0.1, P2.4. Accept:* a gallery design renders+simulates+emits client-side; `application/wasm` MIME; deployable.
+- `[ ]` **P3.1** (L) Optimisation passes on L2 (arc_fit/travel_reorder/adaptive_speed/simplify/coasting/z_hop) with per-pass invariant tests (reimplemented; oracle the fork passes). *Dep: P1.1. Accept:* each pass conserves its invariant; material ≤1e-6; arc_fit emits G2/G3.
+- `[ ]` **P3.2** (M) `parse(gcode, flavor) -> L2` (oracle: `parser.rs`), byte-identical round-trip. *Dep: P1.2. Accept:* `emit(parse(g)) == g` on the round-trip corpus.
+- `[ ]` **P3.3** (M) `reverse(toolpath) -> design` (oracle: `reverse_engineer`). *Dep: P3.2. Accept:* recovers lobes/waves/profile on the fork's reverse-engineering fixtures.
+- `[ ]` **P3.4** (M) **wasm build** + adapter; web playground + realistic viewer (oracle: `web/`). *Dep: P0.1, P2.4. Accept:* a gallery design renders+simulates+emits client-side; `application/wasm` MIME; deployable.
 - **P3 exit gate:** round-trip byte-identical; opt invariants hold; wasm playground works end-to-end.
 
 ## Phase 4 — Multi-front-end + the IR standard
 
-- `[ ]` **P4.1** (L) **TypeScript SDK** (port `ts/`) emitting Dry IR. *Dep: P2.1. Accept:* a fixed design in TS == the Python Dry IR (≤1e-12).
+- `[ ]` **P4.1** (L) **TypeScript SDK** (oracle: `ts/`) emitting Dry IR. *Dep: P2.1. Accept:* a fixed design in TS == the Python Dry IR (≤1e-12).
 - `[ ]` **P4.2** (M) **Rust authoring SDK**. *Dep: P2.1. Accept:* same design == Python/TS Dry IR.
 - `[ ]` **P4.3** (M) Publish **Dry IR spec** (versioned, JSON+binary, semver) + conformance **test vectors**. *Dep: P0.3. Accept:* an external/second implementation round-trips the vectors.
-- `[ ]` **P4.4** (M) **3MF Toolpath** import/export reference (port `ir/threemf.py`); mesh-in (STL/3MF) importer stub. *Dep: P0.3. Accept:* extruding path round-trips within tolerance; documented lossiness.
+- `[ ]` **P4.4** (M) **3MF Toolpath** import/export reference (oracle: `ir/threemf.py`); mesh-in (STL/3MF) importer stub. *Dep: P0.3. Accept:* extruding path round-trips within tolerance; documented lossiness.
 - **P4 exit gate:** Python/TS/Rust produce byte-equal Dry IR; a Dry IR vector round-trips in a second impl.
 
 ## Phase 5 — Generalise: non-planar, 5-axis, more targets
@@ -69,7 +69,7 @@ Legend: `[ ]` todo. IDs are stable references.
 
 ## Immediate next 5 (if starting today)
 
-1. **P0.4** — export the fork's corpora into `conformance/` (the oracle, needed by everything).
+1. **P0.4** — the oracle generates the corpora into `conformance/` (needed by everything).
 2. **P0.1** — extract the dependency-free `core` crate.
 3. **P0.5** — conformance runner + native/wasm CI matrix.
 4. **P0.2 / P0.3** — Dry IR v0 types + JSON/binary encodings.

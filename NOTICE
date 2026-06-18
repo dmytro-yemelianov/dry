@@ -1,0 +1,11 @@
+Dry — toolpath compiler infrastructure
+Copyright 2026 Dmytro Yemelianov and the Dry contributors
+
+Licensed under the Apache License, Version 2.0 (the "License"); see LICENSE.
+
+Provenance: Dry is an independent, clean-room implementation. FullControl
+(https://github.com/FullControlXYZ/fullcontrol, GPLv3) and its fork are used only as
+(a) design inspiration and (b) a dev/CI-time behavioural ORACLE that generates expected
+outputs for Dry's conformance tests. No FullControl source code is copied into Dry, and
+FullControl is not shipped, linked into, or part of any Dry release artifact. See
+docs/CLEANROOM.md.

@@ -28,7 +28,7 @@ Not one flat structure: **dialects**, each a typed node set, with explicit lower
   points).
 - **L2 — motion dialect.** Resolved, machine-agnostic moves with absolute state — the equivalent of the
   fork's `Toolpath`/`Segment`, but **toolframe-general** and columnar. This is where simulate / verify /
-  optimise operate. Most reuse from the fork lives here.
+  optimise operate. Most behavioural parity with the oracle is established here.
 - **L3 — target dialect.** Machine-specific ops (g-code words for a flavor; STEP-NC working-steps; GRBL;
   robot motion). `emit` serialises L3 to text/bytes.
 
@@ -71,7 +71,7 @@ with a type and a default-propagation rule. Variable-everything (width, flow, te
 - *Lowering* (L0→L1→L2→L3): `expand_features`, `resolve` (deposition/state), `to_target`.
 - *Optimisation* (within L2, semantics-preserving unless intended): `merge_collinear`, `arc_fit`,
   `simplify` (RDP), `travel_reorder` (TSP), `adaptive_speed`, `coasting`, `z_hop`, `retract_on_travel`.
-  (Ported from the fork's `ir/passes.py` + the engine's `gcode_engine/passes/`.)
+  (Reimplemented; oracle = the fork's `ir/passes.py` + `gcode_engine/passes/`.)
 - *Analysis* (no transform): `simulate`, `verify`, `reverse`.
 A pass manager runs a declared pipeline; every pass is independently testable against its invariants.
 
@@ -93,7 +93,7 @@ objects. Two serialisations of the same IR:
 - **Invariants / contracts:** designs *declare* contracts (`monotonic_layer_z`, `within_build_volume`,
   `no_cold_extrusion`, `bounded_flow`, `non_self_intersecting`, `bounded_overhang`, …); the verifier
   enforces them — checking is part of the *type/contract layer*, not a backend you remember to call.
-  (The fork's `check_invariants` + `verify_gcode` rules are the seed.)
+  (Behavioural reference: the fork's `check_invariants` + `verify_gcode` rules.)
 
 ## 7. The engine API (Rust core, one surface)
 
@@ -109,7 +109,7 @@ reverse(ir|toolpath)       -> design        # toolpath → parametric design/par
 
 One codebase, two builds: **native** (CLI, server, PyO3) and **wasm** (browser, TS). The fork already
 proved a Rust kernel serving both PyO3 and wasm (`rust_kernel/` with feature-gated `python`/`wasm`
-bindings) — that is the literal foundation.
+bindings) — evidence the approach works; Dry reimplements it clean-room.
 
 ## 8. Authoring SDKs (thin, logic-free)
 
@@ -132,22 +132,27 @@ L3 lowering is target-specific and pluggable:
 - **Interchange** — import/export **3MF Toolpath** (the strategic standard target), import **mesh**
   (STL/3MF) for hybrid design. (The fork's `ir/threemf.py` is the prototype.)
 
-## 10. What is reused from the fork (the ~60–70%)
+## 10. Behavioural reference map (clean-room — inspiration & oracle, not code)
 
-| New system component | Bootstrap from the fork |
+Dry is **reimplemented from scratch** (Apache-2.0, independent of GPLv3 FullControl — see `CLEANROOM.md`).
+The table below is **not** a "copy this code" map; it names, per Dry component, the FullControl module
+whose *observed behaviour* Dry reproduces (the **oracle**, run at dev/CI to generate target outputs) and
+*ideas* Dry takes as inspiration. No FullControl source is copied; the FC column is a reference only.
+
+| Dry component | FullControl behaviour to reproduce (oracle) / idea (inspiration) |
 |---|---|
-| L2 motion dialect + columnar | `fullcontrol/ir/{toolpath,columnar}.py`, `rust_kernel/src/walk.rs` |
-| simulate | `rust_kernel/src/metrics.rs`, `simulate/run.py` |
-| emit (FFF g-code) | `rust_kernel/src/gcode.rs`, `gcode/{flavor,dialect}.py` |
-| parse (g-code → IR) | `rust_kernel/src/parser.rs`, `gcode_engine/parser.py` |
-| optimisation passes | `ir/passes.py`, `gcode_engine/passes/` |
-| verify / invariants | `validate/`, `gcode_engine/rules/`, `ir/invariants.py` |
-| reverse-engineer | `examples/reverse_engineer.py` |
-| serialisation (JSON+binary) | `ir/serialize.py`, `ir/binary.py` |
-| TS front-end | `ts/` |
-| device profiles (~695) | `fullcontrol/devices/` |
-| conformance fixtures | the ~906 tests + golden g-code + the 27-design gallery |
-| web/wasm runtime + demo | `web/`, `rust_kernel` wasm bindings |
+| L2 motion dialect + columnar | the resolved-toolpath shape & deposition math (`ir/{toolpath,columnar}.py`, `walk.rs`) |
+| simulate | the metric definitions & outputs (`metrics.rs`, `simulate/run.py`) |
+| emit (FFF g-code) | the exact g-code bytes per flavor (`gcode.rs`, `gcode/{flavor,dialect}.py`) — the strictest oracle |
+| parse (g-code → IR) | the round-trip behaviour (`parser.rs`, `gcode_engine/parser.py`) |
+| optimisation passes | the pass effects & invariants (`ir/passes.py`, `gcode_engine/passes/`) |
+| verify / invariants | the rule semantics & messages (`validate/`, `gcode_engine/rules/`, `ir/invariants.py`) |
+| reverse-engineer | the recovery behaviour (`examples/reverse_engineer.py`) |
+| serialisation (JSON+binary) | the format *idea* (Dry defines its own Dry IR spec) |
+| TS front-end | the multi-front-end *idea* (`ts/`) |
+| device profiles (~695) | regenerated from **primary sources**, not lifted; FC profiles as a cross-check only |
+| conformance corpora | **generated by the oracle** (`docs/03-conformance.md`), not vendored from FC tests |
+| web/wasm runtime + demo | the in-browser *idea* (`web/`) |
 
-The architecture is therefore not a blank page — it is a **re-layering and generalisation** of pieces
-that already exist and are tested, with the FC surface removed.
+The architecture is therefore not a blank page **and not a copy** — it is an independent re-layering and
+generalisation, *measured against* FullControl's behaviour until the diff is zero, then independent.
