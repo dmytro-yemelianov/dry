@@ -29,3 +29,11 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Python / maturin
+**/target/
+.venv/
+__pycache__/
+*.so
+*.egg-info/
+.pytest_cache/

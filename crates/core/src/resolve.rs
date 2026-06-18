@@ -9,10 +9,13 @@
 //! `hypot(radius·swept_angle, Δz)` (planar arc length, with the helical rise).
 
 use crate::ir::{Segment, Toolpath};
+use serde::Deserialize;
 use std::f64::consts::TAU;
 
-/// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these.
-#[derive(Debug, Clone)]
+/// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these
+/// (serialised internally-tagged: `{"op":"move","x":..,"y":..,"z":..}`).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Set the extrusion bead cross-section (mm).
     Geometry { width: f64, height: f64 },
@@ -38,13 +41,13 @@ pub enum Op {
 }
 
 /// A design: an ordered list of L1 ops.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Design {
     pub ops: Vec<Op>,
 }
 
 /// Machine/material defaults the lowering needs (from the device profile).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ResolveParams {
     pub print_speed: f64,
     pub travel_speed: f64,

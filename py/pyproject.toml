@@ -1,0 +1,16 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "dry"
+version = "0.0.0"
+description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+
+[tool.maturin]
+module-name = "dry._native"
+python-source = "python"
+manifest-path = "Cargo.toml"
+features = ["pyo3/extension-module"]

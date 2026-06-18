@@ -1,0 +1,16 @@
+[package]
+name = "dry-py"
+description = "PyO3 binding for Dry — the toolpath compiler engine, callable from Python."
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/dmytro-yemelianov/dry"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+dry-core = { path = "../crates/core" }
+pyo3 = { version = "0.24", features = ["extension-module", "abi3-py39"] }
+serde_json = "1"

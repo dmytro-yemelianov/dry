@@ -1,7 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/core", "crates/cli"]
-# crates/py, crates/wasm and the SDKs are added as their phases land (see docs/04-tasks.md).
+# `py/` (the PyO3 binding) is a maturin project, excluded from the core workspace so the engine stays
+# Python-free; it is built + tested by its own CI job. crates/wasm + the TS SDK land in later phases.
+exclude = ["py"]
 
 [workspace.package]
 version = "0.0.0"
