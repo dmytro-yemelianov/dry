@@ -1,6 +1,58 @@
 {
   "design": "arcs_mix",
   "oracle": "fullcontrol",
+  "l1": {
+    "ops": [
+      {
+        "op": "geometry",
+        "width": 0.6,
+        "height": 0.2
+      },
+      {
+        "op": "extruder",
+        "on": true
+      },
+      {
+        "op": "move",
+        "x": 20.0,
+        "y": 5.0,
+        "z": 0.4
+      },
+      {
+        "op": "speed",
+        "print": 1800.0
+      },
+      {
+        "op": "arc",
+        "cx": 10.0,
+        "cy": 5.0,
+        "x": 0.0,
+        "y": 5.0,
+        "z": null,
+        "clockwise": true
+      },
+      {
+        "op": "move",
+        "x": 0.0,
+        "y": 15.0,
+        "z": 0.4
+      },
+      {
+        "op": "arc",
+        "cx": 10.0,
+        "cy": 15.0,
+        "x": 20.0,
+        "y": 15.0,
+        "z": null,
+        "clockwise": true
+      }
+    ]
+  },
+  "resolve_params": {
+    "print_speed": 1000.0,
+    "travel_speed": 8000.0,
+    "dia": 1.75
+  },
   "ir": {
     "version": 0,
     "segments": [

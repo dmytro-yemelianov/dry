@@ -1,6 +1,50 @@
 {
   "design": "ramp_speed",
   "oracle": "fullcontrol",
+  "l1": {
+    "ops": [
+      {
+        "op": "geometry",
+        "width": 0.6,
+        "height": 0.2
+      },
+      {
+        "op": "extruder",
+        "on": true
+      },
+      {
+        "op": "move",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3
+      },
+      {
+        "op": "speed",
+        "print": 2400.0
+      },
+      {
+        "op": "move",
+        "x": 15.0,
+        "y": 0.0,
+        "z": 0.3
+      },
+      {
+        "op": "speed",
+        "print": 1200.0
+      },
+      {
+        "op": "move",
+        "x": 15.0,
+        "y": 9.0,
+        "z": 0.3
+      }
+    ]
+  },
+  "resolve_params": {
+    "print_speed": 1000.0,
+    "travel_speed": 8000.0,
+    "dia": 1.75
+  },
   "ir": {
     "version": 0,
     "segments": [

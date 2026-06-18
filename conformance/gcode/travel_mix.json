@@ -1,6 +1,56 @@
 {
   "design": "travel_mix",
   "oracle": "fullcontrol",
+  "l1": {
+    "ops": [
+      {
+        "op": "geometry",
+        "width": 0.6,
+        "height": 0.2
+      },
+      {
+        "op": "extruder",
+        "on": true
+      },
+      {
+        "op": "move",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.2
+      },
+      {
+        "op": "move",
+        "x": 8.0,
+        "y": 0.0,
+        "z": 0.2
+      },
+      {
+        "op": "extruder",
+        "on": false
+      },
+      {
+        "op": "move",
+        "x": 20.0,
+        "y": 0.0,
+        "z": 0.2
+      },
+      {
+        "op": "extruder",
+        "on": true
+      },
+      {
+        "op": "move",
+        "x": 28.0,
+        "y": 0.0,
+        "z": 0.2
+      }
+    ]
+  },
+  "resolve_params": {
+    "print_speed": 1000.0,
+    "travel_speed": 8000.0,
+    "dia": 1.75
+  },
   "ir": {
     "version": 0,
     "segments": [

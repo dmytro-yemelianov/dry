@@ -10,6 +10,7 @@ functional output, not copying code). See ../../docs/CLEANROOM.md. Run with the 
   /Users/dmytro/Documents/github/fullcontrol/.venv/bin/python conformance/oracle/gen.py
 """
 import json
+import math
 import os
 
 import fullcontrol as fc
@@ -44,16 +45,40 @@ def sim_metrics(tp) -> dict:
     return {f: getattr(r, f) for f in fields if hasattr(r, f)}
 
 
+# the "generic" printer's lowering defaults (the values FullControl uses; verified by byte-identity).
+RESOLVE_PARAMS = {'print_speed': 1000.0, 'travel_speed': 8000.0, 'dia': 1.75}
+
+
+def step_to_op(s):
+    'Map one authored FullControl step to a Dry L1 op (the design layer Dry resolves).'
+    t = type(s).__name__
+    if t == 'ExtrusionGeometry':
+        return {'op': 'geometry', 'width': float(s.width), 'height': float(s.height)}
+    if t == 'Extruder':
+        return {'op': 'extruder', 'on': bool(s.on)}
+    if t == 'Printer':
+        return {'op': 'speed', 'print': float(s.print_speed)}
+    if t == 'Point':
+        return {'op': 'move', 'x': _a(s.x), 'y': _a(s.y), 'z': _a(s.z)}
+    if t == 'Arc':
+        return {'op': 'arc', 'cx': float(s.centre.x), 'cy': float(s.centre.y),
+                'x': _a(s.end.x), 'y': _a(s.end.y), 'z': _a(s.end.z),
+                'clockwise': s.direction == 'clockwise'}
+    raise ValueError(f'no L1 mapping for step {t}')
+
+
 def write(name: str, steps: list):
     tp = resolve(steps, CONTROLS, include_procedures=False)
     segs = [seg_to_dry(e) for e in tp.events if isinstance(e, Segment)]
     ir = {'version': 0, 'segments': segs}
+    l1 = {'ops': [step_to_op(s) for s in steps]}     # the authoring design Dry resolves itself
     with open(os.path.join(HERE, '..', 'simulate', f'{name}.json'), 'w') as f:
         json.dump({'design': name, 'oracle': 'fullcontrol', 'ir': ir,
                    'expected': sim_metrics(tp)}, f, indent=2)
     gcode = emit_gcode_moves_rust(tp, relative_e=RELATIVE_E, travel_g1_e0=TRAVEL_G1_E0)
     with open(os.path.join(HERE, '..', 'gcode', f'{name}.json'), 'w') as f:
-        json.dump({'design': name, 'oracle': 'fullcontrol', 'ir': ir,
+        json.dump({'design': name, 'oracle': 'fullcontrol', 'l1': l1,
+                   'resolve_params': RESOLVE_PARAMS, 'ir': ir,
                    'params': {'relative_e': RELATIVE_E, 'travel_g1_e0': TRAVEL_G1_E0, 'flavor': 'marlin'},
                    'expected': list(gcode)}, f, indent=2)
     print(f'wrote {name}: {len(segs)} segments, {len(gcode)} g-code lines')
@@ -84,3 +109,21 @@ write('arcs_mix', [G(), ON(), fc.Point(x=20, y=5, z=0.4), fc.Printer(print_speed
                    fc.Arc(centre=fc.Point(x=10, y=5), end=fc.Point(x=0, y=5), direction='clockwise'),
                    fc.Point(x=0, y=15, z=0.4),
                    fc.Arc(centre=fc.Point(x=10, y=15), end=fc.Point(x=20, y=15), direction='clockwise')])
+
+
+# a real parametric design: a vase-mode helix (~120 segments). The points are computed here and passed
+# as explicit coordinates, so Dry resolves the SAME floats (line length = sqrt/division, IEEE-deterministic
+# across languages — no cross-language trig, so byte-identity holds).
+def spiral(radius=15.0, height=1.5, layer_h=0.3, per_layer=24, centre=(50.0, 50.0)):
+    steps = [G(), ON()]
+    n = int(round(height / layer_h * per_layer))
+    for i in range(n + 1):
+        frac = i / per_layer
+        a = frac * 2 * math.pi
+        steps.append(fc.Point(x=centre[0] + radius * math.cos(a),
+                              y=centre[1] + radius * math.sin(a),
+                              z=0.2 + frac * layer_h))
+    return steps
+
+
+write('spiral_vase', spiral())

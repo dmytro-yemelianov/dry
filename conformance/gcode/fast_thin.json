@@ -1,6 +1,40 @@
 {
   "design": "fast_thin",
   "oracle": "fullcontrol",
+  "l1": {
+    "ops": [
+      {
+        "op": "geometry",
+        "width": 0.4,
+        "height": 0.1
+      },
+      {
+        "op": "extruder",
+        "on": true
+      },
+      {
+        "op": "speed",
+        "print": 6000.0
+      },
+      {
+        "op": "move",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.1
+      },
+      {
+        "op": "move",
+        "x": 40.0,
+        "y": 0.0,
+        "z": 0.1
+      }
+    ]
+  },
+  "resolve_params": {
+    "print_speed": 1000.0,
+    "travel_speed": 8000.0,
+    "dia": 1.75
+  },
   "ir": {
     "version": 0,
     "segments": [
