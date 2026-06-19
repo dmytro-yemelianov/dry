@@ -10,8 +10,10 @@ the way a compiler lowers a program. The IR is the product; authoring **language
 / Rust) and target **machines** (FFF g-code, CNC, laser, robot) are interchangeable front-ends and
 back-ends.
 
-> **Status: planning / foundations (Phase 0).** This repository starts from the specification in
-> [`docs/`](docs/). Nothing is built yet — see the roadmap and the task backlog.
+> **Status: working foundations.** The core engine, CLI, Python binding, TypeScript SDK, wasm binding,
+> browser gallery, visual authoring page, verifier, optimizer, JSON/binary IR codecs and conformance
+> fixtures are implemented at v0. The broader roadmap in [`docs/`](docs/) still tracks unfinished
+> targets such as richer import/export, device profiles, reverse engineering and non-FFF backends.
 
 ## Why
 
@@ -33,7 +35,7 @@ rest.
 - **Toolframe** (position + orientation) so **non-planar and 5-axis are native**, not bolted on.
 - **Units are types** (Length/Speed/Volume/Flow/Temperature) — mixed units are a compile error.
 - **Pure functional core**: `design(params) → IR`; deposition/state is an explicit pass, not authoring
-  state. Deterministic, content-addressable, streamable (columnar / Arrow-style) to millions of moves.
+  state. Deterministic, content-addressable, and streamable through chunked binary archives.
 - **Provenance + invariants are first-class** — designs declare contracts the compiler enforces.
 
 Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
@@ -69,6 +71,10 @@ release.)*
 CLI (over a Dry IR file):
 ```
 cargo run -p dry-cli --bin dry -- emit conformance/gcode/square.json   # motion g-code
+cargo run -p dry-cli --bin dry -- import-gcode part.gcode -o part.dry.json
+cargo run -p dry-cli --bin dry -- review-gcode part.gcode --bounds 0,250,0,210,0,220
+cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode -o normalized.gcode
+cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode --optimize -o optimized.gcode
 ```
 
 Python — author a design, the Rust engine resolves + emits it:
@@ -104,8 +110,8 @@ Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](
 ```
 docs/            the specification, roadmap, conformance plan, task backlog
 crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize; unit-typed]
-  cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/optimize/pack/unpack/verify)  [done]
+  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize/import; unit-typed]
+  cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/import-gcode/review-gcode/rewrite-gcode/optimize/pack/unpack/verify)  [done]
   wasm/          the wasm-bindgen binding                              [done]
 web/             the browser demo (build.sh, index.html, node smoke)   [done]
 py/              the PyO3 binding + Python authoring SDK (`dry`)        [done]

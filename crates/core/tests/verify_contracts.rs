@@ -51,6 +51,26 @@ fn out_of_bounds_moves_are_flagged() {
     assert_eq!(bounds[0].severity, Severity::Error);
 }
 
+#[test]
+fn arc_bounds_check_the_curve_not_just_the_endpoint() {
+    let d = design_json(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+            {"op":"move","x":5,"y":5,"z":0.2},
+            {"op":"arc","cx":0,"cy":5,"x":5,"y":5,"z":null,"clockwise":false}]"#,
+    );
+    let tp = resolve(&d, &ResolveParams::default());
+    let c = Contracts {
+        bounds: Some([[0.0, 10.0], [0.0, 10.0], [0.0, 1.0]]),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "bounds" && f.segment == Some(1)));
+}
+
 // A volumetric-flow ceiling is enforced: a fast, fat bead exceeds it.
 #[test]
 fn excessive_flow_is_flagged() {
@@ -102,6 +122,22 @@ fn a_travel_that_extrudes_is_a_structural_error() {
     tp.segments[1].travel = true; // now a "travel" still carrying filament
     let report = verify(&tp, &Contracts::default());
     assert!(report.findings.iter().any(|f| f.rule == "travel-extrudes"));
+}
+
+#[test]
+fn non_finite_orientation_is_a_structural_error() {
+    let d = design_json(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+            {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
+    );
+    let mut tp = resolve(&d, &ResolveParams::default());
+    tp.segments[1].orientation = Some([f64::NAN, 0.0, 1.0]);
+
+    let report = verify(&tp, &Contracts::default());
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "finite" && f.segment == Some(1)));
 }
 
 // The report serialises (for the CLI `--json` and the bindings).

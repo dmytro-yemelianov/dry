@@ -16,6 +16,7 @@ interface DryWasm {
   ): string[];
   resolve_metrics(opsJson: string, paramsJson: string): string;
   resolve_ir(opsJson: string, paramsJson: string): string;
+  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
   resolve_verify(
     opsJson: string,
     paramsJson: string,
@@ -59,6 +60,11 @@ export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
 /** Resolve a design to the L2 Dry IR. */
 export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
   return JSON.parse(wasm.resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
+}
+
+/** Resolve a design through the standard L2 optimization pipeline. */
+export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
+  return JSON.parse(wasm.resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
 }
 
 /** Resolve a design and verify it against safety contracts. */

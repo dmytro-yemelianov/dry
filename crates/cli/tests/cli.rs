@@ -3,6 +3,7 @@
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn bin() -> &'static str {
     env!("CARGO_BIN_EXE_dry")
@@ -50,6 +51,218 @@ fn simulate_json_is_valid_and_matches_the_metrics() {
             - doc["expected"]["total_time_s"].as_f64().unwrap())
         .abs()
             < 1e-9
+    );
+}
+
+#[test]
+fn pack_writes_chunked_binary_that_simulate_streams() {
+    let path = fixture("simulate", "square");
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let packed =
+        std::env::temp_dir().join(format!("dry-cli-pack-{}-{stamp}.dry", std::process::id()));
+
+    let out = Command::new(bin())
+        .args([
+            "pack",
+            path.to_str().unwrap(),
+            "-o",
+            packed.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "pack failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let bytes = std::fs::read(&packed).unwrap();
+    assert_eq!(&bytes[..4], b"DRY1");
+
+    let out = Command::new(bin())
+        .args(["simulate", packed.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&packed);
+    assert!(
+        out.status.success(),
+        "simulate failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let metrics: Value = serde_json::from_slice(&out.stdout).expect("valid JSON metrics");
+    let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(metrics["segment_count"], doc["expected"]["segment_count"]);
+    assert!(
+        (metrics["total_time_s"].as_f64().unwrap()
+            - doc["expected"]["total_time_s"].as_f64().unwrap())
+        .abs()
+            < 1e-9
+    );
+}
+
+#[test]
+fn import_gcode_writes_dry_ir_json() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-import-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E1.5 F1200\n").unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "import-gcode",
+            input.to_str().unwrap(),
+            "--line-width",
+            "0.45",
+            "--layer-height",
+            "0.2",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "import-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let ir: Value = serde_json::from_slice(&out.stdout).expect("valid Dry IR JSON");
+    assert_eq!(ir["meta"]["generator"], "dry gcode importer");
+    assert_eq!(ir["segments"].as_array().unwrap().len(), 2);
+    assert_eq!(ir["segments"][0]["travel"], true);
+    assert_eq!(ir["segments"][1]["travel"], false);
+    assert_eq!(ir["segments"][1]["end"][0], 10.0);
+    assert_eq!(ir["segments"][1]["filament"], 1.5);
+    assert_eq!(ir["segments"][1]["width"], 0.45);
+    assert_eq!(ir["segments"][1]["height"], 0.2);
+}
+
+#[test]
+fn review_gcode_reports_findings_with_source_lines() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-review-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &input,
+        "; header\nM83\nG1 X0 Y0 Z0.2 F9000\nM104 S210\nG1 X10 E1.5 F1200\n",
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "review-gcode",
+            input.to_str().unwrap(),
+            "--bounds",
+            "0,5,0,5,0,1",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(!out.status.success(), "review-gcode should fail bounds");
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("bounds"), "{text}");
+    assert!(text.contains("line 5"), "{text}");
+    assert!(text.contains("seg 1"), "{text}");
+}
+
+#[test]
+fn rewrite_gcode_preserves_non_motion_source_lines() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-rewrite-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &input,
+        "; header\nM83\nG1 X0 Y0 Z0.2 F9000 ; move\nM104 S210\nG1 X10 E1.5 F1200\n",
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["rewrite-gcode", input.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "rewrite-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let lines: Vec<_> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(lines.len(), 5);
+    assert_eq!(lines[0], "; header");
+    assert_eq!(lines[1], "M83");
+    assert!(lines[2].starts_with("G0 "));
+    assert_eq!(lines[3], "M104 S210");
+    assert!(lines[4].starts_with("G1 "));
+}
+
+#[test]
+fn rewrite_gcode_optimizes_each_motion_span_locally() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-rewrite-opt-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &input,
+        concat!(
+            "; header\n",
+            "G1 X0 Y0 Z0.2 F1000\n",
+            "G1 X1 Y0 Z0.2\n",
+            "G1 X2 Y0 Z0.2\n",
+            "M104 S210\n",
+            "G1 X2 Y1 Z0.2\n",
+            "G1 X2 Y2 Z0.2\n",
+        ),
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["rewrite-gcode", input.to_str().unwrap(), "--optimize"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "rewrite-gcode --optimize failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let lines: Vec<_> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(lines[0], "; header");
+    assert!(lines.iter().any(|line| line == "M104 S210"));
+    assert!(
+        lines.len() < 7,
+        "span-local optimize should reduce motion lines: {lines:?}"
     );
 }
 

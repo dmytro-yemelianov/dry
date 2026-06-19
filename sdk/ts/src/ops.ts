@@ -46,6 +46,8 @@ export interface Metrics {
 }
 
 /** One resolved L2 motion segment. */
+export type SegmentKind = 'line' | 'arc' | 'spline' | 'dwell';
+
 export interface Segment {
   start: (number | null)[];
   end: (number | null)[];
@@ -56,7 +58,7 @@ export interface Segment {
   filament: number;
   width: number | null;
   height: number | null;
-  kind: string;
+  kind: SegmentKind;
   centre: [number, number] | null;
   clockwise: boolean;
   // process channels — present only when set (omitted from the IR otherwise).

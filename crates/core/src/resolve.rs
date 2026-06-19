@@ -8,10 +8,32 @@
 //! `filament = volume / (π·(dia/2)²)`; a travel move deposits nothing. Arc length is
 //! `hypot(radius·swept_angle, Δz)` (planar arc length, with the helical rise).
 
-use crate::ir::{Segment, Toolpath};
+use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use serde::Deserialize;
 use std::f64::consts::TAU;
+
+/// A validation error found before lowering L1 ops to L2 motion.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolveError {
+    message: String,
+}
+
+impl ResolveError {
+    fn new(message: impl Into<String>) -> Self {
+        ResolveError {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ResolveError {}
 
 /// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these
 /// (serialised internally-tagged: `{"op":"move","x":..,"y":..,"z":..}`).
@@ -85,6 +107,121 @@ impl Default for ResolveParams {
     }
 }
 
+fn require_finite(name: &str, value: f64) -> Result<(), ResolveError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be finite, got {value}"
+        )))
+    }
+}
+
+fn require_positive(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if value > 0.0 {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be > 0, got {value}"
+        )))
+    }
+}
+
+fn require_non_negative(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if value >= 0.0 {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be >= 0, got {value}"
+        )))
+    }
+}
+
+fn require_unit_interval(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if (0.0..=1.0).contains(&value) {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be in the range 0..1, got {value}"
+        )))
+    }
+}
+
+fn require_optional_finite(name: &str, value: Option<f64>) -> Result<(), ResolveError> {
+    if let Some(v) = value {
+        require_finite(name, v)?;
+    }
+    Ok(())
+}
+
+/// Validate the lowering inputs before materializing L2 motion.
+pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), ResolveError> {
+    require_positive("resolve_params.print_speed", p.print_speed)?;
+    require_positive("resolve_params.travel_speed", p.travel_speed)?;
+    require_positive("resolve_params.dia", p.dia)?;
+
+    for (idx, op) in design.ops.iter().enumerate() {
+        let prefix = |field: &str| format!("ops[{idx}].{field}");
+        match op {
+            Op::Geometry { width, height } => {
+                require_positive(&prefix("width"), *width)?;
+                require_positive(&prefix("height"), *height)?;
+            }
+            Op::Extruder { .. } | Op::Tool { .. } => {}
+            Op::Speed { print } => require_positive(&prefix("print"), *print)?,
+            Op::Temperature { nozzle } => require_non_negative(&prefix("nozzle"), *nozzle)?,
+            Op::Fan { speed } => require_unit_interval(&prefix("speed"), *speed)?,
+            Op::Flow { ratio } => require_positive(&prefix("ratio"), *ratio)?,
+            Op::Orient { i, j, k } => {
+                require_finite(&prefix("i"), *i)?;
+                require_finite(&prefix("j"), *j)?;
+                require_finite(&prefix("k"), *k)?;
+                let mag = libm::sqrt(i * i + j * j + k * k);
+                if mag <= 0.0 {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].orient vector must have non-zero magnitude"
+                    )));
+                }
+            }
+            Op::Dwell { seconds } => require_non_negative(&prefix("seconds"), *seconds)?,
+            Op::Move { x, y, z } => {
+                require_optional_finite(&prefix("x"), *x)?;
+                require_optional_finite(&prefix("y"), *y)?;
+                require_optional_finite(&prefix("z"), *z)?;
+            }
+            Op::Arc {
+                cx, cy, x, y, z, ..
+            } => {
+                require_finite(&prefix("cx"), *cx)?;
+                require_finite(&prefix("cy"), *cy)?;
+                require_optional_finite(&prefix("x"), *x)?;
+                require_optional_finite(&prefix("y"), *y)?;
+                require_optional_finite(&prefix("z"), *z)?;
+            }
+            Op::Spline { points } => {
+                for (point_idx, point) in points.iter().enumerate() {
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][0]"),
+                        point[0],
+                    )?;
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][1]"),
+                        point[1],
+                    )?;
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][2]"),
+                        point[2],
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
     let mut sq = Area::ZERO;
     for i in 0..3 {
@@ -113,8 +250,21 @@ pub fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f6
     out
 }
 
+/// Lower an L1 design to an L2 toolpath after validating design and machine/material parameters.
+pub fn resolve_checked(design: &Design, p: &ResolveParams) -> Result<Toolpath, ResolveError> {
+    validate_design(design, p)?;
+    Ok(resolve_unchecked(design, p))
+}
+
 /// Lower an L1 design to an L2 toolpath.
+///
+/// This compatibility wrapper panics on invalid inputs. Bindings and other user-facing boundaries
+/// should call [`resolve_checked`] so they can return a structured error.
 pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
+    resolve_checked(design, p).expect("valid Dry resolve inputs")
+}
+
+fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
     // bead cross-section of the round filament: π·(dia/2)².
     let half = Length::mm(p.dia) / 2.0;
     let area = std::f64::consts::PI * (half * half);
@@ -160,7 +310,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 filament: Length::ZERO,
                 width: None,
                 height: None,
-                kind: "dwell".to_string(),
+                kind: SegmentKind::Dwell,
                 centre: None,
                 clockwise: false,
                 temperature: temp,
@@ -193,7 +343,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     filament: volume / area,
                     width: Some(width),
                     height: Some(height),
-                    kind: "line".to_string(),
+                    kind: SegmentKind::Line,
                     centre: None,
                     clockwise: false,
                     temperature: temp,
@@ -256,7 +406,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     filament: volume / area,
                     width: Some(width),
                     height: Some(height),
-                    kind: "arc".to_string(),
+                    kind: SegmentKind::Arc,
                     centre: Some([cx, cy]),
                     clockwise,
                     temperature: temp,
@@ -289,7 +439,11 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                         p[2].unwrap_or(running[2]),
                     ];
                     through.push(resolved);
-                    control_points.push([Length::mm(resolved[0]), Length::mm(resolved[1]), Length::mm(resolved[2])]);
+                    control_points.push([
+                        Length::mm(resolved[0]),
+                        Length::mm(resolved[1]),
+                        Length::mm(resolved[2]),
+                    ]);
                     running = resolved;
                 }
 
@@ -335,7 +489,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     filament,
                     width: Some(width),
                     height: Some(height),
-                    kind: "spline".to_string(),
+                    kind: SegmentKind::Spline,
                     centre: None,
                     clockwise: false,
                     temperature: temp,

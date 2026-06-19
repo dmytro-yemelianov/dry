@@ -193,8 +193,9 @@ fn test_serde_kinematics_config() {
 
     // 2. Struct forms with tag
     let ab_obj: Kinematics = serde_json::from_str(
-        r#"{"type": "ab", "pivot_offset": [1.0, 2.0, 3.0], "rotary_offset": [4.0, 5.0]}"#
-    ).unwrap();
+        r#"{"type": "ab", "pivot_offset": [1.0, 2.0, 3.0], "rotary_offset": [4.0, 5.0]}"#,
+    )
+    .unwrap();
     assert_eq!(
         ab_obj,
         Kinematics::Ab {
@@ -204,9 +205,7 @@ fn test_serde_kinematics_config() {
     );
 
     // 3. Optional fields defaulted
-    let ac_obj_default: Kinematics = serde_json::from_str(
-        r#"{"type": "ac"}"#
-    ).unwrap();
+    let ac_obj_default: Kinematics = serde_json::from_str(r#"{"type": "ac"}"#).unwrap();
     assert_eq!(ac_obj_default, ac());
 }
 

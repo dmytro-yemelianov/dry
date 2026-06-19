@@ -4,7 +4,8 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    emit, resolve, simulate, verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
+    emit, parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, verify, Contracts,
+    Design, EmitParams, Kinematics, Op, ResolveParams,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -31,12 +32,10 @@ fn resolve_gcode(
     five_axis: bool,
     kinematics: &str,
 ) -> PyResult<Vec<String>> {
-    let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
-    let kinematics = match kinematics {
-        "ac" => Kinematics::Ac,
-        "bc" => Kinematics::Bc,
-        _ => Kinematics::Ab,
-    };
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let kinematics =
+        Kinematics::named(kinematics).map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
@@ -51,14 +50,16 @@ fn resolve_gcode(
 /// Resolve a design and return its simulation metrics as a JSON string.
 #[pyfunction]
 fn resolve_metrics(ops_json: &str, params_json: &str) -> PyResult<String> {
-    let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     serde_json::to_string(&simulate(&tp)).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Resolve a design and return the L2 toolpath IR as a JSON string.
 #[pyfunction]
 fn resolve_ir(ops_json: &str, params_json: &str) -> PyResult<String> {
-    let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(tp.to_json())
 }
 
@@ -74,7 +75,8 @@ fn resolve_verify(
     monotonic_z: bool,
     speed_range: Option<String>,
 ) -> PyResult<String> {
-    let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     let parsed_bounds = match bounds {
         None => None,
@@ -82,14 +84,7 @@ fn resolve_verify(
             if s.trim().is_empty() {
                 None
             } else {
-                let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
-                let v = v.map_err(|e| PyValueError::new_err(format!("invalid bounds: {e}")))?;
-                if v.len() != 6 {
-                    return Err(PyValueError::new_err(
-                        "bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1",
-                    ));
-                }
-                Some([[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]])
+                Some(parse_bounds_csv(&s).map_err(|e| PyValueError::new_err(e.to_string()))?)
             }
         }
     };
@@ -100,14 +95,7 @@ fn resolve_verify(
             if s.trim().is_empty() {
                 None
             } else {
-                let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
-                let v = v.map_err(|e| PyValueError::new_err(format!("invalid speed range: {e}")))?;
-                if v.len() != 2 {
-                    return Err(PyValueError::new_err(
-                        "speed range needs 2 comma-separated numbers: min,max",
-                    ));
-                }
-                Some([v[0], v[1]])
+                Some(parse_speed_range_csv(&s).map_err(|e| PyValueError::new_err(e.to_string()))?)
             }
         }
     };

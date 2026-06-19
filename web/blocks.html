@@ -102,7 +102,13 @@
 </head>
 <body>
 <header>
-  <h1><b>Dry</b> — visual authoring <a href="index.html">← gallery</a></h1>
+  <h1><b>Dry</b> — visual authoring
+    <span style="float:right;font-size:13px">
+      <a href="architecture.html" style="margin-right:14px">architecture audit</a>
+      <a href="opportunities.html" style="margin-right:14px">product directions</a>
+      <a href="index.html">← gallery</a>
+    </span>
+  </h1>
   <p>Drag blocks to build a Dry <b>L1 design</b>; the same Rust engine resolves it to g-code live, rendered
      in 3D with print playback. Every block is one op — geometry / extruder / speed / move / arc / process.</p>
 </header>
@@ -248,9 +254,9 @@ Blockly.defineBlocksWithJsonArray([
     tooltip: 'Set the nozzle temperature (°C).' },
 
   { type: 'dry_fan', message0: 'fan  speed %1',
-    args0: [ { type: 'field_number', name: 'SPEED', value: 255, min: 0, max: 255 } ],
+    args0: [ { type: 'field_number', name: 'SPEED', value: 0.5, min: 0, max: 1, precision: 0.01 } ],
     previousStatement: null, nextStatement: null, colour: 290,
-    tooltip: 'Set the part-cooling fan speed (0–255).' },
+    tooltip: 'Set the part-cooling fan speed ratio (0..1).' },
 
   { type: 'dry_flow', message0: 'flow  ratio %1',
     args0: [ { type: 'field_number', name: 'RATIO', value: 1, min: 0, precision: 0.01 } ],

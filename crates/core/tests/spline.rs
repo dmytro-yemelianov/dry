@@ -2,7 +2,7 @@
 //! through each control point; `resolve` keeps the curve intact in the L2 toolpath as a first-class
 //! spline segment, and `emit` lowers/resolves it to a chain of line segments.
 
-use dry_core::{emit, resolve, Design, EmitParams, ResolveParams};
+use dry_core::{emit, resolve, Design, EmitParams, ResolveParams, SegmentKind};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -17,12 +17,12 @@ fn spline_keeps_curves_intact_in_l2_toolpath_and_lowers_in_emit() {
             {"op":"spline","points":[[10,0,0.2],[10,10,0.2],[0,10,0.2]]}]"#,
     );
     let tp = resolve(&d, &ResolveParams::default());
-    
+
     // We expect exactly 2 segments: 1 line segment + 1 spline segment.
     assert_eq!(tp.segments.len(), 2);
-    assert_eq!(tp.segments[0].kind, "line");
-    assert_eq!(tp.segments[1].kind, "spline");
-    
+    assert_eq!(tp.segments[0].kind, SegmentKind::Line);
+    assert_eq!(tp.segments[1].kind, SegmentKind::Spline);
+
     let spline_seg = &tp.segments[1];
     assert!(!spline_seg.travel);
     assert!(spline_seg.control_points.is_some());
@@ -30,7 +30,7 @@ fn spline_keeps_curves_intact_in_l2_toolpath_and_lowers_in_emit() {
     assert_eq!(ctrl_pts.len(), 3);
     assert_eq!(ctrl_pts[0][0].value(), 10.0);
     assert_eq!(ctrl_pts[2][1].value(), 10.0);
-    
+
     // Emit should lower/resolve the spline into 48 sub-moves.
     // 1 positioning move + 48 spline sub-moves = 49 total g-code lines.
     let gcode = emit(&tp, &EmitParams::default());
@@ -47,7 +47,7 @@ fn spline_passes_through_its_control_points() {
     );
     let tp = resolve(&d, &ResolveParams::default());
     let gcode = emit(&tp, &EmitParams::default());
-    
+
     // Parse emitted X and Y coordinates to verify it passes through control points
     let mut coordinates = Vec::new();
     for line in gcode {
@@ -55,10 +55,10 @@ fn spline_passes_through_its_control_points() {
             let mut x = None;
             let mut y = None;
             for token in line.split_whitespace() {
-                if token.starts_with('X') {
-                    x = token[1..].parse::<f64>().ok();
-                } else if token.starts_with('Y') {
-                    y = token[1..].parse::<f64>().ok();
+                if let Some(value) = token.strip_prefix('X') {
+                    x = value.parse::<f64>().ok();
+                } else if let Some(value) = token.strip_prefix('Y') {
+                    y = value.parse::<f64>().ok();
                 }
             }
             if let (Some(xv), Some(yv)) = (x, y) {
@@ -66,12 +66,15 @@ fn spline_passes_through_its_control_points() {
             }
         }
     }
-    
+
     for (cx, cy) in pts {
         let hit = coordinates
             .iter()
             .any(|&(x, y)| (x - cx).abs() < 1e-9 && (y - cy).abs() < 1e-9);
-        assert!(hit, "emitted path must pass through control point ({cx},{cy})");
+        assert!(
+            hit,
+            "emitted path must pass through control point ({cx},{cy})"
+        );
     }
 }
 
@@ -85,16 +88,19 @@ fn collinear_control_points_yield_a_straight_path() {
     );
     let tp = resolve(&d, &ResolveParams::default());
     let gcode = emit(&tp, &EmitParams::default());
-    
+
     for line in gcode {
         if line.starts_with("G1") {
             for token in line.split_whitespace() {
-                if token.starts_with('Y') {
-                    let y = token[1..].parse::<f64>().unwrap();
-                    assert!(y.abs() < 1e-9, "collinear spline must not deviate in y (got {y})");
+                if let Some(value) = token.strip_prefix('Y') {
+                    let y = value.parse::<f64>().unwrap();
+                    assert!(
+                        y.abs() < 1e-9,
+                        "collinear spline must not deviate in y (got {y})"
+                    );
                 }
-                if token.starts_with('Z') {
-                    let z = token[1..].parse::<f64>().unwrap();
+                if let Some(value) = token.strip_prefix('Z') {
+                    let z = value.parse::<f64>().unwrap();
                     assert!((z - 0.2).abs() < 1e-9, "z stays constant (got {z})");
                 }
             }

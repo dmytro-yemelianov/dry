@@ -4,8 +4,8 @@
 //! isolated from the core cargo workspace).
 
 use dry_core::{
-    emit, merge_collinear, resolve, simulate, verify, Contracts, Design, EmitParams, Kinematics,
-    Op, ResolveParams,
+    emit, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate,
+    verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
 };
 use wasm_bindgen::prelude::*;
 
@@ -28,12 +28,9 @@ pub fn resolve_gcode(
     kinematics_str: &str,
 ) -> Result<Vec<String>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
-    let tp = resolve(&d, &p);
-    let kinematics = match kinematics_str {
-        "ac" => Kinematics::Ac { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
-        "bc" => Kinematics::Bc { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
-        _ => Kinematics::Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
-    };
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let kinematics =
+        Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
@@ -49,52 +46,35 @@ pub fn resolve_gcode(
 #[wasm_bindgen]
 pub fn resolve_metrics(ops_json: &str, params_json: &str) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
-    serde_json::to_string(&simulate(&resolve(&d, &p))).map_err(|e| JsError::new(&e.to_string()))
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&simulate(&tp)).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Resolve a design and return the L2 Dry IR as a JSON string.
 #[wasm_bindgen]
 pub fn resolve_ir(ops_json: &str, params_json: &str) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
-    Ok(resolve(&d, &p).to_json())
+    Ok(resolve_checked(&d, &p)
+        .map_err(|e| JsError::new(&e.to_string()))?
+        .to_json())
 }
 
 /// Resolve a design and return the L2 Dry IR as a binary byte array.
 #[wasm_bindgen]
 pub fn resolve_binary(ops_json: &str, params_json: &str) -> Result<Vec<u8>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
-    Ok(resolve(&d, &p).to_bytes())
+    Ok(resolve_checked(&d, &p)
+        .map_err(|e| JsError::new(&e.to_string()))?
+        .to_bytes())
 }
 
-/// Resolve a design, optimize it (merge collinear extruding moves), and return the resulting
-/// L2 Dry IR as a JSON string. Compare its `segments.len()` against [`resolve_ir`] to see how
-/// many redundant moves the optimizer collapsed.
+/// Resolve a design, run the standard L2 optimization pipeline, and return the resulting
+/// L2 Dry IR as a JSON string.
 #[wasm_bindgen]
 pub fn resolve_optimized_ir(ops_json: &str, params_json: &str) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
-    Ok(merge_collinear(&resolve(&d, &p)).to_json())
-}
-
-fn parse_bounds_wasm(s: &str) -> Result<[[f64; 2]; 3], JsError> {
-    let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
-    let v = v.map_err(|e| JsError::new(&format!("bounds: {e}")))?;
-    if v.len() != 6 {
-        return Err(JsError::new(
-            "bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1",
-        ));
-    }
-    Ok([[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]])
-}
-
-fn parse_speed_range_wasm(s: &str) -> Result<[f64; 2], JsError> {
-    let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
-    let v = v.map_err(|e| JsError::new(&format!("speed range: {e}")))?;
-    if v.len() != 2 {
-        return Err(JsError::new(
-            "speed range needs 2 comma-separated numbers: min,max",
-        ));
-    }
-    Ok([v[0], v[1]])
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(optimize_pipeline(&tp).to_json())
 }
 
 /// Resolve a design and verify it against machine-safety contracts, returning the JSON
@@ -119,12 +99,12 @@ pub fn resolve_verify(
     let bounds = if bounds_str.trim().is_empty() {
         None
     } else {
-        Some(parse_bounds_wasm(bounds_str)?)
+        Some(parse_bounds_csv(bounds_str).map_err(|e| JsError::new(&e.to_string()))?)
     };
     let speed_range = if speed_range_str.trim().is_empty() {
         None
     } else {
-        Some(parse_speed_range_wasm(speed_range_str)?)
+        Some(parse_speed_range_csv(speed_range_str).map_err(|e| JsError::new(&e.to_string()))?)
     };
     let contracts = Contracts {
         bounds,
@@ -141,6 +121,7 @@ pub fn resolve_verify(
             None
         },
     };
-    let report = verify(&resolve(&d, &p), &contracts);
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let report = verify(&tp, &contracts);
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }

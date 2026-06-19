@@ -15,6 +15,7 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`02-roadmap.md`](02-roadmap.md) | Phases P0–P6 with goals, deliverables and hard exit gates; the risk register; sequencing/critical path. |
 | [`03-conformance.md`](03-conformance.md) | How correctness is bootstrapped from the fork (5 conformance corpora), the per-phase parity gates + tolerances, the float/determinism discipline, the lessons-as-tests, and the CI shape. |
 | [`04-tasks.md`](04-tasks.md) | The actionable backlog per phase (sized, with deps + acceptance) and the immediate next 5. |
+| [`05-product-directions.md`](05-product-directions.md) | Expanded product directions: slicer vs CAD workbench, post-slicer Klipper review/optimization, G-code forensics, time-series analysis and LLM-assisted explanations. |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine

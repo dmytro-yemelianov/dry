@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Dry product directions</title>
+<style>
+  :root {
+    --paper:#f6f3ec;
+    --ink:#20262d;
+    --muted:#65717d;
+    --panel:#fff;
+    --line:#d8d1c5;
+    --soft:#fbfaf7;
+    --core:#236c78;
+    --machine:#7a5c20;
+    --analysis:#5e5a94;
+    --risk:#9a650f;
+    --ok:#2f7d48;
+    --code:#0f5d68;
+  }
+
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font:14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  a { color:var(--core); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  code {
+    color:var(--code);
+    background:#e8f0ef;
+    border:1px solid #c8dedb;
+    border-radius:4px;
+    padding:0 4px;
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:.92em;
+  }
+  pre {
+    margin:10px 0 0;
+    padding:12px;
+    overflow:auto;
+    background:#152026;
+    color:#e9f0ef;
+    border-radius:8px;
+    font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  header {
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:rgba(246,243,236,.95);
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(8px);
+  }
+  .topbar {
+    min-height:64px;
+    padding:0 24px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+  }
+  .brand { display:flex; flex-direction:column; min-width:245px; }
+  .brand strong { font-size:18px; }
+  .brand span { color:var(--muted); font-size:12px; }
+  nav {
+    margin-left:auto;
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    font-size:13px;
+  }
+  .layout {
+    display:grid;
+    grid-template-columns:280px minmax(0, 1fr);
+    gap:22px;
+    max-width:1440px;
+    margin:0 auto;
+    padding:22px;
+  }
+  aside {
+    position:sticky;
+    top:86px;
+    align-self:start;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px;
+  }
+  aside h2, section h2 {
+    margin:0 0 10px;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--muted);
+  }
+  .toc { display:grid; gap:6px; }
+  .toc a {
+    display:block;
+    padding:7px 8px;
+    border-radius:6px;
+    color:var(--ink);
+  }
+  .toc a:hover { background:#efebe2; text-decoration:none; }
+  .note {
+    margin:14px 0 0;
+    color:var(--muted);
+    font-size:12px;
+  }
+  main { display:grid; gap:18px; }
+  section {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:18px;
+  }
+  h1 {
+    margin:0 0 10px;
+    font-size:clamp(27px, 3vw, 44px);
+    line-height:1.05;
+    letter-spacing:0;
+  }
+  h3 { margin:0 0 8px; font-size:16px; }
+  p { margin:0 0 10px; color:#3f4b56; }
+  ul { margin:8px 0 0; padding-left:20px; color:#46515d; }
+  li + li { margin-top:4px; }
+  .lead { max-width:900px; font-size:16px; color:#3d4852; }
+  .summary {
+    display:grid;
+    grid-template-columns:1.35fr .9fr;
+    gap:18px;
+    align-items:start;
+  }
+  .callout {
+    border:1px solid var(--line);
+    border-left:4px solid var(--core);
+    border-radius:8px;
+    padding:13px;
+    background:var(--soft);
+  }
+  .callout strong { display:block; margin-bottom:5px; }
+  .matrix {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:10px;
+  }
+  .card {
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--soft);
+    padding:13px;
+  }
+  .card.core { border-top:3px solid var(--core); }
+  .card.machine { border-top:3px solid var(--machine); }
+  .card.analysis { border-top:3px solid var(--analysis); }
+  .card.risk { border-top:3px solid var(--risk); }
+  .pipeline {
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+    gap:8px;
+    margin-top:10px;
+  }
+  .stage {
+    min-height:72px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--soft);
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .stage b { color:var(--core); }
+  .stage span { color:var(--muted); font-size:12px; margin-top:4px; }
+  .split {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+  }
+  .table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:8px;
+  }
+  .table th, .table td {
+    border:1px solid var(--line);
+    padding:8px;
+    text-align:left;
+    vertical-align:top;
+  }
+  .table th {
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    background:#f2eee6;
+  }
+  .roadmap {
+    counter-reset:item;
+    display:grid;
+    gap:8px;
+    margin-top:8px;
+  }
+  .step {
+    display:grid;
+    grid-template-columns:34px 1fr;
+    gap:10px;
+    align-items:start;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--soft);
+    padding:10px;
+  }
+  .step:before {
+    counter-increment:item;
+    content:counter(item);
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    background:var(--ink);
+    color:#fff;
+    font-weight:700;
+  }
+  .tagrow { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .tag {
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:2px 8px;
+    background:#f2eee6;
+    color:#46515d;
+    font-size:12px;
+  }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns:1fr; }
+    aside { position:static; }
+    .summary, .split, .matrix { grid-template-columns:1fr; }
+    .pipeline { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <strong>Dry Product Directions</strong>
+      <span>slicer, CAD, Klipper, forensics, time-series</span>
+    </div>
+    <nav>
+      <a href="index.html">gallery</a>
+      <a href="blocks.html">authoring</a>
+      <a href="architecture.html">architecture audit</a>
+      <a href="../docs/05-product-directions.md">markdown</a>
+    </nav>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Order</h2>
+    <div class="toc">
+      <a href="#positioning">Positioning</a>
+      <a href="#slicer">1. Slicer And CAD</a>
+      <a href="#klipper">2. Post-Slicer Klipper</a>
+      <a href="#forensics">3. G-Code Forensics</a>
+      <a href="#timeseries">4. Time-Series + LLMs</a>
+      <a href="#missing">Missing Areas</a>
+      <a href="#sequence">Sequence</a>
+    </div>
+    <p class="note">This page preserves the conversation order and expands it into product, technical and risk areas.</p>
+  </aside>
+
+  <main>
+    <section id="positioning">
+      <div class="summary">
+        <div>
+          <h1>Dry should be a manufacturing compiler before it is a slicer clone.</h1>
+          <p class="lead">The current framework is strongest where authored geometry, machine motion, typed IR, verification, optimization and target emit meet. A conventional mesh slicer can be a future frontend; the core product should first make toolpaths inspectable, programmable and safer to push harder.</p>
+        </div>
+        <div class="callout">
+          <strong>Core decision</strong>
+          <p>Start with CAD-connected toolpath workbench, post-slicer review, G-code inference and trace analysis. Add full mesh slicing only after the compiler layer is already valuable.</p>
+          <div class="tagrow">
+            <span class="tag">IR-first</span>
+            <span class="tag">profile-gated</span>
+            <span class="tag">streaming</span>
+            <span class="tag">explainable</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="slicer">
+      <h2>1. Slicer App, CAD Add-On, Broader Uses</h2>
+      <div class="matrix">
+        <article class="card core">
+          <h3>Best first wedge: CAD workbench</h3>
+          <p>Export sketches, curves, faces, features or procedural geometry from CAD into Dry L1/L2. Dry owns simulation, verification, optimization and emit.</p>
+          <ul>
+            <li>Fusion 360: approachable add-ins.</li>
+            <li>Onshape: cloud and FeatureScript-style workflows.</li>
+            <li>SolidWorks: industrial value, heavier surface.</li>
+            <li>Rhino/Grasshopper: natural procedural toolpath audience.</li>
+            <li>FreeCAD/Blender: open and experimental paths.</li>
+          </ul>
+        </article>
+        <article class="card machine">
+          <h3>Programmable slicer</h3>
+          <p>Path-first rather than STL-first: define exact moves, channel state, orientation and constraints, then compile.</p>
+          <ul>
+            <li>Custom infill, lattices and vase modes.</li>
+            <li>Non-planar FFF and rotary/5-axis paths.</li>
+            <li>Gradient material or process experiments.</li>
+            <li>Education and research tooling.</li>
+          </ul>
+        </article>
+        <article class="card risk">
+          <h3>Full slicer later</h3>
+          <p>A full Cura/PrusaSlicer-style app needs mesh repair, offsetting, supports, infill, seam planning, cooling, placement, project formats and many profiles. It is a later frontend, not the initial identity.</p>
+        </article>
+        <article class="card analysis">
+          <h3>Less obvious uses</h3>
+          <p>Robotic extrusion, manufacturing lint in CI, generative-design compiler target, toolpath QA, G-code normalization, fleet policy checks and browser-based print debugging.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="klipper">
+      <h2>2. Existing Slicer / Klipper Pipeline</h2>
+      <p>Dry can sit between existing slicers and the printer. This is a practical near-term product because it adds value without asking users to leave Orca, PrusaSlicer, Cura or Klipper.</p>
+      <div class="pipeline">
+        <div class="stage"><b>Slicer</b><span>Orca / Prusa / Cura</span></div>
+        <div class="stage"><b>Dry import</b><span>G-code -> motion stream</span></div>
+        <div class="stage"><b>Review</b><span>flow, speed, bounds, cooling</span></div>
+        <div class="stage"><b>Rewrite</b><span>safe / balanced / max</span></div>
+        <div class="stage"><b>Klipper</b><span>Moonraker upload hook</span></div>
+      </div>
+      <div class="split" style="margin-top:12px">
+        <article class="card core">
+          <h3>Review-only first</h3>
+          <ul>
+            <li>Max volumetric flow violations.</li>
+            <li>Feedrates above machine/material profile.</li>
+            <li>Tiny segment density and planner pressure.</li>
+            <li>Travel extrusion, cold extrusion, out-of-bounds moves.</li>
+            <li>Cooling, bridge, overhang and layer-time risk.</li>
+            <li>Suspicious retract/prime or state churn.</li>
+          </ul>
+          <pre>dry review part.gcode --profile voron24-abs.json</pre>
+        </article>
+        <article class="card machine">
+          <h3>Rewrite after trust</h3>
+          <ul>
+            <li>Feedrate and acceleration changes by region.</li>
+            <li>Volumetric-flow-limited speed caps.</li>
+            <li>Redundant state cleanup.</li>
+            <li>Safe collinear merge or arc simplification.</li>
+            <li>Klipper <code>SET_VELOCITY_LIMIT</code> or <code>M204</code> scheduling.</li>
+          </ul>
+          <pre>dry optimize-gcode part.gcode --mode safe -o part.safe.gcode</pre>
+        </article>
+      </div>
+      <table class="table">
+        <thead><tr><th>Mode</th><th>Behavior</th><th>Gate</th></tr></thead>
+        <tbody>
+          <tr><td><code>safe</code></td><td>Warn, annotate, remove redundant states, preserve behavior.</td><td>Parser and semantic preservation.</td></tr>
+          <tr><td><code>balanced</code></td><td>Speed up where profile margins are clear.</td><td>Simulation and profile verification.</td></tr>
+          <tr><td><code>max</code></td><td>Aggressive calibrated envelope for flow, accel, cooling and resonance.</td><td>Empirical calibration plus before/after verification.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="forensics">
+      <h2>3. Reverse Engineering And Slicer-Logic Inference</h2>
+      <p>Dry can become a G-code decompiler and slicer-behavior analyzer. It should infer likely rules and structure, not claim perfect reconstruction of CAD intent or private slicer internals.</p>
+      <div class="pipeline">
+        <div class="stage"><b>Parse</b><span>modal state + comments</span></div>
+        <div class="stage"><b>Lift</b><span>motion stream -> Dry IR</span></div>
+        <div class="stage"><b>Classify</b><span>walls, infill, bridge, travel</span></div>
+        <div class="stage"><b>Infer</b><span>speed, flow, seam, cooling rules</span></div>
+        <div class="stage"><b>Explain</b><span>report or rewrite policy</span></div>
+      </div>
+      <div class="split" style="margin-top:12px">
+        <article class="card analysis">
+          <h3>Recoverable signals</h3>
+          <ul>
+            <li>Layer height, line width and extrusion multiplier.</li>
+            <li>Volumetric flow over time.</li>
+            <li>Seam position and infill angle/spacing.</li>
+            <li>Feature speed rules and cooling policy.</li>
+            <li>Retraction, travel and tiny-segment behavior.</li>
+          </ul>
+        </article>
+        <article class="card core">
+          <h3>Useful methods</h3>
+          <ul>
+            <li>Curvature, segment-length and duration histograms.</li>
+            <li>Hough/Radon transforms for infill direction.</li>
+            <li>2D FFT for layer periodicity.</li>
+            <li>STFT/wavelets for local non-stationary behavior.</li>
+            <li>Clustering and changepoint detection.</li>
+          </ul>
+        </article>
+      </div>
+      <pre>dry decompile part.gcode -o inferred.dry.json
+dry explain part.gcode --profile voron24.json
+dry fingerprint part.gcode
+dry compare stock.gcode tuned.gcode</pre>
+    </section>
+
+    <section id="timeseries">
+      <h2>4. Time-Series Analysis With LLMs</h2>
+      <p>LLMs should operate around deterministic analysis, not replace it. Dry should compute the signals, summaries and safety checks; an LLM can explain, compare, prioritize and propose experiments.</p>
+      <div class="split">
+        <article class="card core">
+          <h3>Deterministic signals</h3>
+          <ul>
+            <li><code>x(t), y(t), z(t), e(t)</code>.</li>
+            <li>Speed, acceleration, jerk estimate.</li>
+            <li>Volumetric flow and segment rate.</li>
+            <li>Curvature, layer index and feature class.</li>
+            <li>Fan, temperature and channel state.</li>
+            <li>Frequency summaries, anomalies and changepoints.</li>
+          </ul>
+        </article>
+        <article class="card analysis">
+          <h3>LLM role</h3>
+          <ul>
+            <li>Explain why a print is slow or risky.</li>
+            <li>Translate analysis into profile changes.</li>
+            <li>Compare stock vs tuned G-code.</li>
+            <li>Suggest calibration experiments.</li>
+            <li>Draft a safe optimization policy for verifier approval.</li>
+          </ul>
+        </article>
+      </div>
+      <pre>{
+  "window": "layer_38_120s_145s",
+  "feature": "infill",
+  "max_flow_mm3_s": 21.5,
+  "mean_speed_mm_s": 242.0,
+  "segment_rate_hz": 140.0,
+  "dominant_freq_hz": [43.2, 86.1],
+  "risk": ["planner_load", "flow_limit"]
+}</pre>
+    </section>
+
+    <section id="missing">
+      <h2>Missing Areas To Build</h2>
+      <table class="table">
+        <thead><tr><th>Area</th><th>Required work</th></tr></thead>
+        <tbody>
+          <tr><td>G-code import</td><td>Streaming parser, modal state, comments, M-codes, Klipper macros, semantic barriers, unknown-line preservation.</td></tr>
+          <tr><td>Machine profiles</td><td>Kinematics, firmware flavor, axis limits, hotend flow curves, cooling model, pressure advance, input shaper data, material envelopes.</td></tr>
+          <tr><td>Trace storage</td><td>Parquet/Arrow traces, JSON summaries, stable window IDs, source line links, optional layer rasters.</td></tr>
+          <tr><td>Safety gates</td><td>Round-trip tests, no-loss serialization, before/after simulation, profile verification, visual diff, conservative defaults.</td></tr>
+          <tr><td>Calibration data</td><td>Flow, pressure advance, resonance, cooling, adhesion and material-specific limits as profile inputs.</td></tr>
+          <tr><td>UI</td><td>Risk timeline, layer plots, feature classification, line inspector, before/after compare, upload-hook report, CAD panel.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="sequence">
+      <h2>Suggested Sequence</h2>
+      <div class="roadmap">
+        <div class="step"><div><b>G-code parser</b><p>Lossless modal state and source-line mapping.</p></div></div>
+        <div class="step"><div><b>Review-only reports</b><p>Flow, speed, bounds, temp, segment density, cooling and structural checks.</p></div></div>
+        <div class="step"><div><b>Profile schema + Klipper hook</b><p>Versioned machine/material profiles and Moonraker upload integration.</p></div></div>
+        <div class="step"><div><b>Trace export and compare</b><p>Efficient time-series data plus stock-vs-tuned diff reports.</p></div></div>
+        <div class="step"><div><b>Conservative rewrite mode</b><p>Redundant state cleanup and safe feed caps, fully verified.</p></div></div>
+        <div class="step"><div><b>Inference and LLM explanations</b><p>Feature classification, rule inference and human-readable recommendations.</p></div></div>
+        <div class="step"><div><b>CAD/plugin workbench</b><p>Fusion, Onshape, Rhino/Grasshopper or FreeCAD path export into Dry.</p></div></div>
+        <div class="step"><div><b>Calibrated max mode</b><p>Aggressive optimization based on measured flow, accel, cooling and resonance envelopes.</p></div></div>
+        <div class="step"><div><b>Hybrid mesh slicer</b><p>Use existing geometry kernels for conventional slicing when the compiler layer is already proven.</p></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

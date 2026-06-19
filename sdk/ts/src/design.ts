@@ -2,7 +2,7 @@
 // (`gcode`/`simulate`/`ir`) resolve those ops in wasm — the SDK itself holds no toolpath logic.
 import type { Metrics, Op, Toolpath } from './ops';
 import { PRINTERS } from './ops';
-import { resolveGcode, resolveIr, resolveMetrics, resolveVerify } from './engine';
+import { resolveGcode, resolveIr, resolveMetrics, resolveOptimizedIr, resolveVerify } from './engine';
 
 function params(printer: string) {
   const p = PRINTERS[printer];
@@ -116,6 +116,11 @@ export class Design {
   /** Resolve to the L2 Dry IR ({ version, segments }). */
   ir(printer = 'generic'): Toolpath {
     return resolveIr(this.ops, params(printer));
+  }
+
+  /** Resolve through the standard L2 optimization pipeline. */
+  optimizedIr(printer = 'generic'): Toolpath {
+    return resolveOptimizedIr(this.ops, params(printer));
   }
 
   /** Resolve + verify; returns safety report findings. */

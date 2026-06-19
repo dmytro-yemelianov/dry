@@ -68,6 +68,20 @@ test('ir() returns resolved segments', () => {
   assert.deepEqual(ir.segments[1].end, [10, 0, 0.2]);
 });
 
+test('optimizedIr() uses the shared optimizer pipeline', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .point(5, 0, 0.2)
+    .point(10, 0, 0.2)
+    .point(15, 0, 0.2);
+  const raw = d.ir();
+  const opt = d.optimizedIr();
+  assert.ok(opt.segments.length < raw.segments.length);
+  assert.equal(opt.segments[0].kind, 'line');
+});
+
 // RESOLVE_PARAMS is the documented generic-printer default.
 test('generic params are exposed', () => {
   assert.deepEqual(RESOLVE_PARAMS, { print_speed: 1000, travel_speed: 8000, dia: 1.75 });
@@ -160,4 +174,3 @@ test('verify() finds contract violations', () => {
   assert.ok(reportZ.findings.length > 0);
   assert.equal(reportZ.findings[0].rule, 'monotonic-z');
 });
-

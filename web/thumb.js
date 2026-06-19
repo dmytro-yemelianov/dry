@@ -10,6 +10,34 @@
 const EXTRUDE = '#58a6ff';
 const TRAVEL = '#f85149';
 const BG = '#161b22';
+const SPLINE_SAMPLES = 16;
+
+function catmullRom(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t, out = [0, 0, 0];
+  for (let a = 0; a < 3; a++) {
+    out[a] = 0.5 * ((2 * p1[a]) + (-p0[a] + p2[a]) * t +
+      (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 +
+      (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3);
+  }
+  return out;
+}
+
+function splinePoints(s) {
+  if (!s.control_points || !s.control_points.length) return null;
+  const start = [s.start[0] ?? 0, s.start[1] ?? 0, s.start[2] ?? 0];
+  const through = [start, ...s.control_points.map((p) => [p[0], p[1], p[2]])];
+  const pts = [start];
+  for (let i = 0; i < through.length - 1; i++) {
+    const p0 = through[Math.max(0, i - 1)];
+    const p1 = through[i];
+    const p2 = through[i + 1];
+    const p3 = through[Math.min(through.length - 1, i + 2)];
+    for (let step = 1; step <= SPLINE_SAMPLES; step++) {
+      pts.push(step === SPLINE_SAMPLES ? p2 : catmullRom(p0, p1, p2, p3, step / SPLINE_SAMPLES));
+    }
+  }
+  return pts;
+}
 
 // Flatten the IR segments into a list of { from:[x,y], to:[x,y], travel } in the XY plane.
 // Arcs are tessellated so curves read as curves in the sketch.
@@ -36,6 +64,13 @@ function segmentsToXY(ir) {
         const p = [cx + r * Math.cos(a), cy + r * Math.sin(a)];
         out.push({ from: prev, to: p, travel: !!s.travel });
         prev = p;
+      }
+    } else if (s.kind === 'spline' && start) {
+      const pts = splinePoints(s);
+      if (pts) {
+        for (let i = 1; i < pts.length; i++) {
+          out.push({ from: [pts[i - 1][0], pts[i - 1][1]], to: [pts[i][0], pts[i][1]], travel: !!s.travel });
+        }
       }
     } else if (start) {
       out.push({ from: start, to: end, travel: !!s.travel });

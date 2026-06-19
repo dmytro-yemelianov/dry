@@ -9,6 +9,6 @@
 //   console.log(d.simulate());           // metrics
 
 export { Design } from './design';
-export { resolveGcode, resolveMetrics, resolveIr, resolveVerify } from './engine';
+export { resolveGcode, resolveMetrics, resolveIr, resolveOptimizedIr, resolveVerify } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
-export type { Op, ResolveParams, Metrics, Segment, Toolpath } from './ops';
+export type { Op, ResolveParams, Metrics, Segment, SegmentKind, Toolpath } from './ops';

@@ -3,10 +3,12 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    arc_fit, emit_stream, merge_collinear, simulate, simulate_stream, travel_reorder,
-    verify_stream, Contracts, EmitParams, Kinematics, Toolpath,
+    emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map, optimize_pipeline,
+    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, verify, verify_stream,
+    Contracts, EmitParams, GcodeImportParams, Kinematics, Toolpath,
 };
 use std::fs;
+use std::io::Write;
 use std::process::ExitCode;
 
 /// CLI surface for [`Kinematics`]: the rotary kinematics selectable on `dry emit`.
@@ -70,7 +72,7 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<String>,
     },
-    /// Encode a Dry IR (JSON) file to the compact columnar binary form.
+    /// Encode a Dry IR (JSON) file to the chunked streaming binary form.
     Pack {
         file: String,
         /// Output path for the `.dry` binary.
@@ -81,6 +83,75 @@ enum Cmd {
     Unpack {
         file: String,
         /// Write JSON to a file instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation.
+    ImportGcode {
+        file: String,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long, default_value_t = 1.75)]
+        filament_diameter: f64,
+        /// Optional line width in mm to attach to extruding segments.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Optional layer height in mm to attach to extruding segments.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Write Dry IR JSON to a file instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// Review slicer G-code directly, reporting metrics and contract findings with source line numbers.
+    ReviewGcode {
+        file: String,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long, default_value_t = 1.75)]
+        filament_diameter: f64,
+        /// Assumed line width in mm for structural bead and flow checks.
+        #[arg(long, default_value_t = 0.45)]
+        line_width: f64,
+        /// Assumed layer height in mm for structural bead and flow checks.
+        #[arg(long, default_value_t = 0.2)]
+        layer_height: f64,
+        /// Max volumetric flow (mm³/s).
+        #[arg(long)]
+        max_flow: Option<f64>,
+        /// Build volume as `x0,x1,y0,y1,z0,z1` (mm).
+        #[arg(long)]
+        bounds: Option<String>,
+        /// Require Z to be non-decreasing.
+        #[arg(long)]
+        monotonic_z: bool,
+        /// Minimum nozzle temperature (°C) required to extrude.
+        #[arg(long)]
+        min_temp: Option<f64>,
+        /// Allowed feedrate range `min,max` (mm/min) for extruding moves.
+        #[arg(long)]
+        speed_range: Option<String>,
+        /// Print metrics/findings as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Re-emit imported motion while preserving non-motion source G-code lines in place.
+    RewriteGcode {
+        file: String,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long, default_value_t = 1.75)]
+        filament_diameter: f64,
+        /// Optional line width in mm to attach to extruding segments.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Optional layer height in mm to attach to extruding segments.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Emit absolute extrusion (default is relative E).
+        #[arg(long)]
+        absolute_e: bool,
+        /// Optimise each contiguous source motion span before splicing it back.
+        #[arg(long)]
+        optimize: bool,
+        /// Write rewritten G-code to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
     },
@@ -131,23 +202,28 @@ fn load(file: &str) -> Toolpath {
     serde_json::from_value(ir).unwrap_or_else(|e| die(format!("not a Dry IR in {file}: {e}")))
 }
 
-fn load_streaming(file: &str) -> Result<Box<dyn Iterator<Item = Result<dry_core::Segment, dry_core::CodecError>>>, dry_core::CodecError> {
-    let mut f = std::fs::File::open(file)
-        .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
-    
+fn load_streaming(
+    file: &str,
+) -> Result<
+    Box<dyn Iterator<Item = Result<dry_core::Segment, dry_core::CodecError>>>,
+    dry_core::CodecError,
+> {
+    let mut f =
+        std::fs::File::open(file).map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+
     let mut magic = [0u8; 4];
     use std::io::Read;
-    let bytes_read = f.read(&mut magic).map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
-    
+    let bytes_read = f
+        .read(&mut magic)
+        .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+
     use std::io::Seek;
     f.seek(std::io::SeekFrom::Start(0))
         .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
-    
-    if bytes_read == 4 && magic == *b"DRY0" {
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf).map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
-        let (_version, _meta, iter) = dry_core::decode_streaming(&buf)?;
-        Ok(Box::new(iter))
+
+    if bytes_read == 4 && (magic == *b"DRY0" || magic == *b"DRY1") {
+        let (_version, _meta, iter) = dry_core::decode_any_streaming(f)?;
+        Ok(iter)
     } else {
         let iter = dry_core::JsonSegmentsIterator::new(f);
         Ok(Box::new(iter))
@@ -211,8 +287,10 @@ fn run(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Cmd::Simulate { file, json } => {
-            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
-            let m = simulate_stream(stream).unwrap_or_else(|e| die(format!("cannot simulate {file}: {e}")));
+            let stream =
+                load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let m = simulate_stream(stream)
+                .unwrap_or_else(|e| die(format!("cannot simulate {file}: {e}")));
             if json {
                 println!("{}", serde_json::to_string_pretty(&m).unwrap());
             } else {
@@ -234,23 +312,35 @@ fn run(cli: Cli) -> ExitCode {
             kinematics,
             out,
         } => {
-            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let stream =
+                load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
                 kinematics: kinematics.into(),
             };
-            let gcode = emit_stream(stream, &params).unwrap_or_else(|e| die(format!("cannot emit {file}: {e}"))).join("\n");
             match out {
-                Some(path) => fs::write(&path, gcode + "\n")
-                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
-                None => println!("{gcode}"),
+                Some(path) => {
+                    let out_file = fs::File::create(&path)
+                        .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                    let mut writer = std::io::BufWriter::new(out_file);
+                    emit_stream_to_writer(stream, &params, &mut writer)
+                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                }
+                None => {
+                    let stdout = std::io::stdout();
+                    let mut writer = stdout.lock();
+                    emit_stream_to_writer(stream, &params, &mut writer)
+                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                }
             }
             ExitCode::SUCCESS
         }
         Cmd::Pack { file, out } => {
-            let bytes = load(&file).to_bytes();
+            let bytes = load(&file).to_streaming_bytes();
             fs::write(&out, &bytes).unwrap_or_else(|e| die(format!("cannot write {out}: {e}")));
             eprintln!("packed {file} → {out} ({} bytes)", bytes.len());
             ExitCode::SUCCESS
@@ -267,12 +357,201 @@ fn run(cli: Cli) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Cmd::ImportGcode {
+            file,
+            filament_diameter,
+            line_width,
+            layer_height,
+            out,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let params = GcodeImportParams {
+                version: 0,
+                filament_diameter,
+                line_width,
+                layer_height,
+            };
+            let tp = import_gcode_reader(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let json = tp.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::ReviewGcode {
+            file,
+            filament_diameter,
+            line_width,
+            layer_height,
+            max_flow,
+            bounds,
+            monotonic_z,
+            min_temp,
+            speed_range,
+            json,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let params = GcodeImportParams {
+                version: 0,
+                filament_diameter,
+                line_width: Some(line_width),
+                layer_height: Some(layer_height),
+            };
+            let imported = import_gcode_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let metrics = simulate(&imported.toolpath);
+            let contracts = Contracts {
+                bounds: bounds.as_deref().map(parse_bounds),
+                max_flow,
+                speed_range: speed_range.as_deref().map(parse_speed_range),
+                monotonic_z,
+                min_temp,
+            };
+            let report = verify(&imported.toolpath, &contracts);
+
+            if json {
+                let findings: Vec<_> = report
+                    .findings
+                    .iter()
+                    .map(|finding| {
+                        let source_line = finding
+                            .segment
+                            .and_then(|segment| imported.source_line_for_segment(segment));
+                        serde_json::json!({
+                            "rule": &finding.rule,
+                            "severity": finding.severity,
+                            "segment": finding.segment,
+                            "source_line": source_line,
+                            "message": &finding.message,
+                        })
+                    })
+                    .collect();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "file": file,
+                        "segments": imported.toolpath.segments.len(),
+                        "metrics": metrics,
+                        "findings": findings,
+                        "error_count": report.error_count(),
+                    }))
+                    .unwrap()
+                );
+            } else {
+                println!("review-gcode: {file}");
+                println!(
+                    "  segments:  {} ({} moves with length)",
+                    imported.toolpath.segments.len(),
+                    metrics.segment_count
+                );
+                println!(
+                    "  time:      {:.1}s (print {:.1}s, travel {:.1}s)",
+                    metrics.total_time_s.value(),
+                    metrics.print_time_s.value(),
+                    metrics.travel_time_s.value()
+                );
+                println!(
+                    "  material:  {:.4}mm filament, {:.3}mm^3 deposited",
+                    metrics.filament_length.value(),
+                    metrics.extruded_volume.value()
+                );
+                println!("  peak flow: {:.2}mm^3/s", metrics.max_flow_rate.value());
+                if report.findings.is_empty() {
+                    println!("  verify:    OK (no findings)");
+                } else {
+                    for finding in &report.findings {
+                        let seg = finding
+                            .segment
+                            .map(|i| format!(" seg {i}"))
+                            .unwrap_or_default();
+                        let line = finding
+                            .segment
+                            .and_then(|segment| imported.source_line_for_segment(segment))
+                            .map(|line| format!(" line {line}"))
+                            .unwrap_or_default();
+                        println!(
+                            "  [{:?}] {}{line}{seg}: {}",
+                            finding.severity, finding.rule, finding.message
+                        );
+                    }
+                    println!(
+                        "  verify:    {} finding(s), {} error(s)",
+                        report.findings.len(),
+                        report.error_count()
+                    );
+                }
+            }
+
+            if report.ok() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            }
+        }
+        Cmd::RewriteGcode {
+            file,
+            filament_diameter,
+            line_width,
+            layer_height,
+            absolute_e,
+            optimize,
+            out,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let params = GcodeImportParams {
+                version: 0,
+                filament_diameter,
+                line_width,
+                layer_height,
+            };
+            let imported = import_gcode_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let emit_params = EmitParams {
+                relative_e: !absolute_e,
+                travel_g1_e0: false,
+                five_axis: false,
+                kinematics: Kinematics::default(),
+            };
+            let rewritten_lines = if optimize {
+                let span_toolpaths = imported
+                    .motion_spans()
+                    .into_iter()
+                    .map(|span| {
+                        let range = span.segment_range();
+                        let span_toolpath = Toolpath {
+                            version: imported.toolpath.version,
+                            meta: imported.toolpath.meta.clone(),
+                            segments: imported.toolpath.segments[range].to_vec(),
+                        };
+                        optimize_pipeline(&span_toolpath)
+                    })
+                    .collect::<Vec<_>>();
+                imported
+                    .emit_source_preserving_spans(&span_toolpaths, &emit_params)
+                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")))
+            } else {
+                imported
+                    .emit_source_preserving(&imported.toolpath, &emit_params)
+                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")))
+            };
+            let rewritten = rewritten_lines.join("\n");
+            match out {
+                Some(path) => fs::write(&path, rewritten + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{rewritten}"),
+            }
+            ExitCode::SUCCESS
+        }
         Cmd::Optimize { file, out } => {
             let tp = load(&file);
             let before = tp.segments.len();
-            // run the three L2 passes in sequence: collinear merge, then fit arcs to circular runs,
-            // then reorder independent extrusion runs to shorten total travel.
-            let opt = travel_reorder(&arc_fit(&merge_collinear(&tp)));
+            let opt = optimize_pipeline(&tp);
             let after = opt.segments.len();
             let m0 = simulate(&tp);
             let m1 = simulate(&opt);
@@ -288,7 +567,7 @@ fn run(cli: Cli) -> ExitCode {
             eprintln!(
                 "optimize: {file} — {before} → {after} segments (−{}); \
                  travel {travel_before:.2}mm → {travel_after:.2}mm; \
-                 volume {:.4}mm^3 (Δ{:.2e}), time {:.3}s (Δ{:.2e}) preserved",
+                 volume {:.4}mm^3 (Δ{:.2e}), time {:.3}s (Δ{:.2e})",
                 before - after,
                 m1.extruded_volume.value(),
                 (m1.extruded_volume.value() - m0.extruded_volume.value()).abs(),
@@ -310,7 +589,8 @@ fn run(cli: Cli) -> ExitCode {
             speed_range,
             json,
         } => {
-            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let stream =
+                load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
             let contracts = Contracts {
                 bounds: bounds.as_deref().map(parse_bounds),
                 max_flow,
@@ -318,7 +598,8 @@ fn run(cli: Cli) -> ExitCode {
                 monotonic_z,
                 min_temp,
             };
-            let report = verify_stream(stream, &contracts).unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
+            let report = verify_stream(stream, &contracts)
+                .unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else if report.findings.is_empty() {
@@ -345,34 +626,12 @@ fn run(cli: Cli) -> ExitCode {
 
 /// Parse `x0,x1,y0,y1,z0,z1` into a build volume; exits 2 on a malformed value.
 fn parse_bounds(s: &str) -> [[f64; 2]; 3] {
-    let v: Vec<f64> = s
-        .split(',')
-        .map(|t| {
-            t.trim()
-                .parse()
-                .unwrap_or_else(|_| die(format!("bad --bounds value {t:?}")))
-        })
-        .collect();
-    if v.len() != 6 {
-        die("--bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1".into());
-    }
-    [[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]]
+    parse_bounds_csv(s).unwrap_or_else(|e| die(format!("bad --bounds: {e}")))
 }
 
 /// Parse `min,max` into a speed range; exits 2 on a malformed value.
 fn parse_speed_range(s: &str) -> [f64; 2] {
-    let v: Vec<f64> = s
-        .split(',')
-        .map(|t| {
-            t.trim()
-                .parse()
-                .unwrap_or_else(|_| die(format!("bad --speed-range value {t:?}")))
-        })
-        .collect();
-    if v.len() != 2 {
-        die("--speed-range needs 2 comma-separated numbers: min,max".into());
-    }
-    [v[0], v[1]]
+    parse_speed_range_csv(s).unwrap_or_else(|e| die(format!("bad --speed-range: {e}")))
 }
 
 fn main() -> ExitCode {

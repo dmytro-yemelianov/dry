@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 
 const TAU = Math.PI * 2;
+const SPLINE_SAMPLES = 16;
 const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
 
@@ -41,17 +42,48 @@ const PARAM_DESC = {
 };
 
 // ---- turn the resolved IR into timed moves (each tagged with its source segment / g-code line) ----
+function catmullRom(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t, out = [0, 0, 0];
+  for (let a = 0; a < 3; a++) {
+    out[a] = 0.5 * ((2 * p1[a]) + (-p0[a] + p2[a]) * t +
+      (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 +
+      (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3);
+  }
+  return out;
+}
+
+function splinePoints(s) {
+  if (!s.control_points || !s.control_points.length) return null;
+  const start = [
+    s.start[0] ?? 0,
+    s.start[1] ?? 0,
+    s.start[2] ?? 0,
+  ];
+  const through = [start, ...s.control_points.map((p) => [p[0], p[1], p[2]])];
+  const pts = [start];
+  for (let i = 0; i < through.length - 1; i++) {
+    const p0 = through[Math.max(0, i - 1)];
+    const p1 = through[i];
+    const p2 = through[i + 1];
+    const p3 = through[Math.min(through.length - 1, i + 2)];
+    for (let step = 1; step <= SPLINE_SAMPLES; step++) {
+      pts.push(step === SPLINE_SAMPLES ? p2 : catmullRom(p0, p1, p2, p3, step / SPLINE_SAMPLES));
+    }
+  }
+  return pts;
+}
+
 function buildMoves(ir) {
   const moves = [];
-  let t = 0;
+  let t = 0, line = 0;
   const v3 = (a) => [a[0], a[1], a[2]];
   ir.segments.forEach((s, si) => {
     const from = s.start.some((c) => c == null) ? null : v3(s.start);
     const speed = s.speed || 0;
     if (s.kind === 'dwell') {
       const dt = s.dwell_s || 0;
-      moves.push({ from, to: v3(s.end), travel: true, t0: t, t1: t + dt, seg: si });
-      t += dt; return;
+      moves.push({ from, to: v3(s.end), travel: true, t0: t, t1: t + dt, seg: si, line });
+      t += dt; line++; return;
     }
     let pts;
     if (s.kind === 'arc' && s.centre) {
@@ -66,10 +98,13 @@ function buildMoves(ir) {
         const f = i / steps, a = a0 + (s.clockwise ? -1 : 1) * sweep * f;
         pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a), sz + (ez - sz) * f]);
       }
+    } else if (s.kind === 'spline') {
+      pts = splinePoints(s);
+      if (!pts || pts.length <= 1) return;
     } else {
       pts = from ? [from, v3(s.end)] : [v3(s.end)];
     }
-    if (pts.length === 1) { moves.push({ from: null, to: pts[0], travel: s.travel, t0: t, t1: t, seg: si }); return; }
+    if (pts.length === 1) { moves.push({ from: null, to: pts[0], travel: s.travel, t0: t, t1: t, seg: si, line }); line++; return; }
     const subLen = []; let sum = 0;
     for (let i = 1; i < pts.length; i++) {
       const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]);
@@ -78,9 +113,11 @@ function buildMoves(ir) {
     const dtTotal = speed > 0 && (s.length || 0) > 0 ? ((s.length) / speed) * 60 : 0;
     for (let i = 1; i < pts.length; i++) {
       const dt = sum > 0 ? dtTotal * (subLen[i - 1] / sum) : 0;
-      moves.push({ from: pts[i - 1], to: pts[i], travel: s.travel, t0: t, t1: t + dt, seg: si, w: s.width, h: s.height });
+      moves.push({ from: pts[i - 1], to: pts[i], travel: s.travel, t0: t, t1: t + dt, seg: si, line, w: s.width, h: s.height });
       t += dt;
+      if (s.kind === 'spline') line++;
     }
+    if (s.kind !== 'spline') line++;
   });
   return { moves, totalT: t };
 }
@@ -223,7 +260,7 @@ export function createViewer(cfg) {
     P.moves = moves; P.totalT = totalT; P.t = 0; P.playing = false; P.activeRow = null;
     if (playEl) playEl.textContent = '▶';
     P.segStart = []; P.segEnd = [];
-    for (const m of moves) { if (P.segStart[m.seg] === undefined) P.segStart[m.seg] = m.t0; P.segEnd[m.seg] = m.t1; }
+    for (const m of moves) { if (P.segStart[m.line] === undefined) P.segStart[m.line] = m.t0; P.segEnd[m.line] = m.t1; }
 
     V.beads.geometry.dispose();
     V.beads.geometry = buildBeads(moves);
@@ -262,8 +299,8 @@ export function createViewer(cfg) {
   }
   function activeSegAt(t) {
     const ms = P.moves; if (!ms.length) return null;
-    for (const m of ms) if (t <= m.t1) return m.seg;
-    return ms[ms.length - 1].seg;
+    for (const m of ms) if (t <= m.t1) return m.line;
+    return ms[ms.length - 1].line;
   }
   function updatePrinted() {
     const t = P.t;

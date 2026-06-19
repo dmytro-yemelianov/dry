@@ -80,7 +80,8 @@ evaluate parametric coordinate expressions.
 
 The demo also surfaces two L2 passes live:
 
-- **Optimize** — runs `merge_collinear` and shows the raw vs optimized segment count
+- **Optimize** — runs the standard L2 optimisation pipeline (`merge_collinear` → `arc_fit` →
+  `travel_reorder`) and shows the raw vs optimized segment count
   (e.g. `segments: 42 → 30 (−12)`). The *Comb* design authors its straight runs as several
   collinear hops, so the reduction is visible.
 - **Verify** — runs the machine-safety contracts and lists any findings (rule + message), or
@@ -105,6 +106,8 @@ cd .. && python3 -m http.server
 |---|---|
 | `index.html` | the gallery — design picker, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
 | `blocks.html`| **Blockly visual authoring** — drag blocks to build an L1 design; live 3D + g-code preview via `viewer.js` |
+| `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |
+| `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | clean-room demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, …) |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
