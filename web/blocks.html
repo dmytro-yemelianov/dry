@@ -16,7 +16,9 @@
   header h1 b { color:var(--accent); }
   header h1 a { float:right; font-size:13px; color:var(--accent); text-decoration:none; }
   header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
-  main { display:grid; grid-template-columns: 55% 1fr; gap:1px; background:var(--line);
+  /* wider authoring column: the always-open block palette takes a fixed strip, so give the workspace
+     more room beside it. */
+  main { display:grid; grid-template-columns: 62% 1fr; gap:1px; background:var(--line);
          height: calc(100vh - 75px); }
   section { background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
   /* the right column is normal block flow that scrolls — NOT flex — so the tall templates panel can't
@@ -138,64 +140,58 @@
 </main>
 <footer>Dry is clean-room (Apache-2.0). Blockly (Apache-2.0) and three.js (MIT) are vendored locally.</footer>
 
-<!-- XML toolbox (categorised). Blockly classic reads it from the DOM. -->
+<!-- Flyout-style toolbox (NO categories): an always-open palette that the workspace sits beside, so the
+     block library never overlaps the blocks you're assembling. Grouped with <label> separators. -->
 <xml id="toolbox" style="display:none">
-  <category name="Setup" colour="160">
-    <block type="dry_geometry"></block>
-    <block type="dry_extruder"></block>
-    <block type="dry_speed"></block>
-  </category>
-  <category name="Move" colour="210">
-    <block type="dry_move"></block>
-    <block type="dry_arc"></block>
-  </category>
-  <category name="Process" colour="290">
-    <block type="dry_temperature"></block>
-    <block type="dry_fan"></block>
-    <block type="dry_flow"></block>
-    <block type="dry_tool"></block>
-    <block type="dry_orient"></block>
-    <block type="dry_dwell"></block>
-  </category>
-  <category name="Control" colour="20">
-    <block type="dry_repeat"></block>
-    <block type="dry_for">
-      <field name="N">8</field>
-    </block>
-  </category>
-  <category name="Logic" colour="210">
-    <block type="controls_if"></block>
-    <block type="logic_compare">
-      <value name="A"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-      <value name="B"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    </block>
-    <block type="logic_operation"></block>
-    <block type="logic_negate"></block>
-    <block type="logic_boolean"></block>
-  </category>
-  <category name="Math" colour="230">
-    <block type="math_number"><field name="NUM">0</field></block>
-    <block type="math_arithmetic">
-      <value name="A"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-      <value name="B"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-    </block>
-    <block type="math_single">
-      <value name="NUM"><shadow type="math_number"><field name="NUM">9</field></shadow></value>
-    </block>
-    <block type="math_trig">
-      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    </block>
-    <block type="math_modulo">
-      <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-      <value name="DIVISOR"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
-    </block>
-    <block type="math_round">
-      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    </block>
-    <block type="math_constant"><field name="CONSTANT">PI</field></block>
-    <block type="variables_get"><field name="VAR">i</field></block>
-  </category>
-  <category name="Variables" colour="330" custom="VARIABLE"></category>
+  <label text="— Setup —"></label>
+  <block type="dry_geometry"></block>
+  <block type="dry_extruder"></block>
+  <block type="dry_speed"></block>
+  <label text="— Move —"></label>
+  <block type="dry_move"></block>
+  <block type="dry_arc"></block>
+  <label text="— Process —"></label>
+  <block type="dry_temperature"></block>
+  <block type="dry_fan"></block>
+  <block type="dry_flow"></block>
+  <block type="dry_tool"></block>
+  <block type="dry_orient"></block>
+  <block type="dry_dwell"></block>
+  <label text="— Control / Logic —"></label>
+  <block type="dry_repeat"></block>
+  <block type="dry_for"><field name="N">8</field></block>
+  <block type="controls_if"></block>
+  <block type="logic_compare">
+    <value name="A"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    <value name="B"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+  </block>
+  <block type="logic_operation"></block>
+  <block type="logic_negate"></block>
+  <block type="logic_boolean"></block>
+  <label text="— Math —"></label>
+  <block type="math_number"><field name="NUM">0</field></block>
+  <block type="math_arithmetic">
+    <value name="A"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    <value name="B"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+  </block>
+  <block type="math_single">
+    <value name="NUM"><shadow type="math_number"><field name="NUM">9</field></shadow></value>
+  </block>
+  <block type="math_trig">
+    <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+  </block>
+  <block type="math_modulo">
+    <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    <value name="DIVISOR"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
+  </block>
+  <block type="math_round">
+    <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+  </block>
+  <block type="math_constant"><field name="CONSTANT">PI</field></block>
+  <label text="— Variables —"></label>
+  <button text="Create variable…" callbackKey="CREATE_VARIABLE"></button>
+  <block type="variables_get"><field name="VAR">i</field></block>
+  <block type="variables_set"><field name="VAR">i</field></block>
 </xml>
 
 <script type="module">
@@ -431,6 +427,10 @@ window.__genOps = genOps;
     zoom: { controls: true, wheel: true, startScale: 0.9 },
     trashcan: true, renderer: 'geras',
   });
+
+  // the flyout toolbox has no categories, so wire its "Create variable…" button manually.
+  WORKSPACE.registerButtonCallback('CREATE_VARIABLE', (button) =>
+    Blockly.Variables.createVariableButtonHandler(button.getTargetWorkspace()));
 
   // resize Blockly when its container changes
   const onResize = () => Blockly.svgResize(WORKSPACE);
