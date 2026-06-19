@@ -24,6 +24,16 @@ pub enum Op {
     Extruder { on: bool },
     /// Set the print feedrate (mm/min).
     Speed { print: f64 },
+    /// Set the nozzle temperature channel (°C).
+    Temperature { nozzle: f64 },
+    /// Set the part-cooling fan channel (0..1).
+    Fan { speed: f64 },
+    /// Set the flow multiplier channel (scales deposited volume; default 1.0).
+    Flow { ratio: f64 },
+    /// Set the active tool channel.
+    Tool { index: u32 },
+    /// Pause in place for `seconds` (emits a `G4` dwell; adds to the simulated time).
+    Dwell { seconds: f64 },
     /// Move to a point; an axis left `None` is inherited from the running position.
     Move {
         x: Option<f64>,
@@ -87,9 +97,17 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
     let (mut width, mut height) = (Length::ZERO, Length::ZERO);
     let mut on = false;
     let mut print = Feedrate(p.print_speed);
+    // process channels (§3): defaulted, propagated forward, attached to each emitted segment.
+    let mut temp: Option<f64> = None;
+    let mut fan: Option<f64> = None;
+    let mut flow = 1.0_f64;
+    let mut tool: Option<u32> = None;
     let mut segs: Vec<Segment> = Vec::new();
 
     for op in &design.ops {
+        // a flow multiplier of exactly 1.0 is the default and is omitted from the segment (so the wire
+        // form is unchanged for flow-free designs); `length·width·height·1.0` is exact, preserving bytes.
+        let flow_field = if flow == 1.0 { None } else { Some(flow) };
         match *op {
             Op::Geometry {
                 width: w,
@@ -100,6 +118,29 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
             }
             Op::Extruder { on: o } => on = o,
             Op::Speed { print: s } => print = Feedrate(s),
+            Op::Temperature { nozzle } => temp = Some(nozzle),
+            Op::Fan { speed } => fan = Some(speed),
+            Op::Flow { ratio } => flow = ratio,
+            Op::Tool { index } => tool = Some(index),
+            Op::Dwell { seconds } => segs.push(Segment {
+                start: pos,
+                end: pos,
+                travel: true,
+                speed: Feedrate::ZERO,
+                length: Length::ZERO,
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: "dwell".to_string(),
+                centre: None,
+                clockwise: false,
+                temperature: temp,
+                fan,
+                flow: None,
+                tool,
+                dwell_s: Some(seconds),
+            }),
             Op::Move { x, y, z } => {
                 let end = [
                     x.map(Length::mm).or(pos[0]),
@@ -108,7 +149,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 ];
                 let length = dist(pos, end);
                 let volume = if on {
-                    length * width * height
+                    length * width * height * flow
                 } else {
                     Volume::ZERO
                 };
@@ -125,6 +166,11 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     kind: "line".to_string(),
                     centre: None,
                     clockwise: false,
+                    temperature: temp,
+                    fan,
+                    flow: flow_field,
+                    tool,
+                    dwell_s: None,
                 });
                 pos = end;
             }
@@ -164,7 +210,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 };
                 let length = (radius * swept).hypot(dz);
                 let volume = if on {
-                    length * width * height
+                    length * width * height * flow
                 } else {
                     Volume::ZERO
                 };
@@ -181,6 +227,11 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     kind: "arc".to_string(),
                     centre: Some([cx, cy]),
                     clockwise,
+                    temperature: temp,
+                    fan,
+                    flow: flow_field,
+                    tool,
+                    dwell_s: None,
                 });
                 pos = end;
             }

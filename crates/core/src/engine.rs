@@ -34,6 +34,11 @@ pub fn simulate(tp: &Toolpath) -> Metrics {
         m.extruded_volume = m.extruded_volume + s.volume;
         m.filament_length = m.filament_length + s.filament;
 
+        // a dwell contributes only time (it does not move).
+        if let Some(secs) = s.dwell_s {
+            m.total_time_s = m.total_time_s + Time(secs);
+        }
+
         if s.length > Length::ZERO && s.speed != Feedrate::ZERO {
             let t = s.length / s.speed; // Length ÷ Feedrate(mm/min) → Time(seconds)
             m.total_time_s = m.total_time_s + t;

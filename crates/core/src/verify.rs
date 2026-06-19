@@ -25,6 +25,8 @@ pub struct Contracts {
     pub speed_range: Option<[f64; 2]>,
     /// Require Z never to decrease along the path.
     pub monotonic_z: bool,
+    /// Minimum nozzle temperature (°C) required to extrude (cold-extrusion guard).
+    pub min_temp: Option<f64>,
 }
 
 /// How serious a finding is.
@@ -186,6 +188,22 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
                         format!("Z decreases from {} to {}", z0.value(), z1.value()),
                     );
                 }
+            }
+        }
+        if let Some(min) = c.min_temp {
+            // an extruding move below the minimum nozzle temperature (or with none set) is cold extrusion.
+            if !s.travel && s.volume.value() > 0.0 && s.temperature.map(|t| t < min).unwrap_or(true)
+            {
+                let got = s
+                    .temperature
+                    .map(|t| format!("{t}"))
+                    .unwrap_or_else(|| "unset".into());
+                push(
+                    "cold-extrusion",
+                    Severity::Error,
+                    Some(i),
+                    format!("extruding at nozzle temperature {got} (< {min} °C)"),
+                );
             }
         }
     }

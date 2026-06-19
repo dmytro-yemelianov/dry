@@ -91,6 +91,13 @@ fn push_col(out: &mut Vec<u8>, segs: &[Segment], get: impl Fn(&Segment) -> f64) 
     }
 }
 
+fn push_opt_u32_col(out: &mut Vec<u8>, segs: &[Segment], get: impl Fn(&Segment) -> Option<u32>) {
+    push_bits(out, segs.len(), |i| get(&segs[i]).is_some());
+    for s in segs {
+        out.extend_from_slice(&get(s).unwrap_or(0).to_le_bytes());
+    }
+}
+
 /// Encode a toolpath to the compact columnar binary form.
 pub fn encode(tp: &Toolpath) -> Vec<u8> {
     let segs = &tp.segments;
@@ -117,6 +124,13 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     push_col(&mut body, segs, |s| s.length.value());
     push_col(&mut body, segs, |s| s.volume.value());
     push_col(&mut body, segs, |s| s.filament.value());
+
+    // process channels (§3): nullable, so absent on motion-only paths (one bitmap each, ~0 bytes).
+    push_opt_col(&mut body, segs, |s| s.temperature);
+    push_opt_col(&mut body, segs, |s| s.fan);
+    push_opt_col(&mut body, segs, |s| s.flow);
+    push_opt_col(&mut body, segs, |s| s.dwell_s);
+    push_opt_u32_col(&mut body, segs, |s| s.tool);
 
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<&str> = Vec::new();
@@ -194,6 +208,15 @@ impl<'a> Reader<'a> {
     fn col(&mut self, n: usize) -> Result<Vec<f64>, CodecError> {
         (0..n).map(|_| self.f64()).collect()
     }
+    fn opt_u32_col(&mut self, n: usize) -> Result<Vec<Option<u32>>, CodecError> {
+        let valid = self.bits(n)?;
+        let mut col = Vec::with_capacity(n);
+        for v in valid {
+            let x = self.u32()?;
+            col.push(if v { Some(x) } else { None });
+        }
+        Ok(col)
+    }
 }
 
 /// Decode a toolpath from the columnar binary form.
@@ -233,6 +256,12 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
     let volume = r.col(n)?;
     let filament = r.col(n)?;
 
+    let temperature = r.opt_col(n)?;
+    let fan = r.opt_col(n)?;
+    let flow = r.opt_col(n)?;
+    let dwell_s = r.opt_col(n)?;
+    let tool = r.opt_u32_col(n)?;
+
     let dict_len = r.u32()? as usize;
     let mut dict: Vec<String> = Vec::with_capacity(dict_len);
     for _ in 0..dict_len {
@@ -262,6 +291,11 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
             kind,
             centre,
             clockwise: clockwise[i],
+            temperature: temperature[i],
+            fan: fan[i],
+            flow: flow[i],
+            tool: tool[i],
+            dwell_s: dwell_s[i],
         });
     }
     Ok(Toolpath { version, segments })

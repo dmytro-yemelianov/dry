@@ -53,6 +53,14 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let letters = ['X', 'Y', 'Z'];
 
     for s in &tp.segments {
+        // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
+        // does not touch the running position or feedrate).
+        if s.kind == "dwell" {
+            if let Some(secs) = s.dwell_s {
+                out.push(format!("G4 S{}", num(secs)));
+            }
+            continue;
+        }
         let is_arc = s.kind == "arc" && s.centre.is_some();
         let cmd = if s.travel {
             "G0"
