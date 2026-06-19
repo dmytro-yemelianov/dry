@@ -306,79 +306,123 @@ fn to_mcs(
     }
 }
 
-/// Emit motion g-code lines for a toolpath.
-pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
-    let mut flat_segments = Vec::new();
-    for s in &tp.segments {
-        if s.kind == "spline" {
-            if let Some(ref control_points) = s.control_points {
-                let cur = [
-                    s.start[0].unwrap_or(Length::ZERO).value(),
-                    s.start[1].unwrap_or(Length::ZERO).value(),
-                    s.start[2].unwrap_or(Length::ZERO).value(),
-                ];
-                let mut through: Vec<[f64; 3]> = Vec::with_capacity(control_points.len() + 1);
-                through.push(cur);
-                for pt in control_points {
-                    through.push([pt[0].value(), pt[1].value(), pt[2].value()]);
-                }
-                let n = through.len();
-                let mut temp_pos = s.start;
-                for i in 0..n - 1 {
-                    let p0 = through[i.saturating_sub(1)];
-                    let p1 = through[i];
-                    let p2 = through[i + 1];
-                    let p3 = through[(i + 2).min(n - 1)];
-                    for step in 1..=SAMPLES {
-                        let pt = if step == SAMPLES {
-                            p2
-                        } else {
-                            catmull_rom(p0, p1, p2, p3, step as f64 / SAMPLES as f64)
-                        };
-                        let end = [
-                            Some(Length::mm(pt[0])),
-                            Some(Length::mm(pt[1])),
-                            Some(Length::mm(pt[2])),
-                        ];
-                        let sub_length = dist(temp_pos, end);
-                        let ratio = if s.length.value() > 0.0 {
-                            sub_length.value() / s.length.value()
-                        } else {
-                            0.0
-                        };
-                        let sub_volume = s.volume * ratio;
-                        let sub_filament = s.filament * ratio;
-                        flat_segments.push(Segment {
-                            start: temp_pos,
-                            end,
-                            travel: s.travel,
-                            speed: s.speed,
-                            length: sub_length,
-                            volume: sub_volume,
-                            filament: sub_filament,
-                            width: s.width,
-                            height: s.height,
-                            kind: "line".to_string(),
-                            centre: None,
-                            clockwise: false,
-                            temperature: s.temperature,
-                            fan: s.fan,
-                            flow: s.flow,
-                            tool: s.tool,
-                            dwell_s: None,
-                            orientation: s.orientation,
-                            control_points: None,
-                        });
-                        temp_pos = end;
-                    }
-                }
-            }
-        } else {
-            flat_segments.push(s.clone());
+pub struct SplineFlatteningIterator<I>
+where
+    I: Iterator<Item = Result<Segment, crate::codec::CodecError>>,
+{
+    source: I,
+    buffer: std::collections::VecDeque<Segment>,
+}
+
+impl<I> SplineFlatteningIterator<I>
+where
+    I: Iterator<Item = Result<Segment, crate::codec::CodecError>>,
+{
+    pub fn new(source: I) -> Self {
+        Self {
+            source,
+            buffer: std::collections::VecDeque::new(),
         }
     }
+}
 
-    let mut out = Vec::with_capacity(flat_segments.len());
+impl<I> Iterator for SplineFlatteningIterator<I>
+where
+    I: Iterator<Item = Result<Segment, crate::codec::CodecError>>,
+{
+    type Item = Result<Segment, crate::codec::CodecError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(seg) = self.buffer.pop_front() {
+            return Some(Ok(seg));
+        }
+
+        match self.source.next()? {
+            Err(e) => Some(Err(e)),
+            Ok(s) => {
+                if s.kind == "spline" {
+                    if let Some(ref control_points) = s.control_points {
+                        let cur = [
+                            s.start[0].unwrap_or(Length::ZERO).value(),
+                            s.start[1].unwrap_or(Length::ZERO).value(),
+                            s.start[2].unwrap_or(Length::ZERO).value(),
+                        ];
+                        let mut through: Vec<[f64; 3]> = Vec::with_capacity(control_points.len() + 1);
+                        through.push(cur);
+                        for pt in control_points {
+                            through.push([pt[0].value(), pt[1].value(), pt[2].value()]);
+                        }
+                        let n = through.len();
+                        let mut temp_pos = s.start;
+                        for i in 0..n - 1 {
+                            let p0 = through[i.saturating_sub(1)];
+                            let p1 = through[i];
+                            let p2 = through[i + 1];
+                            let p3 = through[(i + 2).min(n - 1)];
+                            for step in 1..=SAMPLES {
+                                let pt = if step == SAMPLES {
+                                    p2
+                                } else {
+                                    catmull_rom(p0, p1, p2, p3, step as f64 / SAMPLES as f64)
+                                };
+                                let end = [
+                                    Some(Length::mm(pt[0])),
+                                    Some(Length::mm(pt[1])),
+                                    Some(Length::mm(pt[2])),
+                                ];
+                                let sub_length = dist(temp_pos, end);
+                                let ratio = if s.length.value() > 0.0 {
+                                    sub_length.value() / s.length.value()
+                                } else {
+                                    0.0
+                                };
+                                let sub_volume = s.volume * ratio;
+                                let sub_filament = s.filament * ratio;
+                                self.buffer.push_back(Segment {
+                                    start: temp_pos,
+                                    end,
+                                    travel: s.travel,
+                                    speed: s.speed,
+                                    length: sub_length,
+                                    volume: sub_volume,
+                                    filament: sub_filament,
+                                    width: s.width,
+                                    height: s.height,
+                                    kind: "line".to_string(),
+                                    centre: None,
+                                    clockwise: false,
+                                    temperature: s.temperature,
+                                    fan: s.fan,
+                                    flow: s.flow,
+                                    tool: s.tool,
+                                    dwell_s: None,
+                                    orientation: s.orientation,
+                                    control_points: None,
+                                });
+                                temp_pos = end;
+                            }
+                        }
+                    }
+                    if let Some(seg) = self.buffer.pop_front() {
+                        Some(Ok(seg))
+                    } else {
+                        self.next()
+                    }
+                } else {
+                    Some(Ok(s))
+                }
+            }
+        }
+    }
+}
+
+/// Emit motion g-code lines for a stream of segments.
+pub fn emit_stream<I>(segments: I, p: &EmitParams) -> Result<Vec<String>, crate::codec::CodecError>
+where
+    I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
+{
+    let segments = SplineFlatteningIterator::new(segments.into_iter());
+    let mut out = Vec::new();
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
@@ -388,7 +432,8 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut prog_pos = [0.0; 3];
     let mut prev_orientation: Option<[f64; 3]> = None;
 
-    for s in &flat_segments {
+    for res in segments {
+        let s = res?;
         // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
         // does not touch the running position or feedrate).
         if s.kind == "dwell" {
@@ -494,7 +539,12 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
         prev_orientation = s.orientation;
         out.push(toks.join(" "));
     }
-    out
+    Ok(out)
+}
+
+/// Emit motion g-code lines for a toolpath.
+pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
+    emit_stream(tp.segments.iter().cloned().map(Ok), p).unwrap()
 }
 
 #[cfg(test)]

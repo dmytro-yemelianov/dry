@@ -29,14 +29,14 @@
 //! bitmap (the value slot holds a `0.0` placeholder), so `decode(encode(ir)) == ir` for any toolpath.
 //! The IR header ([`crate::ir::Meta`] — provenance + declared invariants) rides in the meta trailer.
 
-use crate::ir::{Segment, Toolpath};
+use crate::ir::{Meta, Segment, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
 
 const MAGIC: [u8; 4] = *b"DRY0";
 const ENC_VER: u8 = 0;
 
 /// A decode error — the bytes are not a valid Dry IR v0 binary.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodecError {
     /// Ran out of bytes mid-field.
     Truncated,
@@ -50,6 +50,8 @@ pub enum CodecError {
     BadCompression,
     /// The meta trailer was not valid `Meta` JSON.
     BadMeta,
+    /// Generic or underlying I/O / JSON deserialization error.
+    Other(String),
 }
 
 impl std::fmt::Display for CodecError {
@@ -61,6 +63,7 @@ impl std::fmt::Display for CodecError {
             CodecError::BadUtf8 => write!(f, "invalid UTF-8 in kind dictionary"),
             CodecError::BadCompression => write!(f, "corrupt compressed body"),
             CodecError::BadMeta => write!(f, "invalid IR meta header"),
+            CodecError::Other(s) => write!(f, "error: {s}"),
         }
     }
 }
@@ -274,8 +277,88 @@ impl<'a> Reader<'a> {
     }
 }
 
-/// Decode a toolpath from the columnar binary form.
-pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
+#[derive(Debug, Clone)]
+pub struct BinarySegmentsIterator {
+    pub n: usize,
+    pub i: usize,
+    pub travel: Vec<bool>,
+    pub clockwise: Vec<bool>,
+    pub sx: Vec<Option<f64>>,
+    pub sy: Vec<Option<f64>>,
+    pub sz: Vec<Option<f64>>,
+    pub ex: Vec<Option<f64>>,
+    pub ey: Vec<Option<f64>>,
+    pub ez: Vec<Option<f64>>,
+    pub width: Vec<Option<f64>>,
+    pub height: Vec<Option<f64>>,
+    pub cx: Vec<Option<f64>>,
+    pub cy: Vec<Option<f64>>,
+    pub speed: Vec<f64>,
+    pub length: Vec<f64>,
+    pub volume: Vec<f64>,
+    pub filament: Vec<f64>,
+    pub temperature: Vec<Option<f64>>,
+    pub fan: Vec<Option<f64>>,
+    pub flow: Vec<Option<f64>>,
+    pub dwell_s: Vec<Option<f64>>,
+    pub tool: Vec<Option<u32>>,
+    pub orientation: Vec<Option<[f64; 3]>>,
+    pub control_points: Vec<Option<Vec<[Length; 3]>>>,
+    pub dict: Vec<String>,
+    pub kind_indices: Vec<u32>,
+}
+
+impl Iterator for BinarySegmentsIterator {
+    type Item = Result<Segment, CodecError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i >= self.n {
+            return None;
+        }
+        let i = self.i;
+        self.i += 1;
+
+        let kind_idx = match self.kind_indices.get(i) {
+            Some(&idx) => idx as usize,
+            None => return Some(Err(CodecError::Truncated)),
+        };
+        let kind = match self.dict.get(kind_idx) {
+            Some(k) => k.clone(),
+            None => return Some(Err(CodecError::Truncated)),
+        };
+
+        let opt_len = |c: &[Option<f64>], idx: usize| c[idx].map(Length::mm);
+        let centre = match (self.cx[i], self.cy[i]) {
+            (Some(a), Some(b)) => Some([Length::mm(a), Length::mm(b)]),
+            _ => None,
+        };
+
+        Some(Ok(Segment {
+            start: [opt_len(&self.sx, i), opt_len(&self.sy, i), opt_len(&self.sz, i)],
+            end: [opt_len(&self.ex, i), opt_len(&self.ey, i), opt_len(&self.ez, i)],
+            travel: self.travel[i],
+            speed: Feedrate(self.speed[i]),
+            length: Length::mm(self.length[i]),
+            volume: Volume(self.volume[i]),
+            filament: Length::mm(self.filament[i]),
+            width: opt_len(&self.width, i),
+            height: opt_len(&self.height, i),
+            kind,
+            centre,
+            clockwise: self.clockwise[i],
+            temperature: self.temperature[i],
+            fan: self.fan[i],
+            flow: self.flow[i],
+            tool: self.tool[i],
+            dwell_s: self.dwell_s[i],
+            orientation: self.orientation[i],
+            control_points: self.control_points[i].clone(),
+        }))
+    }
+}
+
+/// Decode a toolpath from the columnar binary form streamingly.
+pub fn decode_streaming(buf: &[u8]) -> Result<(u32, Option<Meta>, BinarySegmentsIterator), CodecError> {
     let mut h = Reader::new(buf);
     if h.take(4)? != MAGIC {
         return Err(CodecError::BadMagic);
@@ -345,36 +428,10 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
         let s = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
         dict.push(s.to_string());
     }
-    let opt_len = |c: &[Option<f64>], i: usize| c[i].map(Length::mm);
-    let mut segments = Vec::with_capacity(n);
-    for i in 0..n {
-        let kind_idx = r.u32()? as usize;
-        let kind = dict.get(kind_idx).cloned().ok_or(CodecError::Truncated)?;
-        let centre = match (cx[i], cy[i]) {
-            (Some(a), Some(b)) => Some([Length::mm(a), Length::mm(b)]),
-            _ => None,
-        };
-        segments.push(Segment {
-            start: [opt_len(&sx, i), opt_len(&sy, i), opt_len(&sz, i)],
-            end: [opt_len(&ex, i), opt_len(&ey, i), opt_len(&ez, i)],
-            travel: travel[i],
-            speed: Feedrate(speed[i]),
-            length: Length::mm(length[i]),
-            volume: Volume(volume[i]),
-            filament: Length::mm(filament[i]),
-            width: opt_len(&width, i),
-            height: opt_len(&height, i),
-            kind,
-            centre,
-            clockwise: clockwise[i],
-            temperature: temperature[i],
-            fan: fan[i],
-            flow: flow[i],
-            tool: tool[i],
-            dwell_s: dwell_s[i],
-            orientation: orientation[i],
-            control_points: control_points[i].clone(),
-        });
+
+    let mut kind_indices = Vec::with_capacity(n);
+    for _ in 0..n {
+        kind_indices.push(r.u32()?);
     }
 
     // meta trailer: present-flag, then a length-prefixed JSON blob when present.
@@ -387,6 +444,46 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
         }
     };
 
+    let iter = BinarySegmentsIterator {
+        n,
+        i: 0,
+        travel,
+        clockwise,
+        sx,
+        sy,
+        sz,
+        ex,
+        ey,
+        ez,
+        width,
+        height,
+        cx,
+        cy,
+        speed,
+        length,
+        volume,
+        filament,
+        temperature,
+        fan,
+        flow,
+        dwell_s,
+        tool,
+        orientation,
+        control_points,
+        dict,
+        kind_indices,
+    };
+
+    Ok((version, meta, iter))
+}
+
+/// Decode a toolpath from the columnar binary form.
+pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
+    let (version, meta, iter) = decode_streaming(buf)?;
+    let mut segments = Vec::with_capacity(iter.n);
+    for res in iter {
+        segments.push(res?);
+    }
     Ok(Toolpath {
         version,
         meta,
@@ -412,5 +509,173 @@ mod tests {
     fn bad_magic_is_an_error() {
         assert_eq!(decode(b"XXXX...."), Err(CodecError::BadMagic));
         assert_eq!(decode(b"DRY"), Err(CodecError::Truncated));
+    }
+
+    #[test]
+    fn test_streaming_decoders() {
+        use crate::units::{Feedrate, Length, Volume};
+        let tp = Toolpath {
+            version: 3,
+            meta: None,
+            segments: vec![
+                Segment {
+                    start: [Some(Length::mm(1.0)), Some(Length::mm(2.0)), Some(Length::mm(3.0))],
+                    end: [Some(Length::mm(4.0)), Some(Length::mm(5.0)), Some(Length::mm(6.0))],
+                    travel: false,
+                    speed: Feedrate(1200.0),
+                    length: Length::mm(5.196),
+                    volume: Volume(0.62),
+                    filament: Length::mm(0.2),
+                    width: Some(Length::mm(0.6)),
+                    height: Some(Length::mm(0.2)),
+                    kind: "line".to_string(),
+                    centre: None,
+                    clockwise: false,
+                    temperature: Some(210.0),
+                    fan: Some(0.5),
+                    flow: Some(1.0),
+                    tool: Some(0),
+                    dwell_s: None,
+                    orientation: None,
+                },
+                Segment {
+                    start: [Some(Length::mm(4.0)), Some(Length::mm(5.0)), Some(Length::mm(6.0))],
+                    end: [Some(Length::mm(4.0)), Some(Length::mm(5.0)), Some(Length::mm(6.0))],
+                    travel: true,
+                    speed: Feedrate(0.0),
+                    length: Length::ZERO,
+                    volume: Volume::ZERO,
+                    filament: Length::ZERO,
+                    width: None,
+                    height: None,
+                    kind: "dwell".to_string(),
+                    centre: None,
+                    clockwise: false,
+                    temperature: None,
+                    fan: None,
+                    flow: None,
+                    tool: None,
+                    dwell_s: Some(1.5),
+                    orientation: None,
+                },
+            ],
+        };
+
+        // Binary streaming roundtrip
+        let bytes = encode(&tp);
+        let (version, meta, iter) = decode_streaming(&bytes).unwrap();
+        assert_eq!(version, 3);
+        assert_eq!(meta, None);
+        let decoded_segs: Vec<Segment> = iter.map(|r| r.unwrap()).collect();
+        assert_eq!(decoded_segs, tp.segments);
+
+        // JSON streaming roundtrip
+        let json_str = tp.to_json();
+        let json_iter = JsonSegmentsIterator::new(json_str.as_bytes());
+        let json_segs: Vec<Segment> = json_iter.map(|r| r.unwrap()).collect();
+        assert_eq!(json_segs, tp.segments);
+    }
+}
+
+use std::io::{BufReader, Read};
+
+pub struct JsonSegmentsIterator<R: Read> {
+    reader: BufReader<R>,
+    started: bool,
+    done: bool,
+}
+
+impl<R: Read> Iterator for JsonSegmentsIterator<R> {
+    type Item = Result<Segment, CodecError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        if !self.started {
+            self.started = true;
+            if let Err(e) = self.skip_to_segments() {
+                self.done = true;
+                return Some(Err(e));
+            }
+        }
+
+        match self.skip_whitespace_and_comma() {
+            Ok(true) => {
+                self.done = true;
+                None
+            }
+            Ok(false) => {
+                let mut de = serde_json::Deserializer::from_reader(&mut self.reader);
+                match serde::Deserialize::deserialize(&mut de) {
+                    Ok(seg) => Some(Ok(seg)),
+                    Err(e) => {
+                        self.done = true;
+                        Some(Err(CodecError::Other(e.to_string())))
+                    }
+                }
+            }
+            Err(e) => {
+                self.done = true;
+                Some(Err(e))
+            }
+        }
+    }
+}
+
+impl<R: Read> JsonSegmentsIterator<R> {
+    pub fn new(reader: R) -> Self {
+        JsonSegmentsIterator {
+            reader: BufReader::new(reader),
+            started: false,
+            done: false,
+        }
+    }
+
+    fn skip_to_segments(&mut self) -> Result<(), CodecError> {
+        let pattern = b"\"segments\"";
+        let mut matched = 0;
+        let mut buf = [0u8; 1];
+        loop {
+            self.reader.read_exact(&mut buf).map_err(|e| CodecError::Other(e.to_string()))?;
+            if buf[0] == pattern[matched] {
+                matched += 1;
+                if matched == pattern.len() {
+                    break;
+                }
+            } else {
+                matched = 0;
+                if buf[0] == pattern[0] {
+                    matched = 1;
+                }
+            }
+        }
+        loop {
+            self.reader.read_exact(&mut buf).map_err(|e| CodecError::Other(e.to_string()))?;
+            if buf[0] == b'[' {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn skip_whitespace_and_comma(&mut self) -> Result<bool, CodecError> {
+        use std::io::BufRead;
+        loop {
+            let available = self.reader.fill_buf().map_err(|e| CodecError::Other(e.to_string()))?;
+            if available.is_empty() {
+                return Err(CodecError::Truncated);
+            }
+            let c = available[0];
+            if c.is_ascii_whitespace() || c == b',' {
+                self.reader.consume(1);
+            } else if c == b']' {
+                self.reader.consume(1);
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
+        }
     }
 }

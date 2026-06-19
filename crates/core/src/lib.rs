@@ -20,11 +20,11 @@ pub mod resolve;
 pub mod units;
 pub mod verify;
 
-pub use codec::CodecError;
-pub use emit::{emit, EmitParams, Kinematics};
-pub use engine::{simulate, Metrics};
+pub use codec::{decode_streaming, BinarySegmentsIterator, JsonSegmentsIterator, CodecError};
+pub use emit::{emit, emit_stream, EmitParams, Kinematics};
+pub use engine::{simulate, simulate_stream, Metrics};
 pub use ir::{Meta, Segment, Toolpath};
 pub use optimize::{arc_fit, merge_collinear, travel_reorder};
 pub use resolve::{resolve, Design, Op, ResolveParams};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
-pub use verify::{verify, Contracts, Finding, Report, Severity};
+pub use verify::{verify, verify_stream, Contracts, Finding, Report, Severity};

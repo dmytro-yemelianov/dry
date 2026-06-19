@@ -91,18 +91,18 @@ pub struct Meta {
 
 /// A resolved toolpath: an ordered stream of moves. The `version` tags the Dry IR schema.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Toolpath {
+pub struct Toolpath<I = Vec<Segment>> {
     #[serde(default)]
     pub version: u32,
     /// Optional self-describing header (provenance + declared invariants). Absent ⇒ no `meta` key on
     /// the wire (byte-identity with a header-free IR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<Meta>,
-    pub segments: Vec<Segment>,
+    pub segments: I,
 }
 
-impl Toolpath {
-    pub fn from_json(s: &str) -> Result<Toolpath, serde_json::Error> {
+impl Toolpath<Vec<Segment>> {
+    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
     }
 
@@ -116,7 +116,19 @@ impl Toolpath {
     }
 
     /// Decode from the columnar binary form. Lossless: `from_bytes(&to_bytes()) == self`.
-    pub fn from_bytes(buf: &[u8]) -> Result<Toolpath, crate::codec::CodecError> {
+    pub fn from_bytes(buf: &[u8]) -> Result<Self, crate::codec::CodecError> {
         crate::codec::decode(buf)
+    }
+}
+
+impl<I> IntoIterator for Toolpath<I>
+where
+    I: IntoIterator,
+{
+    type Item = I::Item;
+    type IntoIter = I::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
     }
 }
