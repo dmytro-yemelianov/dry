@@ -51,6 +51,38 @@ export class Design {
     return this;
   }
 
+  // ---- process channels (§3) ----
+
+  /** Set the nozzle temperature channel (°C). */
+  temperature(nozzle: number): this {
+    this.ops.push({ op: 'temperature', nozzle });
+    return this;
+  }
+
+  /** Set the part-cooling fan channel (0..1). */
+  fan(speed: number): this {
+    this.ops.push({ op: 'fan', speed });
+    return this;
+  }
+
+  /** Set the flow multiplier channel (scales deposited volume; default 1.0). */
+  flow(ratio: number): this {
+    this.ops.push({ op: 'flow', ratio });
+    return this;
+  }
+
+  /** Set the active tool channel. */
+  tool(index: number): this {
+    this.ops.push({ op: 'tool', index });
+    return this;
+  }
+
+  /** Pause in place for `seconds` (emits a `G4` dwell). */
+  dwell(seconds: number): this {
+    this.ops.push({ op: 'dwell', seconds });
+    return this;
+  }
+
   // ---- engine calls ----
 
   /** Resolve + emit motion g-code (an array of lines). */

@@ -56,6 +56,32 @@ class Design:
                          "clockwise": bool(clockwise)})
         return self
 
+    # ---- process channels (§3): typed, defaulted, propagated by the engine ----
+    def temperature(self, nozzle):
+        "Set the nozzle temperature channel (°C)."
+        self.ops.append({"op": "temperature", "nozzle": nozzle})
+        return self
+
+    def fan(self, speed):
+        "Set the part-cooling fan channel (0..1)."
+        self.ops.append({"op": "fan", "speed": speed})
+        return self
+
+    def flow(self, ratio):
+        "Set the flow multiplier channel (scales deposited volume; default 1.0)."
+        self.ops.append({"op": "flow", "ratio": ratio})
+        return self
+
+    def tool(self, index):
+        "Set the active tool channel."
+        self.ops.append({"op": "tool", "index": int(index)})
+        return self
+
+    def dwell(self, seconds):
+        "Pause in place for `seconds` (emits a G4 dwell)."
+        self.ops.append({"op": "dwell", "seconds": seconds})
+        return self
+
     # ---- engine calls ----
     def gcode(self, printer="generic", relative_e=True):
         "Resolve + emit motion g-code (a list of lines)."

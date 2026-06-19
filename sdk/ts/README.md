@@ -26,6 +26,14 @@ new Design().geometry(0.6, 0.2).extruder(true)
   .point(0, 20, 0.2);
 ```
 
+Process channels (§3) — `temperature` / `fan` / `flow` / `tool` — and `dwell`:
+
+```ts
+new Design().geometry(0.6, 0.2).temperature(210).fan(0.5).flow(0.95).tool(0).extruder(true)
+  .point(0, 0, 0.2).point(10, 0, 0.2)
+  .dwell(2);   // a G4 pause
+```
+
 ## Build & test
 
 ```bash

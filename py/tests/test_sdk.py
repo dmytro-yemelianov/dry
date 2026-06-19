@@ -47,3 +47,22 @@ def test_ir_round_trips():
     ir = d.ir()
     assert ir["version"] == 0 and len(ir["segments"]) == 2
     assert ir["segments"][1]["end"] == [10.0, 0.0, 0.2]
+
+
+def test_channels_and_dwell_author_through_the_builder():
+    d = (dry.Design().geometry(0.6, 0.2).temperature(210).fan(0.5).tool(1).extruder(True)
+         .point(0, 0, 0.2).point(10, 0, 0.2).dwell(2.5))
+    ir = d.ir()
+    assert ir["segments"][1]["temperature"] == 210
+    assert ir["segments"][1]["fan"] == 0.5
+    assert ir["segments"][1]["tool"] == 1
+    assert any(line == "G4 S2.5" for line in d.gcode())
+
+
+def test_flow_multiplier_scales_volume():
+    base = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    scaled = (dry.Design().geometry(0.6, 0.2).flow(0.8).extruder(True)
+              .point(0, 0, 0.2).point(10, 0, 0.2))
+    b = base.ir()["segments"][1]["volume"]
+    s = scaled.ir()["segments"][1]["volume"]
+    assert abs(s - b * 0.8) < 1e-12

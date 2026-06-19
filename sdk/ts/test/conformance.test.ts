@@ -72,3 +72,35 @@ test('ir() returns resolved segments', () => {
 test('generic params are exposed', () => {
   assert.deepEqual(RESOLVE_PARAMS, { print_speed: 1000, travel_speed: 8000, dia: 1.75 });
 });
+
+// Process channels author onto the resolved IR, and dwell emits a G4.
+test('channels and dwell author through the builder', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .temperature(210)
+    .fan(0.5)
+    .tool(1)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2)
+    .dwell(2.5);
+  const ir = d.ir();
+  assert.equal(ir.segments[1].temperature, 210);
+  assert.equal(ir.segments[1].fan, 0.5);
+  assert.equal(ir.segments[1].tool, 1);
+  assert.ok(d.gcode().some((l) => l === 'G4 S2.5'), 'expected a G4 dwell line');
+});
+
+// A flow multiplier scales the deposited volume.
+test('flow multiplier scales deposited volume', () => {
+  const base = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(10, 0, 0.2);
+  const scaled = new Design()
+    .geometry(0.6, 0.2)
+    .flow(0.8)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2);
+  const b = base.ir().segments[1].volume;
+  const s = scaled.ir().segments[1].volume;
+  assert.ok(Math.abs(s - b * 0.8) < 1e-12, `${s} vs ${b * 0.8}`);
+});
