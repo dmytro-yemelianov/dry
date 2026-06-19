@@ -5,6 +5,15 @@ run client-side. A design authored as Dry **L1 ops** is resolved → simulated �
 browser; the g-code is **byte-identical** to the other front-ends (and to the FullControl conformance
 oracle).
 
+The demo also surfaces two L2 passes live:
+
+- **Optimize** — runs `merge_collinear` and shows the raw vs optimized segment count
+  (e.g. `segments: 42 → 30 (−12)`). The *Comb* design authors its straight runs as several
+  collinear hops, so the reduction is visible.
+- **Verify** — runs the machine-safety contracts and lists any findings (rule + message), or
+  shows `✓ no findings`. The `max flow` (mm³/s) and `min temp` (°C) inputs feed the contract;
+  `0` (or empty) disables that check.
+
 ## Run it
 
 ```bash
@@ -21,8 +30,8 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
-| `index.html` | the demo — design picker, 2D canvas toolpath render, live g-code + metrics |
-| `designs.js` | clean-room demo designs as Dry L1 ops (square, star, native arcs, ~120-seg spiral vase) |
+| `index.html` | the demo — design picker, 2D canvas toolpath render, live g-code + metrics, **optimize** + **verify** panels |
+| `designs.js` | clean-room demo designs as Dry L1 ops (square, star, native arcs, ~120-seg spiral vase, collinear comb) |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |
 | `smoke.cjs`  | Node test: the wasm engine reproduces the conformance oracle byte-for-byte (run in CI) |
 | `pkg/`, `pkg-node/` | build artifacts — **git-ignored**, rebuilt by `build.sh` (the repo stays binary-free) |

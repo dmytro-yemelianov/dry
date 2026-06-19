@@ -35,6 +35,17 @@
   pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;
         font-size:12px; white-space:pre; overflow:auto; margin:0; max-height:38vh; }
   .gcode-meta { color:var(--muted); font-size:11px; margin:10px 0 6px; }
+  .optimize { font-size:13px; }
+  .optimize .delta { color:var(--accent); }
+  .optimize .none { color:var(--muted); }
+  .findings { display:flex; flex-direction:column; gap:6px; }
+  .findings .ok { color:var(--accent); }
+  .finding { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--travel);
+             border-radius:6px; padding:6px 8px; font-size:12px; }
+  .finding.warning { border-left-color:#d29922; }
+  .finding .rule { color:var(--travel); font-weight:600; }
+  .finding.warning .rule { color:#d29922; }
+  .finding .msg { color:var(--muted); display:block; margin-top:2px; }
   footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
   code { color:var(--extrude); }
 </style>
@@ -52,6 +63,18 @@
     <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
     <h2 style="margin-top:22px">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
+
+    <h2 style="margin-top:22px">Optimize <span style="text-transform:none;color:var(--muted);font-weight:400">— merge collinear</span></h2>
+    <div class="optimize" id="optimize"></div>
+
+    <h2 style="margin-top:22px">Verify <span style="text-transform:none;color:var(--muted);font-weight:400">— machine-safety contracts</span></h2>
+    <div class="row">
+      <label class="toggle">max flow <input type="number" id="maxFlow" value="8" step="0.5" min="0"
+        style="width:64px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
+      <label class="toggle">min temp <input type="number" id="minTemp" value="180" step="5" min="0"
+        style="width:64px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
+    </div>
+    <div class="findings" id="findings"></div>
   </section>
   <section>
     <h2>Toolpath</h2>
@@ -70,7 +93,8 @@
 <footer>Dry is clean-room (Apache-2.0). FullControl is the behavioral oracle, never shipped.</footer>
 
 <script type="module">
-import init, { resolve_gcode, resolve_metrics, resolve_ir } from './pkg/dry_wasm.js';
+import init, { resolve_gcode, resolve_metrics, resolve_ir,
+               resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
 import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
 
 const $ = (id) => document.getElementById(id);
@@ -125,6 +149,7 @@ function render(key, relE) {
   const gcode = resolve_gcode(ops, params, relE);
   const m = JSON.parse(resolve_metrics(ops, params));
   const ir = JSON.parse(resolve_ir(ops, params));
+  const optimizedIr = JSON.parse(resolve_optimized_ir(ops, params));
 
   $('gcode').textContent = gcode.join('\n');
   $('gcodeMeta').textContent = `${gcode.length} motion lines · ${relE ? 'relative' : 'absolute'} E`;
@@ -139,7 +164,27 @@ function render(key, relE) {
     ['max flow (mm³/s)', fmt(m.max_flow_rate)],
   ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   drawIR($('view'), ir);
-  window.__dry = { gcode, metrics: m, ir };   // for headless verification
+
+  // --- Optimize panel: raw vs optimized segment count ---
+  const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
+  $('optimize').innerHTML = saved > 0
+    ? `segments: ${raw} → ${opt} <span class="delta">(−${saved})</span>`
+    : `segments: ${raw} → ${opt} <span class="none">(nothing to merge)</span>`;
+
+  // --- Verify panel: run the safety contracts ---
+  const maxFlow = parseFloat($('maxFlow').value) || 0;
+  const minTemp = parseFloat($('minTemp').value) || 0;
+  const report = JSON.parse(resolve_verify(ops, params, maxFlow, minTemp));
+  const findings = report.findings || [];
+  $('findings').innerHTML = findings.length
+    ? findings.map((f) =>
+        `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +
+        `${f.segment != null ? ` · seg ${f.segment}` : ''}` +
+        `<span class="msg">${f.message}</span></div>`).join('')
+    : '<div class="ok">✓ no findings</div>';
+
+  window.__dry = { gcode, metrics: m, ir, optimizedIr,
+                   rawSegments: raw, optimizedSegments: opt, report };   // for headless verification
 }
 
 (async () => {
@@ -151,6 +196,8 @@ function render(key, relE) {
   const go = () => render(sel.value, $('relE').checked);
   sel.addEventListener('change', go);
   $('relE').addEventListener('change', go);
+  $('maxFlow').addEventListener('input', go);
+  $('minTemp').addEventListener('input', go);
   go();
   window.__dryReady = true;
 })();
