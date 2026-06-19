@@ -18,6 +18,10 @@ pub struct EmitParams {
     pub relative_e: bool,
     #[serde(default)]
     pub travel_g1_e0: bool,
+    /// Emit rotary `A`/`B` words from the toolframe orientation (5-axis). Default off ⇒ 3-axis, the
+    /// orientation is dropped and the motion g-code is byte-identical to the conformance oracle.
+    #[serde(default)]
+    pub five_axis: bool,
 }
 
 fn default_true() -> bool {
@@ -29,8 +33,19 @@ impl Default for EmitParams {
         EmitParams {
             relative_e: true,
             travel_g1_e0: false,
+            five_axis: false,
         }
     }
+}
+
+/// Map a toolframe orientation (tool-direction unit vector) to rotary `(A, B)` angles in **degrees**
+/// for an AB-head: `B = atan2(i, k)` (lead in the X-Z plane), `A = atan2(j, hypot(i, k))` (tilt toward
+/// Y). `None` ⇒ identity (+Z) ⇒ `(0, 0)`.
+fn tool_angles(orientation: Option<[f64; 3]>) -> (f64, f64) {
+    let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
+    let b = i.atan2(k).to_degrees();
+    let a = j.atan2((i * i + k * k).sqrt()).to_degrees();
+    (a, b)
 }
 
 /// Format a number as FullControl does: 6 decimals, trailing zeros + trailing `.` stripped, no `-0`.
@@ -49,6 +64,7 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut out = Vec::with_capacity(tp.segments.len());
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
+    let mut prev_ab: Option<(f64, f64)> = None;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
@@ -92,6 +108,20 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
                 }
                 pos[i] = Some(v);
             }
+        }
+
+        // 5-axis: emit the rotary A/B (degrees) from the toolframe orientation, each only when it
+        // changes. In 3-axis mode the orientation is dropped entirely.
+        if p.five_axis {
+            let (a, b) = tool_angles(s.orientation);
+            let (pa, pb) = prev_ab.unwrap_or((f64::NAN, f64::NAN));
+            if a != pa {
+                toks.push(format!("A{}", num(a)));
+            }
+            if b != pb {
+                toks.push(format!("B{}", num(b)));
+            }
+            prev_ab = Some((a, b));
         }
 
         if is_arc {

@@ -28,6 +28,7 @@ pub fn resolve_gcode(
         &EmitParams {
             relative_e,
             travel_g1_e0: false,
+            five_axis: false,
         },
     ))
 }

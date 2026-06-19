@@ -28,6 +28,7 @@ fn resolve_gcode(ops_json: &str, params_json: &str, relative_e: bool) -> PyResul
         &EmitParams {
             relative_e,
             travel_g1_e0: false,
+            five_axis: false,
         },
     ))
 }
