@@ -317,7 +317,7 @@ export function createViewer(cfg) {
   // ---- resolve an ops array + render every panel ----
   function show(ops, relativeE = true) {
     const opsJson = JSON.stringify(ops), paramsJson = JSON.stringify(params);
-    const gcode = wasm.resolve_gcode(opsJson, paramsJson, relativeE);
+    const gcode = wasm.resolve_gcode(opsJson, paramsJson, relativeE, false, false, 'ab');
     const m = JSON.parse(wasm.resolve_metrics(opsJson, paramsJson));
     const ir = JSON.parse(wasm.resolve_ir(opsJson, paramsJson));
     const optimizedIr = JSON.parse(wasm.resolve_optimized_ir(opsJson, paramsJson));
