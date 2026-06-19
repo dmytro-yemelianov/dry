@@ -51,7 +51,14 @@ pub enum Op {
         z: Option<f64>,
         clockwise: bool,
     },
+    /// A Catmull-Rom spline starting at the running position (P0) and passing through each control
+    /// point in `points` (a list of `[x, y, z]`, each axis `None` ⇒ inherited from the running
+    /// position). Lowered to line segments in `resolve` (sampling `SAMPLES` points per span).
+    Spline { points: Vec<[Option<f64>; 3]> },
 }
+
+/// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).
+const SAMPLES: usize = 16;
 
 /// A design: an ordered list of L1 ops.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -87,6 +94,23 @@ fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
         }
     }
     sq.sqrt()
+}
+
+/// Uniform Catmull-Rom interpolation of the span `p1 → p2` (phantom neighbours `p0`, `p3`) at
+/// parameter `t ∈ [0, 1]`. The curve passes through its control points: `t = 0 ⇒ p1`, `t = 1 ⇒ p2`
+/// (the basis is `[0,1,0,0]` at the endpoints), so span boundaries land exactly on the through-points.
+fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f64) -> [f64; 3] {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    let mut out = [0.0; 3];
+    for a in 0..3 {
+        out[a] = 0.5
+            * ((2.0 * p1[a])
+                + (-p0[a] + p2[a]) * t
+                + (2.0 * p0[a] - 5.0 * p1[a] + 4.0 * p2[a] - p3[a]) * t2
+                + (-p0[a] + 3.0 * p1[a] - 3.0 * p2[a] + p3[a]) * t3);
+    }
+    out
 }
 
 /// Lower an L1 design to an L2 toolpath.
@@ -241,6 +265,81 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     orientation,
                 });
                 pos = end;
+            }
+            Op::Spline { ref points } => {
+                // Build the through-point sequence as raw f64 triples, resolving each `None` axis from
+                // the running position (like `Move`). P0 is the current running position.
+                let cur = [
+                    pos[0].map(|l| l.value()).unwrap_or(0.0),
+                    pos[1].map(|l| l.value()).unwrap_or(0.0),
+                    pos[2].map(|l| l.value()).unwrap_or(0.0),
+                ];
+                // through[0] = P0 (current pos); through[1..] = the resolved control points.
+                let mut through: Vec<[f64; 3]> = Vec::with_capacity(points.len() + 1);
+                through.push(cur);
+                let mut running = cur;
+                for p in points {
+                    let resolved = [
+                        p[0].unwrap_or(running[0]),
+                        p[1].unwrap_or(running[1]),
+                        p[2].unwrap_or(running[2]),
+                    ];
+                    through.push(resolved);
+                    running = resolved;
+                }
+                // For each span [through[i], through[i+1]] use phantom neighbours P0/P3, duplicating the
+                // first/last through-point at the ends. Sample the uniform Catmull-Rom at the span's
+                // interior + endpoint (t in (0,1]) so consecutive spans share their boundary point.
+                let n = through.len();
+                for i in 0..n - 1 {
+                    let p0 = through[i.saturating_sub(1)];
+                    let p1 = through[i];
+                    let p2 = through[i + 1];
+                    let p3 = through[(i + 2).min(n - 1)];
+                    for step in 1..=SAMPLES {
+                        // The span endpoint (step == SAMPLES) is the through-point exactly: a Catmull-Rom
+                        // interpolates its control points at boundaries (`catmull_rom(.., 1.0) == p2`
+                        // algebraically), so we copy `p2` to avoid float reassociation drift — the
+                        // resolved position lands *on* each control point.
+                        let pt = if step == SAMPLES {
+                            p2
+                        } else {
+                            catmull_rom(p0, p1, p2, p3, step as f64 / SAMPLES as f64)
+                        };
+                        let end = [
+                            Some(Length::mm(pt[0])),
+                            Some(Length::mm(pt[1])),
+                            Some(Length::mm(pt[2])),
+                        ];
+                        let length = dist(pos, end);
+                        let volume = if on {
+                            length * width * height * flow
+                        } else {
+                            Volume::ZERO
+                        };
+                        segs.push(Segment {
+                            start: pos,
+                            end,
+                            travel: !on,
+                            speed: if on { print } else { travel_speed },
+                            length,
+                            volume,
+                            filament: volume / area,
+                            width: Some(width),
+                            height: Some(height),
+                            kind: "line".to_string(),
+                            centre: None,
+                            clockwise: false,
+                            temperature: temp,
+                            fan,
+                            flow: flow_field,
+                            tool,
+                            dwell_s: None,
+                            orientation,
+                        });
+                        pos = end;
+                    }
+                }
             }
         }
     }

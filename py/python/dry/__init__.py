@@ -56,6 +56,12 @@ class Design:
                          "clockwise": bool(clockwise)})
         return self
 
+    def spline(self, points):
+        "A Catmull-Rom spline from the running position through each (x, y, z) control point."
+        self.ops.append({"op": "spline",
+                         "points": [[p[0], p[1], p[2]] for p in points]})
+        return self
+
     # ---- process channels (§3): typed, defaulted, propagated by the engine ----
     def temperature(self, nozzle):
         "Set the nozzle temperature channel (°C)."
