@@ -394,7 +394,7 @@ Layer 38:
 Potential commands:
 
 ```bash
-dry trace part.gcode -o trace.parquet
+dry trace-gcode part.gcode --window-s 5 > trace.json
 dry analyze part.gcode --profile voron24.json
 dry explain part.gcode --llm
 dry compare stock.gcode tuned.gcode
@@ -462,6 +462,8 @@ relax a profile limit without editing the profile file.
 
 Time-series and comparison workflows need an efficient trace format:
 
+- current JSON summaries from `dry trace-gcode` with fixed window IDs, print/travel/dwell time,
+  material/distance totals, peak flow/feedrate and source G-code line ranges,
 - Parquet or Arrow for offline analysis,
 - JSON summaries for UI and LLM context,
 - stable window IDs,

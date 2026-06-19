@@ -286,6 +286,47 @@ fn review_gcode_cli_limits_override_profile_limits() {
 }
 
 #[test]
+fn trace_gcode_outputs_windowed_source_mapped_json() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-trace-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M83\nG1 X0 Y0 F600\nG1 X100 E1 F600\n").unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            input.to_str().unwrap(),
+            "--line-width",
+            "0.45",
+            "--layer-height",
+            "0.2",
+            "--window-s",
+            "5",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "trace-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&out.stdout).expect("valid trace JSON");
+    let windows = json["trace"]["windows"].as_array().unwrap();
+    assert_eq!(windows.len(), 2);
+    assert_eq!(windows[0]["source_line_start"], 2);
+    assert_eq!(windows[0]["source_line_end"], 3);
+    assert_eq!(windows[1]["source_line_start"], 3);
+    assert!((json["trace"]["total_time_s"].as_f64().unwrap() - 10.0).abs() < 1e-9);
+}
+
+#[test]
 fn rewrite_gcode_preserves_non_motion_source_lines() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

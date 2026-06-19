@@ -19,6 +19,7 @@ pub mod ir;
 pub mod optimize;
 pub mod profile;
 pub mod resolve;
+pub mod trace;
 pub mod units;
 pub mod verify;
 
@@ -44,6 +45,7 @@ pub use profile::{
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };
+pub use trace::{trace_summary, trace_summary_with_sources, TraceError, TraceSummary, TraceWindow};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
     parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError, Contracts,

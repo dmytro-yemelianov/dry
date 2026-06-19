@@ -4,8 +4,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map, optimize_pipeline,
-    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, verify, verify_stream,
-    Contracts, EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
+    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
+    verify, verify_stream, Contracts, EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -138,6 +138,25 @@ enum Cmd {
         /// Print metrics/findings as JSON.
         #[arg(long)]
         json: bool,
+    },
+    /// Summarize slicer G-code as fixed-window motion/time-series JSON.
+    TraceGcode {
+        file: String,
+        /// Machine/material profile JSON to supply import defaults.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        /// Optional line width in mm to attach to extruding segments.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Optional layer height in mm to attach to extruding segments.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Fixed trace window duration in seconds.
+        #[arg(long, default_value_t = 5.0)]
+        window_s: f64,
     },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
@@ -513,6 +532,44 @@ fn run(cli: Cli) -> ExitCode {
             } else {
                 ExitCode::from(1)
             }
+        }
+        Cmd::TraceGcode {
+            file,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            window_s,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_import_params(
+                profile.as_ref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+            );
+            let imported = import_gcode_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let source_lines: Vec<_> = imported
+                .segment_source_lines
+                .iter()
+                .copied()
+                .map(Some)
+                .collect();
+            let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
+                .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "file": file,
+                    "profile": profile_label(profile.as_ref()),
+                    "trace": trace,
+                }))
+                .unwrap()
+            );
+            ExitCode::SUCCESS
         }
         Cmd::RewriteGcode {
             file,
