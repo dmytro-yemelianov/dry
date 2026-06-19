@@ -30,6 +30,9 @@ enum Cmd {
         /// Emit absolute extrusion (default is relative E).
         #[arg(long)]
         absolute_e: bool,
+        /// Emit rotary A/B words from the toolframe orientation (5-axis).
+        #[arg(long)]
+        five_axis: bool,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -152,12 +155,14 @@ fn run(cli: Cli) -> ExitCode {
         Cmd::Emit {
             file,
             absolute_e,
+            five_axis,
             out,
         } => {
             let tp = load(&file);
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
+                five_axis,
             };
             let gcode = emit(&tp, &params).join("\n");
             match out {
