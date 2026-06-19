@@ -166,6 +166,17 @@
     <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
     <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
   </block>
+  <block type="dry_spline3">
+    <value name="X1"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
+    <value name="Y1"><shadow type="math_number"><field name="NUM">6</field></shadow></value>
+    <value name="Z1"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    <value name="X2"><shadow type="math_number"><field name="NUM">24</field></shadow></value>
+    <value name="Y2"><shadow type="math_number"><field name="NUM">-6</field></shadow></value>
+    <value name="Z2"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    <value name="X3"><shadow type="math_number"><field name="NUM">36</field></shadow></value>
+    <value name="Y3"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    <value name="Z3"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+  </block>
   <label text="— Process —"></label>
   <block type="dry_temperature"></block>
   <block type="dry_fan"></block>
@@ -257,6 +268,22 @@ Blockly.defineBlocksWithJsonArray([
              { type: 'field_dropdown', name: 'CW', options: [['clockwise', 'true'], ['ccw', 'false']] } ],
     inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
     tooltip: 'Circular arc about centre (cx, cy) to (x, y, z). Empty x/y/z keep the current value.' },
+
+  { type: 'dry_spline3', message0: 'spline through',
+    message1: 'p1  x %1  y %2  z %3',
+    args1: [ { type: 'input_value', name: 'X1', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Y1', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Z1', check: 'Number', align: 'RIGHT' } ],
+    message2: 'p2  x %1  y %2  z %3',
+    args2: [ { type: 'input_value', name: 'X2', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Y2', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Z2', check: 'Number', align: 'RIGHT' } ],
+    message3: 'p3  x %1  y %2  z %3',
+    args3: [ { type: 'input_value', name: 'X3', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Y3', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Z3', check: 'Number', align: 'RIGHT' } ],
+    inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
+    tooltip: 'Catmull-Rom spline from the current position through three control points.' },
 
   { type: 'dry_temperature', message0: 'temperature  nozzle %1 °C',
     args0: [ { type: 'field_number', name: 'NOZZLE', value: 200, min: 0 } ],
@@ -361,6 +388,13 @@ function genBlock(block, ops, env) {
       ops.push({ op: 'arc', cx: evalValue(block, 'CX', env), cy: evalValue(block, 'CY', env),
                  x: evalValue(block, 'X', env), y: evalValue(block, 'Y', env),
                  z: evalValue(block, 'Z', env), clockwise: block.getFieldValue('CW') === 'true' });
+      break;
+    case 'dry_spline3':
+      ops.push({ op: 'spline', points: [
+        [evalValue(block, 'X1', env), evalValue(block, 'Y1', env), evalValue(block, 'Z1', env)],
+        [evalValue(block, 'X2', env), evalValue(block, 'Y2', env), evalValue(block, 'Z2', env)],
+        [evalValue(block, 'X3', env), evalValue(block, 'Y3', env), evalValue(block, 'Z3', env)],
+      ] });
       break;
     case 'dry_temperature':
       ops.push({ op: 'temperature', nozzle: Number(block.getFieldValue('NOZZLE')) });

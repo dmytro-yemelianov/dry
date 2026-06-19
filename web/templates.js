@@ -39,6 +39,11 @@ const move = (x, y, z) =>
 const arc = (cx, cy, x, y, z, cw = true) =>
   `<block type="dry_arc"><field name="CW">${cw ? 'true' : 'false'}</field>` +
   `${val('CX', cx)}${val('CY', cy)}${val('X', x)}${val('Y', y)}${val('Z', z)}{next}</block>`;
+const spline3 = (x1, y1, z1, x2, y2, z2, x3, y3, z3) =>
+  `<block type="dry_spline3">` +
+  `${val('X1', x1)}${val('Y1', y1)}${val('Z1', z1)}` +
+  `${val('X2', x2)}${val('Y2', y2)}${val('Z2', z2)}` +
+  `${val('X3', x3)}${val('Y3', y3)}${val('Z3', z3)}{next}</block>`;
 const forI = (n, bodyChain) =>
   `<block type="dry_for"><field name="VAR" id="varI">i</field><field name="N">${n}</field>` +
   `<statement name="DO">${bodyChain}</statement>{next}</block>`;
@@ -174,11 +179,28 @@ const roundedXml = program(
   arc(num(45), num(43), num(45), num(38), num(0.4), false),
 );
 
+// 9. S-curve — two native Catmull-Rom spline ops, starting from an explicit move.
+const splineWaveXml = program(
+  geometry(0.6, 0.2), extruder(true),
+  move(num(20), num(50), num(0.2)),
+  spline3(
+    num(32), num(68), num(0.2),
+    num(48), num(32), num(0.2),
+    num(64), num(50), num(0.2),
+  ),
+  spline3(
+    num(76), num(68), num(0.2),
+    num(92), num(32), num(0.2),
+    num(104), num(50), num(0.2),
+  ),
+);
+
 export const TEMPLATES = {
   square: { label: 'Square', group: 'Basics', tags: ['line', 'perimeter'], build: loader(squareXml) },
   polygon: { label: 'Regular polygon (for + cos/sin)', group: 'Basics', tags: ['parametric', 'line'], build: loader(polyXml) },
   star: { label: 'Star (continuous stroke)', group: 'Basics', tags: ['line'], build: loader(starXml) },
   rounded_square: { label: 'Rounded square (lines + arcs)', group: 'Curves', tags: ['arc', 'line'], build: loader(roundedXml) },
+  spline_wave: { label: 'S-curve (native spline)', group: 'Curves', tags: ['spline', 'curve'], build: loader(splineWaveXml) },
   spiral: { label: 'Spiral (radius grows with i)', group: 'Curves', tags: ['parametric'], build: loader(spiralXml) },
   zigzag: { label: 'Zig-zag infill (parity sweep)', group: 'Infill & multi-layer', tags: ['infill', 'parametric'], build: loader(zigzagXml) },
   layered_tower: { label: 'Layered tower (z = 0.2 + i·0.3)', group: 'Infill & multi-layer', tags: ['multi-layer', 'parametric'], build: loader(towerXml) },

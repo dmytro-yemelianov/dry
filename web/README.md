@@ -32,12 +32,12 @@ Each `DESIGNS[key]` is `{ label, group, tags, ops }` — the `ops` are unchanged
 
 `blocks.html` is a **visual, block-based authoring page**: drag blocks to build a Dry **L1 design**
 (one statement block per op — `geometry` / `extruder` / `speed` / `move` / `arc` / `temperature` /
-`fan` / `flow` / `tool` / `orient` / `dwell`, plus `repeat N` and `for i = 0 to N-1` control blocks
-that unroll their bodies). The same Rust engine resolves it to g-code **live** — rendered in the
-identical 3D viewport with print playback and the synced, explained g-code. A small manual generator
-walks the workspace top→bottom (following `getNextBlock()`) and emits the ops array; disconnected
-`move`/`arc` coordinate inputs become `null` (inherit the running value). The page seeds a 10 mm square
-on load.
+`spline` / `fan` / `flow` / `tool` / `orient` / `dwell`, plus `repeat N` and `for i = 0 to N-1`
+control blocks that unroll their bodies). The same Rust engine resolves it to g-code **live** —
+rendered in the identical 3D viewport with print playback and the synced, explained g-code. A small
+manual generator walks the workspace top→bottom (following `getNextBlock()`) and emits the ops array;
+disconnected `move`/`arc`/`spline` coordinate inputs become `null` (inherit the running value). The page
+seeds a 10 mm square on load.
 
 The viewport, playback, bead mesh and g-code panel live in **`viewer.js`**, a shared ES module that
 both `index.html` and `blocks.html` import — there is no copy-paste of the viewer between the pages.
@@ -64,11 +64,12 @@ The authoring page ships **parametric** blocks so a starter design can be a real
   `if/else` and `variables_set` as statements; non-finite results become `null` (never `NaN`).
 
 A **Templates** panel (grouped, tagged, **thumbnailed** grid) sits in the right column: clicking a card
-clears the workspace and loads that starter design's blocks, and the preview updates. The eight templates
+clears the workspace and loads that starter design's blocks, and the preview updates. The nine templates
 (`web/templates.js`, `TEMPLATES[key] = { label, group, tags, build }`) span the same groups as the
 gallery — *square*, *regular polygon* (`dry_for` + cos/sin of `i`), *star*, *rounded square* (lines +
-arcs), *spiral* (radius grows with `i`), *zig-zag infill*, *layered tower* (`z = 0.2 + i·0.3`, square
-perimeter per layer), and a *twisted vase* (non-planar helix). Each resolves to finite, non-empty g-code.
+arcs), *S-curve* (native spline), *spiral* (radius grows with `i`), *zig-zag infill*, *layered tower*
+(`z = 0.2 + i·0.3`, square perimeter per layer), and a *twisted vase* (non-planar helix). Each resolves
+to finite, non-empty g-code.
 
 Thumbnails for both libraries are generated **at runtime** by `web/thumb.js` (`thumbnail(ops, wasm,
 params, size)`): it resolves the ops to IR and draws a tiny top-down 2D sketch (extrude blue / travel
@@ -112,7 +113,7 @@ cd .. && python3 -m http.server
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | clean-room demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, …) |
-| `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
+| `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
 | `thumb.js`   | shared runtime **thumbnail** renderer — resolves ops → IR, draws a top-down 2D sketch to a canvas, returns a data URL (used by both libraries' pickers) |
 | `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) and **Blockly** (`blockly/`, Apache-2.0) vendored so the demo is self-contained / offline-capable |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |
