@@ -2,7 +2,7 @@
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
 use clap::{Parser, Subcommand};
-use dry_core::{emit, simulate, verify, Contracts, EmitParams, Toolpath};
+use dry_core::{emit, merge_collinear, simulate, verify, Contracts, EmitParams, Toolpath};
 use std::fs;
 use std::process::ExitCode;
 
@@ -48,6 +48,13 @@ enum Cmd {
     Unpack {
         file: String,
         /// Write JSON to a file instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// Optimise a Dry IR file (merge collinear moves) and report the before/after.
+    Optimize {
+        file: String,
+        /// Write the optimised IR JSON to a file.
         #[arg(short, long)]
         out: Option<String>,
     },
@@ -187,6 +194,28 @@ fn run(cli: Cli) -> ExitCode {
                 Some(path) => fs::write(&path, json + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
                 None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Optimize { file, out } => {
+            let tp = load(&file);
+            let before = tp.segments.len();
+            let opt = merge_collinear(&tp);
+            let after = opt.segments.len();
+            let m0 = simulate(&tp);
+            let m1 = simulate(&opt);
+            eprintln!(
+                "optimize: {file} — {before} → {after} segments (−{}); \
+                 volume {:.4}mm^3 (Δ{:.2e}), time {:.3}s (Δ{:.2e}) preserved",
+                before - after,
+                m1.extruded_volume.value(),
+                (m1.extruded_volume.value() - m0.extruded_volume.value()).abs(),
+                m1.total_time_s.value(),
+                (m1.total_time_s.value() - m0.total_time_s.value()).abs(),
+            );
+            if let Some(path) = out {
+                fs::write(&path, opt.to_json() + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
             }
             ExitCode::SUCCESS
         }
