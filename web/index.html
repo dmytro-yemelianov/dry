@@ -85,7 +85,7 @@
 </head>
 <body>
 <header>
-  <h1><b>Dry</b> — one engine: native · Python · wasm</h1>
+  <h1><b>Dry</b> — one engine: native · Python · wasm <a href="blocks.html" style="float:right;font-size:13px;color:var(--accent);text-decoration:none">✎ author your own →</a></h1>
   <p>The same Rust toolpath compiler that powers the CLI and the Python SDK, resolving an L1 design to
      g-code in your browser — rendered in 3D with print playback synced to the g-code. Byte-identical to the oracle.</p>
 </header>
@@ -137,369 +137,32 @@
 import init, { resolve_gcode, resolve_metrics, resolve_ir,
                resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
 import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
-import * as THREE from 'three';
-import { OrbitControls } from './vendor/OrbitControls.js';
+import { createViewer } from './viewer.js';
 
 const $ = (id) => document.getElementById(id);
-const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
-const TAU = Math.PI * 2;
-const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
-
-// ---- g-code explanation ----
-const CMD_DESC = {
-  G0: 'rapid travel — reposition without extruding',
-  G1: 'linear move — extrude in a straight line',
-  G2: 'clockwise circular arc',
-  G3: 'counter-clockwise circular arc',
-  G4: 'dwell — pause in place',
-};
-const PARAM_DESC = {
-  F: ['feedrate', 'mm/min'], X: ['target X', 'mm'], Y: ['target Y', 'mm'], Z: ['target Z', 'mm'],
-  E: ['extruder position / amount', 'mm of filament'],
-  I: ['arc centre ΔX from start', 'mm'], J: ['arc centre ΔY from start', 'mm'],
-  A: ['rotary A axis', 'deg'], B: ['rotary B axis', 'deg'], C: ['rotary C axis', 'deg'],
-  S: ['dwell time', 's'],
-};
-function showExplain(line) {
-  if (!line) { $('explain').innerHTML = '<span class="hint">Hover a line, or press play, to explain it.</span>'; return; }
-  const toks = line.trim().split(/\s+/);
-  const cmd = toks[0];
-  const rows = toks.slice(1).map((t) => {
-    const k = t[0], v = t.slice(1), d = PARAM_DESC[k];
-    return `<tr><td class="k">${t}</td><td class="d">${d ? `${d[0]} (${d[1]})` : 'parameter'} = <b>${v}</b></td></tr>`;
-  }).join('');
-  $('explain').innerHTML = `<div><span class="cmd">${cmd}</span> — ${CMD_DESC[cmd] || 'g-code command'}</div>` +
-    (rows ? `<table>${rows}</table>` : '');
-}
-
-// ---- turn the resolved IR into timed moves (each tagged with its source segment / g-code line) ----
-function buildMoves(ir) {
-  const moves = [];
-  let t = 0;
-  const v3 = (a) => [a[0], a[1], a[2]];
-  ir.segments.forEach((s, si) => {
-    const from = s.start.some((c) => c == null) ? null : v3(s.start);
-    const speed = s.speed || 0;
-    if (s.kind === 'dwell') {
-      const dt = s.dwell_s || 0;
-      moves.push({ from, to: v3(s.end), travel: true, t0: t, t1: t + dt, seg: si });
-      t += dt; return;
-    }
-    let pts;
-    if (s.kind === 'arc' && s.centre) {
-      const [cx, cy] = s.centre, [sx, sy] = s.start, [ex, ey] = s.end;
-      const sz = s.start[2] ?? 0, ez = s.end[2] ?? sz, r = Math.hypot(sx - cx, sy - cy);
-      let a0 = Math.atan2(sy - cy, sx - cx), a1 = Math.atan2(ey - cy, ex - cx);
-      let sweep = s.clockwise ? a0 - a1 : a1 - a0;
-      sweep = ((sweep % TAU) + TAU) % TAU || TAU;
-      const steps = Math.max(8, Math.ceil((sweep / TAU) * 64));
-      pts = [];
-      for (let i = 0; i <= steps; i++) {
-        const f = i / steps, a = a0 + (s.clockwise ? -1 : 1) * sweep * f;
-        pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a), sz + (ez - sz) * f]);
-      }
-    } else {
-      pts = from ? [from, v3(s.end)] : [v3(s.end)];
-    }
-    if (pts.length === 1) { moves.push({ from: null, to: pts[0], travel: s.travel, t0: t, t1: t, seg: si }); return; }
-    const subLen = []; let sum = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]);
-      subLen.push(L); sum += L;
-    }
-    const dtTotal = speed > 0 && (s.length || 0) > 0 ? ((s.length) / speed) * 60 : 0;
-    for (let i = 1; i < pts.length; i++) {
-      const dt = sum > 0 ? dtTotal * (subLen[i - 1] / sum) : 0;
-      moves.push({ from: pts[i - 1], to: pts[i], travel: s.travel, t0: t, t1: t + dt, seg: si, w: s.width, h: s.height });
-      t += dt;
-    }
-  });
-  return { moves, totalT: t };
-}
-
-// ---- three.js scene ----
-const V = { ready: false };
-function initScene() {
-  const el = $('viewport');
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  el.appendChild(renderer.domElement);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x161b22);
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
-  camera.up.set(0, 0, 1);
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(0.5, -1, 1.6); scene.add(dl);
-
-  // Extrusions are drawn as width+height-accurate beads (rectangular prisms — the real FFF cross-section)
-  // in ONE lit mesh. A per-vertex time + a uTime uniform reveal it: printed beads are bright, the rest
-  // stay a dim "ghost". One static geometry ⇒ no per-frame rebuild and no z-fighting.
-  const beadUniforms = { uTime: { value: 0 }, uPrinted: { value: new THREE.Color(0x58a6ff) },
-                         uGhost: { value: new THREE.Color(0x21324a) } };
-  const beadMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-  beadMat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = beadUniforms.uTime; sh.uniforms.uPrinted = beadUniforms.uPrinted; sh.uniforms.uGhost = beadUniforms.uGhost;
-    sh.vertexShader = 'attribute float aTime;\nvarying float vTime;\n' +
-      sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vTime = aTime;');
-    sh.fragmentShader = 'uniform float uTime;\nuniform vec3 uPrinted;\nuniform vec3 uGhost;\nvarying float vTime;\n' +
-      sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = (vTime <= uTime) ? uPrinted : uGhost;');
-  };
-  const beads = new THREE.Mesh(new THREE.BufferGeometry(), beadMat);
-
-  // travels stay as thin lines (split at the toolhead: printed bright, remaining faint).
-  const ghostT = new THREE.LineSegments(new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: 0xf85149, transparent: true, opacity: 0.18 }));
-  const printT = new THREE.LineSegments(new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: 0xf85149, transparent: true, opacity: 0.6 }));
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0x3fb950 }));
-  scene.add(beads, ghostT, printT, head);
-  function resize() {
-    const w = el.clientWidth, h = el.clientHeight;
-    if (!w || !h) return;
-    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
-  }
-  window.addEventListener('resize', resize);
-  Object.assign(V, { ready: true, renderer, scene, camera, controls, beads, beadUniforms, ghostT, printT, head, grid: null, resize });
-  let last = performance.now();
-  function frame(now) {
-    const dtReal = (now - last) / 1000; last = now;
-    if (P.playing && P.totalT > 0) {
-      P.t += dtReal * P.speed;
-      if (P.t >= P.totalT) { P.t = P.totalT; P.playing = false; $('play').textContent = '▶'; }
-      syncPlayUI();
-    }
-    updatePrinted(); updateActiveLine(); controls.update(); renderer.render(scene, camera);
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-function setLine(obj, flat) {
-  obj.geometry.dispose();
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(flat, 3));
-  obj.geometry = g;
-}
-
-// small vector helpers
-const vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const vlen = (a) => Math.hypot(a[0], a[1], a[2]);
-const vnorm = (a) => { const l = vlen(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const vmad = (p, d, s) => [p[0] + d[0] * s, p[1] + d[1] * s, p[2] + d[2] * s];
-
-// Build one merged mesh of bead boxes: each extruding move becomes a rectangular prism of its bead
-// cross-section (width × height) oriented along the move, carrying a per-vertex `aTime` so the reveal
-// shader can light up the printed portion.
-function buildBeads(moves) {
-  const pos = [], nrm = [], tim = [], UP = [0, 0, 1];
-  const push = (p, n, t) => { pos.push(p[0], p[1], p[2]); nrm.push(n[0], n[1], n[2]); tim.push(t); };
-  const quad = (a, b, c, d, n, ta, tb, tc, td) => {
-    push(a, n, ta); push(b, n, tb); push(c, n, tc); push(a, n, ta); push(c, n, tc); push(d, n, td);
-  };
-  for (const m of moves) {
-    if (!m.from || m.travel) continue;
-    const p0 = m.from, p1 = m.to, d = vsub(p1, p0), len = vlen(d);
-    if (len < 1e-9) continue;
-    const dir = [d[0] / len, d[1] / len, d[2] / len];
-    let side = vcross(dir, UP); if (vlen(side) < 1e-6) side = vcross(dir, [1, 0, 0]);
-    side = vnorm(side); const vn = vnorm(vcross(side, dir));
-    const hw = (m.w || 0.6) / 2, hh = (m.h || 0.2) / 2, t0 = m.t0, t1 = m.t1;
-    const C = (e, ss, uu) => vmad(vmad(e, side, hw * ss), vn, hh * uu);
-    const a = { mm: C(p0, -1, -1), pm: C(p0, 1, -1), pp: C(p0, 1, 1), mp: C(p0, -1, 1) };
-    const b = { mm: C(p1, -1, -1), pm: C(p1, 1, -1), pp: C(p1, 1, 1), mp: C(p1, -1, 1) };
-    const neg = (v) => [-v[0], -v[1], -v[2]];
-    quad(a.pm, b.pm, b.pp, a.pp, side, t0, t1, t1, t0);        // +side
-    quad(a.mm, a.mp, b.mp, b.mm, neg(side), t0, t0, t1, t1);   // -side
-    quad(a.mp, a.pp, b.pp, b.mp, vn, t0, t0, t1, t1);          // top
-    quad(a.mm, b.mm, b.pm, a.pm, neg(vn), t0, t1, t1, t0);     // bottom
-    quad(a.mm, a.pm, a.pp, a.mp, neg(dir), t0, t0, t0, t0);    // start cap
-    quad(b.mm, b.mp, b.pp, b.pm, dir, t1, t1, t1, t1);         // end cap
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
-  g.setAttribute('aTime', new THREE.Float32BufferAttribute(tim, 1));
-  return g;
-}
-
-const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [], segStart: [], segEnd: [], activeRow: null };
-let GLINES = [], GROWS = [];
-
-function setModel(ir) {
-  const { moves, totalT } = buildMoves(ir);
-  P.moves = moves; P.totalT = totalT; P.t = 0; P.playing = false; P.activeRow = null;
-  $('play').textContent = '▶';
-  P.segStart = []; P.segEnd = [];
-  for (const m of moves) { if (P.segStart[m.seg] === undefined) P.segStart[m.seg] = m.t0; P.segEnd[m.seg] = m.t1; }
-
-  // extrusions → one static bead mesh (revealed by the uTime uniform); travels are rebuilt per frame.
-  V.beads.geometry.dispose();
-  V.beads.geometry = buildBeads(moves);
-  V.beadUniforms.uTime.value = 0;
-
-  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  const see = (p) => { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } };
-  for (const m of moves) { if (m.from) see(m.from); see(m.to); }
-
-  if (lo[0] === Infinity) { lo.fill(0); hi.fill(10); }
-  const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
-  const size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1);
-  if (V.grid) V.scene.remove(V.grid);
-  const grid = new THREE.GridHelper(Math.ceil(size * 1.6), 16, 0x30363d, 0x21262d);
-  grid.rotation.x = Math.PI / 2;
-  // the build plate sits below the toolpath (printer plate at z=0; the first layer is one layer-height
-  // up), so the grid never shares a plane with the bottom lines.
-  const plateZ = lo[2] > 1e-6 ? 0 : lo[2] - size * 0.01;
-  grid.position.set(c[0], c[1], plateZ);
-  V.grid = grid; V.scene.add(grid);
-  V.head.scale.setScalar(size * 0.012 + 0.05);
-  V.controls.target.set(c[0], c[1], c[2]);
-  V.camera.position.set(c[0] + size * 1.3, c[1] - size * 1.6, c[2] + size * 1.1);
-  // a tight depth range (≈600:1 instead of 10000:1) keeps the z-buffer precise enough to avoid fighting.
-  V.camera.near = Math.max(size * 0.02, 0.05); V.camera.far = size * 12; V.camera.updateProjectionMatrix();
-  V.controls.update(); V.resize(); updatePrinted(); syncPlayUI();
-}
-
-const lerp = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-function headPos() {
-  const ms = P.moves; if (!ms.length) return [0, 0, 0];
-  for (const m of ms) {
-    if (P.t <= m.t1 || m === ms[ms.length - 1]) {
-      const to = m.to, from = m.from || to;
-      const f = m.t1 > m.t0 ? Math.min(1, Math.max(0, (P.t - m.t0) / (m.t1 - m.t0))) : 1;
-      return lerp(from, to, f);
-    }
-  }
-  return ms[ms.length - 1].to;
-}
-function activeSegAt(t) {
-  const ms = P.moves; if (!ms.length) return null;
-  for (const m of ms) if (t <= m.t1) return m.seg;
-  return ms[ms.length - 1].seg;
-}
-function updatePrinted() {
-  const t = P.t;
-  V.beadUniforms.uTime.value = t;   // reveal the printed beads (no geometry rebuild)
-  // travels are thin lines, split at the toolhead so printed/remaining never share coordinates.
-  const pt = [], rt = [];
-  for (const m of P.moves) {
-    if (!m.from || !m.travel) continue;
-    if (m.t1 <= t) pt.push(...m.from, ...m.to);
-    else if (m.t0 >= t) rt.push(...m.from, ...m.to);
-    else { const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1, mid = lerp(m.from, m.to, f); pt.push(...m.from, ...mid); rt.push(...mid, ...m.to); }
-  }
-  setLine(V.printT, pt); setLine(V.ghostT, rt);
-  const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
-  window.__lines = { beadVerts: V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0,
-                     uTime: t, printedTravel: pt.length / 6, plateZ: V.grid ? V.grid.position.z : null };
-}
-function updateActiveLine() {
-  const seg = activeSegAt(P.t);
-  if (seg === P.activeRow) return;
-  if (P.activeRow != null && GROWS[P.activeRow]) GROWS[P.activeRow].classList.remove('active');
-  P.activeRow = seg;
-  if (seg != null && GROWS[seg]) { GROWS[seg].classList.add('active'); GROWS[seg].scrollIntoView({ block: 'nearest' }); showExplain(GLINES[seg]); }
-}
-
-const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-function syncPlayUI() {
-  $('scrub').value = P.totalT > 0 ? Math.round((P.t / P.totalT) * 1000) : 0;
-  $('clock').textContent = `${clock(P.t)} / ${clock(P.totalT)}`;
-  window.__play = { t: P.t, totalT: P.totalT, playing: P.playing, speed: P.speed, activeLine: P.activeRow };
-}
-function seekToLine(i) {
-  P.playing = false; $('play').textContent = '▶';
-  P.t = P.segEnd[i] ?? P.segStart[i] ?? 0;
-  updatePrinted(); updateActiveLine(); syncPlayUI();
-}
-
-function render(key, relE) {
-  const ops = JSON.stringify(DESIGNS[key].ops), params = JSON.stringify(RESOLVE_PARAMS);
-  const gcode = resolve_gcode(ops, params, relE);
-  const m = JSON.parse(resolve_metrics(ops, params));
-  const ir = JSON.parse(resolve_ir(ops, params));
-  const optimizedIr = JSON.parse(resolve_optimized_ir(ops, params));
-
-  // g-code as clickable rows (line index ↔ IR segment ↔ a move in the 3D view)
-  GLINES = gcode;
-  $('gcode').innerHTML = gcode.map((l, i) =>
-    `<div class="gline" data-i="${i}"><span class="ln">${i + 1}</span>${l}</div>`).join('');
-  GROWS = [...$('gcode').querySelectorAll('.gline')];
-  $('gcodeMeta').textContent = `${gcode.length} motion lines · ${relE ? 'relative' : 'absolute'} E`;
-  showExplain(gcode[0]);
-
-  $('metrics').innerHTML = [
-    ['segments', m.segment_count], ['print time (s)', fmt(m.print_time_s)],
-    ['travel time (s)', fmt(m.travel_time_s)], ['total time (s)', fmt(m.total_time_s)],
-    ['extruded vol (mm³)', fmt(m.extruded_volume)], ['filament (mm)', fmt(m.filament_length)],
-    ['extrude dist (mm)', fmt(m.extruding_distance)], ['max flow (mm³/s)', fmt(m.max_flow_rate)],
-  ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-
-  setModel(ir);
-
-  const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
-  $('optimize').innerHTML = saved > 0
-    ? `segments: ${raw} → ${opt} <span class="delta">(−${saved})</span>`
-    : `segments: ${raw} → ${opt} <span class="none">(nothing to merge)</span>`;
-
-  const maxFlow = parseFloat($('maxFlow').value) || 0, minTemp = parseFloat($('minTemp').value) || 0;
-  const report = JSON.parse(resolve_verify(ops, params, maxFlow, minTemp));
-  const findings = report.findings || [];
-  $('findings').innerHTML = findings.length
-    ? findings.map((f) => `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +
-        `${f.segment != null ? ` · seg ${f.segment}` : ''}<span class="msg">${f.message}</span></div>`).join('')
-    : '<div class="ok">✓ no findings</div>';
-
-  window.__dry = { gcode, metrics: m, ir, optimizedIr, rawSegments: raw, optimizedSegments: opt, report };
-}
-
-function buildSpeedButtons() {
-  const box = $('speeds');
-  for (const sp of SPEEDS) {
-    const b = document.createElement('button');
-    b.textContent = sp === 1 ? '1× realtime' : sp + '×';
-    b.dataset.speed = sp;
-    if (sp === P.speed) b.classList.add('active');
-    b.addEventListener('click', () => {
-      P.speed = sp;
-      [...box.querySelectorAll('button')].forEach((x) => x.classList.toggle('active', +x.dataset.speed === sp));
-      syncPlayUI();
-    });
-    box.appendChild(b);
-  }
-}
 
 (async () => {
   await init();
-  initScene();
-  buildSpeedButtons();
+  const viewer = createViewer({
+    viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
+    metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
+    gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
+    clockEl: $('clock'), speedsEl: $('speeds'),
+    wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
+    params: RESOLVE_PARAMS,
+    getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
+    getMinTemp: () => parseFloat($('minTemp').value) || 0,
+  });
+
   const sel = $('design');
   for (const [k, d] of Object.entries(DESIGNS)) {
     const o = document.createElement('option'); o.value = k; o.textContent = d.label; sel.appendChild(o);
   }
-  const go = () => render(sel.value, $('relE').checked);
+  const go = () => viewer.show(DESIGNS[sel.value].ops, $('relE').checked);
   sel.addEventListener('change', go);
   $('relE').addEventListener('change', go);
   $('maxFlow').addEventListener('input', go);
   $('minTemp').addEventListener('input', go);
-
-  // g-code interaction: click a line to seek the playback there; hover to explain it.
-  $('gcode').addEventListener('click', (e) => { const r = e.target.closest('.gline'); if (r) seekToLine(+r.dataset.i); });
-  $('gcode').addEventListener('mouseover', (e) => { const r = e.target.closest('.gline'); if (r) showExplain(GLINES[+r.dataset.i]); });
-
-  $('play').addEventListener('click', () => {
-    if (P.totalT <= 0) return;
-    if (P.t >= P.totalT) P.t = 0;
-    P.playing = !P.playing; $('play').textContent = P.playing ? '⏸' : '▶';
-  });
-  $('scrub').addEventListener('input', (e) => {
-    P.playing = false; $('play').textContent = '▶';
-    P.t = (e.target.value / 1000) * P.totalT; updatePrinted(); updateActiveLine(); syncPlayUI();
-  });
 
   go();
   window.__dryReady = true;

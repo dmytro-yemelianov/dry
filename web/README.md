@@ -23,6 +23,23 @@ The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded re
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
 ~120-segment spiral vase, a non-planar cone vase, and the collinear comb.
 
+## Author your own — `blocks.html` (Blockly)
+
+`blocks.html` is a **visual, block-based authoring page**: drag blocks to build a Dry **L1 design**
+(one statement block per op — `geometry` / `extruder` / `speed` / `move` / `arc` / `temperature` /
+`fan` / `flow` / `tool` / `orient` / `dwell`, plus a `repeat N` control block that unrolls its body),
+and the same Rust engine resolves it to g-code **live** — rendered in the identical 3D viewport with
+print playback and the synced, explained g-code. A small manual generator walks the workspace top→bottom
+(following `getNextBlock()`) and emits the ops array; blank `move`/`arc` coordinate fields become `null`
+(inherit the running value). The page seeds a 10 mm square on load.
+
+The viewport, playback, bead mesh and g-code panel live in **`viewer.js`**, a shared ES module that
+both `index.html` and `blocks.html` import — there is no copy-paste of the viewer between the pages.
+
+**[Blockly](https://developers.google.com/blockly)** (Apache-2.0) is vendored under
+`vendor/blockly/` (`blockly_compressed.js`, `blocks_compressed.js`, `msg/en.js`), loaded via classic
+`<script>` tags (it exposes the global `Blockly`), so the page is self-contained / offline-capable.
+
 The demo also surfaces two L2 passes live:
 
 - **Optimize** — runs `merge_collinear` and shows the raw vs optimized segment count
@@ -48,9 +65,11 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
-| `index.html` | the demo — design picker, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
+| `index.html` | the gallery — design picker, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
+| `blocks.html`| **Blockly visual authoring** — drag blocks to build an L1 design; live 3D + g-code preview via `viewer.js` |
+| `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | clean-room demo designs as Dry L1 ops (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb) |
-| `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) vendored so the demo is self-contained / offline-capable |
+| `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) and **Blockly** (`blockly/`, Apache-2.0) vendored so the demo is self-contained / offline-capable |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |
 | `smoke.cjs`  | Node test: the wasm engine reproduces the conformance oracle byte-for-byte (run in CI) |
 | `pkg/`, `pkg-node/` | build artifacts — **git-ignored**, rebuilt by `build.sh` (the repo stays binary-free) |
