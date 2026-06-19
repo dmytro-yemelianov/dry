@@ -8,6 +8,7 @@
 //! zeros and a trailing `.` stripped (so `1000.000000`→`1000`, `0.200000`→`0.2`, `0`→`0`).
 
 use crate::ir::Toolpath;
+use crate::units::{Feedrate, Length};
 use serde::Deserialize;
 
 /// How to emit (Marlin flavour for now). Unknown fields (e.g. `flavor`) are ignored.
@@ -46,9 +47,9 @@ fn num(v: f64) -> String {
 /// Emit motion g-code lines for a toolpath.
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut out = Vec::with_capacity(tp.segments.len());
-    let mut pos: [Option<f64>; 3] = [None, None, None];
-    let mut prev_speed: Option<f64> = None;
-    let mut e_abs = 0.0_f64;
+    let mut pos: [Option<Length>; 3] = [None, None, None];
+    let mut prev_speed: Option<Feedrate> = None;
+    let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
     for s in &tp.segments {
@@ -67,7 +68,7 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
         let mut toks = vec![cmd.to_string()];
 
         if prev_speed != Some(s.speed) {
-            toks.push(format!("F{}", num(s.speed)));
+            toks.push(format!("F{}", num(s.speed.value())));
             prev_speed = Some(s.speed);
         }
 
@@ -79,7 +80,7 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
                 // emitted only when they change.
                 let force = is_arc && i < 2;
                 if force || pos[i] != Some(v) {
-                    toks.push(format!("{letter}{}", num(v)));
+                    toks.push(format!("{letter}{}", num(v.value())));
                 }
                 pos[i] = Some(v);
             }
@@ -87,22 +88,22 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
 
         if is_arc {
             let [cx, cy] = s.centre.unwrap();
-            let sx = arc_start[0].unwrap_or(0.0);
-            let sy = arc_start[1].unwrap_or(0.0);
-            toks.push(format!("I{}", num(cx - sx)));
-            toks.push(format!("J{}", num(cy - sy)));
+            let sx = arc_start[0].unwrap_or(Length::ZERO);
+            let sy = arc_start[1].unwrap_or(Length::ZERO);
+            toks.push(format!("I{}", num((cx - sx).value())));
+            toks.push(format!("J{}", num((cy - sy).value())));
         }
 
         if p.relative_e {
             if !s.travel {
-                toks.push(format!("E{}", num(s.filament)));
+                toks.push(format!("E{}", num(s.filament.value())));
             } else if p.travel_g1_e0 {
                 toks.push("E0".to_string());
             }
         } else {
-            e_abs += s.filament;
+            e_abs = e_abs + s.filament;
             if !s.travel || p.travel_g1_e0 {
-                toks.push(format!("E{}", num(e_abs)));
+                toks.push(format!("E{}", num(e_abs.value())));
             }
         }
 

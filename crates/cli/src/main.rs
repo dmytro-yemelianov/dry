@@ -56,8 +56,8 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
     for s in &tp.segments {
         for (i, axis) in s.end.iter().enumerate() {
             if let Some(v) = axis {
-                b[i][0] = b[i][0].min(*v);
-                b[i][1] = b[i][1].max(*v);
+                b[i][0] = b[i][0].min(v.value());
+                b[i][1] = b[i][1].max(v.value());
             }
         }
     }
@@ -78,17 +78,21 @@ fn run(cli: Cli) -> ExitCode {
             );
             println!(
                 "  time:      {:.1}s (print {:.1}s, travel {:.1}s)",
-                m.total_time_s, m.print_time_s, m.travel_time_s
+                m.total_time_s.value(),
+                m.print_time_s.value(),
+                m.travel_time_s.value()
             );
             println!(
                 "  material:  {:.4}mm filament, {:.3}mm^3 deposited",
-                m.filament_length, m.extruded_volume
+                m.filament_length.value(),
+                m.extruded_volume.value()
             );
             println!(
                 "  distance:  {:.1}mm extruding, {:.1}mm travel",
-                m.extruding_distance, m.travel_distance
+                m.extruding_distance.value(),
+                m.travel_distance.value()
             );
-            println!("  peak flow: {:.2}mm^3/s", m.max_flow_rate);
+            println!("  peak flow: {:.2}mm^3/s", m.max_flow_rate.value());
             println!(
                 "  bbox:      X[{:.2}, {:.2}] Y[{:.2}, {:.2}] Z[{:.2}, {:.2}]",
                 b[0][0], b[0][1], b[1][0], b[1][1], b[2][0], b[2][1]
@@ -102,11 +106,11 @@ fn run(cli: Cli) -> ExitCode {
             } else {
                 println!(
                     "time {:.3}s | {} segments | {:.4}mm filament | {:.3}mm^3 | peak {:.2}mm^3/s",
-                    m.total_time_s,
+                    m.total_time_s.value(),
                     m.segment_count,
-                    m.filament_length,
-                    m.extruded_volume,
-                    m.max_flow_rate
+                    m.filament_length.value(),
+                    m.extruded_volume.value(),
+                    m.max_flow_rate.value()
                 );
             }
             ExitCode::SUCCESS

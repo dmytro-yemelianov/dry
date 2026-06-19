@@ -63,12 +63,12 @@ fn resolve_then_emit_matches_the_oracle() {
             fx.design
         );
         assert!(
-            (m.total_time_s - sim.expected.total_time_s).abs() < 1e-9,
+            (m.total_time_s.value() - sim.expected.total_time_s).abs() < 1e-9,
             "[{}] time",
             fx.design
         );
         assert!(
-            (m.extruded_volume - sim.expected.extruded_volume).abs() < 1e-9,
+            (m.extruded_volume.value() - sim.expected.extruded_volume).abs() < 1e-9,
             "[{}] volume",
             fx.design
         );

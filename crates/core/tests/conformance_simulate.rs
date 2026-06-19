@@ -26,18 +26,46 @@ fn close(a: f64, b: f64) -> bool {
 
 fn check(name: &str, got: &Metrics, want: &Metrics) {
     let fields: [(&str, f64, f64); 8] = [
-        ("total_time_s", got.total_time_s, want.total_time_s),
-        ("print_time_s", got.print_time_s, want.print_time_s),
-        ("travel_time_s", got.travel_time_s, want.travel_time_s),
+        (
+            "total_time_s",
+            got.total_time_s.value(),
+            want.total_time_s.value(),
+        ),
+        (
+            "print_time_s",
+            got.print_time_s.value(),
+            want.print_time_s.value(),
+        ),
+        (
+            "travel_time_s",
+            got.travel_time_s.value(),
+            want.travel_time_s.value(),
+        ),
         (
             "extruding_distance",
-            got.extruding_distance,
-            want.extruding_distance,
+            got.extruding_distance.value(),
+            want.extruding_distance.value(),
         ),
-        ("travel_distance", got.travel_distance, want.travel_distance),
-        ("extruded_volume", got.extruded_volume, want.extruded_volume),
-        ("filament_length", got.filament_length, want.filament_length),
-        ("max_flow_rate", got.max_flow_rate, want.max_flow_rate),
+        (
+            "travel_distance",
+            got.travel_distance.value(),
+            want.travel_distance.value(),
+        ),
+        (
+            "extruded_volume",
+            got.extruded_volume.value(),
+            want.extruded_volume.value(),
+        ),
+        (
+            "filament_length",
+            got.filament_length.value(),
+            want.filament_length.value(),
+        ),
+        (
+            "max_flow_rate",
+            got.max_flow_rate.value(),
+            want.max_flow_rate.value(),
+        ),
     ];
     for (field, g, w) in fields {
         assert!(close(g, w), "[{name}] {field}: got {g}, oracle {w}");
