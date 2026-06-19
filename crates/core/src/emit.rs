@@ -12,18 +12,94 @@ use crate::units::{Feedrate, Length};
 use serde::Deserialize;
 
 /// The rotary kinematics of the 5-axis machine: which two rotary axes carry the toolframe orientation,
-/// and how the tool-direction unit vector maps onto them. Default [`Kinematics::Ab`] (a tilting head)
-/// reproduces the historical AB mapping byte-for-byte.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
-#[serde(rename_all = "lowercase")]
+/// and how the tool-direction unit vector maps onto them. Supports mechanical TCP (Tool Center Point)
+/// translation offsets and rotary joint rotation offsets.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Kinematics {
     /// Tilting head: `A` about X then `B` about Y. Words `A`,`B`.
-    #[default]
-    Ab,
+    Ab {
+        pivot_offset: [f64; 3],
+        rotary_offset: [f64; 2],
+    },
     /// `A` about X, `C` about Z (e.g. table/trunnion). Words `A`,`C`.
-    Ac,
+    Ac {
+        pivot_offset: [f64; 3],
+        rotary_offset: [f64; 2],
+    },
     /// `B` about Y, `C` about Z. Words `B`,`C`.
-    Bc,
+    Bc {
+        pivot_offset: [f64; 3],
+        rotary_offset: [f64; 2],
+    },
+}
+
+impl Default for Kinematics {
+    fn default() -> Self {
+        Kinematics::Ab {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Kinematics {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum RawKinematics {
+            String(String),
+            Struct(RawKinematicsStruct),
+        }
+
+        #[derive(Deserialize)]
+        struct RawKinematicsStruct {
+            #[serde(rename = "type")]
+            kind: String,
+            #[serde(default)]
+            pivot_offset: [f64; 3],
+            #[serde(default)]
+            rotary_offset: [f64; 2],
+        }
+
+        let raw = RawKinematics::deserialize(deserializer)?;
+        match raw {
+            RawKinematics::String(s) => match s.as_str() {
+                "ab" => Ok(Kinematics::Ab {
+                    pivot_offset: [0.0, 0.0, 0.0],
+                    rotary_offset: [0.0, 0.0],
+                }),
+                "ac" => Ok(Kinematics::Ac {
+                    pivot_offset: [0.0, 0.0, 0.0],
+                    rotary_offset: [0.0, 0.0],
+                }),
+                "bc" => Ok(Kinematics::Bc {
+                    pivot_offset: [0.0, 0.0, 0.0],
+                    rotary_offset: [0.0, 0.0],
+                }),
+                other => Err(D::Error::custom(format!("unknown kinematics: {}", other))),
+            },
+            RawKinematics::Struct(s) => match s.kind.as_str() {
+                "ab" => Ok(Kinematics::Ab {
+                    pivot_offset: s.pivot_offset,
+                    rotary_offset: s.rotary_offset,
+                }),
+                "ac" => Ok(Kinematics::Ac {
+                    pivot_offset: s.pivot_offset,
+                    rotary_offset: s.rotary_offset,
+                }),
+                "bc" => Ok(Kinematics::Bc {
+                    pivot_offset: s.pivot_offset,
+                    rotary_offset: s.rotary_offset,
+                }),
+                other => Err(D::Error::custom(format!("unknown kinematics type: {}", other))),
+            },
+        }
+    }
 }
 
 /// How to emit (Marlin flavour for now). Unknown fields (e.g. `flavor`) are ignored.
@@ -52,7 +128,7 @@ impl Default for EmitParams {
             relative_e: true,
             travel_g1_e0: false,
             five_axis: false,
-            kinematics: Kinematics::Ab,
+            kinematics: Kinematics::default(),
         }
     }
 }
@@ -75,9 +151,9 @@ struct Rotary {
 fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rotary; 2] {
     let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
     match kinematics {
-        Kinematics::Ab => {
-            let a = j.atan2((i * i + k * k).sqrt()).to_degrees();
-            let b = i.atan2(k).to_degrees();
+        Kinematics::Ab { pivot_offset: _, rotary_offset } => {
+            let a = j.atan2((i * i + k * k).sqrt()).to_degrees() + rotary_offset[0];
+            let b = i.atan2(k).to_degrees() + rotary_offset[1];
             [
                 Rotary {
                     letter: 'A',
@@ -89,9 +165,9 @@ fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rota
                 },
             ]
         }
-        Kinematics::Ac => {
-            let c = j.atan2(i).to_degrees();
-            let a = k.clamp(-1.0, 1.0).acos().to_degrees();
+        Kinematics::Ac { pivot_offset: _, rotary_offset } => {
+            let c = j.atan2(i).to_degrees() + rotary_offset[1];
+            let a = k.clamp(-1.0, 1.0).acos().to_degrees() + rotary_offset[0];
             [
                 Rotary {
                     letter: 'C',
@@ -103,9 +179,9 @@ fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rota
                 },
             ]
         }
-        Kinematics::Bc => {
-            let c = j.atan2(i).to_degrees();
-            let b = k.clamp(-1.0, 1.0).acos().to_degrees();
+        Kinematics::Bc { pivot_offset: _, rotary_offset } => {
+            let c = j.atan2(i).to_degrees() + rotary_offset[1];
+            let b = k.clamp(-1.0, 1.0).acos().to_degrees() + rotary_offset[0];
             [
                 Rotary {
                     letter: 'C',
@@ -131,6 +207,98 @@ fn num(v: f64) -> String {
     }
 }
 
+/// Helper to translate a 3D point from Workpiece Coordinate System (WCS) to Machine
+/// Coordinate System (MCS) using the configured 5-axis kinematics and offsets.
+fn to_mcs(
+    p: [f64; 3],
+    orientation: Option<[f64; 3]>,
+    kinematics: Kinematics,
+) -> [f64; 3] {
+    let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
+    match kinematics {
+        Kinematics::Ab { pivot_offset, rotary_offset } => {
+            let a_nom = j.atan2((i * i + k * k).sqrt());
+            let b_nom = i.atan2(k);
+            let a = a_nom + rotary_offset[0].to_radians();
+            let b = b_nom + rotary_offset[1].to_radians();
+
+            let (sa, ca) = a.sin_cos();
+            let (sb, cb) = b.sin_cos();
+
+            // R = R_y(b) * R_x(a)
+            let lx = pivot_offset[0];
+            let ly = pivot_offset[1];
+            let lz = pivot_offset[2];
+
+            let rx = cb * lx - sb * sa * ly + sb * ca * lz;
+            let ry = ca * ly + sa * lz;
+            let rz = -sb * lx - cb * sa * ly + cb * ca * lz;
+
+            [
+                p[0] - rx,
+                p[1] - ry,
+                p[2] - rz,
+            ]
+        }
+        Kinematics::Ac { pivot_offset, rotary_offset } => {
+            let c_nom = j.atan2(i);
+            let a_nom = k.clamp(-1.0, 1.0).acos();
+            let a = a_nom + rotary_offset[0].to_radians();
+            let c = c_nom + rotary_offset[1].to_radians();
+
+            let (sa, ca) = a.sin_cos();
+            let (sc, cc) = c.sin_cos();
+
+            // R_table = R_x(a) * R_z(c)
+            let lx = pivot_offset[0];
+            let ly = pivot_offset[1];
+            let lz = pivot_offset[2];
+
+            let px = p[0] + lx;
+            let py = p[1] + ly;
+            let pz = p[2] + lz;
+
+            let rx = cc * px - sc * py;
+            let ry = ca * sc * px + ca * cc * py - sa * pz;
+            let rz = sa * sc * px + sa * cc * py + ca * pz;
+
+            [
+                rx - lx,
+                ry - ly,
+                rz - lz,
+            ]
+        }
+        Kinematics::Bc { pivot_offset, rotary_offset } => {
+            let c_nom = j.atan2(i);
+            let b_nom = k.clamp(-1.0, 1.0).acos();
+            let b = b_nom + rotary_offset[0].to_radians();
+            let c = c_nom + rotary_offset[1].to_radians();
+
+            let (sb, cb) = b.sin_cos();
+            let (sc, cc) = c.sin_cos();
+
+            // R_table = R_y(b) * R_z(c)
+            let lx = pivot_offset[0];
+            let ly = pivot_offset[1];
+            let lz = pivot_offset[2];
+
+            let px = p[0] + lx;
+            let py = p[1] + ly;
+            let pz = p[2] + lz;
+
+            let rx = cb * cc * px - cb * sc * py + sb * pz;
+            let ry = sc * px + cc * py;
+            let rz = -sb * cc * px + sb * sc * py + cb * pz;
+
+            [
+                rx - lx,
+                ry - ly,
+                rz - lz,
+            ]
+        }
+    }
+}
+
 /// Emit motion g-code lines for a toolpath.
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut out = Vec::with_capacity(tp.segments.len());
@@ -139,6 +307,9 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut prev_rotary: Option<[f64; 2]> = None;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
+
+    let mut prog_pos = [0.0; 3];
+    let mut prev_orientation: Option<[f64; 3]> = None;
 
     for s in &tp.segments {
         // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
@@ -149,6 +320,22 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
             }
             continue;
         }
+
+        // Track programmed coordinates.
+        let mut start_prog = prog_pos;
+        for i in 0..3 {
+            if let Some(v) = s.start[i] {
+                start_prog[i] = v.value();
+            }
+        }
+        let mut end_prog = start_prog;
+        for i in 0..3 {
+            if let Some(v) = s.end[i] {
+                end_prog[i] = v.value();
+            }
+        }
+        prog_pos = end_prog;
+
         let is_arc = s.kind == "arc" && s.centre.is_some();
         let cmd = if s.travel {
             "G0"
@@ -168,17 +355,21 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
             prev_speed = Some(s.speed);
         }
 
-        // arc I/J is the centre offset from the move's START (the position before this move).
-        let arc_start = [pos[0], pos[1]];
+        // Determine target linear axes (in machine joint coordinates if five_axis is true).
+        let target_axes = if p.five_axis {
+            to_mcs(end_prog, s.orientation, p.kinematics)
+        } else {
+            end_prog
+        };
+
         for (i, &letter) in letters.iter().enumerate() {
-            if let Some(v) = s.end[i] {
-                // arcs always state the end X and Y (the plane end point); Z, and all line axes, are
-                // emitted only when they change.
-                let force = is_arc && i < 2;
-                if force || pos[i] != Some(v) {
-                    toks.push(format!("{letter}{}", num(v.value())));
-                }
-                pos[i] = Some(v);
+            let explicit = s.end[i].is_some();
+            let changed = pos[i].map_or(true, |v| (v.value() - target_axes[i]).abs() > 1e-9);
+            let force = is_arc && i < 2;
+
+            if (p.five_axis && (changed || explicit)) || (!p.five_axis && explicit && (changed || force)) {
+                toks.push(format!("{letter}{}", num(target_axes[i])));
+                pos[i] = Some(Length::mm(target_axes[i]));
             }
         }
 
@@ -196,11 +387,18 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
         }
 
         if is_arc {
-            let [cx, cy] = s.centre.unwrap();
-            let sx = arc_start[0].unwrap_or(Length::ZERO);
-            let sy = arc_start[1].unwrap_or(Length::ZERO);
-            toks.push(format!("I{}", num((cx - sx).value())));
-            toks.push(format!("J{}", num((cy - sy).value())));
+            let [cx_prog, cy_prog] = s.centre.unwrap();
+            let [sx_prog, sy_prog, sz_prog] = start_prog;
+
+            let (i_val, j_val) = if p.five_axis {
+                let start_mcs = to_mcs(start_prog, prev_orientation, p.kinematics);
+                let centre_mcs = to_mcs([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation, p.kinematics);
+                (centre_mcs[0] - start_mcs[0], centre_mcs[1] - start_mcs[1])
+            } else {
+                ((cx_prog - Length::mm(sx_prog)).value(), (cy_prog - Length::mm(sy_prog)).value())
+            };
+            toks.push(format!("I{}", num(i_val)));
+            toks.push(format!("J{}", num(j_val)));
         }
 
         if p.relative_e {
@@ -216,6 +414,7 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
             }
         }
 
+        prev_orientation = s.orientation;
         out.push(toks.join(" "));
     }
     out
