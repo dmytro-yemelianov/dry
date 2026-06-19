@@ -51,6 +51,12 @@ export class Design {
     return this;
   }
 
+  /** A Catmull-Rom spline from the running position through each (x, y, z) control point. */
+  spline(points: [number | null, number | null, number | null][]): this {
+    this.ops.push({ op: 'spline', points: points.map((p) => [p[0] ?? null, p[1] ?? null, p[2] ?? null]) });
+    return this;
+  }
+
   // ---- process channels (§3) ----
 
   /** Set the nozzle temperature channel (°C). */

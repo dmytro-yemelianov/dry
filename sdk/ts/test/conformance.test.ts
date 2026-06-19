@@ -102,6 +102,24 @@ test('toolframe orientation authors onto segments', () => {
   assert.deepEqual(d.ir().segments[1].orientation, [0.6, 0, 0.8]);
 });
 
+// A Catmull-Rom spline lowers to many line segments ending at the last control point.
+test('spline authors through the builder', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .spline([
+      [10, 0, 0.2],
+      [10, 10, 0.2],
+      [0, 10, 0.2],
+    ]);
+  const ir = d.ir();
+  // 1 positioning move + 3 spans × 16 samples = 49 segments.
+  assert.equal(ir.segments.length, 1 + 48);
+  assert.deepEqual(ir.segments[ir.segments.length - 1].end, [0, 10, 0.2]);
+  assert.ok(ir.segments.slice(1).every((s) => s.kind === 'line'));
+});
+
 // A flow multiplier scales the deposited volume.
 test('flow multiplier scales deposited volume', () => {
   const base = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(10, 0, 0.2);

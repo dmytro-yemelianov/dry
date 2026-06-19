@@ -26,6 +26,14 @@ new Design().geometry(0.6, 0.2).extruder(true)
   .point(0, 20, 0.2);
 ```
 
+Splines are native (Catmull-Rom; lowered to line segments through each control point):
+
+```ts
+new Design().geometry(0.6, 0.2).extruder(true)
+  .point(0, 0, 0.2)
+  .spline([[10, 0, 0.2], [10, 10, 0.2], [0, 10, 0.2]]);
+```
+
 Process channels (§3) — `temperature` / `fan` / `flow` / `tool` — and `dwell`:
 
 ```ts

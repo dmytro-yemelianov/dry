@@ -16,6 +16,7 @@ export type Op =
       z: number | null;
       clockwise: boolean;
     }
+  | { op: 'spline'; points: [number | null, number | null, number | null][] }
   // process channels (§3): typed, defaulted, propagated by the engine.
   | { op: 'temperature'; nozzle: number }
   | { op: 'fan'; speed: number }
