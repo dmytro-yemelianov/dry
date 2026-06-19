@@ -7,7 +7,8 @@
 //! `E<filament>` (a travel carries none, unless `travel_g1_e0`). Numbers are `{:.6}` with trailing
 //! zeros and a trailing `.` stripped (so `1000.000000`→`1000`, `0.200000`→`0.2`, `0`→`0`).
 
-use crate::ir::Toolpath;
+use crate::ir::{Segment, Toolpath};
+use crate::resolve::{catmull_rom, dist, SAMPLES};
 use crate::units::{Feedrate, Length};
 use serde::Deserialize;
 
@@ -133,14 +134,84 @@ fn num(v: f64) -> String {
 
 /// Emit motion g-code lines for a toolpath.
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
-    let mut out = Vec::with_capacity(tp.segments.len());
+    let mut flat_segments = Vec::new();
+    for s in &tp.segments {
+        if s.kind == "spline" {
+            if let Some(ref control_points) = s.control_points {
+                let cur = [
+                    s.start[0].unwrap_or(Length::ZERO).value(),
+                    s.start[1].unwrap_or(Length::ZERO).value(),
+                    s.start[2].unwrap_or(Length::ZERO).value(),
+                ];
+                let mut through: Vec<[f64; 3]> = Vec::with_capacity(control_points.len() + 1);
+                through.push(cur);
+                for pt in control_points {
+                    through.push([pt[0].value(), pt[1].value(), pt[2].value()]);
+                }
+                let n = through.len();
+                let mut temp_pos = s.start;
+                for i in 0..n - 1 {
+                    let p0 = through[i.saturating_sub(1)];
+                    let p1 = through[i];
+                    let p2 = through[i + 1];
+                    let p3 = through[(i + 2).min(n - 1)];
+                    for step in 1..=SAMPLES {
+                        let pt = if step == SAMPLES {
+                            p2
+                        } else {
+                            catmull_rom(p0, p1, p2, p3, step as f64 / SAMPLES as f64)
+                        };
+                        let end = [
+                            Some(Length::mm(pt[0])),
+                            Some(Length::mm(pt[1])),
+                            Some(Length::mm(pt[2])),
+                        ];
+                        let sub_length = dist(temp_pos, end);
+                        let ratio = if s.length.value() > 0.0 {
+                            sub_length.value() / s.length.value()
+                        } else {
+                            0.0
+                        };
+                        let sub_volume = s.volume * ratio;
+                        let sub_filament = s.filament * ratio;
+                        flat_segments.push(Segment {
+                            start: temp_pos,
+                            end,
+                            travel: s.travel,
+                            speed: s.speed,
+                            length: sub_length,
+                            volume: sub_volume,
+                            filament: sub_filament,
+                            width: s.width,
+                            height: s.height,
+                            kind: "line".to_string(),
+                            centre: None,
+                            clockwise: false,
+                            temperature: s.temperature,
+                            fan: s.fan,
+                            flow: s.flow,
+                            tool: s.tool,
+                            dwell_s: None,
+                            orientation: s.orientation,
+                            control_points: None,
+                        });
+                        temp_pos = end;
+                    }
+                }
+            }
+        } else {
+            flat_segments.push(s.clone());
+        }
+    }
+
+    let mut out = Vec::with_capacity(flat_segments.len());
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
-    for s in &tp.segments {
+    for s in &flat_segments {
         // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
         // does not touch the running position or feedrate).
         if s.kind == "dwell" {
@@ -263,6 +334,7 @@ mod tests {
                 tool: None,
                 dwell_s: None,
                 orientation: None,
+                control_points: None,
             }],
         };
 

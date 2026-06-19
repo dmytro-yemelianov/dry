@@ -245,6 +245,7 @@ fn fit_arc(segs: &[Segment]) -> Option<Segment> {
         tool: first.tool,
         dwell_s: None,
         orientation: first.orientation,
+        control_points: None,
     })
 }
 
@@ -343,6 +344,7 @@ fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], template: &Se
         tool: template.tool,
         dwell_s: None,
         orientation: template.orientation,
+        control_points: None,
     }
 }
 

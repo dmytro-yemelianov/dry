@@ -61,6 +61,9 @@ pub struct Segment {
     /// 3-axis. Carrying it makes non-planar / 5-axis a first-class IR property (§2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orientation: Option<[f64; 3]>,
+    /// Spline control points — present only when kind == "spline".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_points: Option<Vec<[Length; 3]>>,
 }
 
 fn default_kind() -> String {
