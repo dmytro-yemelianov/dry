@@ -20,9 +20,18 @@ enum KinematicsArg {
 impl From<KinematicsArg> for Kinematics {
     fn from(k: KinematicsArg) -> Self {
         match k {
-            KinematicsArg::Ab => Kinematics::Ab,
-            KinematicsArg::Ac => Kinematics::Ac,
-            KinematicsArg::Bc => Kinematics::Bc,
+            KinematicsArg::Ab => Kinematics::Ab {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            KinematicsArg::Ac => Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            KinematicsArg::Bc => Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
         }
     }
 }
