@@ -57,6 +57,10 @@ pub struct Segment {
     /// Dwell duration (s) — present only when `kind == "dwell"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dwell_s: Option<f64>,
+    /// Toolframe orientation: the tool-direction unit vector `(i, j, k)`. `None` ⇒ identity (+Z), i.e.
+    /// 3-axis. Carrying it makes non-planar / 5-axis a first-class IR property (§2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orientation: Option<[f64; 3]>,
 }
 
 fn default_kind() -> String {

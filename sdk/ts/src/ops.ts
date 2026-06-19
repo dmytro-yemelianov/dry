@@ -21,6 +21,7 @@ export type Op =
   | { op: 'fan'; speed: number }
   | { op: 'flow'; ratio: number }
   | { op: 'tool'; index: number }
+  | { op: 'orient'; i: number; j: number; k: number }
   | { op: 'dwell'; seconds: number };
 
 /** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
@@ -63,6 +64,7 @@ export interface Segment {
   flow?: number;
   tool?: number;
   dwell_s?: number;
+  orientation?: [number, number, number];
 }
 
 /** The resolved L2 Dry IR. */

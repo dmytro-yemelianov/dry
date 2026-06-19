@@ -77,6 +77,12 @@ export class Design {
     return this;
   }
 
+  /** Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z. */
+  orient(i: number, j: number, k: number): this {
+    this.ops.push({ op: 'orient', i, j, k });
+    return this;
+  }
+
   /** Pause in place for `seconds` (emits a `G4` dwell). */
   dwell(seconds: number): this {
     this.ops.push({ op: 'dwell', seconds });

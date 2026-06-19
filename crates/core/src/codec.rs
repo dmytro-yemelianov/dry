@@ -17,6 +17,8 @@
 //!   nullable f64 columns  (validity bitmap + n×f64):  start{x,y,z}, end{x,y,z}, width, height,
 //!                                                     centre{x,y}
 //!   dense   f64 columns  (n×f64):  speed, length, volume, filament
+//!   channel columns  (nullable):  temperature, fan, flow, dwell_s (f64); tool (u32);
+//!                                  orientation (validity bitmap + n×3 f64)
 //!   kind    dictionary:  dict_len u32, [str_len u32, bytes…]…, then n×u32 indices
 //! ```
 //!
@@ -98,6 +100,19 @@ fn push_opt_u32_col(out: &mut Vec<u8>, segs: &[Segment], get: impl Fn(&Segment) 
     }
 }
 
+fn push_opt_vec3_col(
+    out: &mut Vec<u8>,
+    segs: &[Segment],
+    get: impl Fn(&Segment) -> Option<[f64; 3]>,
+) {
+    push_bits(out, segs.len(), |i| get(&segs[i]).is_some());
+    for s in segs {
+        for v in get(s).unwrap_or([0.0; 3]) {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+    }
+}
+
 /// Encode a toolpath to the compact columnar binary form.
 pub fn encode(tp: &Toolpath) -> Vec<u8> {
     let segs = &tp.segments;
@@ -131,6 +146,7 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     push_opt_col(&mut body, segs, |s| s.flow);
     push_opt_col(&mut body, segs, |s| s.dwell_s);
     push_opt_u32_col(&mut body, segs, |s| s.tool);
+    push_opt_vec3_col(&mut body, segs, |s| s.orientation);
 
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<&str> = Vec::new();
@@ -217,6 +233,15 @@ impl<'a> Reader<'a> {
         }
         Ok(col)
     }
+    fn opt_vec3_col(&mut self, n: usize) -> Result<Vec<Option<[f64; 3]>>, CodecError> {
+        let valid = self.bits(n)?;
+        let mut col = Vec::with_capacity(n);
+        for v in valid {
+            let triple = [self.f64()?, self.f64()?, self.f64()?];
+            col.push(if v { Some(triple) } else { None });
+        }
+        Ok(col)
+    }
 }
 
 /// Decode a toolpath from the columnar binary form.
@@ -261,6 +286,7 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
     let flow = r.opt_col(n)?;
     let dwell_s = r.opt_col(n)?;
     let tool = r.opt_u32_col(n)?;
+    let orientation = r.opt_vec3_col(n)?;
 
     let dict_len = r.u32()? as usize;
     let mut dict: Vec<String> = Vec::with_capacity(dict_len);
@@ -296,6 +322,7 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
             flow: flow[i],
             tool: tool[i],
             dwell_s: dwell_s[i],
+            orientation: orientation[i],
         });
     }
     Ok(Toolpath { version, segments })
