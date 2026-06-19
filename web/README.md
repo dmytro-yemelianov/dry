@@ -5,6 +5,11 @@ run client-side. A design authored as Dry **L1 ops** is resolved → simulated �
 browser; the g-code is **byte-identical** to the other front-ends (and to the FullControl conformance
 oracle).
 
+The toolpath is rendered in **3D** (three.js, Z-up like a printer — drag to orbit, scroll to zoom)
+with a build-plate grid, a faint "ghost" of the whole path, and a bright trail that fills in as it
+prints. A **playback** bar plays/pauses and scrubs the print, mapped to the simulated time; the speed
+buttons run it **slower** (0.25× / 0.5×), **realtime** (1×), or **faster** (4× / 16×).
+
 The demo also surfaces two L2 passes live:
 
 - **Optimize** — runs `merge_collinear` and shows the raw vs optimized segment count
@@ -30,8 +35,9 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
-| `index.html` | the demo — design picker, 2D canvas toolpath render, live g-code + metrics, **optimize** + **verify** panels |
+| `index.html` | the demo — design picker, **3D toolpath viewport + print playback**, live g-code + metrics, **optimize** + **verify** panels |
 | `designs.js` | clean-room demo designs as Dry L1 ops (square, star, native arcs, ~120-seg spiral vase, collinear comb) |
+| `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) vendored so the demo is self-contained / offline-capable |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |
 | `smoke.cjs`  | Node test: the wasm engine reproduces the conformance oracle byte-for-byte (run in CI) |
 | `pkg/`, `pkg-node/` | build artifacts — **git-ignored**, rebuilt by `build.sh` (the repo stays binary-free) |
