@@ -51,11 +51,33 @@ function star(points = 5, outer = 20, inner = 8, cx = 50, cy = 50, z = 0.2) {
   return ops;
 }
 
+// A back-and-forth comb whose long straight runs are authored as several short collinear hops.
+// Each rung is one straight line broken into `subdiv` equal moves that share all process state, so
+// the optimizer (merge_collinear) collapses each run back into a single move — a visible reduction.
+function collinearComb(rungs = 6, len = 30, pitch = 4, subdiv = 5, x0 = 10, y0 = 10, z = 0.2) {
+  const ops = [G(0.6, 0.2), ON];
+  let x = x0;
+  ops.push(M(x, y0, z));
+  for (let r = 0; r < rungs; r++) {
+    const y = y0 + r * pitch;
+    const dir = r % 2 === 0 ? 1 : -1; // serpentine: alternate sweep direction
+    const xEnd = x + dir * len;
+    // walk the straight rung in `subdiv` collinear hops (the redundant intermediate points)
+    for (let k = 1; k <= subdiv; k++) {
+      ops.push(M(x + dir * len * (k / subdiv), y, z));
+    }
+    x = xEnd;
+    if (r < rungs - 1) ops.push(M(x, y0 + (r + 1) * pitch, z)); // connector to the next rung
+  }
+  return ops;
+}
+
 const DESIGNS = {
   square: { label: 'Square (line moves)', ops: square() },
   star: { label: 'Star (continuous stroke)', ops: star() },
   arcs_mix: { label: 'Arcs (native G2/G3)', ops: arcsMix() },
   spiral_vase: { label: 'Spiral vase (~120-seg helix)', ops: spiralVase() },
+  collinear_comb: { label: 'Comb (collinear runs → optimize)', ops: collinearComb() },
 };
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
