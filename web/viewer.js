@@ -194,7 +194,8 @@ export function createViewer(cfg) {
       if (!w || !h) return;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
     }
-    window.addEventListener('resize', resize);
+    const resizeObserver = new ResizeObserver(() => resize());
+    resizeObserver.observe(el);
     Object.assign(V, { ready: true, renderer, scene, camera, controls, beads, beadUniforms, ghostT, printT, head, grid: null, resize });
     let last = performance.now();
     function frame(now) {
