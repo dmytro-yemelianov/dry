@@ -61,4 +61,14 @@ impl Toolpath {
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).expect("Toolpath serialises")
     }
+
+    /// Encode to the compact columnar binary form (`docs/01-architecture.md` §6; see [`crate::codec`]).
+    pub fn to_bytes(&self) -> Vec<u8> {
+        crate::codec::encode(self)
+    }
+
+    /// Decode from the columnar binary form. Lossless: `from_bytes(&to_bytes()) == self`.
+    pub fn from_bytes(buf: &[u8]) -> Result<Toolpath, crate::codec::CodecError> {
+        crate::codec::decode(buf)
+    }
 }

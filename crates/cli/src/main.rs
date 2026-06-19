@@ -34,6 +34,20 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<String>,
     },
+    /// Encode a Dry IR (JSON) file to the compact columnar binary form.
+    Pack {
+        file: String,
+        /// Output path for the `.dry` binary.
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Decode a `.dry` binary back to Dry IR JSON (lossless).
+    Unpack {
+        file: String,
+        /// Write JSON to a file instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
 }
 
 fn die(msg: String) -> ! {
@@ -130,6 +144,24 @@ fn run(cli: Cli) -> ExitCode {
                 Some(path) => fs::write(&path, gcode + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
                 None => println!("{gcode}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Pack { file, out } => {
+            let bytes = load(&file).to_bytes();
+            fs::write(&out, &bytes).unwrap_or_else(|e| die(format!("cannot write {out}: {e}")));
+            eprintln!("packed {file} → {out} ({} bytes)", bytes.len());
+            ExitCode::SUCCESS
+        }
+        Cmd::Unpack { file, out } => {
+            let bytes = fs::read(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let tp = Toolpath::from_bytes(&bytes)
+                .unwrap_or_else(|e| die(format!("not a Dry IR binary {file}: {e}")));
+            let json = tp.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
             }
             ExitCode::SUCCESS
         }
