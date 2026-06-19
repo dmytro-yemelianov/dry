@@ -11,12 +11,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod codec;
 pub mod emit;
 pub mod engine;
 pub mod ir;
 pub mod resolve;
 pub mod units;
 
+pub use codec::CodecError;
 pub use emit::{emit, EmitParams};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};

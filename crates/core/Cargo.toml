@@ -7,11 +7,12 @@ license.workspace = true
 repository.workspace = true
 
 # The core stays dependency-light and compiles to wasm32-unknown-unknown unmodified. serde/serde_json
-# (the IR encodings) are wasm-friendly and the only deps. PyO3/numpy/native bindings live in sibling
-# crates, never here.
+# (the JSON IR encoding) plus miniz_oxide (pure-Rust DEFLATE for the compact columnar binary encoding)
+# are all wasm-friendly. PyO3/numpy/native bindings live in sibling crates, never here.
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+miniz_oxide = "0.8"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
