@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Dry — visual authoring (Blockly)</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e;
+          --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  header { padding:18px 24px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
+  header h1 b { color:var(--accent); }
+  header h1 a { float:right; font-size:13px; color:var(--accent); text-decoration:none; }
+  header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+  main { display:grid; grid-template-columns: 55% 1fr; gap:1px; background:var(--line);
+         height: calc(100vh - 75px); }
+  section { background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
+  section.right { overflow:auto; padding:16px; }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
+       margin:0 0 12px; font-weight:600; }
+  h2 .sub { text-transform:none; color:var(--muted); font-weight:400; }
+  #blocklyArea { flex:1; position:relative; }
+  #blocklyDiv { position:absolute; inset:0; }
+  #viewport { width:100%; height:46vh; background:var(--panel); border-radius:8px;
+              border:1px solid var(--line); overflow:hidden; position:relative; }
+  #viewport canvas { display:block; width:100%; height:100%; }
+  .legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--muted); }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px;
+            vertical-align:middle; }
+  .playback { display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .playback button { background:var(--panel); color:var(--fg); border:1px solid var(--line);
+                     border-radius:6px; padding:6px 10px; cursor:pointer; }
+  .playback button:hover { border-color:var(--muted); }
+  #scrub { flex:1; accent-color:var(--accent); }
+  #clock { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; min-width:96px;
+           text-align:right; }
+  .speeds { display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap; }
+  .speeds .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px;
+                 margin-right:4px; }
+  .speeds button { background:var(--panel); color:var(--muted); border:1px solid var(--line);
+                   border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px; }
+  .speeds button.active { color:var(--bg); background:var(--accent); border-color:var(--accent);
+                          font-weight:600; }
+  .gcode-meta { color:var(--muted); font-size:11px; margin:0 0 6px; }
+  .gcode { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px;
+           font-size:12px; overflow:auto; max-height:34vh; }
+  .gline { padding:1px 8px; border-radius:4px; white-space:pre; cursor:pointer; }
+  .gline:hover { background:#1f2630; }
+  .gline.active { background:var(--accent); color:var(--bg); font-weight:600; }
+  .gline .ln { color:var(--muted); display:inline-block; width:38px; user-select:none; }
+  .gline.active .ln { color:var(--bg); }
+  .explain { margin-top:10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+             padding:10px; font-size:12px; min-height:50px; }
+  .explain .cmd { color:var(--accent); font-weight:600; }
+  .explain table { width:100%; border-collapse:collapse; margin-top:6px; }
+  .explain td { padding:2px 4px; vertical-align:top; }
+  .explain td.k { color:var(--extrude); width:64px; font-weight:600; }
+  .explain td.d { color:var(--muted); }
+  .explain .hint { color:var(--muted); }
+  .toolbar { padding:8px 12px; border-bottom:1px solid var(--line); display:flex; gap:10px;
+             align-items:center; color:var(--muted); font-size:11px; text-transform:uppercase;
+             letter-spacing:1px; }
+  .toolbar label { display:flex; align-items:center; gap:6px; text-transform:none; letter-spacing:0;
+                   font-size:12px; }
+  footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
+  /* Blockly dark-ish surface to match the demo */
+  .blocklyMainBackground { stroke:none !important; }
+</style>
+<script src="./vendor/blockly/blockly_compressed.js"></script>
+<script src="./vendor/blockly/blocks_compressed.js"></script>
+<script src="./vendor/blockly/msg/en.js"></script>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<header>
+  <h1><b>Dry</b> — visual authoring <a href="index.html">← gallery</a></h1>
+  <p>Drag blocks to build a Dry <b>L1 design</b>; the same Rust engine resolves it to g-code live, rendered
+     in 3D with print playback. Every block is one op — geometry / extruder / speed / move / arc / process.</p>
+</header>
+<main>
+  <section>
+    <div class="toolbar">
+      <span>Workspace</span>
+      <label><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
+      <span style="margin-left:auto">drag from the toolbox · the preview updates live →</span>
+    </div>
+    <div id="blocklyArea"><div id="blocklyDiv"></div></div>
+  </section>
+  <section class="right">
+    <h2>Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
+    <div id="viewport"></div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
+      <span><span class="swatch" style="background:var(--travel)"></span>travel</span>
+      <span><span class="swatch" style="background:var(--accent)"></span>toolhead</span>
+    </div>
+    <div class="playback">
+      <button id="play" title="play / pause">▶</button>
+      <input type="range" id="scrub" min="0" max="1000" value="0" />
+      <span id="clock">0:00 / 0:00</span>
+    </div>
+    <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
+
+    <h2 style="margin-top:22px">G-code <span class="sub">— click a line to seek · highlights as it prints</span></h2>
+    <div class="gcode-meta" id="gcodeMeta"></div>
+    <div id="gcode" class="gcode">loading wasm…</div>
+    <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
+  </section>
+</main>
+<footer>Dry is clean-room (Apache-2.0). Blockly (Apache-2.0) and three.js (MIT) are vendored locally.</footer>
+
+<!-- XML toolbox (categorised). Blockly classic reads it from the DOM. -->
+<xml id="toolbox" style="display:none">
+  <category name="Setup" colour="160">
+    <block type="dry_geometry"></block>
+    <block type="dry_extruder"></block>
+    <block type="dry_speed"></block>
+  </category>
+  <category name="Move" colour="210">
+    <block type="dry_move"></block>
+    <block type="dry_arc"></block>
+  </category>
+  <category name="Process" colour="290">
+    <block type="dry_temperature"></block>
+    <block type="dry_fan"></block>
+    <block type="dry_flow"></block>
+    <block type="dry_tool"></block>
+    <block type="dry_orient"></block>
+    <block type="dry_dwell"></block>
+  </category>
+  <category name="Control" colour="20">
+    <block type="dry_repeat"></block>
+  </category>
+</xml>
+
+<script type="module">
+import init, { resolve_gcode, resolve_metrics, resolve_ir,
+               resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
+import { RESOLVE_PARAMS } from './designs.js';
+import { createViewer } from './viewer.js';
+
+const $ = (id) => document.getElementById(id);
+
+// ---- custom block definitions: one statement block per L1 op + a repeat control block ----
+// move/arc coords are TEXT fields: an empty field ⇒ null (inherit the running value), otherwise Number.
+Blockly.defineBlocksWithJsonArray([
+  { type: 'dry_geometry', message0: 'geometry  width %1  height %2',
+    args0: [ { type: 'field_number', name: 'W', value: 0.6, min: 0 },
+             { type: 'field_number', name: 'H', value: 0.2, min: 0 } ],
+    previousStatement: null, nextStatement: null, colour: 160,
+    tooltip: 'Set the bead cross-section: extrusion width × layer height (mm).' },
+
+  { type: 'dry_extruder', message0: 'extruder %1',
+    args0: [ { type: 'field_dropdown', name: 'ON', options: [['on', 'true'], ['off', 'false']] } ],
+    previousStatement: null, nextStatement: null, colour: 160,
+    tooltip: 'Turn the extruder on (moves extrude) or off (moves travel).' },
+
+  { type: 'dry_speed', message0: 'speed  print %1 mm/min',
+    args0: [ { type: 'field_number', name: 'PRINT', value: 1000, min: 0 } ],
+    previousStatement: null, nextStatement: null, colour: 160,
+    tooltip: 'Set the print feedrate (mm/min).' },
+
+  { type: 'dry_move', message0: 'move  x %1  y %2  z %3',
+    args0: [ { type: 'field_input', name: 'X', text: '0' },
+             { type: 'field_input', name: 'Y', text: '0' },
+             { type: 'field_input', name: 'Z', text: '0.2' } ],
+    previousStatement: null, nextStatement: null, colour: 210,
+    tooltip: 'Linear move to (x, y, z). Leave a field blank to keep the current value (null).' },
+
+  { type: 'dry_arc', message0: 'arc  cx %1  cy %2  to x %3  y %4  z %5  %6',
+    args0: [ { type: 'field_input', name: 'CX', text: '10' },
+             { type: 'field_input', name: 'CY', text: '5' },
+             { type: 'field_input', name: 'X', text: '0' },
+             { type: 'field_input', name: 'Y', text: '5' },
+             { type: 'field_input', name: 'Z', text: '' },
+             { type: 'field_dropdown', name: 'CW', options: [['clockwise', 'true'], ['ccw', 'false']] } ],
+    previousStatement: null, nextStatement: null, colour: 210,
+    tooltip: 'Circular arc about centre (cx, cy) to (x, y, z). Blank x/y/z keep the current value.' },
+
+  { type: 'dry_temperature', message0: 'temperature  nozzle %1 °C',
+    args0: [ { type: 'field_number', name: 'NOZZLE', value: 200, min: 0 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Set the nozzle temperature (°C).' },
+
+  { type: 'dry_fan', message0: 'fan  speed %1',
+    args0: [ { type: 'field_number', name: 'SPEED', value: 255, min: 0, max: 255 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Set the part-cooling fan speed (0–255).' },
+
+  { type: 'dry_flow', message0: 'flow  ratio %1',
+    args0: [ { type: 'field_number', name: 'RATIO', value: 1, min: 0, precision: 0.01 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Set the extrusion flow multiplier (1.0 = nominal).' },
+
+  { type: 'dry_tool', message0: 'tool  index %1',
+    args0: [ { type: 'field_number', name: 'INDEX', value: 0, min: 0, precision: 1 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Select the active tool / extruder index.' },
+
+  { type: 'dry_orient', message0: 'orient  i %1  j %2  k %3',
+    args0: [ { type: 'field_number', name: 'I', value: 0 },
+             { type: 'field_number', name: 'J', value: 0 },
+             { type: 'field_number', name: 'K', value: 1 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Set the tool orientation vector (i, j, k).' },
+
+  { type: 'dry_dwell', message0: 'dwell  %1 seconds',
+    args0: [ { type: 'field_number', name: 'SECONDS', value: 1, min: 0, precision: 0.01 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Pause in place for a number of seconds.' },
+
+  { type: 'dry_repeat', message0: 'repeat %1 times', message1: 'do %1',
+    args0: [ { type: 'field_number', name: 'N', value: 3, min: 0, precision: 1 } ],
+    args1: [ { type: 'input_statement', name: 'DO' } ],
+    previousStatement: null, nextStatement: null, colour: 20,
+    tooltip: 'Unroll the enclosed sequence N times into the op stream.' },
+]);
+
+// ---- generator: walk top blocks top→bottom, emit the L1 ops array (manual tree walk) ----
+const numOrNull = (s) => { const v = (s ?? '').trim(); return v === '' ? null : Number(v); };
+
+function genBlock(block, ops) {
+  switch (block.type) {
+    case 'dry_geometry':
+      ops.push({ op: 'geometry', width: Number(block.getFieldValue('W')), height: Number(block.getFieldValue('H')) });
+      break;
+    case 'dry_extruder':
+      ops.push({ op: 'extruder', on: block.getFieldValue('ON') === 'true' });
+      break;
+    case 'dry_speed':
+      ops.push({ op: 'speed', print: Number(block.getFieldValue('PRINT')) });
+      break;
+    case 'dry_move':
+      ops.push({ op: 'move', x: numOrNull(block.getFieldValue('X')),
+                 y: numOrNull(block.getFieldValue('Y')), z: numOrNull(block.getFieldValue('Z')) });
+      break;
+    case 'dry_arc':
+      ops.push({ op: 'arc', cx: Number(block.getFieldValue('CX')), cy: Number(block.getFieldValue('CY')),
+                 x: numOrNull(block.getFieldValue('X')), y: numOrNull(block.getFieldValue('Y')),
+                 z: numOrNull(block.getFieldValue('Z')), clockwise: block.getFieldValue('CW') === 'true' });
+      break;
+    case 'dry_temperature':
+      ops.push({ op: 'temperature', nozzle: Number(block.getFieldValue('NOZZLE')) });
+      break;
+    case 'dry_fan':
+      ops.push({ op: 'fan', speed: Number(block.getFieldValue('SPEED')) });
+      break;
+    case 'dry_flow':
+      ops.push({ op: 'flow', ratio: Number(block.getFieldValue('RATIO')) });
+      break;
+    case 'dry_tool':
+      ops.push({ op: 'tool', index: Number(block.getFieldValue('INDEX')) });
+      break;
+    case 'dry_orient':
+      ops.push({ op: 'orient', i: Number(block.getFieldValue('I')),
+                 j: Number(block.getFieldValue('J')), k: Number(block.getFieldValue('K')) });
+      break;
+    case 'dry_dwell':
+      ops.push({ op: 'dwell', seconds: Number(block.getFieldValue('SECONDS')) });
+      break;
+    case 'dry_repeat': {
+      const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
+      const body = [];
+      let inner = block.getInputTargetBlock('DO');
+      while (inner) { genBlock(inner, body); inner = inner.getNextBlock(); }
+      for (let i = 0; i < n; i++) ops.push(...body.map((o) => ({ ...o })));
+      break;
+    }
+  }
+}
+
+let WORKSPACE = null;
+function genOps() {
+  const ops = [];
+  if (!WORKSPACE) return ops;
+  for (const top of WORKSPACE.getTopBlocks(true)) {
+    let b = top;
+    while (b) { genBlock(b, ops); b = b.getNextBlock(); }
+  }
+  return ops;
+}
+window.__genOps = genOps;
+
+// ---- seed design: a 10mm square (geometry → extruder on → 5 moves) ----
+function seedXml() {
+  const mv = (x, y, z) =>
+    `<value><block type="dry_move"><field name="X">${x}</field><field name="Y">${y}</field><field name="Z">${z}</field></block></value>`;
+  // build a linked statement chain via <next> nesting
+  const moves = [[0, 0, 0.2], [10, 0, 0.2], [10, 10, 0.2], [0, 10, 0.2], [0, 0, 0.2]];
+  let chain = '';
+  // build innermost-out
+  for (let i = moves.length - 1; i >= 0; i--) {
+    const [x, y, z] = moves[i];
+    chain = `<block type="dry_move"><field name="X">${x}</field><field name="Y">${y}</field><field name="Z">${z}</field>` +
+            (chain ? `<next>${chain}</next>` : '') + `</block>`;
+  }
+  const xml =
+    `<xml xmlns="https://developers.google.com/blockly/xml">` +
+      `<block type="dry_geometry" x="30" y="30">` +
+        `<field name="W">0.6</field><field name="H">0.2</field>` +
+        `<next><block type="dry_extruder"><field name="ON">true</field>` +
+          `<next>${chain}</next>` +
+        `</block></next>` +
+      `</block>` +
+    `</xml>`;
+  return Blockly.utils.xml.textToDom(xml);
+}
+
+(async () => {
+  await init();
+
+  const viewer = createViewer({
+    viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
+    gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
+    clockEl: $('clock'), speedsEl: $('speeds'),
+    wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
+    params: RESOLVE_PARAMS,
+  });
+
+  WORKSPACE = Blockly.inject('blocklyDiv', {
+    toolbox: document.getElementById('toolbox'),
+    theme: Blockly.Theme.defineTheme('dryDark', {
+      base: Blockly.Themes.Classic,
+      componentStyles: {
+        workspaceBackgroundColour: '#0d1117', toolboxBackgroundColour: '#161b22',
+        toolboxForegroundColour: '#e6edf3', flyoutBackgroundColour: '#161b22',
+        flyoutForegroundColour: '#8b949e', flyoutOpacity: 1,
+        scrollbarColour: '#30363d', insertionMarkerColour: '#3fb950',
+      },
+    }),
+    grid: { spacing: 24, length: 2, colour: '#21262d', snap: true },
+    zoom: { controls: true, wheel: true, startScale: 0.9 },
+    trashcan: true, renderer: 'geras',
+  });
+
+  // resize Blockly when its container changes
+  const onResize = () => Blockly.svgResize(WORKSPACE);
+  window.addEventListener('resize', onResize);
+
+  // seed and render
+  Blockly.Xml.domToWorkspace(seedXml(), WORKSPACE);
+  onResize();
+
+  let pending = null;
+  const update = () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      try { viewer.show(genOps(), $('relE').checked); } catch (e) { console.error(e); }
+    }, 60);
+  };
+  WORKSPACE.addChangeListener((e) => { if (!e.isUiEvent) update(); });
+  $('relE').addEventListener('change', () => viewer.show(genOps(), $('relE').checked));
+
+  // initial render (synchronous so tests can assert immediately after __blocksReady)
+  viewer.show(genOps(), $('relE').checked);
+  window.__blocksReady = true;
+})();
+</script>
+</body>
+</html>
