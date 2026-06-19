@@ -49,6 +49,7 @@ enum Cmd {
         out: Option<String>,
     },
     /// Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found.
+    /// Flags: `--bounds`, `--max-flow`, `--monotonic-z`, `--min-temp`, `--json`.
     Verify {
         file: String,
         /// Max volumetric flow (mm³/s).
@@ -60,6 +61,9 @@ enum Cmd {
         /// Require Z to be non-decreasing (e.g. vase mode).
         #[arg(long)]
         monotonic_z: bool,
+        /// Minimum nozzle temperature (°C) required to extrude.
+        #[arg(long)]
+        min_temp: Option<f64>,
         /// Print findings as JSON.
         #[arg(long)]
         json: bool,
@@ -186,6 +190,7 @@ fn run(cli: Cli) -> ExitCode {
             max_flow,
             bounds,
             monotonic_z,
+            min_temp,
             json,
         } => {
             let tp = load(&file);
@@ -194,6 +199,7 @@ fn run(cli: Cli) -> ExitCode {
                 max_flow,
                 speed_range: None,
                 monotonic_z,
+                min_temp,
             };
             let report = verify(&tp, &contracts);
             if json {

@@ -15,7 +15,13 @@ export type Op =
       y: number | null;
       z: number | null;
       clockwise: boolean;
-    };
+    }
+  // process channels (§3): typed, defaulted, propagated by the engine.
+  | { op: 'temperature'; nozzle: number }
+  | { op: 'fan'; speed: number }
+  | { op: 'flow'; ratio: number }
+  | { op: 'tool'; index: number }
+  | { op: 'dwell'; seconds: number };
 
 /** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
 export interface ResolveParams {
@@ -51,6 +57,12 @@ export interface Segment {
   kind: string;
   centre: [number, number] | null;
   clockwise: boolean;
+  // process channels — present only when set (omitted from the IR otherwise).
+  temperature?: number;
+  fan?: number;
+  flow?: number;
+  tool?: number;
+  dwell_s?: number;
 }
 
 /** The resolved L2 Dry IR. */

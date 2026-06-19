@@ -30,7 +30,7 @@ pub struct Segment {
     pub filament: Length,
     pub width: Option<Length>,
     pub height: Option<Length>,
-    /// `"line"` or `"arc"` (v0; becomes an enum in P1).
+    /// `"line"`, `"arc"`, or `"dwell"` (v0; becomes an enum in P1).
     #[serde(default = "default_kind")]
     pub kind: String,
     /// Arc centre `(cx, cy)` in absolute coordinates — present only when `kind == "arc"`.
@@ -39,6 +39,24 @@ pub struct Segment {
     /// Arc direction: `true` → G2 (clockwise), `false` → G3.
     #[serde(default)]
     pub clockwise: bool,
+
+    // ---- process channels (§3): typed, defaulted, propagated by `resolve`. Each is omitted from the
+    // wire form when unset, so a motion-only toolpath serialises byte-identically to a channel-free IR.
+    /// Nozzle temperature (°C) in effect for this move.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// Part-cooling fan (0..1) in effect for this move.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fan: Option<f64>,
+    /// Flow multiplier applied to the deposited volume — omitted when the default (1.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow: Option<f64>,
+    /// Active tool index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<u32>,
+    /// Dwell duration (s) — present only when `kind == "dwell"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dwell_s: Option<f64>,
 }
 
 fn default_kind() -> String {
