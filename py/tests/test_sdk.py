@@ -66,15 +66,20 @@ def test_toolframe_orientation_authors_onto_segments():
 
 
 def test_spline_authors_through_the_builder():
-    # 1 positioning move + a spline through 3 control points (3 spans × 16 samples = 48).
     d = (dry.Design().geometry(0.6, 0.2).extruder(True)
          .point(0, 0, 0.2)
          .spline([(10, 0, 0.2), (10, 10, 0.2), (0, 10, 0.2)]))
     ir = d.ir()
-    assert len(ir["segments"]) == 1 + 48
-    # the spline ends at the last control point.
-    assert ir["segments"][-1]["end"] == [0.0, 10.0, 0.2]
-    assert all(s["kind"] == "line" for s in ir["segments"][1:])
+    # Expect 2 segments: 1 positioning line + 1 first-class spline segment.
+    assert len(ir["segments"]) == 2
+    assert ir["segments"][0]["kind"] == "line"
+    assert ir["segments"][1]["kind"] == "spline"
+    assert ir["segments"][1]["end"] == [0.0, 10.0, 0.2]
+    assert ir["segments"][1]["control_points"] == [[10.0, 0.0, 0.2], [10.0, 10.0, 0.2], [0.0, 10.0, 0.2]]
+    
+    # Verify that emitting g-code resolves the spline into 48 sub-moves.
+    gcode = d.gcode()
+    assert len(gcode) == 49
 
 
 def test_flow_multiplier_scales_volume():

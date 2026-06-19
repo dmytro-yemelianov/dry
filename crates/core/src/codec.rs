@@ -153,6 +153,19 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     push_opt_u32_col(&mut body, segs, |s| s.tool);
     push_opt_vec3_col(&mut body, segs, |s| s.orientation);
 
+    // Encode control points
+    push_bits(&mut body, n, |i| segs[i].control_points.is_some());
+    for s in segs {
+        if let Some(ref points) = s.control_points {
+            body.extend_from_slice(&(points.len() as u32).to_le_bytes());
+            for pt in points {
+                body.extend_from_slice(&pt[0].value().to_le_bytes());
+                body.extend_from_slice(&pt[1].value().to_le_bytes());
+                body.extend_from_slice(&pt[2].value().to_le_bytes());
+            }
+        }
+    }
+
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<&str> = Vec::new();
     let mut idx: Vec<u32> = Vec::with_capacity(n);
@@ -305,6 +318,26 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
     let tool = r.opt_u32_col(n)?;
     let orientation = r.opt_vec3_col(n)?;
 
+    let control_points_valid = r.bits(n)?;
+    let mut control_points = Vec::with_capacity(n);
+    for v in control_points_valid {
+        if v {
+            let len = r.u32()? as usize;
+            let mut points = Vec::with_capacity(len);
+            for _ in 0..len {
+                let pt = [
+                    Length::mm(r.f64()?),
+                    Length::mm(r.f64()?),
+                    Length::mm(r.f64()?),
+                ];
+                points.push(pt);
+            }
+            control_points.push(Some(points));
+        } else {
+            control_points.push(None);
+        }
+    }
+
     let dict_len = r.u32()? as usize;
     let mut dict: Vec<String> = Vec::with_capacity(dict_len);
     for _ in 0..dict_len {
@@ -340,6 +373,7 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
             tool: tool[i],
             dwell_s: dwell_s[i],
             orientation: orientation[i],
+            control_points: control_points[i].clone(),
         });
     }
 

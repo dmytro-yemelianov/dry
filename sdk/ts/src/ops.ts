@@ -66,6 +66,7 @@ export interface Segment {
   tool?: number;
   dwell_s?: number;
   orientation?: [number, number, number];
+  control_points?: [number, number, number][];
 }
 
 /** The resolved L2 Dry IR. */

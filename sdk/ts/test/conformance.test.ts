@@ -102,8 +102,8 @@ test('toolframe orientation authors onto segments', () => {
   assert.deepEqual(d.ir().segments[1].orientation, [0.6, 0, 0.8]);
 });
 
-// A Catmull-Rom spline lowers to many line segments ending at the last control point.
-test('spline authors through the builder', () => {
+// A Catmull-Rom spline keeps curves intact in the L2 toolpath and lowers in emit.
+test("spline authors through the builder", () => {
   const d = new Design()
     .geometry(0.6, 0.2)
     .extruder(true)
@@ -114,10 +114,20 @@ test('spline authors through the builder', () => {
       [0, 10, 0.2],
     ]);
   const ir = d.ir();
-  // 1 positioning move + 3 spans × 16 samples = 49 segments.
-  assert.equal(ir.segments.length, 1 + 48);
-  assert.deepEqual(ir.segments[ir.segments.length - 1].end, [0, 10, 0.2]);
-  assert.ok(ir.segments.slice(1).every((s) => s.kind === 'line'));
+  // Expect 2 segments: 1 positioning line + 1 first-class spline segment.
+  assert.equal(ir.segments.length, 2);
+  assert.equal(ir.segments[0].kind, "line");
+  assert.equal(ir.segments[1].kind, "spline");
+  assert.deepEqual(ir.segments[1].end, [0, 10, 0.2]);
+  assert.deepEqual(ir.segments[1].control_points, [
+    [10, 0, 0.2],
+    [10, 10, 0.2],
+    [0, 10, 0.2],
+  ]);
+
+  // Verify that emitting g-code resolves the spline into 48 sub-moves.
+  const gcode = d.gcode();
+  assert.equal(gcode.length, 49);
 });
 
 // A flow multiplier scales the deposited volume.
