@@ -5,9 +5,9 @@
 //! analysis (`simulate`), validated against the FullControl behavioural oracle (`docs/03-conformance.md`)
 //! — clean-room: Dry reproduces FullControl's *outputs*, never its code (`docs/CLEANROOM.md`).
 //!
-//! Status: **P0** — `simulate` + Marlin `emit`, both gated byte-for-output against the FullControl
-//! oracle. Units-typing of the IR fields, the binary encoding, and the lowering passes are the next
-//! P0/P1 increments (`docs/04-tasks.md`).
+//! Status: **P0** — `resolve` + `simulate` + Marlin `emit`, all gated byte-for-output against the
+//! FullControl oracle, over a **unit-typed IR** ([`units`]: mixing units is a compile error). The binary
+//! encoding and the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
 
 #![forbid(unsafe_code)]
 
@@ -21,3 +21,4 @@ pub use emit::{emit, EmitParams};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
 pub use resolve::{resolve, Design, Op, ResolveParams};
+pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};

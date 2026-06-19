@@ -9,6 +9,7 @@
 //! `hypot(radius·swept_angle, Δz)` (planar arc length, with the helical rise).
 
 use crate::ir::{Segment, Toolpath};
+use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use serde::Deserialize;
 use std::f64::consts::TAU;
 
@@ -65,11 +66,12 @@ impl Default for ResolveParams {
     }
 }
 
-fn dist(a: [Option<f64>; 3], b: [Option<f64>; 3]) -> f64 {
-    let mut sq = 0.0;
+fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
+    let mut sq = Area::ZERO;
     for i in 0..3 {
         if let (Some(p), Some(q)) = (a[i], b[i]) {
-            sq += (q - p) * (q - p);
+            let d = q - p;
+            sq = sq + d * d;
         }
     }
     sq.sqrt()
@@ -77,11 +79,14 @@ fn dist(a: [Option<f64>; 3], b: [Option<f64>; 3]) -> f64 {
 
 /// Lower an L1 design to an L2 toolpath.
 pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
-    let area = std::f64::consts::PI * (p.dia / 2.0).powi(2);
-    let mut pos: [Option<f64>; 3] = [None, None, None];
-    let (mut width, mut height) = (0.0_f64, 0.0_f64);
+    // bead cross-section of the round filament: π·(dia/2)².
+    let half = Length::mm(p.dia) / 2.0;
+    let area = std::f64::consts::PI * (half * half);
+    let travel_speed = Feedrate(p.travel_speed);
+    let mut pos: [Option<Length>; 3] = [None, None, None];
+    let (mut width, mut height) = (Length::ZERO, Length::ZERO);
     let mut on = false;
-    let mut print = p.print_speed;
+    let mut print = Feedrate(p.print_speed);
     let mut segs: Vec<Segment> = Vec::new();
 
     for op in &design.ops {
@@ -90,20 +95,28 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 width: w,
                 height: h,
             } => {
-                width = w;
-                height = h;
+                width = Length::mm(w);
+                height = Length::mm(h);
             }
             Op::Extruder { on: o } => on = o,
-            Op::Speed { print: s } => print = s,
+            Op::Speed { print: s } => print = Feedrate(s),
             Op::Move { x, y, z } => {
-                let end = [x.or(pos[0]), y.or(pos[1]), z.or(pos[2])];
+                let end = [
+                    x.map(Length::mm).or(pos[0]),
+                    y.map(Length::mm).or(pos[1]),
+                    z.map(Length::mm).or(pos[2]),
+                ];
                 let length = dist(pos, end);
-                let volume = if on { length * width * height } else { 0.0 };
+                let volume = if on {
+                    length * width * height
+                } else {
+                    Volume::ZERO
+                };
                 segs.push(Segment {
                     start: pos,
                     end,
                     travel: !on,
-                    speed: if on { print } else { p.travel_speed },
+                    speed: if on { print } else { travel_speed },
                     length,
                     volume,
                     filament: volume / area,
@@ -123,8 +136,16 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 z,
                 clockwise,
             } => {
-                let end = [x.or(pos[0]), y.or(pos[1]), z.or(pos[2])];
-                let (sx, sy) = (pos[0].unwrap_or(0.0), pos[1].unwrap_or(0.0));
+                let (cx, cy) = (Length::mm(cx), Length::mm(cy));
+                let end = [
+                    x.map(Length::mm).or(pos[0]),
+                    y.map(Length::mm).or(pos[1]),
+                    z.map(Length::mm).or(pos[2]),
+                ];
+                let (sx, sy) = (
+                    pos[0].unwrap_or(Length::ZERO),
+                    pos[1].unwrap_or(Length::ZERO),
+                );
                 let (ex, ey) = (end[0].unwrap_or(sx), end[1].unwrap_or(sy));
                 let radius = (sx - cx).hypot(sy - cy);
                 let start_a = (sy - cy).atan2(sx - cx);
@@ -134,20 +155,24 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 } else {
                     end_a - start_a
                 } % TAU;
-                if swept <= 0.0 {
-                    swept += TAU;
+                if swept <= Angle::ZERO {
+                    swept = swept + Angle(TAU);
                 }
                 let dz = match (pos[2], end[2]) {
                     (Some(a), Some(b)) => b - a,
-                    _ => 0.0,
+                    _ => Length::ZERO,
                 };
                 let length = (radius * swept).hypot(dz);
-                let volume = if on { length * width * height } else { 0.0 };
+                let volume = if on {
+                    length * width * height
+                } else {
+                    Volume::ZERO
+                };
                 segs.push(Segment {
                     start: pos,
                     end,
                     travel: !on,
-                    speed: if on { print } else { p.travel_speed },
+                    speed: if on { print } else { travel_speed },
                     length,
                     volume,
                     filament: volume / area,
