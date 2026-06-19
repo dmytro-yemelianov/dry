@@ -49,10 +49,11 @@ The authoring page ships **parametric** blocks so a starter design can be a real
 - **`for i = 0 to N−1`** (`dry_for`) — a loop bound to a Blockly variable `i`; the generator iterates
   the body N times with `i` bound `0,1,…,N−1`. `repeat` and `for` are capped at 1000 unrolled
   iterations to keep the authoring page responsive.
-- **`move`/`arc` coordinates are value inputs** (X/Y/Z, arc cx/cy) with **shadow `math_number`** — they
-  still show numbers by default, an empty/cleared input ⇒ `null` (inherit the running value), and a
-  connected value block is **evaluated**. The block palette is an **always-open flyout** (a fixed left
-  panel the workspace sits beside, so the library never overlaps your blocks), grouped by labels:
+- **`move`/`arc`/`spline` coordinates are value inputs** (X/Y/Z, arc cx/cy, spline control points) with
+  **shadow `math_number`** — they still show numbers by default, an empty/cleared input ⇒ `null` (inherit
+  the running value), and a connected value block is **evaluated**. The block palette is an
+  **always-open flyout** (a fixed left panel the workspace sits beside, so the library never overlaps your
+  blocks), grouped by labels:
   **Setup / Move / Process / Control–Logic / Math / Variables**. It includes native `math_number` /
   `math_arithmetic` / `math_single` / `math_trig` (SIN/COS) / `math_modulo` / `math_round` /
   `math_constant` (PI), full **Logic** (`if/else`, `compare`, `and/or`, `not`, `boolean`), and
