@@ -15,17 +15,18 @@
   header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
   header h1 b { color:var(--accent); }
   header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
-  main { display:grid; grid-template-columns: 360px 1fr 360px; gap:1px; background:var(--line);
+  main { display:grid; grid-template-columns: 360px 1fr 380px; gap:1px; background:var(--line);
          height: calc(100vh - 75px); }
   section { background:var(--bg); padding:16px; overflow:auto; }
   h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
        margin:0 0 12px; font-weight:600; }
+  h2 .sub { text-transform:none; color:var(--muted); font-weight:400; }
   select, label, button { font:inherit; }
   select { width:100%; background:var(--panel); color:var(--fg); border:1px solid var(--line);
            border-radius:6px; padding:8px; margin-bottom:14px; }
   .row { display:flex; gap:10px; margin-bottom:8px; }
   .toggle { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
-  #viewport { width:100%; height:60vh; background:var(--panel); border-radius:8px;
+  #viewport { width:100%; height:54vh; background:var(--panel); border-radius:8px;
               border:1px solid var(--line); overflow:hidden; position:relative; }
   #viewport canvas { display:block; width:100%; height:100%; }
   .legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--muted); }
@@ -38,7 +39,7 @@
   #scrub { flex:1; accent-color:var(--accent); }
   #clock { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; min-width:96px;
            text-align:right; }
-  .speeds { display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .speeds { display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap; }
   .speeds .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px;
                  margin-right:4px; }
   .speeds button { background:var(--panel); color:var(--muted); border:1px solid var(--line);
@@ -48,9 +49,22 @@
   .metrics { display:grid; grid-template-columns:1fr auto; gap:4px 12px; }
   .metrics dt { color:var(--muted); }
   .metrics dd { margin:0; text-align:right; }
-  pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;
-        font-size:12px; white-space:pre; overflow:auto; margin:0; max-height:38vh; }
-  .gcode-meta { color:var(--muted); font-size:11px; margin:10px 0 6px; }
+  .gcode-meta { color:var(--muted); font-size:11px; margin:0 0 6px; }
+  .gcode { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px;
+           font-size:12px; overflow:auto; max-height:46vh; }
+  .gline { padding:1px 8px; border-radius:4px; white-space:pre; cursor:pointer; }
+  .gline:hover { background:#1f2630; }
+  .gline.active { background:var(--accent); color:var(--bg); font-weight:600; }
+  .gline .ln { color:var(--muted); display:inline-block; width:38px; user-select:none; }
+  .gline.active .ln { color:var(--bg); }
+  .explain { margin-top:10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+             padding:10px; font-size:12px; min-height:70px; }
+  .explain .cmd { color:var(--accent); font-weight:600; }
+  .explain table { width:100%; border-collapse:collapse; margin-top:6px; }
+  .explain td { padding:2px 4px; vertical-align:top; }
+  .explain td.k { color:var(--extrude); width:64px; font-weight:600; }
+  .explain td.d { color:var(--muted); }
+  .explain .hint { color:var(--muted); }
   .optimize { font-size:13px; }
   .optimize .delta { color:var(--accent); }
   .optimize .none { color:var(--muted); }
@@ -72,8 +86,8 @@
 <body>
 <header>
   <h1><b>Dry</b> — one engine: native · Python · wasm</h1>
-  <p>The same Rust toolpath compiler that powers the CLI and the Python SDK, resolving an L1 design
-     to g-code in your browser — rendered in 3D with print playback. Output is byte-identical to the oracle.</p>
+  <p>The same Rust toolpath compiler that powers the CLI and the Python SDK, resolving an L1 design to
+     g-code in your browser — rendered in 3D with print playback synced to the g-code. Byte-identical to the oracle.</p>
 </header>
 <main>
   <section>
@@ -83,10 +97,10 @@
     <h2 style="margin-top:22px">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
 
-    <h2 style="margin-top:22px">Optimize <span style="text-transform:none;color:var(--muted);font-weight:400">— merge collinear</span></h2>
+    <h2 style="margin-top:22px">Optimize <span class="sub">— merge collinear</span></h2>
     <div class="optimize" id="optimize"></div>
 
-    <h2 style="margin-top:22px">Verify <span style="text-transform:none;color:var(--muted);font-weight:400">— machine-safety contracts</span></h2>
+    <h2 style="margin-top:22px">Verify <span class="sub">— machine-safety contracts</span></h2>
     <div class="row">
       <label class="toggle">max flow <input type="number" id="maxFlow" value="8" step="0.5" min="0"
         style="width:64px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
@@ -96,7 +110,7 @@
     <div class="findings" id="findings"></div>
   </section>
   <section>
-    <h2>Toolpath — 3D <span style="text-transform:none;color:var(--muted);font-weight:400">— drag to orbit · scroll to zoom</span></h2>
+    <h2>Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
     <div id="viewport"></div>
     <div class="legend">
       <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
@@ -111,9 +125,10 @@
     <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
   </section>
   <section>
-    <h2>G-code</h2>
+    <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
     <div class="gcode-meta" id="gcodeMeta"></div>
-    <pre id="gcode">loading wasm…</pre>
+    <div id="gcode" class="gcode">loading wasm…</div>
+    <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
   </section>
 </main>
 <footer>Dry is clean-room (Apache-2.0). FullControl is the behavioral oracle, never shipped.</footer>
@@ -128,30 +143,52 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const $ = (id) => document.getElementById(id);
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
 const TAU = Math.PI * 2;
-const SPEEDS = [0.25, 0.5, 1, 4, 16];
+const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
 
-// ---- turn the resolved IR into timed moves for 3D rendering + playback ----
-// each move: { from:[x,y,z]|null, to:[x,y,z], travel:bool, t0, t1 }. A move whose `from` is null is a
-// teleport (the first positioning move); a dwell is a zero-length move that still consumes time.
+// ---- g-code explanation ----
+const CMD_DESC = {
+  G0: 'rapid travel — reposition without extruding',
+  G1: 'linear move — extrude in a straight line',
+  G2: 'clockwise circular arc',
+  G3: 'counter-clockwise circular arc',
+  G4: 'dwell — pause in place',
+};
+const PARAM_DESC = {
+  F: ['feedrate', 'mm/min'], X: ['target X', 'mm'], Y: ['target Y', 'mm'], Z: ['target Z', 'mm'],
+  E: ['extruder position / amount', 'mm of filament'],
+  I: ['arc centre ΔX from start', 'mm'], J: ['arc centre ΔY from start', 'mm'],
+  A: ['rotary A axis', 'deg'], B: ['rotary B axis', 'deg'], C: ['rotary C axis', 'deg'],
+  S: ['dwell time', 's'],
+};
+function showExplain(line) {
+  if (!line) { $('explain').innerHTML = '<span class="hint">Hover a line, or press play, to explain it.</span>'; return; }
+  const toks = line.trim().split(/\s+/);
+  const cmd = toks[0];
+  const rows = toks.slice(1).map((t) => {
+    const k = t[0], v = t.slice(1), d = PARAM_DESC[k];
+    return `<tr><td class="k">${t}</td><td class="d">${d ? `${d[0]} (${d[1]})` : 'parameter'} = <b>${v}</b></td></tr>`;
+  }).join('');
+  $('explain').innerHTML = `<div><span class="cmd">${cmd}</span> — ${CMD_DESC[cmd] || 'g-code command'}</div>` +
+    (rows ? `<table>${rows}</table>` : '');
+}
+
+// ---- turn the resolved IR into timed moves (each tagged with its source segment / g-code line) ----
 function buildMoves(ir) {
   const moves = [];
   let t = 0;
   const v3 = (a) => [a[0], a[1], a[2]];
-  for (const s of ir.segments) {
+  ir.segments.forEach((s, si) => {
     const from = s.start.some((c) => c == null) ? null : v3(s.start);
-    const speed = s.speed || 0; // mm/min
+    const speed = s.speed || 0;
     if (s.kind === 'dwell') {
       const dt = s.dwell_s || 0;
-      moves.push({ from, to: v3(s.end), travel: true, t0: t, t1: t + dt });
-      t += dt;
-      continue;
+      moves.push({ from, to: v3(s.end), travel: true, t0: t, t1: t + dt, seg: si });
+      t += dt; return;
     }
-    // sub-sample arcs; lines are a single edge.
     let pts;
     if (s.kind === 'arc' && s.centre) {
       const [cx, cy] = s.centre, [sx, sy] = s.start, [ex, ey] = s.end;
-      const sz = s.start[2] ?? 0, ez = s.end[2] ?? sz;
-      const r = Math.hypot(sx - cx, sy - cy);
+      const sz = s.start[2] ?? 0, ez = s.end[2] ?? sz, r = Math.hypot(sx - cx, sy - cy);
       let a0 = Math.atan2(sy - cy, sx - cx), a1 = Math.atan2(ey - cy, ex - cx);
       let sweep = s.clockwise ? a0 - a1 : a1 - a0;
       sweep = ((sweep % TAU) + TAU) % TAU || TAU;
@@ -164,25 +201,19 @@ function buildMoves(ir) {
     } else {
       pts = from ? [from, v3(s.end)] : [v3(s.end)];
     }
-    const total = s.length || 0;                       // mm
-    const dtTotal = speed > 0 && total > 0 ? (total / speed) * 60 : 0; // seconds (matches simulate)
-    // distribute the segment's time across its sub-edges by sub-length.
-    const subLen = [];
-    let sum = 0;
+    if (pts.length === 1) { moves.push({ from: null, to: pts[0], travel: s.travel, t0: t, t1: t, seg: si }); return; }
+    const subLen = []; let sum = 0;
     for (let i = 1; i < pts.length; i++) {
       const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]);
       subLen.push(L); sum += L;
     }
-    if (pts.length === 1) { // teleport to end (undefined start)
-      moves.push({ from: null, to: pts[0], travel: s.travel, t0: t, t1: t });
-      continue;
-    }
+    const dtTotal = speed > 0 && (s.length || 0) > 0 ? ((s.length) / speed) * 60 : 0;
     for (let i = 1; i < pts.length; i++) {
       const dt = sum > 0 ? dtTotal * (subLen[i - 1] / sum) : 0;
-      moves.push({ from: pts[i - 1], to: pts[i], travel: s.travel, t0: t, t1: t + dt });
+      moves.push({ from: pts[i - 1], to: pts[i], travel: s.travel, t0: t, t1: t + dt, seg: si });
       t += dt;
     }
-  }
+  });
   return { moves, totalT: t };
 }
 
@@ -190,16 +221,15 @@ function buildMoves(ir) {
 const V = { ready: false };
 function initScene() {
   const el = $('viewport');
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   el.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x161b22);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
-  camera.up.set(0, 0, 1); // Z is up, like a printer
+  camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-
   const ghostE = new THREE.LineSegments(new THREE.BufferGeometry(),
     new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.18 }));
   const ghostT = new THREE.LineSegments(new THREE.BufferGeometry(),
@@ -210,22 +240,14 @@ function initScene() {
     new THREE.LineBasicMaterial({ color: 0xf85149, transparent: true, opacity: 0.5 }));
   const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0x3fb950 }));
-  let grid = null;
   scene.add(ghostE, ghostT, printE, printT, head);
-
   function resize() {
     const w = el.clientWidth, h = el.clientHeight;
     if (!w || !h) return;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
-
-  Object.assign(V, { ready: true, renderer, scene, camera, controls,
-    ghostE, ghostT, printE, printT, head, grid, resize });
-
-  // animation loop
+  Object.assign(V, { ready: true, renderer, scene, camera, controls, ghostE, ghostT, printE, printT, head, grid: null, resize });
   let last = performance.now();
   function frame(now) {
     const dtReal = (now - last) / 1000; last = now;
@@ -234,9 +256,7 @@ function initScene() {
       if (P.t >= P.totalT) { P.t = P.totalT; P.playing = false; $('play').textContent = '▶'; }
       syncPlayUI();
     }
-    updatePrinted();
-    controls.update();
-    renderer.render(scene, camera);
+    updatePrinted(); updateActiveLine(); controls.update(); renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -249,100 +269,102 @@ function setLine(obj, flat) {
   obj.geometry = g;
 }
 
-// playback state
-const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [] };
+const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [], segStart: [], segEnd: [], activeRow: null };
+let GLINES = [], GROWS = [];
 
 function setModel(ir) {
   const { moves, totalT } = buildMoves(ir);
-  P.moves = moves; P.totalT = totalT; P.t = 0; P.playing = false;
+  P.moves = moves; P.totalT = totalT; P.t = 0; P.playing = false; P.activeRow = null;
   $('play').textContent = '▶';
+  P.segStart = []; P.segEnd = [];
+  for (const m of moves) { if (P.segStart[m.seg] === undefined) P.segStart[m.seg] = m.t0; P.segEnd[m.seg] = m.t1; }
 
-  // ghost geometry (whole path, faint) + bounds
-  const ge = [], gt = [];
-  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  const ge = [], gt = [], lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   const see = (p) => { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } };
-  for (const m of moves) {
-    if (!m.from) { see(m.to); continue; }
-    (m.travel ? gt : ge).push(...m.from, ...m.to);
-    see(m.from); see(m.to);
-  }
+  for (const m of moves) { if (!m.from) { see(m.to); continue; } (m.travel ? gt : ge).push(...m.from, ...m.to); see(m.from); see(m.to); }
   setLine(V.ghostE, ge); setLine(V.ghostT, gt);
 
-  // fit camera + build-plate grid
   if (lo[0] === Infinity) { lo.fill(0); hi.fill(10); }
   const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
   const size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1);
   if (V.grid) V.scene.remove(V.grid);
   const grid = new THREE.GridHelper(Math.ceil(size * 1.6), 16, 0x30363d, 0x21262d);
-  grid.rotation.x = Math.PI / 2;                 // lay it in the XY plane (z up)
-  grid.position.set(c[0], c[1], lo[2]);
+  grid.rotation.x = Math.PI / 2; grid.position.set(c[0], c[1], lo[2]);
   V.grid = grid; V.scene.add(grid);
   V.head.scale.setScalar(size * 0.012 + 0.05);
   V.controls.target.set(c[0], c[1], c[2]);
   V.camera.position.set(c[0] + size * 1.3, c[1] - size * 1.6, c[2] + size * 1.1);
   V.camera.near = size / 100; V.camera.far = size * 100; V.camera.updateProjectionMatrix();
-  V.controls.update();
-  V.resize();
-  updatePrinted();
-  syncPlayUI();
+  V.controls.update(); V.resize(); updatePrinted(); syncPlayUI();
 }
 
-function lerp(a, b, f) { return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; }
-
+const lerp = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
 function headPos() {
-  const t = P.t, ms = P.moves;
-  if (!ms.length) return [0, 0, 0];
+  const ms = P.moves; if (!ms.length) return [0, 0, 0];
   for (const m of ms) {
-    if (t <= m.t1 || m === ms[ms.length - 1]) {
+    if (P.t <= m.t1 || m === ms[ms.length - 1]) {
       const to = m.to, from = m.from || to;
-      const f = m.t1 > m.t0 ? Math.min(1, Math.max(0, (t - m.t0) / (m.t1 - m.t0))) : 1;
+      const f = m.t1 > m.t0 ? Math.min(1, Math.max(0, (P.t - m.t0) / (m.t1 - m.t0))) : 1;
       return lerp(from, to, f);
     }
   }
   return ms[ms.length - 1].to;
 }
-
+function activeSegAt(t) {
+  const ms = P.moves; if (!ms.length) return null;
+  for (const m of ms) if (t <= m.t1) return m.seg;
+  return ms[ms.length - 1].seg;
+}
 function updatePrinted() {
   const t = P.t, pe = [], pt = [];
   for (const m of P.moves) {
     if (!m.from) continue;
-    if (m.t1 <= t) { (m.travel ? pt : pe).push(...m.from, ...m.to); }
-    else if (m.t0 < t) {
-      const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1;
-      const mid = lerp(m.from, m.to, f);
-      (m.travel ? pt : pe).push(...m.from, ...mid);
-    }
+    if (m.t1 <= t) (m.travel ? pt : pe).push(...m.from, ...m.to);
+    else if (m.t0 < t) { const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1; (m.travel ? pt : pe).push(...m.from, ...lerp(m.from, m.to, f)); }
   }
   setLine(V.printE, pe); setLine(V.printT, pt);
   const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
+}
+function updateActiveLine() {
+  const seg = activeSegAt(P.t);
+  if (seg === P.activeRow) return;
+  if (P.activeRow != null && GROWS[P.activeRow]) GROWS[P.activeRow].classList.remove('active');
+  P.activeRow = seg;
+  if (seg != null && GROWS[seg]) { GROWS[seg].classList.add('active'); GROWS[seg].scrollIntoView({ block: 'nearest' }); showExplain(GLINES[seg]); }
 }
 
 const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function syncPlayUI() {
   $('scrub').value = P.totalT > 0 ? Math.round((P.t / P.totalT) * 1000) : 0;
   $('clock').textContent = `${clock(P.t)} / ${clock(P.totalT)}`;
-  window.__play = { t: P.t, totalT: P.totalT, playing: P.playing, speed: P.speed };
+  window.__play = { t: P.t, totalT: P.totalT, playing: P.playing, speed: P.speed, activeLine: P.activeRow };
+}
+function seekToLine(i) {
+  P.playing = false; $('play').textContent = '▶';
+  P.t = P.segEnd[i] ?? P.segStart[i] ?? 0;
+  updatePrinted(); updateActiveLine(); syncPlayUI();
 }
 
 function render(key, relE) {
-  const ops = JSON.stringify(DESIGNS[key].ops);
-  const params = JSON.stringify(RESOLVE_PARAMS);
+  const ops = JSON.stringify(DESIGNS[key].ops), params = JSON.stringify(RESOLVE_PARAMS);
   const gcode = resolve_gcode(ops, params, relE);
   const m = JSON.parse(resolve_metrics(ops, params));
   const ir = JSON.parse(resolve_ir(ops, params));
   const optimizedIr = JSON.parse(resolve_optimized_ir(ops, params));
 
-  $('gcode').textContent = gcode.join('\n');
+  // g-code as clickable rows (line index ↔ IR segment ↔ a move in the 3D view)
+  GLINES = gcode;
+  $('gcode').innerHTML = gcode.map((l, i) =>
+    `<div class="gline" data-i="${i}"><span class="ln">${i + 1}</span>${l}</div>`).join('');
+  GROWS = [...$('gcode').querySelectorAll('.gline')];
   $('gcodeMeta').textContent = `${gcode.length} motion lines · ${relE ? 'relative' : 'absolute'} E`;
+  showExplain(gcode[0]);
+
   $('metrics').innerHTML = [
-    ['segments', m.segment_count],
-    ['print time (s)', fmt(m.print_time_s)],
-    ['travel time (s)', fmt(m.travel_time_s)],
-    ['total time (s)', fmt(m.total_time_s)],
-    ['extruded vol (mm³)', fmt(m.extruded_volume)],
-    ['filament (mm)', fmt(m.filament_length)],
-    ['extrude dist (mm)', fmt(m.extruding_distance)],
-    ['max flow (mm³/s)', fmt(m.max_flow_rate)],
+    ['segments', m.segment_count], ['print time (s)', fmt(m.print_time_s)],
+    ['travel time (s)', fmt(m.travel_time_s)], ['total time (s)', fmt(m.total_time_s)],
+    ['extruded vol (mm³)', fmt(m.extruded_volume)], ['filament (mm)', fmt(m.filament_length)],
+    ['extrude dist (mm)', fmt(m.extruding_distance)], ['max flow (mm³/s)', fmt(m.max_flow_rate)],
   ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 
   setModel(ir);
@@ -352,19 +374,15 @@ function render(key, relE) {
     ? `segments: ${raw} → ${opt} <span class="delta">(−${saved})</span>`
     : `segments: ${raw} → ${opt} <span class="none">(nothing to merge)</span>`;
 
-  const maxFlow = parseFloat($('maxFlow').value) || 0;
-  const minTemp = parseFloat($('minTemp').value) || 0;
+  const maxFlow = parseFloat($('maxFlow').value) || 0, minTemp = parseFloat($('minTemp').value) || 0;
   const report = JSON.parse(resolve_verify(ops, params, maxFlow, minTemp));
   const findings = report.findings || [];
   $('findings').innerHTML = findings.length
-    ? findings.map((f) =>
-        `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +
-        `${f.segment != null ? ` · seg ${f.segment}` : ''}` +
-        `<span class="msg">${f.message}</span></div>`).join('')
+    ? findings.map((f) => `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +
+        `${f.segment != null ? ` · seg ${f.segment}` : ''}<span class="msg">${f.message}</span></div>`).join('')
     : '<div class="ok">✓ no findings</div>';
 
-  window.__dry = { gcode, metrics: m, ir, optimizedIr,
-                   rawSegments: raw, optimizedSegments: opt, report };
+  window.__dry = { gcode, metrics: m, ir, optimizedIr, rawSegments: raw, optimizedSegments: opt, report };
 }
 
 function buildSpeedButtons() {
@@ -387,7 +405,6 @@ function buildSpeedButtons() {
   await init();
   initScene();
   buildSpeedButtons();
-
   const sel = $('design');
   for (const [k, d] of Object.entries(DESIGNS)) {
     const o = document.createElement('option'); o.value = k; o.textContent = d.label; sel.appendChild(o);
@@ -398,16 +415,18 @@ function buildSpeedButtons() {
   $('maxFlow').addEventListener('input', go);
   $('minTemp').addEventListener('input', go);
 
+  // g-code interaction: click a line to seek the playback there; hover to explain it.
+  $('gcode').addEventListener('click', (e) => { const r = e.target.closest('.gline'); if (r) seekToLine(+r.dataset.i); });
+  $('gcode').addEventListener('mouseover', (e) => { const r = e.target.closest('.gline'); if (r) showExplain(GLINES[+r.dataset.i]); });
+
   $('play').addEventListener('click', () => {
     if (P.totalT <= 0) return;
-    if (P.t >= P.totalT) P.t = 0;            // restart from the end
-    P.playing = !P.playing;
-    $('play').textContent = P.playing ? '⏸' : '▶';
+    if (P.t >= P.totalT) P.t = 0;
+    P.playing = !P.playing; $('play').textContent = P.playing ? '⏸' : '▶';
   });
   $('scrub').addEventListener('input', (e) => {
     P.playing = false; $('play').textContent = '▶';
-    P.t = (e.target.value / 1000) * P.totalT;
-    syncPlayUI(); updatePrinted();
+    P.t = (e.target.value / 1000) * P.totalT; updatePrinted(); updateActiveLine(); syncPlayUI();
   });
 
   go();
