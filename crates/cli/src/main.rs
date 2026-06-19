@@ -2,7 +2,7 @@
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
 use clap::{Parser, Subcommand};
-use dry_core::{emit, simulate, EmitParams, Toolpath};
+use dry_core::{emit, simulate, verify, Contracts, EmitParams, Toolpath};
 use std::fs;
 use std::process::ExitCode;
 
@@ -47,6 +47,22 @@ enum Cmd {
         /// Write JSON to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
+    },
+    /// Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found.
+    Verify {
+        file: String,
+        /// Max volumetric flow (mm³/s).
+        #[arg(long)]
+        max_flow: Option<f64>,
+        /// Build volume as `x0,x1,y0,y1,z0,z1` (mm).
+        #[arg(long)]
+        bounds: Option<String>,
+        /// Require Z to be non-decreasing (e.g. vase mode).
+        #[arg(long)]
+        monotonic_z: bool,
+        /// Print findings as JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -165,7 +181,59 @@ fn run(cli: Cli) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Cmd::Verify {
+            file,
+            max_flow,
+            bounds,
+            monotonic_z,
+            json,
+        } => {
+            let tp = load(&file);
+            let contracts = Contracts {
+                bounds: bounds.as_deref().map(parse_bounds),
+                max_flow,
+                speed_range: None,
+                monotonic_z,
+            };
+            let report = verify(&tp, &contracts);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            } else if report.findings.is_empty() {
+                println!("verify: {file} — OK (no findings)");
+            } else {
+                for f in &report.findings {
+                    let seg = f.segment.map(|i| format!(" seg {i}")).unwrap_or_default();
+                    println!("  [{:?}] {}{seg}: {}", f.severity, f.rule, f.message);
+                }
+                println!(
+                    "verify: {file} — {} finding(s), {} error(s)",
+                    report.findings.len(),
+                    report.error_count()
+                );
+            }
+            if report.ok() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            }
+        }
     }
+}
+
+/// Parse `x0,x1,y0,y1,z0,z1` into a build volume; exits 2 on a malformed value.
+fn parse_bounds(s: &str) -> [[f64; 2]; 3] {
+    let v: Vec<f64> = s
+        .split(',')
+        .map(|t| {
+            t.trim()
+                .parse()
+                .unwrap_or_else(|_| die(format!("bad --bounds value {t:?}")))
+        })
+        .collect();
+    if v.len() != 6 {
+        die("--bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1".into());
+    }
+    [[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]]
 }
 
 fn main() -> ExitCode {

@@ -17,6 +17,7 @@ pub mod engine;
 pub mod ir;
 pub mod resolve;
 pub mod units;
+pub mod verify;
 
 pub use codec::CodecError;
 pub use emit::{emit, EmitParams};
@@ -24,3 +25,4 @@ pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
 pub use resolve::{resolve, Design, Op, ResolveParams};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
+pub use verify::{verify, Contracts, Finding, Report, Severity};
