@@ -3,8 +3,8 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    arc_fit, emit, merge_collinear, simulate, travel_reorder, verify, Contracts, EmitParams,
-    Kinematics, Toolpath,
+    arc_fit, emit_stream, merge_collinear, simulate, simulate_stream, travel_reorder,
+    verify_stream, Contracts, EmitParams, Kinematics, Toolpath,
 };
 use std::fs;
 use std::process::ExitCode;
@@ -122,6 +122,29 @@ fn load(file: &str) -> Toolpath {
     serde_json::from_value(ir).unwrap_or_else(|e| die(format!("not a Dry IR in {file}: {e}")))
 }
 
+fn load_streaming(file: &str) -> Result<Box<dyn Iterator<Item = Result<dry_core::Segment, dry_core::CodecError>>>, dry_core::CodecError> {
+    let mut f = std::fs::File::open(file)
+        .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+    
+    let mut magic = [0u8; 4];
+    use std::io::Read;
+    let bytes_read = f.read(&mut magic).map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+    
+    use std::io::Seek;
+    f.seek(std::io::SeekFrom::Start(0))
+        .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+    
+    if bytes_read == 4 && magic == *b"DRY0" {
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf).map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+        let (_version, _meta, iter) = dry_core::decode_streaming(&buf)?;
+        Ok(Box::new(iter))
+    } else {
+        let iter = dry_core::JsonSegmentsIterator::new(f);
+        Ok(Box::new(iter))
+    }
+}
+
 fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
     let mut b = [[f64::INFINITY, f64::NEG_INFINITY]; 3];
     for s in &tp.segments {
@@ -179,7 +202,8 @@ fn run(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Cmd::Simulate { file, json } => {
-            let m = simulate(&load(&file));
+            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let m = simulate_stream(stream).unwrap_or_else(|e| die(format!("cannot simulate {file}: {e}")));
             if json {
                 println!("{}", serde_json::to_string_pretty(&m).unwrap());
             } else {
@@ -201,14 +225,14 @@ fn run(cli: Cli) -> ExitCode {
             kinematics,
             out,
         } => {
-            let tp = load(&file);
+            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
                 kinematics: kinematics.into(),
             };
-            let gcode = emit(&tp, &params).join("\n");
+            let gcode = emit_stream(stream, &params).unwrap_or_else(|e| die(format!("cannot emit {file}: {e}"))).join("\n");
             match out {
                 Some(path) => fs::write(&path, gcode + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
@@ -277,7 +301,7 @@ fn run(cli: Cli) -> ExitCode {
             speed_range,
             json,
         } => {
-            let tp = load(&file);
+            let stream = load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
             let contracts = Contracts {
                 bounds: bounds.as_deref().map(parse_bounds),
                 max_flow,
@@ -285,7 +309,7 @@ fn run(cli: Cli) -> ExitCode {
                 monotonic_z,
                 min_temp,
             };
-            let report = verify(&tp, &contracts);
+            let report = verify_stream(stream, &contracts).unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else if report.findings.is_empty() {

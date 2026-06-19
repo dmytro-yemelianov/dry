@@ -26,10 +26,14 @@ pub struct Metrics {
     pub max_flow_rate: Flow,
 }
 
-/// Fold a toolpath into its print metrics.
-pub fn simulate(tp: &Toolpath) -> Metrics {
+/// Fold a streaming iterator of segments into print metrics.
+pub fn simulate_stream<I>(segments: I) -> Result<Metrics, crate::codec::CodecError>
+where
+    I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
+{
     let mut m = Metrics::default();
-    for s in &tp.segments {
+    for res in segments {
+        let s = res?;
         // material accrues on every move (a zero-length move deposits nothing).
         m.extruded_volume = m.extruded_volume + s.volume;
         m.filament_length = m.filament_length + s.filament;
@@ -56,5 +60,10 @@ pub fn simulate(tp: &Toolpath) -> Metrics {
             }
         }
     }
-    m
+    Ok(m)
+}
+
+/// Fold a toolpath into its print metrics.
+pub fn simulate(tp: &Toolpath) -> Metrics {
+    simulate_stream(tp.segments.iter().cloned().map(Ok)).unwrap()
 }

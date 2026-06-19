@@ -81,8 +81,11 @@ fn flow(s: &Segment) -> Option<f64> {
     }
 }
 
-/// Verify a toolpath against the contracts, returning all findings (structural + contract-driven).
-pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
+/// Verify a stream of segments against the contracts, returning all findings (structural + contract-driven).
+pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, crate::codec::CodecError>
+where
+    I: IntoIterator<Item = Result<Segment, crate::codec::CodecError>>,
+{
     let mut r = Report::default();
     let mut push = |rule: &str, severity, segment, message: String| {
         r.findings.push(Finding {
@@ -94,7 +97,8 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
     };
     let axis = ['X', 'Y', 'Z'];
 
-    for (i, s) in tp.segments.iter().enumerate() {
+    for (i, res) in segments.into_iter().enumerate() {
+        let s = res?;
         // --- structural invariants (always on) ---
         let mut nums = vec![
             s.speed.value(),
@@ -169,7 +173,7 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
                 }
             }
         }
-        if let (Some(max), Some(f)) = (c.max_flow, flow(s)) {
+        if let (Some(max), Some(f)) = (c.max_flow, flow(&s)) {
             if f > max {
                 push(
                     "max-flow",
@@ -221,7 +225,13 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
             }
         }
     }
-    r
+    Ok(r)
+}
+
+/// Verify a resolved [`Toolpath`] against machine-safety **contracts** and structural
+/// invariants, returning a located [`Report`].
+pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
+    verify_stream(tp.segments.iter().cloned().map(Ok), c).unwrap()
 }
 
 #[cfg(test)]

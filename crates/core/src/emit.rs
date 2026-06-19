@@ -131,16 +131,20 @@ fn num(v: f64) -> String {
     }
 }
 
-/// Emit motion g-code lines for a toolpath.
-pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
-    let mut out = Vec::with_capacity(tp.segments.len());
+/// Emit motion g-code lines for a stream of segments.
+pub fn emit_stream<I>(segments: I, p: &EmitParams) -> Result<Vec<String>, crate::codec::CodecError>
+where
+    I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
+{
+    let mut out = Vec::new();
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
-    for s in &tp.segments {
+    for res in segments {
+        let s = res?;
         // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
         // does not touch the running position or feedrate).
         if s.kind == "dwell" {
@@ -218,7 +222,12 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
 
         out.push(toks.join(" "));
     }
-    out
+    Ok(out)
+}
+
+/// Emit motion g-code lines for a toolpath.
+pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
+    emit_stream(tp.segments.iter().cloned().map(Ok), p).unwrap()
 }
 
 #[cfg(test)]
