@@ -352,7 +352,10 @@ export function createViewer(cfg) {
     let report = null;
     if (verifyEl) {
       const maxFlow = getMaxFlow() || 0, minTemp = getMinTemp() || 0;
-      report = JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp));
+      const bounds = cfg.getBounds ? cfg.getBounds() : '';
+      const monotonicZ = cfg.getMonotonicZ ? cfg.getMonotonicZ() : false;
+      const speedRange = cfg.getSpeedRange ? cfg.getSpeedRange() : '';
+      report = JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp, bounds, monotonicZ, speedRange));
       const findings = report.findings || [];
       verifyEl.innerHTML = findings.length
         ? findings.map((f) => `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +

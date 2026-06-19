@@ -74,3 +74,36 @@ fn missing_file_exits_nonzero() {
         .unwrap();
     assert!(!out.status.success());
 }
+
+#[test]
+fn verify_runs_and_reports_findings() {
+    let path = fixture("gcode", "square");
+
+    // clean path with bounds should succeed
+    let out = Command::new(bin())
+        .args(["verify", path.to_str().unwrap(), "--bounds", "0,100,0,100,0,50"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("OK (no findings)"));
+
+    // out-of-bounds path should fail (non-zero exit code)
+    let out_bad = Command::new(bin())
+        .args(["verify", path.to_str().unwrap(), "--bounds", "0,5,0,5,0,5"])
+        .output()
+        .unwrap();
+    assert!(!out_bad.status.success());
+    let text_bad = String::from_utf8(out_bad.stderr).unwrap() + &String::from_utf8(out_bad.stdout).unwrap();
+    assert!(text_bad.contains("bounds"));
+
+    // speed-range bounds violation should fail
+    let out_speed = Command::new(bin())
+        .args(["verify", path.to_str().unwrap(), "--speed-range", "2000,5000"])
+        .output()
+        .unwrap();
+    assert!(!out_speed.status.success());
+    let text_speed = String::from_utf8(out_speed.stderr).unwrap() + &String::from_utf8(out_speed.stdout).unwrap();
+    assert!(text_speed.contains("speed"));
+}
+

@@ -98,6 +98,9 @@ enum Cmd {
         /// Minimum nozzle temperature (°C) required to extrude.
         #[arg(long)]
         min_temp: Option<f64>,
+        /// Allowed feedrate range `min,max` (mm/min) for extruding moves.
+        #[arg(long)]
+        speed_range: Option<String>,
         /// Print findings as JSON.
         #[arg(long)]
         json: bool,
@@ -271,13 +274,14 @@ fn run(cli: Cli) -> ExitCode {
             bounds,
             monotonic_z,
             min_temp,
+            speed_range,
             json,
         } => {
             let tp = load(&file);
             let contracts = Contracts {
                 bounds: bounds.as_deref().map(parse_bounds),
                 max_flow,
-                speed_range: None,
+                speed_range: speed_range.as_deref().map(parse_speed_range),
                 monotonic_z,
                 min_temp,
             };
@@ -320,6 +324,22 @@ fn parse_bounds(s: &str) -> [[f64; 2]; 3] {
         die("--bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1".into());
     }
     [[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]]
+}
+
+/// Parse `min,max` into a speed range; exits 2 on a malformed value.
+fn parse_speed_range(s: &str) -> [f64; 2] {
+    let v: Vec<f64> = s
+        .split(',')
+        .map(|t| {
+            t.trim()
+                .parse()
+                .unwrap_or_else(|_| die(format!("bad --speed-range value {t:?}")))
+        })
+        .collect();
+    if v.len() != 2 {
+        die("--speed-range needs 2 comma-separated numbers: min,max".into());
+    }
+    [v[0], v[1]]
 }
 
 fn main() -> ExitCode {

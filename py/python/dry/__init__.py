@@ -94,9 +94,16 @@ class Design:
         return self
 
     # ---- engine calls ----
-    def gcode(self, printer="generic", relative_e=True):
+    def gcode(self, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False, kinematics="ab"):
         "Resolve + emit motion g-code (a list of lines)."
-        return _native.resolve_gcode(json.dumps(self.ops), _params(printer), relative_e)
+        return _native.resolve_gcode(
+            json.dumps(self.ops),
+            _params(printer),
+            relative_e,
+            bool(travel_g1_e0),
+            bool(five_axis),
+            str(kinematics)
+        )
 
     def simulate(self, printer="generic"):
         "Resolve + simulate; returns a metrics dict (time, distances, material, peak flow)."
@@ -105,6 +112,18 @@ class Design:
     def ir(self, printer="generic"):
         "Resolve to the L2 Dry IR; returns a dict ({version, segments})."
         return json.loads(_native.resolve_ir(json.dumps(self.ops), _params(printer)))
+
+    def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False, speed_range=None):
+        "Resolve + verify; returns a report dict with findings."
+        return json.loads(_native.resolve_verify(
+            json.dumps(self.ops),
+            _params(printer),
+            max_flow,
+            min_temp,
+            bounds,
+            bool(monotonic_z),
+            speed_range
+        ))
 
 
 def _params(printer):

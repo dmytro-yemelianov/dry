@@ -84,3 +84,23 @@ def test_flow_multiplier_scales_volume():
     b = base.ir()["segments"][1]["volume"]
     s = scaled.ir()["segments"][1]["volume"]
     assert abs(s - b * 0.8) < 1e-12
+
+
+def test_verify_contracts():
+    # Valid design
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    report = d.verify(max_flow=15.0, bounds="0,100,0,100,0,50")
+    assert report["findings"] == []
+
+    # Out of bounds design
+    d_bad_bounds = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(150, 0, 0.2)
+    report_bounds = d_bad_bounds.verify(bounds="0,100,0,100,0,50")
+    assert len(report_bounds["findings"]) > 0
+    assert report_bounds["findings"][0]["rule"] == "bounds"
+
+    # Monotonic Z violation
+    d_bad_z = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.5).point(10, 0, 0.2)
+    report_z = d_bad_z.verify(monotonic_z=True)
+    assert len(report_z["findings"]) > 0
+    assert report_z["findings"][0]["rule"] == "monotonic-z"
+

@@ -3,7 +3,9 @@
 //! Python SDK (`py/python/dry/`) stays logic-free and just builds the ops. Isolated from the core cargo
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
-use dry_core::{emit, resolve, simulate, Design, EmitParams, Kinematics, Op, ResolveParams};
+use dry_core::{
+    emit, resolve, simulate, verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -20,16 +22,28 @@ fn parse_params(params_json: &str) -> PyResult<ResolveParams> {
 
 /// Resolve a design and emit motion g-code (one string per line).
 #[pyfunction]
-#[pyo3(signature = (ops_json, params_json, relative_e=true))]
-fn resolve_gcode(ops_json: &str, params_json: &str, relative_e: bool) -> PyResult<Vec<String>> {
+#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, kinematics="ab"))]
+fn resolve_gcode(
+    ops_json: &str,
+    params_json: &str,
+    relative_e: bool,
+    travel_g1_e0: bool,
+    five_axis: bool,
+    kinematics: &str,
+) -> PyResult<Vec<String>> {
     let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
+    let kinematics = match kinematics {
+        "ac" => Kinematics::Ac,
+        "bc" => Kinematics::Bc,
+        _ => Kinematics::Ab,
+    };
     Ok(emit(
         &tp,
         &EmitParams {
             relative_e,
-            travel_g1_e0: false,
-            five_axis: false,
-            kinematics: Kinematics::Ab,
+            travel_g1_e0,
+            five_axis,
+            kinematics,
         },
     ))
 }
@@ -48,10 +62,73 @@ fn resolve_ir(ops_json: &str, params_json: &str) -> PyResult<String> {
     Ok(tp.to_json())
 }
 
+/// Resolve a design and verify it against machine-safety contracts, returning the JSON report.
+#[pyfunction]
+#[pyo3(signature = (ops_json, params_json, max_flow=None, min_temp=None, bounds=None, monotonic_z=false, speed_range=None))]
+fn resolve_verify(
+    ops_json: &str,
+    params_json: &str,
+    max_flow: Option<f64>,
+    min_temp: Option<f64>,
+    bounds: Option<String>,
+    monotonic_z: bool,
+    speed_range: Option<String>,
+) -> PyResult<String> {
+    let tp = resolve(&parse_design(ops_json)?, &parse_params(params_json)?);
+
+    let parsed_bounds = match bounds {
+        None => None,
+        Some(s) => {
+            if s.trim().is_empty() {
+                None
+            } else {
+                let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
+                let v = v.map_err(|e| PyValueError::new_err(format!("invalid bounds: {e}")))?;
+                if v.len() != 6 {
+                    return Err(PyValueError::new_err(
+                        "bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1",
+                    ));
+                }
+                Some([[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]])
+            }
+        }
+    };
+
+    let parsed_speed = match speed_range {
+        None => None,
+        Some(s) => {
+            if s.trim().is_empty() {
+                None
+            } else {
+                let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
+                let v = v.map_err(|e| PyValueError::new_err(format!("invalid speed range: {e}")))?;
+                if v.len() != 2 {
+                    return Err(PyValueError::new_err(
+                        "speed range needs 2 comma-separated numbers: min,max",
+                    ));
+                }
+                Some([v[0], v[1]])
+            }
+        }
+    };
+
+    let contracts = Contracts {
+        bounds: parsed_bounds,
+        max_flow,
+        speed_range: parsed_speed,
+        monotonic_z,
+        min_temp,
+    };
+
+    let report = verify(&tp, &contracts);
+    serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }
