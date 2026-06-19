@@ -24,7 +24,7 @@ pub use codec::CodecError;
 pub use emit::{emit, EmitParams};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
-pub use optimize::merge_collinear;
+pub use optimize::{arc_fit, merge_collinear};
 pub use resolve::{resolve, Design, Op, ResolveParams};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{verify, Contracts, Finding, Report, Severity};

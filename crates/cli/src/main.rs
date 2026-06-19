@@ -2,7 +2,7 @@
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
 use clap::{Parser, Subcommand};
-use dry_core::{emit, merge_collinear, simulate, verify, Contracts, EmitParams, Toolpath};
+use dry_core::{arc_fit, emit, merge_collinear, simulate, verify, Contracts, EmitParams, Toolpath};
 use std::fs;
 use std::process::ExitCode;
 
@@ -200,7 +200,8 @@ fn run(cli: Cli) -> ExitCode {
         Cmd::Optimize { file, out } => {
             let tp = load(&file);
             let before = tp.segments.len();
-            let opt = merge_collinear(&tp);
+            // run both L2 passes in sequence: collinear merge first, then fit arcs to circular runs.
+            let opt = arc_fit(&merge_collinear(&tp));
             let after = opt.segments.len();
             let m0 = simulate(&tp);
             let m1 = simulate(&opt);
