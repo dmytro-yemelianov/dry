@@ -2,7 +2,10 @@
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
 use clap::{Parser, Subcommand};
-use dry_core::{arc_fit, emit, merge_collinear, simulate, verify, Contracts, EmitParams, Toolpath};
+use dry_core::{
+    arc_fit, emit, merge_collinear, simulate, travel_reorder, verify, Contracts, EmitParams,
+    Toolpath,
+};
 use std::fs;
 use std::process::ExitCode;
 
@@ -51,7 +54,7 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<String>,
     },
-    /// Optimise a Dry IR file (merge collinear moves) and report the before/after.
+    /// Optimise a Dry IR file (merge collinear, fit arcs, reorder travel) and report the before/after.
     Optimize {
         file: String,
         /// Write the optimised IR JSON to a file.
@@ -200,13 +203,24 @@ fn run(cli: Cli) -> ExitCode {
         Cmd::Optimize { file, out } => {
             let tp = load(&file);
             let before = tp.segments.len();
-            // run both L2 passes in sequence: collinear merge first, then fit arcs to circular runs.
-            let opt = arc_fit(&merge_collinear(&tp));
+            // run the three L2 passes in sequence: collinear merge, then fit arcs to circular runs,
+            // then reorder independent extrusion runs to shorten total travel.
+            let opt = travel_reorder(&arc_fit(&merge_collinear(&tp)));
             let after = opt.segments.len();
             let m0 = simulate(&tp);
             let m1 = simulate(&opt);
+            // total travel distance (sum of `length` over travel segments), before → after.
+            let travel = |t: &Toolpath| -> f64 {
+                t.segments
+                    .iter()
+                    .filter(|s| s.travel)
+                    .map(|s| s.length.value())
+                    .sum()
+            };
+            let (travel_before, travel_after) = (travel(&tp), travel(&opt));
             eprintln!(
                 "optimize: {file} — {before} → {after} segments (−{}); \
+                 travel {travel_before:.2}mm → {travel_after:.2}mm; \
                  volume {:.4}mm^3 (Δ{:.2e}), time {:.3}s (Δ{:.2e}) preserved",
                 before - after,
                 m1.extruded_volume.value(),
