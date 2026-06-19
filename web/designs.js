@@ -8,6 +8,9 @@ const OFF = { op: 'extruder', on: false };
 const SPEED = (v) => ({ op: 'speed', print: v });
 const M = (x, y, z) => ({ op: 'move', x, y, z });
 const ARC = (cx, cy, x, y, z, clockwise) => ({ op: 'arc', cx, cy, x, y, z, clockwise });
+const TEMP = (c) => ({ op: 'temperature', nozzle: c });
+const FAN = (v) => ({ op: 'fan', speed: v });
+const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; };
 
 function square() {
   return [G(0.6, 0.2), ON, M(0, 0, 0.2), M(10, 0, 0.2), M(10, 10, 0.2), M(0, 10, 0.2), M(0, 0, 0.2)];
@@ -133,6 +136,148 @@ function roundedRect(w = 26, h = 18, r = 5, cx = 50, cy = 50, z = 0.4) {
   return ops;
 }
 
+// ---- complex parametric samples ----
+
+// A Hilbert space-filling curve (a recursive fractal) drawn as one continuous extruding stroke.
+function hilbert(order = 4, size = 40, cx = 50, cy = 50, z = 0.2) {
+  const n = 1 << order;
+  const d2xy = (d) => {
+    let t = d, x = 0, y = 0;
+    for (let s = 1; s < n; s *= 2) {
+      const rx = 1 & ((t / 2) | 0), ry = 1 & (t ^ rx);
+      if (ry === 0) { if (rx === 1) { x = s - 1 - x; y = s - 1 - y; } const tmp = x; x = y; y = tmp; }
+      x += s * rx; y += s * ry; t = (t / 4) | 0;
+    }
+    return [x, y];
+  };
+  const ops = [G(0.5, 0.2), TEMP(205), ON];
+  for (let d = 0; d < n * n; d++) {
+    const [gx, gy] = d2xy(d);
+    ops.push(M(cx - size / 2 + (gx / (n - 1)) * size, cy - size / 2 + (gy / (n - 1)) * size, z));
+  }
+  return ops;
+}
+
+// A rhodonea (rose) curve r = a·cos(kθ): k or 2k petals.
+function rose(k = 5, a = 18, cx = 50, cy = 50, z = 0.2, samples = 360) {
+  const ops = [G(0.5, 0.2), TEMP(205), ON];
+  const maxTh = k % 2 === 0 ? TAU : Math.PI;
+  for (let i = 0; i <= samples; i++) {
+    const th = (i / samples) * maxTh, r = a * Math.cos(k * th);
+    ops.push(M(cx + r * Math.cos(th), cy + r * Math.sin(th), z));
+  }
+  return ops;
+}
+
+// A spirograph (hypotrochoid): a fixed circle R, a rolling circle r, a pen offset d.
+function spirograph(R = 22, r = 7, d = 11, cx = 50, cy = 50, z = 0.2, samples = 720) {
+  const ops = [G(0.5, 0.2), TEMP(205), ON];
+  const turns = r / gcd(R, r);
+  for (let i = 0; i <= samples; i++) {
+    const th = (i / samples) * TAU * turns;
+    const x = (R - r) * Math.cos(th) + d * Math.cos(((R - r) / r) * th);
+    const y = (R - r) * Math.sin(th) - d * Math.sin(((R - r) / r) * th);
+    ops.push(M(cx + x, cy + y, z));
+  }
+  return ops;
+}
+
+// A honeycomb: a grid of hexagons, each a closed loop, with travels between cells.
+function honeycomb(cols = 5, rows = 4, s = 4.5, cx = 50, cy = 50, z = 0.2) {
+  const ops = [G(0.5, 0.2), TEMP(205), ON];
+  const hex = [];
+  for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + (i * TAU) / 6; hex.push([s * Math.cos(a), s * Math.sin(a)]); }
+  const dx = s * Math.sqrt(3), dy = s * 1.5;
+  const ox = cx - ((cols - 1) * dx) / 2, oy = cy - ((rows - 1) * dy) / 2;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const hxc = ox + col * dx + (row % 2 ? dx / 2 : 0), hyc = oy + row * dy;
+      ops.push(OFF, M(hxc + hex[0][0], hyc + hex[0][1], z), ON);
+      for (let i = 1; i <= 6; i++) ops.push(M(hxc + hex[i % 6][0], hyc + hex[i % 6][1], z));
+    }
+  }
+  return ops;
+}
+
+// A corrugated wall: a sine-wave wall printed continuously over many layers (boustrophedon).
+function corrugatedWall(length = 44, amp = 4, waves = 5, layers = 10, layerH = 0.3, samples = 72, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), TEMP(210), FAN(0.4), ON];
+  const x0 = cx - length / 2;
+  for (let L = 0; L < layers; L++) {
+    const z = z0 + L * layerH;
+    for (let i = 0; i <= samples; i++) {
+      const f = L % 2 === 0 ? i / samples : 1 - i / samples;
+      ops.push(M(x0 + f * length, cy + amp * Math.sin(f * TAU * waves), z));
+    }
+  }
+  return ops;
+}
+
+// A twisted, fluted vase: an N-gon cross-section that twists and flutes as it rises.
+function twistedVase(sides = 5, radius = 14, height = 16, layerH = 0.4, twist = TAU, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), TEMP(210), ON];
+  const layers = Math.round(height / layerH), n = layers * sides;
+  for (let i = 0; i <= n; i++) {
+    const f = i / n, ang = (i / sides) * TAU + twist * f, r = radius * (0.88 + 0.12 * Math.cos(sides * ang));
+    ops.push(M(cx + r * Math.cos(ang), cy + r * Math.sin(ang), z0 + f * height));
+  }
+  return ops;
+}
+
+// A star tower: a star perimeter stacked over layers (with a slight per-layer twist), travels between.
+function starTower(points = 5, outer = 16, inner = 7, layers = 9, layerH = 0.4, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), TEMP(210), ON];
+  const m = points * 2;
+  for (let L = 0; L < layers; L++) {
+    const z = z0 + L * layerH, rot = L * 0.12, v = [];
+    for (let i = 0; i < m; i++) {
+      const r = i % 2 === 0 ? outer : inner, a = (i / m) * TAU - Math.PI / 2 + rot;
+      v.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    ops.push(OFF, M(v[0][0], v[0][1], z), ON);
+    for (let i = 1; i <= m; i++) ops.push(M(v[i % m][0], v[i % m][1], z));
+  }
+  return ops;
+}
+
+// A (p,q) torus knot — a genuinely 3D, non-planar closed curve.
+function torusKnot(p = 3, q = 2, R = 15, r = 5, samples = 480, cx = 50, cy = 50, zc = 10) {
+  const ops = [G(0.6, 0.2), TEMP(210), ON];
+  for (let i = 0; i <= samples; i++) {
+    const t = (i / samples) * TAU, rad = R + r * Math.cos(q * t);
+    ops.push(M(cx + rad * Math.cos(p * t), cy + rad * Math.sin(p * t), zc + r * Math.sin(q * t)));
+  }
+  return ops;
+}
+
+// A 3D Lissajous ribbon: x and y are out-of-phase sinusoids while z rises.
+function lissajous(a = 3, b = 2, delta = Math.PI / 2, A = 18, B = 18, samples = 500, cx = 50, cy = 50, z0 = 0.2, zRange = 9) {
+  const ops = [G(0.5, 0.2), TEMP(205), ON];
+  for (let i = 0; i <= samples; i++) {
+    const t = (i / samples) * TAU;
+    ops.push(M(cx + A * Math.sin(a * t + delta), cy + B * Math.sin(b * t), z0 + (i / samples) * zRange));
+  }
+  return ops;
+}
+
+// A lattice cube: cross-hatched layers whose line direction alternates each layer (a 3D grid).
+function lattice(size = 28, gap = 4, layers = 8, layerH = 0.3, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), TEMP(210), ON];
+  const x0 = cx - size / 2, y0 = cy - size / 2, x1 = cx + size / 2, y1 = cy + size / 2;
+  for (let L = 0; L < layers; L++) {
+    const z = z0 + L * layerH, lines = [];
+    if (L % 2 === 0) for (let y = y0; y <= y1 + 1e-9; y += gap) lines.push([[x0, y], [x1, y]]);
+    else for (let x = x0; x <= x1 + 1e-9; x += gap) lines.push([[x, y0], [x, y1]]);
+    let flip = false;
+    for (const [p, q] of lines) {
+      const a = flip ? q : p, b = flip ? p : q;
+      ops.push(OFF, M(a[0], a[1], z), ON, M(b[0], b[1], z));
+      flip = !flip;
+    }
+  }
+  return ops;
+}
+
 const DESIGNS = {
   square: { label: 'Square (line moves)', ops: square() },
   star: { label: 'Star (continuous stroke)', ops: star() },
@@ -143,6 +288,17 @@ const DESIGNS = {
   spiral_vase: { label: 'Spiral vase (~120-seg helix)', ops: spiralVase() },
   cone_vase: { label: 'Cone vase (non-planar helix)', ops: coneVase() },
   collinear_comb: { label: 'Comb (collinear runs → optimize)', ops: collinearComb() },
+  // complex parametric samples
+  hilbert: { label: 'Hilbert curve (space-filling fractal)', ops: hilbert() },
+  rose: { label: 'Rose curve (rhodonea)', ops: rose() },
+  spirograph: { label: 'Spirograph (hypotrochoid)', ops: spirograph() },
+  honeycomb: { label: 'Honeycomb (hex tiling + travels)', ops: honeycomb() },
+  corrugated_wall: { label: 'Corrugated wall (10-layer sine)', ops: corrugatedWall() },
+  twisted_vase: { label: 'Twisted vase (fluted, non-planar)', ops: twistedVase() },
+  star_tower: { label: 'Star tower (stacked + twist)', ops: starTower() },
+  torus_knot: { label: 'Torus knot (3D, non-planar)', ops: torusKnot() },
+  lissajous: { label: 'Lissajous ribbon (3D)', ops: lissajous() },
+  lattice: { label: 'Lattice cube (cross-hatch layers)', ops: lattice() },
 };
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
