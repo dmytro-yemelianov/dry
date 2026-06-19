@@ -81,7 +81,12 @@ fn verify_runs_and_reports_findings() {
 
     // clean path with bounds should succeed
     let out = Command::new(bin())
-        .args(["verify", path.to_str().unwrap(), "--bounds", "0,100,0,100,0,50"])
+        .args([
+            "verify",
+            path.to_str().unwrap(),
+            "--bounds",
+            "0,100,0,100,0,50",
+        ])
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -94,16 +99,22 @@ fn verify_runs_and_reports_findings() {
         .output()
         .unwrap();
     assert!(!out_bad.status.success());
-    let text_bad = String::from_utf8(out_bad.stderr).unwrap() + &String::from_utf8(out_bad.stdout).unwrap();
+    let text_bad =
+        String::from_utf8(out_bad.stderr).unwrap() + &String::from_utf8(out_bad.stdout).unwrap();
     assert!(text_bad.contains("bounds"));
 
     // speed-range bounds violation should fail
     let out_speed = Command::new(bin())
-        .args(["verify", path.to_str().unwrap(), "--speed-range", "2000,5000"])
+        .args([
+            "verify",
+            path.to_str().unwrap(),
+            "--speed-range",
+            "2000,5000",
+        ])
         .output()
         .unwrap();
     assert!(!out_speed.status.success());
-    let text_speed = String::from_utf8(out_speed.stderr).unwrap() + &String::from_utf8(out_speed.stdout).unwrap();
+    let text_speed = String::from_utf8(out_speed.stderr).unwrap()
+        + &String::from_utf8(out_speed.stdout).unwrap();
     assert!(text_speed.contains("speed"));
 }
-

@@ -136,7 +136,7 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
         }
         if let Some([x, y, z]) = s.orientation {
             // the toolframe orientation must be a unit direction vector.
-            let mag = (x * x + y * y + z * z).sqrt();
+            let mag = libm::sqrt(x * x + y * y + z * z);
             if (mag - 1.0).abs() > 1e-6 {
                 push(
                     "orientation-not-unit",

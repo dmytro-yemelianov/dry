@@ -59,6 +59,13 @@ pub fn resolve_ir(ops_json: &str, params_json: &str) -> Result<String, JsError> 
     Ok(resolve(&d, &p).to_json())
 }
 
+/// Resolve a design and return the L2 Dry IR as a binary byte array.
+#[wasm_bindgen]
+pub fn resolve_binary(ops_json: &str, params_json: &str) -> Result<Vec<u8>, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    Ok(resolve(&d, &p).to_bytes())
+}
+
 /// Resolve a design, optimize it (merge collinear extruding moves), and return the resulting
 /// L2 Dry IR as a JSON string. Compare its `segments.len()` against [`resolve_ir`] to see how
 /// many redundant moves the optimizer collapsed.
@@ -69,25 +76,23 @@ pub fn resolve_optimized_ir(ops_json: &str, params_json: &str) -> Result<String,
 }
 
 fn parse_bounds_wasm(s: &str) -> Result<[[f64; 2]; 3], JsError> {
-    let v: Result<Vec<f64>, _> = s
-        .split(',')
-        .map(|t| t.trim().parse::<f64>())
-        .collect();
+    let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
     let v = v.map_err(|e| JsError::new(&format!("bounds: {e}")))?;
     if v.len() != 6 {
-        return Err(JsError::new("bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1"));
+        return Err(JsError::new(
+            "bounds needs 6 comma-separated numbers: x0,x1,y0,y1,z0,z1",
+        ));
     }
     Ok([[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]])
 }
 
 fn parse_speed_range_wasm(s: &str) -> Result<[f64; 2], JsError> {
-    let v: Result<Vec<f64>, _> = s
-        .split(',')
-        .map(|t| t.trim().parse::<f64>())
-        .collect();
+    let v: Result<Vec<f64>, _> = s.split(',').map(|t| t.trim().parse::<f64>()).collect();
     let v = v.map_err(|e| JsError::new(&format!("speed range: {e}")))?;
     if v.len() != 2 {
-        return Err(JsError::new("speed range needs 2 comma-separated numbers: min,max"));
+        return Err(JsError::new(
+            "speed range needs 2 comma-separated numbers: min,max",
+        ));
     }
     Ok([v[0], v[1]])
 }

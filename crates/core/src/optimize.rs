@@ -30,7 +30,7 @@ fn cross_mag(a: [f64; 3], b: [f64; 3]) -> f64 {
         a[2] * b[0] - a[0] * b[2],
         a[0] * b[1] - a[1] * b[0],
     ];
-    (c[0] * c[0] + c[1] * c[1] + c[2] * c[2]).sqrt()
+    libm::sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2])
 }
 
 /// True when `b` continues `a` in the same straight line, with identical process state — so the pair
@@ -57,7 +57,7 @@ fn mergeable(a: &Segment, b: &Segment) -> bool {
     let (Some(d1), Some(d2)) = (direction(a), direction(b)) else {
         return false;
     };
-    let (m1, m2) = (dot(d1, d1).sqrt(), dot(d2, d2).sqrt());
+    let (m1, m2) = (libm::sqrt(dot(d1, d1)), libm::sqrt(dot(d2, d2)));
     if m1 == 0.0 || m2 == 0.0 {
         return false; // a zero-length move has no direction to match.
     }
@@ -176,7 +176,7 @@ fn fit_arc(segs: &[Segment]) -> Option<Segment> {
 
     // fit the circle to the first three *distinct* points.
     let p0 = pts[0];
-    let dist = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).hypot(a.1 - b.1);
+    let dist = |a: (f64, f64), b: (f64, f64)| libm::hypot(a.0 - b.0, a.1 - b.1);
     let p1 = *pts.iter().find(|&&p| dist(p, p0) > ARC_FIT_TOL)?;
     let p2 = *pts
         .iter()
@@ -210,8 +210,8 @@ fn fit_arc(segs: &[Segment]) -> Option<Segment> {
     let clockwise = sign < 0.0;
     let (sx, sy) = p0;
     let (ex, ey) = *pts.last()?;
-    let start_a = (sy - cy).atan2(sx - cx);
-    let end_a = (ey - cy).atan2(ex - cx);
+    let start_a = libm::atan2(sy - cy, sx - cx);
+    let end_a = libm::atan2(ey - cy, ex - cx);
     // swept angle in the winding direction, normalised into `(0, TAU]` exactly as `resolve` does.
     let mut swept = Angle(if clockwise {
         start_a - end_a
@@ -318,7 +318,7 @@ fn point_dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> f64 {
             sq += d * d;
         }
     }
-    sq.sqrt()
+    libm::sqrt(sq)
 }
 
 /// Build a straight travel `Segment` from `from` to `to`, reusing `template`'s speed/channels. The move

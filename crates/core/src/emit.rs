@@ -76,8 +76,8 @@ fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rota
     let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
     match kinematics {
         Kinematics::Ab => {
-            let a = j.atan2((i * i + k * k).sqrt()).to_degrees();
-            let b = i.atan2(k).to_degrees();
+            let a = libm::atan2(j, libm::hypot(i, k)).to_degrees();
+            let b = libm::atan2(i, k).to_degrees();
             [
                 Rotary {
                     letter: 'A',
@@ -90,8 +90,8 @@ fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rota
             ]
         }
         Kinematics::Ac => {
-            let c = j.atan2(i).to_degrees();
-            let a = k.clamp(-1.0, 1.0).acos().to_degrees();
+            let c = libm::atan2(j, i).to_degrees();
+            let a = libm::acos(k.clamp(-1.0, 1.0)).to_degrees();
             [
                 Rotary {
                     letter: 'C',
@@ -104,8 +104,8 @@ fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rota
             ]
         }
         Kinematics::Bc => {
-            let c = j.atan2(i).to_degrees();
-            let b = k.clamp(-1.0, 1.0).acos().to_degrees();
+            let c = libm::atan2(j, i).to_degrees();
+            let b = libm::acos(k.clamp(-1.0, 1.0)).to_degrees();
             [
                 Rotary {
                     letter: 'C',
@@ -237,51 +237,55 @@ mod tests {
 
     #[test]
     fn test_travel_g1_e0() {
+        use super::{emit, EmitParams};
         use crate::ir::{Segment, Toolpath};
         use crate::units::{Feedrate, Length, Volume};
-        use super::{emit, EmitParams};
 
         let tp = Toolpath {
             version: 0,
             meta: None,
-            segments: vec![
-                Segment {
-                    start: [None, None, None],
-                    end: [Some(Length::mm(10.0)), None, None],
-                    travel: true,
-                    speed: Feedrate(1000.0),
-                    length: Length::mm(10.0),
-                    volume: Volume::ZERO,
-                    filament: Length::ZERO,
-                    width: None,
-                    height: None,
-                    kind: "line".to_string(),
-                    centre: None,
-                    clockwise: false,
-                    temperature: None,
-                    fan: None,
-                    flow: None,
-                    tool: None,
-                    dwell_s: None,
-                    orientation: None,
-                }
-            ],
+            segments: vec![Segment {
+                start: [None, None, None],
+                end: [Some(Length::mm(10.0)), None, None],
+                travel: true,
+                speed: Feedrate(1000.0),
+                length: Length::mm(10.0),
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: "line".to_string(),
+                centre: None,
+                clockwise: false,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                orientation: None,
+            }],
         };
 
         let gcode_default = emit(&tp, &EmitParams::default());
         assert_eq!(gcode_default[0], "G0 F1000 X10");
 
-        let gcode_e0 = emit(&tp, &EmitParams {
-            travel_g1_e0: true,
-            ..EmitParams::default()
-        });
+        let gcode_e0 = emit(
+            &tp,
+            &EmitParams {
+                travel_g1_e0: true,
+                ..EmitParams::default()
+            },
+        );
         assert_eq!(gcode_e0[0], "G0 F1000 X10 E0");
 
-        let gcode_abs_e0 = emit(&tp, &EmitParams {
-            relative_e: false,
-            travel_g1_e0: true,
-            ..EmitParams::default()
-        });
+        let gcode_abs_e0 = emit(
+            &tp,
+            &EmitParams {
+                relative_e: false,
+                travel_g1_e0: true,
+                ..EmitParams::default()
+            },
+        );
         assert_eq!(gcode_abs_e0[0], "G0 F1000 X10 E0");
     }
 }

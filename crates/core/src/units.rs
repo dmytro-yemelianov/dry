@@ -112,12 +112,12 @@ impl Length {
     /// Euclidean hypotenuse of two lengths (a length).
     #[inline]
     pub fn hypot(self, other: Length) -> Length {
-        Length(self.0.hypot(other.0))
+        Length(libm::hypot(self.0, other.0))
     }
     /// The angle of the vector `(other, self)` from the +x axis (`atan2(self, other)`).
     #[inline]
     pub fn atan2(self, other: Length) -> Angle {
-        Angle(self.0.atan2(other.0))
+        Angle(libm::atan2(self.0, other.0))
     }
 }
 
@@ -125,7 +125,7 @@ impl Area {
     /// The side length of the square with this area (a length).
     #[inline]
     pub fn sqrt(self) -> Length {
-        Length(self.0.sqrt())
+        Length(libm::sqrt(self.0))
     }
 }
 
