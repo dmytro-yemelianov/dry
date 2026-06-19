@@ -72,11 +72,76 @@ function collinearComb(rungs = 6, len = 30, pitch = 4, subdiv = 5, x0 = 10, y0 =
   return ops;
 }
 
+// A multi-layer square tower: each layer is a perimeter, with the extruder OFF for the lift/travel to
+// the next layer's start — so the g-code has real G0 travels between G1 perimeters, like a real print.
+function layeredTower(side = 20, layers = 10, layerH = 0.3, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), SPEED(1200)];
+  const h = side / 2;
+  const corner = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]];
+  for (let L = 0; L < layers; L++) {
+    const z = z0 + L * layerH;
+    ops.push(OFF, M(corner[0][0], corner[0][1], z), ON); // travel to the layer start, then extrude
+    for (let i = 1; i <= 4; i++) ops.push(M(corner[i % 4][0], corner[i % 4][1], z)); // square perimeter
+  }
+  return ops;
+}
+
+// A rectangular panel: one perimeter, a travel, then a serpentine (zig-zag) infill — a complete layer.
+function infillPanel(w = 26, h = 18, gap = 2, cx = 50, cy = 50, z = 0.2) {
+  const ops = [G(0.6, 0.2), ON];
+  const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2;
+  ops.push(M(x0, y0, z), M(x1, y0, z), M(x1, y1, z), M(x0, y1, z), M(x0, y0, z)); // perimeter
+  const bot = y0 + gap, top = y1 - gap;
+  ops.push(OFF, M(x0 + gap, bot, z), ON); // travel to the infill start
+  const xs = [];
+  for (let x = x0 + gap; x <= x1 - gap + 1e-9; x += gap) xs.push(x);
+  let y = bot;
+  for (let i = 0; i < xs.length; i++) {
+    const ny = y === bot ? top : bot;
+    ops.push(M(xs[i], ny, z)); // sweep across the panel
+    y = ny;
+    if (i < xs.length - 1) ops.push(M(xs[i + 1], y, z)); // step to the next rail
+  }
+  return ops;
+}
+
+// A conical vase: a helix whose radius shrinks as it rises — a genuinely 3D, non-planar surface.
+function coneVase(r0 = 18, r1 = 4, height = 12, layerH = 0.4, perLayer = 32, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), ON];
+  const turns = height / layerH;
+  const n = Math.round(turns * perLayer);
+  for (let i = 0; i <= n; i++) {
+    const f = i / n, a = f * turns * TAU, r = r0 + (r1 - r0) * f;
+    ops.push(M(cx + r * Math.cos(a), cy + r * Math.sin(a), z0 + f * height));
+  }
+  return ops;
+}
+
+// A rounded rectangle: four straight edges joined by four native G3 corner arcs (a complete closed loop
+// mixing lines and arcs). Traversed counter-clockwise, so every fillet is a +90° CCW arc.
+function roundedRect(w = 26, h = 18, r = 5, cx = 50, cy = 50, z = 0.4) {
+  const ops = [G(0.6, 0.2), ON];
+  const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2;
+  ops.push(M(x0 + r, y0, z), M(x1 - r, y0, z));        // bottom edge
+  ops.push(ARC(x1 - r, y0 + r, x1, y0 + r, null, false)); // BR fillet
+  ops.push(M(x1, y1 - r, z));                          // right edge
+  ops.push(ARC(x1 - r, y1 - r, x1 - r, y1, null, false)); // TR fillet
+  ops.push(M(x0 + r, y1, z));                          // top edge
+  ops.push(ARC(x0 + r, y1 - r, x0, y1 - r, null, false)); // TL fillet
+  ops.push(M(x0, y0 + r, z));                          // left edge
+  ops.push(ARC(x0 + r, y0 + r, x0 + r, y0, null, false)); // BL fillet (closes the loop)
+  return ops;
+}
+
 const DESIGNS = {
   square: { label: 'Square (line moves)', ops: square() },
   star: { label: 'Star (continuous stroke)', ops: star() },
   arcs_mix: { label: 'Arcs (native G2/G3)', ops: arcsMix() },
+  rounded_rect: { label: 'Rounded rect (lines + 4 arcs)', ops: roundedRect() },
+  infill_panel: { label: 'Infill panel (perimeter + zig-zag)', ops: infillPanel() },
+  layered_tower: { label: 'Layered tower (10 layers + travels)', ops: layeredTower() },
   spiral_vase: { label: 'Spiral vase (~120-seg helix)', ops: spiralVase() },
+  cone_vase: { label: 'Cone vase (non-planar helix)', ops: coneVase() },
   collinear_comb: { label: 'Comb (collinear runs → optimize)', ops: collinearComb() },
 };
 

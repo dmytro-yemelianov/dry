@@ -8,7 +8,17 @@ oracle).
 The toolpath is rendered in **3D** (three.js, Z-up like a printer — drag to orbit, scroll to zoom)
 with a build-plate grid, a faint "ghost" of the whole path, and a bright trail that fills in as it
 prints. A **playback** bar plays/pauses and scrubs the print, mapped to the simulated time; the speed
-buttons run it **slower** (0.25× / 0.5×), **realtime** (1×), or **faster** (4× / 16×).
+buttons run it **slower** (0.25× / 0.5×), **realtime** (1×), or **faster** (4× / 16× / 64×).
+
+Playback is **synced to the g-code**: each line is one move in the 3D view, so the current line
+highlights (and scrolls into view) as it prints, and clicking a g-code line seeks the playback there.
+Each line is also **explained** — hover (or the active line) shows the command (`G0`/`G1`/`G2`/`G3`/`G4`)
+and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` arc-centre offset,
+`A`/`B`/`C` rotary) with its meaning, units and value.
+
+The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
+arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
+~120-segment spiral vase, a non-planar cone vase, and the collinear comb.
 
 The demo also surfaces two L2 passes live:
 
@@ -35,8 +45,8 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
-| `index.html` | the demo — design picker, **3D toolpath viewport + print playback**, live g-code + metrics, **optimize** + **verify** panels |
-| `designs.js` | clean-room demo designs as Dry L1 ops (square, star, native arcs, ~120-seg spiral vase, collinear comb) |
+| `index.html` | the demo — design picker, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
+| `designs.js` | clean-room demo designs as Dry L1 ops (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb) |
 | `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) vendored so the demo is self-contained / offline-capable |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |
 | `smoke.cjs`  | Node test: the wasm engine reproduces the conformance oracle byte-for-byte (run in CI) |
