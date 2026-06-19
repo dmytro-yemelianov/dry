@@ -11,6 +11,21 @@ use crate::ir::Toolpath;
 use crate::units::{Feedrate, Length};
 use serde::Deserialize;
 
+/// The rotary kinematics of the 5-axis machine: which two rotary axes carry the toolframe orientation,
+/// and how the tool-direction unit vector maps onto them. Default [`Kinematics::Ab`] (a tilting head)
+/// reproduces the historical AB mapping byte-for-byte.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Kinematics {
+    /// Tilting head: `A` about X then `B` about Y. Words `A`,`B`.
+    #[default]
+    Ab,
+    /// `A` about X, `C` about Z (e.g. table/trunnion). Words `A`,`C`.
+    Ac,
+    /// `B` about Y, `C` about Z. Words `B`,`C`.
+    Bc,
+}
+
 /// How to emit (Marlin flavour for now). Unknown fields (e.g. `flavor`) are ignored.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EmitParams {
@@ -18,10 +33,13 @@ pub struct EmitParams {
     pub relative_e: bool,
     #[serde(default)]
     pub travel_g1_e0: bool,
-    /// Emit rotary `A`/`B` words from the toolframe orientation (5-axis). Default off ⇒ 3-axis, the
+    /// Emit rotary words from the toolframe orientation (5-axis). Default off ⇒ 3-axis, the
     /// orientation is dropped and the motion g-code is byte-identical to the conformance oracle.
     #[serde(default)]
     pub five_axis: bool,
+    /// Which rotary kinematics map the orientation onto words (default [`Kinematics::Ab`]).
+    #[serde(default)]
+    pub kinematics: Kinematics,
 }
 
 fn default_true() -> bool {
@@ -34,18 +52,72 @@ impl Default for EmitParams {
             relative_e: true,
             travel_g1_e0: false,
             five_axis: false,
+            kinematics: Kinematics::Ab,
         }
     }
 }
 
-/// Map a toolframe orientation (tool-direction unit vector) to rotary `(A, B)` angles in **degrees**
-/// for an AB-head: `B = atan2(i, k)` (lead in the X-Z plane), `A = atan2(j, hypot(i, k))` (tilt toward
-/// Y). `None` ⇒ identity (+Z) ⇒ `(0, 0)`.
-fn tool_angles(orientation: Option<[f64; 3]>) -> (f64, f64) {
+/// One emitted rotary word: its letter and its value in **degrees**.
+struct Rotary {
+    letter: char,
+    value: f64,
+}
+
+/// Map a toolframe orientation (tool-direction unit vector) to the two rotary words for `kinematics`,
+/// in source order. `None` ⇒ identity (+Z) ⇒ all-zero angles. Conventions (each documented on
+/// [`Kinematics`]):
+///
+/// - **AB**: `B = atan2(i, k)` (lead in X-Z), `A = atan2(j, hypot(i, k))` (tilt toward Y).
+/// - **AC**: `C = atan2(j, i)` (azimuth about Z), `A = acos(k)` (polar tilt from +Z).
+/// - **BC**: `C = atan2(j, i)`, `B = acos(k)`.
+///
+/// `+Z` gives `atan2(0, 0) = 0` and `acos(1) = 0`, so every convention yields zeros there.
+fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rotary; 2] {
     let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-    let b = i.atan2(k).to_degrees();
-    let a = j.atan2((i * i + k * k).sqrt()).to_degrees();
-    (a, b)
+    match kinematics {
+        Kinematics::Ab => {
+            let a = j.atan2((i * i + k * k).sqrt()).to_degrees();
+            let b = i.atan2(k).to_degrees();
+            [
+                Rotary {
+                    letter: 'A',
+                    value: a,
+                },
+                Rotary {
+                    letter: 'B',
+                    value: b,
+                },
+            ]
+        }
+        Kinematics::Ac => {
+            let c = j.atan2(i).to_degrees();
+            let a = k.clamp(-1.0, 1.0).acos().to_degrees();
+            [
+                Rotary {
+                    letter: 'C',
+                    value: c,
+                },
+                Rotary {
+                    letter: 'A',
+                    value: a,
+                },
+            ]
+        }
+        Kinematics::Bc => {
+            let c = j.atan2(i).to_degrees();
+            let b = k.clamp(-1.0, 1.0).acos().to_degrees();
+            [
+                Rotary {
+                    letter: 'C',
+                    value: c,
+                },
+                Rotary {
+                    letter: 'B',
+                    value: b,
+                },
+            ]
+        }
+    }
 }
 
 /// Format a number as FullControl does: 6 decimals, trailing zeros + trailing `.` stripped, no `-0`.
@@ -64,7 +136,7 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     let mut out = Vec::with_capacity(tp.segments.len());
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
-    let mut prev_ab: Option<(f64, f64)> = None;
+    let mut prev_rotary: Option<[f64; 2]> = None;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
@@ -110,18 +182,17 @@ pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
             }
         }
 
-        // 5-axis: emit the rotary A/B (degrees) from the toolframe orientation, each only when it
-        // changes. In 3-axis mode the orientation is dropped entirely.
+        // 5-axis: emit the two rotary words (degrees) from the toolframe orientation under the chosen
+        // kinematics, each only when it changes. In 3-axis mode the orientation is dropped entirely.
         if p.five_axis {
-            let (a, b) = tool_angles(s.orientation);
-            let (pa, pb) = prev_ab.unwrap_or((f64::NAN, f64::NAN));
-            if a != pa {
-                toks.push(format!("A{}", num(a)));
+            let rotaries = tool_rotaries(s.orientation, p.kinematics);
+            let prev = prev_rotary.unwrap_or([f64::NAN, f64::NAN]);
+            for (r, &pv) in rotaries.iter().zip(prev.iter()) {
+                if r.value != pv {
+                    toks.push(format!("{}{}", r.letter, num(r.value)));
+                }
             }
-            if b != pb {
-                toks.push(format!("B{}", num(b)));
-            }
-            prev_ab = Some((a, b));
+            prev_rotary = Some([rotaries[0].value, rotaries[1].value]);
         }
 
         if is_arc {

@@ -1,13 +1,31 @@
 //! `dry` — the toolpath compiler CLI. Operates on a Dry IR file (`{version, segments}`, or a fixture
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     arc_fit, emit, merge_collinear, simulate, travel_reorder, verify, Contracts, EmitParams,
-    Toolpath,
+    Kinematics, Toolpath,
 };
 use std::fs;
 use std::process::ExitCode;
+
+/// CLI surface for [`Kinematics`]: the rotary kinematics selectable on `dry emit`.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum KinematicsArg {
+    Ab,
+    Ac,
+    Bc,
+}
+
+impl From<KinematicsArg> for Kinematics {
+    fn from(k: KinematicsArg) -> Self {
+        match k {
+            KinematicsArg::Ab => Kinematics::Ab,
+            KinematicsArg::Ac => Kinematics::Ac,
+            KinematicsArg::Bc => Kinematics::Bc,
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "dry", version, about = "Dry — toolpath compiler CLI")]
@@ -33,9 +51,12 @@ enum Cmd {
         /// Emit absolute extrusion (default is relative E).
         #[arg(long)]
         absolute_e: bool,
-        /// Emit rotary A/B words from the toolframe orientation (5-axis).
+        /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
+        /// Rotary kinematics for 5-axis words (ab|ac|bc).
+        #[arg(long, value_enum, default_value_t = KinematicsArg::Ab)]
+        kinematics: KinematicsArg,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -166,6 +187,7 @@ fn run(cli: Cli) -> ExitCode {
             file,
             absolute_e,
             five_axis,
+            kinematics,
             out,
         } => {
             let tp = load(&file);
@@ -173,6 +195,7 @@ fn run(cli: Cli) -> ExitCode {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
+                kinematics: kinematics.into(),
             };
             let gcode = emit(&tp, &params).join("\n");
             match out {

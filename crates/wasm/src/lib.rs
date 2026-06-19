@@ -4,8 +4,8 @@
 //! isolated from the core cargo workspace).
 
 use dry_core::{
-    emit, merge_collinear, resolve, simulate, verify, Contracts, Design, EmitParams, Op,
-    ResolveParams,
+    emit, merge_collinear, resolve, simulate, verify, Contracts, Design, EmitParams, Kinematics,
+    Op, ResolveParams,
 };
 use wasm_bindgen::prelude::*;
 
@@ -32,6 +32,7 @@ pub fn resolve_gcode(
             relative_e,
             travel_g1_e0: false,
             five_axis: false,
+            kinematics: Kinematics::Ab,
         },
     ))
 }

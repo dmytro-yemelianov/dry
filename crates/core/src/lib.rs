@@ -21,7 +21,7 @@ pub mod units;
 pub mod verify;
 
 pub use codec::CodecError;
-pub use emit::{emit, EmitParams};
+pub use emit::{emit, EmitParams, Kinematics};
 pub use engine::{simulate, Metrics};
 pub use ir::{Segment, Toolpath};
 pub use optimize::{arc_fit, merge_collinear, travel_reorder};
