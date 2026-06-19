@@ -104,8 +104,8 @@ Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](
 ```
 docs/            the specification, roadmap, conformance plan, task backlog
 crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec; unit-typed]
-  cli/           the `dry` command (inspect/simulate/emit/pack/unpack)  [done]
+  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify; unit-typed]
+  cli/           the `dry` command (inspect/simulate/emit/pack/unpack/verify)  [done]
   wasm/          the wasm-bindgen binding                              [done]
 web/             the browser demo (build.sh, index.html, node smoke)   [done]
 py/              the PyO3 binding + Python authoring SDK (`dry`)        [done]
