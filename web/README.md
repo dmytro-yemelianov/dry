@@ -6,9 +6,12 @@ browser; the g-code is **byte-identical** to the other front-ends (and to the Fu
 oracle).
 
 The toolpath is rendered in **3D** (three.js, Z-up like a printer — drag to orbit, scroll to zoom)
-with a build-plate grid, a faint "ghost" of the whole path, and a bright trail that fills in as it
-prints. A **playback** bar plays/pauses and scrubs the print, mapped to the simulated time; the speed
-buttons run it **slower** (0.25× / 0.5×), **realtime** (1×), or **faster** (4× / 16× / 64×).
+on a build-plate grid. Extrusions are drawn as **width + height-accurate beads** (rectangular prisms —
+the real FFF bead cross-section, lit) in a single mesh; travels are thin lines. As it prints, the
+printed beads light up bright while the rest stay a dim "ghost" — done with a per-vertex time and a
+`uTime` shader uniform, so there is no per-frame geometry rebuild and no z-fighting. A **playback** bar
+plays/pauses and scrubs, mapped to the simulated time; the speed buttons run it **slower** (0.25× /
+0.5×), **realtime** (1×), or **faster** (4× / 16× / 64×).
 
 Playback is **synced to the g-code**: each line is one move in the 3D view, so the current line
 highlights (and scrolls into view) as it prints, and clicking a g-code line seeks the playback there.
