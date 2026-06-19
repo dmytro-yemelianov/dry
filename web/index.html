@@ -279,22 +279,28 @@ function setModel(ir) {
   P.segStart = []; P.segEnd = [];
   for (const m of moves) { if (P.segStart[m.seg] === undefined) P.segStart[m.seg] = m.t0; P.segEnd[m.seg] = m.t1; }
 
-  const ge = [], gt = [], lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  // bounds only — the ghost/printed lines are (re)built every frame in updatePrinted(), split at the
+  // toolhead so no two line sets ever share coordinates (which is what caused z-fighting).
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   const see = (p) => { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } };
-  for (const m of moves) { if (!m.from) { see(m.to); continue; } (m.travel ? gt : ge).push(...m.from, ...m.to); see(m.from); see(m.to); }
-  setLine(V.ghostE, ge); setLine(V.ghostT, gt);
+  for (const m of moves) { if (m.from) see(m.from); see(m.to); }
 
   if (lo[0] === Infinity) { lo.fill(0); hi.fill(10); }
   const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
   const size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1);
   if (V.grid) V.scene.remove(V.grid);
   const grid = new THREE.GridHelper(Math.ceil(size * 1.6), 16, 0x30363d, 0x21262d);
-  grid.rotation.x = Math.PI / 2; grid.position.set(c[0], c[1], lo[2]);
+  grid.rotation.x = Math.PI / 2;
+  // the build plate sits below the toolpath (printer plate at z=0; the first layer is one layer-height
+  // up), so the grid never shares a plane with the bottom lines.
+  const plateZ = lo[2] > 1e-6 ? 0 : lo[2] - size * 0.01;
+  grid.position.set(c[0], c[1], plateZ);
   V.grid = grid; V.scene.add(grid);
   V.head.scale.setScalar(size * 0.012 + 0.05);
   V.controls.target.set(c[0], c[1], c[2]);
   V.camera.position.set(c[0] + size * 1.3, c[1] - size * 1.6, c[2] + size * 1.1);
-  V.camera.near = size / 100; V.camera.far = size * 100; V.camera.updateProjectionMatrix();
+  // a tight depth range (≈600:1 instead of 10000:1) keeps the z-buffer precise enough to avoid fighting.
+  V.camera.near = Math.max(size * 0.02, 0.05); V.camera.far = size * 12; V.camera.updateProjectionMatrix();
   V.controls.update(); V.resize(); updatePrinted(); syncPlayUI();
 }
 
@@ -316,14 +322,25 @@ function activeSegAt(t) {
   return ms[ms.length - 1].seg;
 }
 function updatePrinted() {
-  const t = P.t, pe = [], pt = [];
+  // split every move at the toolhead time: the printed part goes to the bright lines, the rest to the
+  // faint "ghost" lines. A given edge is in exactly ONE set, so no two line sets share coordinates.
+  const t = P.t, pe = [], pt = [], re = [], rt = [];
   for (const m of P.moves) {
     if (!m.from) continue;
-    if (m.t1 <= t) (m.travel ? pt : pe).push(...m.from, ...m.to);
-    else if (m.t0 < t) { const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1; (m.travel ? pt : pe).push(...m.from, ...lerp(m.from, m.to, f)); }
+    const printed = m.travel ? pt : pe, remaining = m.travel ? rt : re;
+    if (m.t1 <= t) printed.push(...m.from, ...m.to);
+    else if (m.t0 >= t) remaining.push(...m.from, ...m.to);
+    else {
+      const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1, mid = lerp(m.from, m.to, f);
+      printed.push(...m.from, ...mid);
+      remaining.push(...mid, ...m.to);
+    }
   }
   setLine(V.printE, pe); setLine(V.printT, pt);
+  setLine(V.ghostE, re); setLine(V.ghostT, rt);
   const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
+  window.__lines = { printed: (pe.length + pt.length) / 6, remaining: (re.length + rt.length) / 6,
+                     plateZ: V.grid ? V.grid.position.z : null };
 }
 function updateActiveLine() {
   const seg = activeSegAt(P.t);
