@@ -78,6 +78,12 @@
   .finding .msg { color:var(--muted); display:block; margin-top:2px; }
   footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
   code { color:var(--extrude); }
+  .picker-row { display:flex; gap:10px; align-items:flex-start; margin:-6px 0 14px; }
+  .design-thumb { width:84px; height:84px; border-radius:8px; border:1px solid var(--line);
+                  background:var(--panel); flex:none; }
+  .tags { display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; }
+  .tags .chip { font-size:10px; color:var(--muted); background:#1f2630; border:1px solid var(--line);
+                border-radius:10px; padding:1px 7px; }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js" } }
@@ -93,6 +99,10 @@
   <section>
     <h2>Design</h2>
     <select id="design"></select>
+    <div class="picker-row">
+      <img id="designThumb" class="design-thumb" alt="design thumbnail" />
+      <div class="tags" id="designTags"></div>
+    </div>
     <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
     <h2 style="margin-top:22px">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
@@ -138,6 +148,7 @@ import init, { resolve_gcode, resolve_metrics, resolve_ir,
                resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
 import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
 import { createViewer } from './viewer.js';
+import { thumbnail } from './thumb.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -154,11 +165,27 @@ const $ = (id) => document.getElementById(id);
     getMinTemp: () => parseFloat($('minTemp').value) || 0,
   });
 
+  // populate the picker grouped by `group` (one <optgroup> per group)
   const sel = $('design');
-  for (const [k, d] of Object.entries(DESIGNS)) {
-    const o = document.createElement('option'); o.value = k; o.textContent = d.label; sel.appendChild(o);
+  const groups = {};
+  for (const [k, d] of Object.entries(DESIGNS)) (groups[d.group || 'Other'] ||= []).push([k, d]);
+  for (const [group, items] of Object.entries(groups)) {
+    const og = document.createElement('optgroup'); og.label = group;
+    for (const [k, d] of items) {
+      const o = document.createElement('option'); o.value = k; o.textContent = d.label; og.appendChild(o);
+    }
+    sel.appendChild(og);
   }
-  const go = () => viewer.show(DESIGNS[sel.value].ops, $('relE').checked);
+
+  // render the current design's tags as chips + a top-down thumbnail
+  const thumbWasm = { resolve_ir };
+  const renderMeta = () => {
+    const d = DESIGNS[sel.value];
+    $('designTags').innerHTML = (d.tags || []).map((t) => `<span class="chip">${t}</span>`).join('');
+    $('designThumb').src = thumbnail(d.ops, thumbWasm, RESOLVE_PARAMS, 84);
+  };
+
+  const go = () => { renderMeta(); viewer.show(DESIGNS[sel.value].ops, $('relE').checked); };
   sel.addEventListener('change', go);
   $('relE').addEventListener('change', go);
   $('maxFlow').addEventListener('input', go);

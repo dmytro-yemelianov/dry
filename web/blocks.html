@@ -69,9 +69,25 @@
   footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
   /* Blockly dark-ish surface to match the demo */
   .blocklyMainBackground { stroke:none !important; }
+  /* Templates panel — grouped, tagged, thumbnailed grid */
+  #templates { margin:0 0 6px; }
+  .tplgroup { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
+              margin:10px 0 6px; font-weight:600; }
+  .tplgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; }
+  .tplcard { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px;
+             cursor:pointer; color:var(--fg); font:inherit; text-align:left; display:flex;
+             flex-direction:column; gap:4px; }
+  .tplcard:hover { border-color:var(--muted); }
+  .tplcard.active { border-color:var(--accent); }
+  .tplcard img { width:100%; height:auto; border-radius:5px; display:block; background:#161b22; }
+  .tpllabel { font-size:10px; line-height:1.25; color:var(--fg); }
+  .chips { display:flex; flex-wrap:wrap; gap:3px; }
+  .chip { font-size:9px; color:var(--muted); background:#1f2630; border:1px solid var(--line);
+          border-radius:10px; padding:0 5px; }
 </style>
 <script src="./vendor/blockly/blockly_compressed.js"></script>
 <script src="./vendor/blockly/blocks_compressed.js"></script>
+<script src="./vendor/blockly/javascript_compressed.js"></script>
 <script src="./vendor/blockly/msg/en.js"></script>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js" } }
@@ -93,7 +109,9 @@
     <div id="blocklyArea"><div id="blocklyDiv"></div></div>
   </section>
   <section class="right">
-    <h2>Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
+    <h2>Templates <span class="sub">— click a starter design to load it into the workspace</span></h2>
+    <div id="templates"></div>
+    <h2 style="margin-top:18px">Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
     <div id="viewport"></div>
     <div class="legend">
       <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
@@ -136,6 +154,24 @@
   </category>
   <category name="Control" colour="20">
     <block type="dry_repeat"></block>
+    <block type="dry_for">
+      <field name="N">8</field>
+    </block>
+  </category>
+  <category name="Math" colour="230">
+    <block type="math_number"><field name="NUM">0</field></block>
+    <block type="math_arithmetic">
+      <value name="A"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      <value name="B"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    </block>
+    <block type="math_single">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">9</field></shadow></value>
+    </block>
+    <block type="math_trig">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="math_constant"><field name="CONSTANT">PI</field></block>
+    <block type="variables_get"><field name="VAR">i</field></block>
   </category>
 </xml>
 
@@ -144,6 +180,8 @@ import init, { resolve_gcode, resolve_metrics, resolve_ir,
                resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
 import { RESOLVE_PARAMS } from './designs.js';
 import { createViewer } from './viewer.js';
+import { TEMPLATES } from './templates.js';
+import { thumbnail } from './thumb.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -166,22 +204,24 @@ Blockly.defineBlocksWithJsonArray([
     previousStatement: null, nextStatement: null, colour: 160,
     tooltip: 'Set the print feedrate (mm/min).' },
 
+  // move/arc coords are VALUE inputs with shadow math_number: by default they show numbers, an
+  // empty/disconnected input ⇒ null (inherit), and a connected value block is evaluated (math/vars).
   { type: 'dry_move', message0: 'move  x %1  y %2  z %3',
-    args0: [ { type: 'field_input', name: 'X', text: '0' },
-             { type: 'field_input', name: 'Y', text: '0' },
-             { type: 'field_input', name: 'Z', text: '0.2' } ],
-    previousStatement: null, nextStatement: null, colour: 210,
-    tooltip: 'Linear move to (x, y, z). Leave a field blank to keep the current value (null).' },
+    args0: [ { type: 'input_value', name: 'X', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Y', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Z', check: 'Number', align: 'RIGHT' } ],
+    inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
+    tooltip: 'Linear move to (x, y, z). Clear a field (empty value) to keep the current value (null).' },
 
   { type: 'dry_arc', message0: 'arc  cx %1  cy %2  to x %3  y %4  z %5  %6',
-    args0: [ { type: 'field_input', name: 'CX', text: '10' },
-             { type: 'field_input', name: 'CY', text: '5' },
-             { type: 'field_input', name: 'X', text: '0' },
-             { type: 'field_input', name: 'Y', text: '5' },
-             { type: 'field_input', name: 'Z', text: '' },
+    args0: [ { type: 'input_value', name: 'CX', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'CY', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'X', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Y', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'Z', check: 'Number', align: 'RIGHT' },
              { type: 'field_dropdown', name: 'CW', options: [['clockwise', 'true'], ['ccw', 'false']] } ],
-    previousStatement: null, nextStatement: null, colour: 210,
-    tooltip: 'Circular arc about centre (cx, cy) to (x, y, z). Blank x/y/z keep the current value.' },
+    inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
+    tooltip: 'Circular arc about centre (cx, cy) to (x, y, z). Empty x/y/z keep the current value.' },
 
   { type: 'dry_temperature', message0: 'temperature  nozzle %1 °C',
     args0: [ { type: 'field_number', name: 'NOZZLE', value: 200, min: 0 } ],
@@ -220,12 +260,39 @@ Blockly.defineBlocksWithJsonArray([
     args1: [ { type: 'input_statement', name: 'DO' } ],
     previousStatement: null, nextStatement: null, colour: 20,
     tooltip: 'Unroll the enclosed sequence N times into the op stream.' },
+
+  // for i = 0 .. N-1: binds a workspace variable `i` over the body; coords can read `i` via
+  // variables_get + math blocks. The generator iterates the body N times with i bound 0..N-1.
+  { type: 'dry_for', message0: 'for %1 = 0 to %2 − 1', message1: 'do %1',
+    args0: [ { type: 'field_variable', name: 'VAR', variable: 'i' },
+             { type: 'field_number', name: 'N', value: 8, min: 0, precision: 1 } ],
+    args1: [ { type: 'input_statement', name: 'DO' } ],
+    previousStatement: null, nextStatement: null, colour: 20,
+    tooltip: 'Loop the body N times with the variable bound to 0,1,…,N−1; coords may reference it.' },
 ]);
 
 // ---- generator: walk top blocks top→bottom, emit the L1 ops array (manual tree walk) ----
-const numOrNull = (s) => { const v = (s ?? '').trim(); return v === '' ? null : Number(v); };
+//
+// Coordinate value inputs (move/arc X/Y/Z, arc CX/CY) are turned into a JS expression string via
+// Blockly.JavaScript.valueToCode, then evaluated under the current loop-variable environment with
+// new Function(...names, 'Math', 'return ('+expr+')'). A disconnected/empty input ⇒ null (inherit).
+// Non-finite results ⇒ null (we never emit NaN). Expressions come only from our own shadow
+// math_number / math_* / variables_get blocks, so eval here is acceptable for this demo.
+const JS = () => Blockly.JavaScript;
 
-function genBlock(block, ops) {
+// Evaluate a value input to a finite Number, or null. `env` maps variable-name → numeric value.
+function evalValue(block, name, env) {
+  const expr = JS().valueToCode(block, name, JS().ORDER_NONE);
+  if (expr == null || expr === '') return null;
+  try {
+    const names = Object.keys(env), vals = names.map((k) => env[k]);
+    const fn = new Function(...names, 'Math', 'return (' + expr + ');');
+    const v = fn(...vals, Math);
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+function genBlock(block, ops, env) {
   switch (block.type) {
     case 'dry_geometry':
       ops.push({ op: 'geometry', width: Number(block.getFieldValue('W')), height: Number(block.getFieldValue('H')) });
@@ -237,13 +304,13 @@ function genBlock(block, ops) {
       ops.push({ op: 'speed', print: Number(block.getFieldValue('PRINT')) });
       break;
     case 'dry_move':
-      ops.push({ op: 'move', x: numOrNull(block.getFieldValue('X')),
-                 y: numOrNull(block.getFieldValue('Y')), z: numOrNull(block.getFieldValue('Z')) });
+      ops.push({ op: 'move', x: evalValue(block, 'X', env),
+                 y: evalValue(block, 'Y', env), z: evalValue(block, 'Z', env) });
       break;
     case 'dry_arc':
-      ops.push({ op: 'arc', cx: Number(block.getFieldValue('CX')), cy: Number(block.getFieldValue('CY')),
-                 x: numOrNull(block.getFieldValue('X')), y: numOrNull(block.getFieldValue('Y')),
-                 z: numOrNull(block.getFieldValue('Z')), clockwise: block.getFieldValue('CW') === 'true' });
+      ops.push({ op: 'arc', cx: evalValue(block, 'CX', env), cy: evalValue(block, 'CY', env),
+                 x: evalValue(block, 'X', env), y: evalValue(block, 'Y', env),
+                 z: evalValue(block, 'Z', env), clockwise: block.getFieldValue('CW') === 'true' });
       break;
     case 'dry_temperature':
       ops.push({ op: 'temperature', nozzle: Number(block.getFieldValue('NOZZLE')) });
@@ -266,10 +333,22 @@ function genBlock(block, ops) {
       break;
     case 'dry_repeat': {
       const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
-      const body = [];
-      let inner = block.getInputTargetBlock('DO');
-      while (inner) { genBlock(inner, body); inner = inner.getNextBlock(); }
-      for (let i = 0; i < n; i++) ops.push(...body.map((o) => ({ ...o })));
+      for (let k = 0; k < n; k++) {
+        let inner = block.getInputTargetBlock('DO');
+        while (inner) { genBlock(inner, ops, env); inner = inner.getNextBlock(); }
+      }
+      break;
+    }
+    case 'dry_for': {
+      const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
+      // Bind under the *generated* JS name so it matches what variables_get emits in expressions.
+      const varModel = block.getField('VAR').getVariable();
+      const jsName = JS().nameDB_.getName(varModel.getId(), Blockly.Names.NameType.VARIABLE);
+      for (let i = 0; i < n; i++) {
+        const child = Object.assign(Object.create(null), env, { [jsName]: i });
+        let inner = block.getInputTargetBlock('DO');
+        while (inner) { genBlock(inner, ops, child); inner = inner.getNextBlock(); }
+      }
       break;
     }
   }
@@ -279,38 +358,14 @@ let WORKSPACE = null;
 function genOps() {
   const ops = [];
   if (!WORKSPACE) return ops;
+  JS().init(WORKSPACE); // prime nameDB_ so variables_get expressions and our env names agree
   for (const top of WORKSPACE.getTopBlocks(true)) {
     let b = top;
-    while (b) { genBlock(b, ops); b = b.getNextBlock(); }
+    while (b) { genBlock(b, ops, Object.create(null)); b = b.getNextBlock(); }
   }
   return ops;
 }
 window.__genOps = genOps;
-
-// ---- seed design: a 10mm square (geometry → extruder on → 5 moves) ----
-function seedXml() {
-  const mv = (x, y, z) =>
-    `<value><block type="dry_move"><field name="X">${x}</field><field name="Y">${y}</field><field name="Z">${z}</field></block></value>`;
-  // build a linked statement chain via <next> nesting
-  const moves = [[0, 0, 0.2], [10, 0, 0.2], [10, 10, 0.2], [0, 10, 0.2], [0, 0, 0.2]];
-  let chain = '';
-  // build innermost-out
-  for (let i = moves.length - 1; i >= 0; i--) {
-    const [x, y, z] = moves[i];
-    chain = `<block type="dry_move"><field name="X">${x}</field><field name="Y">${y}</field><field name="Z">${z}</field>` +
-            (chain ? `<next>${chain}</next>` : '') + `</block>`;
-  }
-  const xml =
-    `<xml xmlns="https://developers.google.com/blockly/xml">` +
-      `<block type="dry_geometry" x="30" y="30">` +
-        `<field name="W">0.6</field><field name="H">0.2</field>` +
-        `<next><block type="dry_extruder"><field name="ON">true</field>` +
-          `<next>${chain}</next>` +
-        `</block></next>` +
-      `</block>` +
-    `</xml>`;
-  return Blockly.utils.xml.textToDom(xml);
-}
 
 (async () => {
   await init();
@@ -343,9 +398,50 @@ function seedXml() {
   const onResize = () => Blockly.svgResize(WORKSPACE);
   window.addEventListener('resize', onResize);
 
-  // seed and render
-  Blockly.Xml.domToWorkspace(seedXml(), WORKSPACE);
-  onResize();
+  // load a template into the workspace (clears first), then re-render the preview
+  function loadTemplate(key) {
+    const t = TEMPLATES[key];
+    if (!t) return;
+    t.build(Blockly, WORKSPACE);
+    onResize();
+    viewer.show(genOps(), $('relE').checked);
+    [...document.querySelectorAll('.tplcard')].forEach((c) => c.classList.toggle('active', c.dataset.key === key));
+    window.__loadedTemplate = key;
+  }
+  window.__loadTemplate = loadTemplate;
+
+  // ---- Templates panel: grouped, tagged, thumbnailed grid ----
+  function renderTemplates() {
+    const wrap = $('templates');
+    if (!wrap) return;
+    const wasm = { resolve_ir };
+    const byGroup = {};
+    for (const [key, t] of Object.entries(TEMPLATES)) (byGroup[t.group] ||= []).push([key, t]);
+    wrap.innerHTML = '';
+    for (const [group, items] of Object.entries(byGroup)) {
+      const h = document.createElement('div'); h.className = 'tplgroup'; h.textContent = group; wrap.appendChild(h);
+      const grid = document.createElement('div'); grid.className = 'tplgrid'; wrap.appendChild(grid);
+      for (const [key, t] of items) {
+        // resolve this template's ops once (load into a scratch headless workspace) for the thumbnail
+        const scratch = new Blockly.Workspace();
+        let ops = [];
+        try {
+          t.build(Blockly, scratch);
+          JS().init(scratch);
+          for (const top of scratch.getTopBlocks(true)) { let b = top; while (b) { genBlock(b, ops, Object.create(null)); b = b.getNextBlock(); } }
+        } catch (e) { console.error('template build', key, e); }
+        scratch.dispose();
+        const url = thumbnail(ops, wasm, RESOLVE_PARAMS, 120);
+        const card = document.createElement('button');
+        card.className = 'tplcard'; card.dataset.key = key; card.title = t.label;
+        const chips = (t.tags || []).map((x) => `<span class="chip">${x}</span>`).join('');
+        card.innerHTML = `<img alt="${t.label}" src="${url}" /><div class="tpllabel">${t.label}</div><div class="chips">${chips}</div>`;
+        card.addEventListener('click', () => loadTemplate(key));
+        grid.appendChild(card);
+      }
+    }
+  }
+  renderTemplates();
 
   let pending = null;
   const update = () => {
@@ -357,8 +453,8 @@ function seedXml() {
   WORKSPACE.addChangeListener((e) => { if (!e.isUiEvent) update(); });
   $('relE').addEventListener('change', () => viewer.show(genOps(), $('relE').checked));
 
-  // initial render (synchronous so tests can assert immediately after __blocksReady)
-  viewer.show(genOps(), $('relE').checked);
+  // seed with the first template (the classic square) and render synchronously so tests can assert
+  loadTemplate('square');
   window.__blocksReady = true;
 })();
 </script>

@@ -278,27 +278,29 @@ function lattice(size = 28, gap = 4, layers = 8, layerH = 0.3, cx = 50, cy = 50,
   return ops;
 }
 
+// Each entry carries a `group` (for grouped pickers) and `tags` (chips / filtering). The `ops`
+// are unchanged — the gallery designs are byte-identical to before; only metadata was added.
 const DESIGNS = {
-  square: { label: 'Square (line moves)', ops: square() },
-  star: { label: 'Star (continuous stroke)', ops: star() },
-  arcs_mix: { label: 'Arcs (native G2/G3)', ops: arcsMix() },
-  rounded_rect: { label: 'Rounded rect (lines + 4 arcs)', ops: roundedRect() },
-  infill_panel: { label: 'Infill panel (perimeter + zig-zag)', ops: infillPanel() },
-  layered_tower: { label: 'Layered tower (10 layers + travels)', ops: layeredTower() },
-  spiral_vase: { label: 'Spiral vase (~120-seg helix)', ops: spiralVase() },
-  cone_vase: { label: 'Cone vase (non-planar helix)', ops: coneVase() },
-  collinear_comb: { label: 'Comb (collinear runs → optimize)', ops: collinearComb() },
+  square: { label: 'Square (line moves)', group: 'Basics', tags: ['line', 'perimeter'], ops: square() },
+  star: { label: 'Star (continuous stroke)', group: 'Basics', tags: ['line', 'parametric'], ops: star() },
+  arcs_mix: { label: 'Arcs (native G2/G3)', group: 'Curves', tags: ['arc'], ops: arcsMix() },
+  rounded_rect: { label: 'Rounded rect (lines + 4 arcs)', group: 'Curves', tags: ['arc', 'line'], ops: roundedRect() },
+  infill_panel: { label: 'Infill panel (perimeter + zig-zag)', group: 'Infill & multi-layer', tags: ['infill', 'travel'], ops: infillPanel() },
+  layered_tower: { label: 'Layered tower (10 layers + travels)', group: 'Infill & multi-layer', tags: ['multi-layer', 'travel'], ops: layeredTower() },
+  spiral_vase: { label: 'Spiral vase (~120-seg helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'], ops: spiralVase() },
+  cone_vase: { label: 'Cone vase (non-planar helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'], ops: coneVase() },
+  collinear_comb: { label: 'Comb (collinear runs → optimize)', group: 'Infill & multi-layer', tags: ['travel', 'optimize'], ops: collinearComb() },
   // complex parametric samples
-  hilbert: { label: 'Hilbert curve (space-filling fractal)', ops: hilbert() },
-  rose: { label: 'Rose curve (rhodonea)', ops: rose() },
-  spirograph: { label: 'Spirograph (hypotrochoid)', ops: spirograph() },
-  honeycomb: { label: 'Honeycomb (hex tiling + travels)', ops: honeycomb() },
-  corrugated_wall: { label: 'Corrugated wall (10-layer sine)', ops: corrugatedWall() },
-  twisted_vase: { label: 'Twisted vase (fluted, non-planar)', ops: twistedVase() },
-  star_tower: { label: 'Star tower (stacked + twist)', ops: starTower() },
-  torus_knot: { label: 'Torus knot (3D, non-planar)', ops: torusKnot() },
-  lissajous: { label: 'Lissajous ribbon (3D)', ops: lissajous() },
-  lattice: { label: 'Lattice cube (cross-hatch layers)', ops: lattice() },
+  hilbert: { label: 'Hilbert curve (space-filling fractal)', group: 'Curves', tags: ['fractal', 'parametric'], ops: hilbert() },
+  rose: { label: 'Rose curve (rhodonea)', group: 'Curves', tags: ['parametric'], ops: rose() },
+  spirograph: { label: 'Spirograph (hypotrochoid)', group: 'Curves', tags: ['parametric'], ops: spirograph() },
+  honeycomb: { label: 'Honeycomb (hex tiling + travels)', group: 'Infill & multi-layer', tags: ['infill', 'travel'], ops: honeycomb() },
+  corrugated_wall: { label: 'Corrugated wall (10-layer sine)', group: 'Infill & multi-layer', tags: ['multi-layer', 'parametric'], ops: corrugatedWall() },
+  twisted_vase: { label: 'Twisted vase (fluted, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: twistedVase() },
+  star_tower: { label: 'Star tower (stacked + twist)', group: 'Vases & non-planar', tags: ['multi-layer', 'travel', '3D'], ops: starTower() },
+  torus_knot: { label: 'Torus knot (3D, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: torusKnot() },
+  lissajous: { label: 'Lissajous ribbon (3D)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: lissajous() },
+  lattice: { label: 'Lattice cube (cross-hatch layers)', group: 'Infill & multi-layer', tags: ['infill', 'multi-layer', '3D'], ops: lattice() },
 };
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
