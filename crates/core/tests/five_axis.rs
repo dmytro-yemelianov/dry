@@ -14,6 +14,7 @@ fn five_axis() -> EmitParams {
         relative_e: true,
         travel_g1_e0: false,
         five_axis: true,
+        ..EmitParams::default()
     }
 }
 

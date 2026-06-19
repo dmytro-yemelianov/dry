@@ -3,7 +3,7 @@
 //! Python SDK (`py/python/dry/`) stays logic-free and just builds the ops. Isolated from the core cargo
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
-use dry_core::{emit, resolve, simulate, Design, EmitParams, Op, ResolveParams};
+use dry_core::{emit, resolve, simulate, Design, EmitParams, Kinematics, Op, ResolveParams};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -29,6 +29,7 @@ fn resolve_gcode(ops_json: &str, params_json: &str, relative_e: bool) -> PyResul
             relative_e,
             travel_g1_e0: false,
             five_axis: false,
+            kinematics: Kinematics::Ab,
         },
     ))
 }
