@@ -32,11 +32,12 @@ Each `DESIGNS[key]` is `{ label, group, tags, ops }` — the `ops` are unchanged
 
 `blocks.html` is a **visual, block-based authoring page**: drag blocks to build a Dry **L1 design**
 (one statement block per op — `geometry` / `extruder` / `speed` / `move` / `arc` / `temperature` /
-`fan` / `flow` / `tool` / `orient` / `dwell`, plus a `repeat N` control block that unrolls its body),
-and the same Rust engine resolves it to g-code **live** — rendered in the identical 3D viewport with
-print playback and the synced, explained g-code. A small manual generator walks the workspace top→bottom
-(following `getNextBlock()`) and emits the ops array; blank `move`/`arc` coordinate fields become `null`
-(inherit the running value). The page seeds a 10 mm square on load.
+`fan` / `flow` / `tool` / `orient` / `dwell`, plus `repeat N` and `for i = 0 to N-1` control blocks
+that unroll their bodies). The same Rust engine resolves it to g-code **live** — rendered in the
+identical 3D viewport with print playback and the synced, explained g-code. A small manual generator
+walks the workspace top→bottom (following `getNextBlock()`) and emits the ops array; disconnected
+`move`/`arc` coordinate inputs become `null` (inherit the running value). The page seeds a 10 mm square
+on load.
 
 The viewport, playback, bead mesh and g-code panel live in **`viewer.js`**, a shared ES module that
 both `index.html` and `blocks.html` import — there is no copy-paste of the viewer between the pages.
@@ -46,7 +47,8 @@ both `index.html` and `blocks.html` import — there is no copy-paste of the vie
 The authoring page ships **parametric** blocks so a starter design can be a real, computed design:
 
 - **`for i = 0 to N−1`** (`dry_for`) — a loop bound to a Blockly variable `i`; the generator iterates
-  the body N times with `i` bound `0,1,…,N−1`.
+  the body N times with `i` bound `0,1,…,N−1`. `repeat` and `for` are capped at 1000 unrolled
+  iterations to keep the authoring page responsive.
 - **`move`/`arc` coordinates are value inputs** (X/Y/Z, arc cx/cy) with **shadow `math_number`** — they
   still show numbers by default, an empty/cleared input ⇒ `null` (inherit the running value), and a
   connected value block is **evaluated**. The block palette is an **always-open flyout** (a fixed left
