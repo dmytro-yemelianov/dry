@@ -17,6 +17,7 @@ pub mod engine;
 pub mod gcode;
 pub mod ir;
 pub mod optimize;
+pub mod profile;
 pub mod resolve;
 pub mod units;
 pub mod verify;
@@ -37,6 +38,9 @@ pub use gcode::{
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{arc_fit, merge_collinear, optimize_pipeline, travel_reorder};
+pub use profile::{
+    FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
+};
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };

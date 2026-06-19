@@ -73,8 +73,28 @@ CLI (over a Dry IR file):
 cargo run -p dry-cli --bin dry -- emit conformance/gcode/square.json   # motion g-code
 cargo run -p dry-cli --bin dry -- import-gcode part.gcode -o part.dry.json
 cargo run -p dry-cli --bin dry -- review-gcode part.gcode --bounds 0,250,0,210,0,220
+cargo run -p dry-cli --bin dry -- review-gcode part.gcode --profile docs/profile-example.json
 cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode -o normalized.gcode
 cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode --optimize -o optimized.gcode
+```
+
+Profile-aware review/verify accepts a versioned machine/material/process JSON:
+```json
+{
+  "version": 1,
+  "name": "voron24-abs",
+  "firmware": { "flavor": "klipper" },
+  "machine": {
+    "build_volume": [[0, 350], [0, 350], [0, 250]],
+    "feedrate_range": [300, 18000]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 24,
+    "min_nozzle_temperature_c": 230
+  },
+  "process": { "line_width": 0.45, "layer_height": 0.2 }
+}
 ```
 
 Python — author a design, the Rust engine resolves + emits it:
@@ -110,7 +130,7 @@ Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](
 ```
 docs/            the specification, roadmap, conformance plan, task backlog
 crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize/import; unit-typed]
+  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize/import/profile; unit-typed]
   cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/import-gcode/review-gcode/rewrite-gcode/optimize/pack/unpack/verify)  [done]
   wasm/          the wasm-bindgen binding                              [done]
 web/             the browser demo (build.sh, index.html, node smoke)   [done]

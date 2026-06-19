@@ -179,6 +179,113 @@ fn review_gcode_reports_findings_with_source_lines() {
 }
 
 #[test]
+fn review_gcode_uses_profile_contracts_and_import_defaults() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-profile-review-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    let profile = std::env::temp_dir().join(format!(
+        "dry-cli-profile-review-{}-{stamp}.json",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E0.1 F1200\n").unwrap();
+    std::fs::write(
+        &profile,
+        r#"{
+          "version": 1,
+          "name": "bench-profile",
+          "firmware": {"flavor": "klipper"},
+          "machine": {
+            "build_volume": [[0, 5], [0, 5], [0, 1]],
+            "feedrate_range": [1, 5000]
+          },
+          "material": {
+            "filament_diameter": 1.75,
+            "max_volumetric_flow_mm3_s": 100
+          },
+          "process": {
+            "line_width": 0.48,
+            "layer_height": 0.2
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "review-gcode",
+            input.to_str().unwrap(),
+            "--profile",
+            profile.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    let _ = std::fs::remove_file(&profile);
+    assert!(!out.status.success(), "profile bounds should fail");
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("profile:   bench-profile"), "{text}");
+    assert!(text.contains("bounds"), "{text}");
+    assert!(text.contains("line 3"), "{text}");
+}
+
+#[test]
+fn review_gcode_cli_limits_override_profile_limits() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-profile-override-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    let profile = std::env::temp_dir().join(format!(
+        "dry-cli-profile-override-{}-{stamp}.json",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E0.1 F1200\n").unwrap();
+    std::fs::write(
+        &profile,
+        r#"{
+          "version": 1,
+          "name": "flow-test",
+          "material": {
+            "filament_diameter": 1.75,
+            "max_volumetric_flow_mm3_s": 0.001
+          },
+          "process": {
+            "line_width": 0.45,
+            "layer_height": 0.2
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "review-gcode",
+            input.to_str().unwrap(),
+            "--profile",
+            profile.to_str().unwrap(),
+            "--max-flow",
+            "999",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    let _ = std::fs::remove_file(&profile);
+    assert!(
+        out.status.success(),
+        "explicit max-flow should override profile: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
 fn rewrite_gcode_preserves_non_motion_source_lines() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

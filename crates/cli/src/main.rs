@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, verify, verify_stream,
-    Contracts, EmitParams, GcodeImportParams, Kinematics, Toolpath,
+    Contracts, EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -89,9 +89,12 @@ enum Cmd {
     /// Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation.
     ImportGcode {
         file: String,
+        /// Machine/material profile JSON to supply import defaults.
+        #[arg(long)]
+        profile: Option<String>,
         /// Filament diameter in mm, used to recover deposited volume from E motion.
-        #[arg(long, default_value_t = 1.75)]
-        filament_diameter: f64,
+        #[arg(long)]
+        filament_diameter: Option<f64>,
         /// Optional line width in mm to attach to extruding segments.
         #[arg(long)]
         line_width: Option<f64>,
@@ -105,15 +108,18 @@ enum Cmd {
     /// Review slicer G-code directly, reporting metrics and contract findings with source line numbers.
     ReviewGcode {
         file: String,
+        /// Machine/material profile JSON to supply import defaults and verifier contracts.
+        #[arg(long)]
+        profile: Option<String>,
         /// Filament diameter in mm, used to recover deposited volume from E motion.
-        #[arg(long, default_value_t = 1.75)]
-        filament_diameter: f64,
+        #[arg(long)]
+        filament_diameter: Option<f64>,
         /// Assumed line width in mm for structural bead and flow checks.
-        #[arg(long, default_value_t = 0.45)]
-        line_width: f64,
+        #[arg(long)]
+        line_width: Option<f64>,
         /// Assumed layer height in mm for structural bead and flow checks.
-        #[arg(long, default_value_t = 0.2)]
-        layer_height: f64,
+        #[arg(long)]
+        layer_height: Option<f64>,
         /// Max volumetric flow (mm³/s).
         #[arg(long)]
         max_flow: Option<f64>,
@@ -136,9 +142,12 @@ enum Cmd {
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
         file: String,
+        /// Machine/material profile JSON to supply import defaults.
+        #[arg(long)]
+        profile: Option<String>,
         /// Filament diameter in mm, used to recover deposited volume from E motion.
-        #[arg(long, default_value_t = 1.75)]
-        filament_diameter: f64,
+        #[arg(long)]
+        filament_diameter: Option<f64>,
         /// Optional line width in mm to attach to extruding segments.
         #[arg(long)]
         line_width: Option<f64>,
@@ -166,6 +175,9 @@ enum Cmd {
     /// Flags: `--bounds`, `--max-flow`, `--monotonic-z`, `--min-temp`, `--json`.
     Verify {
         file: String,
+        /// Machine/material profile JSON to supply verifier contracts.
+        #[arg(long)]
+        profile: Option<String>,
         /// Max volumetric flow (mm³/s).
         #[arg(long)]
         max_flow: Option<f64>,
@@ -359,6 +371,7 @@ fn run(cli: Cli) -> ExitCode {
         }
         Cmd::ImportGcode {
             file,
+            profile,
             filament_diameter,
             line_width,
             layer_height,
@@ -366,12 +379,13 @@ fn run(cli: Cli) -> ExitCode {
         } => {
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
-            let params = GcodeImportParams {
-                version: 0,
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_import_params(
+                profile.as_ref(),
                 filament_diameter,
                 line_width,
                 layer_height,
-            };
+            );
             let tp = import_gcode_reader(input, &params)
                 .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
             let json = tp.to_json();
@@ -384,6 +398,7 @@ fn run(cli: Cli) -> ExitCode {
         }
         Cmd::ReviewGcode {
             file,
+            profile,
             filament_diameter,
             line_width,
             layer_height,
@@ -396,22 +411,24 @@ fn run(cli: Cli) -> ExitCode {
         } => {
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
-            let params = GcodeImportParams {
-                version: 0,
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_review_params(
+                profile.as_ref(),
                 filament_diameter,
-                line_width: Some(line_width),
-                layer_height: Some(layer_height),
-            };
+                line_width,
+                layer_height,
+            );
             let imported = import_gcode_reader_with_map(input, &params)
                 .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
             let metrics = simulate(&imported.toolpath);
-            let contracts = Contracts {
-                bounds: bounds.as_deref().map(parse_bounds),
+            let contracts = contracts_from_inputs(
+                profile.as_ref(),
+                bounds.as_deref(),
                 max_flow,
-                speed_range: speed_range.as_deref().map(parse_speed_range),
+                speed_range.as_deref(),
                 monotonic_z,
                 min_temp,
-            };
+            );
             let report = verify(&imported.toolpath, &contracts);
 
             if json {
@@ -435,6 +452,7 @@ fn run(cli: Cli) -> ExitCode {
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
                         "file": file,
+                        "profile": profile_label(profile.as_ref()),
                         "segments": imported.toolpath.segments.len(),
                         "metrics": metrics,
                         "findings": findings,
@@ -444,6 +462,9 @@ fn run(cli: Cli) -> ExitCode {
                 );
             } else {
                 println!("review-gcode: {file}");
+                if let Some(label) = profile_label(profile.as_ref()) {
+                    println!("  profile:   {label}");
+                }
                 println!(
                     "  segments:  {} ({} moves with length)",
                     imported.toolpath.segments.len(),
@@ -495,6 +516,7 @@ fn run(cli: Cli) -> ExitCode {
         }
         Cmd::RewriteGcode {
             file,
+            profile,
             filament_diameter,
             line_width,
             layer_height,
@@ -504,12 +526,13 @@ fn run(cli: Cli) -> ExitCode {
         } => {
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
-            let params = GcodeImportParams {
-                version: 0,
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_import_params(
+                profile.as_ref(),
                 filament_diameter,
                 line_width,
                 layer_height,
-            };
+            );
             let imported = import_gcode_reader_with_map(input, &params)
                 .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
             let emit_params = EmitParams {
@@ -582,6 +605,7 @@ fn run(cli: Cli) -> ExitCode {
         }
         Cmd::Verify {
             file,
+            profile,
             max_flow,
             bounds,
             monotonic_z,
@@ -591,13 +615,15 @@ fn run(cli: Cli) -> ExitCode {
         } => {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
-            let contracts = Contracts {
-                bounds: bounds.as_deref().map(parse_bounds),
+            let profile = load_profile(profile.as_deref());
+            let contracts = contracts_from_inputs(
+                profile.as_ref(),
+                bounds.as_deref(),
                 max_flow,
-                speed_range: speed_range.as_deref().map(parse_speed_range),
+                speed_range.as_deref(),
                 monotonic_z,
                 min_temp,
-            };
+            );
             let report = verify_stream(stream, &contracts)
                 .unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
             if json {
@@ -622,6 +648,97 @@ fn run(cli: Cli) -> ExitCode {
             }
         }
     }
+}
+
+fn load_profile(path: Option<&str>) -> Option<Profile> {
+    path.map(|path| {
+        let text =
+            fs::read_to_string(path).unwrap_or_else(|e| die(format!("cannot read {path}: {e}")));
+        Profile::from_json(&text).unwrap_or_else(|e| die(format!("bad --profile {path}: {e}")))
+    })
+}
+
+fn profile_label(profile: Option<&Profile>) -> Option<String> {
+    profile.map(|profile| {
+        profile
+            .name
+            .clone()
+            .or_else(|| {
+                profile
+                    .firmware
+                    .flavor
+                    .as_ref()
+                    .map(|flavor| format!("{flavor} profile"))
+            })
+            .unwrap_or_else(|| "unnamed profile".to_string())
+    })
+}
+
+fn profile_filament_diameter(profile: Option<&Profile>) -> Option<f64> {
+    profile.and_then(|profile| profile.material.filament_diameter)
+}
+
+fn profile_line_width(profile: Option<&Profile>) -> Option<f64> {
+    profile.and_then(|profile| profile.process.line_width)
+}
+
+fn profile_layer_height(profile: Option<&Profile>) -> Option<f64> {
+    profile.and_then(|profile| profile.process.layer_height)
+}
+
+fn gcode_import_params(
+    profile: Option<&Profile>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+) -> GcodeImportParams {
+    GcodeImportParams {
+        version: 0,
+        filament_diameter: filament_diameter
+            .or_else(|| profile_filament_diameter(profile))
+            .unwrap_or(1.75),
+        line_width: line_width.or_else(|| profile_line_width(profile)),
+        layer_height: layer_height.or_else(|| profile_layer_height(profile)),
+    }
+}
+
+fn gcode_review_params(
+    profile: Option<&Profile>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+) -> GcodeImportParams {
+    let mut params = gcode_import_params(profile, filament_diameter, line_width, layer_height);
+    params.line_width = params.line_width.or(Some(0.45));
+    params.layer_height = params.layer_height.or(Some(0.2));
+    params
+}
+
+fn contracts_from_inputs(
+    profile: Option<&Profile>,
+    bounds: Option<&str>,
+    max_flow: Option<f64>,
+    speed_range: Option<&str>,
+    monotonic_z: bool,
+    min_temp: Option<f64>,
+) -> Contracts {
+    let mut contracts = profile.map(Profile::contracts).unwrap_or_default();
+    if let Some(bounds) = bounds {
+        contracts.bounds = Some(parse_bounds(bounds));
+    }
+    if let Some(max_flow) = max_flow {
+        contracts.max_flow = Some(max_flow);
+    }
+    if let Some(speed_range) = speed_range {
+        contracts.speed_range = Some(parse_speed_range(speed_range));
+    }
+    if monotonic_z {
+        contracts.monotonic_z = true;
+    }
+    if let Some(min_temp) = min_temp {
+        contracts.min_temp = Some(min_temp);
+    }
+    contracts
 }
 
 /// Parse `x0,x1,y0,y1,z0,z1` into a build volume; exits 2 on a malformed value.

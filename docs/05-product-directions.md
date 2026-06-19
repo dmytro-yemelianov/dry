@@ -446,6 +446,18 @@ Optimization needs explicit profiles:
 
 Profiles should be versioned and serializable so reports and rewrites are reproducible.
 
+Current implementation starts with schema version 1 in `dry-core`:
+
+- `firmware.flavor` for dialect context (`klipper`, `marlin`, `duet`, etc.),
+- `machine.build_volume` and `machine.feedrate_range`,
+- `material.filament_diameter`, `material.max_volumetric_flow_mm3_s`, and
+  `material.min_nozzle_temperature_c`,
+- `process.line_width`, `process.layer_height`, and `process.monotonic_z`.
+
+`dry review-gcode --profile profile.json` uses those fields both to lift slicer G-code into Dry IR and
+to build verifier contracts. Explicit CLI flags remain overrides, so a one-off review can tighten or
+relax a profile limit without editing the profile file.
+
 ### Trace storage
 
 Time-series and comparison workflows need an efficient trace format:
@@ -507,4 +519,3 @@ Dry should treat calibration results as profile inputs, not hard-coded guesses.
 8. CAD/plugin workbench for authored paths.
 9. Aggressive optimization modes backed by calibration data.
 10. Hybrid mesh slicing as a later frontend, not the core identity.
-
