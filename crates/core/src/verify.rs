@@ -232,6 +232,7 @@ mod tests {
     fn empty_toolpath_is_ok() {
         let tp = Toolpath {
             version: 0,
+            meta: None,
             segments: vec![],
         };
         assert!(verify(&tp, &Contracts::default()).ok());

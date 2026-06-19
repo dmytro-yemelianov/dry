@@ -345,6 +345,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
     }
     Toolpath {
         version: 0,
+        meta: None,
         segments: segs,
     }
 }
