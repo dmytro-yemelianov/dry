@@ -154,8 +154,18 @@
   <block type="dry_extruder"></block>
   <block type="dry_speed"></block>
   <label text="— Move —"></label>
-  <block type="dry_move"></block>
-  <block type="dry_arc"></block>
+  <block type="dry_move">
+    <value name="X"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+  </block>
+  <block type="dry_arc">
+    <value name="CX"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+    <value name="CY"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+    <value name="X"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+    <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+  </block>
   <label text="— Process —"></label>
   <block type="dry_temperature"></block>
   <block type="dry_fan"></block>
@@ -210,8 +220,8 @@ import { thumbnail } from './thumb.js';
 
 const $ = (id) => document.getElementById(id);
 
-// ---- custom block definitions: one statement block per L1 op + a repeat control block ----
-// move/arc coords are TEXT fields: an empty field ⇒ null (inherit the running value), otherwise Number.
+// ---- custom block definitions: one statement block per L1 op + control blocks ----
+// move/arc coords are value inputs: disconnected input ⇒ null (inherit the running value).
 Blockly.defineBlocksWithJsonArray([
   { type: 'dry_geometry', message0: 'geometry  width %1  height %2',
     args0: [ { type: 'field_number', name: 'W', value: 0.6, min: 0 },
@@ -281,7 +291,7 @@ Blockly.defineBlocksWithJsonArray([
     tooltip: 'Pause in place for a number of seconds.' },
 
   { type: 'dry_repeat', message0: 'repeat %1 times', message1: 'do %1',
-    args0: [ { type: 'field_number', name: 'N', value: 3, min: 0, precision: 1 } ],
+    args0: [ { type: 'field_number', name: 'N', value: 3, min: 0, max: 1000, precision: 1 } ],
     args1: [ { type: 'input_statement', name: 'DO' } ],
     previousStatement: null, nextStatement: null, colour: 20,
     tooltip: 'Unroll the enclosed sequence N times into the op stream.' },
@@ -290,7 +300,7 @@ Blockly.defineBlocksWithJsonArray([
   // variables_get + math blocks. The generator iterates the body N times with i bound 0..N-1.
   { type: 'dry_for', message0: 'for %1 = 0 to %2 − 1', message1: 'do %1',
     args0: [ { type: 'field_variable', name: 'VAR', variable: 'i' },
-             { type: 'field_number', name: 'N', value: 8, min: 0, precision: 1 } ],
+             { type: 'field_number', name: 'N', value: 8, min: 0, max: 1000, precision: 1 } ],
     args1: [ { type: 'input_statement', name: 'DO' } ],
     previousStatement: null, nextStatement: null, colour: 20,
     tooltip: 'Loop the body N times with the variable bound to 0,1,…,N−1; coords may reference it.' },
@@ -304,6 +314,11 @@ Blockly.defineBlocksWithJsonArray([
 // Non-finite results ⇒ null (we never emit NaN). Expressions come only from our own shadow
 // math_number / math_* / variables_get blocks, so eval here is acceptable for this demo.
 const JS = () => Blockly.JavaScript;
+const MAX_LOOP_UNROLL = 1000;
+
+function loopCount(block) {
+  return Math.min(MAX_LOOP_UNROLL, Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0)));
+}
 
 // Evaluate a value input to its raw JS value (number, boolean, …) under the current environment, or
 // `undefined` if empty/erroring. `env` maps generated-variable-name → value.
@@ -367,17 +382,22 @@ function genBlock(block, ops, env) {
       ops.push({ op: 'dwell', seconds: Number(block.getFieldValue('SECONDS')) });
       break;
     case 'dry_repeat': {
-      const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
+      const n = loopCount(block);
       for (let k = 0; k < n; k++) genSequence(block.getInputTargetBlock('DO'), ops, env);
       break;
     }
     case 'dry_for': {
-      const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
+      const n = loopCount(block);
       // Bind under the *generated* JS name so it matches what variables_get emits in expressions.
       const jsName = jsVarName(block);
+      const hadLoopValue = Object.prototype.hasOwnProperty.call(env, jsName);
+      const previousLoopValue = env[jsName];
       for (let i = 0; i < n; i++) {
-        genSequence(block.getInputTargetBlock('DO'), ops, Object.assign(Object.create(null), env, { [jsName]: i }));
+        env[jsName] = i;
+        genSequence(block.getInputTargetBlock('DO'), ops, env);
       }
+      if (hadLoopValue) env[jsName] = previousLoopValue;
+      else delete env[jsName];
       break;
     }
     case 'variables_set': {
@@ -478,8 +498,21 @@ window.__genOps = genOps;
         const url = thumbnail(ops, wasm, RESOLVE_PARAMS, 80);
         const card = document.createElement('button');
         card.className = 'tplcard'; card.dataset.key = key; card.title = t.label;
-        const chips = (t.tags || []).map((x) => `<span class="chip">${x}</span>`).join('');
-        card.innerHTML = `<img alt="${t.label}" src="${url}" /><div class="tpllabel">${t.label}</div><div class="chips">${chips}</div>`;
+        const img = document.createElement('img');
+        img.alt = t.label;
+        img.src = url;
+        const label = document.createElement('div');
+        label.className = 'tpllabel';
+        label.textContent = t.label;
+        const chips = document.createElement('div');
+        chips.className = 'chips';
+        for (const tag of t.tags || []) {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = tag;
+          chips.appendChild(chip);
+        }
+        card.append(img, label, chips);
         card.addEventListener('click', () => loadTemplate(key));
         grid.appendChild(card);
       }
