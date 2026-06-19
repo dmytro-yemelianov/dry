@@ -537,6 +537,7 @@ mod tests {
                     tool: Some(0),
                     dwell_s: None,
                     orientation: None,
+                    control_points: None,
                 },
                 Segment {
                     start: [Some(Length::mm(4.0)), Some(Length::mm(5.0)), Some(Length::mm(6.0))],
@@ -557,6 +558,7 @@ mod tests {
                     tool: None,
                     dwell_s: Some(1.5),
                     orientation: None,
+                    control_points: None,
                 },
             ],
         };

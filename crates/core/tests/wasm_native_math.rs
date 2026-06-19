@@ -85,9 +85,9 @@ fn wasm_and_native_math_are_bit_identical() {
 
         // Wasm emit
         let kinematics_str = match params.kinematics {
-            dry_core::Kinematics::Ac => "ac",
-            dry_core::Kinematics::Bc => "bc",
-            dry_core::Kinematics::Ab => "ab",
+            dry_core::Kinematics::Ac { .. } => "ac",
+            dry_core::Kinematics::Bc { .. } => "bc",
+            dry_core::Kinematics::Ab { .. } => "ab",
         };
         let js_emit_code = format!(
             "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(JSON.stringify(dry.resolve_gcode(JSON.stringify({}), JSON.stringify({}), {}, {}, {}, '{}')));",

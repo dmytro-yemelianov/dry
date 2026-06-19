@@ -30,9 +30,9 @@ pub fn resolve_gcode(
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve(&d, &p);
     let kinematics = match kinematics_str {
-        "ac" => Kinematics::Ac,
-        "bc" => Kinematics::Bc,
-        _ => Kinematics::Ab,
+        "ac" => Kinematics::Ac { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
+        "bc" => Kinematics::Bc { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
+        _ => Kinematics::Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] },
     };
     Ok(emit(
         &tp,
