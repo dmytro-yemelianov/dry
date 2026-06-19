@@ -29,8 +29,7 @@ pub fn resolve_gcode(
 ) -> Result<Vec<String>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
-    let kinematics =
-        Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
+    let kinematics = Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {

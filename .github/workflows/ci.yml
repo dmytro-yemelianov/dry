@@ -18,6 +18,9 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: fmt
         run: cargo fmt --all --check
       # The standing discipline (inherited from the FullControl fork): clippy is -D warnings with NO
@@ -28,6 +31,10 @@ jobs:
       # and PyO3 binding are not wasm targets.
       - name: clippy (wasm, dry-core)
         run: cargo clippy -p dry-core --target wasm32-unknown-unknown -- -D warnings
+      # `crates/core/tests/wasm_native_math.rs` builds the wasm binding and compares it with native
+      # output; that test shells out to `web/build.sh`, which requires wasm-bindgen and Node.
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: test
         run: cargo test --all
       - name: build (wasm, dry-core)
