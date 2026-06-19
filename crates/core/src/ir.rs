@@ -67,11 +67,34 @@ fn default_kind() -> String {
     "line".to_string()
 }
 
+/// The self-describing IR **header**: optional provenance and declared invariants. Every field is
+/// omitted from the wire form when empty, so a toolpath with no header (`Toolpath.meta == None`)
+/// serialises byte-identically to a header-free IR.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct Meta {
+    /// The tool (and version) that produced this toolpath, e.g. `"dry 0.0.0"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<String>,
+    /// The length unit the coordinates are in, e.g. `"mm"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub units: Option<String>,
+    /// A content hash of the source design (hex), for provenance/caching.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_hash: Option<String>,
+    /// Declared contract names the toolpath claims to satisfy (see [`crate::verify`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invariants: Vec<String>,
+}
+
 /// A resolved toolpath: an ordered stream of moves. The `version` tags the Dry IR schema.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Toolpath {
     #[serde(default)]
     pub version: u32,
+    /// Optional self-describing header (provenance + declared invariants). Absent ⇒ no `meta` key on
+    /// the wire (byte-identity with a header-free IR).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Meta>,
     pub segments: Vec<Segment>,
 }
 

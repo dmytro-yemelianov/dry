@@ -82,6 +82,7 @@ pub fn merge_collinear(tp: &Toolpath) -> Toolpath {
     }
     Toolpath {
         version: tp.version,
+        meta: tp.meta.clone(),
         segments: out,
     }
 }
@@ -280,6 +281,7 @@ pub fn arc_fit(tp: &Toolpath) -> Toolpath {
     }
     Toolpath {
         version: tp.version,
+        meta: tp.meta.clone(),
         segments: out,
     }
 }
@@ -292,6 +294,7 @@ mod tests {
     fn empty_and_singleton_are_unchanged() {
         let empty = Toolpath {
             version: 0,
+            meta: None,
             segments: vec![],
         };
         assert_eq!(merge_collinear(&empty), empty);

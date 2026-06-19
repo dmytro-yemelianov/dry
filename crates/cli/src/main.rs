@@ -115,6 +115,14 @@ fn run(cli: Cli) -> ExitCode {
             let m = simulate(&tp);
             let b = bbox(&tp);
             println!("inspect: {file}");
+            if let Some(meta) = &tp.meta {
+                let gen = meta.generator.as_deref().unwrap_or("?");
+                let units = meta.units.as_deref().unwrap_or("?");
+                println!(
+                    "  header:    generator {gen}, units {units}, invariants [{}]",
+                    meta.invariants.join(", ")
+                );
+            }
             println!(
                 "  segments:  {} ({} moves with length)",
                 tp.segments.len(),

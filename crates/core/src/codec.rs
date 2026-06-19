@@ -20,12 +20,14 @@
 //!   channel columns  (nullable):  temperature, fan, flow, dwell_s (f64); tool (u32);
 //!                                  orientation (validity bitmap + n×3 f64)
 //!   kind    dictionary:  dict_len u32, [str_len u32, bytes…]…, then n×u32 indices
+//!   meta    trailer:  present u8 (0/1); if 1, a u32 length + the UTF-8 bytes of the IR header
+//!                     ([`crate::ir::Meta`]) as JSON — the reserved provenance/invariants slot.
 //! ```
 //!
 //! Columns store the *typed* IR quantities ([`crate::units`]) as their raw `f64` bits
 //! (`to_le_bytes`/`from_le_bytes`), so the round-trip is exact. `None` is recorded in the validity
 //! bitmap (the value slot holds a `0.0` placeholder), so `decode(encode(ir)) == ir` for any toolpath.
-//! The header reserves room for provenance/invariants once the IR carries them.
+//! The IR header ([`crate::ir::Meta`] — provenance + declared invariants) rides in the meta trailer.
 
 use crate::ir::{Segment, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
@@ -46,6 +48,8 @@ pub enum CodecError {
     BadUtf8,
     /// The compressed body could not be inflated.
     BadCompression,
+    /// The meta trailer was not valid `Meta` JSON.
+    BadMeta,
 }
 
 impl std::fmt::Display for CodecError {
@@ -56,6 +60,7 @@ impl std::fmt::Display for CodecError {
             CodecError::UnsupportedVersion(v) => write!(f, "unsupported encoding version {v}"),
             CodecError::BadUtf8 => write!(f, "invalid UTF-8 in kind dictionary"),
             CodecError::BadCompression => write!(f, "corrupt compressed body"),
+            CodecError::BadMeta => write!(f, "invalid IR meta header"),
         }
     }
 }
@@ -165,6 +170,18 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     }
     for i in &idx {
         body.extend_from_slice(&i.to_le_bytes());
+    }
+
+    // meta trailer (the self-describing IR header): a present-flag, then — when present — a
+    // length-prefixed JSON blob. Absent on a header-free toolpath, so it costs one byte.
+    match &tp.meta {
+        None => body.push(0),
+        Some(meta) => {
+            body.push(1);
+            let json = serde_json::to_string(meta).expect("Meta serialises");
+            body.extend_from_slice(&(json.len() as u32).to_le_bytes());
+            body.extend_from_slice(json.as_bytes());
+        }
     }
 
     let compressed = miniz_oxide::deflate::compress_to_vec(&body, 8);
@@ -325,7 +342,22 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
             orientation: orientation[i],
         });
     }
-    Ok(Toolpath { version, segments })
+
+    // meta trailer: present-flag, then a length-prefixed JSON blob when present.
+    let meta = match r.u8()? {
+        0 => None,
+        _ => {
+            let len = r.u32()? as usize;
+            let json = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
+            Some(serde_json::from_str(json).map_err(|_| CodecError::BadMeta)?)
+        }
+    };
+
+    Ok(Toolpath {
+        version,
+        meta,
+        segments,
+    })
 }
 
 #[cfg(test)]
@@ -336,6 +368,7 @@ mod tests {
     fn empty_toolpath_round_trips() {
         let tp = Toolpath {
             version: 0,
+            meta: None,
             segments: vec![],
         };
         assert_eq!(decode(&encode(&tp)).unwrap(), tp);
