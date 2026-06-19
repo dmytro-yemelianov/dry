@@ -77,6 +77,11 @@ class Design:
         self.ops.append({"op": "tool", "index": int(index)})
         return self
 
+    def orient(self, i, j, k):
+        "Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z."
+        self.ops.append({"op": "orient", "i": i, "j": j, "k": k})
+        return self
+
     def dwell(self, seconds):
         "Pause in place for `seconds` (emits a G4 dwell)."
         self.ops.append({"op": "dwell", "seconds": seconds})

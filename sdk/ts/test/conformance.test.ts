@@ -91,6 +91,17 @@ test('channels and dwell author through the builder', () => {
   assert.ok(d.gcode().some((l) => l === 'G4 S2.5'), 'expected a G4 dwell line');
 });
 
+// Toolframe orientation rides each segment (5-axis / non-planar as a first-class IR property).
+test('toolframe orientation authors onto segments', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .orient(0.6, 0, 0.8)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2);
+  assert.deepEqual(d.ir().segments[1].orientation, [0.6, 0, 0.8]);
+});
+
 // A flow multiplier scales the deposited volume.
 test('flow multiplier scales deposited volume', () => {
   const base = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(10, 0, 0.2);

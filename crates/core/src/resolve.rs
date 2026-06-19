@@ -32,6 +32,8 @@ pub enum Op {
     Flow { ratio: f64 },
     /// Set the active tool channel.
     Tool { index: u32 },
+    /// Set the toolframe orientation: the tool-direction vector `(i, j, k)` (§2). Identity is `+Z`.
+    Orient { i: f64, j: f64, k: f64 },
     /// Pause in place for `seconds` (emits a `G4` dwell; adds to the simulated time).
     Dwell { seconds: f64 },
     /// Move to a point; an axis left `None` is inherited from the running position.
@@ -102,6 +104,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
     let mut fan: Option<f64> = None;
     let mut flow = 1.0_f64;
     let mut tool: Option<u32> = None;
+    let mut orientation: Option<[f64; 3]> = None;
     let mut segs: Vec<Segment> = Vec::new();
 
     for op in &design.ops {
@@ -122,6 +125,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
             Op::Fan { speed } => fan = Some(speed),
             Op::Flow { ratio } => flow = ratio,
             Op::Tool { index } => tool = Some(index),
+            Op::Orient { i, j, k } => orientation = Some([i, j, k]),
             Op::Dwell { seconds } => segs.push(Segment {
                 start: pos,
                 end: pos,
@@ -140,6 +144,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 flow: None,
                 tool,
                 dwell_s: Some(seconds),
+                orientation,
             }),
             Op::Move { x, y, z } => {
                 let end = [
@@ -171,6 +176,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: flow_field,
                     tool,
                     dwell_s: None,
+                    orientation,
                 });
                 pos = end;
             }
@@ -232,6 +238,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: flow_field,
                     tool,
                     dwell_s: None,
+                    orientation,
                 });
                 pos = end;
             }

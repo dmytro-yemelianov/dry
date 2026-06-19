@@ -59,6 +59,12 @@ def test_channels_and_dwell_author_through_the_builder():
     assert any(line == "G4 S2.5" for line in d.gcode())
 
 
+def test_toolframe_orientation_authors_onto_segments():
+    d = (dry.Design().geometry(0.6, 0.2).orient(0.6, 0.0, 0.8).extruder(True)
+         .point(0, 0, 0.2).point(10, 0, 0.2))
+    assert d.ir()["segments"][1]["orientation"] == [0.6, 0.0, 0.8]
+
+
 def test_flow_multiplier_scales_volume():
     base = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
     scaled = (dry.Design().geometry(0.6, 0.2).flow(0.8).extruder(True)

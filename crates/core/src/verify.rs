@@ -42,8 +42,8 @@ pub enum Severity {
 /// One located issue found by [`verify`].
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
-    /// A stable kebab-case rule id (`bounds`, `max-flow`, `speed`, `monotonic-z`, `finite`,
-    /// `travel-extrudes`, `bead`).
+    /// A stable kebab-case rule id (`bounds`, `max-flow`, `speed`, `monotonic-z`, `cold-extrusion`,
+    /// `finite`, `travel-extrudes`, `bead`, `orientation-not-unit`).
     pub rule: String,
     pub severity: Severity,
     /// The offending segment index, if the finding is local to one move.
@@ -131,6 +131,20 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
                     Severity::Error,
                     Some(i),
                     format!("extruding move has a non-positive bead (width {w}, height {h})"),
+                );
+            }
+        }
+        if let Some([x, y, z]) = s.orientation {
+            // the toolframe orientation must be a unit direction vector.
+            let mag = (x * x + y * y + z * z).sqrt();
+            if (mag - 1.0).abs() > 1e-6 {
+                push(
+                    "orientation-not-unit",
+                    Severity::Error,
+                    Some(i),
+                    format!(
+                        "toolframe orientation [{x}, {y}, {z}] has magnitude {mag} (must be 1)"
+                    ),
                 );
             }
         }
