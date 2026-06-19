@@ -50,10 +50,13 @@ The authoring page ships **parametric** blocks so a starter design can be a real
 - **`move`/`arc` coordinates are value inputs** (X/Y/Z, arc cx/cy) with **shadow `math_number`** — they
   still show numbers by default, an empty/cleared input ⇒ `null` (inherit the running value), and a
   connected value block is **evaluated**. The toolbox enables native `math_number` / `math_arithmetic` /
-  `math_single` / `math_trig` (SIN/COS) / `math_constant` (PI) / `variables_get`, so a coordinate can be
-  e.g. `50 + 20·cos(2π·i/6)`. The generator turns a value input into a JS expression via
-  `Blockly.JavaScript.valueToCode` (from the vendored `javascript_compressed.js`) and evaluates it under
-  the loop environment; non-finite results become `null` (never `NaN`).
+  `math_single` / `math_trig` (SIN/COS) / `math_modulo` / `math_round` / `math_constant` (PI), a full
+  **Logic** category (`if/else`, `compare`, `and/or`, `not`, `boolean`), and a **Variables** category
+  (`set`/`get` named variables) — so a coordinate can be e.g. `50 + 20·cos(2π·i/6)`, and a design can
+  `set radius`, branch with `if (i mod 2 = 0)`, etc. The generator turns a value input into a JS
+  expression via `Blockly.JavaScript.valueToCode` (from the vendored `javascript_compressed.js`) and
+  evaluates it under a shared environment (loop counters + `set` variables), handling `for`, `repeat`,
+  `if/else` and `variables_set` as statements; non-finite results become `null` (never `NaN`).
 
 A **Templates** panel (grouped, tagged, **thumbnailed** grid) sits in the right column: clicking a card
 clears the workspace and loads that starter design's blocks, and the preview updates. The eight templates

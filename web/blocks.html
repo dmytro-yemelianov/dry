@@ -19,7 +19,9 @@
   main { display:grid; grid-template-columns: 55% 1fr; gap:1px; background:var(--line);
          height: calc(100vh - 75px); }
   section { background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
-  section.right { overflow:auto; padding:16px; }
+  /* the right column is normal block flow that scrolls — NOT flex — so the tall templates panel can't
+     crush the fixed-height 3D viewport (a flex column was shrinking it to ~2px). */
+  section.right { overflow:auto; padding:16px; display:block; }
   h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
        margin:0 0 12px; font-weight:600; }
   h2 .sub { text-transform:none; color:var(--muted); font-weight:400; }
@@ -70,10 +72,13 @@
   /* Blockly dark-ish surface to match the demo */
   .blocklyMainBackground { stroke:none !important; }
   /* Templates panel — grouped, tagged, thumbnailed grid */
-  #templates { margin:0 0 6px; }
+  /* compact, self-scrolling templates strip so it never pushes the 3D viewport off-screen */
+  #templates { margin:0 0 6px; max-height:200px; overflow:auto; border:1px solid var(--line);
+               border-radius:8px; padding:8px; }
   .tplgroup { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
-              margin:10px 0 6px; font-weight:600; }
-  .tplgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; }
+              margin:6px 0 6px; font-weight:600; }
+  .tplgroup:first-child { margin-top:0; }
+  .tplgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:6px; }
   .tplcard { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px;
              cursor:pointer; color:var(--fg); font:inherit; text-align:left; display:flex;
              flex-direction:column; gap:4px; }
@@ -158,6 +163,16 @@
       <field name="N">8</field>
     </block>
   </category>
+  <category name="Logic" colour="210">
+    <block type="controls_if"></block>
+    <block type="logic_compare">
+      <value name="A"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="B"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="logic_operation"></block>
+    <block type="logic_negate"></block>
+    <block type="logic_boolean"></block>
+  </category>
   <category name="Math" colour="230">
     <block type="math_number"><field name="NUM">0</field></block>
     <block type="math_arithmetic">
@@ -170,9 +185,17 @@
     <block type="math_trig">
       <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
     </block>
+    <block type="math_modulo">
+      <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      <value name="DIVISOR"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
+    </block>
+    <block type="math_round">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
     <block type="math_constant"><field name="CONSTANT">PI</field></block>
     <block type="variables_get"><field name="VAR">i</field></block>
   </category>
+  <category name="Variables" colour="330" custom="VARIABLE"></category>
 </xml>
 
 <script type="module">
@@ -280,17 +303,27 @@ Blockly.defineBlocksWithJsonArray([
 // math_number / math_* / variables_get blocks, so eval here is acceptable for this demo.
 const JS = () => Blockly.JavaScript;
 
-// Evaluate a value input to a finite Number, or null. `env` maps variable-name → numeric value.
-function evalValue(block, name, env) {
+// Evaluate a value input to its raw JS value (number, boolean, …) under the current environment, or
+// `undefined` if empty/erroring. `env` maps generated-variable-name → value.
+function evalExpr(block, name, env) {
   const expr = JS().valueToCode(block, name, JS().ORDER_NONE);
-  if (expr == null || expr === '') return null;
+  if (expr == null || expr === '') return undefined;
   try {
     const names = Object.keys(env), vals = names.map((k) => env[k]);
-    const fn = new Function(...names, 'Math', 'return (' + expr + ');');
-    const v = fn(...vals, Math);
-    return Number.isFinite(v) ? v : null;
-  } catch { return null; }
+    return new Function(...names, 'Math', 'return (' + expr + ');')(...vals, Math);
+  } catch { return undefined; }
 }
+// Evaluate a coordinate value input to a finite Number, or null (⇒ inherit the running value).
+function evalValue(block, name, env) {
+  const v = evalExpr(block, name, env);
+  return Number.isFinite(v) ? v : null;
+}
+// Walk a statement chain sharing one environment (so `set` variables persist to later siblings).
+function genSequence(block, ops, env) {
+  while (block) { genBlock(block, ops, env); block = block.getNextBlock(); }
+}
+const jsVarName = (block) =>
+  JS().nameDB_.getName(block.getField('VAR').getVariable().getId(), Blockly.Names.NameType.VARIABLE);
 
 function genBlock(block, ops, env) {
   switch (block.type) {
@@ -333,22 +366,30 @@ function genBlock(block, ops, env) {
       break;
     case 'dry_repeat': {
       const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
-      for (let k = 0; k < n; k++) {
-        let inner = block.getInputTargetBlock('DO');
-        while (inner) { genBlock(inner, ops, env); inner = inner.getNextBlock(); }
-      }
+      for (let k = 0; k < n; k++) genSequence(block.getInputTargetBlock('DO'), ops, env);
       break;
     }
     case 'dry_for': {
       const n = Math.max(0, Math.round(Number(block.getFieldValue('N')) || 0));
       // Bind under the *generated* JS name so it matches what variables_get emits in expressions.
-      const varModel = block.getField('VAR').getVariable();
-      const jsName = JS().nameDB_.getName(varModel.getId(), Blockly.Names.NameType.VARIABLE);
+      const jsName = jsVarName(block);
       for (let i = 0; i < n; i++) {
-        const child = Object.assign(Object.create(null), env, { [jsName]: i });
-        let inner = block.getInputTargetBlock('DO');
-        while (inner) { genBlock(inner, ops, child); inner = inner.getNextBlock(); }
+        genSequence(block.getInputTargetBlock('DO'), ops, Object.assign(Object.create(null), env, { [jsName]: i }));
       }
+      break;
+    }
+    case 'variables_set': {
+      // store under the generated JS name so later variables_get expressions resolve it.
+      const v = evalExpr(block, 'VALUE', env);
+      env[jsVarName(block)] = v === undefined ? 0 : v;
+      break;
+    }
+    case 'controls_if': {
+      let done = false;
+      for (let i = 0; block.getInput('IF' + i); i++) {
+        if (evalExpr(block, 'IF' + i, env)) { genSequence(block.getInputTargetBlock('DO' + i), ops, env); done = true; break; }
+      }
+      if (!done && block.getInput('ELSE')) genSequence(block.getInputTargetBlock('ELSE'), ops, env);
       break;
     }
   }
@@ -359,10 +400,7 @@ function genOps() {
   const ops = [];
   if (!WORKSPACE) return ops;
   JS().init(WORKSPACE); // prime nameDB_ so variables_get expressions and our env names agree
-  for (const top of WORKSPACE.getTopBlocks(true)) {
-    let b = top;
-    while (b) { genBlock(b, ops, Object.create(null)); b = b.getNextBlock(); }
-  }
+  for (const top of WORKSPACE.getTopBlocks(true)) genSequence(top, ops, Object.create(null));
   return ops;
 }
 window.__genOps = genOps;
@@ -428,10 +466,10 @@ window.__genOps = genOps;
         try {
           t.build(Blockly, scratch);
           JS().init(scratch);
-          for (const top of scratch.getTopBlocks(true)) { let b = top; while (b) { genBlock(b, ops, Object.create(null)); b = b.getNextBlock(); } }
+          for (const top of scratch.getTopBlocks(true)) genSequence(top, ops, Object.create(null));
         } catch (e) { console.error('template build', key, e); }
         scratch.dispose();
-        const url = thumbnail(ops, wasm, RESOLVE_PARAMS, 120);
+        const url = thumbnail(ops, wasm, RESOLVE_PARAMS, 80);
         const card = document.createElement('button');
         card.className = 'tplcard'; card.dataset.key = key; card.title = t.label;
         const chips = (t.tags || []).map((x) => `<span class="chip">${x}</span>`).join('');
