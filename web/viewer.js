@@ -24,6 +24,7 @@ const TAU = Math.PI * 2;
 const SPLINE_SAMPLES = 16;
 const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
+const cleanClass = (v) => String(v || '').replace(/[^a-z0-9_-]/gi, '');
 
 // ---- g-code explanation ----
 const CMD_DESC = {
@@ -176,15 +177,39 @@ export function createViewer(cfg) {
 
   function showExplain(line) {
     if (!explainEl) return;
-    if (!line) { explainEl.innerHTML = '<span class="hint">Hover a line, or press play, to explain it.</span>'; return; }
+    explainEl.replaceChildren();
+    if (!line) {
+      const hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = 'Hover a line, or press play, to explain it.';
+      explainEl.appendChild(hint);
+      return;
+    }
     const toks = line.trim().split(/\s+/);
     const cmd = toks[0];
-    const rows = toks.slice(1).map((t) => {
+    const title = document.createElement('div');
+    const cmdEl = document.createElement('span');
+    cmdEl.className = 'cmd';
+    cmdEl.textContent = cmd;
+    title.append(cmdEl, ` — ${CMD_DESC[cmd] || 'g-code command'}`);
+    explainEl.appendChild(title);
+    if (toks.length <= 1) return;
+    const table = document.createElement('table');
+    for (const t of toks.slice(1)) {
       const k = t[0], v = t.slice(1), d = PARAM_DESC[k];
-      return `<tr><td class="k">${t}</td><td class="d">${d ? `${d[0]} (${d[1]})` : 'parameter'} = <b>${v}</b></td></tr>`;
-    }).join('');
-    explainEl.innerHTML = `<div><span class="cmd">${cmd}</span> — ${CMD_DESC[cmd] || 'g-code command'}</div>` +
-      (rows ? `<table>${rows}</table>` : '');
+      const row = document.createElement('tr');
+      const key = document.createElement('td');
+      key.className = 'k';
+      key.textContent = t;
+      const desc = document.createElement('td');
+      desc.className = 'd';
+      const value = document.createElement('b');
+      value.textContent = v;
+      desc.append(`${d ? `${d[0]} (${d[1]})` : 'parameter'} = `, value);
+      row.append(key, desc);
+      table.appendChild(row);
+    }
+    explainEl.appendChild(table);
   }
 
   // ---- playback state ----
@@ -362,29 +387,48 @@ export function createViewer(cfg) {
 
     GLINES = gcode;
     if (gcodeEl) {
-      gcodeEl.innerHTML = gcode.map((l, i) =>
-        `<div class="gline" data-i="${i}"><span class="ln">${i + 1}</span>${l}</div>`).join('');
+      gcodeEl.replaceChildren();
+      for (const [i, line] of gcode.entries()) {
+        const row = document.createElement('div');
+        row.className = 'gline';
+        row.dataset.i = String(i);
+        const ln = document.createElement('span');
+        ln.className = 'ln';
+        ln.textContent = String(i + 1);
+        row.append(ln, line);
+        gcodeEl.appendChild(row);
+      }
       GROWS = [...gcodeEl.querySelectorAll('.gline')];
     }
     if (gcodeMetaEl) gcodeMetaEl.textContent = `${gcode.length} motion lines · ${relativeE ? 'relative' : 'absolute'} E`;
     showExplain(gcode[0]);
 
     if (metricsEl) {
-      metricsEl.innerHTML = [
+      metricsEl.replaceChildren();
+      for (const [k, v] of [
         ['segments', m.segment_count], ['print time (s)', fmt(m.print_time_s)],
         ['travel time (s)', fmt(m.travel_time_s)], ['total time (s)', fmt(m.total_time_s)],
         ['extruded vol (mm³)', fmt(m.extruded_volume)], ['filament (mm)', fmt(m.filament_length)],
         ['extrude dist (mm)', fmt(m.extruding_distance)], ['max flow (mm³/s)', fmt(m.max_flow_rate)],
-      ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+      ]) {
+        const dt = document.createElement('dt');
+        dt.textContent = k;
+        const dd = document.createElement('dd');
+        dd.textContent = String(v);
+        metricsEl.append(dt, dd);
+      }
     }
 
     setModel(ir);
 
     if (optimizeEl) {
       const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
-      optimizeEl.innerHTML = saved > 0
-        ? `segments: ${raw} → ${opt} <span class="delta">(−${saved})</span>`
-        : `segments: ${raw} → ${opt} <span class="none">(nothing to merge)</span>`;
+      optimizeEl.replaceChildren();
+      optimizeEl.append(`segments: ${raw} → ${opt} `);
+      const note = document.createElement('span');
+      note.className = saved > 0 ? 'delta' : 'none';
+      note.textContent = saved > 0 ? `(−${saved})` : '(nothing to merge)';
+      optimizeEl.appendChild(note);
     }
 
     let report = null;
@@ -395,10 +439,30 @@ export function createViewer(cfg) {
       const speedRange = cfg.getSpeedRange ? cfg.getSpeedRange() : '';
       report = JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp, bounds, monotonicZ, speedRange));
       const findings = report.findings || [];
-      verifyEl.innerHTML = findings.length
-        ? findings.map((f) => `<div class="finding ${f.severity}"><span class="rule">${f.rule}</span>` +
-            `${f.segment != null ? ` · seg ${f.segment}` : ''}<span class="msg">${f.message}</span></div>`).join('')
-        : '<div class="ok">✓ no findings</div>';
+      verifyEl.replaceChildren();
+      if (findings.length) {
+        for (const f of findings) {
+          const row = document.createElement('div');
+          row.classList.add('finding');
+          const severity = cleanClass(f.severity);
+          if (severity) row.classList.add(severity);
+          const rule = document.createElement('span');
+          rule.className = 'rule';
+          rule.textContent = f.rule;
+          const msg = document.createElement('span');
+          msg.className = 'msg';
+          msg.textContent = f.message;
+          row.append(rule);
+          if (f.segment != null) row.append(` · seg ${f.segment}`);
+          row.appendChild(msg);
+          verifyEl.appendChild(row);
+        }
+      } else {
+        const ok = document.createElement('div');
+        ok.className = 'ok';
+        ok.textContent = '✓ no findings';
+        verifyEl.appendChild(ok);
+      }
     }
 
     window.__dry = { gcode, metrics: m, ir, optimizedIr,

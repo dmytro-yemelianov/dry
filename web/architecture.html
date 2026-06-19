@@ -628,9 +628,9 @@ const findings = [
   {
     severity: 'low',
     category: 'practice',
-    title: 'Web panels use innerHTML for engine strings',
-    detail: 'Current inputs are local trusted designs, but findings and g-code text are inserted as HTML. That becomes unsafe if the web app later loads external IR or user-supplied reports.',
-    fix: 'Render dynamic text with textContent and build DOM nodes explicitly for findings and g-code rows.'
+    title: 'Addressed: web panels avoid innerHTML for dynamic strings',
+    detail: 'viewer.js now builds g-code rows, explain rows, metrics, optimization notes and verification findings with DOM nodes and textContent. The gallery and Blockly template chips use the same pattern.',
+    fix: 'Remaining follow-up: keep this rule when external G-code comments, imported reports or richer annotations become visible in the browser.'
   },
   {
     severity: 'low',

@@ -62,7 +62,8 @@ The authoring page ships **parametric** blocks so a starter design can be a real
   `set radius`, branch with `if (i mod 2 = 0)`, etc. The generator turns a value input into a JS
   expression via `Blockly.JavaScript.valueToCode` (from the vendored `javascript_compressed.js`) and
   evaluates it under a shared environment (loop counters + `set` variables), handling `for`, `repeat`,
-  `if/else` and `variables_set` as statements; non-finite results become `null` (never `NaN`).
+  `if/else` and `variables_set` as statements. Invalid or non-finite expressions are shown as block
+  warnings plus preview diagnostics instead of being silently sent to wasm.
 
 A **Templates** panel (grouped, tagged, **thumbnailed** grid) sits in the right column: clicking a card
 clears the workspace and loads that starter design's blocks, and the preview updates. The nine templates
