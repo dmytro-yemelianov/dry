@@ -93,6 +93,11 @@
   .chips { display:flex; flex-wrap:wrap; gap:3px; }
   .chip { font-size:9px; color:var(--muted); background:#1f2630; border:1px solid var(--line);
           border-radius:10px; padding:0 5px; }
+  .blocklyToolboxDiv { border-right:1px solid var(--line); }
+  .blocklyTreeRow { min-height:30px; line-height:30px; margin:2px 6px; border-radius:6px; }
+  .blocklyTreeRowContentContainer { padding-left:4px; }
+  .blocklyTreeLabel { font:12px/30px ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .blocklyTreeSelected { background:#1f2630 !important; }
 </style>
 <script src="./vendor/blockly/blockly_compressed.js"></script>
 <script src="./vendor/blockly/blocks_compressed.js"></script>
@@ -119,7 +124,7 @@
     <div class="toolbar">
       <span>Workspace</span>
       <label><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
-      <span style="margin-left:auto">drag from the toolbox · the preview updates live →</span>
+      <span style="margin-left:auto">choose a toolbox category · the preview updates live →</span>
     </div>
     <div id="blocklyArea"><div id="blocklyDiv"></div></div>
   </section>
@@ -148,84 +153,136 @@
 </main>
 <footer>Dry is clean-room (Apache-2.0). Blockly (Apache-2.0) and three.js (MIT) are vendored locally.</footer>
 
-<!-- Flyout-style toolbox (NO categories): an always-open palette that the workspace sits beside, so the
-     block library never overlaps the blocks you're assembling. Grouped with <label> separators. -->
+<!-- Categorized toolbox: Dry operations are separate from executable flow blocks and value-expression
+     helpers so the stock Blockly library does not blur into printer-specific commands. -->
 <xml id="toolbox" style="display:none">
-  <label text="— Setup —"></label>
-  <block type="dry_geometry"></block>
-  <block type="dry_extruder"></block>
-  <block type="dry_speed"></block>
-  <label text="— Move —"></label>
-  <block type="dry_move">
-    <value name="X"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-  </block>
-  <block type="dry_arc">
-    <value name="CX"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
-    <value name="CY"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
-    <value name="X"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
-    <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-  </block>
-  <block type="dry_spline">
-    <mutation points="4"></mutation>
-    <field name="POINTS">4</field>
-    <value name="X1"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
-    <value name="Y1"><shadow type="math_number"><field name="NUM">6</field></shadow></value>
-    <value name="Z1"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-    <value name="X2"><shadow type="math_number"><field name="NUM">24</field></shadow></value>
-    <value name="Y2"><shadow type="math_number"><field name="NUM">-6</field></shadow></value>
-    <value name="Z2"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-    <value name="X3"><shadow type="math_number"><field name="NUM">36</field></shadow></value>
-    <value name="Y3"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    <value name="Z3"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-    <value name="X4"><shadow type="math_number"><field name="NUM">48</field></shadow></value>
-    <value name="Y4"><shadow type="math_number"><field name="NUM">8</field></shadow></value>
-    <value name="Z4"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-  </block>
-  <label text="— Process —"></label>
-  <block type="dry_temperature"></block>
-  <block type="dry_fan"></block>
-  <block type="dry_flow"></block>
-  <block type="dry_tool"></block>
-  <block type="dry_orient"></block>
-  <block type="dry_dwell"></block>
-  <label text="— Control / Logic —"></label>
-  <block type="dry_repeat"></block>
-  <block type="dry_for"><field name="N">8</field></block>
-  <block type="controls_if"></block>
-  <block type="logic_compare">
-    <value name="A"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-    <value name="B"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-  </block>
-  <block type="logic_operation"></block>
-  <block type="logic_negate"></block>
-  <block type="logic_boolean"></block>
-  <label text="— Math —"></label>
-  <block type="math_number"><field name="NUM">0</field></block>
-  <block type="math_arithmetic">
-    <value name="A"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-    <value name="B"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-  </block>
-  <block type="math_single">
-    <value name="NUM"><shadow type="math_number"><field name="NUM">9</field></shadow></value>
-  </block>
-  <block type="math_trig">
-    <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-  </block>
-  <block type="math_modulo">
-    <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-    <value name="DIVISOR"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
-  </block>
-  <block type="math_round">
-    <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-  </block>
-  <block type="math_constant"><field name="CONSTANT">PI</field></block>
-  <label text="— Variables —"></label>
-  <button text="Create variable…" callbackKey="CREATE_VARIABLE"></button>
-  <block type="variables_get"><field name="VAR">i</field></block>
-  <block type="variables_set"><field name="VAR">i</field></block>
+  <category name="Dry setup" colour="160">
+    <block type="dry_geometry"></block>
+    <block type="dry_extruder"></block>
+    <block type="dry_speed"></block>
+  </category>
+  <category name="Dry motion" colour="210">
+    <block type="dry_move">
+      <value name="X"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    </block>
+    <block type="dry_arc">
+      <value name="CX"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+      <value name="CY"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+      <value name="X"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+      <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    </block>
+    <block type="dry_spline">
+      <mutation points="4"></mutation>
+      <field name="POINTS">4</field>
+      <value name="X1"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
+      <value name="Y1"><shadow type="math_number"><field name="NUM">6</field></shadow></value>
+      <value name="Z1"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+      <value name="X2"><shadow type="math_number"><field name="NUM">24</field></shadow></value>
+      <value name="Y2"><shadow type="math_number"><field name="NUM">-6</field></shadow></value>
+      <value name="Z2"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+      <value name="X3"><shadow type="math_number"><field name="NUM">36</field></shadow></value>
+      <value name="Y3"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="Z3"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+      <value name="X4"><shadow type="math_number"><field name="NUM">48</field></shadow></value>
+      <value name="Y4"><shadow type="math_number"><field name="NUM">8</field></shadow></value>
+      <value name="Z4"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    </block>
+  </category>
+  <category name="Dry process" colour="290">
+    <block type="dry_temperature"></block>
+    <block type="dry_fan"></block>
+    <block type="dry_flow"></block>
+    <block type="dry_tool"></block>
+    <block type="dry_orient"></block>
+    <block type="dry_dwell"></block>
+  </category>
+  <sep></sep>
+  <category name="Flow" colour="20">
+    <block type="dry_repeat"></block>
+    <block type="dry_for"><field name="N">8</field></block>
+    <block type="controls_repeat_ext">
+      <value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
+    </block>
+    <block type="controls_for">
+      <field name="VAR">i</field>
+      <value name="FROM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="TO"><shadow type="math_number"><field name="NUM">7</field></shadow></value>
+      <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    </block>
+    <block type="controls_if"></block>
+  </category>
+  <category name="Logic" colour="210">
+    <block type="logic_compare">
+      <value name="A"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="B"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="logic_operation"></block>
+    <block type="logic_negate"></block>
+    <block type="logic_boolean"></block>
+    <block type="logic_ternary">
+      <value name="IF"><shadow type="logic_boolean"></shadow></value>
+      <value name="THEN"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      <value name="ELSE"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="logic_null"></block>
+  </category>
+  <category name="Math" colour="230">
+    <block type="math_number"><field name="NUM">0</field></block>
+    <block type="math_arithmetic">
+      <value name="A"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      <value name="B"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    </block>
+    <block type="math_single">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">9</field></shadow></value>
+    </block>
+    <block type="math_trig">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="math_constant"><field name="CONSTANT">PI</field></block>
+    <block type="math_number_property">
+      <value name="NUMBER_TO_CHECK"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="math_modulo">
+      <value name="DIVIDEND"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      <value name="DIVISOR"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
+    </block>
+    <block type="math_round">
+      <value name="NUM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+    </block>
+    <block type="math_constrain">
+      <value name="VALUE"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="LOW"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="HIGH"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+    </block>
+    <block type="math_atan2">
+      <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="X"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    </block>
+  </category>
+  <category name="Lists" colour="260">
+    <block type="lists_create_with"></block>
+    <block type="lists_repeat">
+      <value name="ITEM"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+      <value name="NUM"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+    </block>
+    <block type="lists_getIndex"></block>
+    <block type="lists_length"></block>
+    <block type="lists_isEmpty"></block>
+    <block type="lists_indexOf"></block>
+    <block type="lists_reverse"></block>
+  </category>
+  <category name="Variables" colour="330">
+    <button text="Create variable..." callbackKey="CREATE_VARIABLE"></button>
+    <block type="variables_get"><field name="VAR">i</field></block>
+    <block type="variables_set"><field name="VAR">i</field></block>
+    <block type="math_change">
+      <field name="VAR">i</field>
+      <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+    </block>
+  </category>
 </xml>
 
 <script type="module">
@@ -425,6 +482,20 @@ function loopCount(block, ctx) {
   return Math.min(MAX_LOOP_UNROLL, raw);
 }
 
+function finiteNumber(block, name, env, ctx, fallback = 0) {
+  const value = evalExpr(block, name, env, ctx);
+  if (value === undefined) return fallback;
+  if (Number.isFinite(value)) return value;
+  addDiagnostic(ctx, block, name, `expected a finite number, got ${String(value)}`);
+  return fallback;
+}
+
+function valueLoopCount(block, name, env, ctx) {
+  const raw = Math.max(0, Math.round(finiteNumber(block, name, env, ctx, 0)));
+  if (raw > MAX_LOOP_UNROLL) addDiagnostic(ctx, block, name, `loop count ${raw} was capped at ${MAX_LOOP_UNROLL}`);
+  return Math.min(MAX_LOOP_UNROLL, raw);
+}
+
 function evalExpr(block, name, env, ctx) {
   const expr = JS().valueToCode(block, name, JS().ORDER_NONE);
   if (expr == null || expr === '') return undefined;
@@ -446,6 +517,7 @@ function evalValue(block, name, env, ctx, opts = {}) {
     }
     return null;
   }
+  if (v === null) return null;
   if (Number.isFinite(v)) return v;
   addDiagnostic(ctx, block, name, `expected a finite number, got ${String(v)}`);
   return null;
@@ -529,10 +601,53 @@ function genBlock(block, ops, env, ctx) {
       else delete env[jsName];
       break;
     }
+    case 'controls_repeat': {
+      const raw = Math.max(0, Math.round(Number(block.getFieldValue('TIMES')) || 0));
+      const n = Math.min(MAX_LOOP_UNROLL, raw);
+      if (raw > MAX_LOOP_UNROLL) addDiagnostic(ctx, block, 'TIMES', `loop count was capped at ${MAX_LOOP_UNROLL}`);
+      for (let k = 0; k < n; k++) genSequence(block.getInputTargetBlock('DO'), ops, env, ctx);
+      break;
+    }
+    case 'controls_repeat_ext': {
+      const n = valueLoopCount(block, 'TIMES', env, ctx);
+      for (let k = 0; k < n; k++) genSequence(block.getInputTargetBlock('DO'), ops, env, ctx);
+      break;
+    }
+    case 'controls_for': {
+      const start = finiteNumber(block, 'FROM', env, ctx, 0);
+      const end = finiteNumber(block, 'TO', env, ctx, 0);
+      const step = finiteNumber(block, 'BY', env, ctx, 1);
+      if (step === 0) {
+        addDiagnostic(ctx, block, 'BY', 'loop step must not be zero');
+        break;
+      }
+      const jsName = jsVarName(block);
+      const hadLoopValue = Object.prototype.hasOwnProperty.call(env, jsName);
+      const previousLoopValue = env[jsName];
+      let iterations = 0;
+      for (let value = start; step > 0 ? value <= end : value >= end; value += step) {
+        if (iterations >= MAX_LOOP_UNROLL) {
+          addDiagnostic(ctx, block, 'TO', `loop count was capped at ${MAX_LOOP_UNROLL}`);
+          break;
+        }
+        env[jsName] = value;
+        genSequence(block.getInputTargetBlock('DO'), ops, env, ctx);
+        iterations++;
+      }
+      if (hadLoopValue) env[jsName] = previousLoopValue;
+      else delete env[jsName];
+      break;
+    }
     case 'variables_set': {
       // store under the generated JS name so later variables_get expressions resolve it.
       const v = evalExpr(block, 'VALUE', env, ctx);
       env[jsVarName(block)] = v === undefined ? 0 : v;
+      break;
+    }
+    case 'math_change': {
+      const jsName = jsVarName(block);
+      const current = Number(env[jsName]);
+      env[jsName] = (Number.isFinite(current) ? current : 0) + finiteNumber(block, 'DELTA', env, ctx, 0);
       break;
     }
     case 'controls_if': {

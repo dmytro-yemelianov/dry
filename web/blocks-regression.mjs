@@ -21,6 +21,19 @@ assert(blocksHtml.includes('loadExtraState(state)'), 'dry_spline JSON state read
 assert(!blocksHtml.includes('dry_spline3'), 'fixed dry_spline3 block leaked into blocks.html');
 assert(!templatesJs.includes('dry_spline3'), 'fixed dry_spline3 block leaked into templates.js');
 
+for (const category of ['Dry setup', 'Dry motion', 'Dry process', 'Flow', 'Logic', 'Math', 'Lists', 'Variables']) {
+  assert(blocksHtml.includes(`<category name="${category}"`), `toolbox missing ${category} category`);
+}
+
+for (const type of ['controls_repeat_ext', 'controls_for', 'math_change']) {
+  assert(blocksHtml.includes(`<block type="${type}"`), `toolbox missing ${type}`);
+  assert(blocksHtml.includes(`case '${type}'`), `generator missing ${type}`);
+}
+
+for (const unsupported of ['controls_whileUntil', 'controls_forEach', 'procedures_defnoreturn', 'procedures_defreturn']) {
+  assert(!blocksHtml.includes(`<block type="${unsupported}"`), `unsupported ${unsupported} leaked into toolbox`);
+}
+
 for (const [name, source] of [
   ['blocks.html', blocksHtml],
   ['viewer.js', viewerJs],

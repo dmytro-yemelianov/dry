@@ -51,19 +51,18 @@ The authoring page ships **parametric** blocks so a starter design can be a real
   iterations to keep the authoring page responsive.
 - **`move`/`arc`/`spline` coordinates are value inputs** (X/Y/Z, arc cx/cy, spline control points) with
   **shadow `math_number`** — they still show numbers by default, an empty/cleared input ⇒ `null` (inherit
-  the running value), and a connected value block is **evaluated**. The block palette is an
-  **always-open flyout** (a fixed left panel the workspace sits beside, so the library never overlaps your
-  blocks), grouped by labels:
-  **Setup / Move / Process / Control–Logic / Math / Variables**. It includes native `math_number` /
-  `math_arithmetic` / `math_single` / `math_trig` (SIN/COS) / `math_modulo` / `math_round` /
-  `math_constant` (PI), full **Logic** (`if/else`, `compare`, `and/or`, `not`, `boolean`), and
-  **Variables** (`set`/`get`, plus a *Create variable…* button) — so a coordinate can be e.g.
-  `50 + 20·cos(2π·i/6)`, and a design can
-  `set radius`, branch with `if (i mod 2 = 0)`, etc. The generator turns a value input into a JS
-  expression via `Blockly.JavaScript.valueToCode` (from the vendored `javascript_compressed.js`) and
-  evaluates it under a shared environment (loop counters + `set` variables), handling `for`, `repeat`,
-  `if/else` and `variables_set` as statements. Invalid or non-finite expressions are shown as block
-  warnings plus preview diagnostics instead of being silently sent to wasm.
+  the running value), and a connected value block is **evaluated**. The toolbox is categorized into
+  **Dry setup / Dry motion / Dry process / Flow / Logic / Math / Lists / Variables**, keeping printer ops
+  separate from general expression helpers. It includes deterministic math helpers (`arithmetic`,
+  `single`, `trig`, `constant`, `number property`, `modulo`, `round`, `constrain`, `atan2`), full
+  condition/value logic (`if/else`, `compare`, `and/or`, `not`, `boolean`, `ternary`, `null`), list value
+  helpers, and variables (`create`, `get`, `set`, `change by`) — so a coordinate can be e.g.
+  `50 + 20·cos(2π·i/6)`, and a design can `set radius`, branch with `if (i mod 2 = 0)`, or index into
+  a point list. The generator turns a value input into a JS expression via `Blockly.JavaScript.valueToCode`
+  (from the vendored `javascript_compressed.js`) and evaluates it under a shared environment (loop
+  counters + `set` variables), handling Dry-native loops, stock finite `repeat`/`count with` loops,
+  `if/else`, `variables_set` and `change variable by` as statements. Invalid or non-finite expressions
+  are shown as block warnings plus preview diagnostics instead of being silently sent to wasm.
 - **`spline`** uses a dynamic point-list block: change the point count on the block and Blockly rebuilds
   the X/Y/Z control-point inputs while serialising the count into the workspace XML.
 
