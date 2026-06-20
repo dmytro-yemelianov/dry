@@ -501,7 +501,11 @@ function evalExpr(block, name, env, ctx) {
   if (expr == null || expr === '') return undefined;
   try {
     const names = Object.keys(env), vals = names.map((k) => env[k]);
-    return new Function(...names, 'Math', 'return (' + expr + ');')(...vals, Math);
+    const helpers = Object.entries(JS().definitions_ || {})
+      .filter(([key]) => key !== 'variables')
+      .map(([, code]) => code)
+      .join('\n\n');
+    return new Function(...names, 'Math', helpers + '\nreturn (' + expr + ');')(...vals, Math);
   } catch (e) {
     addDiagnostic(ctx, block, name, e && e.message ? e.message : 'invalid expression');
     return undefined;

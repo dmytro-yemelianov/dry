@@ -30,6 +30,9 @@ for (const type of ['controls_repeat_ext', 'controls_for', 'math_change']) {
   assert(blocksHtml.includes(`case '${type}'`), `generator missing ${type}`);
 }
 
+assert(blocksHtml.includes('JS().definitions_'), 'expression evaluator ignores Blockly helper definitions');
+assert(blocksHtml.includes("key !== 'variables'"), 'expression evaluator should not inject variable declarations as helpers');
+
 for (const unsupported of ['controls_whileUntil', 'controls_forEach', 'procedures_defnoreturn', 'procedures_defreturn']) {
   assert(!blocksHtml.includes(`<block type="${unsupported}"`), `unsupported ${unsupported} leaked into toolbox`);
 }

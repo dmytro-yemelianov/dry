@@ -60,9 +60,11 @@ The authoring page ships **parametric** blocks so a starter design can be a real
   `50 + 20·cos(2π·i/6)`, and a design can `set radius`, branch with `if (i mod 2 = 0)`, or index into
   a point list. The generator turns a value input into a JS expression via `Blockly.JavaScript.valueToCode`
   (from the vendored `javascript_compressed.js`) and evaluates it under a shared environment (loop
-  counters + `set` variables), handling Dry-native loops, stock finite `repeat`/`count with` loops,
-  `if/else`, `variables_set` and `change variable by` as statements. Invalid or non-finite expressions
-  are shown as block warnings plus preview diagnostics instead of being silently sent to wasm.
+  counters + `set` variables). It also injects Blockly's generated helper functions for helper-backed
+  value blocks such as list repeat/indexing or prime checks. Statement handling covers Dry-native loops,
+  stock finite `repeat`/`count with` loops, `if/else`, `variables_set` and `change variable by`. Invalid
+  or non-finite expressions are shown as block warnings plus preview diagnostics instead of being silently
+  sent to wasm.
 - **`spline`** uses a dynamic point-list block: change the point count on the block and Blockly rebuilds
   the X/Y/Z control-point inputs while serialising the count into the workspace XML.
 
