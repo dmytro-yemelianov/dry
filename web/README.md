@@ -64,6 +64,8 @@ The authoring page ships **parametric** blocks so a starter design can be a real
   evaluates it under a shared environment (loop counters + `set` variables), handling `for`, `repeat`,
   `if/else` and `variables_set` as statements. Invalid or non-finite expressions are shown as block
   warnings plus preview diagnostics instead of being silently sent to wasm.
+- **`spline`** uses a dynamic point-list block: change the point count on the block and Blockly rebuilds
+  the X/Y/Z control-point inputs while serialising the count into the workspace XML.
 
 A **Templates** panel (grouped, tagged, **thumbnailed** grid) sits in the right column: clicking a card
 clears the workspace and loads that starter design's blocks, and the preview updates. The nine templates
@@ -116,6 +118,7 @@ cd .. && python3 -m http.server
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | clean-room demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, …) |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
+| `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |
 | `thumb.js`   | shared runtime **thumbnail** renderer — resolves ops → IR, draws a top-down 2D sketch to a canvas, returns a data URL (used by both libraries' pickers) |
 | `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) and **Blockly** (`blockly/`, Apache-2.0) vendored so the demo is self-contained / offline-capable |
 | `build.sh`   | build the wasm engine for `web` or `nodejs` |

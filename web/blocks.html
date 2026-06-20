@@ -168,7 +168,9 @@
     <value name="Y"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
     <value name="Z"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
   </block>
-  <block type="dry_spline3">
+  <block type="dry_spline">
+    <mutation points="4"></mutation>
+    <field name="POINTS">4</field>
     <value name="X1"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
     <value name="Y1"><shadow type="math_number"><field name="NUM">6</field></shadow></value>
     <value name="Z1"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
@@ -178,6 +180,9 @@
     <value name="X3"><shadow type="math_number"><field name="NUM">36</field></shadow></value>
     <value name="Y3"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
     <value name="Z3"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+    <value name="X4"><shadow type="math_number"><field name="NUM">48</field></shadow></value>
+    <value name="Y4"><shadow type="math_number"><field name="NUM">8</field></shadow></value>
+    <value name="Z4"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
   </block>
   <label text="— Process —"></label>
   <block type="dry_temperature"></block>
@@ -271,22 +276,6 @@ Blockly.defineBlocksWithJsonArray([
     inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
     tooltip: 'Circular arc about centre (cx, cy) to (x, y, z). Empty x/y/z keep the current value.' },
 
-  { type: 'dry_spline3', message0: 'spline through',
-    message1: 'p1  x %1  y %2  z %3',
-    args1: [ { type: 'input_value', name: 'X1', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Y1', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Z1', check: 'Number', align: 'RIGHT' } ],
-    message2: 'p2  x %1  y %2  z %3',
-    args2: [ { type: 'input_value', name: 'X2', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Y2', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Z2', check: 'Number', align: 'RIGHT' } ],
-    message3: 'p3  x %1  y %2  z %3',
-    args3: [ { type: 'input_value', name: 'X3', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Y3', check: 'Number', align: 'RIGHT' },
-             { type: 'input_value', name: 'Z3', check: 'Number', align: 'RIGHT' } ],
-    inputsInline: true, previousStatement: null, nextStatement: null, colour: 210,
-    tooltip: 'Catmull-Rom spline from the current position through three control points.' },
-
   { type: 'dry_temperature', message0: 'temperature  nozzle %1 °C',
     args0: [ { type: 'field_number', name: 'NOZZLE', value: 200, min: 0 } ],
     previousStatement: null, nextStatement: null, colour: 290,
@@ -334,6 +323,76 @@ Blockly.defineBlocksWithJsonArray([
     previousStatement: null, nextStatement: null, colour: 20,
     tooltip: 'Loop the body N times with the variable bound to 0,1,…,N−1; coords may reference it.' },
 ]);
+
+const MIN_SPLINE_POINTS = 1;
+const MAX_SPLINE_POINTS = 24;
+function clampSplinePoints(value) {
+  const number = value == null || value === '' ? 3 : Number(value);
+  const count = Number.isFinite(number) ? Math.round(number) : 3;
+  return Math.min(MAX_SPLINE_POINTS, Math.max(MIN_SPLINE_POINTS, count));
+}
+
+function mutationElement(name) {
+  return Blockly.utils && Blockly.utils.xml && Blockly.utils.xml.createElement
+    ? Blockly.utils.xml.createElement(name)
+    : document.createElement(name);
+}
+
+Blockly.Blocks.dry_spline = {
+  init() {
+    this.pointCount_ = 3;
+    this.appendDummyInput('HEADER')
+      .appendField('spline through')
+      .appendField(new Blockly.FieldNumber(this.pointCount_, MIN_SPLINE_POINTS, MAX_SPLINE_POINTS, 1, function validate(value) {
+        const block = this.getSourceBlock();
+        const count = clampSplinePoints(value);
+        if (block && block.pointCount_ !== count) {
+          block.pointCount_ = count;
+          block.updateShape_();
+        }
+        return count;
+      }), 'POINTS')
+      .appendField('points');
+    this.setPreviousStatement(true);
+    this.setNextStatement(true);
+    this.setColour(210);
+    this.setTooltip('Catmull-Rom spline from the current position through a configurable point list.');
+    this.updateShape_();
+  },
+  mutationToDom() {
+    const mutation = mutationElement('mutation');
+    mutation.setAttribute('points', String(this.pointCount_));
+    return mutation;
+  },
+  domToMutation(xmlElement) {
+    this.pointCount_ = clampSplinePoints(xmlElement.getAttribute('points'));
+    this.updateShape_();
+    const field = this.getField('POINTS');
+    if (field) field.setValue(String(this.pointCount_));
+  },
+  saveExtraState() {
+    return { points: this.pointCount_ };
+  },
+  loadExtraState(state) {
+    this.pointCount_ = clampSplinePoints(state && state.points);
+    this.updateShape_();
+    const field = this.getField('POINTS');
+    if (field) field.setValue(String(this.pointCount_));
+  },
+  updateShape_() {
+    this.pointCount_ = clampSplinePoints(this.pointCount_);
+    const names = this.inputList.map((input) => input.name).filter((name) => /^[XYZ]\d+$/.test(name));
+    for (const name of names) {
+      if (Number(name.slice(1)) > this.pointCount_) this.removeInput(name);
+    }
+    for (let i = 1; i <= this.pointCount_; i++) {
+      if (this.getInput(`X${i}`)) continue;
+      this.appendValueInput(`X${i}`).setCheck('Number').setAlign(Blockly.inputs.Align.RIGHT).appendField(`p${i} x`);
+      this.appendValueInput(`Y${i}`).setCheck('Number').setAlign(Blockly.inputs.Align.RIGHT).appendField('y');
+      this.appendValueInput(`Z${i}`).setCheck('Number').setAlign(Blockly.inputs.Align.RIGHT).appendField('z');
+    }
+  },
+};
 
 // ---- generator: walk top blocks top→bottom, emit the L1 ops array (manual tree walk) ----
 //
@@ -419,13 +478,19 @@ function genBlock(block, ops, env, ctx) {
                  x: evalValue(block, 'X', env, ctx), y: evalValue(block, 'Y', env, ctx),
                  z: evalValue(block, 'Z', env, ctx), clockwise: block.getFieldValue('CW') === 'true' });
       break;
-    case 'dry_spline3':
-      ops.push({ op: 'spline', points: [
-        [evalValue(block, 'X1', env, ctx), evalValue(block, 'Y1', env, ctx), evalValue(block, 'Z1', env, ctx)],
-        [evalValue(block, 'X2', env, ctx), evalValue(block, 'Y2', env, ctx), evalValue(block, 'Z2', env, ctx)],
-        [evalValue(block, 'X3', env, ctx), evalValue(block, 'Y3', env, ctx), evalValue(block, 'Z3', env, ctx)],
-      ] });
+    case 'dry_spline': {
+      const points = [];
+      const count = clampSplinePoints(block.getFieldValue('POINTS') || block.pointCount_);
+      for (let i = 1; i <= count; i++) {
+        points.push([
+          evalValue(block, `X${i}`, env, ctx),
+          evalValue(block, `Y${i}`, env, ctx),
+          evalValue(block, `Z${i}`, env, ctx),
+        ]);
+      }
+      ops.push({ op: 'spline', points });
       break;
+    }
     case 'dry_temperature':
       ops.push({ op: 'temperature', nozzle: Number(block.getFieldValue('NOZZLE')) });
       break;

@@ -88,6 +88,8 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      - name: Blockly/web static regressions
+        run: node web/blocks-regression.mjs
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
       - name: install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
