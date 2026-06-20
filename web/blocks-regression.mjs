@@ -59,6 +59,10 @@ for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
   assert(workspace.xml && workspace.xml.includes('<xml'), `${key} did not produce Blockly XML`);
   assert(!workspace.xml.includes('dry_spline3'), `${key} still uses dry_spline3`);
   templateCount++;
+  assert(!workspace.xml.includes('<field name="VAR">i</field>'), `${key} has a name-only i variable reference`);
+  if (workspace.xml.includes('type="variables_get"')) {
+    assert(workspace.xml.includes('<field name="VAR" id="varI">i</field>'), `${key} variables_get should bind to the dry_for variable id`);
+  }
 
   if (key === 'spline_wave') {
     assert(workspace.xml.includes('type="dry_spline"'), 'spline_wave does not use dry_spline');

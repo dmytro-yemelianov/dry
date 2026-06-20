@@ -14,7 +14,8 @@
 // ---- value-input helpers (go inside a <value name="..."> ... </value>) ----
 const TAU = Math.PI * 2;
 const num = (n) => `<shadow type="math_number"><field name="NUM">${n}</field></shadow>`;
-const varRef = (v = 'i') => `<block type="variables_get"><field name="VAR">${v}</field></block>`;
+const varRef = (v = 'i') =>
+  `<block type="variables_get"><field name="VAR"${v === 'i' ? ' id="varI"' : ''}>${v}</field></block>`;
 const pi = () => `<block type="math_constant"><field name="CONSTANT">PI</field></block>`;
 const arith = (op, a, b) =>
   `<block type="math_arithmetic"><field name="OP">${op}</field>` +
