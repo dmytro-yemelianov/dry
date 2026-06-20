@@ -72,9 +72,10 @@ A **Templates** panel (grouped, tagged, **thumbnailed** grid) sits in the right 
 clears the workspace and loads that starter design's blocks, and the preview updates. The nine templates
 (`web/templates.js`, `TEMPLATES[key] = { label, group, tags, build }`) span the same groups as the
 gallery — *square*, *regular polygon* (`dry_for` + cos/sin of `i`), *star*, *rounded square* (lines +
-arcs), *S-curve* (native spline), *spiral* (radius grows with `i`), *zig-zag infill*, *layered tower*
-(`z = 0.2 + i·0.3`, square perimeter per layer), and a *twisted vase* (non-planar helix). Each resolves
-to finite, non-empty g-code.
+arcs), *S-curve* (native spline), *spiral* (radius grows with `i`), a perimeter + *zig-zag infill panel*,
+a *layered tower* with travels to each layer start, and a *twisted vase* built as a 960-segment
+continuous vase-mode spiral over 40 shallow turns and a 16 mm Z span. Each resolves to finite,
+non-empty g-code.
 
 Thumbnails for both libraries are generated **at runtime** by `web/thumb.js` (`thumbnail(ops, wasm,
 params, size)`): it resolves the ops to IR and draws a tiny top-down 2D sketch (extrude blue / travel

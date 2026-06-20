@@ -50,6 +50,7 @@ const fakeBlockly = {
   utils: { xml: { textToDom: (xml) => xml } },
   Xml: { domToWorkspace: (xml, workspace) => { workspace.xml = xml; } },
 };
+const countMatches = (source, pattern) => (source.match(pattern) || []).length;
 
 let templateCount = 0;
 for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
@@ -67,6 +68,26 @@ for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
         assert(workspace.xml.includes(`name="${axis}${i}"`), `spline_wave missing ${axis}${i}`);
       }
     }
+  }
+
+  if (key === 'layered_tower') {
+    assert(workspace.xml.includes('<field name="ON">false</field>'), 'layered_tower must travel between layer starts');
+    assert(countMatches(workspace.xml, /type="dry_move"/g) >= 5, 'layered_tower should include a closed perimeter body');
+  }
+
+  if (key === 'zigzag') {
+    assert(template.label === 'Zig-zag infill panel', 'zigzag template label no longer matches its panel logic');
+    assert(countMatches(workspace.xml, /type="dry_extruder"/g) >= 4, 'zigzag panel should switch between perimeter, travel, and infill');
+    assert(workspace.xml.includes('<field name="N">10</field>'), 'zigzag panel should draw the remaining rail-to-rail segments after its travel move');
+  }
+
+  if (key === 'twisted_vase') {
+    assert(template.label === 'Twisted vase (continuous vase mode)', 'twisted_vase label should describe continuous vase mode');
+    assert(workspace.xml.includes('<field name="N">960</field>'), 'twisted_vase should use 40 turns with 24 samples per turn');
+    assert(workspace.xml.includes('<field name="NUM">16</field>'), 'twisted_vase should rise over a vase-height Z span');
+    assert(countMatches(workspace.xml, /<field name="OP">DIVIDE<\/field>/g) >= 5, 'twisted_vase should scale height/profile/twist by i / step count');
+    assert(countMatches(workspace.xml, /<field name="OP">SIN<\/field>/g) >= 2, 'twisted_vase should include a body profile, not just a coil');
+    assert(countMatches(workspace.xml, /<field name="OP">COS<\/field>/g) >= 3, 'twisted_vase should include radial flutes plus polar projection');
   }
 }
 
