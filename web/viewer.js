@@ -414,6 +414,17 @@ export function createViewer(cfg) {
     for (const m of ms) if (t <= m.t1) return m.line;
     return ms[ms.length - 1].line;
   }
+
+  function keepLineVisible(row) {
+    if (!row || !gcodeEl) return;
+    const rowTop = row.offsetTop;
+    const rowBottom = rowTop + row.offsetHeight;
+    const viewTop = gcodeEl.scrollTop;
+    const viewBottom = viewTop + gcodeEl.clientHeight;
+    if (rowTop < viewTop) gcodeEl.scrollTop = rowTop;
+    else if (rowBottom > viewBottom) gcodeEl.scrollTop = rowBottom - gcodeEl.clientHeight;
+  }
+
   function updatePrinted() {
     const t = P.t;
     V.beadUniforms.uTime.value = t;
@@ -434,7 +445,7 @@ export function createViewer(cfg) {
     if (seg === P.activeRow) return;
     if (P.activeRow != null && GROWS[P.activeRow]) GROWS[P.activeRow].classList.remove('active');
     P.activeRow = seg;
-    if (seg != null && GROWS[seg]) { GROWS[seg].classList.add('active'); GROWS[seg].scrollIntoView({ block: 'nearest' }); showExplain(GLINES[seg]); }
+    if (seg != null && GROWS[seg]) { GROWS[seg].classList.add('active'); keepLineVisible(GROWS[seg]); showExplain(GLINES[seg]); }
   }
 
   function syncPlayUI() {

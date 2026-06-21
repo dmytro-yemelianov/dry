@@ -5,6 +5,10 @@ run client-side. A design authored as Dry **L1 ops** is resolved → simulated �
 browser; the g-code is **byte-identical** to the other front-ends (and to the FullControl conformance
 oracle).
 
+The active app pages share `tool-ui.css`, a responsive dark tool shell used by the gallery and Blockly
+authoring surfaces. It centralizes the topbar, dense control grids, panel scrollbars, mobile stacking,
+focus states and readable system typography while keeping g-code/numeric output monospace.
+
 The toolpath is rendered in **3D** (three.js, Z-up like a printer — drag to orbit, scroll to zoom)
 on a build-plate grid. Extrusions are drawn as **width + height-accurate beads** (rectangular prisms —
 the real FFF bead cross-section, lit) in a single mesh; travels are thin lines. As it prints, the
@@ -14,7 +18,7 @@ plays/pauses and scrubs, mapped to the simulated time; the speed buttons run it 
 0.5×), **realtime** (1×), or **faster** (4× / 16× / 64×).
 
 Playback is **synced to the g-code**: each line is one move in the 3D view, so the current line
-highlights (and scrolls into view) as it prints, and clicking a g-code line seeks the playback there.
+highlights inside the g-code panel as it prints, and clicking a g-code line seeks the playback there.
 Each line is also **explained** — hover (or the active line) shows the command (`G0`/`G1`/`G2`/`G3`/`G4`)
 and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` arc-centre offset,
 `A`/`B`/`C` rotary) with its meaning, units and value.
@@ -125,6 +129,7 @@ cd .. && python3 -m http.server
 | `blocks.html`| **Blockly visual authoring** — drag blocks to build an L1 design; live 3D + g-code preview via `viewer.js` |
 | `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
+| `tool-ui.css` | shared responsive UI shell for the active gallery and Blockly app pages |
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |

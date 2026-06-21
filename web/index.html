@@ -10,10 +10,8 @@
           --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
-         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+         font:14px/1.5 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
   header { padding:18px 24px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
-  header h1 b { color:var(--accent); }
   header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
   main { display:grid; grid-template-columns: 360px 1fr 380px; gap:1px; background:var(--line);
          height: calc(100vh - 75px); }
@@ -106,32 +104,35 @@
   .tags .chip { font-size:10px; color:var(--muted); background:#1f2630; border:1px solid var(--line);
                 border-radius:10px; padding:1px 7px; }
 </style>
+<link rel="stylesheet" href="tool-ui.css" />
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js" } }
 </script>
 </head>
-<body>
+<body class="app-page">
 <header>
-  <h1><b>Dry</b> — one engine: native · Python · wasm
-    <span style="float:right;font-size:13px">
-      <a href="architecture.html" style="color:var(--accent);text-decoration:none;margin-right:14px">architecture audit</a>
-      <a href="opportunities.html" style="color:var(--accent);text-decoration:none;margin-right:14px">product directions</a>
-      <a href="blocks.html" style="color:var(--accent);text-decoration:none">✎ author your own →</a>
-    </span>
-  </h1>
-  <p>The same Rust toolpath compiler that powers the CLI and the Python SDK, resolving an L1 design to
-     g-code in your browser — rendered in 3D with print playback synced to the g-code. Byte-identical to the oracle.</p>
+  <div class="topbar">
+    <div class="brand">
+      <strong><b>Dry</b> — native · Python · wasm</strong>
+      <span>Rust toolpath compiler, live 3D playback, synced g-code, byte-identical oracle output.</span>
+    </div>
+    <nav aria-label="Dry web navigation">
+      <a href="architecture.html">Architecture audit</a>
+      <a href="opportunities.html">Product directions</a>
+      <a href="blocks.html">Author blocks</a>
+    </nav>
+  </div>
 </header>
 <main>
   <section>
     <h2>Source</h2>
-    <select id="source">
+    <select id="source" aria-label="Design source">
       <option value="gallery">Gallery design</option>
       <option value="lattice">Printable star lattice</option>
       <option value="tpms">TPMS infill volume</option>
     </select>
     <div id="galleryPanel" class="source-panel">
-      <select id="design"></select>
+      <select id="design" aria-label="Gallery design"></select>
     </div>
     <div id="latticePanel" class="source-panel" hidden>
       <div class="control-grid">
@@ -162,43 +163,42 @@
         <label class="check wide"><input type="checkbox" id="tpmsPerimeter" checked /> include perimeter on each layer</label>
       </div>
     </div>
-    <div class="picker-row">
+    <div class="design-summary">
       <img id="designThumb" class="design-thumb" alt="design thumbnail" />
-      <div class="tags" id="designTags"></div>
+      <div>
+        <div id="designTitle" class="design-title"></div>
+        <div class="tags" id="designTags"></div>
+      </div>
     </div>
-    <div id="sourceError" class="error" hidden></div>
+    <div id="sourceError" class="error" role="alert" hidden></div>
     <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
-    <h2 style="margin-top:22px">Metrics</h2>
+    <h2 class="section-title">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
 
-    <h2 style="margin-top:22px">Optimize <span class="sub">— standard L2 pipeline</span></h2>
+    <h2 class="section-title">Optimize <span class="sub">— standard L2 pipeline</span></h2>
     <div class="optimize" id="optimize"></div>
 
-    <h2 style="margin-top:22px">Verify <span class="sub">— machine-safety contracts</span></h2>
-    <div class="row" style="flex-wrap: wrap; gap: 10px;">
-      <label class="toggle">max flow <input type="number" id="maxFlow" value="8" step="0.5" min="0"
-        style="width:50px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
-      <label class="toggle">min temp <input type="number" id="minTemp" value="180" step="5" min="0"
-        style="width:50px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
-      <label class="toggle">bounds <input type="text" id="bounds" value="" placeholder="x0,x1,y0,y1,z0,z1"
-        style="width:120px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
-      <label class="toggle">speed range <input type="text" id="speedRange" value="" placeholder="min,max"
-        style="width:80px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px" /></label>
-      <label class="toggle"><input type="checkbox" id="monotonicZ" /> monotonic Z</label>
+    <h2 class="section-title">Verify <span class="sub">— machine-safety contracts</span></h2>
+    <div class="verify-grid">
+      <label>max flow <input type="number" id="maxFlow" value="8" step="0.5" min="0" /></label>
+      <label>min temp <input type="number" id="minTemp" value="180" step="5" min="0" /></label>
+      <label>bounds <input type="text" id="bounds" value="" placeholder="x0,x1,y0,y1,z0,z1" /></label>
+      <label>speed range <input type="text" id="speedRange" value="" placeholder="min,max" /></label>
+      <label class="check"><input type="checkbox" id="monotonicZ" /> monotonic Z</label>
     </div>
     <div class="findings" id="findings"></div>
   </section>
   <section>
     <h2>Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
-    <div id="viewport"></div>
+    <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
-      <span><span class="swatch" style="background:var(--travel)"></span>travel</span>
-      <span><span class="swatch" style="background:var(--accent)"></span>toolhead</span>
+      <span><span class="swatch extrude"></span>extrude</span>
+      <span><span class="swatch travel"></span>travel</span>
+      <span><span class="swatch toolhead"></span>toolhead</span>
     </div>
     <div class="playback">
-      <button id="play" title="play / pause">▶</button>
-      <input type="range" id="scrub" min="0" max="1000" value="0" />
+      <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
+      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Toolpath playback position" />
       <span id="clock">0:00 / 0:00</span>
     </div>
     <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
@@ -206,7 +206,7 @@
   <section>
     <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
     <div class="gcode-meta" id="gcodeMeta"></div>
-    <div id="gcode" class="gcode">loading wasm…</div>
+    <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
   </section>
 </main>
@@ -337,6 +337,7 @@ const $ = (id) => document.getElementById(id);
   // render the current design's tags as chips + a top-down thumbnail
   const thumbWasm = { resolve_ir };
   const renderMeta = (d) => {
+    $('designTitle').textContent = d.label || 'Generated design';
     const tags = $('designTags');
     tags.replaceChildren();
     for (const t of d.tags || []) {

@@ -12,6 +12,7 @@ const blocksHtml = read('blocks.html');
 const templatesJs = read('templates.js');
 const viewerJs = read('viewer.js');
 const indexHtml = read('index.html');
+const toolUiCss = read('tool-ui.css');
 
 assert(blocksHtml.includes('Blockly.Blocks.dry_spline'), 'dynamic dry_spline block is missing');
 assert(blocksHtml.includes('mutationToDom()'), 'dry_spline XML mutation writer is missing');
@@ -36,9 +37,17 @@ assert(viewerJs.includes('VIEW_PANELS'), 'viewer multi-view panel definitions ar
 assert(viewerJs.includes('renderViews'), 'viewer multi-view renderer is missing');
 assert(viewerJs.includes('cameraRect'), 'viewer split viewport geometry is missing');
 assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view');
+assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
+assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
 assert(blocksHtml.includes('.view-grid-labels'), 'blocks page missing multi-view styles');
 assert(indexHtml.includes('.view-grid-labels'), 'gallery page missing multi-view styles');
+assert(indexHtml.includes('tool-ui.css'), 'gallery page does not load shared UI stylesheet');
+assert(blocksHtml.includes('tool-ui.css'), 'blocks page does not load shared UI stylesheet');
+assert(indexHtml.includes('class="topbar"'), 'gallery page missing flex topbar');
+assert(blocksHtml.includes('class="topbar"'), 'blocks page missing flex topbar');
+assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
+assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');

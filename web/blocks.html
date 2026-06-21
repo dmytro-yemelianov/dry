@@ -10,11 +10,8 @@
           --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
-         font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+         font:14px/1.5 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
   header { padding:18px 24px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
-  header h1 b { color:var(--accent); }
-  header h1 a { float:right; font-size:13px; color:var(--accent); text-decoration:none; }
   header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
   /* wider authoring column: the always-open block palette takes a fixed strip, so give the workspace
      more room beside it. */
@@ -107,6 +104,7 @@
   .blocklyTreeLabel { font:12px/30px ui-monospace,SFMono-Regular,Menlo,monospace; }
   .blocklyTreeSelected { background:#1f2630 !important; }
 </style>
+<link rel="stylesheet" href="tool-ui.css" />
 <script src="./vendor/blockly/blockly_compressed.js"></script>
 <script src="./vendor/blockly/blocks_compressed.js"></script>
 <script src="./vendor/blockly/javascript_compressed.js"></script>
@@ -115,47 +113,49 @@
 { "imports": { "three": "./vendor/three.module.js" } }
 </script>
 </head>
-<body>
+<body class="blocks-page">
 <header>
-  <h1><b>Dry</b> — visual authoring
-    <span style="float:right;font-size:13px">
-      <a href="architecture.html" style="margin-right:14px">architecture audit</a>
-      <a href="opportunities.html" style="margin-right:14px">product directions</a>
-      <a href="index.html">← gallery</a>
-    </span>
-  </h1>
-  <p>Drag blocks to build a Dry <b>L1 design</b>; the same Rust engine resolves it to g-code live, rendered
-     in 3D with print playback. Every block is one op — geometry / extruder / speed / move / arc / process.</p>
+  <div class="topbar">
+    <div class="brand">
+      <strong><b>Dry</b> — visual authoring</strong>
+      <span>Build L1 toolpaths with blocks, resolve live, inspect 3D playback and generated g-code.</span>
+    </div>
+    <nav aria-label="Dry authoring navigation">
+      <a href="architecture.html">Architecture audit</a>
+      <a href="opportunities.html">Product directions</a>
+      <a href="index.html">Gallery</a>
+    </nav>
+  </div>
 </header>
 <main>
   <section>
     <div class="toolbar">
       <span>Workspace</span>
       <label><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
-      <span style="margin-left:auto">choose a toolbox category · the preview updates live →</span>
+      <span class="toolbar-help">choose a toolbox category · preview updates live</span>
     </div>
-    <div id="blocklyArea"><div id="blocklyDiv"></div></div>
+    <div id="blocklyArea" aria-label="Blockly workspace"><div id="blocklyDiv"></div></div>
   </section>
   <section class="right">
     <h2>Templates <span class="sub">— click a starter design to load it into the workspace</span></h2>
     <div id="templates"></div>
-    <h2 style="margin-top:18px">Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
-    <div id="viewport"></div>
+    <h2 class="section-title">Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
+    <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--extrude)"></span>extrude</span>
-      <span><span class="swatch" style="background:var(--travel)"></span>travel</span>
-      <span><span class="swatch" style="background:var(--accent)"></span>toolhead</span>
+      <span><span class="swatch extrude"></span>extrude</span>
+      <span><span class="swatch travel"></span>travel</span>
+      <span><span class="swatch toolhead"></span>toolhead</span>
     </div>
     <div class="playback">
-      <button id="play" title="play / pause">▶</button>
-      <input type="range" id="scrub" min="0" max="1000" value="0" />
+      <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
+      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Toolpath playback position" />
       <span id="clock">0:00 / 0:00</span>
     </div>
     <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
 
-    <h2 style="margin-top:22px">G-code <span class="sub">— click a line to seek · highlights as it prints</span></h2>
+    <h2 class="section-title">G-code <span class="sub">— click a line to seek · highlights as it prints</span></h2>
     <div class="gcode-meta" id="gcodeMeta"></div>
-    <div id="gcode" class="gcode">loading wasm…</div>
+    <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
   </section>
 </main>
@@ -833,6 +833,14 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
 
   // seed with the first template (the classic square) and render synchronously so tests can assert
   loadTemplate('square');
+  const resetPreviewScroll = () => {
+    const panel = document.querySelector('section.right');
+    if (panel) panel.scrollTop = 0;
+  };
+  resetPreviewScroll();
+  requestAnimationFrame(resetPreviewScroll);
+  setTimeout(resetPreviewScroll, 120);
+  setTimeout(resetPreviewScroll, 700);
   window.__blocksReady = true;
 })();
 </script>
