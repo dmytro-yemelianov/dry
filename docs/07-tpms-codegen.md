@@ -47,6 +47,7 @@ const d = tpms({
   layerHeight: 0.8,
   beadWidth: 0.45,
   beadHeight: 0.24,
+  perimeter: true,
 });
 
 const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
@@ -60,6 +61,8 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
   constant-thickness shells.
 - `samplesPerCell` controls XY contour resolution; higher values improve fidelity and increase op count.
 - `layerHeight` controls Z sampling and resulting print height.
+- `perimeter` adds a rectangular single-wall loop on every layer so the generated contours can be
+  previewed as bounded infill inside a printable volume.
 - Path stitching is graph-based on quantized segment endpoints, followed by nearest-neighbor path ordering
   to reduce travels.
 

@@ -21,11 +21,24 @@
   h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
        margin:0 0 12px; font-weight:600; }
   h2 .sub { text-transform:none; color:var(--muted); font-weight:400; }
-  select, label, button { font:inherit; }
+  select, label, button, input { font:inherit; }
   select { width:100%; background:var(--panel); color:var(--fg); border:1px solid var(--line);
            border-radius:6px; padding:8px; margin-bottom:14px; }
+  input[type="number"], input[type="text"] { width:100%; background:var(--panel); color:var(--fg);
+           border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  input[type="checkbox"] { accent-color:var(--accent); }
   .row { display:flex; gap:10px; margin-bottom:8px; }
   .toggle { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  .source-panel[hidden] { display:none !important; }
+  .source-panel { border-top:1px solid var(--line); padding-top:12px; margin-top:12px; }
+  .control-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px 10px; }
+  .control-grid label { display:flex; flex-direction:column; gap:4px; color:var(--muted);
+                        font-size:10px; text-transform:uppercase; letter-spacing:.7px; }
+  .control-grid select { margin:0; padding:6px 8px; }
+  .control-grid .wide { grid-column:1 / -1; }
+  .control-grid .check { flex-direction:row; align-items:center; min-height:31px; text-transform:none;
+                         letter-spacing:0; font-size:12px; }
+  .error { margin-top:10px; color:var(--travel); font-size:12px; }
   #viewport { width:100%; height:54vh; background:var(--panel); border-radius:8px;
               border:1px solid var(--line); overflow:hidden; position:relative; }
   #viewport canvas { display:block; width:100%; height:100%; }
@@ -111,12 +124,49 @@
 </header>
 <main>
   <section>
-    <h2>Design</h2>
-    <select id="design"></select>
+    <h2>Source</h2>
+    <select id="source">
+      <option value="gallery">Gallery design</option>
+      <option value="lattice">Printable star lattice</option>
+      <option value="tpms">TPMS infill volume</option>
+    </select>
+    <div id="galleryPanel" class="source-panel">
+      <select id="design"></select>
+    </div>
+    <div id="latticePanel" class="source-panel" hidden>
+      <div class="control-grid">
+        <label class="wide">family <select id="latticeFamily"></select></label>
+        <label>alpha deg <input type="number" id="latticeAlpha" value="30" min="0" max="270" step="1" /></label>
+        <label>unit mm <input type="number" id="latticeUnit" value="13" min="4" max="80" step="0.5" /></label>
+        <label>columns <input type="number" id="latticeCols" value="5" min="1" max="15" step="1" /></label>
+        <label>rows <input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /></label>
+        <label>layers <input type="number" id="latticeLayers" value="3" min="1" max="40" step="1" /></label>
+        <label>layer mm <input type="number" id="latticeLayerH" value="0.167" min="0.05" max="2" step="0.001" /></label>
+        <label>bead mm <input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /></label>
+        <label>speed <input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /></label>
+        <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete odd width where needed</label>
+      </div>
+    </div>
+    <div id="tpmsPanel" class="source-panel" hidden>
+      <div class="control-grid">
+        <label class="wide">surface <select id="tpmsSurface"></select></label>
+        <label>cell mm <input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /></label>
+        <label>samples <input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /></label>
+        <label>cells X <input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /></label>
+        <label>cells Y <input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /></label>
+        <label>cells Z <input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /></label>
+        <label>layer mm <input type="number" id="tpmsLayerH" value="1.4" min="0.1" max="5" step="0.05" /></label>
+        <label>iso <input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /></label>
+        <label>bead mm <input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /></label>
+        <label>speed <input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /></label>
+        <label class="check wide"><input type="checkbox" id="tpmsPerimeter" checked /> include perimeter on each layer</label>
+      </div>
+    </div>
     <div class="picker-row">
       <img id="designThumb" class="design-thumb" alt="design thumbnail" />
       <div class="tags" id="designTags"></div>
     </div>
+    <div id="sourceError" class="error" hidden></div>
     <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
     <h2 style="margin-top:22px">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
@@ -166,6 +216,8 @@
 import init, { resolve_gcode, resolve_metrics, resolve_ir,
                resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
 import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
+import { STAR_POLYGON_FAMILIES, starPolygonLatticeOps } from './lattice-research.js';
+import { TPMS_SURFACES, tpmsOps } from './tpms.js';
 import { createViewer } from './viewer.js';
 import { thumbnail } from './thumb.js';
 
@@ -199,10 +251,95 @@ const $ = (id) => document.getElementById(id);
     sel.appendChild(og);
   }
 
+  for (const [family, spec] of Object.entries(STAR_POLYGON_FAMILIES)) {
+    const option = document.createElement('option');
+    option.value = family;
+    option.textContent = `${family} · ${spec.topology}`;
+    $('latticeFamily').appendChild(option);
+  }
+  for (const [key, spec] of Object.entries(TPMS_SURFACES)) {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = spec.label;
+    $('tpmsSurface').appendChild(option);
+  }
+
+  const intValue = (id, fallback) => {
+    const value = Number.parseInt($(id).value, 10);
+    return Number.isFinite(value) ? value : fallback;
+  };
+  const numValue = (id, fallback) => {
+    const value = Number.parseFloat($(id).value);
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  function syncSourcePanels() {
+    const source = $('source').value;
+    $('galleryPanel').hidden = source !== 'gallery';
+    $('latticePanel').hidden = source !== 'lattice';
+    $('tpmsPanel').hidden = source !== 'tpms';
+  }
+
+  function syncLatticeBounds() {
+    const family = $('latticeFamily').value;
+    const spec = STAR_POLYGON_FAMILIES[family];
+    if (!spec) return;
+    const alpha = $('latticeAlpha');
+    alpha.max = String(spec.alphaUlDeg * 2);
+    if (numValue('latticeAlpha', 0) > spec.alphaUlDeg * 2) alpha.value = String(spec.alphaSplDeg / 2);
+  }
+
+  function activeDesign() {
+    const source = $('source').value;
+    if (source === 'gallery') return DESIGNS[sel.value];
+    if (source === 'lattice') {
+      const family = $('latticeFamily').value;
+      const alphaDeg = numValue('latticeAlpha', 30);
+      return {
+        label: `${family} star-polygon lattice`,
+        group: 'Generated',
+        tags: ['generated', 'print lattice', family, `alpha ${alphaDeg}`],
+        ops: starPolygonLatticeOps({
+          family,
+          alphaDeg,
+          cols: intValue('latticeCols', 5),
+          rows: intValue('latticeRows', 3),
+          unit: numValue('latticeUnit', 13),
+          layers: intValue('latticeLayers', 3),
+          layerHeight: numValue('latticeLayerH', 0.167),
+          beadWidth: numValue('latticeBead', 0.5),
+          beadHeight: numValue('latticeLayerH', 0.167),
+          printSpeed: numValue('latticeSpeed', 1000),
+          completeWidth: $('latticeCompleteWidth').checked,
+        }),
+      };
+    }
+    const surface = $('tpmsSurface').value;
+    const spec = TPMS_SURFACES[surface];
+    return {
+      label: `${spec.label} TPMS infill`,
+      group: 'Generated',
+      tags: ['generated', 'TPMS', 'infill', surface],
+      ops: tpmsOps({
+        surface,
+        isoLevel: numValue('tpmsIso', 0),
+        cellSize: numValue('tpmsCell', 22),
+        cellsX: intValue('tpmsCellsX', 1),
+        cellsY: intValue('tpmsCellsY', 1),
+        cellsZ: intValue('tpmsCellsZ', 1),
+        samplesPerCell: intValue('tpmsSamples', 16),
+        layerHeight: numValue('tpmsLayerH', 1.4),
+        beadWidth: numValue('tpmsBead', 0.45),
+        beadHeight: Math.min(numValue('tpmsLayerH', 1.4), 0.24),
+        printSpeed: numValue('tpmsSpeed', 1200),
+        perimeter: $('tpmsPerimeter').checked,
+      }),
+    };
+  }
+
   // render the current design's tags as chips + a top-down thumbnail
   const thumbWasm = { resolve_ir };
-  const renderMeta = () => {
-    const d = DESIGNS[sel.value];
+  const renderMeta = (d) => {
     const tags = $('designTags');
     tags.replaceChildren();
     for (const t of d.tags || []) {
@@ -214,14 +351,41 @@ const $ = (id) => document.getElementById(id);
     $('designThumb').src = thumbnail(d.ops, thumbWasm, RESOLVE_PARAMS, 84);
   };
 
-  const go = () => { renderMeta(); viewer.show(DESIGNS[sel.value].ops, $('relE').checked); };
-  sel.addEventListener('change', go);
-  $('relE').addEventListener('change', go);
-  $('maxFlow').addEventListener('input', go);
-  $('minTemp').addEventListener('input', go);
-  $('bounds').addEventListener('input', go);
-  $('monotonicZ').addEventListener('change', go);
-  $('speedRange').addEventListener('input', go);
+  function showError(error) {
+    $('sourceError').hidden = false;
+    $('sourceError').textContent = error.message || String(error);
+    $('gcode').textContent = error.message || String(error);
+    $('designTags').replaceChildren();
+    $('metrics').replaceChildren();
+    $('optimize').replaceChildren();
+    $('findings').replaceChildren();
+  }
+
+  const go = () => {
+    try {
+      syncSourcePanels();
+      syncLatticeBounds();
+      const d = activeDesign();
+      $('sourceError').hidden = true;
+      window.__activeDesign = { label: d.label, group: d.group, tags: d.tags, ops: d.ops.length };
+      renderMeta(d);
+      viewer.show(d.ops, $('relE').checked);
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  for (const id of [
+    'source', 'design', 'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
+    'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
+    'tpmsSurface', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
+    'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter',
+    'relE', 'maxFlow', 'minTemp', 'bounds', 'monotonicZ', 'speedRange',
+  ]) {
+    const el = $(id);
+    el.addEventListener('input', go);
+    el.addEventListener('change', go);
+  }
 
   go();
   window.__dryReady = true;

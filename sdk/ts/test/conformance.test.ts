@@ -276,4 +276,17 @@ test('TPMS generator slices implicit fields into resolvable Dry contours', () =>
     }).ir();
     assert.ok(ir.segments.some((segment) => !segment.travel), `${surface} should include extrusion segments`);
   }
+
+  const loose = tpmsOps({ surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10, samplesPerCell: 10, layerHeight: 2 });
+  const framed = tpmsOps({
+    surface: 'gyroid',
+    cellsX: 1,
+    cellsY: 1,
+    cellsZ: 1,
+    cellSize: 10,
+    samplesPerCell: 10,
+    layerHeight: 2,
+    perimeter: true,
+  });
+  assert.ok(framed.length > loose.length, 'TPMS perimeter mode should add bounded layer loops');
 });

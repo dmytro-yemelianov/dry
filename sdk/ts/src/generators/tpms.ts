@@ -50,6 +50,9 @@ export interface TpmsOptions {
   phaseX?: number;
   phaseY?: number;
   phaseZ?: number;
+  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
+  perimeter?: boolean;
+  perimeterInset?: number;
   /** Drop very short stitched contours. Defaults to one grid cell. */
   minPathLength?: number;
 }
@@ -210,6 +213,7 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
   const phaseX = finite('phaseX', options.phaseX ?? 0);
   const phaseY = finite('phaseY', options.phaseY ?? 0);
   const phaseZ = finite('phaseZ', options.phaseZ ?? 0);
+  const perimeter = options.perimeter ?? false;
 
   const width = cellsX * cellSize;
   const depth = cellsY * cellSize;
@@ -220,6 +224,11 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
   const dy = depth / ny;
   const layerCount = Math.max(1, Math.ceil(height / layerHeight) + 1);
   const minPathLength = positiveOrZero('minPathLength', options.minPathLength ?? Math.min(dx, dy));
+  const perimeterInset = Math.min(
+    positiveOrZero('perimeterInset', options.perimeterInset ?? beadWidth),
+    Math.max(0, width / 2 - EPS),
+    Math.max(0, depth / 2 - EPS)
+  );
 
   const ops: Op[] = [
     { op: 'geometry', width: beadWidth, height: beadHeight },
@@ -232,6 +241,12 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
   for (let layer = 0; layer < layerCount; layer++) {
     const zLocal = Math.min(layer * layerHeight, height);
     const z = z0 + zLocal;
+    if (perimeter) {
+      const rectLocal = rectanglePath(width, depth, perimeterInset);
+      const rect = rectLocal.map((p) => ({ x: p.x - width / 2 + centerX, y: p.y - depth / 2 + centerY }));
+      appendPath(ops, rect, z);
+      previousLocal = rectLocal[rectLocal.length - 1];
+    }
     const segments = marchingSquaresLayer(spec, isoLevel, width, depth, cellSize, nx, ny, zLocal, phaseX, phaseY, phaseZ);
     const paths = orderPaths(
       stitchSegments(segments).filter((path) => path.points.length >= 2 && pathLength(path.points) >= minPathLength),
@@ -251,6 +266,16 @@ export function tpms(options: TpmsOptions = {}): Design {
   const design = new Design();
   design.ops.push(...tpmsOps(options));
   return design;
+}
+
+function rectanglePath(width: number, depth: number, inset: number): Point[] {
+  return [
+    { x: inset, y: inset },
+    { x: width - inset, y: inset },
+    { x: width - inset, y: depth - inset },
+    { x: inset, y: depth - inset },
+    { x: inset, y: inset },
+  ];
 }
 
 function marchingSquaresLayer(

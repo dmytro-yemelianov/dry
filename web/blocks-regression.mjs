@@ -39,6 +39,14 @@ assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
 assert(blocksHtml.includes('.view-grid-labels'), 'blocks page missing multi-view styles');
 assert(indexHtml.includes('.view-grid-labels'), 'gallery page missing multi-view styles');
+assert(indexHtml.includes('id="source"'), 'web app missing source selector');
+assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
+assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
+assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
+assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
+assert(indexHtml.includes('id="latticeAlpha"'), 'lattice generator missing alpha control');
+assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
+assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill perimeter toggle');
 
 for (const unsupported of ['controls_whileUntil', 'controls_forEach', 'procedures_defnoreturn', 'procedures_defreturn']) {
   assert(!blocksHtml.includes(`<block type="${unsupported}"`), `unsupported ${unsupported} leaked into toolbox`);

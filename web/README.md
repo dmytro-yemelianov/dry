@@ -19,6 +19,11 @@ Each line is also **explained** — hover (or the active line) shows the command
 and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` arc-centre offset,
 `A`/`B`/`C` rotary) with its meaning, units and value.
 
+The left panel has a **Source** selector. `Gallery design` loads fixed examples; `Printable star lattice`
+generates the `M1`..`M4` star-polygon lattice families from live alpha/unit/layer/process controls; and
+`TPMS infill volume` generates implicit-field contour infill with surface, cell, sampling, layer and
+perimeter controls. All three sources feed the same viewer, g-code, metrics, optimize and verify panels.
+
 The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
 ~120-segment spiral vase, a non-planar cone vase, the collinear comb, four research lattice examples

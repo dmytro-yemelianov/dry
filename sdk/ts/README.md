@@ -81,6 +81,7 @@ const gyroid = tpms({
   cellSize: 12,
   samplesPerCell: 18,
   layerHeight: 0.8,
+  perimeter: true,
 });
 ```
 
@@ -88,7 +89,8 @@ Supported surfaces are `gyroid`, `schwarz-p`, `schwarz-d`, `iwp`, `neovius`, `fi
 `fischer-koch-y`, `frd`, `lidinoid`, and `split-p`. `tpmsOps(...)` returns raw L1 ops. The generator
 does not emit a mesh; it evaluates the implicit field at each Z layer, extracts `f(x,y,z)=isoLevel`
 contours with marching squares, stitches them into printable polylines, and lets the Dry engine resolve
-the final motion.
+the final motion. `perimeter: true` adds a single-wall rectangle on every layer for bounded infill
+previews.
 
 ## Build & test
 
