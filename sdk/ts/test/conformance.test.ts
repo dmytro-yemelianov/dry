@@ -312,4 +312,40 @@ test('TPMS generator slices implicit fields into resolvable Dry contours', () =>
     perimeter: true,
   });
   assert.ok(framed.length > loose.length, 'TPMS perimeter mode should add bounded layer loops');
+
+  const printableDefault = tpmsOps({
+    surface: 'gyroid',
+    cellsX: 1,
+    cellsY: 1,
+    cellsZ: 1,
+    cellSize: 6,
+    samplesPerCell: 4,
+    minPathLength: 0,
+  });
+  assert.deepEqual(printableDefault[0], { op: 'geometry', width: 0.45, height: 0.28 });
+
+  const coarse = tpmsOps({
+    surface: 'gyroid',
+    cellsX: 1,
+    cellsY: 1,
+    cellsZ: 1,
+    cellSize: 10,
+    samplesPerCell: 8,
+    layerHeight: 1.2,
+    minPathLength: 0,
+  });
+  const adaptive = tpmsOps({
+    surface: 'gyroid',
+    cellsX: 1,
+    cellsY: 1,
+    cellsZ: 1,
+    cellSize: 10,
+    samplesPerCell: 8,
+    layerHeight: 1.2,
+    minPathLength: 0,
+    adaptive: true,
+    adaptiveMinLayerHeight: 0.15,
+    adaptiveMaxLayerHeight: 0.3,
+  });
+  assert.ok(adaptive.length > coarse.length, 'TPMS adaptive mode should insert extra slices in coarse/bad intervals');
 });

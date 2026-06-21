@@ -171,16 +171,41 @@
     <div id="tpmsPanel" class="source-panel" hidden>
       <div class="control-grid">
         <label class="wide">surface <select id="tpmsSurface"></select></label>
-        <label>cell mm <input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /></label>
-        <label>samples <input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /></label>
-        <label>cells X <input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /></label>
-        <label>cells Y <input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /></label>
-        <label>cells Z <input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /></label>
-        <label>layer mm <input type="number" id="tpmsLayerH" value="1.4" min="0.1" max="5" step="0.05" /></label>
-        <label>iso <input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /></label>
-        <label>bead mm <input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /></label>
-        <label>speed <input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /></label>
+        <label class="range-field">cell mm
+          <span class="range-row"><input type="range" data-sync="tpmsCell" min="4" max="80" step="0.5" value="22" aria-label="TPMS cell millimeters" /><input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /></span>
+        </label>
+        <label class="range-field">samples
+          <span class="range-row"><input type="range" data-sync="tpmsSamples" min="4" max="64" step="1" value="16" aria-label="TPMS samples per cell" /><input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /></span>
+        </label>
+        <label class="range-field">cells X
+          <span class="range-row"><input type="range" data-sync="tpmsCellsX" min="1" max="8" step="1" value="1" aria-label="TPMS cells X" /><input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /></span>
+        </label>
+        <label class="range-field">cells Y
+          <span class="range-row"><input type="range" data-sync="tpmsCellsY" min="1" max="8" step="1" value="1" aria-label="TPMS cells Y" /><input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /></span>
+        </label>
+        <label class="range-field">cells Z
+          <span class="range-row"><input type="range" data-sync="tpmsCellsZ" min="1" max="8" step="1" value="1" aria-label="TPMS cells Z" /><input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /></span>
+        </label>
+        <label class="range-field">layer mm
+          <span class="range-row"><input type="range" data-sync="tpmsLayerH" min="0.08" max="1.4" step="0.01" value="0.28" aria-label="TPMS layer millimeters" /><input type="number" id="tpmsLayerH" value="0.28" min="0.08" max="1.4" step="0.01" /></span>
+        </label>
+        <label class="range-field">iso
+          <span class="range-row"><input type="range" data-sync="tpmsIso" min="-4" max="4" step="0.05" value="0" aria-label="TPMS iso level" /><input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /></span>
+        </label>
+        <label class="range-field">bead mm
+          <span class="range-row"><input type="range" data-sync="tpmsBead" min="0.1" max="2" step="0.01" value="0.45" aria-label="TPMS bead millimeters" /><input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /></span>
+        </label>
+        <label class="range-field">speed
+          <span class="range-row"><input type="range" data-sync="tpmsSpeed" min="60" max="12000" step="10" value="1200" aria-label="TPMS print speed" /><input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /></span>
+        </label>
+        <label class="range-field">min layer
+          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMin" min="0.08" max="0.4" step="0.01" value="0.14" aria-label="TPMS adaptive minimum layer" /><input type="number" id="tpmsAdaptiveMin" value="0.14" min="0.08" max="0.4" step="0.01" /></span>
+        </label>
+        <label class="range-field">max layer
+          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMax" min="0.12" max="1.4" step="0.01" value="0.28" aria-label="TPMS adaptive maximum layer" /><input type="number" id="tpmsAdaptiveMax" value="0.28" min="0.12" max="1.4" step="0.01" /></span>
+        </label>
         <label class="check wide"><input type="checkbox" id="tpmsPerimeter" checked /> include perimeter on each layer</label>
+        <label class="check wide"><input type="checkbox" id="tpmsAdaptive" /> adaptive slices in bad zones</label>
       </div>
     </div>
     <div class="design-summary">
@@ -316,16 +341,31 @@ const $ = (id) => document.getElementById(id);
     range.value = String(clamp(value, min, max));
   }
 
+  let scheduledGo = 0;
+  function scheduleGo() {
+    window.clearTimeout(scheduledGo);
+    scheduledGo = window.setTimeout(() => {
+      scheduledGo = 0;
+      go();
+    }, 90);
+  }
+
   function bindRangeControls() {
     for (const range of document.querySelectorAll('input[type="range"][data-sync]')) {
       const number = $(range.dataset.sync);
       if (!number) continue;
       const syncNumber = () => {
         number.value = range.value;
+        scheduleGo();
+      };
+      const commitNumber = () => {
+        number.value = range.value;
+        window.clearTimeout(scheduledGo);
+        scheduledGo = 0;
         go();
       };
       range.addEventListener('input', syncNumber);
-      range.addEventListener('change', syncNumber);
+      range.addEventListener('change', commitNumber);
       number.addEventListener('input', () => syncRangeFromNumber(range.dataset.sync));
       number.addEventListener('change', () => syncRangeFromNumber(range.dataset.sync));
       syncRangeFromNumber(range.dataset.sync);
@@ -440,6 +480,25 @@ const $ = (id) => document.getElementById(id);
     }
   }
 
+  function syncTpmsBounds() {
+    for (const id of [
+      'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
+      'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
+      'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
+    ]) {
+      syncRangeFromNumber(id);
+    }
+
+    const minInput = $('tpmsAdaptiveMin');
+    const maxInput = $('tpmsAdaptiveMax');
+    const minLayer = numValue('tpmsAdaptiveMin', 0.14);
+    const maxLayer = numValue('tpmsAdaptiveMax', 0.28);
+    if (minLayer > maxLayer) {
+      maxInput.value = minInput.value;
+      syncRangeFromNumber('tpmsAdaptiveMax');
+    }
+  }
+
   function activeDesign() {
     const source = $('source').value;
     if (source === 'gallery') return DESIGNS[sel.value];
@@ -479,11 +538,14 @@ const $ = (id) => document.getElementById(id);
         cellsY: intValue('tpmsCellsY', 1),
         cellsZ: intValue('tpmsCellsZ', 1),
         samplesPerCell: intValue('tpmsSamples', 16),
-        layerHeight: numValue('tpmsLayerH', 1.4),
+        layerHeight: numValue('tpmsLayerH', 0.28),
         beadWidth: numValue('tpmsBead', 0.45),
-        beadHeight: Math.min(numValue('tpmsLayerH', 1.4), 0.24),
+        beadHeight: numValue('tpmsLayerH', 0.28),
         printSpeed: numValue('tpmsSpeed', 1200),
         perimeter: $('tpmsPerimeter').checked,
+        adaptive: $('tpmsAdaptive').checked,
+        adaptiveMinLayerHeight: numValue('tpmsAdaptiveMin', 0.14),
+        adaptiveMaxLayerHeight: numValue('tpmsAdaptiveMax', 0.28),
       }),
     };
   }
@@ -517,6 +579,7 @@ const $ = (id) => document.getElementById(id);
     try {
       syncSourcePanels();
       syncLatticeBounds();
+      syncTpmsBounds();
       const d = activeDesign();
       $('sourceError').hidden = true;
       window.__activeDesign = { label: d.label, group: d.group, tags: d.tags, ops: d.ops.length };
@@ -531,7 +594,7 @@ const $ = (id) => document.getElementById(id);
     'source', 'design', 'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
     'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
     'tpmsSurface', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
-    'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter',
+    'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter', 'tpmsAdaptive', 'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
     'relE', 'maxFlow', 'minTemp', 'bounds', 'monotonicZ', 'speedRange',
   ]) {
     const el = $(id);

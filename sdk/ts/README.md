@@ -80,8 +80,10 @@ const gyroid = tpms({
   cellsZ: 2,
   cellSize: 12,
   samplesPerCell: 18,
-  layerHeight: 0.8,
+  layerHeight: 0.28,
   perimeter: true,
+  adaptive: true,
+  adaptiveMaxLayerHeight: 0.28,
 });
 ```
 
@@ -90,7 +92,8 @@ Supported surfaces are `gyroid`, `schwarz-p`, `schwarz-d`, `iwp`, `neovius`, `fi
 does not emit a mesh; it evaluates the implicit field at each Z layer, extracts `f(x,y,z)=isoLevel`
 contours with marching squares, stitches them into printable polylines, and lets the Dry engine resolve
 the final motion. `perimeter: true` adds a single-wall rectangle on every layer for bounded infill
-previews.
+previews. `adaptive: true` inserts additional Z slices in coarse or high-change TPMS regions, bounded by
+`adaptiveMinLayerHeight` and `adaptiveMaxLayerHeight`.
 
 ## Build & test
 

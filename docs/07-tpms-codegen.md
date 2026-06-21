@@ -44,10 +44,12 @@ const d = tpms({
   cellsZ: 2,
   cellSize: 12,
   samplesPerCell: 18,
-  layerHeight: 0.8,
+  layerHeight: 0.28,
   beadWidth: 0.45,
-  beadHeight: 0.24,
+  beadHeight: 0.28,
   perimeter: true,
+  adaptive: true,
+  adaptiveMaxLayerHeight: 0.28,
 });
 
 const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
@@ -60,7 +62,10 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
 - `isoLevel` selects `f(x,y,z)=isoLevel`; nonzero values create offset-like nodal variants, not exact
   constant-thickness shells.
 - `samplesPerCell` controls XY contour resolution; higher values improve fidelity and increase op count.
-- `layerHeight` controls Z sampling and resulting print height.
+- `layerHeight` controls Z sampling and resulting print height; the default is 0.28 mm and `beadHeight`
+  defaults to the same value so previewed layers do not show artificial vertical gaps.
+- `adaptive` inserts extra Z slices in intervals that are too tall or change contour topology/length
+  sharply. `adaptiveMinLayerHeight`, `adaptiveMaxLayerHeight`, and the delta thresholds bound this pass.
 - `perimeter` adds a rectangular single-wall loop on every layer so the generated contours can be
   previewed as bounded infill inside a printable volume.
 - Path stitching is graph-based on quantized segment endpoints, followed by nearest-neighbor path ordering

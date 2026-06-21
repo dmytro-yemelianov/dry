@@ -2,6 +2,12 @@
 // slices each Z layer with marching squares, stitches contours, and emits Dry L1 ops.
 const TAU = Math.PI * 2;
 const EPS = 1e-9;
+const DEFAULT_LAYER_HEIGHT = 0.28;
+const DEFAULT_ADAPTIVE_MIN_LAYER_HEIGHT = 0.14;
+const DEFAULT_ADAPTIVE_MAX_LAYER_HEIGHT = 0.32;
+const DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA = 0.35;
+const DEFAULT_ADAPTIVE_MAX_POINT_DELTA = 0.45;
+const DEFAULT_ADAPTIVE_MAX_DEPTH = 4;
 
 const TPMS_SURFACES = {
   gyroid: {
@@ -104,10 +110,10 @@ function tpmsOps(options = {}) {
   const cellsY = integer('cellsY', options.cellsY ?? 2, 1);
   const cellsZ = integer('cellsZ', options.cellsZ ?? 2, 1);
   const samplesPerCell = integer('samplesPerCell', options.samplesPerCell ?? 18, 4);
-  const layerHeight = positive('layerHeight', options.layerHeight ?? 0.8);
+  const layerHeight = positive('layerHeight', options.layerHeight ?? DEFAULT_LAYER_HEIGHT);
   const z0 = positiveOrZero('z0', options.z0 ?? 0.2);
   const beadWidth = positive('beadWidth', options.beadWidth ?? 0.45);
-  const beadHeight = positive('beadHeight', options.beadHeight ?? Math.min(layerHeight, 0.24));
+  const beadHeight = positive('beadHeight', options.beadHeight ?? layerHeight);
   const centerX = finite('centerX', options.centerX ?? 50);
   const centerY = finite('centerY', options.centerY ?? 50);
   const nozzleTemp = positive('nozzleTemp', options.nozzleTemp ?? 210);
@@ -117,6 +123,27 @@ function tpmsOps(options = {}) {
   const phaseY = finite('phaseY', options.phaseY ?? 0);
   const phaseZ = finite('phaseZ', options.phaseZ ?? 0);
   const perimeter = options.perimeter ?? false;
+  const adaptive = Boolean(options.adaptive ?? false);
+  const adaptiveMinLayerHeight = positive(
+    'adaptiveMinLayerHeight',
+    options.adaptiveMinLayerHeight ?? Math.min(layerHeight, DEFAULT_ADAPTIVE_MIN_LAYER_HEIGHT)
+  );
+  const adaptiveMaxLayerHeight = positive(
+    'adaptiveMaxLayerHeight',
+    options.adaptiveMaxLayerHeight ?? Math.min(layerHeight, DEFAULT_ADAPTIVE_MAX_LAYER_HEIGHT)
+  );
+  const adaptiveMaxLengthDelta = positive(
+    'adaptiveMaxLengthDelta',
+    options.adaptiveMaxLengthDelta ?? DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA
+  );
+  const adaptiveMaxPointDelta = positive(
+    'adaptiveMaxPointDelta',
+    options.adaptiveMaxPointDelta ?? DEFAULT_ADAPTIVE_MAX_POINT_DELTA
+  );
+  const adaptiveMaxDepth = integer('adaptiveMaxDepth', options.adaptiveMaxDepth ?? DEFAULT_ADAPTIVE_MAX_DEPTH, 0);
+  if (adaptiveMinLayerHeight - adaptiveMaxLayerHeight > EPS) {
+    throw new Error('adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight');
+  }
 
   const width = cellsX * cellSize;
   const depth = cellsY * cellSize;
@@ -125,7 +152,6 @@ function tpmsOps(options = {}) {
   const ny = cellsY * samplesPerCell;
   const dx = width / nx;
   const dy = depth / ny;
-  const layerCount = Math.max(1, Math.ceil(height / layerHeight) + 1);
   const minPathLength = positiveOrZero('minPathLength', options.minPathLength ?? Math.min(dx, dy));
   const perimeterInset = Math.min(
     positiveOrZero('perimeterInset', options.perimeterInset ?? beadWidth),
@@ -139,9 +165,22 @@ function tpmsOps(options = {}) {
   ];
   if (Math.abs(flow - 1) > EPS) ops.push({ op: 'flow', ratio: flow });
 
+  const buildLayer = (zLocal) => {
+    const segments = marchingSquaresLayer(spec, isoLevel, width, depth, cellSize, nx, ny, zLocal, phaseX, phaseY, phaseZ);
+    const paths = stitchSegments(segments).filter((path) => path.points.length >= 2 && pathLength(path.points) >= minPathLength);
+    return layerSlice(zLocal, paths);
+  };
+  const layerSlices = buildLayerSlices(height, layerHeight, buildLayer, adaptive ? {
+    minLayerHeight: adaptiveMinLayerHeight,
+    maxLayerHeight: adaptiveMaxLayerHeight,
+    maxLengthDelta: adaptiveMaxLengthDelta,
+    maxPointDelta: adaptiveMaxPointDelta,
+    maxDepth: adaptiveMaxDepth,
+  } : null);
+
   let previousLocal = null;
-  for (let layer = 0; layer < layerCount; layer++) {
-    const zLocal = Math.min(layer * layerHeight, height);
+  for (const slice of layerSlices) {
+    const zLocal = slice.zLocal;
     const z = z0 + zLocal;
     if (perimeter) {
       const rectLocal = rectanglePath(width, depth, perimeterInset);
@@ -149,11 +188,7 @@ function tpmsOps(options = {}) {
       appendPath(ops, rect, z);
       previousLocal = rectLocal[rectLocal.length - 1];
     }
-    const segments = marchingSquaresLayer(spec, isoLevel, width, depth, cellSize, nx, ny, zLocal, phaseX, phaseY, phaseZ);
-    const paths = orderPaths(
-      stitchSegments(segments).filter((path) => path.points.length >= 2 && pathLength(path.points) >= minPathLength),
-      previousLocal
-    );
+    const paths = orderPaths(slice.paths, previousLocal);
     for (const path of paths) {
       const points = path.points.map((p) => ({ x: p.x - width / 2 + centerX, y: p.y - depth / 2 + centerY }));
       appendPath(ops, points, z);
@@ -162,6 +197,73 @@ function tpmsOps(options = {}) {
   }
   ops.push({ op: 'extruder', on: false });
   return ops;
+}
+
+function buildLayerSlices(height, layerHeight, buildLayer, adaptive) {
+  const baseZ = baseLayerZs(height, layerHeight);
+  const cache = new Map();
+  const sample = (zLocal) => {
+    const key = round(zLocal);
+    let slice = cache.get(key);
+    if (!slice) {
+      slice = buildLayer(zLocal);
+      cache.set(key, slice);
+    }
+    return slice;
+  };
+  const slices = [sample(baseZ[0])];
+  for (let i = 1; i < baseZ.length; i++) {
+    const a = slices[slices.length - 1];
+    const b = sample(baseZ[i]);
+    if (adaptive) {
+      const inserted = [];
+      refineAdaptiveLayerInterval(a, b, sample, adaptive, inserted, 0);
+      slices.push(...inserted);
+    }
+    slices.push(b);
+  }
+  return slices;
+}
+
+function baseLayerZs(height, layerHeight) {
+  const zValues = [0];
+  for (let z = layerHeight; z < height - EPS; z += layerHeight) zValues.push(round(z));
+  if (height > EPS && Math.abs(zValues[zValues.length - 1] - height) > EPS) zValues.push(round(height));
+  return zValues;
+}
+
+function refineAdaptiveLayerInterval(a, b, sample, options, out, depth) {
+  if (!needsAdaptiveLayer(a, b, options, depth)) return;
+  const midZ = round((a.zLocal + b.zLocal) / 2);
+  if (midZ - a.zLocal < options.minLayerHeight - EPS || b.zLocal - midZ < options.minLayerHeight - EPS) return;
+  const mid = sample(midZ);
+  refineAdaptiveLayerInterval(a, mid, sample, options, out, depth + 1);
+  out.push(mid);
+  refineAdaptiveLayerInterval(mid, b, sample, options, out, depth + 1);
+}
+
+function needsAdaptiveLayer(a, b, options, depth) {
+  const dz = b.zLocal - a.zLocal;
+  if (dz <= options.minLayerHeight + EPS) return false;
+  if (dz > options.maxLayerHeight + EPS) return depth < options.maxDepth;
+  if (depth >= options.maxDepth) return false;
+  if (Math.abs(a.pathCount - b.pathCount) >= 2) return true;
+  const lengthScale = Math.max(a.length, b.length, 1);
+  const pointScale = Math.max(a.pointCount, b.pointCount, 1);
+  return (
+    Math.abs(a.length - b.length) / lengthScale > options.maxLengthDelta ||
+    Math.abs(a.pointCount - b.pointCount) / pointScale > options.maxPointDelta
+  );
+}
+
+function layerSlice(zLocal, paths) {
+  return {
+    zLocal: round(zLocal),
+    paths,
+    pathCount: paths.length,
+    pointCount: paths.reduce((total, path) => total + path.points.length, 0),
+    length: paths.reduce((total, path) => total + pathLength(path.points), 0),
+  };
 }
 
 function rectanglePath(width, depth, inset) {

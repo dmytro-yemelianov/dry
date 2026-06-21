@@ -11,6 +11,7 @@ function assert(condition, message) {
 const blocksHtml = read('blocks.html');
 const templatesJs = read('templates.js');
 const patternsJs = read('patterns.js');
+const tpmsJs = read('tpms.js');
 const viewerJs = read('viewer.js');
 const indexHtml = read('index.html');
 const toolUiCss = read('tool-ui.css');
@@ -109,7 +110,19 @@ assert(toolUiCss.includes('grid-template-columns: var(--source-w) 7px'), 'resiza
 assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 'collapsed panels should hide body content');
 assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
 assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
+for (const id of [
+  'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
+  'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
+  'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
+]) {
+  assert(indexHtml.includes(`type="range" data-sync="${id}"`), `TPMS generator missing slider for ${id}`);
+}
 assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill perimeter toggle');
+assert(indexHtml.includes('id="tpmsAdaptive"'), 'TPMS generator missing adaptive slicing toggle');
+assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bead height should match layer height in the web app');
+assert(tpmsJs.includes('DEFAULT_LAYER_HEIGHT = 0.28'), 'TPMS generator should default to printable layer height');
+assert(tpmsJs.includes('buildLayerSlices'), 'TPMS generator missing adaptive layer slicing');
+assert(tpmsJs.includes('needsAdaptiveLayer'), 'TPMS generator missing bad-zone adaptivity heuristic');
 
 for (const unsupported of ['controls_whileUntil', 'controls_forEach', 'procedures_defnoreturn', 'procedures_defreturn']) {
   assert(!blocksHtml.includes(`<block type="${unsupported}"`), `unsupported ${unsupported} leaked into toolbox`);
@@ -125,6 +138,7 @@ for (const [name, source] of [
 
 const templatesModule = await import(`data:text/javascript;base64,${Buffer.from(templatesJs).toString('base64')}`);
 const patternsModule = await import(`data:text/javascript;base64,${Buffer.from(patternsJs).toString('base64')}`);
+const tpmsModule = await import(`data:text/javascript;base64,${Buffer.from(tpmsJs).toString('base64')}`);
 const fakeBlockly = {
   utils: { xml: { textToDom: (xml) => xml } },
   Xml: { domToWorkspace: (xml, workspace) => { workspace.xml = xml; } },
@@ -198,4 +212,18 @@ assert(vaseRawSteps === 960 && vaseSteps === 960, 'vaseHelixOps should emit 16 t
 assert(Math.max(...vaseZ) - Math.min(...vaseZ) === 48, 'vaseHelixOps should span 48 mm in Z');
 assert(Math.abs((vaseTotalAngle / (Math.PI * 2)) - 16) < 1e-9, 'vaseHelixOps should complete 16 turns');
 assert(Math.min(...vaseRadii) < 8.3 && Math.max(...vaseRadii) > 17, 'vaseHelixOps should retain the fluted belly profile');
+
+const printableTpms = tpmsModule.tpmsOps({ cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 6, samplesPerCell: 4, minPathLength: 0 });
+assert(printableTpms[0].op === 'geometry', 'TPMS generator should emit geometry first');
+assert(printableTpms[0].height === 0.28, 'TPMS default bead height should match printable layer height');
+const coarseTpms = tpmsModule.tpmsOps({
+  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10,
+  samplesPerCell: 8, layerHeight: 1.2, minPathLength: 0,
+});
+const adaptiveTpms = tpmsModule.tpmsOps({
+  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10,
+  samplesPerCell: 8, layerHeight: 1.2, minPathLength: 0,
+  adaptive: true, adaptiveMinLayerHeight: 0.15, adaptiveMaxLayerHeight: 0.3,
+});
+assert(adaptiveTpms.length > coarseTpms.length, 'adaptive TPMS slicing should insert extra printable layers');
 console.log(`Blockly regression checks passed (${templateCount} templates)`);
