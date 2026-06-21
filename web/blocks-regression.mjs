@@ -87,8 +87,9 @@ for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
 
   if (key === 'twisted_vase') {
     assert(template.label === 'Twisted vase (continuous vase mode)', 'twisted_vase label should describe continuous vase mode');
-    assert(workspace.xml.includes('<field name="N">960</field>'), 'twisted_vase should use 40 turns with 24 samples per turn');
-    assert(workspace.xml.includes('<field name="NUM">16</field>'), 'twisted_vase should rise over a vase-height Z span');
+    assert(workspace.xml.includes('<field name="N">960</field>'), 'twisted_vase should use 16 turns with 60 samples per turn');
+    assert(workspace.xml.includes('<field name="NUM">48</field>'), 'twisted_vase should rise over a tall vase-height Z span');
+    assert(!workspace.xml.includes('<field name="NUM">16</field>'), 'twisted_vase should not regress to the short ring-like vase span');
     assert(countMatches(workspace.xml, /<field name="OP">DIVIDE<\/field>/g) >= 5, 'twisted_vase should scale height/profile/twist by i / step count');
     assert(countMatches(workspace.xml, /<field name="OP">SIN<\/field>/g) >= 2, 'twisted_vase should include a body profile, not just a coil');
     assert(countMatches(workspace.xml, /<field name="OP">COS<\/field>/g) >= 3, 'twisted_vase should include radial flutes plus polar projection');

@@ -74,8 +74,8 @@ clears the workspace and loads that starter design's blocks, and the preview upd
 gallery — *square*, *regular polygon* (`dry_for` + cos/sin of `i`), *star*, *rounded square* (lines +
 arcs), *S-curve* (native spline), *spiral* (radius grows with `i`), a perimeter + *zig-zag infill panel*,
 a *layered tower* with travels to each layer start, and a *twisted vase* built as a 960-segment
-continuous vase-mode spiral over 40 shallow turns and a 16 mm Z span. Each resolves to finite,
-non-empty g-code.
+continuous vase-mode spiral over 16 turns and a 48 mm Z span. Each resolves to finite, non-empty
+g-code.
 
 Thumbnails for both libraries are generated **at runtime** by `web/thumb.js` (`thumbnail(ops, wasm,
 params, size)`): it resolves the ops to IR and draws a tiny top-down 2D sketch (extrude blue / travel

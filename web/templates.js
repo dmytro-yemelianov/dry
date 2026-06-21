@@ -166,28 +166,28 @@ const zigzagXml = program(
   forI(N_ZIG_SEGMENTS, chain(move(zigX(), zigY(), num(0.2)))),
 );
 
-// 7. Twisted vase — continuous vase-mode spiral with a belly, narrow rim, and twisted flutes.
-const VASE_TURNS = 40;
-const VASE_STEPS_PER_TURN = 24;
+// 7. Twisted vase — continuous vase-mode spiral with a tall belly, neck, lip, and soft twist.
+const VASE_TURNS = 16;
+const VASE_STEPS_PER_TURN = 60;
 const VASE_N = VASE_TURNS * VASE_STEPS_PER_TURN;
-const VASE_LOBES = 6;
-const VASE_TWIST = 1.25;
+const VASE_LOBES = 8;
+const VASE_TWIST = 0.75;
 const vaseF = () => div(idx1(), num(VASE_N));
 const vaseAngle = () => mul(idx1(), num(TAU / VASE_STEPS_PER_TURN));
 const vaseTwist = () => mul(num(TAU * VASE_TWIST), vaseF());
 const vaseProfile = () => add(
-  add(num(11.2), mul(num(3.2), sin(mul(pi(), vaseF())))),
-  mul(num(-1.4), vaseF()),
+  add(num(8.5), mul(num(6.5), sin(mul(pi(), vaseF())))),
+  mul(num(3), sin(mul(num(TAU), vaseF()))),
 );
 const vaseFlute = () => add(
   num(1),
-  mul(num(0.08), cos(mul(num(VASE_LOBES), add(vaseAngle(), mul(num(-1), vaseTwist()))))),
+  mul(num(0.035), cos(mul(num(VASE_LOBES), add(vaseAngle(), mul(num(-1), vaseTwist()))))),
 );
 const vaseR = () => mul(vaseProfile(), vaseFlute());
-const vaseZ = () => add(num(0.2), mul(num(16), vaseF()));
+const vaseZ = () => add(num(0.2), mul(num(48), vaseF()));
 const twistedVaseXml = program(
   geometry(0.6, 0.2), temperature(210), extruder(false),
-  move(num(62.1), num(50), num(0.2)), extruder(true),
+  move(num(58.8), num(50), num(0.2)), extruder(true),
   forI(VASE_N, chain(
     move(
       add(num(50), mul(vaseR(), cos(vaseAngle()))),
