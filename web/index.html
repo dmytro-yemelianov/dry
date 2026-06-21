@@ -128,13 +128,19 @@
       <h2>Source</h2>
       <button type="button" class="panel-toggle" data-panel-toggle="source" aria-expanded="true">Hide</button>
     </div>
-    <select id="source" aria-label="Design source">
+    <div id="sourceCards" class="source-cards" aria-label="Design source gallery"></div>
+    <select id="source" class="source-select-fallback" aria-label="Design source" aria-hidden="true" tabindex="-1">
       <option value="gallery">Gallery design</option>
       <option value="lattice">Printable star lattice</option>
       <option value="tpms">TPMS infill volume</option>
     </select>
+    <div class="profile-panel">
+      <label class="select-field" title="Printer profile used by the resolver defaults and verifier presets."><span class="param-name">printer</span><select id="printerProfile" aria-label="Printer profile"></select></label>
+      <div id="printerProfileMeta" class="profile-meta" aria-live="polite"></div>
+    </div>
     <div id="galleryPanel" class="source-panel">
-      <select id="design" aria-label="Gallery design"></select>
+      <div id="designCards" class="design-cards" aria-label="Gallery designs"></div>
+      <select id="design" class="design-select-fallback" aria-label="Gallery design" aria-hidden="true" tabindex="-1"></select>
       <div id="galleryParams" class="control-grid gallery-params"></div>
     </div>
     <div id="latticePanel" class="source-panel" hidden>
@@ -220,6 +226,34 @@
     </div>
     <div id="sourceError" class="error" role="alert" hidden></div>
     <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
+
+    <h2 class="section-title">Export</h2>
+    <div class="export-panel">
+      <label class="select-field" title="Export the active resolved design as motion G-code, wrapped G-code, Dry L1 JSON, metrics, or a FullControl-compatible Python step list."><span class="param-name">format</span><select id="exportFormat" aria-label="Export format">
+        <option value="gcode">motion G-code</option>
+        <option value="gcode-macros">G-code + selected macros</option>
+        <option value="dry-json">Dry L1 JSON</option>
+        <option value="metrics-json">metrics JSON</option>
+        <option value="fullcontrol-py">FullControl Python</option>
+      </select></label>
+      <div class="export-actions">
+        <button type="button" id="exportCopy">Copy</button>
+        <button type="button" id="exportDownload">Download</button>
+        <span id="exportStatus" class="export-status" aria-live="polite"></span>
+      </div>
+      <div class="macro-grid" aria-label="Optional G-code macros">
+        <label title="Add comments and unit/positioning mode commands before the motion G-code."><input type="checkbox" id="macroHeader" checked /> header</label>
+        <label title="Wait for bed and nozzle temperature using M140/M104/M190/M109."><input type="checkbox" id="macroHeat" /> heat</label>
+        <label title="Home the printer with G28 before printing."><input type="checkbox" id="macroHome" /> home</label>
+        <label title="Prime with a bed-edge purge line and reset E before the generated motion."><input type="checkbox" id="macroPrimeLine" /> prime line</label>
+        <label title="Prime a small blob at the current start area and reset E."><input type="checkbox" id="macroPrimeBlob" /> prime blob</label>
+        <label title="Park/present the toolhead after the generated motion."><input type="checkbox" id="macroPresent" /> present</label>
+        <label title="Turn heaters and fan off after the generated motion."><input type="checkbox" id="macroCooldown" /> cooldown</label>
+        <label title="Disable steppers after the generated motion."><input type="checkbox" id="macroMotorsOff" /> motors off</label>
+        <label class="macro-number" title="Nozzle temperature used by the optional heat macro.">nozzle <input type="number" id="macroNozzle" value="210" min="0" max="320" step="1" /></label>
+        <label class="macro-number" title="Bed temperature used by the optional heat macro.">bed <input type="number" id="macroBed" value="60" min="0" max="140" step="1" /></label>
+      </div>
+    </div>
     <h2 class="section-title">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
 
@@ -298,6 +332,70 @@ import { createViewer } from './viewer.js';
 import { thumbnail } from './thumb.js';
 
 const $ = (id) => document.getElementById(id);
+const PRINTER_PROFILES = {
+  generic: {
+    label: 'Generic FFF',
+    description: 'Conservative motion defaults for a generic 1.75 mm FFF printer.',
+    params: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
+    verify: { maxFlow: 8, minTemp: 180, bounds: '', speedRange: '', monotonicZ: false },
+    temperatures: { nozzle: 210, bed: 60 },
+    park: { x: 0, y: 180, zLift: 10 },
+  },
+  pla_bedslinger_220: {
+    label: 'PLA bed slinger 220',
+    description: 'PLA-oriented profile for a 220 mm Cartesian bed.',
+    params: { print_speed: 1800, travel_speed: 9000, dia: 1.75 },
+    verify: { maxFlow: 12, minTemp: 185, bounds: '0,220,0,220,0,250', speedRange: '60,9000', monotonicZ: false },
+    temperatures: { nozzle: 205, bed: 60 },
+    park: { x: 0, y: 210, zLift: 10 },
+  },
+  petg_conservative: {
+    label: 'PETG conservative',
+    description: 'Lower-flow PETG baseline with hotter extrusion checks.',
+    params: { print_speed: 1500, travel_speed: 8000, dia: 1.75 },
+    verify: { maxFlow: 8, minTemp: 220, bounds: '0,220,0,220,0,250', speedRange: '60,8000', monotonicZ: false },
+    temperatures: { nozzle: 235, bed: 80 },
+    park: { x: 0, y: 210, zLift: 10 },
+  },
+  fast_corexy_250: {
+    label: 'Fast CoreXY 250',
+    description: 'Higher-flow CoreXY-style preset for fast PLA exploration.',
+    params: { print_speed: 4200, travel_speed: 18000, dia: 1.75 },
+    verify: { maxFlow: 24, minTemp: 190, bounds: '0,250,0,250,0,250', speedRange: '60,18000', monotonicZ: false },
+    temperatures: { nozzle: 215, bed: 60 },
+    park: { x: 125, y: 245, zLift: 15 },
+  },
+};
+const SOURCE_DEFS = [
+  {
+    key: 'gallery',
+    label: 'Gallery',
+    description: 'Authored parametric examples from the design table.',
+    tags: ['DESIGNS', 'controls'],
+    ops: () => DESIGNS.star?.ops || [],
+  },
+  {
+    key: 'lattice',
+    label: 'Star lattice',
+    description: 'Research lattice generator with printable star-polygon families.',
+    tags: ['lattice', 'research'],
+    ops: () => starPolygonLatticeOps({
+      family: 'M4', alphaDeg: 45, cols: 5, rows: 2, segLength: 4.33,
+      layers: 1, layerHeight: 0.2, beadWidth: 0.5, beadHeight: 0.2, completeWidth: true,
+    }),
+  },
+  {
+    key: 'tpms',
+    label: 'TPMS',
+    description: 'Implicit infill contours with safe G2/G3 arc fitting.',
+    tags: ['TPMS', 'G2/G3'],
+    ops: () => tpmsOps({
+      surface: 'gyroid', pathMode: 'safe-arcs', cellSize: 18, cellsX: 1, cellsY: 1, cellsZ: 1,
+      samplesPerCell: 12, layerHeight: 0.28, beadWidth: 0.45, beadHeight: 0.28,
+      printSpeed: 1200, perimeter: true, maxFieldSamples: 1_000_000,
+    }),
+  },
+];
 
 (async () => {
   await init();
@@ -309,6 +407,7 @@ const $ = (id) => document.getElementById(id);
     renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
+    getParams: currentResolveParams,
     getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
     getMinTemp: () => parseFloat($('minTemp').value) || 0,
     getBounds: () => $('bounds').value,
@@ -350,6 +449,49 @@ const $ = (id) => document.getElementById(id);
     return Number.isFinite(value) ? value : fallback;
   };
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  let LAST_EXPORT = null;
+
+  function selectedPrinterProfile() {
+    return PRINTER_PROFILES[$('printerProfile')?.value] || PRINTER_PROFILES.generic;
+  }
+
+  function currentResolveParams() {
+    return { ...RESOLVE_PARAMS, ...(selectedPrinterProfile().params || {}) };
+  }
+
+  function populatePrinterProfiles() {
+    const select = $('printerProfile');
+    select.replaceChildren();
+    for (const [key, profile] of Object.entries(PRINTER_PROFILES)) {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = profile.label;
+      select.appendChild(option);
+    }
+    select.value = 'generic';
+  }
+
+  function renderPrinterProfileMeta() {
+    const profile = selectedPrinterProfile();
+    const params = currentResolveParams();
+    $('printerProfileMeta').textContent =
+      `${profile.description} print ${params.print_speed} mm/min · travel ${params.travel_speed} mm/min · filament ${params.dia} mm`;
+  }
+
+  function applyPrinterProfile(render = true) {
+    const profile = selectedPrinterProfile();
+    const verify = profile.verify || {};
+    $('maxFlow').value = String(verify.maxFlow ?? 0);
+    $('minTemp').value = String(verify.minTemp ?? 0);
+    $('bounds').value = verify.bounds || '';
+    $('speedRange').value = verify.speedRange || '';
+    $('monotonicZ').checked = Boolean(verify.monotonicZ);
+    $('macroNozzle').value = String(profile.temperatures?.nozzle ?? 210);
+    $('macroBed').value = String(profile.temperatures?.bed ?? 60);
+    renderPrinterProfileMeta();
+    if (render) go();
+  }
+
   const CONTROL_GROUPS = {
     lattice: [
       'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
@@ -925,6 +1067,113 @@ const $ = (id) => document.getElementById(id);
 
   // render the current design's tags as chips + a top-down thumbnail
   const thumbWasm = { resolve_ir };
+  function cardThumbnail(ops, size) {
+    try {
+      return thumbnail(ops, thumbWasm, currentResolveParams(), size);
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function fillCardThumbnail(img, opsOrFactory, size, delay = 0) {
+    window.setTimeout(() => {
+      if (!img.isConnected) return;
+      const ops = typeof opsOrFactory === 'function' ? opsOrFactory() : opsOrFactory;
+      const src = cardThumbnail(ops || [], size);
+      if (src) img.src = src;
+    }, delay);
+  }
+
+  function setCardSelected(container, selector, key) {
+    for (const button of container.querySelectorAll(selector)) {
+      button.classList.toggle('is-selected', button.dataset.key === key);
+      button.setAttribute('aria-pressed', String(button.dataset.key === key));
+    }
+  }
+
+  function renderSourceCardSelection() {
+    const container = $('sourceCards');
+    if (container) setCardSelected(container, '.source-card', $('source').value);
+  }
+
+  function renderDesignCardSelection() {
+    const container = $('designCards');
+    if (container) setCardSelected(container, '.design-card', sel.value);
+  }
+
+  function renderSourceCards() {
+    const container = $('sourceCards');
+    container.replaceChildren();
+    for (const source of SOURCE_DEFS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'source-card';
+      button.dataset.key = source.key;
+      button.title = source.description;
+      const img = document.createElement('img');
+      img.alt = '';
+      img.width = 72;
+      img.height = 56;
+      fillCardThumbnail(img, source.ops, 72);
+      const body = document.createElement('span');
+      body.className = 'source-card-body';
+      const title = document.createElement('span');
+      title.className = 'source-card-title';
+      title.textContent = source.label;
+      const desc = document.createElement('span');
+      desc.className = 'source-card-desc';
+      desc.textContent = source.tags.join(' · ');
+      body.append(title, desc);
+      button.append(img, body);
+      button.addEventListener('click', () => {
+        $('source').value = source.key;
+        renderSourceCardSelection();
+        go();
+      });
+      container.appendChild(button);
+    }
+    renderSourceCardSelection();
+  }
+
+  function renderDesignCards() {
+    const container = $('designCards');
+    container.replaceChildren();
+    const groups = {};
+    for (const [key, design] of Object.entries(DESIGNS)) (groups[design.group || 'Other'] ||= []).push([key, design]);
+    let thumbDelay = 0;
+    for (const [group, items] of Object.entries(groups)) {
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'design-card-group';
+      groupLabel.textContent = group;
+      container.appendChild(groupLabel);
+      for (const [key, design] of items) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'design-card';
+        button.dataset.key = key;
+        button.title = design.label;
+        const img = document.createElement('img');
+        img.alt = '';
+        img.width = 64;
+        img.height = 48;
+        img.loading = 'lazy';
+        fillCardThumbnail(img, design.ops, 64, thumbDelay);
+        thumbDelay += group === 'TPMS' ? 45 : 14;
+        const label = document.createElement('span');
+        label.textContent = design.label;
+        button.append(img, label);
+        button.addEventListener('click', () => {
+          sel.value = key;
+          renderGalleryParams();
+          renderDesignCardSelection();
+          go();
+        });
+        container.appendChild(button);
+      }
+    }
+    renderDesignCardSelection();
+  }
+
   const renderMeta = (d) => {
     $('designTitle').textContent = d.label || 'Generated design';
     const tags = $('designTags');
@@ -935,8 +1184,234 @@ const $ = (id) => document.getElementById(id);
       chip.textContent = t;
       tags.appendChild(chip);
     }
-    $('designThumb').src = thumbnail(d.ops, thumbWasm, RESOLVE_PARAMS, 84);
+    $('designThumb').src = thumbnail(d.ops, thumbWasm, currentResolveParams(), 84);
   };
+
+  function selectedPrinterKey() {
+    return $('printerProfile')?.value || 'generic';
+  }
+
+  function ensureGcodeLines(result = LAST_EXPORT?.result) {
+    const lines = result?.gcode || [];
+    return Array.isArray(lines) ? lines.map(String) : String(lines || '').split(/\r?\n/).filter(Boolean);
+  }
+
+  function formatGcodeNumber(value, digits = 3) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '0';
+    return Number.parseFloat(number.toFixed(digits)).toString();
+  }
+
+  function macroPrefixLines() {
+    const profile = selectedPrinterProfile();
+    const params = currentResolveParams();
+    const relativeE = $('relE').checked;
+    const nozzle = numValue('macroNozzle', profile.temperatures?.nozzle ?? 210);
+    const bed = numValue('macroBed', profile.temperatures?.bed ?? 60);
+    const lines = [];
+    if ($('macroHeader').checked) {
+      lines.push(
+        `; Dry export: ${LAST_EXPORT?.design?.label || 'generated design'}`,
+        `; Printer profile: ${profile.label}`,
+        'G21 ; millimeters',
+        'G90 ; absolute XYZ',
+        relativeE ? 'M83 ; relative extrusion' : 'M82 ; absolute extrusion',
+      );
+    }
+    if ($('macroHeat').checked) {
+      if (bed > 0) lines.push(`M140 S${formatGcodeNumber(bed, 0)} ; set bed temperature`);
+      if (nozzle > 0) lines.push(`M104 S${formatGcodeNumber(nozzle, 0)} ; set nozzle temperature`);
+      if (bed > 0) lines.push(`M190 S${formatGcodeNumber(bed, 0)} ; wait for bed`);
+      if (nozzle > 0) lines.push(`M109 S${formatGcodeNumber(nozzle, 0)} ; wait for nozzle`);
+    }
+    if ($('macroHome').checked) lines.push('G28 ; home axes');
+    if ($('macroPrimeLine').checked) {
+      lines.push(
+        '; prime line',
+        'M83 ; temporary relative extrusion for primer',
+        'G92 E0',
+        `G0 X5 Y5 Z0.28 F${formatGcodeNumber(params.travel_speed, 0)}`,
+        'G1 X65 Y5 E6 F600',
+        'G1 X110 Y5 E4 F600',
+        'G92 E0',
+      );
+      if (!relativeE) lines.push('M82 ; restore absolute extrusion');
+    }
+    if ($('macroPrimeBlob').checked) {
+      lines.push(
+        '; prime blob',
+        'M83 ; temporary relative extrusion for primer',
+        'G92 E0',
+        'G1 E5 F300',
+        'G4 S1',
+        'G1 E-0.8 F1800',
+        'G92 E0',
+      );
+      if (!relativeE) lines.push('M82 ; restore absolute extrusion');
+    }
+    return lines;
+  }
+
+  function macroSuffixLines() {
+    const profile = selectedPrinterProfile();
+    const params = currentResolveParams();
+    const park = profile.park || {};
+    const lines = [];
+    if ($('macroPresent').checked) {
+      lines.push(
+        '; present print',
+        'G91',
+        `G0 Z${formatGcodeNumber(park.zLift ?? 10, 2)} F1200`,
+        'G90',
+        `G0 X${formatGcodeNumber(park.x ?? 0, 2)} Y${formatGcodeNumber(park.y ?? 180, 2)} F${formatGcodeNumber(params.travel_speed, 0)}`,
+      );
+    }
+    if ($('macroCooldown').checked) lines.push('M104 S0', 'M140 S0', 'M106 S0');
+    if ($('macroMotorsOff').checked) lines.push('M84');
+    return lines;
+  }
+
+  function gcodeWithSelectedMacros() {
+    return [...macroPrefixLines(), ...ensureGcodeLines(), ...macroSuffixLines()];
+  }
+
+  function pyNumber(value) {
+    if (value == null) return 'None';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'None';
+    return String(Number.parseFloat(number.toPrecision(12)));
+  }
+
+  function fcPointExpr(fields) {
+    const entries = [];
+    for (const key of ['x', 'y', 'z']) {
+      if (fields[key] != null) entries.push(`${key}=${pyNumber(fields[key])}`);
+    }
+    return `fc.Point(${entries.join(', ')})`;
+  }
+
+  function fullControlPython(ops) {
+    const profile = selectedPrinterProfile();
+    const lines = [
+      'import fullcontrol as fc',
+      '',
+      '# Generated by Dry from L1 ops.',
+      '# Requires FullControl. Dry-only operations are preserved below as comments.',
+      `# Design: ${LAST_EXPORT?.design?.label || 'generated design'}`,
+      `# Printer profile: ${profile.label}`,
+      '',
+      'steps = []',
+    ];
+    ops.forEach((op, index) => {
+      if (!op || typeof op !== 'object') {
+        lines.push(`# Unsupported literal op ${index}: ${JSON.stringify(op)}`);
+        return;
+      }
+      if (op.op === 'geometry') {
+        lines.push(`steps.append(fc.ExtrusionGeometry(width=${pyNumber(op.width)}, height=${pyNumber(op.height)}))`);
+      } else if (op.op === 'extruder') {
+        lines.push(`steps.append(fc.Extruder(on=${op.on ? 'True' : 'False'}))`);
+      } else if (op.op === 'speed') {
+        if (op.print != null) lines.push(`steps.append(fc.Printer(print_speed=${pyNumber(op.print)}))`);
+        else lines.push(`# Dry speed op ${index}: ${JSON.stringify(op)}`);
+      } else if (op.op === 'move') {
+        lines.push(`steps.append(${fcPointExpr(op)}))`);
+      } else if (op.op === 'arc') {
+        const direction = op.clockwise ? 'clockwise' : 'anticlockwise';
+        lines.push(`steps.append(fc.Arc(centre=${fcPointExpr({ x: op.cx, y: op.cy })}, end=${fcPointExpr(op)}, direction='${direction}'))`);
+      } else {
+        lines.push(`# Dry-only op ${index}: ${JSON.stringify(op)}`);
+      }
+    });
+    lines.push('', '# Pass `steps` into your FullControl workflow, for example transform/preview/export.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  function exportPayload() {
+    const design = LAST_EXPORT?.design || {};
+    return {
+      version: 1,
+      source: $('source').value,
+      design: { label: design.label, group: design.group, tags: design.tags || [] },
+      printer: {
+        key: selectedPrinterKey(),
+        label: selectedPrinterProfile().label,
+        resolveParams: currentResolveParams(),
+      },
+      relativeE: $('relE').checked,
+      ops: LAST_EXPORT?.ops || [],
+    };
+  }
+
+  function buildExportText() {
+    if (!LAST_EXPORT) return '';
+    const format = $('exportFormat').value;
+    if (format === 'gcode') return `${ensureGcodeLines().join('\n')}\n`;
+    if (format === 'gcode-macros') return `${gcodeWithSelectedMacros().join('\n')}\n`;
+    if (format === 'dry-json') return `${JSON.stringify(exportPayload(), null, 2)}\n`;
+    if (format === 'metrics-json') return `${JSON.stringify(LAST_EXPORT.result?.metrics || {}, null, 2)}\n`;
+    if (format === 'fullcontrol-py') return fullControlPython(LAST_EXPORT.ops || []);
+    return '';
+  }
+
+  function exportExtension() {
+    const format = $('exportFormat').value;
+    if (format === 'dry-json' || format === 'metrics-json') return 'json';
+    if (format === 'fullcontrol-py') return 'py';
+    return 'gcode';
+  }
+
+  function exportFilename() {
+    const label = LAST_EXPORT?.design?.label || 'dry-export';
+    const safe = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'dry-export';
+    return `${safe}.${exportExtension()}`;
+  }
+
+  function updateExportStatus(message = '') {
+    const status = $('exportStatus');
+    if (!status) return;
+    if (message) {
+      status.textContent = message;
+      return;
+    }
+    const lines = ensureGcodeLines();
+    status.textContent = LAST_EXPORT ? `${lines.length.toLocaleString()} motion lines ready` : 'no export yet';
+  }
+
+  async function copyExport() {
+    const text = buildExportText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      updateExportStatus('copied');
+    } catch (_error) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+      updateExportStatus('copied');
+    }
+  }
+
+  function downloadExport() {
+    const text = buildExportText();
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = exportFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    updateExportStatus('downloaded');
+  }
 
   function showError(error) {
     $('sourceError').hidden = false;
@@ -959,10 +1434,16 @@ const $ = (id) => document.getElementById(id);
       $('sourceError').hidden = true;
       window.__activeDesign = { label: d.label, group: d.group, tags: d.tags, ops: d.ops.length };
       renderMeta(d);
-      viewer.show(d.ops, $('relE').checked);
+      const result = viewer.show(d.ops, $('relE').checked);
+      LAST_EXPORT = { design: d, ops: d.ops, result, params: currentResolveParams(), relativeE: $('relE').checked };
+      renderSourceCardSelection();
+      renderDesignCardSelection();
+      updateExportStatus();
       updateDefaultResetState();
     } catch (error) {
+      LAST_EXPORT = null;
       showError(error);
+      updateExportStatus();
       updateDefaultResetState();
     }
   };
@@ -978,10 +1459,12 @@ const $ = (id) => document.getElementById(id);
     if (id === 'design') {
       el.addEventListener('input', () => {
         renderGalleryParams();
+        renderDesignCardSelection();
         go();
       });
       el.addEventListener('change', () => {
         renderGalleryParams();
+        renderDesignCardSelection();
         go();
       });
       continue;
@@ -990,6 +1473,22 @@ const $ = (id) => document.getElementById(id);
     el.addEventListener('change', go);
   }
 
+  $('printerProfile').addEventListener('change', () => applyPrinterProfile(true));
+  $('exportCopy').addEventListener('click', copyExport);
+  $('exportDownload').addEventListener('click', downloadExport);
+  for (const id of [
+    'exportFormat', 'macroHeader', 'macroHeat', 'macroHome', 'macroPrimeLine', 'macroPrimeBlob',
+    'macroPresent', 'macroCooldown', 'macroMotorsOff', 'macroNozzle', 'macroBed',
+  ]) {
+    const el = $(id);
+    el.addEventListener('input', () => updateExportStatus());
+    el.addEventListener('change', () => updateExportStatus());
+  }
+
+  populatePrinterProfiles();
+  applyPrinterProfile(false);
+  renderSourceCards();
+  renderDesignCards();
   renderGalleryParams();
   bindRangeControls();
   setupDefaultResets();

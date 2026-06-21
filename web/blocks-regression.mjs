@@ -130,10 +130,29 @@ assert(toolUiCss.includes('.finding-count'), 'shared UI stylesheet should style 
 assert(toolUiCss.includes('.finding-samples'), 'shared UI stylesheet should style grouped verifier examples');
 assert(toolUiCss.includes('grid-template-columns: minmax(8ch, 1fr) minmax(8ch, auto) minmax(5ch, auto)'), 'metrics should use title/value/UOM columns');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
+assert(indexHtml.includes('id="sourceCards"'), 'web app missing thumbnail source cards');
+assert(indexHtml.includes('SOURCE_DEFS'), 'source cards should be generated from source metadata');
+assert(indexHtml.includes('renderSourceCards()'), 'web app should render source cards dynamically');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
 assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
 assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
+assert(indexHtml.includes('id="printerProfile"'), 'web app missing printer selector');
+assert(indexHtml.includes('PRINTER_PROFILES'), 'printer selector should be generated from profile metadata');
+assert(indexHtml.includes('currentResolveParams()'), 'web app should resolve with the selected printer profile');
+assert(viewerJs.includes('getParams = () => params'), 'viewer should accept dynamic resolve parameter getter');
+assert(viewerJs.includes('activeParams = getParams() || params'), 'viewer should resolve with current params');
+assert(viewerJs.includes('params: activeParams'), 'viewer debug/export state should expose current params');
+assert(indexHtml.includes('id="exportFormat"'), 'web app missing export format selector');
+assert(indexHtml.includes('buildExportText()'), 'web app missing export text builder');
+assert(indexHtml.includes('fullControlPython'), 'web app missing FullControl export builder');
+assert(indexHtml.includes('macroPrefixLines'), 'web app missing start macro export builder');
+assert(indexHtml.includes('macroSuffixLines'), 'web app missing finish macro export builder');
+for (const id of ['macroHeader', 'macroHeat', 'macroHome', 'macroPrimeLine', 'macroPrimeBlob', 'macroPresent', 'macroCooldown', 'macroMotorsOff']) {
+  assert(indexHtml.includes(`id="${id}"`), `web app missing optional macro ${id}`);
+}
+assert(indexHtml.includes('id="designCards"'), 'gallery source missing thumbnail design cards');
+assert(indexHtml.includes('renderDesignCards()'), 'gallery design cards should be generated dynamically');
 assert(indexHtml.includes('id="galleryParams"'), 'gallery source missing generated parameter panel');
 assert(indexHtml.includes('renderGalleryParams()'), 'gallery source missing data-driven parameter renderer');
 assert(indexHtml.includes('galleryParamValues(design)'), 'gallery source should read generated parameter values');
@@ -152,6 +171,10 @@ assert(indexHtml.includes('class="param-unit"'), 'generator controls should expo
 assert(indexHtml.includes('<span class="param-unit">[deg]</span>'), 'generator controls should display bracketed angle units');
 assert(indexHtml.includes('<span class="param-unit">[1]</span>'), 'generator controls should display bracketed dimensionless units');
 assert(toolUiCss.includes('.select-field'), 'shared UI stylesheet should compact select controls');
+assert(toolUiCss.includes('.source-card'), 'shared UI stylesheet should style source cards');
+assert(toolUiCss.includes('.design-card'), 'shared UI stylesheet should style design cards');
+assert(toolUiCss.includes('.export-panel'), 'shared UI stylesheet should style export panel');
+assert(toolUiCss.includes('.macro-grid'), 'shared UI stylesheet should style optional macros');
 for (const id of [
   'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
   'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed',

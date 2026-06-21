@@ -23,16 +23,28 @@ Each line is also **explained** — hover (or the active line) shows the command
 and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` arc-centre offset,
 `A`/`B`/`C` rotary) with its meaning, units and value.
 
-The left panel has a **Source** selector. `Gallery design` loads fixed examples; `Printable star lattice`
-generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process controls
-using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field contour
-infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls. TPMS
-generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native circular
-arcs only when they stay inside tolerance, otherwise they remain `G1` moves. The `linear G1` mode keeps
-the original fully segmented output, and Marlin `G5` splines stay a future dialect-specific emitter
-target rather than a default TPMS representation. A browser-side resolution budget keeps oversized
-settings failing fast with an error instead of running a huge marching-squares job. All three sources
-feed the same viewer, g-code, metrics, optimize and verify panels.
+The left panel has a **thumbnail Source gallery**. `Gallery design` loads authored examples; `Printable
+star lattice` generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process
+controls using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field
+contour infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls.
+TPMS generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native
+circular arcs only when they stay inside tolerance, otherwise they remain `G1` moves. The `linear G1`
+mode keeps the original fully segmented output, and Marlin `G5` splines stay a future dialect-specific
+emitter target rather than a default TPMS representation. A browser-side resolution budget keeps
+oversized settings failing fast with an error instead of running a huge marching-squares job. All three
+sources feed the same viewer, g-code, metrics, optimize and verify panels.
+
+A **Printer** selector applies profile metadata to the resolver defaults (`print_speed`,
+`travel_speed`, filament diameter), verifier presets (flow, temperature, bounds, speed range), and
+macro temperatures/park positions. The profiles are generic browser presets rather than machine-vendor
+certification; the generated G-code should still be reviewed against the real printer/firmware setup.
+
+The same resolved result can be **exported** from the browser as motion G-code, G-code wrapped with
+optional start/finish macros (header, heat, home, prime line/blob, present, cooldown, motors off), Dry L1
+JSON, metrics JSON, or a clean-room FullControl-compatible Python step list. FullControl export maps the
+Dry primitives that have stable authored equivalents in this repo (`ExtrusionGeometry`, `Extruder`,
+`Printer`, `Point`, `Arc`) and leaves Dry-only operations as comments instead of inventing unsupported
+API calls.
 
 The shared viewer has pill toggles for printed, planned, travel, single-layer travel, toolhead and bed
 geometry, plus quality modes: `auto`, `fast lines`, `bead`, and `realistic bead`. `auto` uses bead geometry
@@ -50,12 +62,12 @@ arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels bet
 generated from the star-polygon families in `lattice-research.js`, and TPMS contour examples generated
 from implicit fields in `tpms.js` with safe G2/G3 arc fitting enabled by default.
 
-The design picker is **grouped** (one `<optgroup>` per group — *Basics*, *Curves*, *Infill &
-multi-layer*, *Vases & non-planar*, *Research lattices*, *TPMS*) and the current design's **tags** (e.g. `arc`, `multi-layer`,
-`non-planar`, `3D`, `parametric`, `fractal`) show as chips beside a small **top-down thumbnail**.
-Each `DESIGNS[key]` is data-driven: `{ label, group, tags, params, defaults, build, ops }`. The gallery
-renders controls from `params`, calls `build(values)` for live previews, and keeps default `ops` for
-thumbnails and existing callers.
+The design picker is a **grouped thumbnail card gallery** with the old `<select>` retained as an
+accessible/state fallback. The current design's **tags** (e.g. `arc`, `multi-layer`, `non-planar`, `3D`,
+`parametric`, `fractal`) show as chips beside a small **top-down thumbnail**. Each `DESIGNS[key]` is
+data-driven: `{ label, group, tags, params, defaults, build, ops }`. The gallery renders controls from
+`params`, calls `build(values)` for live previews, and keeps default `ops` for thumbnails and existing
+callers.
 
 ## Author your own — `blocks.html` (Blockly)
 
@@ -147,7 +159,7 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
-| `index.html` | the gallery — design picker, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
+| `index.html` | the gallery — source/design thumbnail cards, printer profiles, export/macros, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
 | `blocks.html`| **Blockly visual authoring** — drag blocks to build an L1 design; live 3D + g-code preview via `viewer.js` |
 | `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |

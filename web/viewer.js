@@ -423,6 +423,7 @@ export function createViewer(cfg) {
   const {
     viewportEl, gcodeEl, explainEl, metricsEl, optimizeEl, verifyEl, gcodeMetaEl,
     gcodeToolsEl, playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, viewModeEl, wasm, params,
+    getParams = () => params,
     getMaxFlow = () => 0, getMinTemp = () => 0,
   } = cfg;
 
@@ -1326,7 +1327,8 @@ export function createViewer(cfg) {
   // ---- resolve an ops array + render every panel ----
   function show(ops, relativeE = true) {
     const profile = { ops: ops.length };
-    const opsJson = JSON.stringify(ops), paramsJson = JSON.stringify(params);
+    const activeParams = getParams() || params;
+    const opsJson = JSON.stringify(ops), paramsJson = JSON.stringify(activeParams);
     const gcode = measure(profile, 'resolveGcodeMs', () => wasm.resolve_gcode(opsJson, paramsJson, relativeE, false, false, 'ab'));
     const m = measure(profile, 'resolveMetricsMs', () => JSON.parse(wasm.resolve_metrics(opsJson, paramsJson)));
     const ir = measure(profile, 'resolveIrMs', () => JSON.parse(wasm.resolve_ir(opsJson, paramsJson)));
@@ -1393,7 +1395,7 @@ export function createViewer(cfg) {
       }
     }
 
-    window.__dry = { gcode, metrics: m, ir, optimizedIr,
+    window.__dry = { gcode, metrics: m, ir, optimizedIr, params: activeParams,
                      rawSegments: ir.segments.length, optimizedSegments: optimizedIr.segments.length, report };
     window.__dryProfile = { ...(V.renderStats || {}), ...profile };
     V.showProfile = window.__dryProfile;
