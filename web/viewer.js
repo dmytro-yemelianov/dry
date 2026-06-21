@@ -23,6 +23,11 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const TAU = Math.PI * 2;
 const SPLINE_SAMPLES = 16;
 const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
+const VIEW_PRESETS = [
+  { key: 'iso', label: 'Iso', title: 'Isometric view' },
+  { key: 'top', label: 'Top', title: 'Top XY view' },
+  { key: 'side', label: 'Side', title: 'Side XZ profile view' },
+];
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
 const cleanClass = (v) => String(v || '').replace(/[^a-z0-9_-]/gi, '');
 
@@ -217,7 +222,7 @@ export function createViewer(cfg) {
   let GLINES = [], GROWS = [];
 
   // ---- three.js scene ----
-  const V = { ready: false };
+  const V = { ready: false, viewPreset: 'iso', modelCenter: [0, 0, 0], modelSize: 10 };
   function initScene() {
     const el = viewportEl;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -251,6 +256,25 @@ export function createViewer(cfg) {
     const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0x3fb950 }));
     scene.add(beads, ghostT, printT, head);
+
+    const viewSwitcher = document.createElement('div');
+    viewSwitcher.className = 'view-switcher';
+    viewSwitcher.setAttribute('role', 'group');
+    viewSwitcher.setAttribute('aria-label', 'Camera view');
+    const viewButtons = new Map();
+    for (const preset of VIEW_PRESETS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = preset.label;
+      button.title = preset.title;
+      button.dataset.view = preset.key;
+      button.setAttribute('aria-label', preset.title);
+      button.addEventListener('click', () => applyViewPreset(preset.key));
+      viewButtons.set(preset.key, button);
+      viewSwitcher.appendChild(button);
+    }
+    el.appendChild(viewSwitcher);
+
     function resize() {
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
@@ -258,7 +282,11 @@ export function createViewer(cfg) {
     }
     const resizeObserver = new ResizeObserver(() => resize());
     resizeObserver.observe(el);
-    Object.assign(V, { ready: true, renderer, scene, camera, controls, beads, beadUniforms, ghostT, printT, head, grid: null, resize });
+    Object.assign(V, {
+      ready: true, renderer, scene, camera, controls, beads, beadUniforms,
+      ghostT, printT, head, grid: null, resize, viewButtons,
+    });
+    syncViewButtons();
     let last = performance.now();
     function frame(now) {
       const dtReal = (now - last) / 1000; last = now;
@@ -271,6 +299,42 @@ export function createViewer(cfg) {
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
+  }
+
+  function syncViewButtons() {
+    if (!V.viewButtons) return;
+    for (const [key, button] of V.viewButtons) {
+      const active = key === V.viewPreset;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+    window.__viewPreset = V.viewPreset;
+  }
+
+  function applyViewPreset(key = V.viewPreset) {
+    if (!V.ready) return;
+    V.viewPreset = key;
+    const [cx, cy, cz] = V.modelCenter;
+    const size = Math.max(V.modelSize || 1, 1);
+    const distance = size * 2.4;
+    V.controls.target.set(cx, cy, cz);
+    if (key === 'top') {
+      V.camera.up.set(0, 1, 0);
+      V.camera.position.set(cx, cy, cz + distance);
+    } else if (key === 'side') {
+      V.camera.up.set(0, 0, 1);
+      V.camera.position.set(cx, cy - distance, cz);
+    } else {
+      V.viewPreset = 'iso';
+      V.camera.up.set(0, 0, 1);
+      V.camera.position.set(cx + size * 1.3, cy - size * 1.6, cz + size * 1.1);
+    }
+    V.camera.lookAt(V.controls.target);
+    V.camera.near = Math.max(size * 0.02, 0.05);
+    V.camera.far = size * 12;
+    V.camera.updateProjectionMatrix();
+    V.controls.update();
+    syncViewButtons();
   }
 
   function setLine(obj, flat) {
@@ -298,6 +362,8 @@ export function createViewer(cfg) {
     if (lo[0] === Infinity) { lo.fill(0); hi.fill(10); }
     const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
     const size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1);
+    V.modelCenter = c;
+    V.modelSize = size;
     if (V.grid) V.scene.remove(V.grid);
     const grid = new THREE.GridHelper(Math.ceil(size * 1.6), 16, 0x30363d, 0x21262d);
     grid.rotation.x = Math.PI / 2;
@@ -305,10 +371,8 @@ export function createViewer(cfg) {
     grid.position.set(c[0], c[1], plateZ);
     V.grid = grid; V.scene.add(grid);
     V.head.scale.setScalar(size * 0.012 + 0.05);
-    V.controls.target.set(c[0], c[1], c[2]);
-    V.camera.position.set(c[0] + size * 1.3, c[1] - size * 1.6, c[2] + size * 1.1);
-    V.camera.near = Math.max(size * 0.02, 0.05); V.camera.far = size * 12; V.camera.updateProjectionMatrix();
-    V.controls.update(); V.resize(); updatePrinted(); syncPlayUI();
+    applyViewPreset(V.viewPreset);
+    V.resize(); updatePrinted(); syncPlayUI();
   }
 
   function headPos() {
@@ -487,5 +551,5 @@ export function createViewer(cfg) {
     P.t = (e.target.value / 1000) * P.totalT; updatePrinted(); updateActiveLine(); syncPlayUI();
   });
 
-  return { show, seekToLine, _P: P, _V: V };
+  return { show, seekToLine, setView: applyViewPreset, _P: P, _V: V };
 }
