@@ -30,11 +30,15 @@ infill with surface, cell, sampling, layer, adaptive slicing and perimeter contr
 a browser-side resolution budget, so oversized settings fail fast with an error instead of running a huge
 marching-squares job. All three sources feed the same viewer, g-code, metrics, optimize and verify panels.
 
-The shared viewer has render-layer toggles for printed, planned, travel, toolhead and bed geometry, plus
-quality modes: `auto`, `fast lines`, `bead`, and `realistic bead`. `auto` uses bead geometry for normal
-jobs and switches large TPMS/toolpath previews to timed line geometry to avoid building huge WebGL meshes.
-The profile line reports resolve, G-code UI, geometry and frame timing so heavy cases can be separated
-into handling vs rendering costs.
+The shared viewer has pill toggles for printed, planned, travel, single-layer travel, toolhead and bed
+geometry, plus quality modes: `auto`, `fast lines`, `bead`, and `realistic bead`. `auto` uses bead geometry
+for normal jobs and switches large TPMS/toolpath previews to timed line geometry to avoid building huge
+WebGL meshes. The profile line reports resolve, G-code UI, geometry and frame timing so heavy cases can
+be separated into handling vs rendering costs.
+
+The G-code panel tokenizes commands and parameters as compact pills, inserts layer section headers, and
+adds a jump/search toolbar. Large files are still capped in the DOM, but section jumps and search results
+re-center the rendered window around the target line.
 
 The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the

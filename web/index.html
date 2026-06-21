@@ -48,7 +48,6 @@
   .view-grid-cell span { display:inline-block; padding:3px 7px; border:1px solid var(--line);
                          border-radius:6px; background:rgba(13,17,23,.76); color:var(--fg);
                          font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--muted); }
   .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px;
             vertical-align:middle; }
   .playback { display:flex; align-items:center; gap:10px; margin-top:12px; }
@@ -139,30 +138,30 @@
     </div>
     <div id="latticePanel" class="source-panel" hidden>
       <div class="control-grid">
-        <label class="wide">family <select id="latticeFamily"></select></label>
-        <label class="range-field">alpha deg
-          <span class="range-row"><input type="range" data-sync="latticeAlpha" min="0" max="150" step="1" value="30" aria-label="Alpha degrees" /><input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /></span>
+        <label class="wide select-field" title="Star-polygon family from the lattice research generator."><span class="param-name">family</span><select id="latticeFamily"></select></label>
+        <label class="range-field" title="Inclination angle used by the star-polygon lattice construction."><span class="param-name">alpha</span>
+          <span class="range-row"><input type="range" data-sync="latticeAlpha" min="0" max="150" step="1" value="30" aria-label="Alpha degrees" /><input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /><span class="param-unit">[deg]</span></span>
         </label>
-        <label class="range-field">strut mm
-          <span class="range-row"><input type="range" data-sync="latticeUnit" min="1" max="50" step="0.01" value="4.33" aria-label="Strut millimeters" /><input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /></span>
+        <label class="range-field" title="Nominal strut/repeating-unit length in millimeters."><span class="param-name">strut</span>
+          <span class="range-row"><input type="range" data-sync="latticeUnit" min="1" max="50" step="0.01" value="4.33" aria-label="Strut millimeters" /><input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">columns
-          <span class="range-row"><input type="range" data-sync="latticeCols" min="1" max="15" step="1" value="10" aria-label="Lattice columns" /><input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /></span>
+        <label class="range-field" title="Number of repeating lattice columns."><span class="param-name">columns</span>
+          <span class="range-row"><input type="range" data-sync="latticeCols" min="1" max="15" step="1" value="10" aria-label="Lattice columns" /><input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">rows
-          <span class="range-row"><input type="range" data-sync="latticeRows" min="1" max="12" step="1" value="3" aria-label="Lattice rows" /><input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /></span>
+        <label class="range-field" title="Number of lattice rows; M4 can be rounded to complete row pairs."><span class="param-name">rows</span>
+          <span class="range-row"><input type="range" data-sync="latticeRows" min="1" max="12" step="1" value="3" aria-label="Lattice rows" /><input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">layers
-          <span class="range-row"><input type="range" data-sync="latticeLayers" min="1" max="40" step="1" value="2" aria-label="Lattice layers" /><input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /></span>
+        <label class="range-field" title="Number of repeated printed layers."><span class="param-name">layers</span>
+          <span class="range-row"><input type="range" data-sync="latticeLayers" min="1" max="40" step="1" value="2" aria-label="Lattice layers" /><input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">layer mm
-          <span class="range-row"><input type="range" data-sync="latticeLayerH" min="0.05" max="2" step="0.001" value="0.2" aria-label="Layer millimeters" /><input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /></span>
+        <label class="range-field" title="Z step and bead height used for every lattice layer."><span class="param-name">layer</span>
+          <span class="range-row"><input type="range" data-sync="latticeLayerH" min="0.05" max="2" step="0.001" value="0.2" aria-label="Layer millimeters" /><input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">bead mm
-          <span class="range-row"><input type="range" data-sync="latticeBead" min="0.1" max="2" step="0.01" value="0.5" aria-label="Bead millimeters" /><input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /></span>
+        <label class="range-field" title="Extrusion bead width for generated lattice moves."><span class="param-name">bead</span>
+          <span class="range-row"><input type="range" data-sync="latticeBead" min="0.1" max="2" step="0.01" value="0.5" aria-label="Bead millimeters" /><input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">speed
-          <span class="range-row"><input type="range" data-sync="latticeSpeed" min="60" max="12000" step="10" value="1000" aria-label="Print speed" /><input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /></span>
+        <label class="range-field" title="Print feedrate for generated lattice paths."><span class="param-name">speed</span>
+          <span class="range-row"><input type="range" data-sync="latticeSpeed" min="60" max="12000" step="10" value="1000" aria-label="Print speed" /><input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /><span class="param-unit">[mm/min]</span></span>
         </label>
         <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete M4 row pairs</label>
         <span id="latticeRowPairHint" class="control-hint wide" aria-live="polite"></span>
@@ -170,39 +169,39 @@
     </div>
     <div id="tpmsPanel" class="source-panel" hidden>
       <div class="control-grid">
-        <label class="wide">surface <select id="tpmsSurface"></select></label>
-        <label class="range-field">cell mm
-          <span class="range-row"><input type="range" data-sync="tpmsCell" min="4" max="80" step="0.5" value="22" aria-label="TPMS cell millimeters" /><input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /></span>
+        <label class="wide select-field" title="Implicit TPMS equation used for contour slicing."><span class="param-name">surface</span><select id="tpmsSurface"></select></label>
+        <label class="range-field" title="TPMS unit-cell size in millimeters."><span class="param-name">cell</span>
+          <span class="range-row"><input type="range" data-sync="tpmsCell" min="4" max="80" step="0.5" value="22" aria-label="TPMS cell millimeters" /><input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">samples
-          <span class="range-row"><input type="range" data-sync="tpmsSamples" min="4" max="64" step="1" value="16" aria-label="TPMS samples per cell" /><input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /></span>
+        <label class="range-field" title="XY marching-squares samples per cell. Higher values cost more CPU/GPU."><span class="param-name">samples</span>
+          <span class="range-row"><input type="range" data-sync="tpmsSamples" min="4" max="64" step="1" value="16" aria-label="TPMS samples per cell" /><input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /><span class="param-unit">[1/cell]</span></span>
         </label>
-        <label class="range-field">cells X
-          <span class="range-row"><input type="range" data-sync="tpmsCellsX" min="1" max="8" step="1" value="1" aria-label="TPMS cells X" /><input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /></span>
+        <label class="range-field" title="Number of repeated TPMS cells in X."><span class="param-name">cells X</span>
+          <span class="range-row"><input type="range" data-sync="tpmsCellsX" min="1" max="8" step="1" value="1" aria-label="TPMS cells X" /><input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">cells Y
-          <span class="range-row"><input type="range" data-sync="tpmsCellsY" min="1" max="8" step="1" value="1" aria-label="TPMS cells Y" /><input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /></span>
+        <label class="range-field" title="Number of repeated TPMS cells in Y."><span class="param-name">cells Y</span>
+          <span class="range-row"><input type="range" data-sync="tpmsCellsY" min="1" max="8" step="1" value="1" aria-label="TPMS cells Y" /><input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">cells Z
-          <span class="range-row"><input type="range" data-sync="tpmsCellsZ" min="1" max="8" step="1" value="1" aria-label="TPMS cells Z" /><input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /></span>
+        <label class="range-field" title="Number of repeated TPMS cells in Z; directly affects layer count."><span class="param-name">cells Z</span>
+          <span class="range-row"><input type="range" data-sync="tpmsCellsZ" min="1" max="8" step="1" value="1" aria-label="TPMS cells Z" /><input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">layer mm
-          <span class="range-row"><input type="range" data-sync="tpmsLayerH" min="0.08" max="1.4" step="0.01" value="0.28" aria-label="TPMS layer millimeters" /><input type="number" id="tpmsLayerH" value="0.28" min="0.08" max="1.4" step="0.01" /></span>
+        <label class="range-field" title="Base Z slice spacing and visual bead height."><span class="param-name">layer</span>
+          <span class="range-row"><input type="range" data-sync="tpmsLayerH" min="0.08" max="1.4" step="0.01" value="0.28" aria-label="TPMS layer millimeters" /><input type="number" id="tpmsLayerH" value="0.28" min="0.08" max="1.4" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">iso
-          <span class="range-row"><input type="range" data-sync="tpmsIso" min="-4" max="4" step="0.05" value="0" aria-label="TPMS iso level" /><input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /></span>
+        <label class="range-field" title="Implicit surface level f(x,y,z)=iso."><span class="param-name">iso</span>
+          <span class="range-row"><input type="range" data-sync="tpmsIso" min="-4" max="4" step="0.05" value="0" aria-label="TPMS iso level" /><input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /><span class="param-unit">[1]</span></span>
         </label>
-        <label class="range-field">bead mm
-          <span class="range-row"><input type="range" data-sync="tpmsBead" min="0.1" max="2" step="0.01" value="0.45" aria-label="TPMS bead millimeters" /><input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /></span>
+        <label class="range-field" title="Extrusion bead width for contour paths."><span class="param-name">bead</span>
+          <span class="range-row"><input type="range" data-sync="tpmsBead" min="0.1" max="2" step="0.01" value="0.45" aria-label="TPMS bead millimeters" /><input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">speed
-          <span class="range-row"><input type="range" data-sync="tpmsSpeed" min="60" max="12000" step="10" value="1200" aria-label="TPMS print speed" /><input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /></span>
+        <label class="range-field" title="Print feedrate for generated TPMS contour paths."><span class="param-name">speed</span>
+          <span class="range-row"><input type="range" data-sync="tpmsSpeed" min="60" max="12000" step="10" value="1200" aria-label="TPMS print speed" /><input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /><span class="param-unit">[mm/min]</span></span>
         </label>
-        <label class="range-field">min layer
-          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMin" min="0.08" max="0.4" step="0.01" value="0.14" aria-label="TPMS adaptive minimum layer" /><input type="number" id="tpmsAdaptiveMin" value="0.14" min="0.08" max="0.4" step="0.01" /></span>
+        <label class="range-field" title="Smallest adaptive slice spacing allowed in high-change areas."><span class="param-name">min layer</span>
+          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMin" min="0.08" max="0.4" step="0.01" value="0.14" aria-label="TPMS adaptive minimum layer" /><input type="number" id="tpmsAdaptiveMin" value="0.14" min="0.08" max="0.4" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
-        <label class="range-field">max layer
-          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMax" min="0.12" max="1.4" step="0.01" value="0.28" aria-label="TPMS adaptive maximum layer" /><input type="number" id="tpmsAdaptiveMax" value="0.28" min="0.12" max="1.4" step="0.01" /></span>
+        <label class="range-field" title="Maximum Z interval before adaptive slicing inserts a midpoint."><span class="param-name">max layer</span>
+          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMax" min="0.12" max="1.4" step="0.01" value="0.28" aria-label="TPMS adaptive maximum layer" /><input type="number" id="tpmsAdaptiveMax" value="0.28" min="0.12" max="1.4" step="0.01" /><span class="param-unit">[mm]</span></span>
         </label>
         <label class="check wide"><input type="checkbox" id="tpmsPerimeter" checked /> include perimeter on each layer</label>
         <label class="check wide"><input type="checkbox" id="tpmsAdaptive" /> adaptive slices in bad zones</label>
@@ -240,18 +239,13 @@
       <button type="button" class="panel-toggle" data-panel-toggle="toolpath" aria-expanded="true">Hide</button>
     </div>
     <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
-    <div class="legend">
-      <span><span class="swatch extrude"></span>printed</span>
-      <span><span class="swatch planned"></span>planned</span>
-      <span><span class="swatch travel"></span>travel</span>
-      <span><span class="swatch toolhead"></span>toolhead</span>
-    </div>
     <div class="render-controls" id="renderControls" aria-label="Toolpath render controls">
-      <label><input type="checkbox" data-render-layer="printed" checked /> printed</label>
-      <label><input type="checkbox" data-render-layer="planned" checked /> planned</label>
-      <label><input type="checkbox" data-render-layer="travel" checked /> travel</label>
-      <label><input type="checkbox" data-render-layer="toolhead" checked /> toolhead</label>
-      <label><input type="checkbox" data-render-layer="bed" checked /> bed</label>
+      <label class="render-pill" title="Show already printed extrusion."><input type="checkbox" data-render-layer="printed" checked /><span class="swatch extrude"></span>printed</label>
+      <label class="render-pill" title="Show planned, unprinted extrusion."><input type="checkbox" data-render-layer="planned" checked /><span class="swatch planned"></span>planned</label>
+      <label class="render-pill" title="Show travel moves."><input type="checkbox" data-render-layer="travel" checked /><span class="swatch travel"></span>travel</label>
+      <label class="render-pill" title="When enabled, only travel moves on the active playback layer are displayed."><input type="checkbox" data-render-layer="travelLayer" /><span class="swatch travel-layer"></span>layer travel</label>
+      <label class="render-pill" title="Show toolhead marker."><input type="checkbox" data-render-layer="toolhead" checked /><span class="swatch toolhead"></span>toolhead</label>
+      <label class="render-pill" title="Show build plate grid."><input type="checkbox" data-render-layer="bed" checked /><span class="swatch bed"></span>bed</label>
       <label class="render-mode">quality
         <select data-render-mode aria-label="Toolpath render quality">
           <option value="auto" selected>auto</option>
@@ -276,6 +270,7 @@
       <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
       <button type="button" class="panel-toggle" data-panel-toggle="gcode" aria-expanded="true">Hide</button>
     </div>
+    <div class="gcode-tools" id="gcodeTools"></div>
     <div class="gcode-meta" id="gcodeMeta"></div>
     <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
@@ -299,7 +294,7 @@ const $ = (id) => document.getElementById(id);
   const viewer = createViewer({
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
-    gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
+    gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
@@ -591,6 +586,7 @@ const $ = (id) => document.getElementById(id);
     $('metrics').replaceChildren();
     $('optimize').replaceChildren();
     $('findings').replaceChildren();
+    $('gcodeTools').replaceChildren();
     $('renderProfile').textContent = '';
   }
 

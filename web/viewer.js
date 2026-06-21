@@ -26,6 +26,9 @@ const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
 const AUTO_MESH_MOVE_LIMIT = 12000;
 const ROUNDED_BEAD_SEGMENTS = 10;
 const MAX_GCODE_DOM_ROWS = 8000;
+const GCODE_FOCUS_HEAD_ROWS = 800;
+const GCODE_FOCUS_TAIL_ROWS = 800;
+const GCODE_FOCUS_CENTER_ROWS = MAX_GCODE_DOM_ROWS - GCODE_FOCUS_HEAD_ROWS - GCODE_FOCUS_TAIL_ROWS;
 const VIEW_PANELS = [
   { key: 'iso', label: 'Iso' },
   { key: 'top', label: 'Top' },
@@ -49,6 +52,7 @@ function formatDuration(seconds) {
 
 function appendMetric(parent, label, value, unit = '') {
   const dt = document.createElement('dt');
+  dt.className = 'metric-title';
   dt.textContent = label;
   const dd = document.createElement('dd');
   const number = document.createElement('span');
@@ -56,7 +60,7 @@ function appendMetric(parent, label, value, unit = '') {
   number.textContent = String(value);
   const unitEl = document.createElement('span');
   unitEl.className = 'metric-unit';
-  unitEl.textContent = unit;
+  unitEl.textContent = unit ? `[${unit}]` : '';
   dd.append(number, unitEl);
   parent.append(dt, dd);
 }
@@ -83,6 +87,53 @@ const PARAM_DESC = {
   A: ['rotary A axis', 'deg'], B: ['rotary B axis', 'deg'], C: ['rotary C axis', 'deg'],
   S: ['dwell time', 's'],
 };
+
+function parseGcodeTokens(line) {
+  return String(line || '').trim().split(/\s+/).filter(Boolean);
+}
+
+function parseGcodeParam(line, key) {
+  const token = parseGcodeTokens(line).find((part) => part[0] === key);
+  if (!token) return null;
+  const value = Number.parseFloat(token.slice(1));
+  return Number.isFinite(value) ? value : null;
+}
+
+function gcodeCommandClass(cmd) {
+  if (cmd === 'G0') return 'travel';
+  if (cmd === 'G1') return 'linear';
+  if (cmd === 'G2' || cmd === 'G3') return 'arc';
+  if (cmd === 'G4') return 'dwell';
+  return 'other';
+}
+
+function buildGcodeSections(gcode) {
+  const sections = [];
+  let currentZ = null;
+  let layer = 0;
+  const push = (line, label) => {
+    if (sections[sections.length - 1]?.line === line) {
+      sections[sections.length - 1].label = label;
+      return;
+    }
+    sections.push({ line, label });
+  };
+  for (let i = 0; i < gcode.length; i++) {
+    const z = parseGcodeParam(gcode[i], 'Z');
+    if (z == null) {
+      if (i === 0) push(0, 'Start');
+      continue;
+    }
+    const key = Math.round(z * 1000) / 1000;
+    if (currentZ == null || Math.abs(key - currentZ) > 1e-6) {
+      currentZ = key;
+      layer += 1;
+      push(i, `Layer ${layer} [Z ${fmt(key, 3)} mm]`);
+    }
+  }
+  if (!sections.length) sections.push({ line: 0, label: 'Start' });
+  return sections;
+}
 
 // ---- turn the resolved IR into timed moves (each tagged with its source segment / g-code line) ----
 function catmullRom(p0, p1, p2, p3, t) {
@@ -270,15 +321,60 @@ function completedTimedSegments(endTimes, t) {
   return lo;
 }
 
+function zLayerKey(value) {
+  return Math.round((value || 0) * 1000) / 1000;
+}
+
+function moveLayerKey(move) {
+  const z = move.to?.[2] ?? move.from?.[2] ?? 0;
+  return zLayerKey(z);
+}
+
+function buildLayerKeys(moves) {
+  const keys = new Set();
+  for (const move of moves) {
+    if (!move.from || move.travel) continue;
+    keys.add(moveLayerKey(move));
+  }
+  if (!keys.size) {
+    for (const move of moves) keys.add(moveLayerKey(move));
+  }
+  return [...keys].sort((a, b) => a - b);
+}
+
+function nearestLayerKey(keys, z) {
+  if (!keys.length) return null;
+  const target = zLayerKey(z);
+  let best = keys[0];
+  let bestDistance = Math.abs(best - target);
+  for (const key of keys.slice(1)) {
+    const distance = Math.abs(key - target);
+    if (distance < bestDistance) {
+      best = key;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
 export function createViewer(cfg) {
   const {
     viewportEl, gcodeEl, explainEl, metricsEl, optimizeEl, verifyEl, gcodeMetaEl,
-    playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, wasm, params,
+    gcodeToolsEl, playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, wasm, params,
     getMaxFlow = () => 0, getMinTemp = () => 0,
   } = cfg;
 
   const clock = (s) => formatDuration(s);
-  const R = { printed: true, planned: true, travel: true, toolhead: true, bed: true, mode: 'auto', effectiveMode: 'bead' };
+  const R = {
+    printed: true,
+    planned: true,
+    travel: true,
+    travelLayer: false,
+    toolhead: true,
+    bed: true,
+    mode: 'auto',
+    effectiveMode: 'bead',
+  };
 
   function showExplain(line) {
     if (!explainEl) return;
@@ -319,7 +415,7 @@ export function createViewer(cfg) {
 
   // ---- playback state ----
   const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [], moveEndTimes: [], segStart: [], segEnd: [], activeRow: null };
-  let GLINES = [], GROWS = [];
+  let GLINES = [], GROWS = [], GSECTIONS = [], GMATCHES = [], GSEARCH = '', GMATCH_INDEX = -1;
 
   // ---- three.js scene ----
   const V = { ready: false, modelCenter: [0, 0, 0], modelSize: 10 };
@@ -595,6 +691,8 @@ export function createViewer(cfg) {
     R.effectiveMode = effectiveMode;
     const extrudingMoves = moves.reduce((count, m) => count + (m.from && !m.travel ? 1 : 0), 0);
     const travelMoves = moves.reduce((count, m) => count + (m.from && m.travel ? 1 : 0), 0);
+    V.layerKeys = buildLayerKeys(moves);
+    V.activeTravelLayerKey = null;
 
     if (effectiveMode === 'fast') {
       replaceGeometry(V.beads, new THREE.BufferGeometry());
@@ -612,11 +710,7 @@ export function createViewer(cfg) {
       V.beadUniforms.uTime.value = P.t;
     }
 
-    const travel = measure(profile, 'travelGeometryMs', () => buildTimedLineGeometry(moves, (m) => m.travel));
-    const travelPrint = buildTimedLineGeometry(moves, (m) => m.travel);
-    replaceGeometry(V.ghostT, travel.geometry);
-    replaceGeometry(V.printT, travelPrint.geometry);
-    V.travelEndTimes = travel.endTimes;
+    rebuildTravelGeometry(moves, profile);
 
     const beadVerts = V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0;
     const extrudeLineVerts = V.extrudeGhost.geometry.attributes.position ? V.extrudeGhost.geometry.attributes.position.count : 0;
@@ -627,6 +721,8 @@ export function createViewer(cfg) {
       moves: moves.length,
       extrudingMoves,
       travelMoves,
+      visibleTravelMoves: V.travelEndTimes.length,
+      travelLayer: V.activeTravelLayerKey,
       beadVerts,
       extrudeLineVerts,
       travelLineVerts,
@@ -634,6 +730,25 @@ export function createViewer(cfg) {
     };
     applyRenderVisibility();
     updateRenderProfile();
+  }
+
+  function rebuildTravelGeometry(moves, profile = {}) {
+    const head = headPos();
+    const layerKey = R.travelLayer ? nearestLayerKey(V.layerKeys || [], head[2]) : null;
+    V.activeTravelLayerKey = layerKey;
+    const predicate = (m) => m.travel && (!R.travelLayer || moveLayerKey(m) === layerKey);
+    const travel = measure(profile, 'travelGeometryMs', () => buildTimedLineGeometry(moves, predicate));
+    const travelPrint = buildTimedLineGeometry(moves, predicate);
+    replaceGeometry(V.ghostT, travel.geometry);
+    replaceGeometry(V.printT, travelPrint.geometry);
+    V.travelEndTimes = travel.endTimes;
+    if (V.renderStats) {
+      V.renderStats.visibleTravelMoves = V.travelEndTimes.length;
+      V.renderStats.travelLineVerts = V.ghostT.geometry.attributes.position ? V.ghostT.geometry.attributes.position.count : 0;
+      V.renderStats.travelLayer = layerKey;
+      Object.assign(V.renderStats, profile);
+    }
+    V.needsRender = true;
   }
 
   function applyRenderVisibility() {
@@ -661,9 +776,11 @@ export function createViewer(cfg) {
     const resolveMs = (show.resolveGcodeMs || 0) + (show.resolveMetricsMs || 0) +
       (show.resolveIrMs || 0) + (show.resolveOptimizedIrMs || 0) + (show.resolveVerifyMs || 0);
     const handling = resolveMs > 0 ? ` · resolve ${resolveMs.toFixed(1)} ms · g-code UI ${(show.gcodeDomMs || 0).toFixed(1)} ms` : '';
+    const travelLayer = R.travelLayer && s.travelLayer != null ? ` · travel layer Z ${fmt(s.travelLayer, 3)}` : '';
     renderProfileEl.textContent =
       `render ${mode} · ${s.moves.toLocaleString()} moves · ${s.extrudingMoves.toLocaleString()} print / ` +
-      `${s.travelMoves.toLocaleString()} travel · geometry ${geomMs.toFixed(1)} ms${handling}${renderMs}`;
+      `${(s.visibleTravelMoves ?? s.travelMoves).toLocaleString()} visible travel` +
+      `${travelLayer} · geometry ${geomMs.toFixed(1)} ms${handling}${renderMs}`;
   }
 
   function setModel(ir, options = {}) {
@@ -747,11 +864,16 @@ export function createViewer(cfg) {
   function updatePrinted() {
     const t = P.t;
     V.beadUniforms.uTime.value = t;
+    const h = headPos();
+    if (R.travelLayer) {
+      const layerKey = nearestLayerKey(V.layerKeys || [], h[2]);
+      if (layerKey !== V.activeTravelLayerKey) rebuildTravelGeometry(P.moves);
+    }
     const completedExtrude = completedTimedSegments(V.extrudeEndTimes || [], t);
     const completedTravel = completedTimedSegments(V.travelEndTimes || [], t);
     V.extrudePrint.geometry.setDrawRange(0, completedExtrude * 2);
     V.printT.geometry.setDrawRange(0, completedTravel * 2);
-    const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
+    V.head.position.set(h[0], h[1], h[2]);
     window.__lines = { beadVerts: V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0,
                        uTime: t, printedTravel: completedTravel, plateZ: V.grid ? V.grid.position.z : null,
                        extrudePreview: R.effectiveMode === 'fast',
@@ -822,6 +944,8 @@ export function createViewer(cfg) {
       if (rebuild && V.hasModel) {
         rebuildMotionGeometry(P.moves);
         V.profileDirty = true;
+      } else if (V.hasModel) {
+        rebuildTravelGeometry(P.moves);
       }
       applyRenderVisibility();
       updatePrinted();
@@ -839,35 +963,199 @@ export function createViewer(cfg) {
     sync(false);
   }
 
-  function renderGcodeLines(gcode) {
+  function renderGcodeLine(row, line) {
+    const tokens = parseGcodeTokens(line);
+    if (!tokens.length) return;
+    const cmd = tokens[0];
+    const cmdEl = document.createElement('span');
+    cmdEl.className = `g-token g-cmd g-cmd-${cleanClass(gcodeCommandClass(cmd))}`;
+    cmdEl.textContent = cmd;
+    cmdEl.title = CMD_DESC[cmd] || 'g-code command';
+    row.appendChild(cmdEl);
+    for (const token of tokens.slice(1)) {
+      const key = token[0];
+      const value = token.slice(1);
+      const desc = PARAM_DESC[key];
+      const pill = document.createElement('span');
+      pill.className = `g-token g-param g-param-${cleanClass(key)}`;
+      pill.title = desc ? `${desc[0]} [${desc[1]}]` : 'parameter';
+      const keyEl = document.createElement('span');
+      keyEl.className = 'g-param-key';
+      keyEl.textContent = key;
+      const valueEl = document.createElement('span');
+      valueEl.className = 'g-param-value';
+      valueEl.textContent = value;
+      pill.append(keyEl, valueEl);
+      row.appendChild(pill);
+    }
+  }
+
+  function addRange(ranges, start, end, total) {
+    const s = Math.max(0, Math.min(total, Math.floor(start)));
+    const e = Math.max(s, Math.min(total, Math.ceil(end)));
+    if (e > s) ranges.push([s, e]);
+  }
+
+  function mergedRanges(gcode, focusLine) {
+    const total = gcode.length;
+    if (total <= MAX_GCODE_DOM_ROWS) return [[0, total]];
+    const ranges = [];
+    if (focusLine == null) {
+      const keepHead = Math.floor(MAX_GCODE_DOM_ROWS * 0.58);
+      addRange(ranges, 0, keepHead, total);
+      addRange(ranges, total - (MAX_GCODE_DOM_ROWS - keepHead), total, total);
+    } else {
+      const half = Math.floor(GCODE_FOCUS_CENTER_ROWS / 2);
+      addRange(ranges, 0, GCODE_FOCUS_HEAD_ROWS, total);
+      addRange(ranges, focusLine - half, focusLine + half, total);
+      addRange(ranges, total - GCODE_FOCUS_TAIL_ROWS, total, total);
+    }
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const range of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+      else merged.push([...range]);
+    }
+    return merged;
+  }
+
+  function appendGcodeOmitted(fragment, count) {
+    if (count <= 0) return;
+    const omitted = document.createElement('div');
+    omitted.className = 'gline omitted';
+    omitted.textContent = `... ${count.toLocaleString()} generated lines omitted in the browser panel ...`;
+    fragment.appendChild(omitted);
+  }
+
+  function renderGcodeLines(gcode, focusLine = null) {
     if (!gcodeEl) return;
     gcodeEl.replaceChildren();
     GROWS = [];
     const fragment = document.createDocumentFragment();
+    const sectionByLine = new Map(GSECTIONS.map((section) => [section.line, section]));
     const addLine = (i) => {
+      const section = sectionByLine.get(i);
+      if (section) {
+        const header = document.createElement('button');
+        header.type = 'button';
+        header.className = 'g-section';
+        header.dataset.i = String(i);
+        header.textContent = section.label;
+        fragment.appendChild(header);
+      }
       const row = document.createElement('div');
       row.className = 'gline';
       row.dataset.i = String(i);
+      row.title = gcode[i];
       const ln = document.createElement('span');
       ln.className = 'ln';
       ln.textContent = String(i + 1);
-      row.append(ln, gcode[i]);
+      row.appendChild(ln);
+      renderGcodeLine(row, gcode[i]);
       GROWS[i] = row;
       fragment.appendChild(row);
     };
-    if (gcode.length <= MAX_GCODE_DOM_ROWS) {
-      for (let i = 0; i < gcode.length; i++) addLine(i);
-    } else {
-      const keepHead = Math.floor(MAX_GCODE_DOM_ROWS * 0.58);
-      const keepTail = MAX_GCODE_DOM_ROWS - keepHead;
-      for (let i = 0; i < keepHead; i++) addLine(i);
-      const omitted = document.createElement('div');
-      omitted.className = 'gline omitted';
-      omitted.textContent = `… ${gcode.length - keepHead - keepTail} generated lines omitted in the browser panel …`;
-      fragment.appendChild(omitted);
-      for (let i = gcode.length - keepTail; i < gcode.length; i++) addLine(i);
+    let cursor = 0;
+    for (const [start, end] of mergedRanges(gcode, focusLine)) {
+      appendGcodeOmitted(fragment, start - cursor);
+      for (let i = start; i < end; i++) addLine(i);
+      cursor = end;
     }
+    appendGcodeOmitted(fragment, gcode.length - cursor);
     gcodeEl.appendChild(fragment);
+    applyGcodeSearchMarks();
+  }
+
+  function setSearchStatus(text) {
+    if (!gcodeToolsEl) return;
+    const status = gcodeToolsEl.querySelector('[data-gcode-search-status]');
+    if (status) status.textContent = text;
+  }
+
+  function applyGcodeSearchMarks() {
+    if (!GSEARCH) {
+      for (const row of GROWS) if (row) row.classList.remove('match', 'selected-match');
+      setSearchStatus('');
+      return;
+    }
+    for (let i = 0; i < GROWS.length; i++) {
+      const row = GROWS[i];
+      if (!row) continue;
+      const isMatch = GLINES[i]?.toLowerCase().includes(GSEARCH);
+      row.classList.toggle('match', Boolean(isMatch));
+      row.classList.toggle('selected-match', GMATCHES[GMATCH_INDEX] === i);
+    }
+    setSearchStatus(GMATCHES.length ? `${GMATCH_INDEX + 1}/${GMATCHES.length}` : '0/0');
+  }
+
+  function gotoGcodeLine(line) {
+    if (!Number.isFinite(line) || line < 0 || line >= GLINES.length) return;
+    if (!GROWS[line]) renderGcodeLines(GLINES, line);
+    seekToLine(line);
+    applyGcodeSearchMarks();
+  }
+
+  function runGcodeSearch(query) {
+    GSEARCH = String(query || '').trim().toLowerCase();
+    GMATCHES = [];
+    GMATCH_INDEX = -1;
+    if (GSEARCH) {
+      for (let i = 0; i < GLINES.length; i++) {
+        if (GLINES[i].toLowerCase().includes(GSEARCH)) GMATCHES.push(i);
+      }
+      if (GMATCHES.length) {
+        GMATCH_INDEX = 0;
+        gotoGcodeLine(GMATCHES[GMATCH_INDEX]);
+      }
+    }
+    applyGcodeSearchMarks();
+  }
+
+  function moveGcodeSearch(delta) {
+    if (!GMATCHES.length) return;
+    GMATCH_INDEX = (GMATCH_INDEX + delta + GMATCHES.length) % GMATCHES.length;
+    gotoGcodeLine(GMATCHES[GMATCH_INDEX]);
+  }
+
+  function renderGcodeTools() {
+    if (!gcodeToolsEl) return;
+    gcodeToolsEl.replaceChildren();
+    const jump = document.createElement('select');
+    jump.className = 'gcode-jump';
+    jump.setAttribute('aria-label', 'Jump to G-code section');
+    for (const section of GSECTIONS) {
+      const option = document.createElement('option');
+      option.value = String(section.line);
+      option.textContent = section.label;
+      jump.appendChild(option);
+    }
+    jump.addEventListener('change', () => gotoGcodeLine(Number.parseInt(jump.value, 10)));
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'gcode-search';
+    search.placeholder = 'Search G-code';
+    search.setAttribute('aria-label', 'Search G-code');
+    search.addEventListener('input', () => runGcodeSearch(search.value));
+
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.className = 'gcode-search-button';
+    prev.textContent = 'Prev';
+    prev.addEventListener('click', () => moveGcodeSearch(-1));
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'gcode-search-button';
+    next.textContent = 'Next';
+    next.addEventListener('click', () => moveGcodeSearch(1));
+
+    const status = document.createElement('span');
+    status.className = 'gcode-search-status';
+    status.dataset.gcodeSearchStatus = 'true';
+
+    gcodeToolsEl.append(jump, search, prev, next, status);
   }
 
   // ---- resolve an ops array + render every panel ----
@@ -880,6 +1168,11 @@ export function createViewer(cfg) {
     const optimizedIr = measure(profile, 'resolveOptimizedIrMs', () => JSON.parse(wasm.resolve_optimized_ir(opsJson, paramsJson)));
 
     GLINES = gcode;
+    GSECTIONS = buildGcodeSections(gcode);
+    GMATCHES = [];
+    GSEARCH = '';
+    GMATCH_INDEX = -1;
+    renderGcodeTools();
     measure(profile, 'gcodeDomMs', () => renderGcodeLines(gcode));
     if (gcodeMetaEl) {
       const shown = Math.min(gcode.length, MAX_GCODE_DOM_ROWS);
@@ -891,10 +1184,10 @@ export function createViewer(cfg) {
 
     if (metricsEl) {
       metricsEl.replaceChildren();
-      appendMetric(metricsEl, 'segments', m.segment_count.toLocaleString(), 'segments');
-      appendMetric(metricsEl, 'print time', formatDuration(m.print_time_s));
-      appendMetric(metricsEl, 'travel time', formatDuration(m.travel_time_s));
-      appendMetric(metricsEl, 'total time', formatDuration(m.total_time_s));
+      appendMetric(metricsEl, 'segments', m.segment_count.toLocaleString(), 'count');
+      appendMetric(metricsEl, 'print time', formatDuration(m.print_time_s), 'time');
+      appendMetric(metricsEl, 'travel time', formatDuration(m.travel_time_s), 'time');
+      appendMetric(metricsEl, 'total time', formatDuration(m.total_time_s), 'time');
       appendMetric(metricsEl, 'extruded vol', fmt(m.extruded_volume), 'mm³');
       appendMetric(metricsEl, 'filament', fmt(m.filament_length), 'mm');
       appendMetric(metricsEl, 'extrude dist', fmt(m.extruding_distance), 'mm');
@@ -961,7 +1254,15 @@ export function createViewer(cfg) {
   buildSpeedButtons();
   bindRenderControls();
   if (gcodeEl) {
-    gcodeEl.addEventListener('click', (e) => { const r = e.target.closest('.gline[data-i]'); if (r) seekToLine(+r.dataset.i); });
+    gcodeEl.addEventListener('click', (e) => {
+      const section = e.target.closest('.g-section[data-i]');
+      if (section) {
+        gotoGcodeLine(+section.dataset.i);
+        return;
+      }
+      const r = e.target.closest('.gline[data-i]');
+      if (r) seekToLine(+r.dataset.i);
+    });
     gcodeEl.addEventListener('mouseover', (e) => { const r = e.target.closest('.gline[data-i]'); if (r) showExplain(GLINES[+r.dataset.i]); });
   }
   if (playEl) playEl.addEventListener('click', () => {

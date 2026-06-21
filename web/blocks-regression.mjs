@@ -67,6 +67,10 @@ assert(viewerJs.includes('MAX_GCODE_DOM_ROWS'), 'viewer should cap large G-code 
 assert(viewerJs.includes('AUTO_MESH_MOVE_LIMIT'), 'viewer should auto-fallback for large render meshes');
 assert(viewerJs.includes('buildRoundedBeads'), 'viewer should expose realistic rounded bead rendering');
 assert(viewerJs.includes('buildTimedLineGeometry'), 'viewer should cache timed line geometry for large/travel paths');
+assert(viewerJs.includes('nearestLayerKey'), 'viewer should support single-layer travel filtering');
+assert(viewerJs.includes('buildGcodeSections'), 'viewer should build G-code layer sections');
+assert(viewerJs.includes('renderGcodeTools'), 'viewer should render G-code section/search controls');
+assert(viewerJs.includes('renderGcodeLine'), 'viewer should render tokenized G-code rows');
 assert(viewerJs.includes('window.__dryProfile'), 'viewer should expose handling/rendering profile data');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
@@ -86,14 +90,17 @@ assert(blocksHtml.includes('<div class="speeds" id="speeds"><span class="lbl">sp
 assert(blocksHtml.includes('id="fitBlocks"'), 'blocks page missing fit workspace control');
 assert(blocksHtml.includes('id="cleanBlocks"'), 'blocks page missing clean workspace control');
 assert(blocksHtml.includes('zoomToFit'), 'blocks page should fit loaded templates into view');
-assert(indexHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'gallery legend should expose planned/unprinted geometry');
-assert(blocksHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'blocks legend should expose planned/unprinted geometry');
+assert(!indexHtml.includes('<div class="legend">'), 'gallery should not duplicate path toggles with a separate legend');
+assert(!blocksHtml.includes('<div class="legend">'), 'blocks should not duplicate path toggles with a separate legend');
+assert(!indexHtml.includes('.legend'), 'gallery should not retain dead legend CSS');
+assert(!blocksHtml.includes('.legend'), 'blocks should not retain dead legend CSS');
 for (const source of [indexHtml, blocksHtml]) {
-  for (const layer of ['printed', 'planned', 'travel', 'toolhead', 'bed']) {
+  for (const layer of ['printed', 'planned', 'travel', 'travelLayer', 'toolhead', 'bed']) {
     assert(source.includes(`data-render-layer="${layer}"`), `render controls missing ${layer} toggle`);
   }
   assert(source.includes('data-render-mode'), 'render controls missing render quality selector');
   assert(source.includes('id="renderProfile"'), 'render profile output is missing');
+  assert(source.includes('id="gcodeTools"'), 'G-code toolbar output is missing');
 }
 assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
@@ -104,12 +111,21 @@ assert(toolUiCss.includes('grid-template-columns: auto auto minmax(80px, 1fr) au
 assert(toolUiCss.includes('.metric-unit'), 'shared UI stylesheet should keep metric units after values');
 assert(toolUiCss.includes('.render-controls'), 'shared UI stylesheet should style render layer toggles');
 assert(toolUiCss.includes('.render-profile'), 'shared UI stylesheet should style render profile output');
+assert(toolUiCss.includes('.g-token'), 'shared UI stylesheet should style G-code command/param tokens');
+assert(toolUiCss.includes('.gcode-tools'), 'shared UI stylesheet should style G-code search/jump controls');
+assert(toolUiCss.includes('.g-section'), 'shared UI stylesheet should style G-code layer section headers');
+assert(toolUiCss.includes('grid-template-columns: minmax(8ch, 1fr) minmax(8ch, auto) minmax(5ch, auto)'), 'metrics should use title/value/UOM columns');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
 assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
 assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
 assert(indexHtml.includes('id="latticeAlpha"'), 'lattice generator missing alpha control');
+assert(indexHtml.includes('class="param-name"'), 'generator controls should expose compact parameter names');
+assert(indexHtml.includes('class="param-unit"'), 'generator controls should expose compact unit chips');
+assert(indexHtml.includes('<span class="param-unit">[deg]</span>'), 'generator controls should display bracketed angle units');
+assert(indexHtml.includes('<span class="param-unit">[1]</span>'), 'generator controls should display bracketed dimensionless units');
+assert(toolUiCss.includes('.select-field'), 'shared UI stylesheet should compact select controls');
 for (const id of [
   'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
   'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed',

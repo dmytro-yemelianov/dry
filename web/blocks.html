@@ -37,7 +37,6 @@
   .view-grid-cell span { display:inline-block; padding:3px 7px; border:1px solid var(--line);
                          border-radius:6px; background:rgba(13,17,23,.76); color:var(--fg);
                          font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--muted); }
   .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px;
             vertical-align:middle; }
   .playback { display:flex; align-items:center; gap:10px; margin-top:12px; }
@@ -147,18 +146,13 @@
     <div id="templates"></div>
     <h2 class="section-title">Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
     <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
-    <div class="legend">
-      <span><span class="swatch extrude"></span>printed</span>
-      <span><span class="swatch planned"></span>planned</span>
-      <span><span class="swatch travel"></span>travel</span>
-      <span><span class="swatch toolhead"></span>toolhead</span>
-    </div>
     <div class="render-controls" id="renderControls" aria-label="Toolpath render controls">
-      <label><input type="checkbox" data-render-layer="printed" checked /> printed</label>
-      <label><input type="checkbox" data-render-layer="planned" checked /> planned</label>
-      <label><input type="checkbox" data-render-layer="travel" checked /> travel</label>
-      <label><input type="checkbox" data-render-layer="toolhead" checked /> toolhead</label>
-      <label><input type="checkbox" data-render-layer="bed" checked /> bed</label>
+      <label class="render-pill" title="Show already printed extrusion."><input type="checkbox" data-render-layer="printed" checked /><span class="swatch extrude"></span>printed</label>
+      <label class="render-pill" title="Show planned, unprinted extrusion."><input type="checkbox" data-render-layer="planned" checked /><span class="swatch planned"></span>planned</label>
+      <label class="render-pill" title="Show travel moves."><input type="checkbox" data-render-layer="travel" checked /><span class="swatch travel"></span>travel</label>
+      <label class="render-pill" title="When enabled, only travel moves on the active playback layer are displayed."><input type="checkbox" data-render-layer="travelLayer" /><span class="swatch travel-layer"></span>layer travel</label>
+      <label class="render-pill" title="Show toolhead marker."><input type="checkbox" data-render-layer="toolhead" checked /><span class="swatch toolhead"></span>toolhead</label>
+      <label class="render-pill" title="Show build plate grid."><input type="checkbox" data-render-layer="bed" checked /><span class="swatch bed"></span>bed</label>
       <label class="render-mode">quality
         <select data-render-mode aria-label="Toolpath render quality">
           <option value="auto" selected>auto</option>
@@ -178,6 +172,7 @@
     </div>
 
     <h2 class="section-title">G-code <span class="sub">— click a line to seek · highlights as it prints</span></h2>
+    <div class="gcode-tools" id="gcodeTools"></div>
     <div class="gcode-meta" id="gcodeMeta"></div>
     <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
@@ -806,7 +801,7 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
 
   const viewer = createViewer({
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
-    gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
+    gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
@@ -918,6 +913,7 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
     LAST_DIAGNOSTICS = diagnostics;
     window.__blockDiagnostics = LAST_DIAGNOSTICS;
     $('gcodeMeta').textContent = `${diagnostics.length} authoring ${diagnostics.length === 1 ? 'issue' : 'issues'}`;
+    $('gcodeTools').replaceChildren();
     $('gcode').replaceChildren();
     for (const d of diagnostics) {
       const row = document.createElement('div');
