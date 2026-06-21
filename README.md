@@ -10,8 +10,10 @@ the way a compiler lowers a program. The IR is the product; authoring **language
 / Rust) and target **machines** (FFF g-code, CNC, laser, robot) are interchangeable front-ends and
 back-ends.
 
-> **Status: planning / foundations (Phase 0).** This repository starts from the specification in
-> [`docs/`](docs/). Nothing is built yet — see the roadmap and the task backlog.
+> **Status: working foundations.** The core engine, CLI, Python binding, TypeScript SDK, wasm binding,
+> browser gallery, visual authoring page, verifier, optimizer, JSON/binary IR codecs and conformance
+> fixtures are implemented at v0. The broader roadmap in [`docs/`](docs/) still tracks unfinished
+> targets such as richer import/export, device profiles, reverse engineering and non-FFF backends.
 
 ## Why
 
@@ -33,7 +35,7 @@ rest.
 - **Toolframe** (position + orientation) so **non-planar and 5-axis are native**, not bolted on.
 - **Units are types** (Length/Speed/Volume/Flow/Temperature) — mixed units are a compile error.
 - **Pure functional core**: `design(params) → IR`; deposition/state is an explicit pass, not authoring
-  state. Deterministic, content-addressable, streamable (columnar / Arrow-style) to millions of moves.
+  state. Deterministic, content-addressable, and streamable through chunked binary archives.
 - **Provenance + invariants are first-class** — designs declare contracts the compiler enforces.
 
 Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
@@ -47,6 +49,8 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/02-roadmap.md`](docs/02-roadmap.md) | phases P0–P6 with exit gates; risk register; critical path |
 | [`docs/03-conformance.md`](docs/03-conformance.md) | bootstrapping correctness from the FullControl fork; the parity gates |
 | [`docs/04-tasks.md`](docs/04-tasks.md) | the sized, dependency-ordered backlog + the immediate next 5 |
+| [`docs/06-lattice-research-codegen.md`](docs/06-lattice-research-codegen.md) | the star-polygon lattice research PDF mapped into a Dry code generator |
+| [`docs/07-tpms-codegen.md`](docs/07-tpms-codegen.md) | TPMS implicit-field contour generation for gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces |
 
 ## Bootstrapped from FullControl
 
@@ -69,6 +73,31 @@ release.)*
 CLI (over a Dry IR file):
 ```
 cargo run -p dry-cli --bin dry -- emit conformance/gcode/square.json   # motion g-code
+cargo run -p dry-cli --bin dry -- import-gcode part.gcode -o part.dry.json
+cargo run -p dry-cli --bin dry -- review-gcode part.gcode --bounds 0,250,0,210,0,220
+cargo run -p dry-cli --bin dry -- review-gcode part.gcode --profile docs/profile-example.json
+cargo run -p dry-cli --bin dry -- trace-gcode part.gcode --window-s 5 > trace.json
+cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode -o normalized.gcode
+cargo run -p dry-cli --bin dry -- rewrite-gcode part.gcode --optimize -o optimized.gcode
+```
+
+Profile-aware review/verify accepts a versioned machine/material/process JSON:
+```json
+{
+  "version": 1,
+  "name": "voron24-abs",
+  "firmware": { "flavor": "klipper" },
+  "machine": {
+    "build_volume": [[0, 350], [0, 350], [0, 250]],
+    "feedrate_range": [300, 18000]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 24,
+    "min_nozzle_temperature_c": 230
+  },
+  "process": { "line_width": 0.45, "layer_height": 0.2 }
+}
 ```
 
 Python — author a design, the Rust engine resolves + emits it:
@@ -104,8 +133,8 @@ Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](
 ```
 docs/            the specification, roadmap, conformance plan, task backlog
 crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize; unit-typed]
-  cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/optimize/pack/unpack/verify)  [done]
+  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize/import/profile/trace; unit-typed]
+  cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/import-gcode/review-gcode/rewrite-gcode/optimize/pack/unpack/verify)  [done]
   wasm/          the wasm-bindgen binding                              [done]
 web/             the browser demo (build.sh, index.html, node smoke)   [done]
 py/              the PyO3 binding + Python authoring SDK (`dry`)        [done]

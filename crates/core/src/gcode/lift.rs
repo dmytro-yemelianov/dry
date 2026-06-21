@@ -1,0 +1,843 @@
+use super::{
+    parse_gcode_lines, DistanceMode, ExtrusionMode, GcodeParseError, GcodeParser, GcodeRecord,
+    MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
+};
+use crate::emit::{emit, EmitParams};
+use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
+use crate::units::{Angle, Area, Feedrate, Length, Volume};
+use std::f64::consts::{PI, TAU};
+use std::io::Read;
+
+/// Parameters for lifting parsed G-code motion into Dry L2.
+///
+/// G-code does not carry enough information to reconstruct line width/layer height reliably, so those
+/// fields are optional. Filament diameter is enough to recover deposited volume from positive E motion.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GcodeImportParams {
+    pub version: u32,
+    pub filament_diameter: f64,
+    pub line_width: Option<f64>,
+    pub layer_height: Option<f64>,
+}
+
+impl Default for GcodeImportParams {
+    fn default() -> Self {
+        GcodeImportParams {
+            version: 0,
+            filament_diameter: 1.75,
+            line_width: None,
+            layer_height: None,
+        }
+    }
+}
+
+/// A located G-code import error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GcodeImportError {
+    pub source_line: usize,
+    pub message: String,
+}
+
+impl GcodeImportError {
+    fn new(source_line: usize, message: impl Into<String>) -> Self {
+        GcodeImportError {
+            source_line,
+            message: message.into(),
+        }
+    }
+}
+
+impl From<GcodeParseError> for GcodeImportError {
+    fn from(value: GcodeParseError) -> Self {
+        GcodeImportError {
+            source_line: value.source_line,
+            message: value.message,
+        }
+    }
+}
+
+impl std::fmt::Display for GcodeImportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "line {}: {}", self.source_line, self.message)
+    }
+}
+
+impl std::error::Error for GcodeImportError {}
+
+/// A lifted G-code program plus provenance from Dry segments back to source lines.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportedGcode {
+    pub toolpath: Toolpath,
+    pub source_lines: Vec<String>,
+    pub segment_source_lines: Vec<usize>,
+    pub source_line_segments: Vec<Option<usize>>,
+}
+
+/// A contiguous source block containing only imported motion records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GcodeMotionSpan {
+    pub first_source_line: usize,
+    pub last_source_line: usize,
+    pub first_segment: usize,
+    pub segment_count: usize,
+}
+
+impl GcodeMotionSpan {
+    pub fn segment_range(self) -> std::ops::Range<usize> {
+        self.first_segment..self.first_segment + self.segment_count
+    }
+}
+
+impl ImportedGcode {
+    pub fn source_line_for_segment(&self, segment: usize) -> Option<usize> {
+        self.segment_source_lines.get(segment).copied()
+    }
+
+    pub fn segment_for_source_line(&self, source_line: usize) -> Option<usize> {
+        source_line
+            .checked_sub(1)
+            .and_then(|idx| self.source_line_segments.get(idx))
+            .copied()
+            .flatten()
+    }
+
+    pub fn source_text(&self) -> String {
+        self.source_lines.join("\n")
+    }
+
+    pub fn motion_spans(&self) -> Vec<GcodeMotionSpan> {
+        let mut spans = Vec::new();
+        let mut idx = 0;
+        while idx < self.source_line_segments.len() {
+            let Some(first_segment) = self.source_line_segments[idx] else {
+                idx += 1;
+                continue;
+            };
+            let first_source_line = idx + 1;
+            let mut last_source_line = first_source_line;
+            let mut segment_count = 1;
+            idx += 1;
+            while idx < self.source_line_segments.len() {
+                let expected_segment = first_segment + segment_count;
+                if self.source_line_segments[idx] != Some(expected_segment) {
+                    break;
+                }
+                last_source_line = idx + 1;
+                segment_count += 1;
+                idx += 1;
+            }
+            spans.push(GcodeMotionSpan {
+                first_source_line,
+                last_source_line,
+                first_segment,
+                segment_count,
+            });
+        }
+        spans
+    }
+
+    pub fn splice_motion_lines(
+        &self,
+        motion_lines: &[String],
+    ) -> Result<Vec<String>, GcodeImportError> {
+        if motion_lines.len() != self.segment_source_lines.len() {
+            return Err(GcodeImportError::new(
+                0,
+                format!(
+                    "cannot splice {} emitted motion lines into {} imported motion slots",
+                    motion_lines.len(),
+                    self.segment_source_lines.len()
+                ),
+            ));
+        }
+
+        let mut lines = self.source_lines.clone();
+        for (segment, line) in motion_lines.iter().enumerate() {
+            let source_line = self.segment_source_lines[segment];
+            let Some(slot) = source_line
+                .checked_sub(1)
+                .and_then(|idx| lines.get_mut(idx))
+            else {
+                return Err(GcodeImportError::new(
+                    source_line,
+                    "segment source line is outside the imported source",
+                ));
+            };
+            *slot = line.clone();
+        }
+        Ok(lines)
+    }
+
+    pub fn splice_motion_spans(
+        &self,
+        span_motion_lines: &[Vec<String>],
+    ) -> Result<Vec<String>, GcodeImportError> {
+        let spans = self.motion_spans();
+        if span_motion_lines.len() != spans.len() {
+            return Err(GcodeImportError::new(
+                0,
+                format!(
+                    "cannot splice {} emitted motion spans into {} imported motion spans",
+                    span_motion_lines.len(),
+                    spans.len()
+                ),
+            ));
+        }
+
+        let mut lines = Vec::new();
+        let mut source_idx = 0;
+        for (span, motion_lines) in spans.into_iter().zip(span_motion_lines) {
+            let start = span.first_source_line - 1;
+            let end = span.last_source_line;
+            lines.extend(self.source_lines[source_idx..start].iter().cloned());
+            lines.extend(motion_lines.iter().cloned());
+            source_idx = end;
+        }
+        lines.extend(self.source_lines[source_idx..].iter().cloned());
+        Ok(lines)
+    }
+
+    pub fn emit_source_preserving(
+        &self,
+        toolpath: &Toolpath,
+        params: &EmitParams,
+    ) -> Result<Vec<String>, GcodeImportError> {
+        let emitted = emit(toolpath, params);
+        self.splice_motion_lines(&emitted)
+    }
+
+    pub fn emit_source_preserving_spans(
+        &self,
+        span_toolpaths: &[Toolpath],
+        params: &EmitParams,
+    ) -> Result<Vec<String>, GcodeImportError> {
+        let span_motion_lines = span_toolpaths
+            .iter()
+            .map(|toolpath| emit(toolpath, params))
+            .collect::<Vec<_>>();
+        self.splice_motion_spans(&span_motion_lines)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LiftState {
+    pos: [Option<f64>; 3],
+    e: f64,
+    feedrate: Option<f64>,
+    temperature: Option<f64>,
+    fan: Option<f64>,
+    flow: f64,
+    tool: Option<u32>,
+}
+
+impl Default for LiftState {
+    fn default() -> Self {
+        LiftState {
+            pos: [None, None, None],
+            e: 0.0,
+            feedrate: None,
+            temperature: None,
+            fan: None,
+            flow: 1.0,
+            tool: None,
+        }
+    }
+}
+
+/// Parse and lift a G-code string into a Dry L2 [`Toolpath`].
+pub fn import_gcode(
+    source: &str,
+    params: &GcodeImportParams,
+) -> Result<Toolpath, GcodeImportError> {
+    Ok(import_gcode_with_map(source, params)?.toolpath)
+}
+
+/// Parse and lift a G-code string into Dry L2 with source-line mapping.
+pub fn import_gcode_with_map(
+    source: &str,
+    params: &GcodeImportParams,
+) -> Result<ImportedGcode, GcodeImportError> {
+    import_parsed_gcode_with_map(parse_gcode_lines(source)?, params)
+}
+
+/// Parse and lift a G-code reader into a Dry L2 [`Toolpath`].
+pub fn import_gcode_reader<R: Read>(
+    reader: R,
+    params: &GcodeImportParams,
+) -> Result<Toolpath, GcodeImportError> {
+    Ok(import_gcode_reader_with_map(reader, params)?.toolpath)
+}
+
+/// Parse and lift a G-code reader into Dry L2 with source-line mapping.
+pub fn import_gcode_reader_with_map<R: Read>(
+    reader: R,
+    params: &GcodeImportParams,
+) -> Result<ImportedGcode, GcodeImportError> {
+    let lines = GcodeParser::from_reader(reader).collect::<Result<Vec<_>, _>>()?;
+    import_parsed_gcode_with_map(lines, params)
+}
+
+/// Lift already parsed G-code lines into a Dry L2 [`Toolpath`].
+pub fn import_parsed_gcode<I>(
+    lines: I,
+    params: &GcodeImportParams,
+) -> Result<Toolpath, GcodeImportError>
+where
+    I: IntoIterator<Item = ParsedGcodeLine>,
+{
+    Ok(import_parsed_gcode_with_map(lines, params)?.toolpath)
+}
+
+/// Lift already parsed G-code lines into Dry L2 with source-line mapping.
+pub fn import_parsed_gcode_with_map<I>(
+    lines: I,
+    params: &GcodeImportParams,
+) -> Result<ImportedGcode, GcodeImportError>
+where
+    I: IntoIterator<Item = ParsedGcodeLine>,
+{
+    validate_params(params)?;
+    let filament_area = filament_area(params.filament_diameter);
+    let width = params.line_width.map(Length::mm);
+    let height = params.layer_height.map(Length::mm);
+    let mut state = LiftState::default();
+    let mut segments = Vec::new();
+    let mut source_lines = Vec::new();
+    let mut segment_source_lines = Vec::new();
+    let mut source_line_segments = Vec::new();
+
+    for line in lines {
+        source_lines.push(line.raw.clone());
+        source_line_segments.push(None);
+        match &line.record {
+            GcodeRecord::Motion(motion) => {
+                if let Some(segment) =
+                    lift_motion(motion, filament_area, width, height, &mut state)?
+                {
+                    let segment_idx = segments.len();
+                    segments.push(segment);
+                    segment_source_lines.push(motion.source_line);
+                    if let Some(slot) = source_line_segments.last_mut() {
+                        *slot = Some(segment_idx);
+                    }
+                }
+            }
+            GcodeRecord::State(StateCommand::SetPosition) => apply_g92(&line, &mut state)?,
+            GcodeRecord::Process(command) => apply_process(*command, &mut state),
+            _ => {}
+        }
+    }
+
+    Ok(ImportedGcode {
+        toolpath: Toolpath {
+            version: params.version,
+            meta: Some(Meta {
+                generator: Some("dry gcode importer".to_string()),
+                units: Some("mm".to_string()),
+                source_hash: None,
+                invariants: vec!["imported-from-gcode".to_string()],
+            }),
+            segments,
+        },
+        source_lines,
+        segment_source_lines,
+        source_line_segments,
+    })
+}
+
+fn validate_params(params: &GcodeImportParams) -> Result<(), GcodeImportError> {
+    if !params.filament_diameter.is_finite() || params.filament_diameter <= 0.0 {
+        return Err(GcodeImportError::new(
+            0,
+            "filament_diameter must be finite and positive",
+        ));
+    }
+    for (name, value) in [
+        ("line_width", params.line_width),
+        ("layer_height", params.layer_height),
+    ] {
+        if let Some(value) = value {
+            if !value.is_finite() || value <= 0.0 {
+                return Err(GcodeImportError::new(
+                    0,
+                    format!("{name} must be finite and positive when set"),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn filament_area(diameter: f64) -> Area {
+    let radius = diameter / 2.0;
+    Area(PI * radius * radius)
+}
+
+fn unit_factor(units: UnitMode) -> f64 {
+    match units {
+        UnitMode::Millimeters => 1.0,
+        UnitMode::Inches => 25.4,
+    }
+}
+
+fn lift_motion(
+    motion: &super::MotionRecord,
+    filament_area: Area,
+    width: Option<Length>,
+    height: Option<Length>,
+    state: &mut LiftState,
+) -> Result<Option<Segment>, GcodeImportError> {
+    let factor = unit_factor(motion.state.units);
+    if let Some(f) = motion.f {
+        state.feedrate = Some(f * factor);
+    }
+    let speed = Feedrate(state.feedrate.unwrap_or(0.0));
+
+    if motion.mode == MotionMode::Dwell {
+        let dwell_s = motion.s.or_else(|| motion.p.map(|p| p / 1000.0));
+        if dwell_s.is_none() {
+            return Ok(None);
+        }
+        let pos = lengths(state.pos);
+        return Ok(Some(Segment {
+            start: pos,
+            end: pos,
+            travel: true,
+            speed,
+            length: Length::ZERO,
+            volume: Volume::ZERO,
+            filament: Length::ZERO,
+            width: None,
+            height: None,
+            kind: SegmentKind::Dwell,
+            centre: None,
+            clockwise: false,
+            temperature: state.temperature,
+            fan: state.fan,
+            flow: None,
+            tool: state.tool,
+            dwell_s,
+            orientation: None,
+            control_points: None,
+        }));
+    }
+
+    let start = state.pos;
+    let end = [
+        apply_axis(state.pos[0], motion.x, motion.state.distance_mode, factor),
+        apply_axis(state.pos[1], motion.y, motion.state.distance_mode, factor),
+        apply_axis(state.pos[2], motion.z, motion.state.distance_mode, factor),
+    ];
+    let filament_delta = extrusion_delta(motion, state, factor);
+    let deposited = filament_delta.max(0.0) * state.flow;
+    let filament = Length::mm(deposited);
+    let volume = filament_area * filament;
+    let travel = motion.mode == MotionMode::Rapid || deposited <= 0.0;
+    let flow = if state.flow == 1.0 {
+        None
+    } else {
+        Some(state.flow)
+    };
+
+    let (kind, centre, clockwise, length) = match motion.mode {
+        MotionMode::Rapid | MotionMode::Linear => (
+            SegmentKind::Line,
+            None,
+            false,
+            Length::mm(point_dist(start, end)),
+        ),
+        MotionMode::ClockwiseArc | MotionMode::CounterClockwiseArc => {
+            let clockwise = motion.mode == MotionMode::ClockwiseArc;
+            let arc = arc_geometry(motion, start, end, factor, clockwise)?;
+            (
+                SegmentKind::Arc,
+                Some([Length::mm(arc.centre[0]), Length::mm(arc.centre[1])]),
+                clockwise,
+                Length::mm(arc.length),
+            )
+        }
+        MotionMode::Dwell => unreachable!("handled above"),
+    };
+
+    state.pos = end;
+
+    Ok(Some(Segment {
+        start: lengths(start),
+        end: lengths(end),
+        travel,
+        speed,
+        length,
+        volume,
+        filament,
+        width: if travel { None } else { width },
+        height: if travel { None } else { height },
+        kind,
+        centre,
+        clockwise,
+        temperature: state.temperature,
+        fan: state.fan,
+        flow,
+        tool: state.tool,
+        dwell_s: None,
+        orientation: None,
+        control_points: None,
+    }))
+}
+
+fn apply_axis(
+    current: Option<f64>,
+    value: Option<f64>,
+    mode: DistanceMode,
+    factor: f64,
+) -> Option<f64> {
+    match (value, mode) {
+        (Some(value), DistanceMode::Absolute) => Some(value * factor),
+        (Some(value), DistanceMode::Relative) => Some(current.unwrap_or(0.0) + value * factor),
+        (None, _) => current,
+    }
+}
+
+fn extrusion_delta(motion: &super::MotionRecord, state: &mut LiftState, factor: f64) -> f64 {
+    let Some(value) = motion.e else {
+        return 0.0;
+    };
+    let value = value * factor;
+    match motion.state.extrusion_mode {
+        ExtrusionMode::Absolute => {
+            let delta = value - state.e;
+            state.e = value;
+            delta
+        }
+        ExtrusionMode::Relative => {
+            state.e += value;
+            value
+        }
+    }
+}
+
+fn apply_g92(line: &ParsedGcodeLine, state: &mut LiftState) -> Result<(), GcodeImportError> {
+    let factor = unit_factor(line.state_after.units);
+    for word in &line.words {
+        match word.letter {
+            'X' => state.pos[0] = Some(word.value * factor),
+            'Y' => state.pos[1] = Some(word.value * factor),
+            'Z' => state.pos[2] = Some(word.value * factor),
+            'E' => state.e = word.value * factor,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn apply_process(command: ProcessCommand, state: &mut LiftState) {
+    match command {
+        ProcessCommand::NozzleTemperature(temp) => state.temperature = Some(temp),
+        ProcessCommand::Fan(speed) => state.fan = Some(speed),
+        ProcessCommand::Flow(ratio) => state.flow = ratio,
+        ProcessCommand::Tool(index) => state.tool = Some(index),
+    }
+}
+
+fn lengths(pos: [Option<f64>; 3]) -> [Option<Length>; 3] {
+    [
+        pos[0].map(Length::mm),
+        pos[1].map(Length::mm),
+        pos[2].map(Length::mm),
+    ]
+}
+
+fn point_dist(a: [Option<f64>; 3], b: [Option<f64>; 3]) -> f64 {
+    let mut sq = 0.0;
+    for axis in 0..3 {
+        if let (Some(a), Some(b)) = (a[axis], b[axis]) {
+            let delta = b - a;
+            sq += delta * delta;
+        }
+    }
+    libm::sqrt(sq)
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ArcGeometry {
+    centre: [f64; 2],
+    length: f64,
+}
+
+fn arc_geometry(
+    motion: &super::MotionRecord,
+    start: [Option<f64>; 3],
+    end: [Option<f64>; 3],
+    factor: f64,
+    clockwise: bool,
+) -> Result<ArcGeometry, GcodeImportError> {
+    let (Some(sx), Some(sy), Some(ex), Some(ey)) = (start[0], start[1], end[0], end[1]) else {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            "arc import needs defined start and end X/Y",
+        ));
+    };
+    let cx = sx + motion.i.unwrap_or(0.0) * factor;
+    let cy = sy + motion.j.unwrap_or(0.0) * factor;
+    let radius = libm::hypot(sx - cx, sy - cy);
+    if !radius.is_finite() || radius <= 0.0 {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            "arc import needs a non-zero I/J centre offset",
+        ));
+    }
+    let end_radius = libm::hypot(ex - cx, ey - cy);
+    let radius_delta = (radius - end_radius).abs();
+    let tolerance = 1e-6 * radius.max(end_radius).max(1.0);
+    if !end_radius.is_finite() || end_radius <= 0.0 || radius_delta > tolerance {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            format!("arc import endpoint radius differs from start radius by {radius_delta:.6} mm"),
+        ));
+    }
+    let start_a = libm::atan2(sy - cy, sx - cx);
+    let end_a = libm::atan2(ey - cy, ex - cx);
+    let mut swept = Angle(if clockwise {
+        start_a - end_a
+    } else {
+        end_a - start_a
+    }) % TAU;
+    if swept <= Angle::ZERO {
+        swept = swept + Angle(TAU);
+    }
+    let dz = match (start[2], end[2]) {
+        (Some(start), Some(end)) => end - start,
+        _ => 0.0,
+    };
+    let planar = (Length::mm(radius) * swept).value();
+    Ok(ArcGeometry {
+        centre: [cx, cy],
+        length: libm::hypot(planar, dz),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::SegmentKind;
+    use crate::{simulate, verify, Contracts};
+
+    #[test]
+    fn imports_linear_moves_with_relative_extrusion() {
+        let tp = import_gcode(
+            "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E1.5 F1200\n",
+            &GcodeImportParams {
+                line_width: Some(0.45),
+                layer_height: Some(0.2),
+                ..GcodeImportParams::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(tp.segments.len(), 2);
+        assert!(tp.segments[0].travel);
+        assert!(!tp.segments[1].travel);
+        assert_eq!(tp.segments[1].start[0], Some(Length::mm(0.0)));
+        assert_eq!(tp.segments[1].end[0], Some(Length::mm(10.0)));
+        assert_eq!(tp.segments[1].filament, Length::mm(1.5));
+        assert_eq!(tp.segments[1].width, Some(Length::mm(0.45)));
+        assert_eq!(tp.segments[1].height, Some(Length::mm(0.2)));
+    }
+
+    #[test]
+    fn imported_process_state_is_attached_to_lifted_segments() {
+        let tp = import_gcode(
+            "M104 S210\nM106 S128\nM221 S90\nT1\nM83\nG1 X10 E1 F1200\n",
+            &GcodeImportParams {
+                line_width: Some(0.45),
+                layer_height: Some(0.2),
+                ..GcodeImportParams::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(tp.segments.len(), 1);
+        let segment = &tp.segments[0];
+        assert_eq!(segment.temperature, Some(210.0));
+        assert_eq!(segment.fan, Some(128.0 / 255.0));
+        assert_eq!(segment.flow, Some(0.9));
+        assert_eq!(segment.tool, Some(1));
+        assert!((segment.filament.value() - 0.9).abs() < 1e-12);
+    }
+
+    #[test]
+    fn imported_nozzle_temperature_satisfies_cold_extrusion_guard() {
+        let tp = import_gcode(
+            "M104 S210\nM109 S210\nM83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E1 F1200\n",
+            &GcodeImportParams {
+                line_width: Some(0.45),
+                layer_height: Some(0.2),
+                ..GcodeImportParams::default()
+            },
+        )
+        .unwrap();
+        let report = verify(
+            &tp,
+            &Contracts {
+                min_temp: Some(180.0),
+                ..Contracts::default()
+            },
+        );
+        assert!(
+            !report.findings.iter().any(|f| f.rule == "cold-extrusion"),
+            "hot imported G-code should not be flagged: {:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn e_only_prime_moves_have_duration_and_flow() {
+        let tp = import_gcode("M83\nG1 E5 F300\n", &Default::default()).unwrap();
+        let metrics = simulate(&tp);
+        assert_eq!(metrics.segment_count, 1);
+        assert!((metrics.total_time_s.value() - 1.0).abs() < 1e-12);
+        assert!(metrics.max_flow_rate.value() > 12.0);
+
+        let report = verify(
+            &tp,
+            &Contracts {
+                max_flow: Some(1.0),
+                ..Contracts::default()
+            },
+        );
+        assert!(report.findings.iter().any(|f| f.rule == "max-flow"));
+    }
+
+    #[test]
+    fn mapped_import_tracks_segment_source_lines() {
+        let imported = import_gcode_with_map(
+            "; header\nM83\nG1 X0 Y0 Z0.2 F9000\nM104 S210\nG1 X10 E1.5 F1200\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(imported.toolpath.segments.len(), 2);
+        assert_eq!(imported.segment_source_lines, vec![3, 5]);
+        assert_eq!(imported.source_line_for_segment(1), Some(5));
+        assert_eq!(imported.segment_for_source_line(5), Some(1));
+        assert_eq!(imported.source_line_for_segment(2), None);
+    }
+
+    #[test]
+    fn motion_spans_split_on_non_motion_source_lines() {
+        let imported = import_gcode_with_map(
+            "; header\nM83\nG1 X0 Y0 Z0.2 F9000\nG1 X1\nM104 S210\nG1 X2\nG1 X3\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            imported.motion_spans(),
+            vec![
+                GcodeMotionSpan {
+                    first_source_line: 3,
+                    last_source_line: 4,
+                    first_segment: 0,
+                    segment_count: 2,
+                },
+                GcodeMotionSpan {
+                    first_source_line: 6,
+                    last_source_line: 7,
+                    first_segment: 2,
+                    segment_count: 2,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn source_preserving_emit_splices_only_motion_lines() {
+        let imported = import_gcode_with_map(
+            "; header\nM83\nG1 X0 Y0 Z0.2 F9000 ; move\nM104 S210\nG1 X10 E1.5 F1200\n",
+            &Default::default(),
+        )
+        .unwrap();
+        let lines = imported
+            .emit_source_preserving(&imported.toolpath, &EmitParams::default())
+            .unwrap();
+        assert_eq!(lines.len(), 5);
+        assert_eq!(lines[0], "; header");
+        assert_eq!(lines[1], "M83");
+        assert_eq!(lines[3], "M104 S210");
+        assert!(lines[2].starts_with("G0 "));
+        assert!(lines[4].starts_with("G1 "));
+    }
+
+    #[test]
+    fn span_splice_allows_motion_count_changes() {
+        let imported = import_gcode_with_map(
+            "; header\nM83\nG1 X0 Y0 Z0.2 F9000\nG1 X1\nM104 S210\nG1 X2\nG1 X3\n",
+            &Default::default(),
+        )
+        .unwrap();
+        let lines = imported
+            .splice_motion_spans(&[
+                vec!["G0 X0 Y0 Z0.2".to_string()],
+                vec![
+                    "G1 X2".to_string(),
+                    "G1 X2.5".to_string(),
+                    "G1 X3".to_string(),
+                ],
+            ])
+            .unwrap();
+        assert_eq!(
+            lines,
+            vec![
+                "; header",
+                "M83",
+                "G0 X0 Y0 Z0.2",
+                "M104 S210",
+                "G1 X2",
+                "G1 X2.5",
+                "G1 X3",
+            ]
+        );
+    }
+
+    #[test]
+    fn imports_absolute_extrusion_and_g92() {
+        let tp = import_gcode("G92 E0\nG1 X5 E0.4\nG1 X10 E0.7\n", &Default::default()).unwrap();
+        assert_eq!(tp.segments.len(), 2);
+        assert_eq!(tp.segments[0].filament, Length::mm(0.4));
+        assert!((tp.segments[1].filament.value() - 0.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn imports_arcs_with_ij_offsets() {
+        let tp = import_gcode(
+            "G1 X10 Y0 Z0.2\nG3 X0 Y10 I-10 J0 E1\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(tp.segments.len(), 2);
+        let arc = &tp.segments[1];
+        assert_eq!(arc.kind, SegmentKind::Arc);
+        assert_eq!(arc.centre, Some([Length::mm(0.0), Length::mm(0.0)]));
+        assert!((arc.length.value() - std::f64::consts::FRAC_PI_2 * 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rejects_arcs_whose_end_is_not_on_the_radius() {
+        let err = import_gcode("G1 X10 Y0\nG3 X1 Y1 I-10 J0\n", &Default::default()).unwrap_err();
+        assert_eq!(err.source_line, 2);
+        assert!(err.message.contains("endpoint radius differs"));
+    }
+
+    #[test]
+    fn converts_inches_to_mm() {
+        let tp = import_gcode("G20\nM83\nG1 X1 E0.1 F60\n", &Default::default()).unwrap();
+        assert_eq!(tp.segments[0].end[0], Some(Length::mm(25.4)));
+        assert_eq!(tp.segments[0].filament, Length::mm(2.54));
+        assert_eq!(tp.segments[0].speed, Feedrate(1524.0));
+    }
+
+    #[test]
+    fn dwell_imports_as_dwell_segment_without_becoming_modal_motion() {
+        let tp = import_gcode("G1 X1\nG4 S2\nX2\n", &Default::default()).unwrap();
+        assert_eq!(tp.segments.len(), 3);
+        assert_eq!(tp.segments[1].kind, SegmentKind::Dwell);
+        assert_eq!(tp.segments[1].dwell_s, Some(2.0));
+        assert_eq!(tp.segments[2].kind, SegmentKind::Line);
+        assert_eq!(tp.segments[2].end[0], Some(Length::mm(2.0)));
+    }
+}

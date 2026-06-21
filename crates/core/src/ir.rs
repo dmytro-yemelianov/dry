@@ -12,6 +12,42 @@
 use crate::units::{Feedrate, Length, Volume};
 use serde::{Deserialize, Serialize};
 
+/// The resolved motion primitive carried by a [`Segment`].
+///
+/// The wire format remains the existing lowercase string values (`"line"`, `"arc"`, `"spline"`,
+/// `"dwell"`), but the Rust core now handles the vocabulary as an enum so unsupported values fail at
+/// deserialization/binary decode instead of silently behaving like a line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SegmentKind {
+    #[default]
+    Line,
+    Arc,
+    Spline,
+    Dwell,
+}
+
+impl SegmentKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SegmentKind::Line => "line",
+            SegmentKind::Arc => "arc",
+            SegmentKind::Spline => "spline",
+            SegmentKind::Dwell => "dwell",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "line" => Some(SegmentKind::Line),
+            "arc" => Some(SegmentKind::Arc),
+            "spline" => Some(SegmentKind::Spline),
+            "dwell" => Some(SegmentKind::Dwell),
+            _ => None,
+        }
+    }
+}
+
 /// One resolved move from `start` to `end` (absolute). An axis is `None` when undefined before it is
 /// first set (e.g. the very first positioning move). `length` is the true path length (arc length for
 /// arcs; 0 for a pure positioning move). `volume`/`filament` are the material this move deposits.
@@ -30,10 +66,10 @@ pub struct Segment {
     pub filament: Length,
     pub width: Option<Length>,
     pub height: Option<Length>,
-    /// `"line"`, `"arc"`, or `"dwell"` (v0; becomes an enum in P1).
-    #[serde(default = "default_kind")]
-    pub kind: String,
-    /// Arc centre `(cx, cy)` in absolute coordinates — present only when `kind == "arc"`.
+    /// The segment primitive. Defaults to `line` for legacy/header-free fixtures.
+    #[serde(default)]
+    pub kind: SegmentKind,
+    /// Arc centre `(cx, cy)` in absolute coordinates — present only for [`SegmentKind::Arc`].
     #[serde(default)]
     pub centre: Option<[Length; 2]>,
     /// Arc direction: `true` → G2 (clockwise), `false` → G3.
@@ -54,17 +90,16 @@ pub struct Segment {
     /// Active tool index.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool: Option<u32>,
-    /// Dwell duration (s) — present only when `kind == "dwell"`.
+    /// Dwell duration (s) — present only for [`SegmentKind::Dwell`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dwell_s: Option<f64>,
     /// Toolframe orientation: the tool-direction unit vector `(i, j, k)`. `None` ⇒ identity (+Z), i.e.
     /// 3-axis. Carrying it makes non-planar / 5-axis a first-class IR property (§2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orientation: Option<[f64; 3]>,
-}
-
-fn default_kind() -> String {
-    "line".to_string()
+    /// Spline control points — present only when kind == `SegmentKind::Spline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_points: Option<Vec<[Length; 3]>>,
 }
 
 /// The self-describing IR **header**: optional provenance and declared invariants. Every field is
@@ -88,18 +123,18 @@ pub struct Meta {
 
 /// A resolved toolpath: an ordered stream of moves. The `version` tags the Dry IR schema.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Toolpath {
+pub struct Toolpath<I = Vec<Segment>> {
     #[serde(default)]
     pub version: u32,
     /// Optional self-describing header (provenance + declared invariants). Absent ⇒ no `meta` key on
     /// the wire (byte-identity with a header-free IR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<Meta>,
-    pub segments: Vec<Segment>,
+    pub segments: I,
 }
 
-impl Toolpath {
-    pub fn from_json(s: &str) -> Result<Toolpath, serde_json::Error> {
+impl Toolpath<Vec<Segment>> {
+    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
     }
 
@@ -107,13 +142,31 @@ impl Toolpath {
         serde_json::to_string(self).expect("Toolpath serialises")
     }
 
-    /// Encode to the compact columnar binary form (`docs/01-architecture.md` §6; see [`crate::codec`]).
+    /// Encode to the compact columnar `DRY0` binary form (`docs/01-architecture.md` §6; see
+    /// [`crate::codec`]).
     pub fn to_bytes(&self) -> Vec<u8> {
         crate::codec::encode(self)
     }
 
-    /// Decode from the columnar binary form. Lossless: `from_bytes(&to_bytes()) == self`.
-    pub fn from_bytes(buf: &[u8]) -> Result<Toolpath, crate::codec::CodecError> {
+    /// Encode to the chunked streaming `DRY1` binary form.
+    pub fn to_streaming_bytes(&self) -> Vec<u8> {
+        crate::codec::encode_chunked(self)
+    }
+
+    /// Decode from either binary form. Lossless: `from_bytes(&to_bytes()) == self`.
+    pub fn from_bytes(buf: &[u8]) -> Result<Self, crate::codec::CodecError> {
         crate::codec::decode(buf)
+    }
+}
+
+impl<I> IntoIterator for Toolpath<I>
+where
+    I: IntoIterator,
+{
+    type Item = I::Item;
+    type IntoIter = I::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
     }
 }

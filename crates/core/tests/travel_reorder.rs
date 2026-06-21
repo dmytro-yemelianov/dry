@@ -4,7 +4,10 @@
 //! Like `arc_fit`, this pass has no FullControl oracle: it is Dry's own well-specified transform, tested
 //! directly against a constructed layout where the authored order zig-zags across the bed.
 
-use dry_core::{resolve, simulate, travel_reorder, Design, ResolveParams, Segment};
+use dry_core::{
+    optimize_aggressive_pipeline, optimize_pipeline, resolve, simulate, travel_reorder, Design,
+    ResolveParams, Segment,
+};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -65,6 +68,16 @@ fn reorder_shortens_total_travel() {
         after < before,
         "travel should strictly shorten: {before} → {after}"
     );
+}
+
+#[test]
+fn standard_pipeline_does_not_reorder_travel() {
+    let tp = resolve(&zigzag_islands(), &ResolveParams::default());
+    let safe = optimize_pipeline(&tp);
+    let aggressive = optimize_aggressive_pipeline(&tp);
+    assert_eq!(extruding_key(&safe), extruding_key(&tp));
+    assert_eq!(safe.segments, tp.segments);
+    assert!(travel_distance(&aggressive) < travel_distance(&safe));
 }
 
 #[test]

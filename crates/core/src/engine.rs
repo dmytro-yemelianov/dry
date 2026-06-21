@@ -4,8 +4,9 @@
 //! validated byte-for-number against the FullControl oracle (`docs/03-conformance.md`); the accounting
 //! below mirrors FullControl's *observed behaviour* (clean-room — reproduced, not copied):
 //! time = Σ length/speed·60 (speed is mm/min), split into print (extruding) and travel; distances and
-//! material summed likewise; `segment_count` counts moves with non-zero length; `max_flow_rate` is the
-//! peak per-move volumetric flow.
+//! material summed likewise; filament-only prime moves use filament/speed for duration without faking XYZ
+//! path length; `segment_count` counts moves with non-zero duration; `max_flow_rate` is the peak per-move
+//! volumetric flow.
 
 use crate::ir::Toolpath;
 use crate::units::{Feedrate, Flow, Length, Time, Volume};
@@ -26,10 +27,27 @@ pub struct Metrics {
     pub max_flow_rate: Flow,
 }
 
-/// Fold a toolpath into its print metrics.
-pub fn simulate(tp: &Toolpath) -> Metrics {
+pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
+    if s.speed == Feedrate::ZERO {
+        return None;
+    }
+    if s.length > Length::ZERO {
+        Some(s.length / s.speed)
+    } else if !s.travel && s.volume > Volume::ZERO && s.filament > Length::ZERO {
+        Some(s.filament / s.speed)
+    } else {
+        None
+    }
+}
+
+/// Fold a streaming iterator of segments into print metrics.
+pub fn simulate_stream<I>(segments: I) -> Result<Metrics, crate::codec::CodecError>
+where
+    I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
+{
     let mut m = Metrics::default();
-    for s in &tp.segments {
+    for res in segments {
+        let s = res?;
         // material accrues on every move (a zero-length move deposits nothing).
         m.extruded_volume = m.extruded_volume + s.volume;
         m.filament_length = m.filament_length + s.filament;
@@ -39,8 +57,7 @@ pub fn simulate(tp: &Toolpath) -> Metrics {
             m.total_time_s = m.total_time_s + Time(secs);
         }
 
-        if s.length > Length::ZERO && s.speed != Feedrate::ZERO {
-            let t = s.length / s.speed; // Length ÷ Feedrate(mm/min) → Time(seconds)
+        if let Some(t) = segment_motion_time(&s) {
             m.total_time_s = m.total_time_s + t;
             m.segment_count += 1;
             if s.travel {
@@ -56,5 +73,10 @@ pub fn simulate(tp: &Toolpath) -> Metrics {
             }
         }
     }
-    m
+    Ok(m)
+}
+
+/// Fold a toolpath into its print metrics.
+pub fn simulate(tp: &Toolpath) -> Metrics {
+    simulate_stream(tp.segments.iter().cloned().map(Ok)).unwrap()
 }

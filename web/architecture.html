@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Dry architecture audit</title>
+<style>
+  :root {
+    --paper: #f7f5ef;
+    --ink: #20262d;
+    --muted: #66707a;
+    --panel: #ffffff;
+    --line: #d7d2c8;
+    --line-strong: #b7afa2;
+    --core: #256f7b;
+    --sdk: #7a5c20;
+    --web: #5e5a94;
+    --target: #8f4d2f;
+    --ok: #2f7d48;
+    --warn: #9a650f;
+    --bad: #b42318;
+    --code: #0f5d68;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  a { color: var(--core); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    color: var(--code);
+    background: #e8f0ef;
+    border: 1px solid #c8dedb;
+    border-radius: 4px;
+    padding: 0 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(247, 245, 239, 0.94);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-height: 64px;
+    padding: 0 24px;
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+  }
+  .brand strong {
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 22px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 22px;
+  }
+  aside {
+    position: sticky;
+    top: 86px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  aside h2, section h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .toc {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .toc a {
+    display: block;
+    padding: 7px 8px;
+    border-radius: 6px;
+    color: var(--ink);
+  }
+  .toc a:hover { background: #efebe2; text-decoration: none; }
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .filters button {
+    min-height: 34px;
+    border: 1px solid var(--line);
+    background: #fbfaf7;
+    color: var(--ink);
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .filters button.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+  }
+  .note {
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  main { display: grid; gap: 18px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(240px, 0.9fr);
+    gap: 18px;
+    align-items: start;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: clamp(26px, 3vw, 44px);
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+  .lead {
+    margin: 0;
+    color: #3d4852;
+    max-width: 860px;
+    font-size: 16px;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stat {
+    min-height: 82px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfaf7;
+  }
+  .stat b {
+    display: block;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--core);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .map {
+    display: grid;
+    grid-template-columns: 1fr 52px 1.1fr 52px 1fr;
+    gap: 0;
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .lane {
+    min-width: 210px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfaf7;
+    padding: 12px;
+  }
+  .lane h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+  }
+  .lane ul {
+    margin: 0;
+    padding-left: 18px;
+    color: #46515d;
+  }
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 22px;
+  }
+  .lane.sdk { border-top: 4px solid var(--sdk); }
+  .lane.core { border-top: 4px solid var(--core); }
+  .lane.target { border-top: 4px solid var(--target); }
+
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .module {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfaf7;
+    min-height: 138px;
+  }
+  .module h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+  .module p {
+    margin: 0;
+    color: #46515d;
+  }
+  .module .deps {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .findings {
+    display: grid;
+    gap: 10px;
+  }
+  .finding {
+    border: 1px solid var(--line);
+    border-left-width: 5px;
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: #fbfaf7;
+  }
+  .finding[data-severity="high"] { border-left-color: var(--bad); }
+  .finding[data-severity="medium"] { border-left-color: var(--warn); }
+  .finding[data-severity="low"] { border-left-color: var(--core); }
+  .finding-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .severity {
+    min-width: 68px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: #fff;
+  }
+  .severity.high { background: var(--bad); }
+  .severity.medium { background: var(--warn); }
+  .severity.low { background: var(--core); }
+  .category {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .finding h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .finding p {
+    margin: 7px 0 0;
+    color: #46515d;
+  }
+  .fix {
+    margin-top: 8px;
+    color: var(--ink);
+    font-size: 13px;
+  }
+
+  .decision-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .decision {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfaf7;
+  }
+  .decision h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+  .decision p {
+    margin: 0;
+    color: #46515d;
+  }
+
+  .checks {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .check {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfaf7;
+  }
+  .check strong {
+    display: block;
+    color: var(--ok);
+    margin-bottom: 4px;
+  }
+  .check span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; padding: 14px; }
+    aside { position: static; }
+    .intro, .decision-list { grid-template-columns: 1fr; }
+    .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .topbar { align-items: flex-start; flex-direction: column; padding: 14px; gap: 8px; }
+    nav { margin-left: 0; }
+    .stat-grid, .module-grid, .checks { grid-template-columns: 1fr; }
+    .map { grid-template-columns: 1fr; gap: 8px; }
+    .arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <strong>Dry architecture audit</strong>
+      <span>Repository structure, module relations, bottlenecks and decisions</span>
+    </div>
+    <nav>
+      <a href="index.html">Gallery</a>
+      <a href="blocks.html">Visual authoring</a>
+      <a href="opportunities.html">Product directions</a>
+      <a href="../docs/01-architecture.md">Spec</a>
+      <a href="../README.md">README</a>
+    </nav>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Sections</h2>
+    <div class="toc">
+      <a href="#snapshot">Snapshot</a>
+      <a href="#map">Architecture Map</a>
+      <a href="#modules">Modules</a>
+      <a href="#findings">Audit Findings</a>
+      <a href="#decisions">Solutions</a>
+      <a href="#checks">Verification</a>
+    </div>
+    <h2>Finding Filter</h2>
+    <div class="filters" id="filters">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="perf">Perf</button>
+      <button data-filter="consistency">Consistency</button>
+      <button data-filter="practice">Practice</button>
+      <button data-filter="dead">Dead code</button>
+      <button data-filter="web">Web</button>
+    </div>
+    <p class="note">This page is static and self-contained. It documents the current audit; it does not mutate project files or run the engine.</p>
+  </aside>
+
+  <main>
+    <section id="snapshot" class="intro">
+      <div>
+        <h1>One Rust engine, thin adapters, and sharper contracts at the boundaries.</h1>
+        <p class="lead">
+          Dry is organized around a dependency-light Rust core. Python, TypeScript, CLI and browser surfaces
+          mostly build or pass L1 operations into that core, then consume resolved L2 toolpaths. The highest-risk
+          audit items are now addressed: segment kinds are typed, spline preview follows the emitter, optimizer
+          behavior is shared, adapter parsing is centralized, and checked resolve guards bad physical inputs.
+        </p>
+      </div>
+      <div class="stat-grid" aria-label="repository stats">
+        <div class="stat"><b>6,616</b><span>source and doc lines reviewed in primary files</span></div>
+        <div class="stat"><b>81</b><span>Rust workspace tests expected after this pass</span></div>
+        <div class="stat"><b>9</b><span>Python SDK tests passing through uv</span></div>
+        <div class="stat"><b>9</b><span>wasm oracle fixtures reproduced</span></div>
+      </div>
+    </section>
+
+    <section id="map">
+      <h2>Architecture Map</h2>
+      <div class="map" role="img" aria-label="Dry architecture module map">
+        <div class="lane sdk">
+          <h3>Authoring and entrypoints</h3>
+          <ul>
+            <li><code>py/python/dry</code> fluent Python ops</li>
+            <li><code>sdk/ts/src</code> TypeScript ops</li>
+            <li><code>web/*.html</code> gallery and blocks UI</li>
+            <li><code>crates/cli</code> inspect, emit, verify, pack</li>
+          </ul>
+        </div>
+        <div class="arrow">-&gt;</div>
+        <div class="lane core">
+          <h3>Rust core engine</h3>
+          <ul>
+            <li><code>resolve</code>: L1 ops to L2 motion</li>
+            <li><code>ir</code> and <code>units</code>: typed L2 schema</li>
+            <li><code>engine</code>: simulation fold</li>
+            <li><code>verify</code>, <code>optimize</code>, <code>emit</code>, <code>codec</code></li>
+          </ul>
+        </div>
+        <div class="arrow">-&gt;</div>
+        <div class="lane target">
+          <h3>Outputs and consumers</h3>
+          <ul>
+            <li>Marlin-style g-code and 5-axis words</li>
+            <li>JSON and compact binary Dry IR</li>
+            <li>Metrics, reports and browser 3D preview</li>
+            <li>Conformance fixtures under <code>conformance/</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="modules">
+      <h2>Module Relations</h2>
+      <div class="module-grid">
+        <article class="module">
+          <h3><code>crates/core/src/resolve.rs</code></h3>
+          <p>Owns state propagation, extrusion math, arcs, splines, channels and tool orientation. It is the main L1 to L2 lowering pass.</p>
+          <div class="deps">Feeds: simulate, verify, optimize, emit, codec.</div>
+        </article>
+        <article class="module">
+          <h3><code>ir.rs</code> + <code>units.rs</code></h3>
+          <p>Define the L2 segment model and dimensional newtypes. This is the contract every frontend and backend relies on.</p>
+          <div class="deps">Wire value remains lowercase text; Rust contract is <code>SegmentKind</code>.</div>
+        </article>
+        <article class="module">
+          <h3><code>emit/</code></h3>
+          <p>Converts L2 segments to g-code. Split by concern into parameters/writer logic, 5-axis kinematics, spline flattening and tests.</p>
+          <div class="deps">Depends on: resolve spline helpers and IR state.</div>
+        </article>
+        <article class="module">
+          <h3><code>verify.rs</code></h3>
+          <p>Checks structural invariants and optional safety contracts: bounds, flow, speed, monotonic Z, cold extrusion and orientation magnitude.</p>
+          <div class="deps">Consumes: any segment stream.</div>
+        </article>
+        <article class="module">
+          <h3><code>optimize/</code></h3>
+          <p>Holds L2 passes as separate modules: merge collinear, fit arcs and greedy travel reorder. All surfaces use the shared pipeline.</p>
+          <div class="deps">Shared via: <code>optimize_pipeline</code>.</div>
+        </article>
+        <article class="module">
+          <h3><code>codec/</code></h3>
+          <p>Encodes compact <code>DRY0</code> columnar and <code>DRY1</code> chunked streaming binary forms, plus JSON/binary segment iterators. Split into format-specific modules and shared utilities.</p>
+          <div class="deps"><code>DRY1</code> decodes bounded chunks; <code>DRY0</code> stays readable for compatibility.</div>
+        </article>
+        <article class="module">
+          <h3><code>crates/cli</code>, <code>py</code>, <code>wasm</code>, <code>sdk/ts</code></h3>
+          <p>Thin adapters around the core. They mostly parse JSON ops and expose core operations.</p>
+          <div class="deps">Shared helpers parse contract CSV and kinematics names.</div>
+        </article>
+        <article class="module">
+          <h3><code>web/viewer.js</code></h3>
+          <p>Shared 3D preview and playback for gallery and Blockly pages. Uses resolved IR plus emitted g-code.</p>
+          <div class="deps">Spline preview now uses the same Catmull-Rom sampling as emit.</div>
+        </article>
+        <article class="module">
+          <h3><code>docs/</code> and <code>README.md</code></h3>
+          <p>Good architecture intent; README and task status now reflect the shipped v0 surface more closely.</p>
+          <div class="deps">Keep docs updates tied to feature landing.</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="findings">
+      <h2>Audit Findings</h2>
+      <div class="findings" id="findingList"></div>
+    </section>
+
+    <section id="decisions">
+      <h2>Solutions And Decisions</h2>
+      <div class="decision-list">
+        <article class="decision">
+          <h3>Keep the Rust core binding-free</h3>
+          <p>The strongest boundary is already in place: PyO3 and wasm-bindgen sit outside <code>dry-core</code>. Keep new process logic in core, not in SDKs.</p>
+        </article>
+        <article class="decision">
+          <h3>Promote IR kinds to a typed enum</h3>
+          <p>Done: <code>SegmentKind</code> is a serde-compatible enum, so unsupported kinds fail at JSON/binary decode instead of falling through.</p>
+        </article>
+        <article class="decision">
+          <h3>Define one motion-stream abstraction</h3>
+          <p>Done for g-code emit via a writer API and for binary reads via <code>DRY1</code> chunked decode. Random-access transforms still intentionally materialize a toolpath.</p>
+        </article>
+        <article class="decision">
+          <h3>Expose preview-ready geometry</h3>
+          <p>Done in the viewer and thumbnail renderer: spline segments are flattened with the same Catmull-Rom sampling as emit, and playback tracks g-code line indices.</p>
+        </article>
+        <article class="decision">
+          <h3>Centralize boundary parsing</h3>
+          <p>Done for contract CSV parsing and kinematics names through core helpers. A future typed JSON contract object would remove the remaining string boundary.</p>
+        </article>
+        <article class="decision">
+          <h3>Update docs as part of feature landing</h3>
+          <p>The project has outgrown the "nothing is built yet" status. Keep README, roadmap and task backlog synced with the tested implementation.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="checks">
+      <h2>Verification Run</h2>
+      <div class="checks">
+        <div class="check"><strong>Pass</strong><span><code>cargo test --workspace</code>: 83 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cargo clippy --workspace --all-targets -- -D warnings</code></span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd sdk/ts &amp;&amp; npm run tsc</code></span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd py &amp;&amp; uv run pytest -q</code>: 9 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>node web/smoke.cjs web/pkg-node ...</code>: 9 fixtures</span></div>
+        <div class="check"><strong>Pass</strong><span><code>node web/blocks-regression.mjs</code>: Blockly/static web contracts</span></div>
+        <div class="check"><strong>Note</strong><span><code>python3 -m pytest</code> lacked pytest; <code>uv</code> worked.</span></div>
+        <div class="check"><strong>Note</strong><span>Ignored local build dirs total roughly 2.1 GB.</span></div>
+        <div class="check"><strong>Note</strong><span>Existing dirty files were left intact.</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const findings = [
+  {
+    severity: 'low',
+    category: 'web',
+    title: 'Addressed: spline preview and g-code sync',
+    detail: 'viewer.js and thumb.js now flatten spline segments with the same 16-sample Catmull-Rom spans used by the Rust emitter. Playback is keyed by emitted g-code line index, not raw L2 segment index.',
+    fix: 'Remaining follow-up: consider exposing preview-ready flattened moves directly from wasm to avoid duplicated sampling code.'
+  },
+  {
+    severity: 'low',
+    category: 'consistency',
+    title: 'Addressed: segment kind is typed',
+    detail: 'Rust now uses SegmentKind instead of raw strings. JSON keeps lowercase wire values, while unknown JSON variants and binary dictionary values fail during decode.',
+    fix: 'Remaining follow-up: publish the enum in the formal Dry IR schema once the external spec is written.'
+  },
+  {
+    severity: 'low',
+    category: 'perf',
+    title: 'Addressed: binary streaming is chunked for new archives',
+    detail: 'G-code emit has a writer path, simulate/verify accept segment streams, and new DRY1 archives decode one compressed chunk at a time. Legacy DRY0 files still inflate the full column body for compatibility, and optimize still needs a materialized toolpath.',
+    fix: 'Remaining follow-up: add a large-path memory benchmark and keep random-access transforms explicit and separate from streaming analyses.'
+  },
+  {
+    severity: 'low',
+    category: 'consistency',
+    title: 'Addressed: top-level docs status',
+    detail: 'README and the task backlog now describe the working v0 foundation instead of saying nothing is built yet.',
+    fix: 'Remaining follow-up: continue using tests and release gates as the source of truth for task status.'
+  },
+  {
+    severity: 'low',
+    category: 'consistency',
+    title: 'Addressed: optimizer behavior is shared',
+    detail: 'Core exposes optimize_pipeline, CLI uses it, wasm resolve_optimized_ir runs it, and the TypeScript SDK exposes optimizedIr().',
+    fix: 'Remaining follow-up: add named presets if future users need partial pipelines.'
+  },
+  {
+    severity: 'low',
+    category: 'practice',
+    title: 'Addressed: boundary parsing is centralized',
+    detail: 'CLI, wasm and Python now use core helpers for bounds, speed ranges and kinematics names.',
+    fix: 'Remaining follow-up: replace comma strings with a typed JSON contract object in public APIs.'
+  },
+  {
+    severity: 'low',
+    category: 'practice',
+    title: 'Addressed: checked resolve validates physical inputs',
+    detail: 'resolve_checked validates positive feedrates, filament diameter, bead geometry, flow, fan range, dwell time, finite coordinates and non-zero orientation before lowering.',
+    fix: 'Remaining follow-up: migrate more direct Rust callers from resolve() to resolve_checked() where user input crosses a boundary.'
+  },
+  {
+    severity: 'low',
+    category: 'consistency',
+    title: 'Addressed: fan units are consistent',
+    detail: 'Core, Python, TypeScript and Blockly now use fan as a 0..1 ratio.',
+    fix: 'Remaining follow-up: target emit still needs M104/M106/tool-change output when process-channel g-code becomes in scope.'
+  },
+  {
+    severity: 'low',
+    category: 'perf',
+    title: 'JSON segment streaming is brittle',
+    detail: 'JsonSegmentsIterator scans bytes until it sees the literal segments key instead of parsing the outer JSON structure. It works for current fixtures but can select the wrong token in hostile or unusual JSON.',
+    fix: 'Use serde_json streaming over a known schema or require bare Toolpath JSON for streaming commands.'
+  },
+  {
+    severity: 'low',
+    category: 'practice',
+    title: 'Addressed: web panels avoid innerHTML for dynamic strings',
+    detail: 'viewer.js now builds g-code rows, explain rows, metrics, optimization notes and verification findings with DOM nodes and textContent. The gallery and Blockly template chips use the same pattern.',
+    fix: 'Remaining follow-up: keep this rule when external G-code comments, imported reports or richer annotations become visible in the browser.'
+  },
+  {
+    severity: 'low',
+    category: 'dead',
+    title: 'No confirmed source dead code from checks',
+    detail: 'Clippy with all targets passed and the public APIs are exercised by tests or bindings. The main dead-weight finding is local generated output: target, py/target, crates/wasm/target, node_modules and wasm packages are ignored but large.',
+    fix: 'Do not delete build outputs automatically. For local cleanup, remove ignored generated dirs when disk use matters.'
+  }
+];
+
+const list = document.getElementById('findingList');
+const filters = document.getElementById('filters');
+
+function render(filter) {
+  const visible = filter === 'all' ? findings : findings.filter((f) => f.category === filter);
+  list.replaceChildren(...visible.map((f) => {
+    const article = document.createElement('article');
+    article.className = 'finding';
+    article.dataset.severity = f.severity;
+
+    const head = document.createElement('div');
+    head.className = 'finding-head';
+
+    const severity = document.createElement('span');
+    severity.className = `severity ${f.severity}`;
+    severity.textContent = f.severity;
+    const category = document.createElement('span');
+    category.className = 'category';
+    category.textContent = f.category;
+    const title = document.createElement('h3');
+    title.textContent = f.title;
+    head.append(severity, category, title);
+
+    const detail = document.createElement('p');
+    detail.textContent = f.detail;
+    const fix = document.createElement('div');
+    fix.className = 'fix';
+    fix.textContent = `Fix: ${f.fix}`;
+
+    article.append(head, detail, fix);
+    return article;
+  }));
+}
+
+filters.addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  filters.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === button));
+  render(button.dataset.filter);
+});
+
+render('all');
+</script>
+</body>
+</html>

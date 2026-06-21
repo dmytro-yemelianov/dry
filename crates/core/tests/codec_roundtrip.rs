@@ -35,6 +35,23 @@ fn binary_round_trips_every_design() {
 }
 
 #[test]
+fn chunked_binary_round_trips_every_design() {
+    let mut checked = 0;
+    for entry in fs::read_dir(gcode_dir()).expect("conformance/gcode exists") {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let tp = load_ir(&path);
+        let bytes = tp.to_streaming_bytes();
+        let back = Toolpath::from_bytes(&bytes).expect("decodes");
+        assert_eq!(back, tp, "chunked round-trip must be lossless for {path:?}");
+        checked += 1;
+    }
+    assert!(checked >= 1, "no fixtures");
+}
+
+#[test]
 fn binary_is_at_least_3x_smaller_than_json() {
     let tp = load_ir(&gcode_dir().join("spiral_vase.json"));
     assert!(tp.segments.len() >= 100, "spiral_vase should be large");

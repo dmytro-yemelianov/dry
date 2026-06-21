@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "generic-klipper-fff",
+  "firmware": {
+    "flavor": "klipper"
+  },
+  "machine": {
+    "build_volume": [
+      [0, 250],
+      [0, 210],
+      [0, 220]
+    ],
+    "feedrate_range": [300, 12000]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 12,
+    "min_nozzle_temperature_c": 190
+  },
+  "process": {
+    "line_width": 0.45,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  }
+}

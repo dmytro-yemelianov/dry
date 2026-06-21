@@ -14,17 +14,42 @@
 pub mod codec;
 pub mod emit;
 pub mod engine;
+pub mod gcode;
 pub mod ir;
 pub mod optimize;
+pub mod profile;
 pub mod resolve;
+pub mod trace;
 pub mod units;
 pub mod verify;
 
-pub use codec::CodecError;
-pub use emit::{emit, EmitParams, Kinematics};
-pub use engine::{simulate, Metrics};
-pub use ir::{Meta, Segment, Toolpath};
-pub use optimize::{arc_fit, merge_collinear, travel_reorder};
-pub use resolve::{resolve, Design, Op, ResolveParams};
+pub use codec::{
+    decode_any_streaming, decode_chunked_streaming, decode_streaming, encode_chunked,
+    BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError, JsonSegmentsIterator,
+    SegmentStream, StreamingDecode,
+};
+pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, Kinematics};
+pub use engine::{simulate, simulate_stream, Metrics};
+pub use gcode::{
+    import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
+    import_parsed_gcode, import_parsed_gcode_with_map, parse_gcode_lines, DistanceMode,
+    ExtrusionMode, GcodeImportError, GcodeImportParams, GcodeModalState, GcodeMotionSpan,
+    GcodeParseError, GcodeParser, GcodeRecord, GcodeWord, ImportedGcode, MotionMode, MotionRecord,
+    ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
+};
+pub use ir::{Meta, Segment, SegmentKind, Toolpath};
+pub use optimize::{
+    arc_fit, merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, travel_reorder,
+};
+pub use profile::{
+    FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
+};
+pub use resolve::{
+    resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
+};
+pub use trace::{trace_summary, trace_summary_with_sources, TraceError, TraceSummary, TraceWindow};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
-pub use verify::{verify, Contracts, Finding, Report, Severity};
+pub use verify::{
+    parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError, Contracts,
+    Finding, Report, Severity,
+};

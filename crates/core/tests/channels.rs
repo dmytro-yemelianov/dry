@@ -3,7 +3,8 @@
 //! carried for `simulate`/`verify` (and the binary codec), without disturbing the motion g-code.
 
 use dry_core::{
-    emit, resolve, simulate, verify, Contracts, Design, EmitParams, ResolveParams, Time,
+    emit, resolve, simulate, verify, Contracts, Design, EmitParams, ResolveParams, SegmentKind,
+    Time,
 };
 
 fn design(ops: &str) -> Design {
@@ -56,7 +57,7 @@ fn dwell_adds_time_and_emits_g4() {
     );
     let tp = resolve(&d, &ResolveParams::default());
     let last = tp.segments.last().unwrap();
-    assert_eq!(last.kind, "dwell");
+    assert_eq!(last.kind, SegmentKind::Dwell);
     assert_eq!(last.dwell_s, Some(2.5));
 
     let without_dwell = simulate(&resolve(

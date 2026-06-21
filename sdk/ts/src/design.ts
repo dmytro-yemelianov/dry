@@ -2,7 +2,7 @@
 // (`gcode`/`simulate`/`ir`) resolve those ops in wasm — the SDK itself holds no toolpath logic.
 import type { Metrics, Op, Toolpath } from './ops';
 import { PRINTERS } from './ops';
-import { resolveGcode, resolveIr, resolveMetrics } from './engine';
+import { resolveGcode, resolveIr, resolveMetrics, resolveOptimizedIr, resolveVerify } from './engine';
 
 function params(printer: string) {
   const p = PRINTERS[printer];
@@ -98,8 +98,14 @@ export class Design {
   // ---- engine calls ----
 
   /** Resolve + emit motion g-code (an array of lines). */
-  gcode(printer = 'generic', relativeE = true): string[] {
-    return resolveGcode(this.ops, params(printer), relativeE);
+  gcode(
+    printer = 'generic',
+    relativeE = true,
+    travelG1E0 = false,
+    fiveAxis = false,
+    kinematics = 'ab'
+  ): string[] {
+    return resolveGcode(this.ops, params(printer), relativeE, travelG1E0, fiveAxis, kinematics);
   }
 
   /** Resolve + simulate; returns metrics (time, distances, material, peak flow). */
@@ -110,5 +116,22 @@ export class Design {
   /** Resolve to the L2 Dry IR ({ version, segments }). */
   ir(printer = 'generic'): Toolpath {
     return resolveIr(this.ops, params(printer));
+  }
+
+  /** Resolve through the standard L2 optimization pipeline. */
+  optimizedIr(printer = 'generic'): Toolpath {
+    return resolveOptimizedIr(this.ops, params(printer));
+  }
+
+  /** Resolve + verify; returns safety report findings. */
+  verify(
+    printer = 'generic',
+    maxFlow = 0,
+    minTemp = 0,
+    bounds = '',
+    monotonicZ = false,
+    speedRange = ''
+  ): any {
+    return resolveVerify(this.ops, params(printer), maxFlow, minTemp, bounds, monotonicZ, speedRange);
   }
 }

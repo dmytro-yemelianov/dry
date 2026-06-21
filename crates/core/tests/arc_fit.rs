@@ -1,10 +1,10 @@
 //! P3.1 — L2 `arc_fit` optimisation pass. Where `merge_collinear` coalesces collinear runs, `arc_fit`
 //! recognises a run of consecutive line moves whose points all lie on a *common circle* (with a
-//! consistent winding) and replaces it with a single G2/G3 arc — fewer segments, the same path and the
-//! same deposited material. This pass has no FullControl oracle: it is Dry's own well-specified
-//! transform, tested directly against constructed circular and non-circular cases.
+//! consistent winding) and replaces it with a single G2/G3 arc — fewer segments and the same deposited
+//! material, with native-arc geometric length. This pass has no FullControl oracle: it is Dry's own
+//! well-specified transform, tested directly against constructed circular and non-circular cases.
 
-use dry_core::{arc_fit, emit, resolve, simulate, Design, EmitParams, ResolveParams};
+use dry_core::{arc_fit, emit, resolve, simulate, Design, EmitParams, ResolveParams, SegmentKind};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -51,7 +51,7 @@ fn circular_run_collapses_to_an_arc() {
     let arc = opt
         .segments
         .iter()
-        .find(|s| s.kind == "arc")
+        .find(|s| s.kind == SegmentKind::Arc)
         .expect("a fitted arc segment");
     let [cx, cy] = arc.centre.expect("the arc carries a centre");
     assert!(cx.value().abs() < 1e-6, "centre x ~ 0, got {}", cx.value());
@@ -105,7 +105,7 @@ fn zigzag_is_not_fitted() {
     );
     let opt = arc_fit(&tp);
     assert_eq!(opt.segments.len(), tp.segments.len());
-    assert!(opt.segments.iter().all(|s| s.kind != "arc"));
+    assert!(opt.segments.iter().all(|s| s.kind != SegmentKind::Arc));
 }
 
 #[test]

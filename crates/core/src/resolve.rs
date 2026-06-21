@@ -8,10 +8,32 @@
 //! `filament = volume / (π·(dia/2)²)`; a travel move deposits nothing. Arc length is
 //! `hypot(radius·swept_angle, Δz)` (planar arc length, with the helical rise).
 
-use crate::ir::{Segment, Toolpath};
+use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use serde::Deserialize;
 use std::f64::consts::TAU;
+
+/// A validation error found before lowering L1 ops to L2 motion.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolveError {
+    message: String,
+}
+
+impl ResolveError {
+    fn new(message: impl Into<String>) -> Self {
+        ResolveError {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ResolveError {}
 
 /// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these
 /// (serialised internally-tagged: `{"op":"move","x":..,"y":..,"z":..}`).
@@ -58,7 +80,8 @@ pub enum Op {
 }
 
 /// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).
-const SAMPLES: usize = 16;
+pub const SAMPLES: usize = 16;
+const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
 
 /// A design: an ordered list of L1 ops.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -85,7 +108,176 @@ impl Default for ResolveParams {
     }
 }
 
-fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
+fn require_finite(name: &str, value: f64) -> Result<(), ResolveError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be finite, got {value}"
+        )))
+    }
+}
+
+fn require_positive(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if value > 0.0 {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be > 0, got {value}"
+        )))
+    }
+}
+
+fn require_non_negative(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if value >= 0.0 {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be >= 0, got {value}"
+        )))
+    }
+}
+
+fn require_unit_interval(name: &str, value: f64) -> Result<(), ResolveError> {
+    require_finite(name, value)?;
+    if (0.0..=1.0).contains(&value) {
+        Ok(())
+    } else {
+        Err(ResolveError::new(format!(
+            "{name} must be in the range 0..1, got {value}"
+        )))
+    }
+}
+
+fn require_optional_finite(name: &str, value: Option<f64>) -> Result<(), ResolveError> {
+    if let Some(v) = value {
+        require_finite(name, v)?;
+    }
+    Ok(())
+}
+
+/// Validate the lowering inputs before materializing L2 motion.
+pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), ResolveError> {
+    require_positive("resolve_params.print_speed", p.print_speed)?;
+    require_positive("resolve_params.travel_speed", p.travel_speed)?;
+    require_positive("resolve_params.dia", p.dia)?;
+
+    for (idx, op) in design.ops.iter().enumerate() {
+        let prefix = |field: &str| format!("ops[{idx}].{field}");
+        match op {
+            Op::Geometry { width, height } => {
+                require_positive(&prefix("width"), *width)?;
+                require_positive(&prefix("height"), *height)?;
+            }
+            Op::Extruder { .. } | Op::Tool { .. } => {}
+            Op::Speed { print } => require_positive(&prefix("print"), *print)?,
+            Op::Temperature { nozzle } => require_non_negative(&prefix("nozzle"), *nozzle)?,
+            Op::Fan { speed } => require_unit_interval(&prefix("speed"), *speed)?,
+            Op::Flow { ratio } => require_positive(&prefix("ratio"), *ratio)?,
+            Op::Orient { i, j, k } => {
+                require_finite(&prefix("i"), *i)?;
+                require_finite(&prefix("j"), *j)?;
+                require_finite(&prefix("k"), *k)?;
+                let mag = libm::sqrt(i * i + j * j + k * k);
+                if mag <= 0.0 {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].orient vector must have non-zero magnitude"
+                    )));
+                }
+            }
+            Op::Dwell { seconds } => require_non_negative(&prefix("seconds"), *seconds)?,
+            Op::Move { x, y, z } => {
+                require_optional_finite(&prefix("x"), *x)?;
+                require_optional_finite(&prefix("y"), *y)?;
+                require_optional_finite(&prefix("z"), *z)?;
+            }
+            Op::Arc {
+                cx, cy, x, y, z, ..
+            } => {
+                require_finite(&prefix("cx"), *cx)?;
+                require_finite(&prefix("cy"), *cy)?;
+                require_optional_finite(&prefix("x"), *x)?;
+                require_optional_finite(&prefix("y"), *y)?;
+                require_optional_finite(&prefix("z"), *z)?;
+            }
+            Op::Spline { points } => {
+                for (point_idx, point) in points.iter().enumerate() {
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][0]"),
+                        point[0],
+                    )?;
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][1]"),
+                        point[1],
+                    )?;
+                    require_optional_finite(
+                        &format!("ops[{idx}].points[{point_idx}][2]"),
+                        point[2],
+                    )?;
+                }
+            }
+        }
+    }
+    validate_design_geometry(design)
+}
+
+fn validate_design_geometry(design: &Design) -> Result<(), ResolveError> {
+    let mut pos: [Option<f64>; 3] = [None, None, None];
+    for (idx, op) in design.ops.iter().enumerate() {
+        match op {
+            Op::Move { x, y, z } => {
+                pos = [(*x).or(pos[0]), (*y).or(pos[1]), (*z).or(pos[2])];
+            }
+            Op::Arc {
+                cx, cy, x, y, z, ..
+            } => {
+                let start_x = pos[0].unwrap_or(0.0);
+                let start_y = pos[1].unwrap_or(0.0);
+                let end = [(*x).or(pos[0]), (*y).or(pos[1]), (*z).or(pos[2])];
+                let end_x = end[0].unwrap_or(start_x);
+                let end_y = end[1].unwrap_or(start_y);
+                let start_radius = libm::hypot(start_x - cx, start_y - cy);
+                let end_radius = libm::hypot(end_x - cx, end_y - cy);
+                if start_radius <= 0.0 || end_radius <= 0.0 {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].arc must have a non-zero radius"
+                    )));
+                }
+                let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);
+                let delta = (start_radius - end_radius).abs();
+                if delta > tolerance {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].arc endpoint radius differs from start radius by {delta:.6} mm"
+                    )));
+                }
+                pos = end;
+            }
+            Op::Spline { points } => {
+                let mut running = [
+                    pos[0].unwrap_or(0.0),
+                    pos[1].unwrap_or(0.0),
+                    pos[2].unwrap_or(0.0),
+                ];
+                for point in points {
+                    running = [
+                        point[0].unwrap_or(running[0]),
+                        point[1].unwrap_or(running[1]),
+                        point[2].unwrap_or(running[2]),
+                    ];
+                }
+                if !points.is_empty() {
+                    pos = [Some(running[0]), Some(running[1]), Some(running[2])];
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+pub fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
     let mut sq = Area::ZERO;
     for i in 0..3 {
         if let (Some(p), Some(q)) = (a[i], b[i]) {
@@ -99,7 +291,7 @@ fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
 /// Uniform Catmull-Rom interpolation of the span `p1 → p2` (phantom neighbours `p0`, `p3`) at
 /// parameter `t ∈ [0, 1]`. The curve passes through its control points: `t = 0 ⇒ p1`, `t = 1 ⇒ p2`
 /// (the basis is `[0,1,0,0]` at the endpoints), so span boundaries land exactly on the through-points.
-fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f64) -> [f64; 3] {
+pub fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f64) -> [f64; 3] {
     let t2 = t * t;
     let t3 = t2 * t;
     let mut out = [0.0; 3];
@@ -113,8 +305,21 @@ fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f64) -
     out
 }
 
+/// Lower an L1 design to an L2 toolpath after validating design and machine/material parameters.
+pub fn resolve_checked(design: &Design, p: &ResolveParams) -> Result<Toolpath, ResolveError> {
+    validate_design(design, p)?;
+    Ok(resolve_unchecked(design, p))
+}
+
 /// Lower an L1 design to an L2 toolpath.
+///
+/// This compatibility wrapper panics on invalid inputs. Bindings and other user-facing boundaries
+/// should call [`resolve_checked`] so they can return a structured error.
 pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
+    resolve_checked(design, p).expect("valid Dry resolve inputs")
+}
+
+fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
     // bead cross-section of the round filament: π·(dia/2)².
     let half = Length::mm(p.dia) / 2.0;
     let area = std::f64::consts::PI * (half * half);
@@ -160,7 +365,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 filament: Length::ZERO,
                 width: None,
                 height: None,
-                kind: "dwell".to_string(),
+                kind: SegmentKind::Dwell,
                 centre: None,
                 clockwise: false,
                 temperature: temp,
@@ -169,6 +374,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 tool,
                 dwell_s: Some(seconds),
                 orientation,
+                control_points: None,
             }),
             Op::Move { x, y, z } => {
                 let end = [
@@ -192,7 +398,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     filament: volume / area,
                     width: Some(width),
                     height: Some(height),
-                    kind: "line".to_string(),
+                    kind: SegmentKind::Line,
                     centre: None,
                     clockwise: false,
                     temperature: temp,
@@ -201,6 +407,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     tool,
                     dwell_s: None,
                     orientation,
+                    control_points: None,
                 });
                 pos = end;
             }
@@ -254,7 +461,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     filament: volume / area,
                     width: Some(width),
                     height: Some(height),
-                    kind: "arc".to_string(),
+                    kind: SegmentKind::Arc,
                     centre: Some([cx, cy]),
                     clockwise,
                     temperature: temp,
@@ -263,6 +470,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                     tool,
                     dwell_s: None,
                     orientation,
+                    control_points: None,
                 });
                 pos = end;
             }
@@ -278,6 +486,7 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                 let mut through: Vec<[f64; 3]> = Vec::with_capacity(points.len() + 1);
                 through.push(cur);
                 let mut running = cur;
+                let mut control_points = Vec::with_capacity(points.len());
                 for p in points {
                     let resolved = [
                         p[0].unwrap_or(running[0]),
@@ -285,22 +494,24 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                         p[2].unwrap_or(running[2]),
                     ];
                     through.push(resolved);
+                    control_points.push([
+                        Length::mm(resolved[0]),
+                        Length::mm(resolved[1]),
+                        Length::mm(resolved[2]),
+                    ]);
                     running = resolved;
                 }
-                // For each span [through[i], through[i+1]] use phantom neighbours P0/P3, duplicating the
-                // first/last through-point at the ends. Sample the uniform Catmull-Rom at the span's
-                // interior + endpoint (t in (0,1]) so consecutive spans share their boundary point.
+
+                // Compute the total length, volume, and filament by sampling the spline
                 let n = through.len();
+                let mut total_length = Length::ZERO;
+                let mut temp_pos = pos;
                 for i in 0..n - 1 {
                     let p0 = through[i.saturating_sub(1)];
                     let p1 = through[i];
                     let p2 = through[i + 1];
                     let p3 = through[(i + 2).min(n - 1)];
                     for step in 1..=SAMPLES {
-                        // The span endpoint (step == SAMPLES) is the through-point exactly: a Catmull-Rom
-                        // interpolates its control points at boundaries (`catmull_rom(.., 1.0) == p2`
-                        // algebraically), so we copy `p2` to avoid float reassociation drift — the
-                        // resolved position lands *on* each control point.
                         let pt = if step == SAMPLES {
                             p2
                         } else {
@@ -311,35 +522,40 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
                             Some(Length::mm(pt[1])),
                             Some(Length::mm(pt[2])),
                         ];
-                        let length = dist(pos, end);
-                        let volume = if on {
-                            length * width * height * flow
-                        } else {
-                            Volume::ZERO
-                        };
-                        segs.push(Segment {
-                            start: pos,
-                            end,
-                            travel: !on,
-                            speed: if on { print } else { travel_speed },
-                            length,
-                            volume,
-                            filament: volume / area,
-                            width: Some(width),
-                            height: Some(height),
-                            kind: "line".to_string(),
-                            centre: None,
-                            clockwise: false,
-                            temperature: temp,
-                            fan,
-                            flow: flow_field,
-                            tool,
-                            dwell_s: None,
-                            orientation,
-                        });
-                        pos = end;
+                        total_length = total_length + dist(temp_pos, end);
+                        temp_pos = end;
                     }
                 }
+
+                let volume = if on {
+                    total_length * width * height * flow
+                } else {
+                    Volume::ZERO
+                };
+                let filament = volume / area;
+
+                segs.push(Segment {
+                    start: pos,
+                    end: temp_pos,
+                    travel: !on,
+                    speed: if on { print } else { travel_speed },
+                    length: total_length,
+                    volume,
+                    filament,
+                    width: Some(width),
+                    height: Some(height),
+                    kind: SegmentKind::Spline,
+                    centre: None,
+                    clockwise: false,
+                    temperature: temp,
+                    fan,
+                    flow: flow_field,
+                    tool,
+                    dwell_s: None,
+                    orientation,
+                    control_points: Some(control_points),
+                });
+                pos = temp_pos;
             }
         }
     }

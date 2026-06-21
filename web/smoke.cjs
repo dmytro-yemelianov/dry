@@ -15,7 +15,7 @@ for (const name of fs.readdirSync(gcodeDir)) {
   const opsJson = JSON.stringify(fx.l1.ops);
   const paramsJson = JSON.stringify(fx.resolve_params);
 
-  const got = dry.resolve_gcode(opsJson, paramsJson, fx.params.relative_e);
+  const got = dry.resolve_gcode(opsJson, paramsJson, fx.params.relative_e, false, false, 'ab');
   if (JSON.stringify(got) !== JSON.stringify(fx.expected)) {
     console.error(`[${fx.design}] GCODE MISMATCH`);
     console.error('  expected:', JSON.stringify(fx.expected));

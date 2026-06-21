@@ -77,14 +77,14 @@ A pass manager runs a declared pipeline; every pass is independently testable ag
 
 ## 5. Storage: columnar & streaming
 
-L2 is stored **column-major** (struct-of-arrays, Arrow-compatible): start/end as N×3, plus
-travel/speed/length/volume/filament/width/height/toolframe columns. This is the zero-copy ABI between
-the engine and any consumer, and is **streamable** so a million-segment print never materialises as
-objects. Two serialisations of the same IR:
+L2 has both compact column-major storage and chunked streaming storage. The columnar shape
+(struct-of-arrays, Arrow-compatible) stores start/end as N×3, plus
+travel/speed/length/volume/filament/width/height/toolframe columns. The chunked form stores bounded
+compressed row blocks so CLI analyses and emitters can consume large paths without inflating the full
+archive body. Two serialisations of the same IR:
 - **JSON** — human-readable interchange (versioned, with units/provenance/invariants header).
-- **Binary** — the compact columnar form (magic + typed column blocks + a JSON metadata tail), the
-  default wire format between native/wasm/SDKs and the on-disk archive. (The fork's `ir/binary.py` is the
-  prototype.)
+- **Binary** — `DRY0` compact columnar blocks for maximum compression and `DRY1` chunked blocks for
+  streaming archive reads. `Toolpath::from_bytes` accepts both; `dry pack` writes `DRY1`.
 
 ## 6. Provenance & invariants (first-class)
 
