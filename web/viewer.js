@@ -175,7 +175,7 @@ function buildBeads(moves) {
 export function createViewer(cfg) {
   const {
     viewportEl, gcodeEl, explainEl, metricsEl, optimizeEl, verifyEl, gcodeMetaEl,
-    playEl, scrubEl, clockEl, speedsEl, wasm, params,
+    playEl, scrubEl, clockEl, speedsEl, resetViewEl, wasm, params,
     getMaxFlow = () => 0, getMinTemp = () => 0,
   } = cfg;
 
@@ -236,8 +236,15 @@ export function createViewer(cfg) {
       camera.up.set(0, 0, 1);
       return [key, camera];
     }));
-    const controls = new OrbitControls(cameras.get('iso'), renderer.domElement);
+    const controls = new OrbitControls(cameras.get('iso'), el);
     controls.enableDamping = true;
+    controls.enablePan = true;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.screenSpacePanning = true;
+    controls.addEventListener('start', () => el.classList.add('is-dragging'));
+    controls.addEventListener('end', () => el.classList.remove('is-dragging'));
+    controls.addEventListener('change', exposeDebugState);
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(0.5, -1, 1.6); scene.add(dl);
 
@@ -285,7 +292,7 @@ export function createViewer(cfg) {
       ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
       ghostT, printT, head, grid: null, resize,
     });
-    positionViewCameras();
+    positionViewCameras(true);
     let last = performance.now();
     function frame(now) {
       const dtReal = (now - last) / 1000; last = now;
@@ -332,9 +339,23 @@ export function createViewer(cfg) {
     }
     V.renderer.setScissorTest(false);
     window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
+    exposeDebugState();
   }
 
-  function positionViewCameras() {
+  function exposeDebugState() {
+    if (!V.ready) return;
+    const iso = V.cameras.get('iso');
+    const target = V.controls ? V.controls.target : null;
+    window.__viewerDebug = {
+      panels: VIEW_PANELS.map(({ key }) => key),
+      isoCameraPosition: iso ? iso.position.toArray() : null,
+      target: target ? target.toArray() : null,
+      distance: iso && target ? iso.position.distanceTo(target) : null,
+      controlsElement: V.controls ? (V.controls.domElement.id || V.controls.domElement.tagName) : null,
+    };
+  }
+
+  function positionViewCameras(saveState = false) {
     if (!V.ready) return;
     const [cx, cy, cz] = V.modelCenter;
     const size = Math.max(V.modelSize || 1, 1);
@@ -357,7 +378,22 @@ export function createViewer(cfg) {
       camera.updateProjectionMatrix();
     }
     V.controls.update();
+    if (saveState && typeof V.controls.saveState === 'function') V.controls.saveState();
     window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
+    exposeDebugState();
+  }
+
+  function resetView() {
+    if (!V.ready) return;
+    const wasDamping = V.controls.enableDamping;
+    V.controls.enableDamping = false;
+    V.controls.update();
+    positionViewCameras(true);
+    if (typeof V.controls.reset === 'function') V.controls.reset();
+    V.controls.update();
+    V.controls.enableDamping = wasDamping;
+    updatePrinted();
+    renderViews();
   }
 
   function setLine(obj, flat) {
@@ -394,7 +430,7 @@ export function createViewer(cfg) {
     grid.position.set(c[0], c[1], plateZ);
     V.grid = grid; V.scene.add(grid);
     V.head.scale.setScalar(size * 0.012 + 0.05);
-    positionViewCameras();
+    positionViewCameras(true);
     V.resize(); updatePrinted(); syncPlayUI();
   }
 
@@ -452,6 +488,7 @@ export function createViewer(cfg) {
     if (scrubEl) scrubEl.value = P.totalT > 0 ? Math.round((P.t / P.totalT) * 1000) : 0;
     if (clockEl) clockEl.textContent = `${clock(P.t)} / ${clock(P.totalT)}`;
     window.__play = { t: P.t, totalT: P.totalT, playing: P.playing, speed: P.speed, activeLine: P.activeRow };
+    exposeDebugState();
   }
   function seekToLine(i) {
     P.playing = false; if (playEl) playEl.textContent = '▶';
@@ -584,6 +621,7 @@ export function createViewer(cfg) {
     P.playing = false; if (playEl) playEl.textContent = '▶';
     P.t = (e.target.value / 1000) * P.totalT; updatePrinted(); updateActiveLine(); syncPlayUI();
   });
+  if (resetViewEl) resetViewEl.addEventListener('click', resetView);
 
   return { show, seekToLine, setView: positionViewCameras, _P: P, _V: V };
 }

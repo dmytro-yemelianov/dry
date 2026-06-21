@@ -37,6 +37,9 @@ assert(viewerJs.includes('VIEW_PANELS'), 'viewer multi-view panel definitions ar
 assert(viewerJs.includes('renderViews'), 'viewer multi-view renderer is missing');
 assert(viewerJs.includes('cameraRect'), 'viewer split viewport geometry is missing');
 assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view');
+assert(viewerJs.includes("new OrbitControls(cameras.get('iso'), el)"), 'OrbitControls should bind to the full viewport element');
+assert(viewerJs.includes('resetViewEl'), 'viewer should expose a reset view control');
+assert(viewerJs.includes('__viewerDebug'), 'viewer should expose debug state for interaction checks');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
@@ -46,8 +49,11 @@ assert(indexHtml.includes('tool-ui.css'), 'gallery page does not load shared UI 
 assert(blocksHtml.includes('tool-ui.css'), 'blocks page does not load shared UI stylesheet');
 assert(indexHtml.includes('class="topbar"'), 'gallery page missing flex topbar');
 assert(blocksHtml.includes('class="topbar"'), 'blocks page missing flex topbar');
+assert(indexHtml.includes('id="resetView"'), 'gallery page missing reset view control');
+assert(blocksHtml.includes('id="resetView"'), 'blocks page missing reset view control');
 assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
+assert(toolUiCss.includes('touch-action: none'), 'viewport should reserve pointer gestures for toolpath controls');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');

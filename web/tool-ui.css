@@ -333,6 +333,16 @@ button {
   border-radius: var(--radius);
   border-color: var(--line);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 12px 28px var(--shadow);
+  cursor: grab;
+  touch-action: none;
+}
+
+#viewport.is-dragging {
+  cursor: grabbing;
+}
+
+#viewport.is-dragging canvas {
+  cursor: grabbing;
 }
 
 body.app-page #viewport {
@@ -367,6 +377,15 @@ body.blocks-page #viewport {
 .playback button {
   min-width: 38px;
   min-height: 34px;
+}
+
+.playback .reset-view {
+  min-width: 58px;
+  color: var(--muted);
+}
+
+.playback .reset-view:hover {
+  color: var(--fg);
 }
 
 .speeds button {

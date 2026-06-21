@@ -139,7 +139,7 @@
   <section class="right">
     <h2>Templates <span class="sub">— click a starter design to load it into the workspace</span></h2>
     <div id="templates"></div>
-    <h2 class="section-title">Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
+    <h2 class="section-title">Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
     <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
     <div class="legend">
       <span><span class="swatch extrude"></span>extrude</span>
@@ -147,6 +147,7 @@
       <span><span class="swatch toolhead"></span>toolhead</span>
     </div>
     <div class="playback">
+      <button id="resetView" class="reset-view" title="reset view" aria-label="Reset toolpath view">Reset</button>
       <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
       <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Toolpath playback position" />
       <span id="clock">0:00 / 0:00</span>
@@ -698,7 +699,7 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
   const viewer = createViewer({
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
-    clockEl: $('clock'), speedsEl: $('speeds'),
+    clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
   });

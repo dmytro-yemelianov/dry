@@ -189,7 +189,7 @@
     <div class="findings" id="findings"></div>
   </section>
   <section>
-    <h2>Toolpath — 3D <span class="sub">— drag to orbit · scroll to zoom</span></h2>
+    <h2>Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
     <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
     <div class="legend">
       <span><span class="swatch extrude"></span>extrude</span>
@@ -197,6 +197,7 @@
       <span><span class="swatch toolhead"></span>toolhead</span>
     </div>
     <div class="playback">
+      <button id="resetView" class="reset-view" title="reset view" aria-label="Reset toolpath view">Reset</button>
       <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
       <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Toolpath playback position" />
       <span id="clock">0:00 / 0:00</span>
@@ -229,7 +230,7 @@ const $ = (id) => document.getElementById(id);
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
     gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
-    clockEl: $('clock'), speedsEl: $('speeds'),
+    clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
     getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
