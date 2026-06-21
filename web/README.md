@@ -21,10 +21,12 @@ and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` ar
 
 The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
-~120-segment spiral vase, a non-planar cone vase, and the collinear comb.
+~120-segment spiral vase, a non-planar cone vase, the collinear comb, four research lattice examples
+generated from the star-polygon families in `lattice-research.js`, and TPMS contour examples generated
+from implicit fields in `tpms.js`.
 
 The design picker is **grouped** (one `<optgroup>` per group — *Basics*, *Curves*, *Infill &
-multi-layer*, *Vases & non-planar*) and the current design's **tags** (e.g. `arc`, `multi-layer`,
+multi-layer*, *Vases & non-planar*, *Research lattices*, *TPMS*) and the current design's **tags** (e.g. `arc`, `multi-layer`,
 `non-planar`, `3D`, `parametric`, `fractal`) show as chips beside a small **top-down thumbnail**.
 Each `DESIGNS[key]` is `{ label, group, tags, ops }` — the `ops` are unchanged (byte-identical g-code).
 
@@ -118,7 +120,9 @@ cd .. && python3 -m http.server
 | `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
-| `designs.js` | clean-room demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, …) |
+| `designs.js` | clean-room demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
+| `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
+| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
 | `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |
 | `thumb.js`   | shared runtime **thumbnail** renderer — resolves ops → IR, draws a top-down 2D sketch to a canvas, returns a data URL (used by both libraries' pickers) |

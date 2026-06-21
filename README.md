@@ -49,6 +49,8 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/02-roadmap.md`](docs/02-roadmap.md) | phases P0–P6 with exit gates; risk register; critical path |
 | [`docs/03-conformance.md`](docs/03-conformance.md) | bootstrapping correctness from the FullControl fork; the parity gates |
 | [`docs/04-tasks.md`](docs/04-tasks.md) | the sized, dependency-ordered backlog + the immediate next 5 |
+| [`docs/06-lattice-research-codegen.md`](docs/06-lattice-research-codegen.md) | the star-polygon lattice research PDF mapped into a Dry code generator |
+| [`docs/07-tpms-codegen.md`](docs/07-tpms-codegen.md) | TPMS implicit-field contour generation for gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces |
 
 ## Bootstrapped from FullControl
 

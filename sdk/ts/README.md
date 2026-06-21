@@ -42,6 +42,54 @@ new Design().geometry(0.6, 0.2).temperature(210).fan(0.5).flow(0.95).tool(0).ext
   .dwell(2);   // a G4 pause
 ```
 
+## Research generators
+
+The SDK also includes a clean-room generator for the star-polygon planar lattice families described by
+Soyarslan et al. It exposes the paper's `M1`..`M4` family metadata, alpha limits, star-polygon
+dent-radius formula, and a Dry L1 toolpath generator.
+
+```ts
+import { starPolygonLattice } from '@dry/sdk';
+
+const d = starPolygonLattice({
+  family: 'M1',
+  alphaDeg: 30,
+  cols: 5,
+  rows: 3,
+  unit: 14,
+  layers: 3,
+});
+
+console.log(d.gcode().join('\n'));
+console.log(d.simulate());
+```
+
+`starPolygonLatticeOps(...)` returns raw L1 ops if you want to feed another Dry front-end. The default
+process settings match the paper's manufacturing appendix where they are explicit: 0.5 mm bead width,
+0.167 mm layer height, 3 layers, 210 C nozzle, and 1000 mm/min print speed.
+
+TPMS implicit surfaces are available as contour-sliced toolpath generators:
+
+```ts
+import { tpms } from '@dry/sdk';
+
+const gyroid = tpms({
+  surface: 'gyroid',
+  cellsX: 2,
+  cellsY: 2,
+  cellsZ: 2,
+  cellSize: 12,
+  samplesPerCell: 18,
+  layerHeight: 0.8,
+});
+```
+
+Supported surfaces are `gyroid`, `schwarz-p`, `schwarz-d`, `iwp`, `neovius`, `fischer-koch-s`,
+`fischer-koch-y`, `frd`, `lidinoid`, and `split-p`. `tpmsOps(...)` returns raw L1 ops. The generator
+does not emit a mesh; it evaluates the implicit field at each Z layer, extracts `f(x,y,z)=isoLevel`
+contours with marching squares, stitches them into printable polylines, and lets the Dry engine resolve
+the final motion.
+
 ## Build & test
 
 ```bash
@@ -59,6 +107,8 @@ npm test        # node --test: the SDK reproduces the conformance oracle byte-fo
 | `src/ops.ts` | the L1 op vocabulary + engine data shapes (types only) |
 | `src/engine.ts` | loads the wasm engine; typed low-level `resolveGcode` / `resolveMetrics` / `resolveIr` |
 | `src/design.ts` | the fluent `Design` builder |
+| `src/generators/starPolygonLattice.ts` | parametric `M1`..`M4` star-polygon lattice generator as Dry L1 ops |
+| `src/generators/tpms.ts` | TPMS implicit-field contour slicer (`gyroid`, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD, …) |
 | `test/` | byte-identity vs `conformance/gcode` + `conformance/simulate` |
 | `wasm/`, `dist/` | build artifacts — **git-ignored**, rebuilt by `build.sh` (the repo stays binary-free) |
 

@@ -12,3 +12,21 @@ export { Design } from './design';
 export { resolveGcode, resolveMetrics, resolveIr, resolveOptimizedIr, resolveVerify } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type { Op, ResolveParams, Metrics, Segment, SegmentKind, Toolpath } from './ops';
+export {
+  STAR_POLYGON_FAMILIES,
+  normalizeStarPolygonAlpha,
+  starPolygonDentRadiusRatio,
+  starPolygonFamilySpec,
+  starPolygonLattice,
+  starPolygonLatticeOps,
+} from './generators/starPolygonLattice';
+export type {
+  NormalizedStarPolygonAlpha,
+  StarPolygonBasis,
+  StarPolygonFamily,
+  StarPolygonFamilySpec,
+  StarPolygonLatticeOptions,
+  StarPolygonRegime,
+} from './generators/starPolygonLattice';
+export { TPMS_SURFACES, tpms, tpmsField, tpmsOps, tpmsSurfaceSpec } from './generators/tpms';
+export type { TpmsOptions, TpmsSurface, TpmsSurfaceSpec } from './generators/tpms';

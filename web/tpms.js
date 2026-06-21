@@ -1,0 +1,347 @@
+// TPMS contour code generator for the browser gallery. It evaluates an implicit surface,
+// slices each Z layer with marching squares, stitches contours, and emits Dry L1 ops.
+const TAU = Math.PI * 2;
+const EPS = 1e-9;
+
+const TPMS_SURFACES = {
+  gyroid: {
+    label: 'Gyroid',
+    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
+    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
+  },
+  'schwarz-p': {
+    label: 'Schwarz P',
+    equation: 'cos(x) + cos(y) + cos(z)',
+    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
+  },
+  'schwarz-d': {
+    label: 'Schwarz D / Diamond',
+    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
+    field: (x, y, z) =>
+      Math.sin(x) * Math.sin(y) * Math.sin(z) +
+      Math.sin(x) * Math.cos(y) * Math.cos(z) +
+      Math.cos(x) * Math.sin(y) * Math.cos(z) +
+      Math.cos(x) * Math.cos(y) * Math.sin(z),
+  },
+  iwp: {
+    label: 'Schoen I-WP',
+    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
+    field: (x, y, z) =>
+      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
+      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
+  },
+  neovius: {
+    label: 'Neovius',
+    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
+    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
+  },
+  'fischer-koch-s': {
+    label: 'Fischer-Koch S',
+    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
+    field: (x, y, z) =>
+      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
+      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
+      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
+  },
+  'fischer-koch-y': {
+    label: 'Fischer-Koch Y',
+    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
+    field: (x, y, z) =>
+      Math.cos(x) * Math.cos(y) * Math.cos(z) +
+      Math.sin(x) * Math.sin(y) * Math.sin(z) +
+      Math.sin(2 * x) * Math.sin(y) +
+      Math.sin(2 * y) * Math.sin(z) +
+      Math.sin(x) * Math.sin(2 * z) +
+      Math.sin(2 * x) * Math.cos(z) +
+      Math.cos(x) * Math.sin(2 * y) +
+      Math.cos(y) * Math.sin(2 * z),
+  },
+  frd: {
+    label: 'Schoen F-RD',
+    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
+    field: (x, y, z) =>
+      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
+      (Math.cos(2 * x) * Math.cos(2 * y) +
+        Math.cos(2 * y) * Math.cos(2 * z) +
+        Math.cos(2 * z) * Math.cos(2 * x)),
+  },
+  lidinoid: {
+    label: 'Lidinoid',
+    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
+    field: (x, y, z) =>
+      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
+      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
+      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
+      Math.cos(2 * x) * Math.cos(2 * y) -
+      Math.cos(2 * y) * Math.cos(2 * z) -
+      Math.cos(2 * z) * Math.cos(2 * x) +
+      0.3,
+  },
+  'split-p': {
+    label: 'Split P',
+    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
+    field: (x, y, z) =>
+      1.1 *
+        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
+          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
+          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
+      0.2 *
+        (Math.cos(2 * x) * Math.cos(2 * y) +
+          Math.cos(2 * y) * Math.cos(2 * z) +
+          Math.cos(2 * z) * Math.cos(2 * x)) -
+      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
+  },
+};
+
+function tpmsOps(options = {}) {
+  const surface = options.surface ?? 'gyroid';
+  const spec = TPMS_SURFACES[surface];
+  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
+
+  const isoLevel = finite('isoLevel', options.isoLevel ?? 0);
+  const cellSize = positive('cellSize', options.cellSize ?? 12);
+  const cellsX = integer('cellsX', options.cellsX ?? 2, 1);
+  const cellsY = integer('cellsY', options.cellsY ?? 2, 1);
+  const cellsZ = integer('cellsZ', options.cellsZ ?? 2, 1);
+  const samplesPerCell = integer('samplesPerCell', options.samplesPerCell ?? 18, 4);
+  const layerHeight = positive('layerHeight', options.layerHeight ?? 0.8);
+  const z0 = positiveOrZero('z0', options.z0 ?? 0.2);
+  const beadWidth = positive('beadWidth', options.beadWidth ?? 0.45);
+  const beadHeight = positive('beadHeight', options.beadHeight ?? Math.min(layerHeight, 0.24));
+  const centerX = finite('centerX', options.centerX ?? 50);
+  const centerY = finite('centerY', options.centerY ?? 50);
+  const nozzleTemp = positive('nozzleTemp', options.nozzleTemp ?? 210);
+  const printSpeed = positive('printSpeed', options.printSpeed ?? 1200);
+  const flow = positive('flow', options.flow ?? 1);
+  const phaseX = finite('phaseX', options.phaseX ?? 0);
+  const phaseY = finite('phaseY', options.phaseY ?? 0);
+  const phaseZ = finite('phaseZ', options.phaseZ ?? 0);
+
+  const width = cellsX * cellSize;
+  const depth = cellsY * cellSize;
+  const height = cellsZ * cellSize;
+  const nx = cellsX * samplesPerCell;
+  const ny = cellsY * samplesPerCell;
+  const dx = width / nx;
+  const dy = depth / ny;
+  const layerCount = Math.max(1, Math.ceil(height / layerHeight) + 1);
+  const minPathLength = positiveOrZero('minPathLength', options.minPathLength ?? Math.min(dx, dy));
+  const ops = [
+    { op: 'geometry', width: beadWidth, height: beadHeight },
+    { op: 'temperature', nozzle: nozzleTemp },
+    { op: 'speed', print: printSpeed },
+  ];
+  if (Math.abs(flow - 1) > EPS) ops.push({ op: 'flow', ratio: flow });
+
+  let previousLocal = null;
+  for (let layer = 0; layer < layerCount; layer++) {
+    const zLocal = Math.min(layer * layerHeight, height);
+    const z = z0 + zLocal;
+    const segments = marchingSquaresLayer(spec, isoLevel, width, depth, cellSize, nx, ny, zLocal, phaseX, phaseY, phaseZ);
+    const paths = orderPaths(
+      stitchSegments(segments).filter((path) => path.points.length >= 2 && pathLength(path.points) >= minPathLength),
+      previousLocal
+    );
+    for (const path of paths) {
+      const points = path.points.map((p) => ({ x: p.x - width / 2 + centerX, y: p.y - depth / 2 + centerY }));
+      appendPath(ops, points, z);
+      previousLocal = path.points[path.points.length - 1];
+    }
+  }
+  ops.push({ op: 'extruder', on: false });
+  return ops;
+}
+
+function marchingSquaresLayer(spec, isoLevel, width, depth, cellSize, nx, ny, zLocal, phaseX, phaseY, phaseZ) {
+  const dx = width / nx;
+  const dy = depth / ny;
+  const values = new Array((nx + 1) * (ny + 1));
+  const valueAt = (i, j) => values[j * (nx + 1) + i];
+  for (let j = 0; j <= ny; j++) {
+    for (let i = 0; i <= nx; i++) {
+      const x = ((i * dx) / cellSize + phaseX) * TAU;
+      const y = ((j * dy) / cellSize + phaseY) * TAU;
+      const z = (zLocal / cellSize + phaseZ) * TAU;
+      values[j * (nx + 1) + i] = spec.field(x, y, z) - isoLevel;
+    }
+  }
+
+  const segments = [];
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const p00 = { x: i * dx, y: j * dy };
+      const p10 = { x: (i + 1) * dx, y: j * dy };
+      const p11 = { x: (i + 1) * dx, y: (j + 1) * dy };
+      const p01 = { x: i * dx, y: (j + 1) * dy };
+      const v00 = scrubZero(valueAt(i, j));
+      const v10 = scrubZero(valueAt(i + 1, j));
+      const v11 = scrubZero(valueAt(i + 1, j + 1));
+      const v01 = scrubZero(valueAt(i, j + 1));
+      const crossings = [];
+      if (crosses(v00, v10)) crossings.push(interpolate(p00, p10, v00, v10));
+      if (crosses(v10, v11)) crossings.push(interpolate(p10, p11, v10, v11));
+      if (crosses(v11, v01)) crossings.push(interpolate(p11, p01, v11, v01));
+      if (crosses(v01, v00)) crossings.push(interpolate(p01, p00, v01, v00));
+      if (crossings.length === 2) {
+        segments.push({ a: crossings[0], b: crossings[1] });
+      } else if (crossings.length === 4) {
+        const xc = (((i + 0.5) * dx) / cellSize + phaseX) * TAU;
+        const yc = (((j + 0.5) * dy) / cellSize + phaseY) * TAU;
+        const zc = (zLocal / cellSize + phaseZ) * TAU;
+        if (spec.field(xc, yc, zc) - isoLevel >= 0) {
+          segments.push({ a: crossings[0], b: crossings[1] }, { a: crossings[2], b: crossings[3] });
+        } else {
+          segments.push({ a: crossings[0], b: crossings[3] }, { a: crossings[1], b: crossings[2] });
+        }
+      }
+    }
+  }
+  return segments;
+}
+
+function stitchSegments(segments) {
+  const unused = new Set(segments.map((_, i) => i));
+  const endpoints = new Map();
+  for (let i = 0; i < segments.length; i++) {
+    addEndpoint(endpoints, pointKey(segments[i].a), i);
+    addEndpoint(endpoints, pointKey(segments[i].b), i);
+  }
+
+  const paths = [];
+  while (unused.size) {
+    const first = unused.values().next().value;
+    unused.delete(first);
+    const path = [segments[first].a, segments[first].b];
+    extendPath(path, segments, endpoints, unused, false);
+    extendPath(path, segments, endpoints, unused, true);
+    paths.push({ points: dedupeConsecutive(path) });
+  }
+  return paths;
+}
+
+function extendPath(path, segments, endpoints, unused, atStart) {
+  while (true) {
+    const endpoint = atStart ? path[0] : path[path.length - 1];
+    const next = (endpoints.get(pointKey(endpoint)) || []).find((idx) => unused.has(idx));
+    if (next === undefined) return;
+    unused.delete(next);
+    const segment = segments[next];
+    const key = pointKey(endpoint);
+    const nextPoint = pointKey(segment.a) === key ? segment.b : segment.a;
+    if (atStart) path.unshift(nextPoint);
+    else path.push(nextPoint);
+  }
+}
+
+function orderPaths(paths, cursor) {
+  const remaining = [...paths];
+  const ordered = [];
+  let current = cursor;
+  while (remaining.length) {
+    let bestIndex = 0;
+    let best = orientPath(remaining[0], current);
+    let bestDistance = current ? distance(current, best.points[0]) : 0;
+    for (let i = 1; i < remaining.length; i++) {
+      const candidate = orientPath(remaining[i], current);
+      const d = current ? distance(current, candidate.points[0]) : 0;
+      if (d < bestDistance) {
+        bestIndex = i;
+        best = candidate;
+        bestDistance = d;
+      }
+    }
+    ordered.push(best);
+    remaining.splice(bestIndex, 1);
+    current = best.points[best.points.length - 1];
+  }
+  return ordered;
+}
+
+function orientPath(path, cursor) {
+  if (!cursor || path.points.length < 2) return path;
+  const first = path.points[0];
+  const last = path.points[path.points.length - 1];
+  return distance(cursor, last) < distance(cursor, first) ? { points: [...path.points].reverse() } : path;
+}
+
+function appendPath(ops, points, z) {
+  const [start, ...rest] = points;
+  ops.push({ op: 'extruder', on: false }, move(start, z), { op: 'extruder', on: true });
+  for (const point of rest) ops.push(move(point, z));
+}
+
+function move(point, z) {
+  return { op: 'move', x: round(point.x), y: round(point.y), z: round(z) };
+}
+
+function interpolate(a, b, va, vb) {
+  const t = va / (va - vb);
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+function crosses(a, b) {
+  return (a < 0 && b > 0) || (a > 0 && b < 0);
+}
+
+function scrubZero(value) {
+  if (Math.abs(value) > EPS) return value;
+  return value < 0 ? -EPS : EPS;
+}
+
+function addEndpoint(map, key, index) {
+  const list = map.get(key);
+  if (list) list.push(index);
+  else map.set(key, [index]);
+}
+
+function dedupeConsecutive(points) {
+  const out = [];
+  for (const point of points) {
+    const prev = out[out.length - 1];
+    if (!prev || distance(prev, point) > 1e-7) out.push(point);
+  }
+  return out;
+}
+
+function pathLength(points) {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += distance(points[i - 1], points[i]);
+  return total;
+}
+
+function pointKey(point) {
+  return `${Math.round(point.x * 1e6)},${Math.round(point.y * 1e6)}`;
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function finite(name, value) {
+  if (!Number.isFinite(value)) throw new Error(`${name} must be finite`);
+  return value;
+}
+
+function positive(name, value) {
+  finite(name, value);
+  if (value <= 0) throw new Error(`${name} must be > 0`);
+  return value;
+}
+
+function positiveOrZero(name, value) {
+  finite(name, value);
+  if (value < 0) throw new Error(`${name} must be >= 0`);
+  return value;
+}
+
+function integer(name, value, min) {
+  finite(name, value);
+  if (!Number.isInteger(value) || value < min) throw new Error(`${name} must be an integer >= ${min}`);
+  return value;
+}
+
+function round(value) {
+  return Math.round(value * 1e6) / 1e6;
+}
+
+export { TPMS_SURFACES, tpmsOps };

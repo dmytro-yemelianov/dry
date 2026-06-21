@@ -4,7 +4,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Design, resolveGcode, RESOLVE_PARAMS } from '../src/index';
+import {
+  Design,
+  normalizeStarPolygonAlpha,
+  resolveGcode,
+  RESOLVE_PARAMS,
+  starPolygonDentRadiusRatio,
+  STAR_POLYGON_FAMILIES,
+  starPolygonLattice,
+  starPolygonLatticeOps,
+  tpms,
+  tpmsField,
+  tpmsOps,
+  TPMS_SURFACES,
+} from '../src/index';
 
 // dist/test/conformance.test.js -> repo root is four levels up (dist/test -> ts -> sdk -> repo).
 const CONF = path.resolve(__dirname, '../../../../conformance');
@@ -173,4 +186,94 @@ test('verify() finds contract violations', () => {
   const reportZ = dBadZ.verify('generic', 0, 0, '', true);
   assert.ok(reportZ.findings.length > 0);
   assert.equal(reportZ.findings[0].rule, 'monotonic-z');
+});
+
+test('star-polygon family specs expose the paper alpha limits', () => {
+  assert.equal(STAR_POLYGON_FAMILIES.M1.topology, '4 . 4*alpha . 4**alpha');
+  assert.equal(STAR_POLYGON_FAMILIES.M1.alphaSplDeg, 90);
+  assert.equal(STAR_POLYGON_FAMILIES.M1.alphaUlDeg, 135);
+  assert.equal(STAR_POLYGON_FAMILIES.M2.alphaSplDeg, 120);
+  assert.equal(STAR_POLYGON_FAMILIES.M2.alphaUlDeg, 150);
+  assert.equal(STAR_POLYGON_FAMILIES.M3.alphaSplDeg, 60);
+  assert.equal(STAR_POLYGON_FAMILIES.M3.alphaUlDeg, 120);
+  assert.equal(STAR_POLYGON_FAMILIES.M4.basis, 'square');
+  assert.equal(STAR_POLYGON_FAMILIES.M4.isotropicInPlane, false);
+});
+
+test('star-polygon alpha normalization mirrors around the uniqueness limit', () => {
+  assert.deepEqual(normalizeStarPolygonAlpha('M1', 30), {
+    inputDeg: 30,
+    effectiveDeg: 30,
+    mirrored: false,
+    regime: 'star',
+  });
+  assert.deepEqual(normalizeStarPolygonAlpha('M1', 150), {
+    inputDeg: 150,
+    effectiveDeg: 120,
+    mirrored: true,
+    regime: 'convex',
+  });
+  assert.equal(normalizeStarPolygonAlpha('M2', 120).regime, 'star-limit');
+  assert.equal(normalizeStarPolygonAlpha('M4', 120).regime, 'uniqueness-limit');
+  assert.throws(() => normalizeStarPolygonAlpha('M4', 241), /0..240/);
+});
+
+test('star-polygon dent radius ratio reaches the expected geometric limits', () => {
+  assert.ok(Math.abs(starPolygonDentRadiusRatio(4, 90) - Math.SQRT1_2) < 1e-12);
+  assert.ok(Math.abs(starPolygonDentRadiusRatio(4, 135) - 1) < 1e-12);
+  assert.ok(Math.abs(starPolygonDentRadiusRatio(3, 60) - 0.5) < 1e-12);
+});
+
+test('star-polygon lattice generator authors resolvable Dry L1 ops', () => {
+  for (const family of ['M1', 'M2', 'M3', 'M4'] as const) {
+    const ops = starPolygonLatticeOps({ family, alphaDeg: 30, cols: 2, rows: 2, layers: 1, unit: 12 });
+    assert.equal(ops[0].op, 'geometry');
+    assert.ok(ops.some((op) => op.op === 'temperature' && op.nozzle === 210));
+    assert.ok(ops.some((op) => op.op === 'speed' && op.print === 1000));
+
+    const design = starPolygonLattice({ family, alphaDeg: 30, cols: 2, rows: 2, layers: 1, unit: 12 });
+    const ir = design.ir();
+    assert.ok(ir.segments.length > 12, `${family} should emit a non-trivial toolpath`);
+    assert.ok(ir.segments.some((segment) => segment.travel), `${family} should include ordered repositioning travels`);
+    assert.ok(ir.segments.some((segment) => !segment.travel), `${family} should include extruding paths`);
+  }
+});
+
+test('TPMS field specs expose the requested surface families', () => {
+  for (const surface of ['gyroid', 'schwarz-p', 'schwarz-d', 'iwp', 'neovius', 'fischer-koch-s', 'frd'] as const) {
+    assert.equal(TPMS_SURFACES[surface].surface, surface);
+    assert.ok(TPMS_SURFACES[surface].equation.length > 10);
+  }
+  assert.equal(tpmsField('schwarz-p', 0, 0, 0), 3);
+  assert.equal(tpmsField('gyroid', 0, 0, 0), 0);
+  assert.equal(tpmsField('neovius', 0, 0, 0), 13);
+});
+
+test('TPMS generator slices implicit fields into resolvable Dry contours', () => {
+  for (const surface of ['gyroid', 'schwarz-p', 'schwarz-d', 'iwp', 'neovius', 'fischer-koch-s', 'frd'] as const) {
+    const ops = tpmsOps({
+      surface,
+      cellsX: 1,
+      cellsY: 1,
+      cellsZ: 1,
+      cellSize: 10,
+      samplesPerCell: 10,
+      layerHeight: 2,
+      minPathLength: 0,
+    });
+    assert.equal(ops[0].op, 'geometry');
+    assert.ok(ops.length > 20, `${surface} should generate contour ops`);
+
+    const ir = tpms({
+      surface,
+      cellsX: 1,
+      cellsY: 1,
+      cellsZ: 1,
+      cellSize: 10,
+      samplesPerCell: 10,
+      layerHeight: 2,
+      minPathLength: 0,
+    }).ir();
+    assert.ok(ir.segments.some((segment) => !segment.travel), `${surface} should include extrusion segments`);
+  }
 });

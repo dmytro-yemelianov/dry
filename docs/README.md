@@ -16,6 +16,8 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`03-conformance.md`](03-conformance.md) | How correctness is bootstrapped from the fork (5 conformance corpora), the per-phase parity gates + tolerances, the float/determinism discipline, the lessons-as-tests, and the CI shape. |
 | [`04-tasks.md`](04-tasks.md) | The actionable backlog per phase (sized, with deps + acceptance) and the immediate next 5. |
 | [`05-product-directions.md`](05-product-directions.md) | Expanded product directions: slicer vs CAD workbench, post-slicer Klipper review/optimization, G-code forensics, time-series analysis and LLM-assisted explanations. |
+| [`06-lattice-research-codegen.md`](06-lattice-research-codegen.md) | How the star-polygon lattice research PDF maps into the Dry `M1`..`M4` code generator, with decisions and limits. |
+| [`07-tpms-codegen.md`](07-tpms-codegen.md) | TPMS implicit-field contour code generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces. |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine

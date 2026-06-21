@@ -1,6 +1,9 @@
 // Clean-room demo designs, authored as Dry L1 ops (the design layer the engine resolves).
 // Each is an array of ops: geometry / extruder / speed / move / arc. The same op vocabulary the
 // Python SDK and the conformance oracle use. No FullControl code — just the public op shape.
+import { starPolygonLatticeOps } from './lattice-research.js';
+import { tpmsOps } from './tpms.js';
+
 const TAU = Math.PI * 2;
 const G = (w, h) => ({ op: 'geometry', width: w, height: h });
 const ON = { op: 'extruder', on: true };
@@ -301,6 +304,17 @@ const DESIGNS = {
   torus_knot: { label: 'Torus knot (3D, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: torusKnot() },
   lissajous: { label: 'Lissajous ribbon (3D)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: lissajous() },
   lattice: { label: 'Lattice cube (cross-hatch layers)', group: 'Infill & multi-layer', tags: ['infill', 'multi-layer', '3D'], ops: lattice() },
+  star_lattice_m1: { label: 'M1 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M1', 'parametric'], ops: starPolygonLatticeOps({ family: 'M1', alphaDeg: 30, cols: 5, rows: 3, unit: 13 }) },
+  star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], ops: starPolygonLatticeOps({ family: 'M2', alphaDeg: 60, cols: 5, rows: 3, unit: 13 }) },
+  star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], ops: starPolygonLatticeOps({ family: 'M3', alphaDeg: 30, cols: 5, rows: 3, unit: 13 }) },
+  star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], ops: starPolygonLatticeOps({ family: 'M4', alphaDeg: 45, cols: 5, rows: 3, unit: 13 }) },
+  tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit'], ops: tpmsOps({ surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit'], ops: tpmsOps({ surface: 'schwarz-p', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit'], ops: tpmsOps({ surface: 'schwarz-d', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_iwp: { label: 'TPMS I-WP contours', group: 'TPMS', tags: ['TPMS', 'I-WP', 'implicit'], ops: tpmsOps({ surface: 'iwp', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit'], ops: tpmsOps({ surface: 'neovius', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit'], ops: tpmsOps({ surface: 'fischer-koch-s', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
+  tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit'], ops: tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
 };
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
