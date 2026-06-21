@@ -81,6 +81,22 @@ assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator sourc
 assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
 assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
 assert(indexHtml.includes('id="latticeAlpha"'), 'lattice generator missing alpha control');
+for (const id of [
+  'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
+  'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed',
+]) {
+  assert(indexHtml.includes(`type="range" data-sync="${id}"`), `lattice generator missing slider for ${id}`);
+}
+assert(indexHtml.includes('id="latticeRowPairHint"'), 'lattice generator missing M4 row-pair completion hint');
+assert(indexHtml.includes('completeM4Rows'), 'lattice generator should complete M4 odd rows before generation');
+assert(indexHtml.includes('id="appLayout" class="resizable-layout"'), 'web app missing resizable layout root');
+assert(indexHtml.includes('data-panel-toggle="source"'), 'web app missing source panel collapse toggle');
+assert(indexHtml.includes('class="panel-resizer" data-resize-panel="source"'), 'web app missing source resize handle');
+assert(indexHtml.includes('class="panel-resizer" data-resize-panel="gcode"'), 'web app missing G-code resize handle');
+assert(indexHtml.includes('setupPanelLayout()'), 'web app missing panel layout setup');
+assert(toolUiCss.includes('grid-template-columns: var(--source-w) 7px'), 'resizable app layout should expose source grid width');
+assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 'collapsed panels should hide body content');
+assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
 assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
 assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill perimeter toggle');
 

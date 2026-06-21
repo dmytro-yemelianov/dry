@@ -123,9 +123,12 @@
     </nav>
   </div>
 </header>
-<main>
-  <section>
-    <h2>Source</h2>
+<main id="appLayout" class="resizable-layout">
+  <section class="panel-region" data-panel="source">
+    <div class="panel-heading">
+      <h2>Source</h2>
+      <button type="button" class="panel-toggle" data-panel-toggle="source" aria-expanded="true">Hide</button>
+    </div>
     <select id="source" aria-label="Design source">
       <option value="gallery">Gallery design</option>
       <option value="lattice">Printable star lattice</option>
@@ -137,15 +140,32 @@
     <div id="latticePanel" class="source-panel" hidden>
       <div class="control-grid">
         <label class="wide">family <select id="latticeFamily"></select></label>
-        <label>alpha deg <input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /></label>
-        <label>strut mm <input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /></label>
-        <label>columns <input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /></label>
-        <label>rows <input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /></label>
-        <label>layers <input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /></label>
-        <label>layer mm <input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /></label>
-        <label>bead mm <input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /></label>
-        <label>speed <input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /></label>
+        <label class="range-field">alpha deg
+          <span class="range-row"><input type="range" data-sync="latticeAlpha" min="0" max="150" step="1" value="30" aria-label="Alpha degrees" /><input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /></span>
+        </label>
+        <label class="range-field">strut mm
+          <span class="range-row"><input type="range" data-sync="latticeUnit" min="1" max="50" step="0.01" value="4.33" aria-label="Strut millimeters" /><input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /></span>
+        </label>
+        <label class="range-field">columns
+          <span class="range-row"><input type="range" data-sync="latticeCols" min="1" max="15" step="1" value="10" aria-label="Lattice columns" /><input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /></span>
+        </label>
+        <label class="range-field">rows
+          <span class="range-row"><input type="range" data-sync="latticeRows" min="1" max="12" step="1" value="3" aria-label="Lattice rows" /><input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /></span>
+        </label>
+        <label class="range-field">layers
+          <span class="range-row"><input type="range" data-sync="latticeLayers" min="1" max="40" step="1" value="2" aria-label="Lattice layers" /><input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /></span>
+        </label>
+        <label class="range-field">layer mm
+          <span class="range-row"><input type="range" data-sync="latticeLayerH" min="0.05" max="2" step="0.001" value="0.2" aria-label="Layer millimeters" /><input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /></span>
+        </label>
+        <label class="range-field">bead mm
+          <span class="range-row"><input type="range" data-sync="latticeBead" min="0.1" max="2" step="0.01" value="0.5" aria-label="Bead millimeters" /><input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /></span>
+        </label>
+        <label class="range-field">speed
+          <span class="range-row"><input type="range" data-sync="latticeSpeed" min="60" max="12000" step="10" value="1000" aria-label="Print speed" /><input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /></span>
+        </label>
         <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete M4 row pairs</label>
+        <span id="latticeRowPairHint" class="control-hint wide" aria-live="polite"></span>
       </div>
     </div>
     <div id="tpmsPanel" class="source-panel" hidden>
@@ -188,8 +208,12 @@
     </div>
     <div class="findings" id="findings"></div>
   </section>
-  <section>
-    <h2>Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
+  <div class="panel-resizer" data-resize-panel="source" role="separator" aria-orientation="vertical" aria-label="Resize source panel"></div>
+  <section class="panel-region" data-panel="toolpath">
+    <div class="panel-heading">
+      <h2>Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
+      <button type="button" class="panel-toggle" data-panel-toggle="toolpath" aria-expanded="true">Hide</button>
+    </div>
     <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
     <div class="legend">
       <span><span class="swatch extrude"></span>printed</span>
@@ -205,8 +229,12 @@
     </div>
     <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
   </section>
-  <section>
-    <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
+  <div class="panel-resizer" data-resize-panel="gcode" role="separator" aria-orientation="vertical" aria-label="Resize G-code panel"></div>
+  <section class="panel-region" data-panel="gcode">
+    <div class="panel-heading">
+      <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
+      <button type="button" class="panel-toggle" data-panel-toggle="gcode" aria-expanded="true">Hide</button>
+    </div>
     <div class="gcode-meta" id="gcodeMeta"></div>
     <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
@@ -274,6 +302,106 @@ const $ = (id) => document.getElementById(id);
     const value = Number.parseFloat($(id).value);
     return Number.isFinite(value) ? value : fallback;
   };
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+  function syncRangeFromNumber(id) {
+    const range = document.querySelector(`input[type="range"][data-sync="${id}"]`);
+    const number = $(id);
+    if (!range || !number) return;
+    const min = Number.parseFloat(range.min);
+    const max = Number.parseFloat(range.max);
+    const fallback = Number.parseFloat(range.value);
+    const raw = Number.parseFloat(number.value);
+    const value = Number.isFinite(raw) ? raw : fallback;
+    range.value = String(clamp(value, min, max));
+  }
+
+  function bindRangeControls() {
+    for (const range of document.querySelectorAll('input[type="range"][data-sync]')) {
+      const number = $(range.dataset.sync);
+      if (!number) continue;
+      const syncNumber = () => {
+        number.value = range.value;
+        go();
+      };
+      range.addEventListener('input', syncNumber);
+      range.addEventListener('change', syncNumber);
+      number.addEventListener('input', () => syncRangeFromNumber(range.dataset.sync));
+      number.addEventListener('change', () => syncRangeFromNumber(range.dataset.sync));
+      syncRangeFromNumber(range.dataset.sync);
+    }
+  }
+
+  function completeM4Rows(rows) {
+    return rows % 2 === 0 ? rows : rows + 1;
+  }
+
+  function setupPanelLayout() {
+    const layout = $('appLayout');
+    if (!layout) return;
+    const rememberedWidths = { source: 360, gcode: 380 };
+    const limits = {
+      source: { min: 220, max: 560 },
+      gcode: { min: 260, max: 640 },
+    };
+    const setPanelWidth = (panel, px) => {
+      const limit = limits[panel];
+      if (!limit) return;
+      const width = Math.round(clamp(px, limit.min, limit.max));
+      rememberedWidths[panel] = width;
+      layout.style.setProperty(`--${panel}-w`, `${width}px`);
+    };
+
+    for (const button of layout.querySelectorAll('[data-panel-toggle]')) {
+      const panel = button.dataset.panelToggle;
+      const section = layout.querySelector(`[data-panel="${panel}"]`);
+      if (!section) continue;
+      button.addEventListener('click', () => {
+        const collapsed = section.classList.toggle('is-collapsed');
+        button.setAttribute('aria-expanded', String(!collapsed));
+        button.textContent = collapsed ? panel : 'Hide';
+        layout.classList.toggle(`is-${panel}-collapsed`, collapsed);
+        if (panel === 'source' || panel === 'gcode') {
+          layout.style.setProperty(`--${panel}-w`, collapsed ? '52px' : `${rememberedWidths[panel]}px`);
+        }
+      });
+    }
+
+    for (const handle of layout.querySelectorAll('.panel-resizer')) {
+      handle.addEventListener('pointerdown', (event) => {
+        const panel = handle.dataset.resizePanel;
+        const section = layout.querySelector(`[data-panel="${panel}"]`);
+        if (!panel || !section) return;
+        if (section.classList.contains('is-collapsed')) {
+          section.classList.remove('is-collapsed');
+          layout.classList.remove(`is-${panel}-collapsed`);
+          const toggle = layout.querySelector(`[data-panel-toggle="${panel}"]`);
+          if (toggle) {
+            toggle.setAttribute('aria-expanded', 'true');
+            toggle.textContent = 'Hide';
+          }
+        }
+        const rect = layout.getBoundingClientRect();
+        handle.setPointerCapture(event.pointerId);
+        handle.classList.add('is-resizing');
+        event.preventDefault();
+        const move = (moveEvent) => {
+          moveEvent.preventDefault();
+          if (panel === 'source') setPanelWidth(panel, moveEvent.clientX - rect.left);
+          if (panel === 'gcode') setPanelWidth(panel, rect.right - moveEvent.clientX);
+        };
+        const end = () => {
+          handle.classList.remove('is-resizing');
+          handle.removeEventListener('pointermove', move);
+          handle.removeEventListener('pointerup', end);
+          handle.removeEventListener('pointercancel', end);
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', end);
+        handle.addEventListener('pointercancel', end);
+      });
+    }
+  }
 
   function syncSourcePanels() {
     const source = $('source').value;
@@ -285,7 +413,31 @@ const $ = (id) => document.getElementById(id);
   function syncLatticeBounds() {
     const alpha = $('latticeAlpha');
     alpha.max = '150';
-    if (numValue('latticeAlpha', 0) > 150) alpha.value = '30';
+    if (numValue('latticeAlpha', 0) > 150) alpha.value = '150';
+    syncRangeFromNumber('latticeAlpha');
+
+    const rowsInput = $('latticeRows');
+    const hint = $('latticeRowPairHint');
+    const family = $('latticeFamily').value;
+    const completesM4 = family === 'M4' && $('latticeCompleteWidth').checked;
+    let rows = intValue('latticeRows', 3);
+    if (completesM4) {
+      rows = completeM4Rows(rows);
+      const maxRows = Number.parseInt(rowsInput.max, 10);
+      rows = Number.isFinite(maxRows) ? Math.min(rows, maxRows) : rows;
+      rowsInput.value = String(rows);
+      syncRangeFromNumber('latticeRows');
+    }
+    if (hint) {
+      if (family === 'M4') {
+        const pairs = Math.max(1, Math.floor(rows / 2));
+        hint.textContent = completesM4
+          ? `M4 width uses ${pairs} complete row pair${pairs === 1 ? '' : 's'} (${pairs * 2} rows).`
+          : 'M4 row-pair completion is off; odd row counts omit the incomplete pair.';
+      } else {
+        hint.textContent = 'Row-pair completion applies to M4 only.';
+      }
+    }
   }
 
   function activeDesign() {
@@ -387,6 +539,8 @@ const $ = (id) => document.getElementById(id);
     el.addEventListener('change', go);
   }
 
+  bindRangeControls();
+  setupPanelLayout();
   go();
   window.__dryReady = true;
 })();
