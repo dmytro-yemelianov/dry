@@ -22,7 +22,7 @@ assert(blocksHtml.includes('loadExtraState(state)'), 'dry_spline JSON state read
 assert(!blocksHtml.includes('dry_spline3'), 'fixed dry_spline3 block leaked into blocks.html');
 assert(!templatesJs.includes('dry_spline3'), 'fixed dry_spline3 block leaked into templates.js');
 
-for (const category of ['Dry setup', 'Dry motion', 'Dry process', 'Flow', 'Logic', 'Math', 'Lists', 'Variables']) {
+for (const category of ['Dry setup', 'Dry motion', 'Dry patterns', 'Dry process', 'Flow', 'Logic', 'Math', 'Lists', 'Variables']) {
   assert(blocksHtml.includes(`<category name="${category}"`), `toolbox missing ${category} category`);
 }
 
@@ -30,6 +30,16 @@ for (const type of ['controls_repeat_ext', 'controls_for', 'math_change']) {
   assert(blocksHtml.includes(`<block type="${type}"`), `toolbox missing ${type}`);
   assert(blocksHtml.includes(`case '${type}'`), `generator missing ${type}`);
 }
+
+for (const type of ['dry_sin_rad', 'dry_cos_rad']) {
+  assert(blocksHtml.includes(`type: '${type}'`), `custom ${type} block is missing`);
+  assert(blocksHtml.includes(`<block type="${type}"`), `toolbox missing ${type}`);
+  assert(blocksHtml.includes(`generator.${type}`), `generator missing ${type}`);
+}
+assert(blocksHtml.includes("type: 'dry_vase_helix'"), 'compact vase helix block is missing');
+assert(blocksHtml.includes('<block type="dry_vase_helix"'), 'toolbox missing compact vase helix block');
+assert(blocksHtml.includes("case 'dry_vase_helix'"), 'generator missing compact vase helix block');
+assert(blocksHtml.includes('MAX_PATTERN_POINTS'), 'pattern generators should cap emitted point counts');
 
 assert(blocksHtml.includes('JS().definitions_'), 'expression evaluator ignores Blockly helper definitions');
 assert(blocksHtml.includes("key !== 'variables'"), 'expression evaluator should not inject variable declarations as helpers');
@@ -40,6 +50,8 @@ assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view
 assert(viewerJs.includes("new OrbitControls(cameras.get('iso'), el)"), 'OrbitControls should bind to the full viewport element');
 assert(viewerJs.includes('resetViewEl'), 'viewer should expose a reset view control');
 assert(viewerJs.includes('__viewerDebug'), 'viewer should expose debug state for interaction checks');
+assert(viewerJs.includes('uGhostAlpha'), 'viewer should render unprinted bead geometry with partial transparency');
+assert(viewerJs.includes('transparent: true'), 'viewer bead material should support printed/planned alpha');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
@@ -51,6 +63,11 @@ assert(indexHtml.includes('class="topbar"'), 'gallery page missing flex topbar')
 assert(blocksHtml.includes('class="topbar"'), 'blocks page missing flex topbar');
 assert(indexHtml.includes('id="resetView"'), 'gallery page missing reset view control');
 assert(blocksHtml.includes('id="resetView"'), 'blocks page missing reset view control');
+assert(blocksHtml.includes('id="fitBlocks"'), 'blocks page missing fit workspace control');
+assert(blocksHtml.includes('id="cleanBlocks"'), 'blocks page missing clean workspace control');
+assert(blocksHtml.includes('zoomToFit'), 'blocks page should fit loaded templates into view');
+assert(indexHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'gallery legend should expose planned/unprinted geometry');
+assert(blocksHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'blocks legend should expose planned/unprinted geometry');
 assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
 assert(toolUiCss.includes('touch-action: none'), 'viewport should reserve pointer gestures for toolpath controls');
@@ -117,12 +134,13 @@ for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
 
   if (key === 'twisted_vase') {
     assert(template.label === 'Twisted vase (continuous vase mode)', 'twisted_vase label should describe continuous vase mode');
-    assert(workspace.xml.includes('<field name="N">960</field>'), 'twisted_vase should use 16 turns with 60 samples per turn');
-    assert(workspace.xml.includes('<field name="NUM">48</field>'), 'twisted_vase should rise over a tall vase-height Z span');
-    assert(!workspace.xml.includes('<field name="NUM">16</field>'), 'twisted_vase should not regress to the short ring-like vase span');
-    assert(countMatches(workspace.xml, /<field name="OP">DIVIDE<\/field>/g) >= 5, 'twisted_vase should scale height/profile/twist by i / step count');
-    assert(countMatches(workspace.xml, /<field name="OP">SIN<\/field>/g) >= 2, 'twisted_vase should include a body profile, not just a coil');
-    assert(countMatches(workspace.xml, /<field name="OP">COS<\/field>/g) >= 3, 'twisted_vase should include radial flutes plus polar projection');
+    assert(workspace.xml.includes('type="dry_vase_helix"'), 'twisted_vase should use the compact vase helix block');
+    assert(workspace.xml.includes('<field name="TURNS">16</field>'), 'twisted_vase should use 16 turns');
+    assert(workspace.xml.includes('<field name="SAMPLES">60</field>'), 'twisted_vase should use 60 samples per turn');
+    assert(workspace.xml.includes('<field name="HEIGHT">48</field>'), 'twisted_vase should rise over a tall vase-height Z span');
+    assert(workspace.xml.includes('<field name="FLUTES">8</field>'), 'twisted_vase should keep radial flutes');
+    assert(!workspace.xml.includes('<field name="N">960</field>'), 'twisted_vase should not expose the old unreadable 960-iteration formula loop');
+    assert(!workspace.xml.includes('type="math_trig"'), 'twisted_vase should not use Blockly degree-based trig for radian formulas');
   }
 }
 

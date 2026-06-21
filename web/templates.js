@@ -22,12 +22,10 @@ const arith = (op, a, b) =>
   `<value name="A">${a}</value><value name="B">${b}</value></block>`;
 const add = (a, b) => arith('ADD', a, b);
 const mul = (a, b) => arith('MULTIPLY', a, b);
-const div = (a, b) => arith('DIVIDE', a, b);
 const idx1 = () => add(varRef('i'), num(1));
-const trig = (op, x) => // SIN | COS | TAN
-  `<block type="math_trig"><field name="OP">${op}</field><value name="NUM">${x}</value></block>`;
-const cos = (x) => trig('COS', x);
-const sin = (x) => trig('SIN', x);
+const trigRad = (type, x) => `<block type="${type}"><value name="ANGLE">${x}</value></block>`;
+const cos = (x) => trigRad('dry_cos_rad', x);
+const sin = (x) => trigRad('dry_sin_rad', x);
 
 const val = (name, inner) => `<value name="${name}">${inner}</value>`;
 
@@ -38,6 +36,15 @@ const extruder = (on = true) =>
   `<block type="dry_extruder"><field name="ON">${on}</field>{next}</block>`;
 const speed = (v = 1000) => `<block type="dry_speed"><field name="PRINT">${v}</field>{next}</block>`;
 const temperature = (c) => `<block type="dry_temperature"><field name="NOZZLE">${c}</field>{next}</block>`;
+const vaseHelix = ({
+  cx = 50, cy = 50, z0 = 0.2, turns = 16, samples = 60, height = 48,
+  base = 8.5, belly = 6.5, shoulder = 3, flutes = 8, depth = 0.035, twist = 0.75,
+} = {}) =>
+  `<block type="dry_vase_helix">` +
+  `<field name="CX">${cx}</field><field name="CY">${cy}</field><field name="Z0">${z0}</field>` +
+  `<field name="TURNS">${turns}</field><field name="SAMPLES">${samples}</field><field name="HEIGHT">${height}</field>` +
+  `<field name="BASE">${base}</field><field name="BELLY">${belly}</field><field name="SHOULDER">${shoulder}</field>` +
+  `<field name="FLUTES">${flutes}</field><field name="DEPTH">${depth}</field><field name="TWIST">${twist}</field>{next}</block>`;
 // move/arc: x,y,z (and cx,cy) are value-input HTML fragments (use num(...) or an expression block)
 const move = (x, y, z) =>
   `<block type="dry_move">${val('X', x)}${val('Y', y)}${val('Z', z)}{next}</block>`;
@@ -166,35 +173,10 @@ const zigzagXml = program(
   forI(N_ZIG_SEGMENTS, chain(move(zigX(), zigY(), num(0.2)))),
 );
 
-// 7. Twisted vase — continuous vase-mode spiral with a tall belly, neck, lip, and soft twist.
-const VASE_TURNS = 16;
-const VASE_STEPS_PER_TURN = 60;
-const VASE_N = VASE_TURNS * VASE_STEPS_PER_TURN;
-const VASE_LOBES = 8;
-const VASE_TWIST = 0.75;
-const vaseF = () => div(idx1(), num(VASE_N));
-const vaseAngle = () => mul(idx1(), num(TAU / VASE_STEPS_PER_TURN));
-const vaseTwist = () => mul(num(TAU * VASE_TWIST), vaseF());
-const vaseProfile = () => add(
-  add(num(8.5), mul(num(6.5), sin(mul(pi(), vaseF())))),
-  mul(num(3), sin(mul(num(TAU), vaseF()))),
-);
-const vaseFlute = () => add(
-  num(1),
-  mul(num(0.035), cos(mul(num(VASE_LOBES), add(vaseAngle(), mul(num(-1), vaseTwist()))))),
-);
-const vaseR = () => mul(vaseProfile(), vaseFlute());
-const vaseZ = () => add(num(0.2), mul(num(48), vaseF()));
+// 7. Twisted vase — compact macro block for a continuous vase-mode spiral with a tall belly,
+// neck, lip, and soft twist. The block emits travel-to-start + extrude-on + 960 helix moves.
 const twistedVaseXml = program(
-  geometry(0.6, 0.2), temperature(210), extruder(false),
-  move(num(58.8), num(50), num(0.2)), extruder(true),
-  forI(VASE_N, chain(
-    move(
-      add(num(50), mul(vaseR(), cos(vaseAngle()))),
-      add(num(50), mul(vaseR(), sin(vaseAngle()))),
-      vaseZ(),
-    ),
-  )),
+  geometry(0.6, 0.2), temperature(210), vaseHelix(),
 );
 
 // 8. Rounded square — four straight edges joined by four CCW corner arcs (lines + arcs).

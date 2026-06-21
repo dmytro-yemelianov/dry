@@ -362,6 +362,11 @@ body.blocks-page #viewport {
   background: var(--extrude);
 }
 
+.swatch.planned {
+  background: rgba(142, 203, 255, 0.38);
+  border: 1px solid rgba(142, 203, 255, 0.5);
+}
+
 .swatch.travel {
   background: var(--travel);
 }

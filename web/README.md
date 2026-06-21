@@ -64,13 +64,18 @@ The authoring page ships **parametric** blocks so a starter design can be a real
 - **`move`/`arc`/`spline` coordinates are value inputs** (X/Y/Z, arc cx/cy, spline control points) with
   **shadow `math_number`** — they still show numbers by default, an empty/cleared input ⇒ `null` (inherit
   the running value), and a connected value block is **evaluated**. The toolbox is categorized into
-  **Dry setup / Dry motion / Dry process / Flow / Logic / Math / Lists / Variables**, keeping printer ops
+  **Dry setup / Dry motion / Dry patterns / Dry process / Flow / Logic / Math / Lists / Variables**, keeping printer ops
   separate from general expression helpers. It includes deterministic math helpers (`arithmetic`,
-  `single`, `trig`, `constant`, `number property`, `modulo`, `round`, `constrain`, `atan2`), full
+  `single`, **Dry `sin rad` / `cos rad`** for geometric formulas, stock degree-based `trig`,
+  `constant`, `number property`, `modulo`, `round`, `constrain`, `atan2`), full
   condition/value logic (`if/else`, `compare`, `and/or`, `not`, `boolean`, `ternary`, `null`), list value
   helpers, and variables (`create`, `get`, `set`, `change by`) — so a coordinate can be e.g.
   `50 + 20·cos(2π·i/6)`, and a design can `set radius`, branch with `if (i mod 2 = 0)`, or index into
-  a point list. The generator turns a value input into a JS expression via `Blockly.JavaScript.valueToCode`
+  a point list. The starter templates use the Dry radian trig blocks so expressions such as `2π·i/N`
+  behave like JavaScript/geometry formulas instead of Blockly's stock degree-trig convention. The
+  **Dry patterns** currently includes a compact parameterized **vase helix** block, used by the vase
+  template to avoid an unreadable 960-iteration nested formula chain while still emitting ordinary Dry
+  L1 ops. The generator turns a value input into a JS expression via `Blockly.JavaScript.valueToCode`
   (from the vendored `javascript_compressed.js`) and evaluates it under a shared environment (loop
   counters + `set` variables). It also injects Blockly's generated helper functions for helper-backed
   value blocks such as list repeat/indexing or prime checks. Statement handling covers Dry-native loops,
@@ -85,8 +90,8 @@ clears the workspace and loads that starter design's blocks, and the preview upd
 (`web/templates.js`, `TEMPLATES[key] = { label, group, tags, build }`) span the same groups as the
 gallery — *square*, *regular polygon* (`dry_for` + cos/sin of `i`), *star*, *rounded square* (lines +
 arcs), *S-curve* (native spline), *spiral* (radius grows with `i`), a perimeter + *zig-zag infill panel*,
-a *layered tower* with travels to each layer start, and a *twisted vase* built as a 960-segment
-continuous vase-mode spiral over 16 turns and a 48 mm Z span. Each resolves to finite, non-empty
+a *layered tower* with travels to each layer start, and a *twisted vase* built by the compact vase
+helix block as a 960-segment continuous vase-mode spiral over 16 turns and a 48 mm Z span. Each resolves to finite, non-empty
 g-code.
 
 Thumbnails for both libraries are generated **at runtime** by `web/thumb.js` (`thumbnail(ops, wasm,

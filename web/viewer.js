@@ -248,15 +248,29 @@ export function createViewer(cfg) {
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(0.5, -1, 1.6); scene.add(dl);
 
-    const beadUniforms = { uTime: { value: 0 }, uPrinted: { value: new THREE.Color(0x58a6ff) },
-                           uGhost: { value: new THREE.Color(0x21324a) } };
-    const beadMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const beadUniforms = {
+      uTime: { value: 0 },
+      uPrinted: { value: new THREE.Color(0x58a6ff) },
+      uGhost: { value: new THREE.Color(0x8ecbff) },
+      uPrintedAlpha: { value: 1 },
+      uGhostAlpha: { value: 0.2 },
+    };
+    const beadMat = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+    });
     beadMat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = beadUniforms.uTime; sh.uniforms.uPrinted = beadUniforms.uPrinted; sh.uniforms.uGhost = beadUniforms.uGhost;
+      sh.uniforms.uPrintedAlpha = beadUniforms.uPrintedAlpha; sh.uniforms.uGhostAlpha = beadUniforms.uGhostAlpha;
       sh.vertexShader = 'attribute float aTime;\nvarying float vTime;\n' +
         sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vTime = aTime;');
-      sh.fragmentShader = 'uniform float uTime;\nuniform vec3 uPrinted;\nuniform vec3 uGhost;\nvarying float vTime;\n' +
-        sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = (vTime <= uTime) ? uPrinted : uGhost;');
+      sh.fragmentShader = 'uniform float uTime;\nuniform vec3 uPrinted;\nuniform vec3 uGhost;\nuniform float uPrintedAlpha;\nuniform float uGhostAlpha;\nvarying float vTime;\n' +
+        sh.fragmentShader.replace(
+          '#include <color_fragment>',
+          '#include <color_fragment>\n float isPrinted = step(vTime, uTime);\n diffuseColor.rgb = mix(uGhost, uPrinted, isPrinted);\n diffuseColor.a *= mix(uGhostAlpha, uPrintedAlpha, isPrinted);',
+        );
     };
     const beads = new THREE.Mesh(new THREE.BufferGeometry(), beadMat);
 
@@ -474,7 +488,9 @@ export function createViewer(cfg) {
     setLine(V.printT, pt); setLine(V.ghostT, rt);
     const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
     window.__lines = { beadVerts: V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0,
-                       uTime: t, printedTravel: pt.length / 6, plateZ: V.grid ? V.grid.position.z : null };
+                       uTime: t, printedTravel: pt.length / 6, plateZ: V.grid ? V.grid.position.z : null,
+                       ghostAlpha: V.beadUniforms.uGhostAlpha.value,
+                       printedAlpha: V.beadUniforms.uPrintedAlpha.value };
   }
   function updateActiveLine() {
     const seg = activeSegAt(P.t);
