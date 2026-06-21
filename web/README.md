@@ -53,7 +53,9 @@ from implicit fields in `tpms.js` with safe G2/G3 arc fitting enabled by default
 The design picker is **grouped** (one `<optgroup>` per group — *Basics*, *Curves*, *Infill &
 multi-layer*, *Vases & non-planar*, *Research lattices*, *TPMS*) and the current design's **tags** (e.g. `arc`, `multi-layer`,
 `non-planar`, `3D`, `parametric`, `fractal`) show as chips beside a small **top-down thumbnail**.
-Each `DESIGNS[key]` is `{ label, group, tags, ops }` — the `ops` are unchanged (byte-identical g-code).
+Each `DESIGNS[key]` is data-driven: `{ label, group, tags, params, defaults, build, ops }`. The gallery
+renders controls from `params`, calls `build(values)` for live previews, and keeps default `ops` for
+thumbnails and existing callers.
 
 ## Author your own — `blocks.html` (Blockly)
 
@@ -151,7 +153,7 @@ cd .. && python3 -m http.server
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
 | `tool-ui.css` | shared responsive UI shell for the active gallery and Blockly app pages |
 | `viewer.js`  | shared ES module: three.js scene, render-layer toggles, fast/bead/realistic toolpath geometry, simulated playback, synced/explained G-code panel and render profiling — imported by both pages |
-| `designs.js` | demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
+| `designs.js` | data-driven demo gallery definitions, each `{ label, group, tags, params, defaults, build, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
 | `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, conservative G2/G3 arc fitting with G1 fallback, and a preflight resolution budget |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |

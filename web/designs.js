@@ -15,8 +15,8 @@ const TEMP = (c) => ({ op: 'temperature', nozzle: c });
 const FAN = (v) => ({ op: 'fan', speed: v });
 const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; };
 
-function square() {
-  return [G(0.6, 0.2), ON, M(0, 0, 0.2), M(10, 0, 0.2), M(10, 10, 0.2), M(0, 10, 0.2), M(0, 0, 0.2)];
+function square(side = 10, z = 0.2) {
+  return [G(0.6, 0.2), ON, M(0, 0, z), M(side, 0, z), M(side, side, z), M(0, side, z), M(0, 0, z)];
 }
 
 // vase-mode helix — points computed here and passed as explicit coords (line length is
@@ -33,12 +33,12 @@ function spiralVase(radius = 15, height = 1.5, layerH = 0.3, perLayer = 24, cx =
 }
 
 // native G2/G3 arcs at varying speed
-function arcsMix() {
+function arcsMix(radius = 10, gap = 10, speed = 1800, z = 0.4) {
   return [
-    G(0.6, 0.2), ON, M(20, 5, 0.4), SPEED(1800),
-    ARC(10, 5, 0, 5, null, true),
-    M(0, 15, 0.4),
-    ARC(10, 15, 20, 15, null, true),
+    G(0.6, 0.2), ON, M(radius * 2, 5, z), SPEED(speed),
+    ARC(radius, 5, 0, 5, null, true),
+    M(0, 5 + gap, z),
+    ARC(radius, 5 + gap, radius * 2, 5 + gap, null, true),
   ];
 }
 
@@ -281,41 +281,190 @@ function lattice(size = 28, gap = 4, layers = 8, layerH = 0.3, cx = 50, cy = 50,
   return ops;
 }
 
-// Each entry carries a `group` (for grouped pickers) and `tags` (chips / filtering). The `ops`
-// are unchanged — the gallery designs are byte-identical to before; only metadata was added.
-const DESIGNS = {
-  square: { label: 'Square (line moves)', group: 'Basics', tags: ['line', 'perimeter'], ops: square() },
-  star: { label: 'Star (continuous stroke)', group: 'Basics', tags: ['line', 'parametric'], ops: star() },
-  arcs_mix: { label: 'Arcs (native G2/G3)', group: 'Curves', tags: ['arc'], ops: arcsMix() },
-  rounded_rect: { label: 'Rounded rect (lines + 4 arcs)', group: 'Curves', tags: ['arc', 'line'], ops: roundedRect() },
-  infill_panel: { label: 'Infill panel (perimeter + zig-zag)', group: 'Infill & multi-layer', tags: ['infill', 'travel'], ops: infillPanel() },
-  layered_tower: { label: 'Layered tower (10 layers + travels)', group: 'Infill & multi-layer', tags: ['multi-layer', 'travel'], ops: layeredTower() },
-  spiral_vase: { label: 'Spiral vase (~120-seg helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'], ops: spiralVase() },
-  cone_vase: { label: 'Cone vase (non-planar helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'], ops: coneVase() },
-  collinear_comb: { label: 'Comb (collinear runs → optimize)', group: 'Infill & multi-layer', tags: ['travel', 'optimize'], ops: collinearComb() },
-  // complex parametric samples
-  hilbert: { label: 'Hilbert curve (space-filling fractal)', group: 'Curves', tags: ['fractal', 'parametric'], ops: hilbert() },
-  rose: { label: 'Rose curve (rhodonea)', group: 'Curves', tags: ['parametric'], ops: rose() },
-  spirograph: { label: 'Spirograph (hypotrochoid)', group: 'Curves', tags: ['parametric'], ops: spirograph() },
-  honeycomb: { label: 'Honeycomb (hex tiling + travels)', group: 'Infill & multi-layer', tags: ['infill', 'travel'], ops: honeycomb() },
-  corrugated_wall: { label: 'Corrugated wall (10-layer sine)', group: 'Infill & multi-layer', tags: ['multi-layer', 'parametric'], ops: corrugatedWall() },
-  twisted_vase: { label: 'Twisted vase (fluted, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: twistedVase() },
-  star_tower: { label: 'Star tower (stacked + twist)', group: 'Vases & non-planar', tags: ['multi-layer', 'travel', '3D'], ops: starTower() },
-  torus_knot: { label: 'Torus knot (3D, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: torusKnot() },
-  lissajous: { label: 'Lissajous ribbon (3D)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: lissajous() },
-  lattice: { label: 'Lattice cube (cross-hatch layers)', group: 'Infill & multi-layer', tags: ['infill', 'multi-layer', '3D'], ops: lattice() },
-  star_lattice_m1: { label: 'M1 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M1', 'parametric'], ops: starPolygonLatticeOps({ family: 'M1', alphaDeg: 30, cols: 10, rows: 3, segLength: 4.33 }) },
-  star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], ops: starPolygonLatticeOps({ family: 'M2', alphaDeg: 60, cols: 10, rows: 3, segLength: 4.33 }) },
-  star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], ops: starPolygonLatticeOps({ family: 'M3', alphaDeg: 30, cols: 10, rows: 3, segLength: 4.33 }) },
-  star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], ops: starPolygonLatticeOps({ family: 'M4', alphaDeg: 45, cols: 10, rows: 3, segLength: 4.33 }) },
-  tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'schwarz-p', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'schwarz-d', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_iwp: { label: 'TPMS I-WP contours', group: 'TPMS', tags: ['TPMS', 'I-WP', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'iwp', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'neovius', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'fischer-koch-s', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
-  tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit', 'G2/G3'], ops: tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 0.28, pathMode: 'safe-arcs' }) },
+const range = (id, label, defaultValue, min, max, step, unit = '1', title = '') => ({
+  type: 'range',
+  id,
+  label,
+  defaultValue,
+  min,
+  max,
+  step,
+  unit,
+  title,
+  integer: Number(step) >= 1 && Number.isInteger(defaultValue) && Number.isInteger(min) && Number.isInteger(max),
+});
+const selectParam = (id, label, defaultValue, options, title = '') => ({
+  type: 'select', id, label, defaultValue, options, title,
+});
+
+const centerParams = () => [
+  range('cx', 'cx', 50, 0, 100, 0.5, 'mm', 'Center X.'),
+  range('cy', 'cy', 50, 0, 100, 0.5, 'mm', 'Center Y.'),
+];
+const zParam = (id = 'z', value = 0.2) => range(id, id, value, 0.05, 20, 0.01, 'mm', 'Z height.');
+const sampleParam = (value = 360, max = 1200) => range('samples', 'samples', value, 12, max, 1, '1', 'Generated curve resolution.');
+const starLatticeParams = (alphaDeg) => [
+  range('alphaDeg', 'alpha', alphaDeg, 0, 150, 1, 'deg'),
+  range('segLength', 'strut', 4.33, 1, 50, 0.01, 'mm'),
+  range('cols', 'columns', 10, 1, 15, 1, '1'),
+  range('rows', 'rows', 3, 1, 12, 1, '1'),
+  range('layers', 'layers', 2, 1, 24, 1, '1'),
+  range('layerHeight', 'layer', 0.2, 0.05, 2, 0.001, 'mm'),
+];
+const tpmsParams = () => [
+  selectParam('pathMode', 'path', 'safe-arcs', [
+    { value: 'safe-arcs', label: 'safe arcs G2/G3' },
+    { value: 'linear', label: 'linear G1' },
+  ]),
+  range('cellSize', 'cell', 22, 4, 80, 0.5, 'mm'),
+  range('samplesPerCell', 'samples', 16, 4, 64, 1, '1/cell'),
+  range('cellsX', 'cells X', 1, 1, 8, 1, '1'),
+  range('cellsY', 'cells Y', 1, 1, 8, 1, '1'),
+  range('cellsZ', 'cells Z', 1, 1, 8, 1, '1'),
+  range('layerHeight', 'layer', 0.28, 0.08, 1.4, 0.01, 'mm'),
+  range('isoLevel', 'iso', 0, -4, 4, 0.05, '1'),
+];
+
+function defaultParams(params = []) {
+  return Object.fromEntries(params.map((param) => [param.id, param.defaultValue]));
+}
+
+function materializeDesign(def) {
+  const params = def.params || [];
+  const defaults = defaultParams(params);
+  const ops = typeof def.build === 'function' ? def.build(defaults) : (def.ops || []);
+  return { ...def, params, defaults, ops };
+}
+
+function researchLattice(family, alphaDeg) {
+  return ({ cols, rows, segLength, layers, layerHeight, alphaDeg: alpha }) => starPolygonLatticeOps({
+    family,
+    alphaDeg: alpha,
+    cols,
+    rows,
+    segLength,
+    layers,
+    layerHeight,
+  });
+}
+
+function tpmsGallery(surface) {
+  return (params) => tpmsOps({ surface, ...params });
+}
+
+// Each entry carries build metadata so the page can generate controls directly from this table.
+const DESIGN_DEFS = {
+  square: {
+    label: 'Square (line moves)', group: 'Basics', tags: ['line', 'perimeter'],
+    params: [range('side', 'side', 10, 1, 80, 0.5, 'mm'), zParam()],
+    build: ({ side, z }) => square(side, z),
+  },
+  star: {
+    label: 'Star (continuous stroke)', group: 'Basics', tags: ['line', 'parametric'],
+    params: [range('points', 'points', 5, 3, 16, 1, '1'), range('outer', 'outer', 20, 2, 45, 0.5, 'mm'), range('inner', 'inner', 8, 1, 35, 0.5, 'mm'), ...centerParams(), zParam()],
+    build: ({ points, outer, inner, cx, cy, z }) => star(points, outer, inner, cx, cy, z),
+  },
+  arcs_mix: {
+    label: 'Arcs (native G2/G3)', group: 'Curves', tags: ['arc'],
+    params: [range('radius', 'radius', 10, 2, 40, 0.5, 'mm'), range('gap', 'gap', 10, 2, 50, 0.5, 'mm'), range('speed', 'speed', 1800, 60, 12000, 10, 'mm/min'), zParam('z', 0.4)],
+    build: ({ radius, gap, speed, z }) => arcsMix(radius, gap, speed, z),
+  },
+  rounded_rect: {
+    label: 'Rounded rect (lines + 4 arcs)', group: 'Curves', tags: ['arc', 'line'],
+    params: [range('w', 'width', 26, 4, 80, 0.5, 'mm'), range('h', 'height', 18, 4, 80, 0.5, 'mm'), range('r', 'radius', 5, 0.5, 30, 0.5, 'mm'), ...centerParams(), zParam('z', 0.4)],
+    build: ({ w, h, r, cx, cy, z }) => roundedRect(w, h, Math.min(r, w / 2, h / 2), cx, cy, z),
+  },
+  infill_panel: {
+    label: 'Infill panel (perimeter + zig-zag)', group: 'Infill & multi-layer', tags: ['infill', 'travel'],
+    params: [range('w', 'width', 26, 4, 80, 0.5, 'mm'), range('h', 'height', 18, 4, 80, 0.5, 'mm'), range('gap', 'gap', 2, 0.5, 12, 0.1, 'mm'), ...centerParams(), zParam()],
+    build: ({ w, h, gap, cx, cy, z }) => infillPanel(w, h, gap, cx, cy, z),
+  },
+  layered_tower: {
+    label: 'Layered tower (10 layers + travels)', group: 'Infill & multi-layer', tags: ['multi-layer', 'travel'],
+    params: [range('side', 'side', 20, 2, 80, 0.5, 'mm'), range('layers', 'layers', 10, 1, 80, 1, '1'), range('layerH', 'layer', 0.3, 0.05, 2, 0.01, 'mm'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ side, layers, layerH, cx, cy, z0 }) => layeredTower(side, layers, layerH, cx, cy, z0),
+  },
+  spiral_vase: {
+    label: 'Spiral vase (~120-seg helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'],
+    params: [range('radius', 'radius', 15, 2, 45, 0.5, 'mm'), range('height', 'height', 1.5, 0.2, 80, 0.1, 'mm'), range('layerH', 'layer', 0.3, 0.05, 2, 0.01, 'mm'), range('perLayer', 'samples/layer', 24, 4, 96, 1, '1'), ...centerParams()],
+    build: ({ radius, height, layerH, perLayer, cx, cy }) => spiralVase(radius, height, layerH, perLayer, cx, cy),
+  },
+  cone_vase: {
+    label: 'Cone vase (non-planar helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'],
+    params: [range('r0', 'base r', 18, 2, 45, 0.5, 'mm'), range('r1', 'top r', 4, 1, 45, 0.5, 'mm'), range('height', 'height', 12, 0.5, 100, 0.5, 'mm'), range('layerH', 'layer', 0.4, 0.05, 2, 0.01, 'mm'), range('perLayer', 'samples/layer', 32, 4, 120, 1, '1'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ r0, r1, height, layerH, perLayer, cx, cy, z0 }) => coneVase(r0, r1, height, layerH, perLayer, cx, cy, z0),
+  },
+  collinear_comb: {
+    label: 'Comb (collinear runs -> optimize)', group: 'Infill & multi-layer', tags: ['travel', 'optimize'],
+    params: [range('rungs', 'rungs', 6, 1, 24, 1, '1'), range('len', 'length', 30, 2, 90, 0.5, 'mm'), range('pitch', 'pitch', 4, 0.5, 20, 0.5, 'mm'), range('subdiv', 'subdiv', 5, 1, 24, 1, '1'), range('x0', 'x0', 10, 0, 100, 0.5, 'mm'), range('y0', 'y0', 10, 0, 100, 0.5, 'mm'), zParam()],
+    build: ({ rungs, len, pitch, subdiv, x0, y0, z }) => collinearComb(rungs, len, pitch, subdiv, x0, y0, z),
+  },
+  hilbert: {
+    label: 'Hilbert curve (space-filling fractal)', group: 'Curves', tags: ['fractal', 'parametric'],
+    params: [range('order', 'order', 4, 1, 7, 1, '1'), range('size', 'size', 40, 4, 90, 1, 'mm'), ...centerParams(), zParam()],
+    build: ({ order, size, cx, cy, z }) => hilbert(order, size, cx, cy, z),
+  },
+  rose: {
+    label: 'Rose curve (rhodonea)', group: 'Curves', tags: ['parametric'],
+    params: [range('k', 'k', 5, 1, 16, 1, '1'), range('a', 'radius', 18, 2, 45, 0.5, 'mm'), ...centerParams(), zParam(), sampleParam(360, 1600)],
+    build: ({ k, a, cx, cy, z, samples }) => rose(k, a, cx, cy, z, samples),
+  },
+  spirograph: {
+    label: 'Spirograph (hypotrochoid)', group: 'Curves', tags: ['parametric'],
+    params: [range('R', 'outer R', 22, 3, 50, 1, 'mm'), range('r', 'inner r', 7, 1, 30, 1, 'mm'), range('d', 'pen d', 11, 1, 40, 0.5, 'mm'), ...centerParams(), zParam(), sampleParam(720, 2400)],
+    build: ({ R, r, d, cx, cy, z, samples }) => spirograph(R, r, d, cx, cy, z, samples),
+  },
+  honeycomb: {
+    label: 'Honeycomb (hex tiling + travels)', group: 'Infill & multi-layer', tags: ['infill', 'travel'],
+    params: [range('cols', 'columns', 5, 1, 16, 1, '1'), range('rows', 'rows', 4, 1, 16, 1, '1'), range('s', 'cell', 4.5, 1, 15, 0.25, 'mm'), ...centerParams(), zParam()],
+    build: ({ cols, rows, s, cx, cy, z }) => honeycomb(cols, rows, s, cx, cy, z),
+  },
+  corrugated_wall: {
+    label: 'Corrugated wall (10-layer sine)', group: 'Infill & multi-layer', tags: ['multi-layer', 'parametric'],
+    params: [range('length', 'length', 44, 4, 100, 1, 'mm'), range('amp', 'amp', 4, 0.5, 20, 0.5, 'mm'), range('waves', 'waves', 5, 1, 20, 1, '1'), range('layers', 'layers', 10, 1, 80, 1, '1'), range('layerH', 'layer', 0.3, 0.05, 2, 0.01, 'mm'), sampleParam(72, 500), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ length, amp, waves, layers, layerH, samples, cx, cy, z0 }) => corrugatedWall(length, amp, waves, layers, layerH, samples, cx, cy, z0),
+  },
+  twisted_vase: {
+    label: 'Twisted vase (fluted, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'],
+    params: [range('sides', 'sides', 5, 3, 16, 1, '1'), range('radius', 'radius', 14, 2, 45, 0.5, 'mm'), range('height', 'height', 16, 0.5, 100, 0.5, 'mm'), range('layerH', 'layer', 0.4, 0.05, 2, 0.01, 'mm'), range('twistDeg', 'twist', 360, -1080, 1080, 15, 'deg'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ sides, radius, height, layerH, twistDeg, cx, cy, z0 }) => twistedVase(sides, radius, height, layerH, (twistDeg / 360) * TAU, cx, cy, z0),
+  },
+  star_tower: {
+    label: 'Star tower (stacked + twist)', group: 'Vases & non-planar', tags: ['multi-layer', 'travel', '3D'],
+    params: [range('points', 'points', 5, 3, 16, 1, '1'), range('outer', 'outer', 16, 2, 45, 0.5, 'mm'), range('inner', 'inner', 7, 1, 35, 0.5, 'mm'), range('layers', 'layers', 9, 1, 80, 1, '1'), range('layerH', 'layer', 0.4, 0.05, 2, 0.01, 'mm'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ points, outer, inner, layers, layerH, cx, cy, z0 }) => starTower(points, outer, inner, layers, layerH, cx, cy, z0),
+  },
+  torus_knot: {
+    label: 'Torus knot (3D, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'],
+    params: [range('p', 'p', 3, 1, 12, 1, '1'), range('q', 'q', 2, 1, 12, 1, '1'), range('R', 'major R', 15, 2, 45, 0.5, 'mm'), range('r', 'minor r', 5, 0.5, 20, 0.5, 'mm'), sampleParam(480, 2400), ...centerParams(), range('zc', 'z center', 10, 0, 80, 0.5, 'mm')],
+    build: ({ p, q, R, r, samples, cx, cy, zc }) => torusKnot(p, q, R, r, samples, cx, cy, zc),
+  },
+  lissajous: {
+    label: 'Lissajous ribbon (3D)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'],
+    params: [range('a', 'a', 3, 1, 12, 1, '1'), range('b', 'b', 2, 1, 12, 1, '1'), range('deltaDeg', 'phase', 90, -360, 360, 5, 'deg'), range('A', 'amp X', 18, 1, 45, 0.5, 'mm'), range('B', 'amp Y', 18, 1, 45, 0.5, 'mm'), sampleParam(500, 2400), ...centerParams(), zParam('z0', 0.2), range('zRange', 'z span', 9, 0, 80, 0.5, 'mm')],
+    build: ({ a, b, deltaDeg, A, B, samples, cx, cy, z0, zRange }) => lissajous(a, b, (deltaDeg / 360) * TAU, A, B, samples, cx, cy, z0, zRange),
+  },
+  lattice: {
+    label: 'Lattice cube (cross-hatch layers)', group: 'Infill & multi-layer', tags: ['infill', 'multi-layer', '3D'],
+    params: [range('size', 'size', 28, 4, 90, 0.5, 'mm'), range('gap', 'gap', 4, 0.5, 20, 0.5, 'mm'), range('layers', 'layers', 8, 1, 80, 1, '1'), range('layerH', 'layer', 0.3, 0.05, 2, 0.01, 'mm'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ size, gap, layers, layerH, cx, cy, z0 }) => lattice(size, gap, layers, layerH, cx, cy, z0),
+  },
+  star_lattice_m1: { label: 'M1 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M1', 'parametric'], params: starLatticeParams(30), build: researchLattice('M1', 30) },
+  star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], params: starLatticeParams(60), build: researchLattice('M2', 60) },
+  star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], params: starLatticeParams(30), build: researchLattice('M3', 30) },
+  star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], params: starLatticeParams(45), build: researchLattice('M4', 45) },
+  tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('gyroid') },
+  tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('schwarz-p') },
+  tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('schwarz-d') },
+  tpms_iwp: { label: 'TPMS I-WP contours', group: 'TPMS', tags: ['TPMS', 'I-WP', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('iwp') },
+  tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('neovius') },
+  tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('fischer-koch-s') },
+  tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('frd') },
 };
+
+const DESIGNS = Object.fromEntries(
+  Object.entries(DESIGN_DEFS).map(([key, def]) => [key, materializeDesign(def)])
+);
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
 

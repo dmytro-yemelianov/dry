@@ -339,6 +339,52 @@ button {
   gap: 6px;
 }
 
+.gallery-params {
+  margin-top: 9px;
+}
+
+.control-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.reset-defaults,
+.default-reset {
+  min-height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.reset-defaults {
+  padding: 3px 8px;
+}
+
+.default-reset {
+  min-width: 34px;
+  padding: 2px 5px;
+}
+
+.reset-defaults:hover,
+.default-reset:hover {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.reset-defaults:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.default-reset.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .control-grid label,
 .verify-grid label {
   color: var(--muted);
@@ -352,12 +398,26 @@ button {
   font-weight: 500;
 }
 
+.control-grid .check.has-default-reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.control-grid .check.has-default-reset .default-reset {
+  margin-left: auto;
+}
+
 .select-field,
 .range-field {
   display: grid !important;
   grid-template-columns: minmax(64px, 84px) minmax(0, 1fr);
   gap: 8px;
   align-items: center;
+}
+
+.select-field.has-default-reset {
+  grid-template-columns: minmax(64px, 84px) minmax(0, 1fr) auto;
 }
 
 .select-field select {
@@ -379,6 +439,10 @@ button {
   grid-template-columns: minmax(0, 1fr) minmax(56px, 68px) minmax(42px, 54px);
   gap: 6px;
   align-items: center;
+}
+
+.range-row.has-default-reset {
+  grid-template-columns: minmax(0, 1fr) minmax(56px, 68px) minmax(42px, 54px) auto;
 }
 
 .range-row input[type="range"] {
@@ -592,6 +656,15 @@ body.blocks-page #viewport {
   font-size: 11px;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.view-grid-labels.is-iso-only {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.view-grid-labels.is-iso-only .view-grid-cell {
+  border: 0;
 }
 
 .render-profile {

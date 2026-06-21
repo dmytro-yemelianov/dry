@@ -135,10 +135,12 @@
     </select>
     <div id="galleryPanel" class="source-panel">
       <select id="design" aria-label="Gallery design"></select>
+      <div id="galleryParams" class="control-grid gallery-params"></div>
     </div>
     <div id="latticePanel" class="source-panel" hidden>
       <div class="control-grid">
         <label class="wide select-field" title="Star-polygon family from the lattice research generator."><span class="param-name">family</span><select id="latticeFamily"></select></label>
+        <div class="control-actions wide"><button type="button" id="resetLatticeDefaults" class="reset-defaults">Reset all</button></div>
         <label class="range-field" title="Inclination angle used by the star-polygon lattice construction."><span class="param-name">alpha</span>
           <span class="range-row"><input type="range" data-sync="latticeAlpha" min="0" max="150" step="1" value="30" aria-label="Alpha degrees" /><input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /><span class="param-unit">[deg]</span></span>
         </label>
@@ -171,6 +173,7 @@
       <div class="control-grid">
         <label class="wide select-field" title="Implicit TPMS equation used for contour slicing."><span class="param-name">surface</span><select id="tpmsSurface"></select></label>
         <label class="wide select-field" title="TPMS contour output mode. Safe arcs fits local contour spans to G2/G3 and falls back to G1 when the fit is outside tolerance."><span class="param-name">path</span><select id="tpmsPathMode"><option value="safe-arcs" selected>safe arcs G2/G3</option><option value="linear">linear G1</option></select></label>
+        <div class="control-actions wide"><button type="button" id="resetTpmsDefaults" class="reset-defaults">Reset all</button></div>
         <label class="range-field" title="TPMS unit-cell size in millimeters."><span class="param-name">cell</span>
           <span class="range-row"><input type="range" data-sync="tpmsCell" min="4" max="80" step="0.5" value="22" aria-label="TPMS cell millimeters" /><input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /><span class="param-unit">[mm]</span></span>
         </label>
@@ -255,6 +258,12 @@
           <option value="realistic">realistic bead</option>
         </select>
       </label>
+      <label class="render-mode">view
+        <select id="viewMode" data-view-mode aria-label="Toolpath view layout">
+          <option value="grid" selected>3+1 views</option>
+          <option value="iso">Iso only</option>
+        </select>
+      </label>
     </div>
     <div class="render-profile" id="renderProfile" aria-live="polite"></div>
     <div class="playback">
@@ -297,7 +306,7 @@ const $ = (id) => document.getElementById(id);
     metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
     gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
-    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'),
+    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
     getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
@@ -341,6 +350,19 @@ const $ = (id) => document.getElementById(id);
     return Number.isFinite(value) ? value : fallback;
   };
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const CONTROL_GROUPS = {
+    lattice: [
+      'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
+      'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
+    ],
+    tpms: [
+      'tpmsSurface', 'tpmsPathMode', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY',
+      'tpmsCellsZ', 'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsAdaptiveMin',
+      'tpmsAdaptiveMax', 'tpmsPerimeter', 'tpmsAdaptive',
+    ],
+  };
+  const controlDefaults = new Map();
+  const resetButtons = new Map();
 
   function syncRangeFromNumber(id) {
     const range = document.querySelector(`input[type="range"][data-sync="${id}"]`);
@@ -383,6 +405,334 @@ const $ = (id) => document.getElementById(id);
       number.addEventListener('change', () => syncRangeFromNumber(range.dataset.sync));
       syncRangeFromNumber(range.dataset.sync);
     }
+  }
+
+  function controlValue(id) {
+    const el = $(id);
+    if (!el) return '';
+    if (el.type === 'checkbox') return el.checked;
+    return el.value;
+  }
+
+  function setControlValue(id, value) {
+    const el = $(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = Boolean(value);
+    else el.value = String(value);
+    syncRangeFromNumber(id);
+  }
+
+  function isNumericControl(id) {
+    const el = $(id);
+    return Boolean(el && el.type === 'number' && document.querySelector(`input[type="range"][data-sync="${id}"]`));
+  }
+
+  function controlEqualsDefault(id) {
+    if (!controlDefaults.has(id)) return true;
+    const current = controlValue(id);
+    const fallback = controlDefaults.get(id);
+    if (typeof current === 'boolean' || typeof fallback === 'boolean') return current === fallback;
+    if (isNumericControl(id)) {
+      const a = Number.parseFloat(current);
+      const b = Number.parseFloat(fallback);
+      if (Number.isFinite(a) && Number.isFinite(b)) return Math.abs(a - b) < 1e-9;
+    }
+    return String(current) === String(fallback);
+  }
+
+  function updateDefaultResetState() {
+    for (const [id, button] of resetButtons) {
+      button.classList.toggle('is-hidden', controlEqualsDefault(id));
+    }
+    for (const [group, ids] of Object.entries(CONTROL_GROUPS)) {
+      const button = $(`reset${group === 'tpms' ? 'Tpms' : 'Lattice'}Defaults`);
+      if (!button) continue;
+      button.disabled = ids.every((id) => controlEqualsDefault(id));
+    }
+  }
+
+  function resetControlToDefault(id, render = true) {
+    if (!controlDefaults.has(id)) return;
+    setControlValue(id, controlDefaults.get(id));
+    if (id.startsWith('lattice')) syncLatticeBounds();
+    if (id.startsWith('tpms')) syncTpmsBounds();
+    updateDefaultResetState();
+    if (render) go();
+  }
+
+  function resetGroupToDefaults(group) {
+    const ids = CONTROL_GROUPS[group] || [];
+    for (const id of ids) {
+      if (controlDefaults.has(id)) setControlValue(id, controlDefaults.get(id));
+    }
+    if (group === 'lattice') syncLatticeBounds();
+    if (group === 'tpms') syncTpmsBounds();
+    updateDefaultResetState();
+    go();
+  }
+
+  function attachControlReset(id) {
+    const el = $(id);
+    const label = el ? el.closest('label') : null;
+    if (!el || !label || resetButtons.has(id)) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'default-reset is-hidden';
+    button.dataset.resetControl = id;
+    button.textContent = 'def';
+    button.title = 'Reset this parameter to its default';
+    button.setAttribute('aria-label', `Reset ${id} to default`);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      resetControlToDefault(id);
+    });
+    label.classList.add('has-default-reset');
+    const row = label.querySelector('.range-row');
+    if (row) {
+      row.classList.add('has-default-reset');
+      row.appendChild(button);
+    } else {
+      label.appendChild(button);
+    }
+    resetButtons.set(id, button);
+  }
+
+  function setupDefaultResets() {
+    for (const ids of Object.values(CONTROL_GROUPS)) {
+      for (const id of ids) {
+        controlDefaults.set(id, controlValue(id));
+        attachControlReset(id);
+        const el = $(id);
+        if (!el) continue;
+        el.addEventListener('input', updateDefaultResetState);
+        el.addEventListener('change', updateDefaultResetState);
+      }
+    }
+    const latticeReset = $('resetLatticeDefaults');
+    const tpmsReset = $('resetTpmsDefaults');
+    if (latticeReset) latticeReset.addEventListener('click', () => resetGroupToDefaults('lattice'));
+    if (tpmsReset) tpmsReset.addEventListener('click', () => resetGroupToDefaults('tpms'));
+    updateDefaultResetState();
+  }
+
+  const galleryParamControls = new Map();
+
+  function galleryParamId(param) {
+    return `galleryParam_${String(param.id).replace(/[^a-z0-9_-]/gi, '_')}`;
+  }
+
+  function galleryParamValue(param) {
+    const el = $(galleryParamId(param));
+    if (!el) return param.defaultValue;
+    if (param.type === 'checkbox') return el.checked;
+    if (param.type === 'select') return el.value;
+    const value = Number.parseFloat(el.value);
+    if (!Number.isFinite(value)) return param.defaultValue;
+    return param.integer ? Math.round(value) : value;
+  }
+
+  function galleryParamEqualsDefault(param) {
+    const current = galleryParamValue(param);
+    const fallback = param.defaultValue;
+    if (typeof fallback === 'number') {
+      return Math.abs(Number(current) - fallback) < 1e-9;
+    }
+    return current === fallback;
+  }
+
+  function syncGalleryRangeFromNumber(param) {
+    const state = galleryParamControls.get(param.id);
+    if (!state || !state.range || !state.input) return;
+    const value = Number.parseFloat(state.input.value);
+    const fallback = Number.parseFloat(param.defaultValue);
+    state.range.value = String(clamp(Number.isFinite(value) ? value : fallback, Number(param.min), Number(param.max)));
+  }
+
+  function updateGalleryParamResetState() {
+    let allDefault = true;
+    for (const { param, button } of galleryParamControls.values()) {
+      const isDefault = galleryParamEqualsDefault(param);
+      allDefault = allDefault && isDefault;
+      if (button) button.classList.toggle('is-hidden', isDefault);
+    }
+    const resetAll = $('resetGalleryDefaults');
+    if (resetAll) resetAll.disabled = allDefault;
+  }
+
+  function resetGalleryParam(param, render = true) {
+    const state = galleryParamControls.get(param.id);
+    if (!state) return;
+    if (param.type === 'checkbox') state.input.checked = Boolean(param.defaultValue);
+    else state.input.value = String(param.defaultValue);
+    syncGalleryRangeFromNumber(param);
+    updateGalleryParamResetState();
+    if (render) go();
+  }
+
+  function resetGalleryParams() {
+    for (const { param } of galleryParamControls.values()) resetGalleryParam(param, false);
+    updateGalleryParamResetState();
+    go();
+  }
+
+  function appendGalleryResetButton(parent, param) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'default-reset is-hidden';
+    button.dataset.resetControl = param.id;
+    button.textContent = 'def';
+    button.title = 'Reset this parameter to its default';
+    button.setAttribute('aria-label', `Reset ${param.label || param.id} to default`);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      resetGalleryParam(param);
+    });
+    parent.appendChild(button);
+    return button;
+  }
+
+  function appendGalleryRange(container, param) {
+    const id = galleryParamId(param);
+    const label = document.createElement('label');
+    label.className = 'range-field has-default-reset';
+    if (param.title) label.title = param.title;
+    const name = document.createElement('span');
+    name.className = 'param-name';
+    name.textContent = param.label || param.id;
+    const row = document.createElement('span');
+    row.className = 'range-row has-default-reset';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = String(param.min);
+    range.max = String(param.max);
+    range.step = String(param.step ?? 1);
+    range.value = String(param.defaultValue);
+    range.setAttribute('aria-label', param.label || param.id);
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.id = id;
+    input.min = String(param.min);
+    input.max = String(param.max);
+    input.step = String(param.step ?? 1);
+    input.value = String(param.defaultValue);
+    const unit = document.createElement('span');
+    unit.className = 'param-unit';
+    unit.textContent = `[${param.unit || '1'}]`;
+    row.append(range, input, unit);
+    const button = appendGalleryResetButton(row, param);
+    label.append(name, row);
+    container.appendChild(label);
+    galleryParamControls.set(param.id, { param, input, range, button });
+    range.addEventListener('input', () => {
+      input.value = range.value;
+      updateGalleryParamResetState();
+      scheduleGo();
+    });
+    range.addEventListener('change', () => {
+      input.value = range.value;
+      updateGalleryParamResetState();
+      go();
+    });
+    input.addEventListener('input', () => {
+      syncGalleryRangeFromNumber(param);
+      updateGalleryParamResetState();
+      scheduleGo();
+    });
+    input.addEventListener('change', () => {
+      syncGalleryRangeFromNumber(param);
+      updateGalleryParamResetState();
+      go();
+    });
+  }
+
+  function appendGallerySelect(container, param) {
+    const id = galleryParamId(param);
+    const label = document.createElement('label');
+    label.className = 'wide select-field has-default-reset';
+    if (param.title) label.title = param.title;
+    const name = document.createElement('span');
+    name.className = 'param-name';
+    name.textContent = param.label || param.id;
+    const select = document.createElement('select');
+    select.id = id;
+    for (const optionDef of param.options || []) {
+      const option = document.createElement('option');
+      option.value = optionDef.value;
+      option.textContent = optionDef.label || optionDef.value;
+      option.selected = optionDef.value === param.defaultValue;
+      select.appendChild(option);
+    }
+    const button = appendGalleryResetButton(label, param);
+    label.append(name, select, button);
+    container.appendChild(label);
+    galleryParamControls.set(param.id, { param, input: select, button });
+    select.addEventListener('input', () => {
+      updateGalleryParamResetState();
+      scheduleGo();
+    });
+    select.addEventListener('change', () => {
+      updateGalleryParamResetState();
+      go();
+    });
+  }
+
+  function appendGalleryCheckbox(container, param) {
+    const id = galleryParamId(param);
+    const label = document.createElement('label');
+    label.className = 'check wide has-default-reset';
+    if (param.title) label.title = param.title;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = id;
+    input.checked = Boolean(param.defaultValue);
+    const text = document.createTextNode(` ${param.label || param.id}`);
+    const button = appendGalleryResetButton(label, param);
+    label.append(input, text, button);
+    container.appendChild(label);
+    galleryParamControls.set(param.id, { param, input, button });
+    input.addEventListener('input', () => {
+      updateGalleryParamResetState();
+      scheduleGo();
+    });
+    input.addEventListener('change', () => {
+      updateGalleryParamResetState();
+      go();
+    });
+  }
+
+  function renderGalleryParams() {
+    const container = $('galleryParams');
+    if (!container) return;
+    container.replaceChildren();
+    galleryParamControls.clear();
+    const design = DESIGNS[sel.value];
+    const params = design?.params || [];
+    container.hidden = params.length === 0;
+    if (!params.length) return;
+    const actions = document.createElement('div');
+    actions.className = 'control-actions wide';
+    const resetAll = document.createElement('button');
+    resetAll.type = 'button';
+    resetAll.id = 'resetGalleryDefaults';
+    resetAll.className = 'reset-defaults';
+    resetAll.textContent = 'Reset all';
+    resetAll.addEventListener('click', resetGalleryParams);
+    actions.appendChild(resetAll);
+    container.appendChild(actions);
+    for (const param of params) {
+      if (param.type === 'select') appendGallerySelect(container, param);
+      else if (param.type === 'checkbox') appendGalleryCheckbox(container, param);
+      else appendGalleryRange(container, param);
+    }
+    updateGalleryParamResetState();
+  }
+
+  function galleryParamValues(design) {
+    const values = {};
+    for (const param of design.params || []) values[param.id] = galleryParamValue(param);
+    return values;
   }
 
   function completeM4Rows(rows) {
@@ -514,7 +864,14 @@ const $ = (id) => document.getElementById(id);
 
   function activeDesign() {
     const source = $('source').value;
-    if (source === 'gallery') return DESIGNS[sel.value];
+    if (source === 'gallery') {
+      const design = DESIGNS[sel.value];
+      const values = galleryParamValues(design);
+      return {
+        ...design,
+        ops: typeof design.build === 'function' ? design.build(values) : design.ops,
+      };
+    }
     if (source === 'lattice') {
       const family = $('latticeFamily').value;
       const alphaDeg = numValue('latticeAlpha', 30);
@@ -603,24 +960,39 @@ const $ = (id) => document.getElementById(id);
       window.__activeDesign = { label: d.label, group: d.group, tags: d.tags, ops: d.ops.length };
       renderMeta(d);
       viewer.show(d.ops, $('relE').checked);
+      updateDefaultResetState();
     } catch (error) {
       showError(error);
+      updateDefaultResetState();
     }
   };
 
   for (const id of [
     'source', 'design', 'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
     'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
-    'tpmsSurface', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
+    'tpmsSurface', 'tpmsPathMode', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
     'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter', 'tpmsAdaptive', 'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
     'relE', 'maxFlow', 'minTemp', 'bounds', 'monotonicZ', 'speedRange',
   ]) {
     const el = $(id);
+    if (id === 'design') {
+      el.addEventListener('input', () => {
+        renderGalleryParams();
+        go();
+      });
+      el.addEventListener('change', () => {
+        renderGalleryParams();
+        go();
+      });
+      continue;
+    }
     el.addEventListener('input', go);
     el.addEventListener('change', go);
   }
 
+  renderGalleryParams();
   bindRangeControls();
+  setupDefaultResets();
   setupPanelLayout();
   go();
   window.__dryReady = true;

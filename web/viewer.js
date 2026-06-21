@@ -422,7 +422,7 @@ function nearestLayerKey(keys, z) {
 export function createViewer(cfg) {
   const {
     viewportEl, gcodeEl, explainEl, metricsEl, optimizeEl, verifyEl, gcodeMetaEl,
-    gcodeToolsEl, playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, wasm, params,
+    gcodeToolsEl, playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, viewModeEl, wasm, params,
     getMaxFlow = () => 0, getMinTemp = () => 0,
   } = cfg;
 
@@ -436,6 +436,7 @@ export function createViewer(cfg) {
     bed: true,
     mode: 'auto',
     effectiveMode: 'bead',
+    viewMode: 'grid',
   };
 
   function showExplain(line) {
@@ -589,9 +590,11 @@ export function createViewer(cfg) {
     Object.assign(V, {
       ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
       extrudeGhost, extrudePrint, ghostT, printT, head, grid: null, resize, inputStats,
+      viewGrid,
       extrudeEndTimes: [], travelEndTimes: [], renderStats: null, showProfile: null,
       needsRender: true,
     });
+    syncViewGrid();
     positionViewCameras({ saveState: true });
     let last = performance.now();
     let lastRenderedT = -1;
@@ -620,7 +623,12 @@ export function createViewer(cfg) {
     requestAnimationFrame(frame);
   }
 
-  function cameraRect(index, width, height) {
+  function activeViewPanels() {
+    return R.viewMode === 'iso' ? VIEW_PANELS.slice(0, 1) : VIEW_PANELS;
+  }
+
+  function cameraRect(index, width, height, total = VIEW_PANELS.length) {
+    if (total === 1) return { x: 0, y: 0, w: width, h: height };
     const leftW = Math.floor(width / 2);
     const rightW = width - leftW;
     const bottomH = Math.floor(height / 2);
@@ -641,10 +649,11 @@ export function createViewer(cfg) {
     const width = V.renderer.domElement.width;
     const height = V.renderer.domElement.height;
     if (!width || !height) return;
+    const panels = activeViewPanels();
     V.renderer.setScissorTest(true);
-    for (let i = 0; i < VIEW_PANELS.length; i++) {
-      const rect = cameraRect(i, width, height);
-      const camera = V.cameras.get(VIEW_PANELS[i].key);
+    for (let i = 0; i < panels.length; i++) {
+      const rect = cameraRect(i, width, height, panels.length);
+      const camera = V.cameras.get(panels[i].key);
       camera.aspect = rect.w / Math.max(rect.h, 1);
       camera.updateProjectionMatrix();
       V.renderer.setViewport(rect.x, rect.y, rect.w, rect.h);
@@ -657,7 +666,7 @@ export function createViewer(cfg) {
       V.profileDirty = false;
       updateRenderProfile();
     }
-    window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
+    window.__viewPanels = panels.map(({ key }) => key);
     exposeDebugState();
   }
 
@@ -666,7 +675,8 @@ export function createViewer(cfg) {
     const iso = V.cameras.get('iso');
     const target = V.controls ? V.controls.target : null;
     window.__viewerDebug = {
-      panels: VIEW_PANELS.map(({ key }) => key),
+      panels: activeViewPanels().map(({ key }) => key),
+      viewMode: R.viewMode,
       isoCameraPosition: iso ? iso.position.toArray() : null,
       target: target ? target.toArray() : null,
       distance: iso && target ? iso.position.distanceTo(target) : null,
@@ -718,8 +728,18 @@ export function createViewer(cfg) {
     V.controls.update();
     if (saveState && typeof V.controls.saveState === 'function') V.controls.saveState();
     V.needsRender = true;
-    window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
+    window.__viewPanels = activeViewPanels().map(({ key }) => key);
     exposeDebugState();
+  }
+
+  function syncViewGrid() {
+    if (!V.viewGrid) return;
+    const active = new Set(activeViewPanels().map(({ key }) => key));
+    V.viewGrid.classList.toggle('is-iso-only', R.viewMode === 'iso');
+    for (const panel of VIEW_PANELS) {
+      const cell = V.viewGrid.querySelector(`.view-grid-cell-${panel.key}`);
+      if (cell) cell.hidden = !active.has(panel.key);
+    }
   }
 
   function resetView() {
@@ -1023,6 +1043,20 @@ export function createViewer(cfg) {
       mode.addEventListener('change', () => sync(true));
     }
     sync(false);
+  }
+
+  function bindViewMode() {
+    if (!viewModeEl) return;
+    const sync = () => {
+      R.viewMode = viewModeEl.value === 'iso' ? 'iso' : 'grid';
+      syncViewGrid();
+      V.needsRender = true;
+      renderViews();
+    };
+    viewModeEl.value = R.viewMode;
+    viewModeEl.addEventListener('input', sync);
+    viewModeEl.addEventListener('change', sync);
+    sync();
   }
 
   function renderGcodeLine(row, line) {
@@ -1371,6 +1405,7 @@ export function createViewer(cfg) {
   initScene();
   buildSpeedButtons();
   bindRenderControls();
+  bindViewMode();
   if (gcodeEl) {
     gcodeEl.addEventListener('click', (e) => {
       const section = e.target.closest('.g-section[data-i]');

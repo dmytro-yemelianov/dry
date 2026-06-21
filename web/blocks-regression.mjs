@@ -12,6 +12,7 @@ const blocksHtml = read('blocks.html');
 const templatesJs = read('templates.js');
 const patternsJs = read('patterns.js');
 const tpmsJs = read('tpms.js');
+const designsJs = read('designs.js');
 const viewerJs = read('viewer.js');
 const indexHtml = read('index.html');
 const toolUiCss = read('tool-ui.css');
@@ -47,6 +48,9 @@ assert(blocksHtml.includes('JS().definitions_'), 'expression evaluator ignores B
 assert(blocksHtml.includes("key !== 'variables'"), 'expression evaluator should not inject variable declarations as helpers');
 assert(viewerJs.includes('VIEW_PANELS'), 'viewer multi-view panel definitions are missing');
 assert(viewerJs.includes('renderViews'), 'viewer multi-view renderer is missing');
+assert(viewerJs.includes('activeViewPanels'), 'viewer should switch between Iso-only and multi-view panels');
+assert(viewerJs.includes('viewModeEl'), 'viewer missing view-mode control binding');
+assert(viewerJs.includes("R.viewMode === 'iso'"), 'viewer should support Iso-only view mode');
 assert(viewerJs.includes('cameraRect'), 'viewer split viewport geometry is missing');
 assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view');
 assert(viewerJs.includes("new OrbitControls(cameras.get('iso'), el)"), 'OrbitControls should bind to the full viewport element');
@@ -101,6 +105,9 @@ for (const source of [indexHtml, blocksHtml]) {
     assert(source.includes(`data-render-layer="${layer}"`), `render controls missing ${layer} toggle`);
   }
   assert(source.includes('data-render-mode'), 'render controls missing render quality selector');
+  assert(source.includes('data-view-mode'), 'render controls missing view layout selector');
+  assert(source.includes('<option value="grid" selected>3+1 views</option>'), 'view layout selector missing 3+1 option');
+  assert(source.includes('<option value="iso">Iso only</option>'), 'view layout selector missing Iso-only option');
   assert(source.includes('id="renderProfile"'), 'render profile output is missing');
   assert(source.includes('id="gcodeTools"'), 'G-code toolbar output is missing');
 }
@@ -113,6 +120,9 @@ assert(toolUiCss.includes('grid-template-columns: auto auto minmax(80px, 1fr) au
 assert(toolUiCss.includes('.metric-unit'), 'shared UI stylesheet should keep metric units after values');
 assert(toolUiCss.includes('.render-controls'), 'shared UI stylesheet should style render layer toggles');
 assert(toolUiCss.includes('.render-profile'), 'shared UI stylesheet should style render profile output');
+assert(toolUiCss.includes('.view-grid-labels.is-iso-only'), 'shared UI stylesheet should hide multi-view grid in Iso-only mode');
+assert(toolUiCss.includes('.reset-defaults'), 'shared UI stylesheet should style group default resets');
+assert(toolUiCss.includes('.default-reset'), 'shared UI stylesheet should style per-control default resets');
 assert(toolUiCss.includes('.g-token'), 'shared UI stylesheet should style G-code command/param tokens');
 assert(toolUiCss.includes('.gcode-tools'), 'shared UI stylesheet should style G-code search/jump controls');
 assert(toolUiCss.includes('.g-section'), 'shared UI stylesheet should style G-code layer section headers');
@@ -124,6 +134,18 @@ assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
 assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
 assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
+assert(indexHtml.includes('id="galleryParams"'), 'gallery source missing generated parameter panel');
+assert(indexHtml.includes('renderGalleryParams()'), 'gallery source missing data-driven parameter renderer');
+assert(indexHtml.includes('galleryParamValues(design)'), 'gallery source should read generated parameter values');
+assert(indexHtml.includes('design.build(values)'), 'gallery source should rebuild designs from live parameter values');
+assert(designsJs.includes('DESIGN_DEFS'), 'gallery designs should be defined as metadata');
+assert(designsJs.includes('materializeDesign'), 'gallery designs should materialize default ops from metadata');
+assert(designsJs.includes('params:'), 'gallery designs missing parameter definitions');
+assert(designsJs.includes('build:'), 'gallery designs missing build functions');
+assert(indexHtml.includes('setupDefaultResets()'), 'web app missing default reset setup');
+assert(indexHtml.includes('id="resetLatticeDefaults"'), 'lattice generator missing reset-all control');
+assert(indexHtml.includes('id="resetTpmsDefaults"'), 'TPMS generator missing reset-all control');
+assert(indexHtml.includes('dataset.resetControl'), 'web app missing per-control reset buttons');
 assert(indexHtml.includes('id="latticeAlpha"'), 'lattice generator missing alpha control');
 assert(indexHtml.includes('class="param-name"'), 'generator controls should expose compact parameter names');
 assert(indexHtml.includes('class="param-unit"'), 'generator controls should expose compact unit chips');
@@ -148,6 +170,7 @@ assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 
 assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
 assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
 assert(indexHtml.includes('id="tpmsPathMode"'), 'TPMS generator missing path mode control');
+assert(indexHtml.includes("'tpmsPathMode', 'tpmsCell'"), 'TPMS path mode should participate in default reset tracking');
 assert(indexHtml.includes('value="safe-arcs"'), 'TPMS generator missing safe G2/G3 path mode');
 assert(indexHtml.includes('pathMode === \'safe-arcs\' ? \'G2/G3\' : \'G1\''), 'TPMS generator should tag generated path mode');
 for (const id of [

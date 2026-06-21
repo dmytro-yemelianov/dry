@@ -161,6 +161,12 @@
           <option value="realistic">realistic bead</option>
         </select>
       </label>
+      <label class="render-mode">view
+        <select id="viewMode" data-view-mode aria-label="Toolpath view layout">
+          <option value="grid" selected>3+1 views</option>
+          <option value="iso">Iso only</option>
+        </select>
+      </label>
     </div>
     <div class="render-profile" id="renderProfile" aria-live="polite"></div>
     <div class="playback">
@@ -803,7 +809,7 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
-    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'),
+    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
   });
