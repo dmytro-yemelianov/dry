@@ -35,10 +35,12 @@ pub use gcode::{
     import_parsed_gcode, import_parsed_gcode_with_map, parse_gcode_lines, DistanceMode,
     ExtrusionMode, GcodeImportError, GcodeImportParams, GcodeModalState, GcodeMotionSpan,
     GcodeParseError, GcodeParser, GcodeRecord, GcodeWord, ImportedGcode, MotionMode, MotionRecord,
-    ParsedGcodeLine, StateCommand, UnitMode,
+    ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
-pub use optimize::{arc_fit, merge_collinear, optimize_pipeline, travel_reorder};
+pub use optimize::{
+    arc_fit, merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, travel_reorder,
+};
 pub use profile::{
     FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
 };

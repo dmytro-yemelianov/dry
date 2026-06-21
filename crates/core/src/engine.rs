@@ -4,8 +4,9 @@
 //! validated byte-for-number against the FullControl oracle (`docs/03-conformance.md`); the accounting
 //! below mirrors FullControl's *observed behaviour* (clean-room — reproduced, not copied):
 //! time = Σ length/speed·60 (speed is mm/min), split into print (extruding) and travel; distances and
-//! material summed likewise; `segment_count` counts moves with non-zero length; `max_flow_rate` is the
-//! peak per-move volumetric flow.
+//! material summed likewise; filament-only prime moves use filament/speed for duration without faking XYZ
+//! path length; `segment_count` counts moves with non-zero duration; `max_flow_rate` is the peak per-move
+//! volumetric flow.
 
 use crate::ir::Toolpath;
 use crate::units::{Feedrate, Flow, Length, Time, Volume};
@@ -26,6 +27,19 @@ pub struct Metrics {
     pub max_flow_rate: Flow,
 }
 
+pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
+    if s.speed == Feedrate::ZERO {
+        return None;
+    }
+    if s.length > Length::ZERO {
+        Some(s.length / s.speed)
+    } else if !s.travel && s.volume > Volume::ZERO && s.filament > Length::ZERO {
+        Some(s.filament / s.speed)
+    } else {
+        None
+    }
+}
+
 /// Fold a streaming iterator of segments into print metrics.
 pub fn simulate_stream<I>(segments: I) -> Result<Metrics, crate::codec::CodecError>
 where
@@ -43,8 +57,7 @@ where
             m.total_time_s = m.total_time_s + Time(secs);
         }
 
-        if s.length > Length::ZERO && s.speed != Feedrate::ZERO {
-            let t = s.length / s.speed; // Length ÷ Feedrate(mm/min) → Time(seconds)
+        if let Some(t) = segment_motion_time(&s) {
             m.total_time_s = m.total_time_s + t;
             m.segment_count += 1;
             if s.travel {

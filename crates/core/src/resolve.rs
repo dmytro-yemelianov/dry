@@ -81,6 +81,7 @@ pub enum Op {
 
 /// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).
 pub const SAMPLES: usize = 16;
+const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
 
 /// A design: an ordered list of L1 ops.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -217,6 +218,60 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
                     )?;
                 }
             }
+        }
+    }
+    validate_design_geometry(design)
+}
+
+fn validate_design_geometry(design: &Design) -> Result<(), ResolveError> {
+    let mut pos: [Option<f64>; 3] = [None, None, None];
+    for (idx, op) in design.ops.iter().enumerate() {
+        match op {
+            Op::Move { x, y, z } => {
+                pos = [(*x).or(pos[0]), (*y).or(pos[1]), (*z).or(pos[2])];
+            }
+            Op::Arc {
+                cx, cy, x, y, z, ..
+            } => {
+                let start_x = pos[0].unwrap_or(0.0);
+                let start_y = pos[1].unwrap_or(0.0);
+                let end = [(*x).or(pos[0]), (*y).or(pos[1]), (*z).or(pos[2])];
+                let end_x = end[0].unwrap_or(start_x);
+                let end_y = end[1].unwrap_or(start_y);
+                let start_radius = libm::hypot(start_x - cx, start_y - cy);
+                let end_radius = libm::hypot(end_x - cx, end_y - cy);
+                if start_radius <= 0.0 || end_radius <= 0.0 {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].arc must have a non-zero radius"
+                    )));
+                }
+                let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);
+                let delta = (start_radius - end_radius).abs();
+                if delta > tolerance {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].arc endpoint radius differs from start radius by {delta:.6} mm"
+                    )));
+                }
+                pos = end;
+            }
+            Op::Spline { points } => {
+                let mut running = [
+                    pos[0].unwrap_or(0.0),
+                    pos[1].unwrap_or(0.0),
+                    pos[2].unwrap_or(0.0),
+                ];
+                for point in points {
+                    running = [
+                        point[0].unwrap_or(running[0]),
+                        point[1].unwrap_or(running[1]),
+                        point[2].unwrap_or(running[2]),
+                    ];
+                }
+                if !points.is_empty() {
+                    pos = [Some(running[0]), Some(running[1]), Some(running[2])];
+                }
+            }
+            _ => {}
         }
     }
     Ok(())

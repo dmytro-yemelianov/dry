@@ -3,9 +3,10 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map, optimize_pipeline,
-    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
-    verify, verify_stream, Contracts, EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
+    emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
+    optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv,
+    simulate, simulate_stream, trace_summary_with_sources, verify, verify_stream, Contracts,
+    EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -179,13 +180,19 @@ enum Cmd {
         /// Optimise each contiguous source motion span before splicing it back.
         #[arg(long)]
         optimize: bool,
+        /// Also reorder independent extrusion runs to reduce travel. Changes print order.
+        #[arg(long)]
+        reorder_travel: bool,
         /// Write rewritten G-code to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
     },
-    /// Optimise a Dry IR file (merge collinear, fit arcs, reorder travel) and report the before/after.
+    /// Optimise a Dry IR file (merge collinear, fit arcs) and report the before/after.
     Optimize {
         file: String,
+        /// Also reorder independent extrusion runs to reduce travel. Changes print order.
+        #[arg(long)]
+        reorder_travel: bool,
         /// Write the optimised IR JSON to a file.
         #[arg(short, long)]
         out: Option<String>,
@@ -579,6 +586,7 @@ fn run(cli: Cli) -> ExitCode {
             layer_height,
             absolute_e,
             optimize,
+            reorder_travel,
             out,
         } => {
             let input =
@@ -609,7 +617,11 @@ fn run(cli: Cli) -> ExitCode {
                             meta: imported.toolpath.meta.clone(),
                             segments: imported.toolpath.segments[range].to_vec(),
                         };
-                        optimize_pipeline(&span_toolpath)
+                        if reorder_travel {
+                            optimize_aggressive_pipeline(&span_toolpath)
+                        } else {
+                            optimize_pipeline(&span_toolpath)
+                        }
                     })
                     .collect::<Vec<_>>();
                 imported
@@ -628,10 +640,18 @@ fn run(cli: Cli) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Cmd::Optimize { file, out } => {
+        Cmd::Optimize {
+            file,
+            reorder_travel,
+            out,
+        } => {
             let tp = load(&file);
             let before = tp.segments.len();
-            let opt = optimize_pipeline(&tp);
+            let opt = if reorder_travel {
+                optimize_aggressive_pipeline(&tp)
+            } else {
+                optimize_pipeline(&tp)
+            };
             let after = opt.segments.len();
             let m0 = simulate(&tp);
             let m1 = simulate(&opt);
@@ -731,32 +751,25 @@ fn profile_label(profile: Option<&Profile>) -> Option<String> {
     })
 }
 
-fn profile_filament_diameter(profile: Option<&Profile>) -> Option<f64> {
-    profile.and_then(|profile| profile.material.filament_diameter)
-}
-
-fn profile_line_width(profile: Option<&Profile>) -> Option<f64> {
-    profile.and_then(|profile| profile.process.line_width)
-}
-
-fn profile_layer_height(profile: Option<&Profile>) -> Option<f64> {
-    profile.and_then(|profile| profile.process.layer_height)
-}
-
 fn gcode_import_params(
     profile: Option<&Profile>,
     filament_diameter: Option<f64>,
     line_width: Option<f64>,
     layer_height: Option<f64>,
 ) -> GcodeImportParams {
-    GcodeImportParams {
-        version: 0,
-        filament_diameter: filament_diameter
-            .or_else(|| profile_filament_diameter(profile))
-            .unwrap_or(1.75),
-        line_width: line_width.or_else(|| profile_line_width(profile)),
-        layer_height: layer_height.or_else(|| profile_layer_height(profile)),
+    let mut params = profile
+        .map(Profile::gcode_import_params)
+        .unwrap_or_default();
+    if let Some(filament_diameter) = filament_diameter {
+        params.filament_diameter = filament_diameter;
     }
+    if let Some(line_width) = line_width {
+        params.line_width = Some(line_width);
+    }
+    if let Some(layer_height) = layer_height {
+        params.layer_height = Some(layer_height);
+    }
+    params
 }
 
 fn gcode_review_params(

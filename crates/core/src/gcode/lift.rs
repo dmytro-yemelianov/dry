@@ -1,6 +1,6 @@
 use super::{
     parse_gcode_lines, DistanceMode, ExtrusionMode, GcodeParseError, GcodeParser, GcodeRecord,
-    MotionMode, ParsedGcodeLine, StateCommand, UnitMode,
+    MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 use crate::emit::{emit, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
@@ -224,6 +224,10 @@ struct LiftState {
     pos: [Option<f64>; 3],
     e: f64,
     feedrate: Option<f64>,
+    temperature: Option<f64>,
+    fan: Option<f64>,
+    flow: f64,
+    tool: Option<u32>,
 }
 
 impl Default for LiftState {
@@ -232,6 +236,10 @@ impl Default for LiftState {
             pos: [None, None, None],
             e: 0.0,
             feedrate: None,
+            temperature: None,
+            fan: None,
+            flow: 1.0,
+            tool: None,
         }
     }
 }
@@ -315,6 +323,7 @@ where
                 }
             }
             GcodeRecord::State(StateCommand::SetPosition) => apply_g92(&line, &mut state)?,
+            GcodeRecord::Process(command) => apply_process(*command, &mut state),
             _ => {}
         }
     }
@@ -403,10 +412,10 @@ fn lift_motion(
             kind: SegmentKind::Dwell,
             centre: None,
             clockwise: false,
-            temperature: None,
-            fan: None,
+            temperature: state.temperature,
+            fan: state.fan,
             flow: None,
-            tool: None,
+            tool: state.tool,
             dwell_s,
             orientation: None,
             control_points: None,
@@ -420,10 +429,15 @@ fn lift_motion(
         apply_axis(state.pos[2], motion.z, motion.state.distance_mode, factor),
     ];
     let filament_delta = extrusion_delta(motion, state, factor);
-    let deposited = filament_delta.max(0.0);
+    let deposited = filament_delta.max(0.0) * state.flow;
     let filament = Length::mm(deposited);
     let volume = filament_area * filament;
     let travel = motion.mode == MotionMode::Rapid || deposited <= 0.0;
+    let flow = if state.flow == 1.0 {
+        None
+    } else {
+        Some(state.flow)
+    };
 
     let (kind, centre, clockwise, length) = match motion.mode {
         MotionMode::Rapid | MotionMode::Linear => (
@@ -460,10 +474,10 @@ fn lift_motion(
         kind,
         centre,
         clockwise,
-        temperature: None,
-        fan: None,
-        flow: None,
-        tool: None,
+        temperature: state.temperature,
+        fan: state.fan,
+        flow,
+        tool: state.tool,
         dwell_s: None,
         orientation: None,
         control_points: None,
@@ -515,6 +529,15 @@ fn apply_g92(line: &ParsedGcodeLine, state: &mut LiftState) -> Result<(), GcodeI
     Ok(())
 }
 
+fn apply_process(command: ProcessCommand, state: &mut LiftState) {
+    match command {
+        ProcessCommand::NozzleTemperature(temp) => state.temperature = Some(temp),
+        ProcessCommand::Fan(speed) => state.fan = Some(speed),
+        ProcessCommand::Flow(ratio) => state.flow = ratio,
+        ProcessCommand::Tool(index) => state.tool = Some(index),
+    }
+}
+
 fn lengths(pos: [Option<f64>; 3]) -> [Option<Length>; 3] {
     [
         pos[0].map(Length::mm),
@@ -562,6 +585,15 @@ fn arc_geometry(
             "arc import needs a non-zero I/J centre offset",
         ));
     }
+    let end_radius = libm::hypot(ex - cx, ey - cy);
+    let radius_delta = (radius - end_radius).abs();
+    let tolerance = 1e-6 * radius.max(end_radius).max(1.0);
+    if !end_radius.is_finite() || end_radius <= 0.0 || radius_delta > tolerance {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            format!("arc import endpoint radius differs from start radius by {radius_delta:.6} mm"),
+        ));
+    }
     let start_a = libm::atan2(sy - cy, sx - cx);
     let end_a = libm::atan2(ey - cy, ex - cx);
     let mut swept = Angle(if clockwise {
@@ -587,6 +619,7 @@ fn arc_geometry(
 mod tests {
     use super::*;
     use crate::ir::SegmentKind;
+    use crate::{simulate, verify, Contracts};
 
     #[test]
     fn imports_linear_moves_with_relative_extrusion() {
@@ -607,6 +640,69 @@ mod tests {
         assert_eq!(tp.segments[1].filament, Length::mm(1.5));
         assert_eq!(tp.segments[1].width, Some(Length::mm(0.45)));
         assert_eq!(tp.segments[1].height, Some(Length::mm(0.2)));
+    }
+
+    #[test]
+    fn imported_process_state_is_attached_to_lifted_segments() {
+        let tp = import_gcode(
+            "M104 S210\nM106 S128\nM221 S90\nT1\nM83\nG1 X10 E1 F1200\n",
+            &GcodeImportParams {
+                line_width: Some(0.45),
+                layer_height: Some(0.2),
+                ..GcodeImportParams::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(tp.segments.len(), 1);
+        let segment = &tp.segments[0];
+        assert_eq!(segment.temperature, Some(210.0));
+        assert_eq!(segment.fan, Some(128.0 / 255.0));
+        assert_eq!(segment.flow, Some(0.9));
+        assert_eq!(segment.tool, Some(1));
+        assert!((segment.filament.value() - 0.9).abs() < 1e-12);
+    }
+
+    #[test]
+    fn imported_nozzle_temperature_satisfies_cold_extrusion_guard() {
+        let tp = import_gcode(
+            "M104 S210\nM109 S210\nM83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E1 F1200\n",
+            &GcodeImportParams {
+                line_width: Some(0.45),
+                layer_height: Some(0.2),
+                ..GcodeImportParams::default()
+            },
+        )
+        .unwrap();
+        let report = verify(
+            &tp,
+            &Contracts {
+                min_temp: Some(180.0),
+                ..Contracts::default()
+            },
+        );
+        assert!(
+            !report.findings.iter().any(|f| f.rule == "cold-extrusion"),
+            "hot imported G-code should not be flagged: {:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn e_only_prime_moves_have_duration_and_flow() {
+        let tp = import_gcode("M83\nG1 E5 F300\n", &Default::default()).unwrap();
+        let metrics = simulate(&tp);
+        assert_eq!(metrics.segment_count, 1);
+        assert!((metrics.total_time_s.value() - 1.0).abs() < 1e-12);
+        assert!(metrics.max_flow_rate.value() > 12.0);
+
+        let report = verify(
+            &tp,
+            &Contracts {
+                max_flow: Some(1.0),
+                ..Contracts::default()
+            },
+        );
+        assert!(report.findings.iter().any(|f| f.rule == "max-flow"));
     }
 
     #[test]
@@ -718,6 +814,13 @@ mod tests {
         assert_eq!(arc.kind, SegmentKind::Arc);
         assert_eq!(arc.centre, Some([Length::mm(0.0), Length::mm(0.0)]));
         assert!((arc.length.value() - std::f64::consts::FRAC_PI_2 * 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rejects_arcs_whose_end_is_not_on_the_radius() {
+        let err = import_gcode("G1 X10 Y0\nG3 X1 Y1 I-10 J0\n", &Default::default()).unwrap_err();
+        assert_eq!(err.source_line, 2);
+        assert!(err.message.contains("endpoint radius differs"));
     }
 
     #[test]

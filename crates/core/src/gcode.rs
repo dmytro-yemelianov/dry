@@ -83,6 +83,15 @@ pub enum StateCommand {
     SetPosition,
 }
 
+/// A known process-state command that affects subsequent motion.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ProcessCommand {
+    NozzleTemperature(f64),
+    Fan(f64),
+    Flow(f64),
+    Tool(u32),
+}
+
 /// A motion command with its modal context and source location.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MotionRecord {
@@ -108,6 +117,7 @@ pub enum GcodeRecord {
     Comment,
     Motion(MotionRecord),
     State(StateCommand),
+    Process(ProcessCommand),
     Other { letter: char, value: f64 },
 }
 
@@ -308,6 +318,7 @@ fn classify_record(
 
     let mut explicit_motion = None;
     let mut state_record = None;
+    let mut process_record = None;
     let mut other = None;
     for word in words {
         match (word.letter, rounded_code(word.value)) {
@@ -357,6 +368,30 @@ fn classify_record(
                 state.extrusion_mode = ExtrusionMode::Relative;
                 state_record = Some(StateCommand::ExtrusionMode(ExtrusionMode::Relative));
             }
+            ('M', Some(104 | 109)) => {
+                if let Some(temp) = word_value(words, 'S').or_else(|| word_value(words, 'R')) {
+                    process_record = Some(ProcessCommand::NozzleTemperature(temp));
+                } else {
+                    other = Some(('M', word.value));
+                }
+            }
+            ('M', Some(106)) => {
+                let speed = word_value(words, 'S').map_or(1.0, fan_ratio_from_s);
+                process_record = Some(ProcessCommand::Fan(speed));
+            }
+            ('M', Some(107)) => {
+                process_record = Some(ProcessCommand::Fan(0.0));
+            }
+            ('M', Some(221)) => {
+                if let Some(percent) = word_value(words, 'S') {
+                    process_record = Some(ProcessCommand::Flow(flow_ratio_from_percent(percent)));
+                } else {
+                    other = Some(('M', word.value));
+                }
+            }
+            ('T', Some(tool)) if tool >= 0 => {
+                process_record = Some(ProcessCommand::Tool(tool as u32));
+            }
             ('N', _) => {}
             (letter @ ('G' | 'M'), _) => {
                 other = Some((letter, word.value));
@@ -403,10 +438,28 @@ fn classify_record(
 
     if let Some(command) = state_record {
         GcodeRecord::State(command)
+    } else if let Some(command) = process_record {
+        GcodeRecord::Process(command)
     } else if let Some((letter, value)) = other {
         GcodeRecord::Other { letter, value }
     } else {
         GcodeRecord::Comment
+    }
+}
+
+fn fan_ratio_from_s(value: f64) -> f64 {
+    if value <= 1.0 {
+        value.clamp(0.0, 1.0)
+    } else {
+        (value / 255.0).clamp(0.0, 1.0)
+    }
+}
+
+fn flow_ratio_from_percent(value: f64) -> f64 {
+    if value.is_finite() {
+        (value / 100.0).max(0.0)
+    } else {
+        value
     }
 }
 
@@ -482,10 +535,7 @@ mod tests {
         assert_eq!(lines[0].record, GcodeRecord::Comment);
         assert_eq!(
             lines[1].record,
-            GcodeRecord::Other {
-                letter: 'M',
-                value: 104.0
-            }
+            GcodeRecord::Process(ProcessCommand::NozzleTemperature(210.0))
         );
         let GcodeRecord::Motion(m) = &lines[2].record else {
             panic!("expected motion");
@@ -494,10 +544,32 @@ mod tests {
         assert_eq!(lines[2].raw, "N42 G1 X1*99");
         assert_eq!(
             lines[3].record,
-            GcodeRecord::Other {
-                letter: 'M',
-                value: 104.0
-            }
+            GcodeRecord::Process(ProcessCommand::NozzleTemperature(215.0))
+        );
+    }
+
+    #[test]
+    fn parses_common_process_state_commands() {
+        let lines = parse_gcode_lines("M109 R205\nM106 S128\nM107\nM221 S95\nT2\n").unwrap();
+        assert_eq!(
+            lines[0].record,
+            GcodeRecord::Process(ProcessCommand::NozzleTemperature(205.0))
+        );
+        assert_eq!(
+            lines[1].record,
+            GcodeRecord::Process(ProcessCommand::Fan(128.0 / 255.0))
+        );
+        assert_eq!(
+            lines[2].record,
+            GcodeRecord::Process(ProcessCommand::Fan(0.0))
+        );
+        assert_eq!(
+            lines[3].record,
+            GcodeRecord::Process(ProcessCommand::Flow(0.95))
+        );
+        assert_eq!(
+            lines[4].record,
+            GcodeRecord::Process(ProcessCommand::Tool(2))
         );
     }
 

@@ -3,6 +3,9 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
+use crate::emit::EmitParams;
+use crate::gcode::GcodeImportParams;
+use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
 use serde::{Deserialize, Serialize};
 
@@ -229,6 +232,35 @@ impl Profile {
             min_temp: self.material.min_nozzle_temperature_c,
         }
     }
+
+    /// Convert profile material defaults to L1 resolve parameters.
+    ///
+    /// The current profile schema does not yet carry authored-design print/travel speeds, so those remain
+    /// the engine defaults. Filament diameter is centralized here so adapters do not grow separate fallback
+    /// rules.
+    pub fn resolve_params(&self) -> ResolveParams {
+        ResolveParams {
+            dia: self.material.filament_diameter.unwrap_or(1.75),
+            ..ResolveParams::default()
+        }
+    }
+
+    /// Convert profile material/process defaults to G-code import parameters.
+    pub fn gcode_import_params(&self) -> GcodeImportParams {
+        GcodeImportParams {
+            version: 0,
+            filament_diameter: self.material.filament_diameter.unwrap_or(1.75),
+            line_width: self.process.line_width,
+            layer_height: self.process.layer_height,
+        }
+    }
+
+    /// Convert firmware/profile settings to emitter parameters.
+    ///
+    /// No firmware-specific emitter fields exist yet, so this deliberately centralizes the current default.
+    pub fn emit_params(&self) -> EmitParams {
+        EmitParams::default()
+    }
 }
 
 #[cfg(test)]
@@ -266,6 +298,14 @@ mod tests {
         assert_eq!(contracts.speed_range, Some([300.0, 18000.0]));
         assert!(contracts.monotonic_z);
         assert_eq!(contracts.min_temp, Some(230.0));
+
+        let import = profile.gcode_import_params();
+        assert_eq!(import.filament_diameter, 1.75);
+        assert_eq!(import.line_width, Some(0.45));
+        assert_eq!(import.layer_height, Some(0.2));
+
+        let resolve = profile.resolve_params();
+        assert_eq!(resolve.dia, 1.75);
     }
 
     #[test]

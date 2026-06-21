@@ -20,8 +20,14 @@ pub use self::arc::arc_fit;
 pub use self::merge::merge_collinear;
 pub use self::travel::travel_reorder;
 
-/// The standard L2 optimisation pipeline exposed by every adapter. This is intentionally named at the
-/// core boundary so CLI, wasm, and SDKs do not drift into different meanings for "optimized".
+/// The standard L2 optimisation pipeline exposed by every adapter. It only runs geometry-local passes
+/// that do not reorder authored/source motion.
 pub fn optimize_pipeline(tp: &Toolpath) -> Toolpath {
-    travel_reorder(&arc_fit(&merge_collinear(tp)))
+    arc_fit(&merge_collinear(tp))
+}
+
+/// An order-changing L2 optimisation pipeline. This may reduce travel but can change thermal/seam/process
+/// sequencing, so callers should expose it as an explicit opt-in.
+pub fn optimize_aggressive_pipeline(tp: &Toolpath) -> Toolpath {
+    travel_reorder(&optimize_pipeline(tp))
 }

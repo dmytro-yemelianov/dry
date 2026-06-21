@@ -10,6 +10,7 @@
 //!    **bounds**; the volumetric **flow** stays under a ceiling; the feedrate stays within a **speed**
 //!    range; **Z is monotonic** (non-decreasing) when required (e.g. vase mode).
 
+use crate::engine::segment_motion_time;
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::resolve::{catmull_rom, SAMPLES};
 use crate::units::Length;
@@ -124,13 +125,11 @@ impl Report {
     }
 }
 
-/// Per-segment volumetric flow (mm³/s), or `None` for a zero-length or zero-speed move.
+const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
+
+/// Per-segment volumetric flow (mm³/s), or `None` for a move with no duration.
 fn flow(s: &Segment) -> Option<f64> {
-    if s.length > Length::ZERO && s.speed.value() != 0.0 {
-        Some((s.volume / (s.length / s.speed)).value())
-    } else {
-        None
-    }
+    segment_motion_time(s).map(|time| (s.volume / time).value())
 }
 
 fn segment_numbers(s: &Segment) -> Vec<f64> {
@@ -279,6 +278,33 @@ fn bounds_points(s: &Segment) -> Vec<[Option<Length>; 3]> {
     points
 }
 
+fn arc_radius_error(s: &Segment) -> Option<String> {
+    if s.kind != SegmentKind::Arc {
+        return None;
+    }
+    let Some([cx, cy]) = s.centre else {
+        return Some("arc segment is missing centre".to_string());
+    };
+    let (Some(sx), Some(sy), Some(ex), Some(ey)) = (s.start[0], s.start[1], s.end[0], s.end[1])
+    else {
+        return Some("arc segment needs defined start and end X/Y".to_string());
+    };
+    let start_radius = (sx - cx).hypot(sy - cy).value();
+    let end_radius = (ex - cx).hypot(ey - cy).value();
+    if start_radius <= 0.0 || end_radius <= 0.0 {
+        return Some("arc segment needs a non-zero radius".to_string());
+    }
+    let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);
+    let delta = (start_radius - end_radius).abs();
+    if delta > tolerance {
+        Some(format!(
+            "arc endpoint radius differs from start radius by {delta:.6} mm"
+        ))
+    } else {
+        None
+    }
+}
+
 /// Verify a stream of segments against the contracts, returning all findings (structural + contract-driven).
 pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, crate::codec::CodecError>
 where
@@ -343,6 +369,9 @@ where
                     ),
                 );
             }
+        }
+        if let Some(message) = arc_radius_error(&s) {
+            push("arc-radius", Severity::Error, Some(i), message);
         }
 
         // --- contract-driven checks ---

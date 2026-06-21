@@ -2,7 +2,9 @@
 //! returning a `Report` of located findings. These are Dry's own clean-room contracts (not a
 //! reproduction of any oracle's text): each is a well-specified property of a safe toolpath.
 
-use dry_core::{resolve, verify, Contracts, Design, ResolveParams, Severity};
+use dry_core::{
+    resolve, resolve_checked, verify, Contracts, Design, ResolveParams, SegmentKind, Severity,
+};
 
 fn design_json(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -69,6 +71,36 @@ fn arc_bounds_check_the_curve_not_just_the_endpoint() {
         .findings
         .iter()
         .any(|f| f.rule == "bounds" && f.segment == Some(1)));
+}
+
+#[test]
+fn authored_arc_endpoint_must_stay_on_the_same_radius() {
+    let d = design_json(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+            {"op":"move","x":10,"y":0,"z":0.2},
+            {"op":"arc","cx":0,"cy":0,"x":1,"y":1,"z":null,"clockwise":false}]"#,
+    );
+    let err = resolve_checked(&d, &ResolveParams::default()).unwrap_err();
+    assert!(err.to_string().contains("endpoint radius differs"));
+}
+
+#[test]
+fn verifier_flags_invalid_arc_radius_in_ir() {
+    let d = design_json(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+            {"op":"move","x":10,"y":0,"z":0.2},
+            {"op":"arc","cx":0,"cy":0,"x":0,"y":10,"z":null,"clockwise":false}]"#,
+    );
+    let mut tp = resolve(&d, &ResolveParams::default());
+    let arc = tp
+        .segments
+        .iter_mut()
+        .find(|segment| segment.kind == SegmentKind::Arc)
+        .unwrap();
+    arc.end[0] = Some(dry_core::Length::mm(1.0));
+    arc.end[1] = Some(dry_core::Length::mm(1.0));
+    let report = verify(&tp, &Contracts::default());
+    assert!(report.findings.iter().any(|f| f.rule == "arc-radius"));
 }
 
 // A volumetric-flow ceiling is enforced: a fast, fat bead exceeds it.

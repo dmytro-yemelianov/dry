@@ -1,7 +1,7 @@
 //! Windowed motion/time-series summaries over Dry IR.
 
+use crate::engine::segment_motion_time;
 use crate::ir::{Segment, Toolpath};
-use crate::units::{Feedrate, Length};
 use serde::{Deserialize, Serialize};
 
 /// A compact time-series summary of a toolpath.
@@ -159,11 +159,9 @@ fn validate_window(window_s: f64) -> Result<(), TraceError> {
 }
 
 fn timing(segment: &Segment) -> SegmentTiming {
-    let motion_s = if segment.length > Length::ZERO && segment.speed != Feedrate::ZERO {
-        (segment.length / segment.speed).value()
-    } else {
-        0.0
-    };
+    let motion_s = segment_motion_time(segment)
+        .map(|time| time.value())
+        .unwrap_or(0.0);
     let dwell_s = segment.dwell_s.unwrap_or(0.0).max(0.0);
     let flow_mm3_s = if motion_s > 0.0 {
         segment.volume.value() / motion_s
