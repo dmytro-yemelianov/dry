@@ -53,6 +53,11 @@ assert(viewerJs.includes('resetViewEl'), 'viewer should expose a reset view cont
 assert(viewerJs.includes('__viewerDebug'), 'viewer should expose debug state for interaction checks');
 assert(viewerJs.includes("addEventListener('wheel'"), 'viewer should claim wheel events before scroll containers');
 assert(viewerJs.includes('inputStats'), 'viewer should expose interaction counters for viewport debugging');
+assert(viewerJs.includes('previousRatio'), 'viewer should preserve playback ratio across model refreshes');
+assert(viewerJs.includes('preserveIso'), 'viewer should preserve the Iso camera when params update');
+assert(viewerJs.includes('setModel(ir, { preserveState: V.hasModel })'), 'viewer should only fit camera on first render');
+assert(viewerJs.includes("className = 'speed-select'"), 'speed controls should use a compact select menu');
+assert(!viewerJs.includes("1× realtime"), 'speed controls should use compact labels');
 assert(viewerJs.includes('uGhostAlpha'), 'viewer should render unprinted bead geometry with partial transparency');
 assert(viewerJs.includes('transparent: true'), 'viewer bead material should support printed/planned alpha');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
@@ -66,6 +71,10 @@ assert(indexHtml.includes('class="topbar"'), 'gallery page missing flex topbar')
 assert(blocksHtml.includes('class="topbar"'), 'blocks page missing flex topbar');
 assert(indexHtml.includes('id="resetView"'), 'gallery page missing reset view control');
 assert(blocksHtml.includes('id="resetView"'), 'blocks page missing reset view control');
+assert(indexHtml.includes('Fit</button>'), 'gallery reset control should use compact Fit label');
+assert(blocksHtml.includes('Fit</button>'), 'blocks reset control should use compact Fit label');
+assert(indexHtml.includes('<div class="speeds" id="speeds"><span class="lbl">speed</span></div>\n    </div>'), 'gallery speed controls should live inside the playback strip');
+assert(blocksHtml.includes('<div class="speeds" id="speeds"><span class="lbl">speed</span></div>\n    </div>'), 'blocks speed controls should live inside the playback strip');
 assert(blocksHtml.includes('id="fitBlocks"'), 'blocks page missing fit workspace control');
 assert(blocksHtml.includes('id="cleanBlocks"'), 'blocks page missing clean workspace control');
 assert(blocksHtml.includes('zoomToFit'), 'blocks page should fit loaded templates into view');
@@ -75,6 +84,8 @@ assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet mi
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
 assert(toolUiCss.includes('touch-action: none'), 'viewport should reserve pointer gestures for toolpath controls');
 assert(toolUiCss.includes('overscroll-behavior: contain'), 'viewport should contain wheel/scroll gestures');
+assert(toolUiCss.includes('.playback .speeds'), 'shared UI stylesheet should compact speed controls into playback strip');
+assert(toolUiCss.includes('grid-template-columns: auto auto minmax(80px, 1fr) auto'), 'mobile playback controls should stay compact');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');

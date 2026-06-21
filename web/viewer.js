@@ -322,7 +322,7 @@ export function createViewer(cfg) {
       ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
       ghostT, printT, head, grid: null, resize, inputStats,
     });
-    positionViewCameras(true);
+    positionViewCameras({ saveState: true });
     let last = performance.now();
     function frame(now) {
       const dtReal = (now - last) / 1000; last = now;
@@ -383,15 +383,18 @@ export function createViewer(cfg) {
       distance: iso && target ? iso.position.distanceTo(target) : null,
       controlsElement: V.controls ? (V.controls.domElement.id || V.controls.domElement.tagName) : null,
       inputStats: V.inputStats || null,
+      modelRevision: V.modelRevision || 0,
     };
   }
 
-  function positionViewCameras(saveState = false) {
+  function positionViewCameras(options = {}) {
     if (!V.ready) return;
+    const saveState = typeof options === 'boolean' ? options : Boolean(options.saveState);
+    const preserveIso = typeof options === 'object' && Boolean(options.preserveIso);
     const [cx, cy, cz] = V.modelCenter;
     const size = Math.max(V.modelSize || 1, 1);
     const distance = size * 2.4;
-    V.controls.target.set(cx, cy, cz);
+    if (!preserveIso) V.controls.target.set(cx, cy, cz);
     const poses = {
       iso: { pos: [cx + size * 1.3, cy - size * 1.6, cz + size * 1.1], up: [0, 0, 1] },
       top: { pos: [cx, cy, cz + distance], up: [0, 1, 0] },
@@ -401,8 +404,10 @@ export function createViewer(cfg) {
     for (const [key, pose] of Object.entries(poses)) {
       const camera = V.cameras.get(key);
       if (!camera) continue;
-      camera.up.set(...pose.up);
-      camera.position.set(...pose.pos);
+      if (!(preserveIso && key === 'iso')) {
+        camera.up.set(...pose.up);
+        camera.position.set(...pose.pos);
+      }
       camera.lookAt(V.controls.target);
       camera.near = Math.max(size * 0.02, 0.05);
       camera.far = size * 12;
@@ -419,7 +424,7 @@ export function createViewer(cfg) {
     const wasDamping = V.controls.enableDamping;
     V.controls.enableDamping = false;
     V.controls.update();
-    positionViewCameras(true);
+    positionViewCameras({ saveState: true });
     if (typeof V.controls.reset === 'function') V.controls.reset();
     V.controls.update();
     V.controls.enableDamping = wasDamping;
@@ -434,16 +439,24 @@ export function createViewer(cfg) {
     obj.geometry = g;
   }
 
-  function setModel(ir) {
+  function setModel(ir, options = {}) {
+    const preserveState = Boolean(options.preserveState && V.hasModel);
+    const previousRatio = P.totalT > 0 ? Math.min(1, Math.max(0, P.t / P.totalT)) : 0;
+    const wasPlaying = P.playing;
+    const previousCenter = V.modelCenter ? [...V.modelCenter] : [0, 0, 0];
     const { moves, totalT } = buildMoves(ir);
-    P.moves = moves; P.totalT = totalT; P.t = 0; P.playing = false; P.activeRow = null;
-    if (playEl) playEl.textContent = '▶';
+    P.moves = moves;
+    P.totalT = totalT;
+    P.t = preserveState ? previousRatio * totalT : 0;
+    P.playing = preserveState && wasPlaying && totalT > 0 && P.t < totalT;
+    P.activeRow = null;
+    if (playEl) playEl.textContent = P.playing ? '⏸' : '▶';
     P.segStart = []; P.segEnd = [];
     for (const m of moves) { if (P.segStart[m.line] === undefined) P.segStart[m.line] = m.t0; P.segEnd[m.line] = m.t1; }
 
     V.beads.geometry.dispose();
     V.beads.geometry = buildBeads(moves);
-    V.beadUniforms.uTime.value = 0;
+    V.beadUniforms.uTime.value = P.t;
 
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
     const see = (p) => { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } };
@@ -461,7 +474,19 @@ export function createViewer(cfg) {
     grid.position.set(c[0], c[1], plateZ);
     V.grid = grid; V.scene.add(grid);
     V.head.scale.setScalar(size * 0.012 + 0.05);
-    positionViewCameras(true);
+    if (preserveState) {
+      const delta = [
+        V.modelCenter[0] - previousCenter[0],
+        V.modelCenter[1] - previousCenter[1],
+        V.modelCenter[2] - previousCenter[2],
+      ];
+      V.controls.target.add(new THREE.Vector3(delta[0], delta[1], delta[2]));
+      const iso = V.cameras.get('iso');
+      if (iso) iso.position.add(new THREE.Vector3(delta[0], delta[1], delta[2]));
+    }
+    positionViewCameras({ saveState: !preserveState, preserveIso: preserveState });
+    V.hasModel = true;
+    V.modelRevision = (V.modelRevision || 0) + 1;
     V.resize(); updatePrinted(); syncPlayUI();
   }
 
@@ -520,7 +545,15 @@ export function createViewer(cfg) {
   function syncPlayUI() {
     if (scrubEl) scrubEl.value = P.totalT > 0 ? Math.round((P.t / P.totalT) * 1000) : 0;
     if (clockEl) clockEl.textContent = `${clock(P.t)} / ${clock(P.totalT)}`;
-    window.__play = { t: P.t, totalT: P.totalT, playing: P.playing, speed: P.speed, activeLine: P.activeRow };
+    window.__play = {
+      t: P.t,
+      ratio: P.totalT > 0 ? P.t / P.totalT : 0,
+      totalT: P.totalT,
+      playing: P.playing,
+      speed: P.speed,
+      activeLine: P.activeRow,
+      modelRevision: V.modelRevision || 0,
+    };
     exposeDebugState();
   }
   function seekToLine(i) {
@@ -531,18 +564,21 @@ export function createViewer(cfg) {
 
   function buildSpeedButtons() {
     if (!speedsEl) return;
+    const select = document.createElement('select');
+    select.className = 'speed-select';
+    select.setAttribute('aria-label', 'Playback speed');
     for (const sp of SPEEDS) {
-      const b = document.createElement('button');
-      b.textContent = sp === 1 ? '1× realtime' : sp + '×';
-      b.dataset.speed = sp;
-      if (sp === P.speed) b.classList.add('active');
-      b.addEventListener('click', () => {
-        P.speed = sp;
-        [...speedsEl.querySelectorAll('button')].forEach((x) => x.classList.toggle('active', +x.dataset.speed === sp));
-        syncPlayUI();
-      });
-      speedsEl.appendChild(b);
+      const option = document.createElement('option');
+      option.value = String(sp);
+      option.textContent = `${sp}×`;
+      select.appendChild(option);
     }
+    select.value = String(P.speed);
+    select.addEventListener('change', () => {
+      P.speed = Number.parseFloat(select.value) || 1;
+      syncPlayUI();
+    });
+    speedsEl.appendChild(select);
   }
 
   // ---- resolve an ops array + render every panel ----
@@ -587,7 +623,7 @@ export function createViewer(cfg) {
       }
     }
 
-    setModel(ir);
+    setModel(ir, { preserveState: V.hasModel });
 
     if (optimizeEl) {
       const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
