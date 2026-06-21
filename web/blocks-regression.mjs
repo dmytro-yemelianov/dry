@@ -147,6 +147,9 @@ assert(toolUiCss.includes('grid-template-columns: var(--source-w) 7px'), 'resiza
 assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 'collapsed panels should hide body content');
 assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
 assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
+assert(indexHtml.includes('id="tpmsPathMode"'), 'TPMS generator missing path mode control');
+assert(indexHtml.includes('value="safe-arcs"'), 'TPMS generator missing safe G2/G3 path mode');
+assert(indexHtml.includes('pathMode === \'safe-arcs\' ? \'G2/G3\' : \'G1\''), 'TPMS generator should tag generated path mode');
 for (const id of [
   'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
   'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
@@ -160,6 +163,10 @@ assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bea
 assert(indexHtml.includes('maxFieldSamples: 3_000_000'), 'web TPMS generator should set an interactive resolution budget');
 assert(tpmsJs.includes('DEFAULT_LAYER_HEIGHT = 0.28'), 'TPMS generator should default to printable layer height');
 assert(tpmsJs.includes('DEFAULT_MAX_FIELD_SAMPLES'), 'TPMS generator missing resolution budget guard');
+assert(tpmsJs.includes('TPMS_PATH_MODES'), 'TPMS generator missing path mode enum');
+assert(tpmsJs.includes('DEFAULT_PATH_MODE = TPMS_PATH_MODES.SAFE_ARCS'), 'TPMS generator should default to safe arcs');
+assert(tpmsJs.includes('appendArcFittedPath'), 'TPMS generator missing safe arc fitting path');
+assert(tpmsJs.includes('bestArcFit'), 'TPMS generator missing arc candidate selection');
 assert(tpmsJs.includes('buildLayerSlices'), 'TPMS generator missing adaptive layer slicing');
 assert(tpmsJs.includes('needsAdaptiveLayer'), 'TPMS generator missing bad-zone adaptivity heuristic');
 
@@ -255,6 +262,16 @@ assert(Math.min(...vaseRadii) < 8.3 && Math.max(...vaseRadii) > 17, 'vaseHelixOp
 const printableTpms = tpmsModule.tpmsOps({ cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 6, samplesPerCell: 4, minPathLength: 0 });
 assert(printableTpms[0].op === 'geometry', 'TPMS generator should emit geometry first');
 assert(printableTpms[0].height === 0.28, 'TPMS default bead height should match printable layer height');
+const linearTpms = tpmsModule.tpmsOps({
+  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22,
+  samplesPerCell: 20, layerHeight: 0.28, minPathLength: 0, pathMode: 'linear',
+});
+const arcTpms = tpmsModule.tpmsOps({
+  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22,
+  samplesPerCell: 20, layerHeight: 0.28, minPathLength: 0, pathMode: 'safe-arcs',
+});
+assert(!linearTpms.some((op) => op.op === 'arc'), 'linear TPMS path mode should not emit arcs');
+assert(arcTpms.some((op) => op.op === 'arc'), 'safe-arc TPMS path mode should emit fitted G2/G3 arc ops');
 const coarseTpms = tpmsModule.tpmsOps({
   surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10,
   samplesPerCell: 8, layerHeight: 1.2, minPathLength: 0,

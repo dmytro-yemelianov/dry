@@ -9,6 +9,15 @@ const DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA = 0.35;
 const DEFAULT_ADAPTIVE_MAX_POINT_DELTA = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH = 4;
 const DEFAULT_MAX_FIELD_SAMPLES = 6_000_000;
+const TPMS_PATH_MODES = {
+  LINEAR: 'linear',
+  SAFE_ARCS: 'safe-arcs',
+};
+const DEFAULT_PATH_MODE = TPMS_PATH_MODES.SAFE_ARCS;
+const DEFAULT_ARC_FIT_TOLERANCE = 0.035;
+const DEFAULT_ARC_FIT_MIN_POINTS = 4;
+const DEFAULT_ARC_FIT_MAX_POINTS = 24;
+const DEFAULT_ARC_FIT_MAX_SWEEP = Math.PI * 0.9;
 
 const TPMS_SURFACES = {
   gyroid: {
@@ -143,8 +152,16 @@ function tpmsOps(options = {}) {
   );
   const adaptiveMaxDepth = integer('adaptiveMaxDepth', options.adaptiveMaxDepth ?? DEFAULT_ADAPTIVE_MAX_DEPTH, 0);
   const maxFieldSamples = positiveOrInfinity('maxFieldSamples', options.maxFieldSamples ?? DEFAULT_MAX_FIELD_SAMPLES);
+  const pathMode = tpmsPathMode(options.pathMode ?? DEFAULT_PATH_MODE);
+  const arcFitTolerance = positive('arcFitTolerance', options.arcFitTolerance ?? DEFAULT_ARC_FIT_TOLERANCE);
+  const arcFitMinPoints = integer('arcFitMinPoints', options.arcFitMinPoints ?? DEFAULT_ARC_FIT_MIN_POINTS, 4);
+  const arcFitMaxPoints = integer('arcFitMaxPoints', options.arcFitMaxPoints ?? DEFAULT_ARC_FIT_MAX_POINTS, arcFitMinPoints);
+  const arcFitMaxSweep = positive('arcFitMaxSweep', options.arcFitMaxSweep ?? DEFAULT_ARC_FIT_MAX_SWEEP);
   if (adaptiveMinLayerHeight - adaptiveMaxLayerHeight > EPS) {
     throw new Error('adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight');
+  }
+  if (arcFitMinPoints > arcFitMaxPoints) {
+    throw new Error('arcFitMinPoints must be <= arcFitMaxPoints');
   }
 
   const width = cellsX * cellSize;
@@ -194,13 +211,13 @@ function tpmsOps(options = {}) {
     if (perimeter) {
       const rectLocal = rectanglePath(width, depth, perimeterInset);
       const rect = rectLocal.map((p) => ({ x: p.x - width / 2 + centerX, y: p.y - depth / 2 + centerY }));
-      appendPath(ops, rect, z);
+      appendPath(ops, rect, z, pathMode, { tolerance: arcFitTolerance, minPoints: arcFitMinPoints, maxPoints: arcFitMaxPoints, maxSweep: arcFitMaxSweep });
       previousLocal = rectLocal[rectLocal.length - 1];
     }
     const paths = orderPaths(slice.paths, previousLocal);
     for (const path of paths) {
       const points = path.points.map((p) => ({ x: p.x - width / 2 + centerX, y: p.y - depth / 2 + centerY }));
-      appendPath(ops, points, z);
+      appendPath(ops, points, z, pathMode, { tolerance: arcFitTolerance, minPoints: arcFitMinPoints, maxPoints: arcFitMaxPoints, maxSweep: arcFitMaxSweep });
       previousLocal = path.points[path.points.length - 1];
     }
   }
@@ -408,14 +425,134 @@ function orientPath(path, cursor) {
   return distance(cursor, last) < distance(cursor, first) ? { points: [...path.points].reverse() } : path;
 }
 
-function appendPath(ops, points, z) {
+function appendPath(ops, points, z, pathMode = TPMS_PATH_MODES.LINEAR, arcOptions = {}) {
   const [start, ...rest] = points;
   ops.push({ op: 'extruder', on: false }, move(start, z), { op: 'extruder', on: true });
+  if (pathMode === TPMS_PATH_MODES.SAFE_ARCS) {
+    appendArcFittedPath(ops, points, z, arcOptions);
+    return;
+  }
   for (const point of rest) ops.push(move(point, z));
 }
 
 function move(point, z) {
   return { op: 'move', x: round(point.x), y: round(point.y), z: round(z) };
+}
+
+function arcMove(fit, point, z) {
+  return {
+    op: 'arc',
+    cx: round(fit.cx),
+    cy: round(fit.cy),
+    x: round(point.x),
+    y: round(point.y),
+    z: round(z),
+    clockwise: fit.clockwise,
+  };
+}
+
+function appendArcFittedPath(ops, points, z, options) {
+  let i = 0;
+  while (i < points.length - 1) {
+    const fit = bestArcFit(points, i, options);
+    if (fit) {
+      ops.push(arcMove(fit, points[fit.end], z));
+      i = fit.end;
+    } else {
+      i += 1;
+      ops.push(move(points[i], z));
+    }
+  }
+}
+
+function bestArcFit(points, start, options) {
+  const minPoints = options.minPoints ?? DEFAULT_ARC_FIT_MIN_POINTS;
+  const maxPoints = options.maxPoints ?? DEFAULT_ARC_FIT_MAX_POINTS;
+  const last = Math.min(points.length - 1, start + maxPoints - 1);
+  let best = null;
+  for (let end = start + minPoints - 1; end <= last; end++) {
+    const candidate = fitArcCandidate(points, start, end, options);
+    if (candidate) best = candidate;
+    else if (end > start + minPoints - 1 || best) break;
+  }
+  return best;
+}
+
+function fitArcCandidate(points, start, end, options) {
+  const tolerance = options.tolerance ?? DEFAULT_ARC_FIT_TOLERANCE;
+  const maxSweep = options.maxSweep ?? DEFAULT_ARC_FIT_MAX_SWEEP;
+  if (end - start + 1 < (options.minPoints ?? DEFAULT_ARC_FIT_MIN_POINTS)) return null;
+
+  const first = points[start];
+  const mid = points[Math.floor((start + end) / 2)];
+  const last = points[end];
+  const centre = circumcenter(first, mid, last);
+  if (!centre) return null;
+  const radius = distance(first, centre);
+  if (radius <= tolerance || radius > 10000) return null;
+
+  const startAngle = Math.atan2(first.y - centre.y, first.x - centre.x);
+  const endAngle = Math.atan2(last.y - centre.y, last.x - centre.x);
+  let sign = 0;
+  let maxRadialError = 0;
+  let maxChordDeviation = 0;
+
+  for (let i = start + 1; i <= end; i++) {
+    const turn = turnSign(centre, points[i - 1], points[i]);
+    if (Math.abs(turn) <= 1e-10) return null;
+    const currentSign = Math.sign(turn);
+    if (sign === 0) sign = currentSign;
+    else if (currentSign !== sign) return null;
+  }
+  if (sign === 0) return null;
+
+  const clockwise = sign < 0;
+  const sweep = directedSweep(startAngle, endAngle, clockwise);
+  if (sweep <= EPS || sweep > maxSweep) return null;
+
+  for (let i = start; i <= end; i++) {
+    const point = points[i];
+    const radialError = Math.abs(distance(point, centre) - radius);
+    if (radialError > tolerance) return null;
+    maxRadialError = Math.max(maxRadialError, radialError);
+    const progress = directedSweep(startAngle, Math.atan2(point.y - centre.y, point.x - centre.x), clockwise);
+    if (progress > sweep + 1e-6 && progress < TAU - 1e-6) return null;
+    maxChordDeviation = Math.max(maxChordDeviation, distanceToLine(point, first, last));
+  }
+
+  if (maxChordDeviation < tolerance * 1.5) return null;
+  return { end, cx: centre.x, cy: centre.y, clockwise, error: maxRadialError };
+}
+
+function circumcenter(a, b, c) {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+  if (Math.abs(d) < 1e-10) return null;
+  const a2 = a.x * a.x + a.y * a.y;
+  const b2 = b.x * b.x + b.y * b.y;
+  const c2 = c.x * c.x + c.y * c.y;
+  return {
+    x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
+    y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d,
+  };
+}
+
+function turnSign(center, a, b) {
+  return (a.x - center.x) * (b.y - center.y) - (a.y - center.y) * (b.x - center.x);
+}
+
+function directedSweep(startAngle, endAngle, clockwise) {
+  let sweep = clockwise ? startAngle - endAngle : endAngle - startAngle;
+  sweep %= TAU;
+  if (sweep <= 0) sweep += TAU;
+  return sweep;
+}
+
+function distanceToLine(point, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len <= EPS) return distance(point, a);
+  return Math.abs(dy * point.x - dx * point.y + b.x * a.y - b.y * a.x) / len;
 }
 
 function interpolate(a, b, va, vb) {
@@ -489,8 +626,13 @@ function integer(name, value, min) {
   return value;
 }
 
+function tpmsPathMode(value) {
+  if (Object.values(TPMS_PATH_MODES).includes(value)) return value;
+  throw new Error(`unknown TPMS path mode '${value}'`);
+}
+
 function round(value) {
   return Math.round(value * 1e6) / 1e6;
 }
 
-export { TPMS_SURFACES, tpmsOps };
+export { TPMS_PATH_MODES, TPMS_SURFACES, tpmsOps };

@@ -26,9 +26,13 @@ and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` ar
 The left panel has a **Source** selector. `Gallery design` loads fixed examples; `Printable star lattice`
 generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process controls
 using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field contour
-infill with surface, cell, sampling, layer, adaptive slicing and perimeter controls. TPMS generation uses
-a browser-side resolution budget, so oversized settings fail fast with an error instead of running a huge
-marching-squares job. All three sources feed the same viewer, g-code, metrics, optimize and verify panels.
+infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls. TPMS
+generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native circular
+arcs only when they stay inside tolerance, otherwise they remain `G1` moves. The `linear G1` mode keeps
+the original fully segmented output, and Marlin `G5` splines stay a future dialect-specific emitter
+target rather than a default TPMS representation. A browser-side resolution budget keeps oversized
+settings failing fast with an error instead of running a huge marching-squares job. All three sources
+feed the same viewer, g-code, metrics, optimize and verify panels.
 
 The shared viewer has pill toggles for printed, planned, travel, single-layer travel, toolhead and bed
 geometry, plus quality modes: `auto`, `fast lines`, `bead`, and `realistic bead`. `auto` uses bead geometry
@@ -44,7 +48,7 @@ The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded re
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
 ~120-segment spiral vase, a non-planar cone vase, the collinear comb, four research lattice examples
 generated from the star-polygon families in `lattice-research.js`, and TPMS contour examples generated
-from implicit fields in `tpms.js`.
+from implicit fields in `tpms.js` with safe G2/G3 arc fitting enabled by default.
 
 The design picker is **grouped** (one `<optgroup>` per group — *Basics*, *Curves*, *Infill &
 multi-layer*, *Vases & non-planar*, *Research lattices*, *TPMS*) and the current design's **tags** (e.g. `arc`, `multi-layer`,
@@ -149,7 +153,7 @@ cd .. && python3 -m http.server
 | `viewer.js`  | shared ES module: three.js scene, render-layer toggles, fast/bead/realistic toolpath geometry, simulated playback, synced/explained G-code panel and render profiling — imported by both pages |
 | `designs.js` | demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
-| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, and a preflight resolution budget |
+| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, conservative G2/G3 arc fitting with G1 fallback, and a preflight resolution budget |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
 | `patterns.js` | pure pattern generators shared by Blockly macros and no-browser regressions, currently the compact vase helix generator |
 | `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |
