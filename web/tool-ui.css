@@ -806,6 +806,57 @@ body.blocks-page .gcode {
   border-radius: 6px;
 }
 
+.finding-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.finding-count,
+.finding-segments {
+  color: var(--muted-2);
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.finding-count {
+  color: var(--fg);
+}
+
+.finding-details {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.finding-details summary {
+  cursor: pointer;
+}
+
+.finding-samples {
+  display: grid;
+  gap: 2px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+
+.finding-sample {
+  display: grid;
+  grid-template-columns: minmax(48px, auto) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.finding-sample-seg {
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.finding-sample.omitted {
+  display: block;
+  color: var(--muted-2);
+}
+
 .toolbar {
   min-height: 48px;
   padding: 9px 14px;

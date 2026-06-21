@@ -71,6 +71,8 @@ assert(viewerJs.includes('nearestLayerKey'), 'viewer should support single-layer
 assert(viewerJs.includes('buildGcodeSections'), 'viewer should build G-code layer sections');
 assert(viewerJs.includes('renderGcodeTools'), 'viewer should render G-code section/search controls');
 assert(viewerJs.includes('renderGcodeLine'), 'viewer should render tokenized G-code rows');
+assert(viewerJs.includes('groupFindings'), 'viewer should group repeated verification findings');
+assert(viewerJs.includes('renderFindingGroup'), 'viewer should render grouped verification summaries');
 assert(viewerJs.includes('window.__dryProfile'), 'viewer should expose handling/rendering profile data');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
@@ -114,6 +116,8 @@ assert(toolUiCss.includes('.render-profile'), 'shared UI stylesheet should style
 assert(toolUiCss.includes('.g-token'), 'shared UI stylesheet should style G-code command/param tokens');
 assert(toolUiCss.includes('.gcode-tools'), 'shared UI stylesheet should style G-code search/jump controls');
 assert(toolUiCss.includes('.g-section'), 'shared UI stylesheet should style G-code layer section headers');
+assert(toolUiCss.includes('.finding-count'), 'shared UI stylesheet should style grouped verifier counts');
+assert(toolUiCss.includes('.finding-samples'), 'shared UI stylesheet should style grouped verifier examples');
 assert(toolUiCss.includes('grid-template-columns: minmax(8ch, 1fr) minmax(8ch, auto) minmax(5ch, auto)'), 'metrics should use title/value/UOM columns');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');

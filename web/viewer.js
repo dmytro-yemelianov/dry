@@ -135,6 +135,68 @@ function buildGcodeSections(gcode) {
   return sections;
 }
 
+function normalizeFindingMessage(message) {
+  return String(message || '').replace(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi, '#');
+}
+
+function formatSegmentRanges(segments, maxRanges = 5) {
+  const values = [...new Set(segments.filter(Number.isFinite).map((v) => Math.trunc(v)))]
+    .sort((a, b) => a - b);
+  if (!values.length) return '';
+  const ranges = [];
+  let start = values[0], prev = values[0];
+  for (const value of values.slice(1)) {
+    if (value === prev + 1) {
+      prev = value;
+      continue;
+    }
+    ranges.push([start, prev]);
+    start = value;
+    prev = value;
+  }
+  ranges.push([start, prev]);
+  const shown = ranges.slice(0, maxRanges)
+    .map(([a, b]) => (a === b ? String(a) : `${a}-${b}`));
+  const hidden = ranges.length - shown.length;
+  return `seg ${shown.join(', ')}${hidden > 0 ? ` +${hidden} ranges` : ''}`;
+}
+
+function groupFindings(findings) {
+  const groups = new Map();
+  for (const finding of findings || []) {
+    const rule = String(finding.rule || 'finding');
+    const severity = String(finding.severity || 'warning');
+    const normalized = normalizeFindingMessage(finding.message);
+    const key = `${severity}\u0000${rule}\u0000${normalized}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        rule,
+        severity,
+        normalized,
+        count: 0,
+        segments: [],
+        samples: [],
+        messages: new Set(),
+      });
+    }
+    const group = groups.get(key);
+    group.count += 1;
+    if (Number.isFinite(finding.segment)) group.segments.push(finding.segment);
+    const sampleKey = `${finding.segment ?? ''}\u0000${finding.message || ''}`;
+    if (group.samples.length < 12 && !group.messages.has(sampleKey)) {
+      group.samples.push({
+        segment: finding.segment,
+        message: finding.message || '',
+      });
+      group.messages.add(sampleKey);
+    }
+  }
+  return [...groups.values()].sort((a, b) =>
+    (b.severity === 'error') - (a.severity === 'error') ||
+    b.count - a.count ||
+    a.rule.localeCompare(b.rule));
+}
+
 // ---- turn the resolved IR into timed moves (each tagged with its source segment / g-code line) ----
 function catmullRom(p0, p1, p2, p3, t) {
   const t2 = t * t, t3 = t2 * t, out = [0, 0, 0];
@@ -1158,6 +1220,75 @@ export function createViewer(cfg) {
     gcodeToolsEl.append(jump, search, prev, next, status);
   }
 
+  function renderFindingGroup(group) {
+    const row = document.createElement('div');
+    row.classList.add('finding');
+    const severity = cleanClass(group.severity);
+    if (severity) row.classList.add(severity);
+
+    const head = document.createElement('div');
+    head.className = 'finding-head';
+
+    const rule = document.createElement('span');
+    rule.className = 'rule';
+    rule.textContent = group.rule;
+    head.appendChild(rule);
+
+    if (group.count > 1) {
+      const count = document.createElement('span');
+      count.className = 'finding-count';
+      count.textContent = `${group.count.toLocaleString()} findings`;
+      head.appendChild(count);
+    }
+
+    const segmentSummary = formatSegmentRanges(group.segments);
+    if (segmentSummary) {
+      const seg = document.createElement('span');
+      seg.className = 'finding-segments';
+      seg.textContent = segmentSummary;
+      head.appendChild(seg);
+    }
+
+    const msg = document.createElement('span');
+    msg.className = 'msg';
+    msg.textContent = group.samples[0]?.message || group.normalized;
+    row.append(head, msg);
+
+    if (group.count > 1) {
+      const details = document.createElement('details');
+      details.className = 'finding-details';
+      const summary = document.createElement('summary');
+      summary.textContent = `show ${group.samples.length.toLocaleString()} examples`;
+      details.appendChild(summary);
+      const list = document.createElement('div');
+      list.className = 'finding-samples';
+      for (const sample of group.samples) {
+        const item = document.createElement('div');
+        item.className = 'finding-sample';
+        if (sample.segment != null) {
+          const seg = document.createElement('span');
+          seg.className = 'finding-sample-seg';
+          seg.textContent = `seg ${sample.segment}`;
+          item.appendChild(seg);
+        }
+        const text = document.createElement('span');
+        text.textContent = sample.message;
+        item.appendChild(text);
+        list.appendChild(item);
+      }
+      if (group.count > group.samples.length) {
+        const omitted = document.createElement('div');
+        omitted.className = 'finding-sample omitted';
+        omitted.textContent = `${(group.count - group.samples.length).toLocaleString()} more grouped findings omitted from the browser panel`;
+        list.appendChild(omitted);
+      }
+      details.appendChild(list);
+      row.appendChild(details);
+    }
+
+    return row;
+  }
+
   // ---- resolve an ops array + render every panel ----
   function show(ops, relativeE = true) {
     const profile = { ops: ops.length };
@@ -1217,21 +1348,8 @@ export function createViewer(cfg) {
       const findings = report.findings || [];
       verifyEl.replaceChildren();
       if (findings.length) {
-        for (const f of findings) {
-          const row = document.createElement('div');
-          row.classList.add('finding');
-          const severity = cleanClass(f.severity);
-          if (severity) row.classList.add(severity);
-          const rule = document.createElement('span');
-          rule.className = 'rule';
-          rule.textContent = f.rule;
-          const msg = document.createElement('span');
-          msg.className = 'msg';
-          msg.textContent = f.message;
-          row.append(rule);
-          if (f.segment != null) row.append(` · seg ${f.segment}`);
-          row.appendChild(msg);
-          verifyEl.appendChild(row);
+        for (const group of groupFindings(findings)) {
+          verifyEl.appendChild(renderFindingGroup(group));
         }
       } else {
         const ok = document.createElement('div');

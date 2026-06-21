@@ -121,9 +121,9 @@ The demo also surfaces two L2 passes live:
   `travel_reorder`) and shows the raw vs optimized segment count
   (e.g. `segments: 42 → 30 (−12)`). The *Comb* design authors its straight runs as several
   collinear hops, so the reduction is visible.
-- **Verify** — runs the machine-safety contracts and lists any findings (rule + message), or
-  shows `✓ no findings`. The `max flow` (mm³/s) and `min temp` (°C) inputs feed the contract;
-  `0` (or empty) disables that check.
+- **Verify** — runs the machine-safety contracts and groups repeated findings by rule/message pattern
+  with counts, segment ranges and a few examples, or shows `✓ no findings`. The `max flow` (mm³/s)
+  and `min temp` (°C) inputs feed the contract; `0` (or empty) disables that check.
 
 ## Run it
 
