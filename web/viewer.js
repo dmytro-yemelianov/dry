@@ -226,6 +226,7 @@ export function createViewer(cfg) {
   const V = { ready: false, modelCenter: [0, 0, 0], modelSize: 10 };
   function initScene() {
     const el = viewportEl;
+    if (!el.hasAttribute('tabindex')) el.tabIndex = 0;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     el.appendChild(renderer.domElement);
@@ -242,6 +243,21 @@ export function createViewer(cfg) {
     controls.enableRotate = true;
     controls.enableZoom = true;
     controls.screenSpacePanning = true;
+    const inputStats = { pointerdown: 0, pointermove: 0, wheel: 0 };
+    el.addEventListener('pointerdown', (event) => {
+      inputStats.pointerdown++;
+      if (event.cancelable) event.preventDefault();
+      if (typeof el.focus === 'function') el.focus({ preventScroll: true });
+    }, { capture: true });
+    el.addEventListener('pointermove', (event) => {
+      if (!el.classList.contains('is-dragging')) return;
+      inputStats.pointermove++;
+      if (event.cancelable) event.preventDefault();
+    }, { capture: true });
+    el.addEventListener('wheel', (event) => {
+      inputStats.wheel++;
+      if (event.cancelable) event.preventDefault();
+    }, { capture: true, passive: false });
     controls.addEventListener('start', () => el.classList.add('is-dragging'));
     controls.addEventListener('end', () => el.classList.remove('is-dragging'));
     controls.addEventListener('change', exposeDebugState);
@@ -304,7 +320,7 @@ export function createViewer(cfg) {
     resizeObserver.observe(el);
     Object.assign(V, {
       ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
-      ghostT, printT, head, grid: null, resize,
+      ghostT, printT, head, grid: null, resize, inputStats,
     });
     positionViewCameras(true);
     let last = performance.now();
@@ -366,6 +382,7 @@ export function createViewer(cfg) {
       target: target ? target.toArray() : null,
       distance: iso && target ? iso.position.distanceTo(target) : null,
       controlsElement: V.controls ? (V.controls.domElement.id || V.controls.domElement.tagName) : null,
+      inputStats: V.inputStats || null,
     };
   }
 

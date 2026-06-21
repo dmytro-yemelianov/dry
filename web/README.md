@@ -140,6 +140,7 @@ cd .. && python3 -m http.server
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
 | `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
+| `patterns.js` | pure pattern generators shared by Blockly macros and no-browser regressions, currently the compact vase helix generator |
 | `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |
 | `thumb.js`   | shared runtime **thumbnail** renderer — resolves ops → IR, draws a top-down 2D sketch to a canvas, returns a data URL (used by both libraries' pickers) |
 | `vendor/`    | three.js (`three.module.js` + `OrbitControls.js`, MIT) and **Blockly** (`blockly/`, Apache-2.0) vendored so the demo is self-contained / offline-capable |

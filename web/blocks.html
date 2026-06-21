@@ -317,6 +317,7 @@ import { RESOLVE_PARAMS } from './designs.js';
 import { createViewer } from './viewer.js';
 import { TEMPLATES } from './templates.js';
 import { thumbnail } from './thumb.js';
+import { MAX_PATTERN_POINTS, vaseHelixOps } from './patterns.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -513,8 +514,6 @@ Blockly.Blocks.dry_spline = {
 // but invalid or non-finite expressions are surfaced as block warnings and preview diagnostics.
 const JS = () => Blockly.JavaScript;
 const MAX_LOOP_UNROLL = 1000;
-const MAX_PATTERN_POINTS = 3000;
-const TAU = Math.PI * 2;
 let LAST_DIAGNOSTICS = [];
 
 function installDryMathGenerators() {
@@ -683,25 +682,9 @@ function genBlock(block, ops, env, ctx) {
       const flutes = Math.max(0, Math.round(finiteField(block, 'FLUTES', ctx, 8)));
       const depth = Math.max(0, finiteField(block, 'DEPTH', ctx, 0.035));
       const twistTurns = finiteField(block, 'TWIST', ctx, 0.75);
-      const rawSteps = Math.max(1, Math.round(turns * samplesPerTurn));
-      const steps = Math.min(MAX_PATTERN_POINTS, rawSteps);
-      if (rawSteps > MAX_PATTERN_POINTS) addDiagnostic(ctx, block, 'SAMPLES', `vase point count ${rawSteps} was capped at ${MAX_PATTERN_POINTS}`);
-      const pointAt = (i) => {
-        const f = i / steps;
-        const angle = i * (TAU / samplesPerTurn);
-        const twist = TAU * twistTurns * f;
-        const profile = base + belly * Math.sin(Math.PI * f) + shoulder * Math.sin(TAU * f);
-        const flute = 1 + depth * Math.cos(flutes * (angle - twist));
-        const radius = Math.max(0, profile * flute);
-        return {
-          x: cx + radius * Math.cos(angle),
-          y: cy + radius * Math.sin(angle),
-          z: z0 + height * f,
-        };
-      };
-      const start = pointAt(0);
-      ops.push({ op: 'extruder', on: false }, { op: 'move', ...start }, { op: 'extruder', on: true });
-      for (let i = 1; i <= steps; i++) ops.push({ op: 'move', ...pointAt(i) });
+      const result = vaseHelixOps({ cx, cy, z0, turns, samplesPerTurn, height, base, belly, shoulder, flutes, depth, twistTurns });
+      if (result.rawSteps > MAX_PATTERN_POINTS) addDiagnostic(ctx, block, 'SAMPLES', `vase point count ${result.rawSteps} was capped at ${MAX_PATTERN_POINTS}`);
+      ops.push(...result.ops);
       break;
     }
     case 'dry_repeat': {

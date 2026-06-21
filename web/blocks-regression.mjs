@@ -10,6 +10,7 @@ function assert(condition, message) {
 
 const blocksHtml = read('blocks.html');
 const templatesJs = read('templates.js');
+const patternsJs = read('patterns.js');
 const viewerJs = read('viewer.js');
 const indexHtml = read('index.html');
 const toolUiCss = read('tool-ui.css');
@@ -50,6 +51,8 @@ assert(viewerJs.includes("key: 'front'"), 'viewer should include a front XZ view
 assert(viewerJs.includes("new OrbitControls(cameras.get('iso'), el)"), 'OrbitControls should bind to the full viewport element');
 assert(viewerJs.includes('resetViewEl'), 'viewer should expose a reset view control');
 assert(viewerJs.includes('__viewerDebug'), 'viewer should expose debug state for interaction checks');
+assert(viewerJs.includes("addEventListener('wheel'"), 'viewer should claim wheel events before scroll containers');
+assert(viewerJs.includes('inputStats'), 'viewer should expose interaction counters for viewport debugging');
 assert(viewerJs.includes('uGhostAlpha'), 'viewer should render unprinted bead geometry with partial transparency');
 assert(viewerJs.includes('transparent: true'), 'viewer bead material should support printed/planned alpha');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
@@ -71,6 +74,7 @@ assert(blocksHtml.includes('<span><span class="swatch planned"></span>planned</s
 assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
 assert(toolUiCss.includes('touch-action: none'), 'viewport should reserve pointer gestures for toolpath controls');
+assert(toolUiCss.includes('overscroll-behavior: contain'), 'viewport should contain wheel/scroll gestures');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
@@ -93,6 +97,7 @@ for (const [name, source] of [
 }
 
 const templatesModule = await import(`data:text/javascript;base64,${Buffer.from(templatesJs).toString('base64')}`);
+const patternsModule = await import(`data:text/javascript;base64,${Buffer.from(patternsJs).toString('base64')}`);
 const fakeBlockly = {
   utils: { xml: { textToDom: (xml) => xml } },
   Xml: { domToWorkspace: (xml, workspace) => { workspace.xml = xml; } },
@@ -145,4 +150,25 @@ for (const [key, template] of Object.entries(templatesModule.TEMPLATES)) {
 }
 
 assert(templateCount === 9, `expected 9 Blockly templates, got ${templateCount}`);
+
+const { ops: vaseOps, rawSteps: vaseRawSteps, steps: vaseSteps } = patternsModule.vaseHelixOps();
+const vasePoints = vaseOps.filter((op) => op.op === 'move');
+const vaseRadii = vasePoints.map((p) => Math.hypot(p.x - 50, p.y - 50));
+let vasePrevAngle = null, vaseTotalAngle = 0;
+for (const p of vasePoints) {
+  const angle = Math.atan2(p.y - 50, p.x - 50);
+  if (vasePrevAngle != null) {
+    let delta = angle - vasePrevAngle;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    vaseTotalAngle += delta;
+  }
+  vasePrevAngle = angle;
+}
+const vaseZ = vasePoints.map((p) => p.z);
+assert(vaseOps.length === 963, `vaseHelixOps should emit 963 ops, got ${vaseOps.length}`);
+assert(vaseRawSteps === 960 && vaseSteps === 960, 'vaseHelixOps should emit 16 turns with 60 samples per turn');
+assert(Math.max(...vaseZ) - Math.min(...vaseZ) === 48, 'vaseHelixOps should span 48 mm in Z');
+assert(Math.abs((vaseTotalAngle / (Math.PI * 2)) - 16) < 1e-9, 'vaseHelixOps should complete 16 turns');
+assert(Math.min(...vaseRadii) < 8.3 && Math.max(...vaseRadii) > 17, 'vaseHelixOps should retain the fluted belly profile');
 console.log(`Blockly regression checks passed (${templateCount} templates)`);

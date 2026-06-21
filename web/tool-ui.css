@@ -335,6 +335,8 @@ button {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 12px 28px var(--shadow);
   cursor: grab;
   touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
 }
 
 #viewport.is-dragging {
