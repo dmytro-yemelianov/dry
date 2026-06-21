@@ -136,15 +136,15 @@
     <div id="latticePanel" class="source-panel" hidden>
       <div class="control-grid">
         <label class="wide">family <select id="latticeFamily"></select></label>
-        <label>alpha deg <input type="number" id="latticeAlpha" value="30" min="0" max="270" step="1" /></label>
-        <label>unit mm <input type="number" id="latticeUnit" value="13" min="4" max="80" step="0.5" /></label>
-        <label>columns <input type="number" id="latticeCols" value="5" min="1" max="15" step="1" /></label>
+        <label>alpha deg <input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /></label>
+        <label>strut mm <input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /></label>
+        <label>columns <input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /></label>
         <label>rows <input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /></label>
-        <label>layers <input type="number" id="latticeLayers" value="3" min="1" max="40" step="1" /></label>
-        <label>layer mm <input type="number" id="latticeLayerH" value="0.167" min="0.05" max="2" step="0.001" /></label>
+        <label>layers <input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /></label>
+        <label>layer mm <input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /></label>
         <label>bead mm <input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /></label>
         <label>speed <input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /></label>
-        <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete odd width where needed</label>
+        <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete M4 row pairs</label>
       </div>
     </div>
     <div id="tpmsPanel" class="source-panel" hidden>
@@ -281,12 +281,9 @@ const $ = (id) => document.getElementById(id);
   }
 
   function syncLatticeBounds() {
-    const family = $('latticeFamily').value;
-    const spec = STAR_POLYGON_FAMILIES[family];
-    if (!spec) return;
     const alpha = $('latticeAlpha');
-    alpha.max = String(spec.alphaUlDeg * 2);
-    if (numValue('latticeAlpha', 0) > spec.alphaUlDeg * 2) alpha.value = String(spec.alphaSplDeg / 2);
+    alpha.max = '150';
+    if (numValue('latticeAlpha', 0) > 150) alpha.value = '30';
   }
 
   function activeDesign() {
@@ -302,13 +299,13 @@ const $ = (id) => document.getElementById(id);
         ops: starPolygonLatticeOps({
           family,
           alphaDeg,
-          cols: intValue('latticeCols', 5),
+          cols: intValue('latticeCols', 10),
           rows: intValue('latticeRows', 3),
-          unit: numValue('latticeUnit', 13),
-          layers: intValue('latticeLayers', 3),
-          layerHeight: numValue('latticeLayerH', 0.167),
+          segLength: numValue('latticeUnit', 4.33),
+          layers: intValue('latticeLayers', 2),
+          layerHeight: numValue('latticeLayerH', 0.2),
           beadWidth: numValue('latticeBead', 0.5),
-          beadHeight: numValue('latticeLayerH', 0.167),
+          beadHeight: numValue('latticeLayerH', 0.2),
           printSpeed: numValue('latticeSpeed', 1000),
           completeWidth: $('latticeCompleteWidth').checked,
         }),

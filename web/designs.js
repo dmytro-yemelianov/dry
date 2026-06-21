@@ -1,6 +1,6 @@
-// Clean-room demo designs, authored as Dry L1 ops (the design layer the engine resolves).
+// Demo designs authored as Dry L1 ops, plus generated research examples.
 // Each is an array of ops: geometry / extruder / speed / move / arc. The same op vocabulary the
-// Python SDK and the conformance oracle use. No FullControl code — just the public op shape.
+// Python SDK and the conformance oracle use.
 import { starPolygonLatticeOps } from './lattice-research.js';
 import { tpmsOps } from './tpms.js';
 
@@ -304,10 +304,10 @@ const DESIGNS = {
   torus_knot: { label: 'Torus knot (3D, non-planar)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: torusKnot() },
   lissajous: { label: 'Lissajous ribbon (3D)', group: 'Vases & non-planar', tags: ['non-planar', '3D', 'parametric'], ops: lissajous() },
   lattice: { label: 'Lattice cube (cross-hatch layers)', group: 'Infill & multi-layer', tags: ['infill', 'multi-layer', '3D'], ops: lattice() },
-  star_lattice_m1: { label: 'M1 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M1', 'parametric'], ops: starPolygonLatticeOps({ family: 'M1', alphaDeg: 30, cols: 5, rows: 3, unit: 13 }) },
-  star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], ops: starPolygonLatticeOps({ family: 'M2', alphaDeg: 60, cols: 5, rows: 3, unit: 13 }) },
-  star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], ops: starPolygonLatticeOps({ family: 'M3', alphaDeg: 30, cols: 5, rows: 3, unit: 13 }) },
-  star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], ops: starPolygonLatticeOps({ family: 'M4', alphaDeg: 45, cols: 5, rows: 3, unit: 13 }) },
+  star_lattice_m1: { label: 'M1 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M1', 'parametric'], ops: starPolygonLatticeOps({ family: 'M1', alphaDeg: 30, cols: 10, rows: 3, segLength: 4.33 }) },
+  star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], ops: starPolygonLatticeOps({ family: 'M2', alphaDeg: 60, cols: 10, rows: 3, segLength: 4.33 }) },
+  star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], ops: starPolygonLatticeOps({ family: 'M3', alphaDeg: 30, cols: 10, rows: 3, segLength: 4.33 }) },
+  star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], ops: starPolygonLatticeOps({ family: 'M4', alphaDeg: 45, cols: 10, rows: 3, segLength: 4.33 }) },
   tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit'], ops: tpmsOps({ surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
   tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit'], ops: tpmsOps({ surface: 'schwarz-p', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },
   tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit'], ops: tpmsOps({ surface: 'schwarz-d', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22, samplesPerCell: 16, layerHeight: 1.4 }) },

@@ -1,7 +1,6 @@
 import { Design } from '../design';
 import type { Op } from '../ops';
 
-const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
 const EPS = 1e-9;
 
@@ -19,13 +18,6 @@ export interface StarPolygonFamilySpec {
   isotropicInPlane: boolean;
 }
 
-interface FamilyInternalSpec extends StarPolygonFamilySpec {
-  connectorSteps: [number, number][];
-  starRotationDeg: number;
-  outerRadiusRatio: number;
-  preferOddWidth: boolean;
-}
-
 export interface NormalizedStarPolygonAlpha {
   inputDeg: number;
   effectiveDeg: number;
@@ -36,57 +28,71 @@ export interface NormalizedStarPolygonAlpha {
 export interface StarPolygonLatticeOptions {
   /** Paper lattice sub-family. */
   family?: StarPolygonFamily;
-  /** Star-polygon angle alpha in degrees. Valid range is 0..2*alphaUL. */
+  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
   alphaDeg?: number;
-  /** Unit cells across the generated patch. M2/M3/M4 default to odd width, matching the paper's print strategy. */
+  /** Unit cells along the print length. The original notebook calls this units_x. */
   cols?: number;
-  /** Unit-cell rows. The paper specimens used three rows. */
+  /** Unit cells in the print width. The original notebook calls this units_y. */
   rows?: number;
-  /** Unit-cell edge length LUC in mm. */
+  /** Strut length in mm. This is the original notebook's seg_length parameter. */
+  segLength?: number;
+  /** Backward-compatible alias for segLength. */
   unit?: number;
-  /** Printed layers. The paper specimens used three single-extrusion layers. */
+  /** Printed layers. The original notebook defaults to two layers. */
   layers?: number;
   /** Distance between repeated layers in mm. */
   layerHeight?: number;
-  /** First layer Z in mm. */
+  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
   z0?: number;
-  /** XY center of the generated patch. */
+  /** XY start offset. */
+  startX?: number;
+  startY?: number;
+  /** Backward-compatible aliases for the old motif-centered generator. */
   centerX?: number;
   centerY?: number;
   /** Extrusion bead geometry in mm. */
   beadWidth?: number;
   beadHeight?: number;
-  /** Process settings from the manufacturing appendix defaults. */
+  /** Process settings from the original notebook defaults. */
   nozzleTemp?: number;
   printSpeed?: number;
   flow?: number;
-  /** Override motif size as a fraction of unit length. */
-  outerRadiusRatio?: number;
-  /** Emit inter-cell struts in addition to star-polygon cell loops. */
-  includeConnectors?: boolean;
-  /** Force an odd column count for M2/M3/M4 so each layer starts/ends on the same side more easily. */
+  /** Keep the three printed return lines that condition the next layer in the original notebook. */
+  sacrificialReturn?: boolean;
+  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
   completeWidth?: boolean;
+  /** Deprecated no-op from the older motif approximation. */
+  outerRadiusRatio?: number;
+  /** Deprecated no-op from the older motif approximation. */
+  includeConnectors?: boolean;
 }
 
-interface Point {
-  x: number;
-  y: number;
+interface FcPoint {
+  kind: 'point';
+  x: number | null;
+  y: number | null;
+  z: number | null;
 }
 
-interface Cell {
-  col: number;
-  row: number;
-  center: Point;
-  outer: Point[];
-  loop: Point[];
+interface FcExtruder {
+  kind: 'extruder';
+  on: boolean;
 }
 
-interface Path {
-  points: Point[];
-  closed: boolean;
+type FcStep = FcPoint | FcExtruder;
+
+interface FcVector {
+  x?: number;
+  y?: number;
+  z?: number;
 }
 
-const INTERNAL_FAMILIES: Record<StarPolygonFamily, FamilyInternalSpec> = {
+interface BuiltLattice {
+  steps: FcStep[];
+  repeatOffsetX: number;
+}
+
+const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
   M1: {
     family: 'M1',
     topology: '4 . 4*alpha . 4**alpha',
@@ -95,10 +101,6 @@ const INTERNAL_FAMILIES: Record<StarPolygonFamily, FamilyInternalSpec> = {
     alphaUlDeg: 135,
     basis: 'triangular',
     isotropicInPlane: true,
-    connectorSteps: [[1, 0], [0, 1]],
-    starRotationDeg: 45,
-    outerRadiusRatio: 0.31,
-    preferOddWidth: false,
   },
   M2: {
     family: 'M2',
@@ -108,10 +110,6 @@ const INTERNAL_FAMILIES: Record<StarPolygonFamily, FamilyInternalSpec> = {
     alphaUlDeg: 150,
     basis: 'triangular',
     isotropicInPlane: true,
-    connectorSteps: [[1, 0], [0, 1], [1, -1]],
-    starRotationDeg: 30,
-    outerRadiusRatio: 0.23,
-    preferOddWidth: true,
   },
   M3: {
     family: 'M3',
@@ -121,10 +119,6 @@ const INTERNAL_FAMILIES: Record<StarPolygonFamily, FamilyInternalSpec> = {
     alphaUlDeg: 120,
     basis: 'triangular',
     isotropicInPlane: true,
-    connectorSteps: [[1, 0], [0, 1], [1, -1]],
-    starRotationDeg: -90,
-    outerRadiusRatio: 0.32,
-    preferOddWidth: true,
   },
   M4: {
     family: 'M4',
@@ -134,31 +128,10 @@ const INTERNAL_FAMILIES: Record<StarPolygonFamily, FamilyInternalSpec> = {
     alphaUlDeg: 120,
     basis: 'square',
     isotropicInPlane: false,
-    connectorSteps: [[1, 0], [0, 1], [1, 1]],
-    starRotationDeg: -90,
-    outerRadiusRatio: 0.30,
-    preferOddWidth: true,
   },
 };
 
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: publicSpec(INTERNAL_FAMILIES.M1),
-  M2: publicSpec(INTERNAL_FAMILIES.M2),
-  M3: publicSpec(INTERNAL_FAMILIES.M3),
-  M4: publicSpec(INTERNAL_FAMILIES.M4),
-};
-
-function publicSpec(spec: FamilyInternalSpec): StarPolygonFamilySpec {
-  return {
-    family: spec.family,
-    topology: spec.topology,
-    starSides: spec.starSides,
-    alphaSplDeg: spec.alphaSplDeg,
-    alphaUlDeg: spec.alphaUlDeg,
-    basis: spec.basis,
-    isotropicInPlane: spec.isotropicInPlane,
-  };
-}
+export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
 
 export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
   const spec = STAR_POLYGON_FAMILIES[family];
@@ -170,7 +143,7 @@ export function normalizeStarPolygonAlpha(
   family: StarPolygonFamily,
   alphaDeg: number
 ): NormalizedStarPolygonAlpha {
-  const spec = INTERNAL_FAMILIES[family];
+  const spec = FAMILY_SPECS[family];
   if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
   finite('alphaDeg', alphaDeg);
 
@@ -205,31 +178,30 @@ export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number):
 
 export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): Op[] {
   const family = options.family ?? 'M1';
-  const spec = INTERNAL_FAMILIES[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
+  if (!FAMILY_SPECS[family]) throw new Error(`unknown star-polygon lattice family '${family}'`);
 
-  const alpha = normalizeStarPolygonAlpha(family, options.alphaDeg ?? spec.alphaSplDeg / 2);
-  let cols = integer('cols', options.cols ?? 5, 1);
+  const alphaDeg = finite('alphaDeg', options.alphaDeg ?? 30);
+  const cols = integer('cols', options.cols ?? 10, 1);
   const rows = integer('rows', options.rows ?? 3, 1);
-  const unit = positive('unit', options.unit ?? 14);
-  const layers = integer('layers', options.layers ?? 3, 1);
-  const layerHeight = positive('layerHeight', options.layerHeight ?? 0.167);
-  const z0 = positiveOrZero('z0', options.z0 ?? layerHeight);
+  const segLength = positive('segLength', options.segLength ?? options.unit ?? 4.33);
+  const layers = integer('layers', options.layers ?? 2, 1);
+  const layerHeight = positive('layerHeight', options.layerHeight ?? 0.2);
+  const z0 = positiveOrZero('z0', options.z0 ?? 0.8 * layerHeight);
+  const startX = finite('startX', options.startX ?? options.centerX ?? 30);
+  const startY = finite('startY', options.startY ?? options.centerY ?? 30);
   const beadWidth = positive('beadWidth', options.beadWidth ?? 0.5);
   const beadHeight = positive('beadHeight', options.beadHeight ?? layerHeight);
-  const centerX = finite('centerX', options.centerX ?? 50);
-  const centerY = finite('centerY', options.centerY ?? 50);
   const nozzleTemp = positive('nozzleTemp', options.nozzleTemp ?? 210);
   const printSpeed = positive('printSpeed', options.printSpeed ?? 1000);
   const flow = positive('flow', options.flow ?? 1);
-  const includeConnectors = options.includeConnectors ?? true;
   const completeWidth = options.completeWidth ?? true;
-  const outerRadiusRatio = positive('outerRadiusRatio', options.outerRadiusRatio ?? spec.outerRadiusRatio);
+  const sacrificialReturn = options.sacrificialReturn ?? true;
 
-  if (completeWidth && spec.preferOddWidth && cols % 2 === 0) cols += 1;
+  const built = buildColabLattice(family, alphaDeg, segLength, cols, rows, completeWidth);
+  const lattice = sacrificialReturn ? [...built.steps, ...returnLines(built.repeatOffsetX)] : built.steps;
+  const layered = copyMoveSteps(lattice, { z: layerHeight }, layers);
+  const shifted = moveSteps(layered, { x: startX, y: startY, z: z0 });
 
-  const paths = centerPaths(buildPaths(spec, alpha, cols, rows, unit, outerRadiusRatio, includeConnectors), centerX, centerY);
-  const ordered = orderPaths(paths);
   const ops: Op[] = [
     { op: 'geometry', width: beadWidth, height: beadHeight },
     { op: 'temperature', nozzle: nozzleTemp },
@@ -237,12 +209,7 @@ export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): 
   ];
   if (Math.abs(flow - 1) > EPS) ops.push({ op: 'flow', ratio: flow });
 
-  for (let layer = 0; layer < layers; layer++) {
-    const z = z0 + layer * layerHeight;
-    const layerPaths = layer % 2 === 0 ? ordered : [...ordered].reverse().map(reversePath);
-    appendLayerOps(ops, layerPaths, z);
-  }
-  ops.push({ op: 'extruder', on: false });
+  appendStepOps(ops, shifted);
   return ops;
 }
 
@@ -252,192 +219,354 @@ export function starPolygonLattice(options: StarPolygonLatticeOptions = {}): Des
   return design;
 }
 
-function buildPaths(
-  spec: FamilyInternalSpec,
-  alpha: NormalizedStarPolygonAlpha,
+function buildColabLattice(
+  family: StarPolygonFamily,
+  alphaDeg: number,
+  segLength: number,
   cols: number,
   rows: number,
-  unit: number,
-  outerRadiusRatio: number,
-  includeConnectors: boolean
-): Path[] {
-  const [a1, a2] = basisVectors(spec.basis, unit);
-  const outerRadius = unit * outerRadiusRatio;
-  const cells: Cell[] = [];
-  const byKey = new Map<string, Cell>();
-  const handedness = alpha.mirrored ? -1 : 1;
-
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const center = add(scale(a1, col), scale(a2, row));
-      const loop = starPolygonPoints(
-        spec.starSides,
-        outerRadius,
-        alpha.effectiveDeg,
-        center,
-        spec.starRotationDeg * DEG,
-        handedness
-      );
-      const outer = loop.filter((_, i) => i % 2 === 0);
-      const cell = { col, row, center, outer, loop: [...loop, loop[0]] };
-      cells.push(cell);
-      byKey.set(cellKey(col, row), cell);
-    }
+  completeWidth: boolean
+): BuiltLattice {
+  switch (family) {
+    case 'M1':
+      return buildM1(alphaDeg, segLength, cols, rows);
+    case 'M2':
+      return buildM2(alphaDeg, segLength, cols, rows);
+    case 'M3':
+      return buildM3(alphaDeg, segLength, cols, rows);
+    case 'M4':
+      return buildM4(alphaDeg, segLength, cols, rows, completeWidth);
   }
-
-  const paths: Path[] = cells.map((cell) => ({ points: cell.loop, closed: true }));
-  if (!includeConnectors) return paths;
-
-  for (const cell of cells) {
-    for (const [dc, dr] of spec.connectorSteps) {
-      const neighbor = byKey.get(cellKey(cell.col + dc, cell.row + dr));
-      if (!neighbor) continue;
-      const [p, q] = closestPair(cell.outer, neighbor.outer);
-      paths.push({ points: [p, q], closed: false });
-    }
-  }
-
-  return paths;
 }
 
-function starPolygonPoints(
-  sides: number,
-  outerRadius: number,
-  alphaDeg: number,
-  center: Point,
-  rotation: number,
-  handedness: 1 | -1
-): Point[] {
-  const dentRadius = outerRadius * starPolygonDentRadiusRatio(sides, alphaDeg);
-  const points: Point[] = [];
-  for (let i = 0; i < sides * 2; i++) {
-    const radius = i % 2 === 0 ? outerRadius : dentRadius;
-    const angle = rotation + handedness * ((i * Math.PI) / sides);
-    points.push({ x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) });
+function buildM1(alphaDeg: number, segLength: number, cols: number, rows: number): BuiltLattice {
+  const unit: FcStep[] = [point(0, 0, 0)];
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(-alphaDeg / 2)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(-60 + alphaDeg / 2)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(120 - alphaDeg / 2)));
+
+  const repeatOffsetX = requireAxis('repeatOffsetX', pointAt(unit, 3).x);
+  const rowOffsetX = -(requireAxis('unit[2].x', pointAt(unit, 2).x) - requireAxis('unit[1].x', pointAt(unit, 1).x));
+  const rowOffsetY = -(requireAxis('unit[1].y', pointAt(unit, 1).y) + requireAxis('unit[2].y', pointAt(unit, 2).y));
+
+  const row1 = copyMoveSteps(unit, { x: repeatOffsetX }, cols);
+  const row2 = reflectXReverse(row1);
+  const rowPath = [...row1, ...row2];
+  const lattice: FcStep[] = [];
+  const rowCount = rows * 2 - 1;
+  for (let i = 0; i < rowCount; i++) {
+    lattice.push(...moveSteps(rowPath, { x: i % 2 === 1 ? rowOffsetX : 0, y: rowOffsetY * i }));
   }
-  return points;
+  return { steps: lattice, repeatOffsetX };
 }
 
-function basisVectors(basis: StarPolygonBasis, unit: number): [Point, Point] {
-  if (basis === 'square') return [{ x: unit, y: 0 }, { x: 0, y: unit }];
-  return [
-    { x: Math.cos(Math.PI / 3) * unit, y: Math.sin(Math.PI / 3) * unit },
-    { x: -Math.cos(Math.PI / 3) * unit, y: Math.sin(Math.PI / 3) * unit },
+function buildM2(alphaDeg: number, segLength: number, cols: number, rows: number): BuiltLattice {
+  const devAngle = Math.atan((1 - Math.cos(rad(alphaDeg))) / (Math.sqrt(3) + Math.sin(rad(alphaDeg)))) / DEG;
+
+  const unit: FcStep[] = [point(0, 0, 0)];
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle + 90 - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle + 30)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle - 150 - alphaDeg)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(devAngle + 30 - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle - 150)));
+  unit.push(extruder(true));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(devAngle - 90)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle - 30)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle + 30)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle + 90)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle + 150)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(devAngle - 30)));
+  unit.push(extruder(true));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(devAngle + 150 - alphaDeg)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(devAngle - 30 - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(devAngle - 90)));
+  unit.push(extruder(true));
+
+  const repeatOffsetX = requireAxis('repeatOffsetX', pointAt(unit, 19).x);
+  const rowOffsetX = requireAxis('unit[16].x', pointAt(unit, 16).x) - requireAxis('unit[8].x', pointAt(unit, 8).x);
+  const rowOffsetY = requireAxis('unit[3].y', pointAt(unit, 3).y) - requireAxis('unit[9].y', pointAt(unit, 9).y);
+  const row1 = copyMoveSteps(unit, { x: repeatOffsetX }, cols);
+
+  const backStartX = requireAxis('unit[1].x', pointAt(unit, 1).x) + cols * repeatOffsetX + rowOffsetX;
+  const backStartY = requireAxis('unit[1].y', pointAt(unit, 1).y) + rowOffsetY;
+  const back: FcStep[] = [point(backStartX, backStartY)];
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle - 90 - alphaDeg)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle + 90)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle + 150 - alphaDeg)));
+  back.push(extruder(false));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(devAngle - 30 - alphaDeg)));
+  back.push(extruder(true));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(devAngle + 150)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle - 150 - alphaDeg)));
+  back.push(extruder(false));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(devAngle + 30 - alphaDeg)));
+  back.push(extruder(true));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(devAngle - 150)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle - 90)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle - 30)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle + 30)));
+  back.push(extruder(false));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(devAngle + 90)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle + 150)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(devAngle - 150)));
+  back.push(extruder(true));
+
+  const row2 = copyMoveSteps(back, { x: -repeatOffsetX }, cols);
+  const lattice = copyMoveSteps([...row1, ...row2], { y: 2 * rowOffsetY }, rows);
+  return { steps: lattice, repeatOffsetX };
+}
+
+function buildM3(alphaDeg: number, segLength: number, cols: number, rows: number): BuiltLattice {
+  let unit: FcStep[] = [point(0, 0, 0)];
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(120)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(0)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(180 - alphaDeg)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-alphaDeg)));
+  unit.push(extruder(true));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-120)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(60 - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(-120)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(0)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(120)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-60)));
+  unit.push(extruder(true));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(120 - alphaDeg)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-60)));
+  unit.push(extruder(true));
+
+  const rotationAngle = -Math.atan(
+    (requireAxis('unit[15].y', pointAt(unit, 15).y) - requireAxis('unit[1].y', pointAt(unit, 1).y)) /
+      (requireAxis('unit[15].x', pointAt(unit, 15).x) - requireAxis('unit[1].x', pointAt(unit, 1).x))
+  );
+  unit = rotateSteps(unit, pointAt(unit, 1), rotationAngle);
+
+  const repeatOffsetX = requireAxis('unit[17].x', pointAt(unit, 17).x) - requireAxis('unit[0].x', pointAt(unit, 0).x);
+  const rowOffsetY = requireAxis('unit[3].y', pointAt(unit, 3).y) - requireAxis('unit[9].y', pointAt(unit, 9).y);
+  const backStartX =
+    requireAxis('unit[3].x', pointAt(unit, 3).x) -
+    requireAxis('unit[9].x', pointAt(unit, 9).x) +
+    (cols + 1) * repeatOffsetX;
+
+  const row1 = copyMoveSteps(unit, { x: repeatOffsetX }, cols);
+  const back: FcStep[] = [
+    clonePoint(pointAt(unit, 0)),
+    clonePoint(pointAt(unit, 2)),
+    clonePoint(pointAt(unit, 3)),
+    extruder(false),
+    clonePoint(pointAt(unit, 2)),
+    extruder(true),
+    clonePoint(pointAt(unit, 1)),
+    clonePoint(pointAt(unit, 0)),
+    extruder(false),
+    clonePoint(pointAt(unit, 1)),
+    extruder(true),
+    movePoint(pointAt(unit, 10), { x: -repeatOffsetX }),
+    movePoint(pointAt(unit, 11), { x: -repeatOffsetX }),
+    extruder(false),
+    movePoint(pointAt(unit, 10), { x: -repeatOffsetX }),
+    extruder(true),
+    movePoint(pointAt(unit, 9), { x: -repeatOffsetX }),
+    movePoint(pointAt(unit, 8), { x: -repeatOffsetX }),
+    movePoint(pointAt(unit, 0), { x: -repeatOffsetX }),
   ];
+  const movedBack = moveSteps(back, { x: backStartX, y: rowOffsetY });
+  const row2 = copyMoveSteps(movedBack, { x: -repeatOffsetX }, cols + 1);
+  const lattice = copyMoveSteps([...row1, ...row2], { y: 2 * rowOffsetY }, rows);
+  return { steps: lattice, repeatOffsetX };
 }
 
-function appendLayerOps(ops: Op[], paths: Path[], z: number): void {
-  for (const path of paths) {
-    if (path.points.length < 2) continue;
-    const [start, ...rest] = path.points;
-    ops.push({ op: 'extruder', on: false }, move(start, z), { op: 'extruder', on: true });
-    for (const point of rest) ops.push(move(point, z));
-  }
+function buildM4(
+  alphaInputDeg: number,
+  segLength: number,
+  cols: number,
+  rows: number,
+  completeWidth: boolean
+): BuiltLattice {
+  const alphaDeg = Math.abs(alphaInputDeg - 150) <= EPS ? 120 : alphaInputDeg;
+  const devAngle =
+    Math.abs(
+      Math.acos(
+        -Math.sqrt(1 + Math.sin(2 * rad(alphaDeg))) /
+          Math.sqrt(3 - 2 * Math.cos(rad(alphaDeg)) + 2 * Math.sin(rad(alphaDeg)))
+      )
+    ) / DEG;
+  finite('M4 devAngle', devAngle);
+
+  const unit: FcStep[] = [point(0, 0, 0)];
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(90 - devAngle)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(270 - devAngle - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(180 - devAngle)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-devAngle)));
+  unit.push(extruder(true));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(180 - devAngle - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(90 - devAngle - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(-devAngle - alphaDeg)));
+  unit.push(extruder(false));
+  unit.push(polarToPoint(pointAt(unit, -2), segLength, rad(-90 - devAngle - alphaDeg)));
+  unit.push(polarToPoint(pointAt(unit, -1), segLength, rad(-180 - devAngle - alphaDeg)));
+  unit.push(extruder(true));
+
+  const repeatOffsetX = requireAxis('unit[12].x', pointAt(unit, 12).x) - requireAxis('unit[0].x', pointAt(unit, 0).x);
+  const rowOffsetY = requireAxis('unit[3].y', pointAt(unit, 3).y) - requireAxis('unit[8].y', pointAt(unit, 8).y);
+  const row1 = copyMoveSteps(unit, { x: repeatOffsetX }, cols);
+
+  const backStartX =
+    requireAxis('row1[-2].x', pointAt(row1, -2).x) +
+    (requireAxis('unit[1].x', pointAt(unit, 1).x) - requireAxis('unit[0].x', pointAt(unit, 0).x));
+  const backStartY =
+    rowOffsetY -
+    (requireAxis('unit[7].y', pointAt(unit, 7).y) -
+      requireAxis('unit[8].y', pointAt(unit, 8).y) -
+      (requireAxis('unit[5].y', pointAt(unit, 5).y) - requireAxis('unit[7].y', pointAt(unit, 7).y)));
+
+  const back: FcStep[] = [point(backStartX, backStartY)];
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(-90 - devAngle)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(90 - devAngle - alphaDeg)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(-devAngle - alphaDeg)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(-90 - devAngle - alphaDeg)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(180 - devAngle)));
+  back.push(extruder(false));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(-devAngle)));
+  back.push(extruder(true));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(180 - devAngle - alphaDeg)));
+  back.push(extruder(false));
+  back.push(polarToPoint(pointAt(back, -2), segLength, rad(90 - devAngle - alphaDeg)));
+  back.push(polarToPoint(pointAt(back, -1), segLength, rad(-devAngle - alphaDeg)));
+  back.push(extruder(true));
+
+  const row2 = copyMoveSteps(back, { x: -repeatOffsetX }, cols);
+  const widthRows = completeWidth && rows % 2 !== 0 ? rows + 1 : rows;
+  const rowPairs = Math.max(1, Math.floor(widthRows / 2));
+  const lattice = copyMoveSteps([...row1, ...row2], { y: 2 * rowOffsetY }, rowPairs);
+  return { steps: lattice, repeatOffsetX };
 }
 
-function move(point: Point, z: number): Op {
-  return { op: 'move', x: round(point.x), y: round(point.y), z: round(z) };
-}
-
-function centerPaths(paths: Path[], centerX: number, centerY: number): Path[] {
-  const all = paths.flatMap((path) => path.points);
-  const minX = Math.min(...all.map((p) => p.x));
-  const maxX = Math.max(...all.map((p) => p.x));
-  const minY = Math.min(...all.map((p) => p.y));
-  const maxY = Math.max(...all.map((p) => p.y));
-  const dx = centerX - (minX + maxX) / 2;
-  const dy = centerY - (minY + maxY) / 2;
-  return paths.map((path) => ({
-    closed: path.closed,
-    points: path.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
-  }));
-}
-
-function orderPaths(paths: Path[]): Path[] {
-  const remaining = [...paths];
-  const ordered: Path[] = [];
-  let cursor: Point | null = null;
-
-  while (remaining.length) {
-    let bestIndex = 0;
-    let bestPath = preparePath(remaining[0], cursor);
-    let bestDistance = cursor ? distance(cursor, bestPath.points[0]) : 0;
-
-    for (let i = 1; i < remaining.length; i++) {
-      const candidate = preparePath(remaining[i], cursor);
-      const d = cursor ? distance(cursor, candidate.points[0]) : 0;
-      if (d < bestDistance) {
-        bestIndex = i;
-        bestPath = candidate;
-        bestDistance = d;
-      }
+function appendStepOps(ops: Op[], steps: FcStep[]): void {
+  ops.push({ op: 'extruder', on: false });
+  let placed = false;
+  for (const step of steps) {
+    if (step.kind === 'extruder') {
+      ops.push({ op: 'extruder', on: step.on });
+      continue;
     }
-
-    ordered.push(bestPath);
-    remaining.splice(bestIndex, 1);
-    cursor = bestPath.points[bestPath.points.length - 1];
-  }
-
-  return ordered;
-}
-
-function preparePath(path: Path, cursor: Point | null): Path {
-  if (!cursor || path.points.length < 2) return path;
-  if (!path.closed) {
-    const first = path.points[0];
-    const last = path.points[path.points.length - 1];
-    return distance(cursor, last) < distance(cursor, first) ? reversePath(path) : path;
-  }
-
-  const ring = path.points.slice(0, -1);
-  let best = 0;
-  let bestDistance = distance(cursor, ring[0]);
-  for (let i = 1; i < ring.length; i++) {
-    const d = distance(cursor, ring[i]);
-    if (d < bestDistance) {
-      best = i;
-      bestDistance = d;
-    }
-  }
-  const rotated = [...ring.slice(best), ...ring.slice(0, best)];
-  return { closed: true, points: [...rotated, rotated[0]] };
-}
-
-function reversePath(path: Path): Path {
-  if (!path.closed) return { closed: false, points: [...path.points].reverse() };
-  const ring = path.points.slice(0, -1).reverse();
-  return { closed: true, points: [...ring, ring[0]] };
-}
-
-function closestPair(a: Point[], b: Point[]): [Point, Point] {
-  let best: [Point, Point] = [a[0], b[0]];
-  let bestDistance = distance(a[0], b[0]);
-  for (const p of a) {
-    for (const q of b) {
-      const d = distance(p, q);
-      if (d < bestDistance) {
-        best = [p, q];
-        bestDistance = d;
-      }
+    ops.push({
+      op: 'move',
+      x: nullableRound(step.x),
+      y: nullableRound(step.y),
+      z: nullableRound(step.z),
+    });
+    if (!placed) {
+      ops.push({ op: 'extruder', on: true });
+      placed = true;
     }
   }
-  return best;
+  ops.push({ op: 'extruder', on: false });
 }
 
-function cellKey(col: number, row: number): string {
-  return `${col},${row}`;
+function returnLines(repeatOffsetX: number): FcStep[] {
+  return [point(-repeatOffsetX, null, null), point(null, 0, null), point(0, null, null)];
 }
 
-function add(a: Point, b: Point): Point {
-  return { x: a.x + b.x, y: a.y + b.y };
+function point(x: number | null = null, y: number | null = null, z: number | null = null): FcPoint {
+  return { kind: 'point', x, y, z };
 }
 
-function scale(a: Point, k: number): Point {
-  return { x: a.x * k, y: a.y * k };
+function extruder(on: boolean): FcExtruder {
+  return { kind: 'extruder', on };
 }
 
-function distance(a: Point, b: Point): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+function pointAt(steps: FcStep[], index: number): FcPoint {
+  const resolved = index < 0 ? steps.length + index : index;
+  const step = steps[resolved];
+  if (!step || step.kind !== 'point') throw new Error(`expected point at step index ${index}`);
+  return step;
+}
+
+function cloneStep(step: FcStep): FcStep {
+  return step.kind === 'point' ? clonePoint(step) : extruder(step.on);
+}
+
+function clonePoint(p: FcPoint): FcPoint {
+  return point(p.x, p.y, p.z);
+}
+
+function polarToPoint(centre: FcPoint, radius: number, angleRad: number): FcPoint {
+  return point(
+    requireAxis('centre.x', centre.x) + radius * Math.cos(angleRad),
+    requireAxis('centre.y', centre.y) + radius * Math.sin(angleRad),
+    centre.z
+  );
+}
+
+function moveSteps(steps: FcStep[], vector: FcVector): FcStep[] {
+  return steps.map((step) => moveStep(step, vector));
+}
+
+function copyMoveSteps(steps: FcStep[], vector: FcVector, quantity: number): FcStep[] {
+  const out: FcStep[] = [];
+  for (let i = 0; i < quantity; i++) {
+    out.push(...steps.map((step) => moveStep(step, scaleVector(vector, i))));
+  }
+  return out;
+}
+
+function moveStep(step: FcStep, vector: FcVector): FcStep {
+  return step.kind === 'point' ? movePoint(step, vector) : cloneStep(step);
+}
+
+function movePoint(p: FcPoint, vector: FcVector): FcPoint {
+  return point(moveAxis(p.x, vector.x), moveAxis(p.y, vector.y), moveAxis(p.z, vector.z));
+}
+
+function scaleVector(vector: FcVector, scale: number): FcVector {
+  return {
+    x: vector.x === undefined ? undefined : vector.x * scale,
+    y: vector.y === undefined ? undefined : vector.y * scale,
+    z: vector.z === undefined ? undefined : vector.z * scale,
+  };
+}
+
+function moveAxis(value: number | null, delta: number | undefined): number | null {
+  if (value === null || delta === undefined) return value;
+  return value + delta;
+}
+
+function reflectXReverse(steps: FcStep[]): FcStep[] {
+  return [...steps].reverse().map((step) => {
+    if (step.kind === 'extruder') return cloneStep(step);
+    return point(step.x, step.y === null ? null : -step.y, step.z);
+  });
+}
+
+function rotateSteps(steps: FcStep[], centre: FcPoint, angleRad: number): FcStep[] {
+  const cx = requireAxis('rotation centre x', centre.x);
+  const cy = requireAxis('rotation centre y', centre.y);
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
+  return steps.map((step) => {
+    if (step.kind === 'extruder') return cloneStep(step);
+    const x = requireAxis('rotate point x', step.x);
+    const y = requireAxis('rotate point y', step.y);
+    const dx = x - cx;
+    const dy = y - cy;
+    return point(cx + dx * c - dy * s, cy + dx * s + dy * c, step.z);
+  });
+}
+
+function rad(degrees: number): number {
+  return degrees * DEG;
+}
+
+function requireAxis(name: string, value: number | null): number {
+  if (value === null || !Number.isFinite(value)) throw new Error(`${name} must be finite`);
+  return value;
 }
 
 function finite(name: string, value: number): number {
@@ -461,6 +590,10 @@ function integer(name: string, value: number, min: number): number {
   finite(name, value);
   if (!Number.isInteger(value) || value < min) throw new Error(`${name} must be an integer >= ${min}`);
   return value;
+}
+
+function nullableRound(value: number | null): number | null {
+  return value === null ? null : round(value);
 }
 
 function round(value: number): number {

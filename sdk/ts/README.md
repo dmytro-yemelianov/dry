@@ -44,9 +44,9 @@ new Design().geometry(0.6, 0.2).temperature(210).fan(0.5).flow(0.95).tool(0).ext
 
 ## Research generators
 
-The SDK also includes a clean-room generator for the star-polygon planar lattice families described by
-Soyarslan et al. It exposes the paper's `M1`..`M4` family metadata, alpha limits, star-polygon
-dent-radius formula, and a Dry L1 toolpath generator.
+The SDK also includes a generator for the star-polygon planar lattice families described by Soyarslan
+et al. It exposes the paper's `M1`..`M4` family metadata, alpha limits, star-polygon dent-radius
+formula, and a Dry L1 toolpath generator that follows the public FullControl Colab print-walk recipe.
 
 ```ts
 import { starPolygonLattice } from '@dry/sdk';
@@ -54,10 +54,10 @@ import { starPolygonLattice } from '@dry/sdk';
 const d = starPolygonLattice({
   family: 'M1',
   alphaDeg: 30,
-  cols: 5,
+  cols: 10,
   rows: 3,
-  unit: 14,
-  layers: 3,
+  segLength: 4.33,
+  layers: 2,
 });
 
 console.log(d.gcode().join('\n'));
@@ -65,8 +65,8 @@ console.log(d.simulate());
 ```
 
 `starPolygonLatticeOps(...)` returns raw L1 ops if you want to feed another Dry front-end. The default
-process settings match the paper's manufacturing appendix where they are explicit: 0.5 mm bead width,
-0.167 mm layer height, 3 layers, 210 C nozzle, and 1000 mm/min print speed.
+process settings match the original notebook defaults: 4.33 mm struts, 10 by 3 unit cells, 0.5 mm bead
+width, 0.2 mm layer height, 2 layers, 210 C nozzle, and 1000 mm/min print speed.
 
 TPMS implicit surfaces are available as contour-sliced toolpath generators:
 
@@ -114,7 +114,8 @@ npm test        # node --test: the SDK reproduces the conformance oracle byte-fo
 | `test/` | byte-identity vs `conformance/gcode` + `conformance/simulate` |
 | `wasm/`, `dist/` | build artifacts — **git-ignored**, rebuilt by `build.sh` (the repo stays binary-free) |
 
-## Clean-room
+## Provenance
 
-No FullControl code here. FullControl remains only the dev/CI behavioural oracle — see
-[`../../docs/CLEANROOM.md`](../../docs/CLEANROOM.md).
+Core Dry remains clean-room. The star-polygon generator is a Dry reimplementation of the public
+FullControl Colab model path recipe so the generated lattice matches that notebook's print order and
+parameter semantics.

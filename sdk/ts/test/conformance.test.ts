@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import {
   Design,
   normalizeStarPolygonAlpha,
+  type Op,
   resolveGcode,
   RESOLVE_PARAMS,
   starPolygonDentRadiusRatio,
@@ -237,6 +238,28 @@ test('star-polygon lattice generator authors resolvable Dry L1 ops', () => {
     assert.ok(ir.segments.some((segment) => segment.travel), `${family} should include ordered repositioning travels`);
     assert.ok(ir.segments.some((segment) => !segment.travel), `${family} should include extruding paths`);
   }
+});
+
+test('star-polygon M1 path matches the original Colab repeating-unit walk', () => {
+  const ops = starPolygonLatticeOps({
+    family: 'M1',
+    alphaDeg: 30,
+    segLength: 4.33,
+    cols: 2,
+    rows: 1,
+    layers: 1,
+    sacrificialReturn: false,
+  });
+  const moves = ops.filter((op): op is Extract<Op, { op: 'move' }> => op.op === 'move');
+  assert.deepEqual(
+    moves.slice(0, 4).map((op) => [op.x, op.y, op.z]),
+    [
+      [30, 30, 0.16],
+      [34.182459, 28.879314, 0.16],
+      [37.244231, 25.817541, 0.16],
+      [36.123545, 30, 0.16],
+    ]
+  );
 });
 
 test('TPMS field specs expose the requested surface families', () => {
