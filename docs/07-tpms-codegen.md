@@ -50,6 +50,7 @@ const d = tpms({
   perimeter: true,
   adaptive: true,
   adaptiveMaxLayerHeight: 0.28,
+  maxFieldSamples: 6_000_000,
 });
 
 const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
@@ -66,6 +67,9 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
   defaults to the same value so previewed layers do not show artificial vertical gaps.
 - `adaptive` inserts extra Z slices in intervals that are too tall or change contour topology/length
   sharply. `adaptiveMinLayerHeight`, `adaptiveMaxLayerHeight`, and the delta thresholds bound this pass.
+- `maxFieldSamples` is a preflight budget for marching-squares work. It rejects runaway combinations of
+  large `cellsX/Y/Z`, high `samplesPerCell`, small `layerHeight`, and adaptive slicing before generation
+  starts; set it to `Infinity` only for trusted offline jobs.
 - `perimeter` adds a rectangular single-wall loop on every layer so the generated contours can be
   previewed as bounded infill inside a printable volume.
 - Path stitching is graph-based on quantized segment endpoints, followed by nearest-neighbor path ordering

@@ -9,6 +9,7 @@ const DEFAULT_ADAPTIVE_MAX_LAYER_HEIGHT = 0.32;
 const DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA = 0.35;
 const DEFAULT_ADAPTIVE_MAX_POINT_DELTA = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH = 4;
+const DEFAULT_MAX_FIELD_SAMPLES = 6_000_000;
 
 export type TpmsSurface =
   | 'gyroid'
@@ -68,6 +69,8 @@ export interface TpmsOptions {
   adaptiveMaxLengthDelta?: number;
   adaptiveMaxPointDelta?: number;
   adaptiveMaxDepth?: number;
+  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
+  maxFieldSamples?: number;
 }
 
 interface Point {
@@ -261,6 +264,7 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
     options.adaptiveMaxPointDelta ?? DEFAULT_ADAPTIVE_MAX_POINT_DELTA
   );
   const adaptiveMaxDepth = integer('adaptiveMaxDepth', options.adaptiveMaxDepth ?? DEFAULT_ADAPTIVE_MAX_DEPTH, 0);
+  const maxFieldSamples = positiveOrInfinity('maxFieldSamples', options.maxFieldSamples ?? DEFAULT_MAX_FIELD_SAMPLES);
   if (adaptiveMinLayerHeight - adaptiveMaxLayerHeight > EPS) {
     throw new Error('adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight');
   }
@@ -270,6 +274,13 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
   const height = cellsZ * cellSize;
   const nx = cellsX * samplesPerCell;
   const ny = cellsY * samplesPerCell;
+  assertTpmsBudget({
+    nx,
+    ny,
+    height,
+    sliceHeight: adaptive ? Math.min(layerHeight, adaptiveMinLayerHeight) : layerHeight,
+    maxFieldSamples,
+  });
   const dx = width / nx;
   const dy = depth / ny;
   const minPathLength = positiveOrZero('minPathLength', options.minPathLength ?? Math.min(dx, dy));
@@ -403,6 +414,23 @@ function layerSlice(zLocal: number, paths: Path[]): LayerSlice {
     pointCount: paths.reduce((total, path) => total + path.points.length, 0),
     length: paths.reduce((total, path) => total + pathLength(path.points), 0),
   };
+}
+
+function assertTpmsBudget(options: {
+  nx: number;
+  ny: number;
+  height: number;
+  sliceHeight: number;
+  maxFieldSamples: number;
+}): void {
+  if (!Number.isFinite(options.maxFieldSamples)) return;
+  const estimatedLayers = Math.ceil(options.height / options.sliceHeight) + 1;
+  const estimatedFieldSamples = (options.nx + 1) * (options.ny + 1) * estimatedLayers;
+  if (estimatedFieldSamples <= options.maxFieldSamples) return;
+  throw new Error(
+    `TPMS resolution budget exceeded (${Math.ceil(estimatedFieldSamples)} field samples > ${Math.ceil(options.maxFieldSamples)}). ` +
+      'Reduce samples/cells/cell height or raise the layer height.'
+  );
 }
 
 function rectanglePath(width: number, depth: number, inset: number): Point[] {
@@ -616,6 +644,11 @@ function positiveOrZero(name: string, value: number): number {
   finite(name, value);
   if (value < 0) throw new Error(`${name} must be >= 0`);
   return value;
+}
+
+function positiveOrInfinity(name: string, value: number): number {
+  if (value === Infinity) return value;
+  return positive(name, value);
 }
 
 function integer(name: string, value: number, min: number): number {

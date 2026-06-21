@@ -348,4 +348,17 @@ test('TPMS generator slices implicit fields into resolvable Dry contours', () =>
     adaptiveMaxLayerHeight: 0.3,
   });
   assert.ok(adaptive.length > coarse.length, 'TPMS adaptive mode should insert extra slices in coarse/bad intervals');
+  assert.throws(
+    () => tpmsOps({
+      cellsX: 8,
+      cellsY: 8,
+      cellsZ: 8,
+      cellSize: 80,
+      samplesPerCell: 64,
+      layerHeight: 0.08,
+      maxFieldSamples: 100_000,
+    }),
+    /TPMS resolution budget exceeded/,
+    'TPMS should reject runaway marching-squares resolutions'
+  );
 });

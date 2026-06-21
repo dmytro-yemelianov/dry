@@ -84,6 +84,7 @@ const gyroid = tpms({
   perimeter: true,
   adaptive: true,
   adaptiveMaxLayerHeight: 0.28,
+  maxFieldSamples: 6_000_000,
 });
 ```
 
@@ -93,7 +94,9 @@ does not emit a mesh; it evaluates the implicit field at each Z layer, extracts 
 contours with marching squares, stitches them into printable polylines, and lets the Dry engine resolve
 the final motion. `perimeter: true` adds a single-wall rectangle on every layer for bounded infill
 previews. `adaptive: true` inserts additional Z slices in coarse or high-change TPMS regions, bounded by
-`adaptiveMinLayerHeight` and `adaptiveMaxLayerHeight`.
+`adaptiveMinLayerHeight` and `adaptiveMaxLayerHeight`. `maxFieldSamples` preflights the marching-squares
+work and rejects runaway high-resolution jobs before they start; use `Infinity` only for trusted offline
+generation.
 
 ## Build & test
 

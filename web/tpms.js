@@ -8,6 +8,7 @@ const DEFAULT_ADAPTIVE_MAX_LAYER_HEIGHT = 0.32;
 const DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA = 0.35;
 const DEFAULT_ADAPTIVE_MAX_POINT_DELTA = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH = 4;
+const DEFAULT_MAX_FIELD_SAMPLES = 6_000_000;
 
 const TPMS_SURFACES = {
   gyroid: {
@@ -141,6 +142,7 @@ function tpmsOps(options = {}) {
     options.adaptiveMaxPointDelta ?? DEFAULT_ADAPTIVE_MAX_POINT_DELTA
   );
   const adaptiveMaxDepth = integer('adaptiveMaxDepth', options.adaptiveMaxDepth ?? DEFAULT_ADAPTIVE_MAX_DEPTH, 0);
+  const maxFieldSamples = positiveOrInfinity('maxFieldSamples', options.maxFieldSamples ?? DEFAULT_MAX_FIELD_SAMPLES);
   if (adaptiveMinLayerHeight - adaptiveMaxLayerHeight > EPS) {
     throw new Error('adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight');
   }
@@ -150,6 +152,13 @@ function tpmsOps(options = {}) {
   const height = cellsZ * cellSize;
   const nx = cellsX * samplesPerCell;
   const ny = cellsY * samplesPerCell;
+  assertTpmsBudget({
+    nx,
+    ny,
+    height,
+    sliceHeight: adaptive ? Math.min(layerHeight, adaptiveMinLayerHeight) : layerHeight,
+    maxFieldSamples,
+  });
   const dx = width / nx;
   const dy = depth / ny;
   const minPathLength = positiveOrZero('minPathLength', options.minPathLength ?? Math.min(dx, dy));
@@ -264,6 +273,17 @@ function layerSlice(zLocal, paths) {
     pointCount: paths.reduce((total, path) => total + path.points.length, 0),
     length: paths.reduce((total, path) => total + pathLength(path.points), 0),
   };
+}
+
+function assertTpmsBudget({ nx, ny, height, sliceHeight, maxFieldSamples }) {
+  if (!Number.isFinite(maxFieldSamples)) return;
+  const estimatedLayers = Math.ceil(height / sliceHeight) + 1;
+  const estimatedFieldSamples = (nx + 1) * (ny + 1) * estimatedLayers;
+  if (estimatedFieldSamples <= maxFieldSamples) return;
+  throw new Error(
+    `TPMS resolution budget exceeded (${Math.ceil(estimatedFieldSamples)} field samples > ${Math.ceil(maxFieldSamples)}). ` +
+      'Reduce samples/cells/cell height or raise the layer height.'
+  );
 }
 
 function rectanglePath(width, depth, inset) {
@@ -456,6 +476,11 @@ function positiveOrZero(name, value) {
   finite(name, value);
   if (value < 0) throw new Error(`${name} must be >= 0`);
   return value;
+}
+
+function positiveOrInfinity(name, value) {
+  if (value === Infinity) return value;
+  return positive(name, value);
 }
 
 function integer(name, value, min) {

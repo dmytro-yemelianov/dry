@@ -26,8 +26,9 @@ and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` ar
 The left panel has a **Source** selector. `Gallery design` loads fixed examples; `Printable star lattice`
 generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process controls
 using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field contour
-infill with surface, cell, sampling, layer and perimeter controls. All three sources feed the same
-viewer, g-code, metrics, optimize and verify panels.
+infill with surface, cell, sampling, layer, adaptive slicing and perimeter controls. TPMS generation uses
+a browser-side resolution budget, so oversized settings fail fast with an error instead of running a huge
+marching-squares job. All three sources feed the same viewer, g-code, metrics, optimize and verify panels.
 
 The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
@@ -138,7 +139,7 @@ cd .. && python3 -m http.server
 | `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
 | `designs.js` | demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
-| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers and optional adaptive bad-zone Z slicing |
+| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, and a preflight resolution budget |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
 | `patterns.js` | pure pattern generators shared by Blockly macros and no-browser regressions, currently the compact vase helix generator |
 | `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |

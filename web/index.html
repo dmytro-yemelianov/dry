@@ -546,6 +546,7 @@ const $ = (id) => document.getElementById(id);
         adaptive: $('tpmsAdaptive').checked,
         adaptiveMinLayerHeight: numValue('tpmsAdaptiveMin', 0.14),
         adaptiveMaxLayerHeight: numValue('tpmsAdaptiveMax', 0.28),
+        maxFieldSamples: 3_000_000,
       }),
     };
   }

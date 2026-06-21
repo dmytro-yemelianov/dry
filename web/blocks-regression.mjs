@@ -120,7 +120,9 @@ for (const id of [
 assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill perimeter toggle');
 assert(indexHtml.includes('id="tpmsAdaptive"'), 'TPMS generator missing adaptive slicing toggle');
 assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bead height should match layer height in the web app');
+assert(indexHtml.includes('maxFieldSamples: 3_000_000'), 'web TPMS generator should set an interactive resolution budget');
 assert(tpmsJs.includes('DEFAULT_LAYER_HEIGHT = 0.28'), 'TPMS generator should default to printable layer height');
+assert(tpmsJs.includes('DEFAULT_MAX_FIELD_SAMPLES'), 'TPMS generator missing resolution budget guard');
 assert(tpmsJs.includes('buildLayerSlices'), 'TPMS generator missing adaptive layer slicing');
 assert(tpmsJs.includes('needsAdaptiveLayer'), 'TPMS generator missing bad-zone adaptivity heuristic');
 
@@ -226,4 +228,14 @@ const adaptiveTpms = tpmsModule.tpmsOps({
   adaptive: true, adaptiveMinLayerHeight: 0.15, adaptiveMaxLayerHeight: 0.3,
 });
 assert(adaptiveTpms.length > coarseTpms.length, 'adaptive TPMS slicing should insert extra printable layers');
+let rejectedRunawayTpms = false;
+try {
+  tpmsModule.tpmsOps({
+    cellsX: 8, cellsY: 8, cellsZ: 8, cellSize: 80,
+    samplesPerCell: 64, layerHeight: 0.08, maxFieldSamples: 100_000,
+  });
+} catch (error) {
+  rejectedRunawayTpms = /TPMS resolution budget exceeded/.test(error.message || String(error));
+}
+assert(rejectedRunawayTpms, 'TPMS generator should reject runaway interactive resolutions');
 console.log(`Blockly regression checks passed (${templateCount} templates)`);
