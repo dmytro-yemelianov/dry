@@ -30,6 +30,12 @@ infill with surface, cell, sampling, layer, adaptive slicing and perimeter contr
 a browser-side resolution budget, so oversized settings fail fast with an error instead of running a huge
 marching-squares job. All three sources feed the same viewer, g-code, metrics, optimize and verify panels.
 
+The shared viewer has render-layer toggles for printed, planned, travel, toolhead and bed geometry, plus
+quality modes: `auto`, `fast lines`, `bead`, and `realistic bead`. `auto` uses bead geometry for normal
+jobs and switches large TPMS/toolpath previews to timed line geometry to avoid building huge WebGL meshes.
+The profile line reports resolve, G-code UI, geometry and frame timing so heavy cases can be separated
+into handling vs rendering costs.
+
 The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded rectangle (lines + four
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
 ~120-segment spiral vase, a non-planar cone vase, the collinear comb, four research lattice examples
@@ -136,7 +142,7 @@ cd .. && python3 -m http.server
 | `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |
 | `opportunities.html` | static product-directions webapp — slicer/CAD strategy, post-slicer Klipper review, G-code forensics, time-series analysis and LLM-assisted explanations |
 | `tool-ui.css` | shared responsive UI shell for the active gallery and Blockly app pages |
-| `viewer.js`  | shared ES module: three.js scene, width+height bead mesh + reveal shader, simulated playback, synced/explained g-code panel — imported by both pages |
+| `viewer.js`  | shared ES module: three.js scene, render-layer toggles, fast/bead/realistic toolpath geometry, simulated playback, synced/explained G-code panel and render profiling — imported by both pages |
 | `designs.js` | demo gallery as Dry L1 ops, each `{ label, group, tags, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
 | `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, and a preflight resolution budget |

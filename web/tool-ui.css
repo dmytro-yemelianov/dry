@@ -449,6 +449,22 @@ button {
 
 .metrics dd {
   color: var(--fg);
+  display: grid;
+  grid-template-columns: minmax(8ch, 1fr) minmax(4ch, auto);
+  gap: 6px;
+  align-items: baseline;
+  justify-content: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-number {
+  text-align: right;
+}
+
+.metric-unit {
+  min-width: 4ch;
+  color: var(--muted);
+  text-align: left;
 }
 
 #viewport {
@@ -480,6 +496,56 @@ body.blocks-page #viewport {
 .legend {
   align-items: center;
   flex-wrap: wrap;
+}
+
+.render-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.render-controls label {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(18, 24, 32, 0.62);
+}
+
+.render-controls input[type="checkbox"] {
+  margin: 0;
+}
+
+.render-controls .render-mode {
+  gap: 6px;
+  padding-right: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.render-controls select {
+  width: auto;
+  min-width: 116px;
+  margin: 0;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.render-profile {
+  min-height: 18px;
+  margin-top: 6px;
+  color: var(--muted-2);
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .swatch.extrude {
@@ -526,7 +592,7 @@ body.blocks-page #viewport {
 }
 
 #clock {
-  min-width: 78px;
+  min-width: 148px;
   font-size: 11px;
 }
 
@@ -568,6 +634,12 @@ body.blocks-page .gcode {
 
 .gline {
   line-height: 1.45;
+}
+
+.gline.omitted {
+  color: var(--muted-2);
+  cursor: default;
+  text-align: center;
 }
 
 .explain {

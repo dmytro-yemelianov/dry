@@ -246,6 +246,22 @@
       <span><span class="swatch travel"></span>travel</span>
       <span><span class="swatch toolhead"></span>toolhead</span>
     </div>
+    <div class="render-controls" id="renderControls" aria-label="Toolpath render controls">
+      <label><input type="checkbox" data-render-layer="printed" checked /> printed</label>
+      <label><input type="checkbox" data-render-layer="planned" checked /> planned</label>
+      <label><input type="checkbox" data-render-layer="travel" checked /> travel</label>
+      <label><input type="checkbox" data-render-layer="toolhead" checked /> toolhead</label>
+      <label><input type="checkbox" data-render-layer="bed" checked /> bed</label>
+      <label class="render-mode">quality
+        <select data-render-mode aria-label="Toolpath render quality">
+          <option value="auto" selected>auto</option>
+          <option value="fast">fast lines</option>
+          <option value="bead">bead</option>
+          <option value="realistic">realistic bead</option>
+        </select>
+      </label>
+    </div>
+    <div class="render-profile" id="renderProfile" aria-live="polite"></div>
     <div class="playback">
       <button id="resetView" class="reset-view" title="fit view" aria-label="Fit toolpath view">Fit</button>
       <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
@@ -285,6 +301,7 @@ const $ = (id) => document.getElementById(id);
     metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
     gcodeMetaEl: $('gcodeMeta'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
+    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
     getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
@@ -574,6 +591,7 @@ const $ = (id) => document.getElementById(id);
     $('metrics').replaceChildren();
     $('optimize').replaceChildren();
     $('findings').replaceChildren();
+    $('renderProfile').textContent = '';
   }
 
   const go = () => {

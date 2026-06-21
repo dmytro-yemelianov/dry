@@ -61,6 +61,13 @@ assert(viewerJs.includes("className = 'speed-select'"), 'speed controls should u
 assert(!viewerJs.includes("1× realtime"), 'speed controls should use compact labels');
 assert(viewerJs.includes('uGhostAlpha'), 'viewer should render unprinted bead geometry with partial transparency');
 assert(viewerJs.includes('transparent: true'), 'viewer bead material should support printed/planned alpha');
+assert(viewerJs.includes('formatDuration'), 'viewer should format time as human-readable duration');
+assert(viewerJs.includes('metric-number'), 'viewer metrics should split numeric values from units');
+assert(viewerJs.includes('MAX_GCODE_DOM_ROWS'), 'viewer should cap large G-code DOM rendering');
+assert(viewerJs.includes('AUTO_MESH_MOVE_LIMIT'), 'viewer should auto-fallback for large render meshes');
+assert(viewerJs.includes('buildRoundedBeads'), 'viewer should expose realistic rounded bead rendering');
+assert(viewerJs.includes('buildTimedLineGeometry'), 'viewer should cache timed line geometry for large/travel paths');
+assert(viewerJs.includes('window.__dryProfile'), 'viewer should expose handling/rendering profile data');
 assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-code panel for active lines');
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
@@ -81,12 +88,22 @@ assert(blocksHtml.includes('id="cleanBlocks"'), 'blocks page missing clean works
 assert(blocksHtml.includes('zoomToFit'), 'blocks page should fit loaded templates into view');
 assert(indexHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'gallery legend should expose planned/unprinted geometry');
 assert(blocksHtml.includes('<span><span class="swatch planned"></span>planned</span>'), 'blocks legend should expose planned/unprinted geometry');
+for (const source of [indexHtml, blocksHtml]) {
+  for (const layer of ['printed', 'planned', 'travel', 'toolhead', 'bed']) {
+    assert(source.includes(`data-render-layer="${layer}"`), `render controls missing ${layer} toggle`);
+  }
+  assert(source.includes('data-render-mode'), 'render controls missing render quality selector');
+  assert(source.includes('id="renderProfile"'), 'render profile output is missing');
+}
 assert(toolUiCss.includes('@media (max-width: 700px)'), 'shared UI stylesheet missing mobile breakpoint');
 assert(toolUiCss.includes('grid-template-columns: 1fr'), 'mobile nav should collapse to one column');
 assert(toolUiCss.includes('touch-action: none'), 'viewport should reserve pointer gestures for toolpath controls');
 assert(toolUiCss.includes('overscroll-behavior: contain'), 'viewport should contain wheel/scroll gestures');
 assert(toolUiCss.includes('.playback .speeds'), 'shared UI stylesheet should compact speed controls into playback strip');
 assert(toolUiCss.includes('grid-template-columns: auto auto minmax(80px, 1fr) auto'), 'mobile playback controls should stay compact');
+assert(toolUiCss.includes('.metric-unit'), 'shared UI stylesheet should keep metric units after values');
+assert(toolUiCss.includes('.render-controls'), 'shared UI stylesheet should style render layer toggles');
+assert(toolUiCss.includes('.render-profile'), 'shared UI stylesheet should style render profile output');
 assert(indexHtml.includes('id="source"'), 'web app missing source selector');
 assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
 assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');

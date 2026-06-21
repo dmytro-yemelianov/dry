@@ -23,6 +23,9 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const TAU = Math.PI * 2;
 const SPLINE_SAMPLES = 16;
 const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
+const AUTO_MESH_MOVE_LIMIT = 12000;
+const ROUNDED_BEAD_SEGMENTS = 10;
+const MAX_GCODE_DOM_ROWS = 8000;
 const VIEW_PANELS = [
   { key: 'iso', label: 'Iso' },
   { key: 'top', label: 'Top' },
@@ -31,6 +34,39 @@ const VIEW_PANELS = [
 ];
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
 const cleanClass = (v) => String(v || '').replace(/[^a-z0-9_-]/gi, '');
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0 s';
+  if (seconds < 1) return `${seconds.toFixed(2)} s`;
+  const rounded = Math.round(seconds);
+  const h = Math.floor(rounded / 3600);
+  const m = Math.floor((rounded % 3600) / 60);
+  const s = rounded % 60;
+  if (h > 0) return `${h} h ${String(m).padStart(2, '0')} min${s ? ` ${String(s).padStart(2, '0')} s` : ''}`;
+  if (m > 0) return `${m} min ${String(s).padStart(2, '0')} s`;
+  return `${s} s`;
+}
+
+function appendMetric(parent, label, value, unit = '') {
+  const dt = document.createElement('dt');
+  dt.textContent = label;
+  const dd = document.createElement('dd');
+  const number = document.createElement('span');
+  number.className = 'metric-number';
+  number.textContent = String(value);
+  const unitEl = document.createElement('span');
+  unitEl.className = 'metric-unit';
+  unitEl.textContent = unit;
+  dd.append(number, unitEl);
+  parent.append(dt, dd);
+}
+
+function measure(profile, key, fn) {
+  const t0 = performance.now();
+  const value = fn();
+  profile[key] = performance.now() - t0;
+  return value;
+}
 
 // ---- g-code explanation ----
 const CMD_DESC = {
@@ -140,7 +176,7 @@ const lerp = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a
 // Build one merged mesh of bead boxes: each extruding move becomes a rectangular prism of its bead
 // cross-section (width × height) oriented along the move, carrying a per-vertex `aTime` so the reveal
 // shader can light up the printed portion.
-function buildBeads(moves) {
+function buildBoxBeads(moves) {
   const pos = [], nrm = [], tim = [], UP = [0, 0, 1];
   const push = (p, n, t) => { pos.push(p[0], p[1], p[2]); nrm.push(n[0], n[1], n[2]); tim.push(t); };
   const quad = (a, b, c, d, n, ta, tb, tc, td) => {
@@ -172,14 +208,77 @@ function buildBeads(moves) {
   return g;
 }
 
+function buildRoundedBeads(moves, radialSegments = ROUNDED_BEAD_SEGMENTS) {
+  const pos = [], nrm = [], tim = [], UP = [0, 0, 1];
+  const push = (p, n, t) => { pos.push(p[0], p[1], p[2]); nrm.push(n[0], n[1], n[2]); tim.push(t); };
+  const tri = (a, b, c, na, nb, nc, ta, tb, tc) => {
+    push(a, na, ta); push(b, nb, tb); push(c, nc, tc);
+  };
+  const rings = Math.max(6, radialSegments);
+  for (const m of moves) {
+    if (!m.from || m.travel) continue;
+    const p0 = m.from, p1 = m.to, d = vsub(p1, p0), len = vlen(d);
+    if (len < 1e-9) continue;
+    const dir = [d[0] / len, d[1] / len, d[2] / len];
+    let side = vcross(dir, UP); if (vlen(side) < 1e-6) side = vcross(dir, [1, 0, 0]);
+    side = vnorm(side); const vn = vnorm(vcross(side, dir));
+    const hw = (m.w || 0.6) / 2, hh = (m.h || 0.2) / 2;
+    const ring0 = [], ring1 = [], normals = [];
+    for (let i = 0; i < rings; i++) {
+      const a = (i / rings) * TAU;
+      const sx = Math.cos(a), uz = Math.sin(a);
+      const normal = vnorm([side[0] * sx + vn[0] * uz, side[1] * sx + vn[1] * uz, side[2] * sx + vn[2] * uz]);
+      normals.push(normal);
+      const offset = [side[0] * hw * sx + vn[0] * hh * uz, side[1] * hw * sx + vn[1] * hh * uz, side[2] * hw * sx + vn[2] * hh * uz];
+      ring0.push([p0[0] + offset[0], p0[1] + offset[1], p0[2] + offset[2]]);
+      ring1.push([p1[0] + offset[0], p1[1] + offset[1], p1[2] + offset[2]]);
+    }
+    for (let i = 0; i < rings; i++) {
+      const j = (i + 1) % rings;
+      tri(ring0[i], ring1[i], ring1[j], normals[i], normals[i], normals[j], m.t0, m.t1, m.t1);
+      tri(ring0[i], ring1[j], ring0[j], normals[i], normals[j], normals[j], m.t0, m.t1, m.t0);
+      tri(p0, ring0[j], ring0[i], [-dir[0], -dir[1], -dir[2]], [-dir[0], -dir[1], -dir[2]], [-dir[0], -dir[1], -dir[2]], m.t0, m.t0, m.t0);
+      tri(p1, ring1[i], ring1[j], dir, dir, dir, m.t1, m.t1, m.t1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('aTime', new THREE.Float32BufferAttribute(tim, 1));
+  return g;
+}
+
+function buildTimedLineGeometry(moves, predicate) {
+  const pos = [], endTimes = [];
+  for (const m of moves) {
+    if (!m.from || !predicate(m)) continue;
+    pos.push(...m.from, ...m.to);
+    endTimes.push(m.t1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return { geometry: g, endTimes, vertexCount: pos.length / 3 };
+}
+
+function completedTimedSegments(endTimes, t) {
+  let lo = 0, hi = endTimes.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (endTimes[mid] <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 export function createViewer(cfg) {
   const {
     viewportEl, gcodeEl, explainEl, metricsEl, optimizeEl, verifyEl, gcodeMetaEl,
-    playEl, scrubEl, clockEl, speedsEl, resetViewEl, wasm, params,
+    playEl, scrubEl, clockEl, speedsEl, resetViewEl, renderControlsEl, renderProfileEl, wasm, params,
     getMaxFlow = () => 0, getMinTemp = () => 0,
   } = cfg;
 
-  const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const clock = (s) => formatDuration(s);
+  const R = { printed: true, planned: true, travel: true, toolhead: true, bed: true, mode: 'auto', effectiveMode: 'bead' };
 
   function showExplain(line) {
     if (!explainEl) return;
@@ -219,7 +318,7 @@ export function createViewer(cfg) {
   }
 
   // ---- playback state ----
-  const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [], segStart: [], segEnd: [], activeRow: null };
+  const P = { t: 0, totalT: 0, playing: false, speed: 1, moves: [], moveEndTimes: [], segStart: [], segEnd: [], activeRow: null };
   let GLINES = [], GROWS = [];
 
   // ---- three.js scene ----
@@ -228,10 +327,13 @@ export function createViewer(cfg) {
     const el = viewportEl;
     if (!el.hasAttribute('tabindex')) el.tabIndex = 0;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x161b22);
+    scene.background = new THREE.Color(0x101820);
     const cameras = new Map(VIEW_PANELS.map(({ key }) => {
       const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
       camera.up.set(0, 0, 1);
@@ -260,9 +362,10 @@ export function createViewer(cfg) {
     }, { capture: true, passive: false });
     controls.addEventListener('start', () => el.classList.add('is-dragging'));
     controls.addEventListener('end', () => el.classList.remove('is-dragging'));
-    controls.addEventListener('change', exposeDebugState);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(0.5, -1, 1.6); scene.add(dl);
+    controls.addEventListener('change', () => { V.needsRender = true; exposeDebugState(); });
+    scene.add(new THREE.HemisphereLight(0xddeeff, 0x17202a, 0.82));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.15); dl.position.set(0.5, -1, 1.6); scene.add(dl);
+    const fill = new THREE.DirectionalLight(0x8ecbff, 0.28); fill.position.set(-1.4, 0.7, 0.8); scene.add(fill);
 
     const beadUniforms = {
       uTime: { value: 0 },
@@ -271,8 +374,10 @@ export function createViewer(cfg) {
       uPrintedAlpha: { value: 1 },
       uGhostAlpha: { value: 0.2 },
     };
-    const beadMat = new THREE.MeshLambertMaterial({
+    const beadMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
+      roughness: 0.58,
+      metalness: 0.02,
       side: THREE.DoubleSide,
       transparent: true,
       depthWrite: false,
@@ -289,6 +394,10 @@ export function createViewer(cfg) {
         );
     };
     const beads = new THREE.Mesh(new THREE.BufferGeometry(), beadMat);
+    const extrudeGhost = new THREE.LineSegments(new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x8ecbff, transparent: true, opacity: 0.22 }));
+    const extrudePrint = new THREE.LineSegments(new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.92 }));
 
     const ghostT = new THREE.LineSegments(new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ color: 0xf85149, transparent: true, opacity: 0.18 }));
@@ -296,7 +405,7 @@ export function createViewer(cfg) {
       new THREE.LineBasicMaterial({ color: 0xf85149, transparent: true, opacity: 0.6 }));
     const head = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0x3fb950 }));
-    scene.add(beads, ghostT, printT, head);
+    scene.add(beads, extrudeGhost, extrudePrint, ghostT, printT, head);
 
     const viewGrid = document.createElement('div');
     viewGrid.className = 'view-grid-labels';
@@ -315,23 +424,39 @@ export function createViewer(cfg) {
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h, false);
+      V.needsRender = true;
     }
     const resizeObserver = new ResizeObserver(() => resize());
     resizeObserver.observe(el);
     Object.assign(V, {
       ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
-      ghostT, printT, head, grid: null, resize, inputStats,
+      extrudeGhost, extrudePrint, ghostT, printT, head, grid: null, resize, inputStats,
+      extrudeEndTimes: [], travelEndTimes: [], renderStats: null, showProfile: null,
+      needsRender: true,
     });
     positionViewCameras({ saveState: true });
     let last = performance.now();
+    let lastRenderedT = -1;
     function frame(now) {
       const dtReal = (now - last) / 1000; last = now;
+      let timeChanged = false;
       if (P.playing && P.totalT > 0) {
         P.t += dtReal * P.speed;
         if (P.t >= P.totalT) { P.t = P.totalT; P.playing = false; if (playEl) playEl.textContent = '▶'; }
         syncPlayUI();
+        timeChanged = true;
       }
-      updatePrinted(); updateActiveLine(); controls.update(); renderViews();
+      const controlsChanged = controls.update();
+      if (timeChanged || Math.abs(P.t - lastRenderedT) > 1e-6) {
+        updatePrinted();
+        updateActiveLine();
+        lastRenderedT = P.t;
+        V.needsRender = true;
+      }
+      if (V.needsRender || controlsChanged) {
+        V.needsRender = false;
+        renderViews();
+      }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -354,6 +479,7 @@ export function createViewer(cfg) {
 
   function renderViews() {
     if (!V.ready) return;
+    const t0 = performance.now();
     const width = V.renderer.domElement.width;
     const height = V.renderer.domElement.height;
     if (!width || !height) return;
@@ -368,6 +494,11 @@ export function createViewer(cfg) {
       V.renderer.render(V.scene, camera);
     }
     V.renderer.setScissorTest(false);
+    V.lastRenderMs = performance.now() - t0;
+    if (V.profileDirty) {
+      V.profileDirty = false;
+      updateRenderProfile();
+    }
     window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
     exposeDebugState();
   }
@@ -384,7 +515,20 @@ export function createViewer(cfg) {
       controlsElement: V.controls ? (V.controls.domElement.id || V.controls.domElement.tagName) : null,
       inputStats: V.inputStats || null,
       modelRevision: V.modelRevision || 0,
+      render: V.renderStats || null,
     };
+  }
+
+  function moveIndexAt(t) {
+    const times = P.moveEndTimes;
+    if (!times.length) return -1;
+    let lo = 0, hi = times.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (t <= times[mid]) hi = mid;
+      else lo = mid + 1;
+    }
+    return lo;
   }
 
   function positionViewCameras(options = {}) {
@@ -415,6 +559,7 @@ export function createViewer(cfg) {
     }
     V.controls.update();
     if (saveState && typeof V.controls.saveState === 'function') V.controls.saveState();
+    V.needsRender = true;
     window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
     exposeDebugState();
   }
@@ -429,23 +574,107 @@ export function createViewer(cfg) {
     V.controls.update();
     V.controls.enableDamping = wasDamping;
     updatePrinted();
+    V.needsRender = true;
     renderViews();
   }
 
-  function setLine(obj, flat) {
-    obj.geometry.dispose();
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(flat, 3));
-    obj.geometry = g;
+  function replaceGeometry(obj, geometry) {
+    if (obj.geometry && obj.geometry !== geometry) obj.geometry.dispose();
+    obj.geometry = geometry;
+  }
+
+  function chooseRenderMode(moves) {
+    const extrudingMoves = moves.reduce((count, m) => count + (m.from && !m.travel ? 1 : 0), 0);
+    if (R.mode === 'auto') return extrudingMoves > AUTO_MESH_MOVE_LIMIT ? 'fast' : 'bead';
+    return R.mode;
+  }
+
+  function rebuildMotionGeometry(moves) {
+    const profile = {};
+    const effectiveMode = chooseRenderMode(moves);
+    R.effectiveMode = effectiveMode;
+    const extrudingMoves = moves.reduce((count, m) => count + (m.from && !m.travel ? 1 : 0), 0);
+    const travelMoves = moves.reduce((count, m) => count + (m.from && m.travel ? 1 : 0), 0);
+
+    if (effectiveMode === 'fast') {
+      replaceGeometry(V.beads, new THREE.BufferGeometry());
+      const extrude = measure(profile, 'extrudeLineGeometryMs', () => buildTimedLineGeometry(moves, (m) => !m.travel));
+      replaceGeometry(V.extrudeGhost, extrude.geometry);
+      const extrudePrint = buildTimedLineGeometry(moves, (m) => !m.travel);
+      replaceGeometry(V.extrudePrint, extrudePrint.geometry);
+      V.extrudeEndTimes = extrude.endTimes;
+    } else {
+      replaceGeometry(V.extrudeGhost, new THREE.BufferGeometry());
+      replaceGeometry(V.extrudePrint, new THREE.BufferGeometry());
+      V.extrudeEndTimes = [];
+      replaceGeometry(V.beads, measure(profile, 'beadGeometryMs', () =>
+        effectiveMode === 'realistic' ? buildRoundedBeads(moves) : buildBoxBeads(moves)));
+      V.beadUniforms.uTime.value = P.t;
+    }
+
+    const travel = measure(profile, 'travelGeometryMs', () => buildTimedLineGeometry(moves, (m) => m.travel));
+    const travelPrint = buildTimedLineGeometry(moves, (m) => m.travel);
+    replaceGeometry(V.ghostT, travel.geometry);
+    replaceGeometry(V.printT, travelPrint.geometry);
+    V.travelEndTimes = travel.endTimes;
+
+    const beadVerts = V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0;
+    const extrudeLineVerts = V.extrudeGhost.geometry.attributes.position ? V.extrudeGhost.geometry.attributes.position.count : 0;
+    const travelLineVerts = V.ghostT.geometry.attributes.position ? V.ghostT.geometry.attributes.position.count : 0;
+    V.renderStats = {
+      requestedMode: R.mode,
+      effectiveMode,
+      moves: moves.length,
+      extrudingMoves,
+      travelMoves,
+      beadVerts,
+      extrudeLineVerts,
+      travelLineVerts,
+      ...profile,
+    };
+    applyRenderVisibility();
+    updateRenderProfile();
+  }
+
+  function applyRenderVisibility() {
+    if (!V.ready) return;
+    const meshMode = R.effectiveMode !== 'fast';
+    V.beads.visible = meshMode && (R.printed || R.planned);
+    V.beadUniforms.uPrintedAlpha.value = R.printed ? 1 : 0;
+    V.beadUniforms.uGhostAlpha.value = R.planned ? 0.2 : 0;
+    V.extrudeGhost.visible = !meshMode && R.planned;
+    V.extrudePrint.visible = !meshMode && R.printed;
+    V.ghostT.visible = R.travel && R.planned;
+    V.printT.visible = R.travel && R.printed;
+    V.head.visible = R.toolhead;
+    if (V.grid) V.grid.visible = R.bed;
+    V.needsRender = true;
+  }
+
+  function updateRenderProfile() {
+    if (!renderProfileEl || !V.renderStats) return;
+    const s = V.renderStats;
+    const mode = s.requestedMode === 'auto' ? `auto → ${s.effectiveMode}` : s.effectiveMode;
+    const geomMs = (s.beadGeometryMs ?? s.extrudeLineGeometryMs ?? 0) + (s.travelGeometryMs ?? 0);
+    const renderMs = Number.isFinite(V.lastRenderMs) ? ` · frame ${V.lastRenderMs.toFixed(1)} ms` : '';
+    const show = V.showProfile || {};
+    const resolveMs = (show.resolveGcodeMs || 0) + (show.resolveMetricsMs || 0) +
+      (show.resolveIrMs || 0) + (show.resolveOptimizedIrMs || 0) + (show.resolveVerifyMs || 0);
+    const handling = resolveMs > 0 ? ` · resolve ${resolveMs.toFixed(1)} ms · g-code UI ${(show.gcodeDomMs || 0).toFixed(1)} ms` : '';
+    renderProfileEl.textContent =
+      `render ${mode} · ${s.moves.toLocaleString()} moves · ${s.extrudingMoves.toLocaleString()} print / ` +
+      `${s.travelMoves.toLocaleString()} travel · geometry ${geomMs.toFixed(1)} ms${handling}${renderMs}`;
   }
 
   function setModel(ir, options = {}) {
+    const profile = {};
     const preserveState = Boolean(options.preserveState && V.hasModel);
     const previousRatio = P.totalT > 0 ? Math.min(1, Math.max(0, P.t / P.totalT)) : 0;
     const wasPlaying = P.playing;
     const previousCenter = V.modelCenter ? [...V.modelCenter] : [0, 0, 0];
-    const { moves, totalT } = buildMoves(ir);
+    const { moves, totalT } = measure(profile, 'buildMovesMs', () => buildMoves(ir));
     P.moves = moves;
+    P.moveEndTimes = moves.map((m) => m.t1);
     P.totalT = totalT;
     P.t = preserveState ? previousRatio * totalT : 0;
     P.playing = preserveState && wasPlaying && totalT > 0 && P.t < totalT;
@@ -454,8 +683,8 @@ export function createViewer(cfg) {
     P.segStart = []; P.segEnd = [];
     for (const m of moves) { if (P.segStart[m.line] === undefined) P.segStart[m.line] = m.t0; P.segEnd[m.line] = m.t1; }
 
-    V.beads.geometry.dispose();
-    V.beads.geometry = buildBeads(moves);
+    rebuildMotionGeometry(moves);
+    V.renderStats = { ...(V.renderStats || {}), ...profile };
     V.beadUniforms.uTime.value = P.t;
 
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
@@ -474,6 +703,7 @@ export function createViewer(cfg) {
     grid.position.set(c[0], c[1], plateZ);
     V.grid = grid; V.scene.add(grid);
     V.head.scale.setScalar(size * 0.012 + 0.05);
+    if (V.grid) V.grid.visible = R.bed;
     if (preserveState) {
       const delta = [
         V.modelCenter[0] - previousCenter[0],
@@ -487,24 +717,21 @@ export function createViewer(cfg) {
     positionViewCameras({ saveState: !preserveState, preserveIso: preserveState });
     V.hasModel = true;
     V.modelRevision = (V.modelRevision || 0) + 1;
+    V.profileDirty = true;
     V.resize(); updatePrinted(); syncPlayUI();
   }
 
   function headPos() {
     const ms = P.moves; if (!ms.length) return [0, 0, 0];
-    for (const m of ms) {
-      if (P.t <= m.t1 || m === ms[ms.length - 1]) {
-        const to = m.to, from = m.from || to;
-        const f = m.t1 > m.t0 ? Math.min(1, Math.max(0, (P.t - m.t0) / (m.t1 - m.t0))) : 1;
-        return lerp(from, to, f);
-      }
-    }
-    return ms[ms.length - 1].to;
+    const m = ms[Math.max(0, moveIndexAt(P.t))] || ms[ms.length - 1];
+    const to = m.to, from = m.from || to;
+    const f = m.t1 > m.t0 ? Math.min(1, Math.max(0, (P.t - m.t0) / (m.t1 - m.t0))) : 1;
+    return lerp(from, to, f);
   }
   function activeSegAt(t) {
     const ms = P.moves; if (!ms.length) return null;
-    for (const m of ms) if (t <= m.t1) return m.line;
-    return ms[ms.length - 1].line;
+    const idx = moveIndexAt(t);
+    return idx >= 0 ? ms[idx].line : ms[ms.length - 1].line;
   }
 
   function keepLineVisible(row) {
@@ -520,17 +747,14 @@ export function createViewer(cfg) {
   function updatePrinted() {
     const t = P.t;
     V.beadUniforms.uTime.value = t;
-    const pt = [], rt = [];
-    for (const m of P.moves) {
-      if (!m.from || !m.travel) continue;
-      if (m.t1 <= t) pt.push(...m.from, ...m.to);
-      else if (m.t0 >= t) rt.push(...m.from, ...m.to);
-      else { const f = m.t1 > m.t0 ? (t - m.t0) / (m.t1 - m.t0) : 1, mid = lerp(m.from, m.to, f); pt.push(...m.from, ...mid); rt.push(...mid, ...m.to); }
-    }
-    setLine(V.printT, pt); setLine(V.ghostT, rt);
+    const completedExtrude = completedTimedSegments(V.extrudeEndTimes || [], t);
+    const completedTravel = completedTimedSegments(V.travelEndTimes || [], t);
+    V.extrudePrint.geometry.setDrawRange(0, completedExtrude * 2);
+    V.printT.geometry.setDrawRange(0, completedTravel * 2);
     const h = headPos(); V.head.position.set(h[0], h[1], h[2]);
     window.__lines = { beadVerts: V.beads.geometry.attributes.position ? V.beads.geometry.attributes.position.count : 0,
-                       uTime: t, printedTravel: pt.length / 6, plateZ: V.grid ? V.grid.position.z : null,
+                       uTime: t, printedTravel: completedTravel, plateZ: V.grid ? V.grid.position.z : null,
+                       extrudePreview: R.effectiveMode === 'fast',
                        ghostAlpha: V.beadUniforms.uGhostAlpha.value,
                        printedAlpha: V.beadUniforms.uPrintedAlpha.value };
   }
@@ -539,7 +763,13 @@ export function createViewer(cfg) {
     if (seg === P.activeRow) return;
     if (P.activeRow != null && GROWS[P.activeRow]) GROWS[P.activeRow].classList.remove('active');
     P.activeRow = seg;
-    if (seg != null && GROWS[seg]) { GROWS[seg].classList.add('active'); keepLineVisible(GROWS[seg]); showExplain(GLINES[seg]); }
+    if (seg != null) {
+      if (GROWS[seg]) {
+        GROWS[seg].classList.add('active');
+        keepLineVisible(GROWS[seg]);
+      }
+      showExplain(GLINES[seg]);
+    }
   }
 
   function syncPlayUI() {
@@ -581,49 +811,97 @@ export function createViewer(cfg) {
     speedsEl.appendChild(select);
   }
 
+  function bindRenderControls() {
+    if (!renderControlsEl) return;
+    const mode = renderControlsEl.querySelector('[data-render-mode]');
+    const sync = (rebuild = false) => {
+      for (const input of renderControlsEl.querySelectorAll('[data-render-layer]')) {
+        R[input.dataset.renderLayer] = input.checked;
+      }
+      if (mode) R.mode = mode.value || 'auto';
+      if (rebuild && V.hasModel) {
+        rebuildMotionGeometry(P.moves);
+        V.profileDirty = true;
+      }
+      applyRenderVisibility();
+      updatePrinted();
+      renderViews();
+      syncPlayUI();
+    };
+    for (const input of renderControlsEl.querySelectorAll('[data-render-layer]')) {
+      input.checked = R[input.dataset.renderLayer] !== false;
+      input.addEventListener('change', () => sync(false));
+    }
+    if (mode) {
+      mode.value = R.mode;
+      mode.addEventListener('change', () => sync(true));
+    }
+    sync(false);
+  }
+
+  function renderGcodeLines(gcode) {
+    if (!gcodeEl) return;
+    gcodeEl.replaceChildren();
+    GROWS = [];
+    const fragment = document.createDocumentFragment();
+    const addLine = (i) => {
+      const row = document.createElement('div');
+      row.className = 'gline';
+      row.dataset.i = String(i);
+      const ln = document.createElement('span');
+      ln.className = 'ln';
+      ln.textContent = String(i + 1);
+      row.append(ln, gcode[i]);
+      GROWS[i] = row;
+      fragment.appendChild(row);
+    };
+    if (gcode.length <= MAX_GCODE_DOM_ROWS) {
+      for (let i = 0; i < gcode.length; i++) addLine(i);
+    } else {
+      const keepHead = Math.floor(MAX_GCODE_DOM_ROWS * 0.58);
+      const keepTail = MAX_GCODE_DOM_ROWS - keepHead;
+      for (let i = 0; i < keepHead; i++) addLine(i);
+      const omitted = document.createElement('div');
+      omitted.className = 'gline omitted';
+      omitted.textContent = `… ${gcode.length - keepHead - keepTail} generated lines omitted in the browser panel …`;
+      fragment.appendChild(omitted);
+      for (let i = gcode.length - keepTail; i < gcode.length; i++) addLine(i);
+    }
+    gcodeEl.appendChild(fragment);
+  }
+
   // ---- resolve an ops array + render every panel ----
   function show(ops, relativeE = true) {
+    const profile = { ops: ops.length };
     const opsJson = JSON.stringify(ops), paramsJson = JSON.stringify(params);
-    const gcode = wasm.resolve_gcode(opsJson, paramsJson, relativeE, false, false, 'ab');
-    const m = JSON.parse(wasm.resolve_metrics(opsJson, paramsJson));
-    const ir = JSON.parse(wasm.resolve_ir(opsJson, paramsJson));
-    const optimizedIr = JSON.parse(wasm.resolve_optimized_ir(opsJson, paramsJson));
+    const gcode = measure(profile, 'resolveGcodeMs', () => wasm.resolve_gcode(opsJson, paramsJson, relativeE, false, false, 'ab'));
+    const m = measure(profile, 'resolveMetricsMs', () => JSON.parse(wasm.resolve_metrics(opsJson, paramsJson)));
+    const ir = measure(profile, 'resolveIrMs', () => JSON.parse(wasm.resolve_ir(opsJson, paramsJson)));
+    const optimizedIr = measure(profile, 'resolveOptimizedIrMs', () => JSON.parse(wasm.resolve_optimized_ir(opsJson, paramsJson)));
 
     GLINES = gcode;
-    if (gcodeEl) {
-      gcodeEl.replaceChildren();
-      for (const [i, line] of gcode.entries()) {
-        const row = document.createElement('div');
-        row.className = 'gline';
-        row.dataset.i = String(i);
-        const ln = document.createElement('span');
-        ln.className = 'ln';
-        ln.textContent = String(i + 1);
-        row.append(ln, line);
-        gcodeEl.appendChild(row);
-      }
-      GROWS = [...gcodeEl.querySelectorAll('.gline')];
+    measure(profile, 'gcodeDomMs', () => renderGcodeLines(gcode));
+    if (gcodeMetaEl) {
+      const shown = Math.min(gcode.length, MAX_GCODE_DOM_ROWS);
+      gcodeMetaEl.textContent = `${gcode.length.toLocaleString()} motion lines` +
+        (shown < gcode.length ? ` · showing ${shown.toLocaleString()}` : '') +
+        ` · ${relativeE ? 'relative' : 'absolute'} E`;
     }
-    if (gcodeMetaEl) gcodeMetaEl.textContent = `${gcode.length} motion lines · ${relativeE ? 'relative' : 'absolute'} E`;
     showExplain(gcode[0]);
 
     if (metricsEl) {
       metricsEl.replaceChildren();
-      for (const [k, v] of [
-        ['segments', m.segment_count], ['print time (s)', fmt(m.print_time_s)],
-        ['travel time (s)', fmt(m.travel_time_s)], ['total time (s)', fmt(m.total_time_s)],
-        ['extruded vol (mm³)', fmt(m.extruded_volume)], ['filament (mm)', fmt(m.filament_length)],
-        ['extrude dist (mm)', fmt(m.extruding_distance)], ['max flow (mm³/s)', fmt(m.max_flow_rate)],
-      ]) {
-        const dt = document.createElement('dt');
-        dt.textContent = k;
-        const dd = document.createElement('dd');
-        dd.textContent = String(v);
-        metricsEl.append(dt, dd);
-      }
+      appendMetric(metricsEl, 'segments', m.segment_count.toLocaleString(), 'segments');
+      appendMetric(metricsEl, 'print time', formatDuration(m.print_time_s));
+      appendMetric(metricsEl, 'travel time', formatDuration(m.travel_time_s));
+      appendMetric(metricsEl, 'total time', formatDuration(m.total_time_s));
+      appendMetric(metricsEl, 'extruded vol', fmt(m.extruded_volume), 'mm³');
+      appendMetric(metricsEl, 'filament', fmt(m.filament_length), 'mm');
+      appendMetric(metricsEl, 'extrude dist', fmt(m.extruding_distance), 'mm');
+      appendMetric(metricsEl, 'max flow', fmt(m.max_flow_rate), 'mm³/s');
     }
 
-    setModel(ir, { preserveState: V.hasModel });
+    measure(profile, 'setModelMs', () => setModel(ir, { preserveState: V.hasModel }));
 
     if (optimizeEl) {
       const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
@@ -641,7 +919,8 @@ export function createViewer(cfg) {
       const bounds = cfg.getBounds ? cfg.getBounds() : '';
       const monotonicZ = cfg.getMonotonicZ ? cfg.getMonotonicZ() : false;
       const speedRange = cfg.getSpeedRange ? cfg.getSpeedRange() : '';
-      report = JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp, bounds, monotonicZ, speedRange));
+      report = measure(profile, 'resolveVerifyMs', () =>
+        JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp, bounds, monotonicZ, speedRange)));
       const findings = report.findings || [];
       verifyEl.replaceChildren();
       if (findings.length) {
@@ -671,15 +950,19 @@ export function createViewer(cfg) {
 
     window.__dry = { gcode, metrics: m, ir, optimizedIr,
                      rawSegments: ir.segments.length, optimizedSegments: optimizedIr.segments.length, report };
+    window.__dryProfile = { ...(V.renderStats || {}), ...profile };
+    V.showProfile = window.__dryProfile;
+    updateRenderProfile();
     return window.__dry;
   }
 
   // ---- wire up interaction ----
   initScene();
   buildSpeedButtons();
+  bindRenderControls();
   if (gcodeEl) {
-    gcodeEl.addEventListener('click', (e) => { const r = e.target.closest('.gline'); if (r) seekToLine(+r.dataset.i); });
-    gcodeEl.addEventListener('mouseover', (e) => { const r = e.target.closest('.gline'); if (r) showExplain(GLINES[+r.dataset.i]); });
+    gcodeEl.addEventListener('click', (e) => { const r = e.target.closest('.gline[data-i]'); if (r) seekToLine(+r.dataset.i); });
+    gcodeEl.addEventListener('mouseover', (e) => { const r = e.target.closest('.gline[data-i]'); if (r) showExplain(GLINES[+r.dataset.i]); });
   }
   if (playEl) playEl.addEventListener('click', () => {
     if (P.totalT <= 0) return;
