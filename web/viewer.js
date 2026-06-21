@@ -23,10 +23,11 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const TAU = Math.PI * 2;
 const SPLINE_SAMPLES = 16;
 const SPEEDS = [0.25, 0.5, 1, 4, 16, 64];
-const VIEW_PRESETS = [
-  { key: 'iso', label: 'Iso', title: 'Isometric view' },
-  { key: 'top', label: 'Top', title: 'Top XY view' },
-  { key: 'side', label: 'Side', title: 'Side XZ profile view' },
+const VIEW_PANELS = [
+  { key: 'iso', label: 'Iso' },
+  { key: 'top', label: 'Top' },
+  { key: 'front', label: 'Front' },
+  { key: 'side', label: 'Side' },
 ];
 const fmt = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : v);
 const cleanClass = (v) => String(v || '').replace(/[^a-z0-9_-]/gi, '');
@@ -222,7 +223,7 @@ export function createViewer(cfg) {
   let GLINES = [], GROWS = [];
 
   // ---- three.js scene ----
-  const V = { ready: false, viewPreset: 'iso', modelCenter: [0, 0, 0], modelSize: 10 };
+  const V = { ready: false, modelCenter: [0, 0, 0], modelSize: 10 };
   function initScene() {
     const el = viewportEl;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -230,9 +231,12 @@ export function createViewer(cfg) {
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x161b22);
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
-    camera.up.set(0, 0, 1);
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const cameras = new Map(VIEW_PANELS.map(({ key }) => {
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
+      camera.up.set(0, 0, 1);
+      return [key, camera];
+    }));
+    const controls = new OrbitControls(cameras.get('iso'), renderer.domElement);
     controls.enableDamping = true;
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(0.5, -1, 1.6); scene.add(dl);
@@ -257,36 +261,31 @@ export function createViewer(cfg) {
       new THREE.MeshBasicMaterial({ color: 0x3fb950 }));
     scene.add(beads, ghostT, printT, head);
 
-    const viewSwitcher = document.createElement('div');
-    viewSwitcher.className = 'view-switcher';
-    viewSwitcher.setAttribute('role', 'group');
-    viewSwitcher.setAttribute('aria-label', 'Camera view');
-    const viewButtons = new Map();
-    for (const preset of VIEW_PRESETS) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = preset.label;
-      button.title = preset.title;
-      button.dataset.view = preset.key;
-      button.setAttribute('aria-label', preset.title);
-      button.addEventListener('click', () => applyViewPreset(preset.key));
-      viewButtons.set(preset.key, button);
-      viewSwitcher.appendChild(button);
+    const viewGrid = document.createElement('div');
+    viewGrid.className = 'view-grid-labels';
+    viewGrid.setAttribute('aria-hidden', 'true');
+    for (const panel of VIEW_PANELS) {
+      const cell = document.createElement('div');
+      cell.className = `view-grid-cell view-grid-cell-${panel.key}`;
+      const label = document.createElement('span');
+      label.textContent = panel.label;
+      cell.appendChild(label);
+      viewGrid.appendChild(cell);
     }
-    el.appendChild(viewSwitcher);
+    el.appendChild(viewGrid);
 
     function resize() {
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
-      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
     }
     const resizeObserver = new ResizeObserver(() => resize());
     resizeObserver.observe(el);
     Object.assign(V, {
-      ready: true, renderer, scene, camera, controls, beads, beadUniforms,
-      ghostT, printT, head, grid: null, resize, viewButtons,
+      ready: true, renderer, scene, cameras, controls, beads, beadUniforms,
+      ghostT, printT, head, grid: null, resize,
     });
-    syncViewButtons();
+    positionViewCameras();
     let last = performance.now();
     function frame(now) {
       const dtReal = (now - last) / 1000; last = now;
@@ -295,46 +294,70 @@ export function createViewer(cfg) {
         if (P.t >= P.totalT) { P.t = P.totalT; P.playing = false; if (playEl) playEl.textContent = '▶'; }
         syncPlayUI();
       }
-      updatePrinted(); updateActiveLine(); controls.update(); renderer.render(scene, camera);
+      updatePrinted(); updateActiveLine(); controls.update(); renderViews();
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }
 
-  function syncViewButtons() {
-    if (!V.viewButtons) return;
-    for (const [key, button] of V.viewButtons) {
-      const active = key === V.viewPreset;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-pressed', String(active));
-    }
-    window.__viewPreset = V.viewPreset;
+  function cameraRect(index, width, height) {
+    const leftW = Math.floor(width / 2);
+    const rightW = width - leftW;
+    const bottomH = Math.floor(height / 2);
+    const topH = height - bottomH;
+    const col = index % 2;
+    const row = Math.floor(index / 2);
+    return {
+      x: col === 0 ? 0 : leftW,
+      y: row === 0 ? bottomH : 0,
+      w: col === 0 ? leftW : rightW,
+      h: row === 0 ? topH : bottomH,
+    };
   }
 
-  function applyViewPreset(key = V.viewPreset) {
+  function renderViews() {
     if (!V.ready) return;
-    V.viewPreset = key;
+    const width = V.renderer.domElement.width;
+    const height = V.renderer.domElement.height;
+    if (!width || !height) return;
+    V.renderer.setScissorTest(true);
+    for (let i = 0; i < VIEW_PANELS.length; i++) {
+      const rect = cameraRect(i, width, height);
+      const camera = V.cameras.get(VIEW_PANELS[i].key);
+      camera.aspect = rect.w / Math.max(rect.h, 1);
+      camera.updateProjectionMatrix();
+      V.renderer.setViewport(rect.x, rect.y, rect.w, rect.h);
+      V.renderer.setScissor(rect.x, rect.y, rect.w, rect.h);
+      V.renderer.render(V.scene, camera);
+    }
+    V.renderer.setScissorTest(false);
+    window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
+  }
+
+  function positionViewCameras() {
+    if (!V.ready) return;
     const [cx, cy, cz] = V.modelCenter;
     const size = Math.max(V.modelSize || 1, 1);
     const distance = size * 2.4;
     V.controls.target.set(cx, cy, cz);
-    if (key === 'top') {
-      V.camera.up.set(0, 1, 0);
-      V.camera.position.set(cx, cy, cz + distance);
-    } else if (key === 'side') {
-      V.camera.up.set(0, 0, 1);
-      V.camera.position.set(cx, cy - distance, cz);
-    } else {
-      V.viewPreset = 'iso';
-      V.camera.up.set(0, 0, 1);
-      V.camera.position.set(cx + size * 1.3, cy - size * 1.6, cz + size * 1.1);
+    const poses = {
+      iso: { pos: [cx + size * 1.3, cy - size * 1.6, cz + size * 1.1], up: [0, 0, 1] },
+      top: { pos: [cx, cy, cz + distance], up: [0, 1, 0] },
+      front: { pos: [cx, cy - distance, cz], up: [0, 0, 1] },
+      side: { pos: [cx + distance, cy, cz], up: [0, 0, 1] },
+    };
+    for (const [key, pose] of Object.entries(poses)) {
+      const camera = V.cameras.get(key);
+      if (!camera) continue;
+      camera.up.set(...pose.up);
+      camera.position.set(...pose.pos);
+      camera.lookAt(V.controls.target);
+      camera.near = Math.max(size * 0.02, 0.05);
+      camera.far = size * 12;
+      camera.updateProjectionMatrix();
     }
-    V.camera.lookAt(V.controls.target);
-    V.camera.near = Math.max(size * 0.02, 0.05);
-    V.camera.far = size * 12;
-    V.camera.updateProjectionMatrix();
     V.controls.update();
-    syncViewButtons();
+    window.__viewPanels = VIEW_PANELS.map(({ key }) => key);
   }
 
   function setLine(obj, flat) {
@@ -371,7 +394,7 @@ export function createViewer(cfg) {
     grid.position.set(c[0], c[1], plateZ);
     V.grid = grid; V.scene.add(grid);
     V.head.scale.setScalar(size * 0.012 + 0.05);
-    applyViewPreset(V.viewPreset);
+    positionViewCameras();
     V.resize(); updatePrinted(); syncPlayUI();
   }
 
@@ -551,5 +574,5 @@ export function createViewer(cfg) {
     P.t = (e.target.value / 1000) * P.totalT; updatePrinted(); updateActiveLine(); syncPlayUI();
   });
 
-  return { show, seekToLine, setView: applyViewPreset, _P: P, _V: V };
+  return { show, seekToLine, setView: positionViewCameras, _P: P, _V: V };
 }
