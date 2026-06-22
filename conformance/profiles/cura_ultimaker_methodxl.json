@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-UltiMaker Method XL",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        410.0
+      ],
+      [
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        320.0
+      ]
+    ],
+    "feedrate_range": [
+      3000.0,
+      30000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "",
+  "end_gcode": ""
+}

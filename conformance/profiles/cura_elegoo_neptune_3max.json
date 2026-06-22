@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-ELEGOO NEPTUNE 3 Max",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        426.0
+      ],
+      [
+        0.0,
+        426.0
+      ],
+      [
+        0.0,
+        510.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      9000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": ";ELEGOO NEPTUNE 3 Max\nM220 S100 ;Set the feed speed to 100%\nM221 S100 ;Set the flow rate to 100%\nG90\nG28 ;home\n;M420 S1 Z10;Uncomment to enable progressive compensation height of 10mm\nG92 E0 ;Reset Extruder\nG1 Z0.45 F300\nG1 X1.5 Y20 F5000.0 ;Move to start position\nG1 Y120.0 F600.0 E15 ;Draw the first line\nG1 X0.5 F1000.0 ;Move to side a little\nG1 Y20 F600 E30 ;Draw the second line\nG92 E0 ;Reset Extruder",
+  "end_gcode": "G91 ;Relative positionning\nG1 E-2 F2700 ;Retract a bit\nG1 E-8 X5 Y5 Z3 F3000 ;Retract\nG90 ;Absolute positionning\nG1 X0 Y426 ;Present print\nM106 S0 ;Turn-off fan\nM104 S0 ;Turn-off hotend\nM140 S0 ;Turn-off bed\nM84 X Y E ;Disable all steppers but Z"
+}

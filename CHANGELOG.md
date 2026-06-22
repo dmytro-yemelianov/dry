@@ -5,6 +5,20 @@ All notable changes to the Dry compiler project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-22
+
+### Added
+- **Core Engine & IR (`dry-core`)**:
+  - Implemented first-layer speed and height safety verification contracts.
+  - Implemented retraction safety verification contracts checking excessive speed/distance and travel runs without retraction.
+  - Preserved negative extrusion E-axis changes (retractions/unretractions) in the toolpath IR for contract validation.
+- **G-code Parsing & Round-Trip Gate**:
+  - Implemented modal parser state initialization (like relative/absolute extrusion mode) to support flavor-aware parsing.
+  - Implemented a G-code parser round-trip validation gate ensuring re-emitted G-code is byte-for-byte identical to the original across Marlin, Klipper, and Duet flavors.
+  - Added support for G1 E0 travel format and dialect-specific dwell commands round-tripping.
+- **Conformance Suite (`conformance/`)**:
+  - Created a repeatable Python exporter pipeline (`conformance/export.py`) that exports golden, base G-code, simulate, profiles, and round-trip fixtures from the sibling `fullcontrol` repository.
+
 ## [0.1.0] - 2026-06-22
 
 ### Added

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Vertex K8600",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        80.0
+      ],
+      [
+        0.0,
+        80.0
+      ],
+      [
+        0.0,
+        75.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "",
+  "end_gcode": "; Vertex Nano end G-Code G91 ; Relative positioning T0 G1 E-1 F1500; Reduce filament pressure M104 T0 S0 G90 ; Absolute positioning G92 E0 ; Reset extruder position G28 M84 ; Turn steppers off"
+}

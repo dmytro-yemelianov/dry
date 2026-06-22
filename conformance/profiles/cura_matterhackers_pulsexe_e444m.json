@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Pulse XE E-444M",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        250.0
+      ],
+      [
+        0.0,
+        220.0
+      ],
+      [
+        0.0,
+        215.0
+      ]
+    ],
+    "feedrate_range": [
+      3000.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G21 ; set units to millimeters\nG90 ; use absolute positioning\nM82 ; absolute extrusion mode\nG28 ; home axes\nM104 S210 ; set extruder temp\nM140 S60 ; set bed temp\nM190 S60 ; wait for bed temp\nM109 S210 ; wait for extruder temp\nG29 ; mesh bed leveling\n\nG92 E0\nG1 X5 Y5 Z0.8 F1800\nG1 X100 Z0.3 E25 F900\nG92 E0\nG1 E-2 F2400",
+  "end_gcode": "M104 S0 ; turn off extruder\nM140 S0 ; turn off heatbed\nM107 ; turn off fan\nG1 X0 Y220; home X axis and push Y forward\nG28 Z0\nM84 ; disable motors"
+}

@@ -1,0 +1,9 @@
+{
+  "design": "travel",
+  "variant": "rel_g0",
+  "init_params": {
+    "relative_e": true,
+    "travel_format": "G0"
+  },
+  "gcode": "G0 F8000 X0 Y0 Z0.2\nG1 F1000 X10 E0.332601\nG0 F8000 X20\nG1 F1000 Y10 E0.665203\nG1 X10 E0.997804"
+}

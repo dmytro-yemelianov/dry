@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Innovo Inventor",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        340.0
+      ],
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        290.0
+      ]
+    ],
+    "feedrate_range": [
+      3000.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28 ; Home extruder\nM107 ; Turn off fan\nG90 ; Absolute positioning\nM82 ; Extruder in absolute mode\nM190 S60\nM104 T0 S210\nM109 T0 S210\nM104 T1 S210\nM109 T1 S210\n;G32 S3 ; auto level\nG92 E0 ; Reset extruder position",
+  "end_gcode": "M104 S0 ; turn off extruders\nM140 S0 ; heated bed heater off\nG91 ; relative positioning\nG1 E-2 F5000; retract 2mm\nG28 Z; move bed down\nG90 ; absolute positioning\nM84   ; disable motors"
+}

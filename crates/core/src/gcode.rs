@@ -209,9 +209,26 @@ impl<R: BufRead> Iterator for GcodeParser<R> {
     }
 }
 
+impl<R: BufRead> GcodeParser<R> {
+    pub fn with_state(mut self, state: GcodeModalState) -> Self {
+        self.state = state;
+        self
+    }
+}
+
 /// Parse all G-code lines from a string.
 pub fn parse_gcode_lines(source: &str) -> Result<Vec<ParsedGcodeLine>, GcodeParseError> {
-    GcodeParser::new(std::io::Cursor::new(source)).collect::<Result<Vec<_>, _>>()
+    parse_gcode_lines_with_state(source, GcodeModalState::default())
+}
+
+/// Parse all G-code lines from a string with an initial modal state.
+pub fn parse_gcode_lines_with_state(
+    source: &str,
+    state: GcodeModalState,
+) -> Result<Vec<ParsedGcodeLine>, GcodeParseError> {
+    GcodeParser::new(std::io::Cursor::new(source))
+        .with_state(state)
+        .collect::<Result<Vec<_>, _>>()
 }
 
 fn parse_line(

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-AnkerMake M5",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        235.0
+      ],
+      [
+        0.0,
+        235.0
+      ],
+      [
+        0.0,
+        250.0
+      ]
+    ],
+    "feedrate_range": [
+      15000.0,
+      15000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "M104 S210 ; set final nozzle temp\nM190 S60 ; set and wait for nozzle temp to stabilize\nM109 S210 ; wait for nozzle temp to stabilize\nG28 ;Home\nG1 E10 F3600; push out retracted filament(fix for over retraction after prime)",
+  "end_gcode": "M104 S0\nM140 S0\n;Retract the filament\nG92 E1\nG1 E-1 F300\nG28 X0 Y0\nM84"
+}

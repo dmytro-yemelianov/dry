@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "singletool-wasp2040clay",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        200.0
+      ],
+      [
+        0.0,
+        200.0
+      ],
+      [
+        0.0,
+        200.0
+      ]
+    ],
+    "feedrate_range": [
+      1000.0,
+      4000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 3.1,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 1.2,
+    "layer_height": 0.6,
+    "monotonic_z": false
+  },
+  "start_gcode": null,
+  "end_gcode": null
+}

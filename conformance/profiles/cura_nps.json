@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-nps",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28 X Y\nG1 Y10\nM104 S210\nM190 S60\nG28\nG4 S5\nG34\nG29 E0\nG21\nG90\nM83\nG1 X6 Y20 F7200\nG1 Z0.2\nM109 S210\nG1 X10 Y20 Z0.2 F5000.0\nG1 X10 Y200.0 Z0.2 F900.0 E10\nG92 E0.0\nM82\nM117 Printing\n",
+  "end_gcode": "M104 S0\nM140 S0\nG92 E1\nG1 E-1 F300\nG28 X0 Y0\nM84\n"
+}

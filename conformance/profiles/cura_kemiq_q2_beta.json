@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Kemiq Q2 Beta",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        190.0
+      ],
+      [
+        0.0,
+        200.0
+      ],
+      [
+        0.0,
+        273.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28 ;Home\nG1 Z15.0 F6000 ;Move the platform down 15mm\nG92 E0\nG1 F200 E3\nG92 E0\nM80 ;Lights On",
+  "end_gcode": "M104 S0\nM140 S0\nG92 E1\nG1 E-1 F300\nG28 X0 Y0\nM84\nM80 ;Lights Off"
+}

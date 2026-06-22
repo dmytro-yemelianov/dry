@@ -1,0 +1,14 @@
+; Time to print!!!!!
+; GCode created with FullControl - tell us what you're printing!
+; info@fullcontrol.xyz or tag FullControlXYZ on Twitter/Instagram/LinkedIn/Reddit/TikTok
+M83 ; relative extrusion
+M104 S210 ; set hotend temp and continue
+M109 S210 ; set hotend temp and wait
+G0 F8000 X0 Y0 Z0.2
+M109 S215 ; set hotend temp and wait
+M140 S60 ; set bed temp and continue
+M106 S204 ; set fan speed
+M204 P800 T1200 ; set acceleration
+M205 X8 Y8 ; set jerk
+M900 K0.05 ; set pressure advance
+G1 F1000 X10 E0.332601

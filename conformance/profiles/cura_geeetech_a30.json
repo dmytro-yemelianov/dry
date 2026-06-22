@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Geeetech A30",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        320.0
+      ],
+      [
+        0.0,
+        420.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28 ;Home\nM190 S60\nM109 S210 T0\nG1 Z15.0 F6000 ;Move the platform down 15mm\nG92 E0\nG1 F200 E3\nG92 E0",
+  "end_gcode": "M104 S0;Cooling the heat end\nM140 S0;Cooling the heat bed\nG92 E1\nG1 E-1 F300\nG28 X0 Y0;Home X axis and Y axis\nM84"
+}

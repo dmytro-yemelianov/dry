@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-VzBot Custom",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        400.0
+      ],
+      [
+        0.0,
+        400.0
+      ],
+      [
+        0.0,
+        400.0
+      ]
+    ],
+    "feedrate_range": [
+      18000.0,
+      18000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "start_print B=60 H=210 C=0",
+  "end_gcode": "end_print"
+}

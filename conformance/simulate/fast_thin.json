@@ -24,7 +24,13 @@
         "height": 0.1,
         "kind": "line",
         "centre": null,
-        "clockwise": false
+        "clockwise": false,
+        "temperature": null,
+        "fan": null,
+        "flow": null,
+        "tool": null,
+        "dwell_s": null,
+        "orientation": null
       },
       {
         "start": [
@@ -46,7 +52,13 @@
         "height": 0.1,
         "kind": "line",
         "centre": null,
-        "clockwise": false
+        "clockwise": false,
+        "temperature": null,
+        "fan": null,
+        "flow": null,
+        "tool": null,
+        "dwell_s": null,
+        "orientation": null
       }
     ]
   },

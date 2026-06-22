@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-UltiMaker S5",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        330.0
+      ],
+      [
+        0.0,
+        240.0
+      ],
+      [
+        0.0,
+        300.0
+      ]
+    ],
+    "feedrate_range": [
+      2100.0,
+      9000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "",
+  "end_gcode": ""
+}

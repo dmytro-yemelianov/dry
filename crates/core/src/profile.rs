@@ -13,6 +13,25 @@ fn default_profile_version() -> u32 {
     1
 }
 
+/// A G-code start/end procedure, which can be specified as either a single
+/// multi-line string or an array of G-code command strings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GcodeProcedure {
+    Single(String),
+    Lines(Vec<String>),
+}
+
+impl GcodeProcedure {
+    /// Return the G-code procedure split into separate lines.
+    pub fn to_lines(&self) -> Vec<String> {
+        match self {
+            GcodeProcedure::Single(s) => s.lines().map(|line| line.trim_end().to_string()).collect(),
+            GcodeProcedure::Lines(v) => v.clone(),
+        }
+    }
+}
+
 /// Versioned profile JSON for a printer/material/process combination.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Profile {
@@ -35,6 +54,12 @@ pub struct Profile {
     /// Process defaults used when lifting slicer G-code to Dry IR.
     #[serde(default)]
     pub process: ProcessProfile,
+    /// Optional start procedure (Marlin/Klipper/Duet G-code commands).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_gcode: Option<GcodeProcedure>,
+    /// Optional end procedure (Marlin/Klipper/Duet G-code commands).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_gcode: Option<GcodeProcedure>,
 }
 
 impl Default for Profile {
@@ -46,6 +71,8 @@ impl Default for Profile {
             machine: MachineProfile::default(),
             material: MaterialProfile::default(),
             process: ProcessProfile::default(),
+            start_gcode: None,
+            end_gcode: None,
         }
     }
 }
@@ -109,6 +136,21 @@ pub struct ProcessProfile {
     /// Require Z never to decrease.
     #[serde(default)]
     pub monotonic_z: bool,
+    /// Maximum retraction distance (mm).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_retraction_distance: Option<f64>,
+    /// Maximum retraction speed (mm/min).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_retraction_speed: Option<f64>,
+    /// Maximum travel run distance without a retraction (mm).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_travel_without_retraction: Option<f64>,
+    /// Allowed Z height range `[min, max]` (mm) for the first layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_layer_height_range: Option<[f64; 2]>,
+    /// Allowed speed range `[min, max]` (mm/min) for the first layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_layer_speed_range: Option<[f64; 2]>,
 }
 
 /// A profile parse or validation error.
@@ -219,6 +261,11 @@ impl Profile {
         )?;
         validate_positive("process.line_width", self.process.line_width)?;
         validate_positive("process.layer_height", self.process.layer_height)?;
+        validate_positive("process.max_retraction_distance", self.process.max_retraction_distance)?;
+        validate_positive("process.max_retraction_speed", self.process.max_retraction_speed)?;
+        validate_positive("process.max_travel_without_retraction", self.process.max_travel_without_retraction)?;
+        validate_positive_range("process.first_layer_height_range", self.process.first_layer_height_range)?;
+        validate_positive_range("process.first_layer_speed_range", self.process.first_layer_speed_range)?;
         Ok(())
     }
 
@@ -230,6 +277,11 @@ impl Profile {
             speed_range: self.machine.feedrate_range,
             monotonic_z: self.process.monotonic_z,
             min_temp: self.material.min_nozzle_temperature_c,
+            max_retraction_distance: self.process.max_retraction_distance,
+            max_retraction_speed: self.process.max_retraction_speed,
+            max_travel_without_retract: self.process.max_travel_without_retraction,
+            first_layer_height_range: self.process.first_layer_height_range,
+            first_layer_speed_range: self.process.first_layer_speed_range,
         }
     }
 
@@ -247,11 +299,16 @@ impl Profile {
 
     /// Convert profile material/process defaults to G-code import parameters.
     pub fn gcode_import_params(&self) -> GcodeImportParams {
+        let relative_e = match self.firmware.flavor.as_deref() {
+            Some("klipper") | Some("duet") => true,
+            _ => false,
+        };
         GcodeImportParams {
             version: 0,
             filament_diameter: self.material.filament_diameter.unwrap_or(1.75),
             line_width: self.process.line_width,
             layer_height: self.process.layer_height,
+            relative_e,
         }
     }
 
@@ -324,5 +381,39 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("Z build-volume"));
+    }
+
+    #[test]
+    fn parses_start_end_gcode_procedures() {
+        let profile_str = r#"{
+          "version": 1,
+          "start_gcode": "; -- Start G-code --\nG28\nG90",
+          "end_gcode": [
+            "; -- End G-code --",
+            "M104 S0",
+            "M140 S0"
+          ]
+        }"#;
+        let profile = Profile::from_json(profile_str).unwrap();
+        
+        let start = profile.start_gcode.as_ref().unwrap();
+        assert_eq!(
+            start.to_lines(),
+            vec![
+                "; -- Start G-code --".to_string(),
+                "G28".to_string(),
+                "G90".to_string()
+            ]
+        );
+
+        let end = profile.end_gcode.as_ref().unwrap();
+        assert_eq!(
+            end.to_lines(),
+            vec![
+                "; -- End G-code --".to_string(),
+                "M104 S0".to_string(),
+                "M140 S0".to_string()
+            ]
+        );
     }
 }

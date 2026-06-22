@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-XYZprinting da Vinci Super",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28 ; home all axes\nG1 Z15 F5000 ; lift nozzle\nG92 E0\nG1 F200 E3\n",
+  "end_gcode": "M104 S0 ; turn off temperature\nM105 S0;  \nG28 X0  ; home X axis\nM84     ; disable motors\n"
+}

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-BQ Witbox 2",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        297.0
+      ],
+      [
+        0.0,
+        210.0
+      ],
+      [
+        0.0,
+        200.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "; -- START GCODE --\nM800        ; Custom GCODE to fire start print procedure\n; -- end of START GCODE --",
+  "end_gcode": "; -- END GCODE --\nM801        ; Custom GCODE to fire end print procedure\n; -- end of END GCODE --"
+}

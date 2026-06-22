@@ -30,6 +30,16 @@ pub struct Contracts {
     pub monotonic_z: bool,
     /// Minimum nozzle temperature (°C) required to extrude (cold-extrusion guard).
     pub min_temp: Option<f64>,
+    /// Maximum retraction distance (mm).
+    pub max_retraction_distance: Option<f64>,
+    /// Maximum retraction speed (mm/min).
+    pub max_retraction_speed: Option<f64>,
+    /// Maximum travel run distance without a retraction (mm).
+    pub max_travel_without_retract: Option<f64>,
+    /// Allowed Z height range `[min, max]` (mm) for the first layer.
+    pub first_layer_height_range: Option<[f64; 2]>,
+    /// Allowed speed range `[min, max]` (mm/min) for the first layer.
+    pub first_layer_speed_range: Option<[f64; 2]>,
 }
 
 /// A user-facing contract configuration parse error.
@@ -321,8 +331,20 @@ where
     };
     let axis = ['X', 'Y', 'Z'];
 
-    for (i, res) in segments.into_iter().enumerate() {
-        let s = res?;
+    let segments_vec: Vec<Segment> = segments.into_iter().collect::<Result<_, _>>()?;
+
+    let first_layer_z = segments_vec
+        .iter()
+        .filter(|s| !s.travel && s.volume.value() > 0.0)
+        .filter_map(|s| s.end[2].or(s.start[2]))
+        .map(|z| z.value())
+        .fold(f64::INFINITY, |a, b| if b < a { b } else { a });
+
+    let mut travel_run_length = 0.0;
+    let mut retracted = true;
+    let mut flagged_travel = false;
+
+    for (i, s) in segments_vec.into_iter().enumerate() {
         // --- structural invariants (always on) ---
         let nums = segment_numbers(&s);
         if nums.iter().any(|v| !v.is_finite()) {
@@ -407,7 +429,7 @@ where
             }
         }
         if let Some([lo, hi]) = c.speed_range {
-            if !s.travel {
+            if !s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0 {
                 let v = s.speed.value();
                 if v < lo || v > hi {
                     push(
@@ -445,6 +467,103 @@ where
                     Some(i),
                     format!("extruding at nozzle temperature {got} (< {min} °C)"),
                 );
+            }
+        }
+
+        // --- retraction checks ---
+        let is_retract = s.filament.value() < 0.0;
+        let is_unretract = s.filament.value() > 0.0 && s.length.value() == 0.0;
+        if is_retract || is_unretract {
+            if let Some(max_speed) = c.max_retraction_speed {
+                if s.speed.value() > max_speed {
+                    push(
+                        "retraction-speed",
+                        Severity::Error,
+                        Some(i),
+                        format!(
+                            "retraction speed {} mm/min exceeds the limit of {}",
+                            s.speed.value(),
+                            max_speed
+                        ),
+                    );
+                }
+            }
+        }
+        if is_retract {
+            let dist = -s.filament.value();
+            if let Some(max_dist) = c.max_retraction_distance {
+                if dist > max_dist {
+                    push(
+                        "retraction-distance",
+                        Severity::Error,
+                        Some(i),
+                        format!(
+                            "retraction distance {dist:.3} mm exceeds the limit of {max_dist:.3}"
+                        ),
+                    );
+                }
+            }
+            retracted = true;
+        } else if is_unretract || (!s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0) {
+            retracted = false;
+            travel_run_length = 0.0;
+            flagged_travel = false;
+        } else if s.travel {
+            travel_run_length += s.length.value();
+            if let Some(max_travel) = c.max_travel_without_retract {
+                if travel_run_length > max_travel && !retracted && !flagged_travel {
+                    push(
+                        "travel-without-retraction",
+                        Severity::Error,
+                        Some(i),
+                        format!(
+                            "travel run distance {travel_run_length:.3} mm exceeds limit of {max_travel:.3} without retraction"
+                        ),
+                    );
+                    flagged_travel = true;
+                }
+            }
+        }
+
+        // --- first-layer checks ---
+        if !s.travel && s.volume.value() > 0.0 {
+            let is_first_layer = if first_layer_z.is_finite() {
+                if let Some(z) = s.end[2].or(s.start[2]) {
+                    (z.value() - first_layer_z).abs() < 1e-4
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if is_first_layer {
+                if let Some([min_h, max_h]) = c.first_layer_height_range {
+                    let h_val = s.height.map(|h| h.value()).unwrap_or(first_layer_z);
+                    if h_val < min_h || h_val > max_h {
+                        push(
+                            "first-layer-height",
+                            Severity::Error,
+                            Some(i),
+                            format!(
+                                "first layer height {h_val:.3} mm is outside the range [{min_h:.3}, {max_h:.3}]"
+                            ),
+                        );
+                    }
+                }
+                if let Some([min_s, max_s]) = c.first_layer_speed_range {
+                    let speed_val = s.speed.value();
+                    if speed_val < min_s || speed_val > max_s {
+                        push(
+                            "first-layer-speed",
+                            Severity::Error,
+                            Some(i),
+                            format!(
+                                "first layer speed {speed_val:.3} mm/min is outside the range [{min_s:.3}, {max_s:.3}]"
+                            ),
+                        );
+                    }
+                }
             }
         }
     }

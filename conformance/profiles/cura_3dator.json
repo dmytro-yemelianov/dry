@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-3Dator",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        180.0
+      ],
+      [
+        0.0,
+        170.0
+      ],
+      [
+        0.0,
+        260.0
+      ]
+    ],
+    "feedrate_range": [
+      3000.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "M104 S210 ;set temperatures\nM140 S60\nM109 S210 ;wait for temperatures\nM190 S60\nG21  ;metric values\nG90  ;absolute positioning\nM82  ;set extruder to absolute mode\nM107  ;start with the fan off\nG28 Z0  ;move Z to min endstops\nG28 X0 Y0  ;move X/Y to min endstops\nG29  ;Auto Level\nG1 Z0.6 F7200 ;move the Nozzle near the Bed\nG92 E0\nG1 Y0  ;zero the extruded length\nG1 X10 E30 F500  ;printing a Line from right to left\nG92 E0  ;zero the extruded length again\nG1 Z2\nG1 F7200\nM117 Printing...;Put printing message on LCD screen\nM150 R255 U255 B255 P4 ;Change LED Color to white",
+  "end_gcode": "M104 S0                     ;extruder heater off\nM140 S0                     ;heated bed heater off (if you have it)\nG91                                    ;relative positioning\nG1 E-1 F300                            ;retract the filament a bit before lifting the nozzle, to release some of the pressure\nG1 Z+0.5 E-5 X-20 Y-20 F7200 ;move Z up a bit and retract filament even more\nG28                          ;move X/Y to min endstops, so the head is out of the way\nM84                         ;steppers off\nG90                         ;absolute positioning"
+}

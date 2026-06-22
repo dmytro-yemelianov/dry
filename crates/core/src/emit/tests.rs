@@ -52,7 +52,7 @@ fn test_travel_g1_e0() {
             ..EmitParams::default()
         },
     );
-    assert_eq!(gcode_e0[0], "G0 F1000 X10 E0");
+    assert_eq!(gcode_e0[0], "G1 F1000 X10 E0");
 
     let gcode_abs_e0 = emit(
         &tp,
@@ -62,7 +62,7 @@ fn test_travel_g1_e0() {
             ..EmitParams::default()
         },
     );
-    assert_eq!(gcode_abs_e0[0], "G0 F1000 X10 E0");
+    assert_eq!(gcode_abs_e0[0], "G1 F1000 X10 E0");
 }
 
 #[test]

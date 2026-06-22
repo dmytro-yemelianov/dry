@@ -1,0 +1,11 @@
+; Time to print!!!!!
+; GCode created with FullControl - tell us what you're printing!
+; info@fullcontrol.xyz or tag FullControlXYZ on Twitter/Instagram/LinkedIn/Reddit/TikTok
+M83 ; relative extrusion
+M104 S210 ; set hotend temp and continue
+M109 S210 ; set hotend temp and wait
+G0 F8000 X0 Y0 Z0.2
+SET_PRESSURE_ADVANCE ADVANCE=0.05
+SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=7
+M109 S210 ; set hotend temp and wait
+G1 F1000 X10 E0.332601

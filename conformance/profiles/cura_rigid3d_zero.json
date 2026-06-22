@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Rigid3D Zero",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        250.0
+      ],
+      [
+        0.0,
+        250.0
+      ],
+      [
+        0.0,
+        190.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      4800.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "  ; -- START GCODE --\n  G21\n  G28 ; Home extruder\n  G29 ; Autolevel bed\n  M107 ; Turn off fan\n  G90 ; Absolute positioning\n  M82 ; Extruder in absolute mode\n  G92 E0 ; Reset extruder position\n  ; -- end of START GCODE --\n\n",
+  "end_gcode": "  ; -- END GCODE --\n  G1 X0 Y230 ; Get extruder out of way.\n  M107 ; Turn off fan\n  G91 ; Relative positioning\n  G0 Z20 ; Lift extruder up\n  T0\n  G1 E-1 ; Reduce filament pressure\n  M104 T0 S0 ; Turn ectruder heater off\n  G90 ; Absolute positioning\n  G92 E0 ; Reset extruder position\n  M140 S0 ; Disable heated bed\n  M84 ; Turn steppers off\n  ; -- end of END GCODE --\n"
+}

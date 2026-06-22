@@ -1,6 +1,7 @@
 use super::{
-    parse_gcode_lines, DistanceMode, ExtrusionMode, GcodeParseError, GcodeParser, GcodeRecord,
-    MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
+    parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeParseError,
+    GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
+    GcodeModalState,
 };
 use crate::emit::{emit, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
@@ -18,6 +19,7 @@ pub struct GcodeImportParams {
     pub filament_diameter: f64,
     pub line_width: Option<f64>,
     pub layer_height: Option<f64>,
+    pub relative_e: bool,
 }
 
 impl Default for GcodeImportParams {
@@ -27,6 +29,7 @@ impl Default for GcodeImportParams {
             filament_diameter: 1.75,
             line_width: None,
             layer_height: None,
+            relative_e: false,
         }
     }
 }
@@ -257,7 +260,14 @@ pub fn import_gcode_with_map(
     source: &str,
     params: &GcodeImportParams,
 ) -> Result<ImportedGcode, GcodeImportError> {
-    import_parsed_gcode_with_map(parse_gcode_lines(source)?, params)
+    let mut initial_state = GcodeModalState::default();
+    if params.relative_e {
+        initial_state.extrusion_mode = ExtrusionMode::Relative;
+    }
+    import_parsed_gcode_with_map(
+        parse_gcode_lines_with_state(source, initial_state)?,
+        params,
+    )
 }
 
 /// Parse and lift a G-code reader into a Dry L2 [`Toolpath`].
@@ -273,7 +283,13 @@ pub fn import_gcode_reader_with_map<R: Read>(
     reader: R,
     params: &GcodeImportParams,
 ) -> Result<ImportedGcode, GcodeImportError> {
-    let lines = GcodeParser::from_reader(reader).collect::<Result<Vec<_>, _>>()?;
+    let mut initial_state = GcodeModalState::default();
+    if params.relative_e {
+        initial_state.extrusion_mode = ExtrusionMode::Relative;
+    }
+    let lines = GcodeParser::from_reader(reader)
+        .with_state(initial_state)
+        .collect::<Result<Vec<_>, _>>()?;
     import_parsed_gcode_with_map(lines, params)
 }
 
@@ -430,9 +446,13 @@ fn lift_motion(
     ];
     let filament_delta = extrusion_delta(motion, state, factor);
     let deposited = filament_delta.max(0.0) * state.flow;
-    let filament = Length::mm(deposited);
-    let volume = filament_area * filament;
-    let travel = motion.mode == MotionMode::Rapid || deposited <= 0.0;
+    let filament = if filament_delta < 0.0 {
+        Length::mm(filament_delta)
+    } else {
+        Length::mm(deposited)
+    };
+    let volume = filament_area * Length::mm(deposited);
+    let travel = motion.mode == MotionMode::Rapid || motion.e.is_none();
     let flow = if state.flow == 1.0 {
         None
     } else {

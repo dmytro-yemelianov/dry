@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Ultimaker 3 Extended",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        233.0
+      ],
+      [
+        0.0,
+        215.0
+      ],
+      [
+        0.0,
+        300.0
+      ]
+    ],
+    "feedrate_range": [
+      2100.0,
+      15000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "",
+  "end_gcode": "G91 ;Relative movement\nG0 F15000 X8.0 Z0.5 E-4.5 ;Wiping+material retraction\nG0 F10000 Z1.5 E4.5 ;Compensation for the retraction\nG90 ;Disable relative movement"
+}

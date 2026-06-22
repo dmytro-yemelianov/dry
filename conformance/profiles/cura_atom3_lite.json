@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Atom 3 Lite",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        270.0
+      ],
+      [
+        0.0,
+        270.0
+      ],
+      [
+        0.0,
+        340.0
+      ]
+    ],
+    "feedrate_range": [
+      2400.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": ";MACHINE START CODE\nG21 ;metric values\nG90 ;absolute positioning\nG28 ;home\nG1 Z5 F9000\n;MACHINE START CODE",
+  "end_gcode": ";MACHINE END CODE\nG91 ;relative positioning\nG1 E-1 F300  ;retract  filament release pressure\nG1 Z+1.0 E-5 F9000 ;move up a and retract more\nG90 ;absolute positioning\nG28; home\nM84 ;steppers off\n;MACHINE END CODE"
+}

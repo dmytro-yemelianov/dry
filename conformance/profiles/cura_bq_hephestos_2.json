@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-BQ Hephestos 2",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        210.0
+      ],
+      [
+        0.0,
+        297.0
+      ],
+      [
+        0.0,
+        220.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "; -- START GCODE --\nM104 S210\nG28 ; Zero-ing position\nG29 ; Auto bed-leveling\nG0 X4 Y297 Z15 F4000 ; Fast move to BQ's start position\nG90 ; Set to Absolute Positioning\nG92 E0 ; Reset extruder 0\nG1 F1800 ; Set default feedrate\nM109 S210 ; Makes sure the temperature is correct before printing\n; -- end of START GCODE --",
+  "end_gcode": "; -- END GCODE --\nM801        ; Marlin G-CODE to fire end print procedure\n; -- end of END GCODE --"
+}

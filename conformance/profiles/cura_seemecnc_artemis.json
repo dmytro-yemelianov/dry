@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-SeeMeCNC Artemis",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        290.0
+      ],
+      [
+        0.0,
+        290.0
+      ],
+      [
+        0.0,
+        530.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G28\nG1 Z15.0 F10000\nG92 E0",
+  "end_gcode": "M203 Z24000\nM104 S0\nM140 S0\nM107\nG28\nM84"
+}

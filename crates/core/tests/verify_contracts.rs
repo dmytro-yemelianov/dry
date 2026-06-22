@@ -4,6 +4,7 @@
 
 use dry_core::{
     resolve, resolve_checked, verify, Contracts, Design, ResolveParams, SegmentKind, Severity,
+    import_gcode, GcodeImportParams,
 };
 
 fn design_json(ops: &str) -> Design {
@@ -187,4 +188,76 @@ fn report_serialises_to_json() {
     let json = serde_json::to_string(&verify(&tp, &c)).unwrap();
     assert!(json.contains("\"rule\""));
     assert!(json.contains("bounds"));
+}
+
+#[test]
+fn excessive_retraction_speed_is_flagged() {
+    let tp = import_gcode("G1 E-4.5 F6000\n", &GcodeImportParams::default()).unwrap();
+    let c = Contracts {
+        max_retraction_speed: Some(3000.0),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.ok());
+    assert!(report.findings.iter().any(|f| f.rule == "retraction-speed"));
+}
+
+#[test]
+fn excessive_retraction_distance_is_flagged() {
+    let tp = import_gcode("G1 E-4.5 F2000\n", &GcodeImportParams::default()).unwrap();
+    let c = Contracts {
+        max_retraction_distance: Some(2.0),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.ok());
+    assert!(report.findings.iter().any(|f| f.rule == "retraction-distance"));
+}
+
+#[test]
+fn travel_without_retraction_is_flagged() {
+    let tp = import_gcode(
+        "M83\nG1 X10 E0.5 F1200\nG1 X60 F9000\nG1 X70 E0.5 F1200\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let c = Contracts {
+        max_travel_without_retract: Some(30.0),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.ok());
+    assert!(report.findings.iter().any(|f| f.rule == "travel-without-retraction"));
+}
+
+#[test]
+fn first_layer_height_out_of_range_is_flagged() {
+    let tp = import_gcode(
+        "M83\nG1 X10 Y0 Z0.35 E0.5 F1200\nG1 X20 Y0 Z0.35 E0.5 F1200\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let c = Contracts {
+        first_layer_height_range: Some([0.1, 0.3]),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.ok());
+    assert!(report.findings.iter().any(|f| f.rule == "first-layer-height"));
+}
+
+#[test]
+fn first_layer_speed_out_of_range_is_flagged() {
+    let tp = import_gcode(
+        "M83\nG1 X10 Y0 Z0.2 E0.5 F3000\nG1 X20 Y0 Z0.2 E0.5 F3000\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let c = Contracts {
+        first_layer_speed_range: Some([500.0, 2000.0]),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.ok());
+    assert!(report.findings.iter().any(|f| f.rule == "first-layer-speed"));
 }

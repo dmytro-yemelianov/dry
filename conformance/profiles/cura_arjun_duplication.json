@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Arjun 300 Duplication",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        158.5
+      ],
+      [
+        0.0,
+        310.0
+      ],
+      [
+        0.0,
+        290.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      12000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "M605 S2 R0 X155\nG21\nG90\nM82\nM107\nM104 S210\nM105\nM109 S210\nG28 Z0\nG1 Z15 F150\nG28 Y0\nG1 Y20 F6000\nG28 X0\nG1 X80 F9000\nT0\nG92 E0\nG1 E35 F250\nG1 E45 F120\nG92 E0\nG1 X100 Z0 F5000\nG1 X145 F9000\nM117\n",
+  "end_gcode": "G91\nG1 Z+0.5 E-16 Y+10 F9000\nG90\nM107\nM107 P1\nM104 S0\nM140 S0\nM117\nM605 S0\nG28 X0 Y0\nM84"
+}

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Deltacomb DC-20 Dual",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        190.0
+      ],
+      [
+        0.0,
+        190.0
+      ],
+      [
+        0.0,
+        250.0
+      ]
+    ],
+    "feedrate_range": [
+      4800.0,
+      10200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": ";---------------------------------------\n;Deltacomb start script\n;---------------------------------------\nG21 ;metric values\nG90 ;absolute positioning\nM107 ;start with the fan off\nG28 ;Home all axes (max endstops)\nM420 S1; Bed Level Enable\nG92 E0 ;zero the extruded length\nG1 Z15.0 F9000 ;move to the platform down 15mm\nG1 F9000\n\n;Put printing message on LCD screen\nM117 In stampa...\nM140 S60 ;set the target bed temperature\n;---------------------------------------",
+  "end_gcode": ";---------------------------------------\n;Deltacomb end script\n;---------------------------------------\nG91 ;relative positioning\nG1 F15000 X8.0 E-4.5 ;Wipe filament+material retraction\nG1 F15000 E4.0 Z1 ;Retraction compensation\nG28 ;Home all axes (max endstops)\nM84 ;steppers off\n"
+}

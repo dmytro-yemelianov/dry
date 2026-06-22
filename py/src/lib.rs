@@ -124,6 +124,7 @@ fn resolve_verify(
         speed_range: parsed_speed,
         monotonic_z,
         min_temp,
+        ..Contracts::default()
     };
 
     let report = verify(&tp, &contracts);

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-HMS434",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        450.0
+      ],
+      [
+        0.0,
+        325.0
+      ],
+      [
+        0.0,
+        400.0
+      ]
+    ],
+    "feedrate_range": [
+      3000.0,
+      15000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "\n;Neither Hybrid AM Systems nor any of Hybrid AM Systems representatives has any liabilities or gives any warranties on this .gcode file, or on any or all objects made with this .gcode file.\n\nM114\n\nM140 S60\nM118 // action:chamber_fan_on\nM141 S0\n\nM117 Homing Y ......\nG28 Y\nM117 Homing X ......\nG28 X\nM117 Homing Z ......\nG28 Z F100\n\nG1 Z10 F900\nG1 X-25 Y20 F12000\n\nM190 S60\n\nM117 HMS434 Printing ...",
+  "end_gcode": ""
+}

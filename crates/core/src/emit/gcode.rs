@@ -230,7 +230,7 @@ where
             } else {
                 "G3"
             }
-        } else if s.travel {
+        } else if s.travel && !p.travel_g1_e0 {
             "G0"
         } else {
             "G1"

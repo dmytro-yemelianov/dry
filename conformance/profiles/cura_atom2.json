@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Atom 2",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        210.0
+      ],
+      [
+        0.0,
+        210.0
+      ],
+      [
+        0.0,
+        320.0
+      ]
+    ],
+    "feedrate_range": [
+      1920.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G21\nG90 \nM107\nG28\nG1 Y-110 Z15\nG0 Z0.2\nG92 E0\nG1 F200 Y-100 E6\nG92 E0",
+  "end_gcode": "G28\nG91\nG1 E-6 F300\nM104 S0\nG1 E-1000 F5000\nM84\nG90"
+}

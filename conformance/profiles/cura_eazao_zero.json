@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Eazao Zero",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        150.0
+      ],
+      [
+        0.0,
+        150.0
+      ],
+      [
+        0.0,
+        240.0
+      ]
+    ],
+    "feedrate_range": [
+      1200.0,
+      1200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G21 \nG90 ;absolute positioning\nM82 ;set extruder to absolute mode\nG28 ;Home \nG1 Z15.0 F1500 ;move the platform down 15mm\nG92 E0 \nG1 F300 E10\nG92 E0\nM302\nM163 S0 P0.9; Set Mix Factor\nM163 S1 P0.1; Set Mix Factor\nM164 S0\n",
+  "end_gcode": "G92 E10\nG1 E-10 F300\nG28 X0 Y0 ;move X Y to min endstops\nM82\nM84 ;steppers off\n"
+}

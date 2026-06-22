@@ -120,6 +120,7 @@ pub fn resolve_verify(
         } else {
             None
         },
+        ..Contracts::default()
     };
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let report = verify(&tp, &contracts);

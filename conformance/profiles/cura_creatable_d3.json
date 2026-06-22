@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "cura-Creatable D3",
+  "firmware": {
+    "flavor": "marlin"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        250.0
+      ],
+      [
+        0.0,
+        250.0
+      ],
+      [
+        0.0,
+        200.0
+      ]
+    ],
+    "feedrate_range": [
+      3600.0,
+      7200.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 2.85,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "layer_height": 0.2,
+    "monotonic_z": false
+  },
+  "start_gcode": "G21\nG90\nM82\nM106 S255\nG28\nG92 E0\nG1 Z100 F5000\nM190 S50\nM109 S200\nG1 X-135\nG1 Z0.3\nG92 E-32\nG1 E0 F1000\nG1 E50 F200\nG1 F1000\nG1 X-125\nG92 E0",
+  "end_gcode": "M400\nG28\nM104 S0\nM140 S0\nM107\nG92 E0\nG1 E-32 F300\nM84\nG90"
+}
