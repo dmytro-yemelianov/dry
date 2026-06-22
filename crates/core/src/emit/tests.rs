@@ -153,24 +153,32 @@ fn test_dwell_firmware_flavors() {
     };
 
     // Marlin/default uses G4 S1.5
-    let gcode_marlin = emit(&tp, &EmitParams {
-        flavor: FirmwareFlavor::Marlin,
-        ..EmitParams::default()
-    });
+    let gcode_marlin = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Marlin,
+            ..EmitParams::default()
+        },
+    );
     assert_eq!(gcode_marlin[0], "G4 S1.5");
 
     // Duet uses G4 S1.5
-    let gcode_duet = emit(&tp, &EmitParams {
-        flavor: FirmwareFlavor::Duet,
-        ..EmitParams::default()
-    });
+    let gcode_duet = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Duet,
+            ..EmitParams::default()
+        },
+    );
     assert_eq!(gcode_duet[0], "G4 S1.5");
 
     // Klipper uses G4 P1500
-    let gcode_klipper = emit(&tp, &EmitParams {
-        flavor: FirmwareFlavor::Klipper,
-        ..EmitParams::default()
-    });
+    let gcode_klipper = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Klipper,
+            ..EmitParams::default()
+        },
+    );
     assert_eq!(gcode_klipper[0], "G4 P1500");
 }
-

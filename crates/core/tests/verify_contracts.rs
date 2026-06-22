@@ -3,8 +3,8 @@
 //! reproduction of any oracle's text): each is a well-specified property of a safe toolpath.
 
 use dry_core::{
-    resolve, resolve_checked, verify, Contracts, Design, ResolveParams, SegmentKind, Severity,
-    import_gcode, GcodeImportParams,
+    import_gcode, resolve, resolve_checked, verify, Contracts, Design, GcodeImportParams,
+    ResolveParams, SegmentKind, Severity,
 };
 
 fn design_json(ops: &str) -> Design {
@@ -211,7 +211,10 @@ fn excessive_retraction_distance_is_flagged() {
     };
     let report = verify(&tp, &c);
     assert!(!report.ok());
-    assert!(report.findings.iter().any(|f| f.rule == "retraction-distance"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "retraction-distance"));
 }
 
 #[test]
@@ -227,7 +230,10 @@ fn travel_without_retraction_is_flagged() {
     };
     let report = verify(&tp, &c);
     assert!(!report.ok());
-    assert!(report.findings.iter().any(|f| f.rule == "travel-without-retraction"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "travel-without-retraction"));
 }
 
 #[test]
@@ -243,7 +249,10 @@ fn first_layer_height_out_of_range_is_flagged() {
     };
     let report = verify(&tp, &c);
     assert!(!report.ok());
-    assert!(report.findings.iter().any(|f| f.rule == "first-layer-height"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "first-layer-height"));
 }
 
 #[test]
@@ -259,5 +268,8 @@ fn first_layer_speed_out_of_range_is_flagged() {
     };
     let report = verify(&tp, &c);
     assert!(!report.ok());
-    assert!(report.findings.iter().any(|f| f.rule == "first-layer-speed"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "first-layer-speed"));
 }

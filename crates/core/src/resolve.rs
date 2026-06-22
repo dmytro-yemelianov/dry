@@ -41,7 +41,10 @@ impl std::error::Error for ResolveError {}
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Set the extrusion bead cross-section (mm).
-    Geometry { width: Option<f64>, height: Option<f64> },
+    Geometry {
+        width: Option<f64>,
+        height: Option<f64>,
+    },
     /// Turn the extruder on/off (off ⇒ subsequent moves are travels).
     Extruder { on: bool },
     /// Set the print feedrate (mm/min).
@@ -91,10 +94,7 @@ pub enum Op {
         speed: Option<f64>,
     },
     /// Stationary extrusion of a set volume (mm³).
-    Deposit {
-        volume: f64,
-        speed: f64,
-    },
+    Deposit { volume: f64, speed: f64 },
 }
 
 /// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).

@@ -606,7 +606,10 @@ fn run(cli: Cli) -> ExitCode {
                 travel_g1_e0: false,
                 five_axis: false,
                 kinematics: Kinematics::default(),
-                flavor: profile.as_ref().map(|p| p.emit_params().flavor).unwrap_or(FirmwareFlavor::Marlin),
+                flavor: profile
+                    .as_ref()
+                    .map(|p| p.emit_params().flavor)
+                    .unwrap_or(FirmwareFlavor::Marlin),
             };
             let rewritten_lines = if optimize {
                 let span_toolpaths = imported

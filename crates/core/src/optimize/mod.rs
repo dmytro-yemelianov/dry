@@ -7,24 +7,24 @@
 //! redundant intermediate point. Length, volume and filament are summed, so `simulate` is unchanged
 //! except for the (now lower) segment count.
 
+mod adaptive_speed;
 mod arc;
+mod coasting;
 mod merge;
 mod travel;
-mod coasting;
 mod z_hop;
-mod adaptive_speed;
 
 #[cfg(test)]
 mod tests;
 
 use crate::ir::Toolpath;
 
+pub use self::adaptive_speed::{adaptive_speed, adaptive_speed_with_params};
 pub use self::arc::arc_fit;
+pub use self::coasting::{coasting, coasting_with_dist};
 pub use self::merge::merge_collinear;
 pub use self::travel::travel_reorder;
-pub use self::coasting::{coasting, coasting_with_dist};
 pub use self::z_hop::{z_hop, z_hop_with_params};
-pub use self::adaptive_speed::{adaptive_speed, adaptive_speed_with_params};
 
 /// The standard L2 optimisation pipeline exposed by every adapter. It only runs geometry-local passes
 /// that do not reorder authored/source motion.
