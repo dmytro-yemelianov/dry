@@ -3,7 +3,7 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
-use crate::emit::EmitParams;
+use crate::emit::{EmitParams, FirmwareFlavor};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
@@ -256,10 +256,16 @@ impl Profile {
     }
 
     /// Convert firmware/profile settings to emitter parameters.
-    ///
-    /// No firmware-specific emitter fields exist yet, so this deliberately centralizes the current default.
     pub fn emit_params(&self) -> EmitParams {
-        EmitParams::default()
+        let flavor = match self.firmware.flavor.as_deref() {
+            Some("klipper") => FirmwareFlavor::Klipper,
+            Some("duet") => FirmwareFlavor::Duet,
+            _ => FirmwareFlavor::Marlin, // default
+        };
+        EmitParams {
+            flavor,
+            ..EmitParams::default()
+        }
     }
 }
 

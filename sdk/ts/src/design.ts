@@ -1,6 +1,6 @@
 // The fluent authoring API. A `Design` is a chain of L1 ops; builders return `this`. The engine calls
 // (`gcode`/`simulate`/`ir`) resolve those ops in wasm — the SDK itself holds no toolpath logic.
-import type { Metrics, Op, Toolpath } from './ops';
+import type { Metrics, Op, Report, Toolpath } from './ops';
 import { PRINTERS } from './ops';
 import { resolveGcode, resolveIr, resolveMetrics, resolveOptimizedIr, resolveVerify } from './engine';
 
@@ -131,7 +131,7 @@ export class Design {
     bounds = '',
     monotonicZ = false,
     speedRange = ''
-  ): any {
+  ): Report {
     return resolveVerify(this.ops, params(printer), maxFlow, minTemp, bounds, monotonicZ, speedRange);
   }
 }

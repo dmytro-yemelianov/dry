@@ -10,6 +10,9 @@
 mod arc;
 mod merge;
 mod travel;
+mod coasting;
+mod z_hop;
+mod adaptive_speed;
 
 #[cfg(test)]
 mod tests;
@@ -19,6 +22,9 @@ use crate::ir::Toolpath;
 pub use self::arc::arc_fit;
 pub use self::merge::merge_collinear;
 pub use self::travel::travel_reorder;
+pub use self::coasting::{coasting, coasting_with_dist};
+pub use self::z_hop::{z_hop, z_hop_with_params};
+pub use self::adaptive_speed::{adaptive_speed, adaptive_speed_with_params};
 
 /// The standard L2 optimisation pipeline exposed by every adapter. It only runs geometry-local passes
 /// that do not reorder authored/source motion.
@@ -29,5 +35,10 @@ pub fn optimize_pipeline(tp: &Toolpath) -> Toolpath {
 /// An order-changing L2 optimisation pipeline. This may reduce travel but can change thermal/seam/process
 /// sequencing, so callers should expose it as an explicit opt-in.
 pub fn optimize_aggressive_pipeline(tp: &Toolpath) -> Toolpath {
-    travel_reorder(&optimize_pipeline(tp))
+    let tp = merge_collinear(tp);
+    let tp = arc_fit(&tp);
+    let tp = adaptive_speed(&tp);
+    let tp = coasting(&tp);
+    let tp = travel_reorder(&tp);
+    z_hop(&tp)
 }

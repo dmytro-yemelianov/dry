@@ -3,7 +3,7 @@
 // the binding; everything else works in terms of typed ops.
 import * as path from 'node:path';
 import { createRequire } from 'node:module';
-import type { Metrics, Op, ResolveParams, Toolpath } from './ops';
+import type { Metrics, Op, Report, ResolveParams, Toolpath } from './ops';
 
 interface DryWasm {
   resolve_gcode(
@@ -76,7 +76,7 @@ export function resolveVerify(
   bounds = '',
   monotonicZ = false,
   speedRange = ''
-): any {
+): Report {
   return JSON.parse(
     wasm.resolve_verify(
       JSON.stringify(ops),

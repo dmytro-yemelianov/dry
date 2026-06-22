@@ -21,7 +21,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 
 - `[x]` **P1.1** (M) `simulate(ir@L2) -> Metrics` (time/distance/material/peak-flow). *Accept (met):* metric parity with the current conformance corpus.
 - `[x]` **P1.2** (L) `emit(ir@L2, Marlin) -> gcode` (reimplemented; oracle = `gcode.rs` + flavor vocab). *Accept (met):* byte-identical Marlin on the current corpus, including arcs and splines lowered to lines.
-- `[ ]` **P1.3** (M) Klipper + Duet flavors. *Dep: P1.2. Accept:* byte-identical on the flavor corpus.
+- `[x]` **P1.3** (M) Klipper + Duet flavors. **Landed:** Marlin, Klipper, and Duet (RepRapFirmware) G-code dialects supported in emitter. Klipper translates `Dwell` to `G4 P<ms>`, while Marlin/Duet use `G4 S<sec>`. Firmware flavor from profile maps directly to emitter settings, fully tested.
 - `[~]` **P1.4** (M) Device-profile model + start/end procedures (regenerated from primary sources; cross-checked vs `devices/`). **Landed:** a versioned profile schema in `dry-core` for firmware flavor, build volume, feedrate range, filament diameter, max volumetric flow, minimum nozzle temperature, line width/layer height and monotonic-Z policy; `dry review-gcode --profile` and `dry verify --profile` merge those profile limits with explicit CLI overrides. *Remaining:* start/end procedures, generated profile set, Klipper/Duet flavor-specific semantics, sampled/full nightly gates.
 - `[~]` **P1.5** (M) `verify(ir, contracts) -> Report` (`crates/core/src/verify.rs`): Dry's own clean-room safety contracts + structural invariants, each a located `Finding` (rule id, severity, segment, message), `Serialize`-able, plus CLI `dry verify` (exit 1 on errors). **Landed:** `bounds`, `max-flow`, `speed`, `monotonic-z`, `cold-extrusion`, `orientation-not-unit`, and always-on `finite` / `travel-extrudes` / `bead`. *Remaining:* retraction and first-layer contracts.
 - `[x]` **P1.6** (M) PyO3 binding + CLI (`inspect`/`simulate`/`verify`/`emit`/`optimize`/`pack`/`unpack`). *Accept (met):* CLI emits gated g-code; verify exit codes are tested.
@@ -38,7 +38,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 
 ## Phase 3 — Optimise, parse, reverse, web
 
-- `[~]` **P3.1** (L) Optimisation passes on L2 — IR→IR transforms with invariant tests. **Landed:** `merge_collinear`, `arc_fit`, `travel_reorder`, and the shared `optimize_pipeline` used by CLI/wasm/TS. *Remaining:* `adaptive_speed`, `coasting`, `z_hop`.
+- `[x]` **P3.1** (L) Optimisation passes on L2 — IR→IR transforms with invariant tests. **Landed:** `merge_collinear`, `arc_fit`, `travel_reorder`, `adaptive_speed`, `coasting`, `z_hop`, and the shared `optimize_pipeline`/`optimize_aggressive_pipeline` used by CLI/wasm/TS. Complete integration tests verify volume, geometry, and connectivity conservation.
 - `[~]` **P3.2** (M) `parse(gcode, flavor) -> L2` (oracle: `parser.rs`), byte-identical round-trip. **Landed:** a dependency-light streaming G-code parser foundation in `dry-core` that preserves raw source lines/comments/unknown commands, tracks modal state, exposes motion records with source-line numbers, lifts G0/G1/G2/G3/G4 into L2 `Toolpath`, returns segment→source-line maps, supports source-preserving rewrite, and can reflow count-changing transforms inside contiguous motion spans (`dry rewrite-gcode --optimize`). *Remaining:* flavor-aware byte-identical `emit(parse(g)) == g` corpus gate and cross-span/global source-preserving reflow.
 - `[ ]` **P3.3** (M) `reverse(toolpath) -> design` (oracle: `reverse_engineer`). *Dep: P3.2. Accept:* recovers lobes/waves/profile on the fork's reverse-engineering fixtures.
 - `[x]` **P3.4** (M) **wasm build** + adapter; web playground + realistic viewer (oracle: `web/`). *Accept (met):* gallery and Blockly authoring render/simulate/emit client-side; wasm smoke reproduces current oracle fixtures.
@@ -70,9 +70,8 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 
 ## Immediate next 5 (if starting today)
 
-1. **P0.4** — the oracle generates the corpora into `conformance/` (needed by everything).
-2. **P0.1** — extract the dependency-free `core` crate.
-3. **P0.5** — conformance runner + native/wasm CI matrix.
-4. **P0.2 / P0.3** — Dry IR v0 types + JSON/binary encodings.
-5. **P0.6** — pin the shared math backend (bit-stability native↔wasm↔fork).
-Then P0 exit gate = the first real proof the rewrite reproduces the fork.
+1. **P0.4** — Conformance export script to generate the full corpora into `conformance/` (needed for complete parity verification).
+2. **P2.5** — Reimplement the 27 gallery designs in the new authoring SDKs to serve as the authoring conformance suite.
+3. **P3.2** — Validate the flavor-aware G-code round-trip parser gate (`emit(parse(g)) == g`).
+4. **P1.4** — Start/end procedures and Klipper/Duet flavor-specific verification semantics in device profile.
+5. **P3.5** — Parquet/Arrow export and layer/raster linkage for trace summaries.

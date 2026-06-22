@@ -113,6 +113,14 @@ class Design:
         "Resolve to the L2 Dry IR; returns a dict ({version, segments})."
         return json.loads(_native.resolve_ir(json.dumps(self.ops), _params(printer)))
 
+    def optimized_ir(self, printer="generic"):
+        "Resolve + optimize; returns a dict ({version, segments})."
+        return json.loads(_native.resolve_optimized_ir(json.dumps(self.ops), _params(printer)))
+
+    def binary(self, printer="generic"):
+        "Resolve + encode to binary DRY1 format; returns a bytes object."
+        return bytes(_native.resolve_binary(json.dumps(self.ops), _params(printer)))
+
     def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False, speed_range=None):
         "Resolve + verify; returns a report dict with findings."
         return json.loads(_native.resolve_verify(

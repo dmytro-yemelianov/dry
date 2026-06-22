@@ -4,7 +4,16 @@ use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
 use serde::Deserialize;
 
-/// How to emit (Marlin flavour for now). Unknown fields (e.g. `flavor`) are ignored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FirmwareFlavor {
+    #[default]
+    Marlin,
+    Klipper,
+    Duet,
+}
+
+/// How to emit.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EmitParams {
     #[serde(default = "default_true")]
@@ -18,6 +27,9 @@ pub struct EmitParams {
     /// Which rotary kinematics map the orientation onto words (default [`Kinematics::Ab`]).
     #[serde(default)]
     pub kinematics: Kinematics,
+    /// Firmware/dialect flavor: marlin, klipper, duet.
+    #[serde(default)]
+    pub flavor: FirmwareFlavor,
 }
 
 fn default_true() -> bool {
@@ -31,6 +43,7 @@ impl Default for EmitParams {
             travel_g1_e0: false,
             five_axis: false,
             kinematics: Kinematics::default(),
+            flavor: FirmwareFlavor::default(),
         }
     }
 }
@@ -177,11 +190,20 @@ where
 
     for res in segments {
         let s = res?;
-        // a dwell is a pause in the motion stream, not a move: emit `G4 S<seconds>` and carry on (it
+        // a dwell is a pause in the motion stream, not a move: emit dialect-specific dwell command and carry on (it
         // does not touch the running position or feedrate).
         if s.kind == SegmentKind::Dwell {
             if let Some(secs) = s.dwell_s {
-                write_line(writer, &mut first_line, &format!("G4 S{}", num(secs)))?;
+                let cmd = match p.flavor {
+                    FirmwareFlavor::Klipper => {
+                        let ms = (secs * 1000.0).round() as u64;
+                        format!("G4 P{ms}")
+                    }
+                    _ => {
+                        format!("G4 S{}", num(secs))
+                    }
+                };
+                write_line(writer, &mut first_line, &cmd)?;
             }
             continue;
         }
