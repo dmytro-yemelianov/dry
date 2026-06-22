@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="data:," />
 <title>Dry — toolpath compiler, in your browser</title>
+<meta name="description" content="Dry toolpath compiler interactive gallery. Lower design intent to L2 toolpath IR and print-ready G-code with live 3D visualization and simulation." />
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e;
           --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
@@ -112,7 +113,7 @@
 <header>
   <div class="topbar">
     <div class="brand">
-      <strong><b>Dry</b> — native · Python · wasm</strong>
+      <h1><b>Dry</b> — native · Python · wasm</h1>
       <span>Rust toolpath compiler, live 3D playback, synced g-code, byte-identical oracle output.</span>
     </div>
     <nav aria-label="Dry web navigation">
@@ -398,7 +399,29 @@ const SOURCE_DEFS = [
 ];
 
 (async () => {
-  await init();
+  try {
+    await init();
+  } catch (err) {
+    console.error("Wasm load failed:", err);
+    const statusMsg = document.createElement('div');
+    statusMsg.style.color = '#ff6b6b';
+    statusMsg.style.padding = '20px';
+    statusMsg.style.background = '#2a1a1a';
+    statusMsg.style.border = '1px solid #ff4444';
+    statusMsg.style.borderRadius = '8px';
+    statusMsg.style.margin = '20px';
+    const h3 = document.createElement('h3');
+    h3.textContent = 'WebAssembly Engine Load Failed';
+    statusMsg.appendChild(h3);
+    const p1 = document.createElement('p');
+    p1.textContent = err.message || String(err);
+    statusMsg.appendChild(p1);
+    const p2 = document.createElement('p');
+    p2.textContent = 'Please run bash build.sh or refresh the page.';
+    statusMsg.appendChild(p2);
+    document.body.prepend(statusMsg);
+    return;
+  }
   const viewer = createViewer({
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),

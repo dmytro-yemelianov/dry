@@ -28,7 +28,7 @@ pub use codec::{
     BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError, JsonSegmentsIterator,
     SegmentStream, StreamingDecode,
 };
-pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, Kinematics};
+pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
@@ -39,7 +39,9 @@ pub use gcode::{
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
-    arc_fit, merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, travel_reorder,
+    adaptive_speed, adaptive_speed_with_params, arc_fit, coasting, coasting_with_dist,
+    merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, travel_reorder, z_hop,
+    z_hop_with_params,
 };
 pub use profile::{
     FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="data:," />
 <title>Dry — visual authoring (Blockly)</title>
+<meta name="description" content="Visual block-based compiler for machine motion. Author parametric Dry toolpaths in your browser using Blockly, with live 3D visualization and G-code generation." />
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e;
           --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
@@ -118,7 +119,7 @@
 <header>
   <div class="topbar">
     <div class="brand">
-      <strong><b>Dry</b> — visual authoring</strong>
+      <h1><b>Dry</b> — visual authoring</h1>
       <span>Build L1 toolpaths with blocks, resolve live, inspect 3D playback and generated g-code.</span>
     </div>
     <nav aria-label="Dry authoring navigation">
@@ -803,8 +804,29 @@ window.__genOps = genOps;
 window.__blockDiagnostics = LAST_DIAGNOSTICS;
 
 (async () => {
-  await init();
-
+  try {
+    await init();
+  } catch (err) {
+    console.error("Wasm load failed:", err);
+    const statusMsg = document.createElement('div');
+    statusMsg.style.color = '#ff6b6b';
+    statusMsg.style.padding = '20px';
+    statusMsg.style.background = '#2a1a1a';
+    statusMsg.style.border = '1px solid #ff4444';
+    statusMsg.style.borderRadius = '8px';
+    statusMsg.style.margin = '20px';
+    const h3 = document.createElement('h3');
+    h3.textContent = 'WebAssembly Engine Load Failed';
+    statusMsg.appendChild(h3);
+    const p1 = document.createElement('p');
+    p1.textContent = err.message || String(err);
+    statusMsg.appendChild(p1);
+    const p2 = document.createElement('p');
+    p2.textContent = 'Please run bash build.sh or refresh the page.';
+    statusMsg.appendChild(p2);
+    document.body.prepend(statusMsg);
+    return;
+  }
   const viewer = createViewer({
     viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
     gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
