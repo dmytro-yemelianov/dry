@@ -1477,8 +1477,8 @@
           null
         ],
         "end": [
-          10.0,
-          12.0,
+          11.0,
+          20.0,
           0.2
         ],
         "travel": true,
@@ -1486,174 +1486,6 @@
         "length": 0.0,
         "volume": 0.0,
         "filament": 0.0,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          12.0,
-          0.2
-        ],
-        "end": [
-          110.0,
-          12.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 100.0,
-        "volume": 8.000000000000002,
-        "filament": 3.326013504614304,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          110.0,
-          12.0,
-          0.2
-        ],
-        "end": [
-          110.0,
-          14.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 2.0,
-        "volume": 0.16000000000000003,
-        "filament": 0.06652027009228607,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          110.0,
-          14.0,
-          0.2
-        ],
-        "end": [
-          10.0,
-          14.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 100.0,
-        "volume": 8.000000000000002,
-        "filament": 3.326013504614304,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          14.0,
-          0.2
-        ],
-        "end": [
-          10.0,
-          16.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 2.0,
-        "volume": 0.16000000000000003,
-        "filament": 0.06652027009228607,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          16.0,
-          0.2
-        ],
-        "end": [
-          11.0,
-          16.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 1.0,
-        "volume": 0.08000000000000002,
-        "filament": 0.03326013504614304,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          11.0,
-          16.0,
-          0.2
-        ],
-        "end": [
-          11.0,
-          20.0,
-          0.2
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 4.0,
-        "volume": 0.32000000000000006,
-        "filament": 0.13304054018457215,
         "width": 0.4,
         "height": 0.2,
         "kind": "line",
@@ -1677,11 +1509,11 @@
           24.0,
           0.2
         ],
-        "travel": false,
-        "speed": 1000.0,
+        "travel": true,
+        "speed": 8000.0,
         "length": 4.0,
-        "volume": 0.32000000000000006,
-        "filament": 0.13304054018457215,
+        "volume": 0.0,
+        "filament": 0.0,
         "width": 0.4,
         "height": 0.2,
         "kind": "line",
@@ -5062,25 +4894,19 @@
     "flavor": "marlin"
   },
   "expected_metrics": {
-    "total_time_s": 31.364813766636985,
-    "print_time_s": 22.379999999999963,
-    "travel_time_s": 8.984813766637062,
-    "extruding_distance": 373.0,
-    "travel_distance": 1197.9751688849403,
-    "extruded_volume": 29.840000000000014,
-    "filament_length": 12.406030372211347,
-    "segment_count": 127,
+    "total_time_s": 18.61481376663705,
+    "print_time_s": 9.600000000000007,
+    "travel_time_s": 9.014813766637062,
+    "extruding_distance": 160.0,
+    "travel_distance": 1201.9751688849403,
+    "extruded_volume": 12.80000000000001,
+    "filament_length": 5.321621607382883,
+    "segment_count": 121,
     "max_flow_rate": 1.3333333333333337
   },
   "expected_gcode": [
-    "G0 F8000 X10 Y12 Z0.2",
-    "G1 F1000 X110 E3.326014",
-    "G1 Y14 E0.06652",
-    "G1 X10 E3.326014",
-    "G1 Y16 E0.06652",
-    "G1 X11 E0.03326",
-    "G1 Y20 E0.133041",
-    "G1 Y24 E0.133041",
+    "G0 F8000 X11 Y20 Z0.2",
+    "G0 Y24",
     "G0 F8000 X40.666667 Y20 Z0.8",
     "G0 Z0.2",
     "G1 F1000 Y24 E0.133041",

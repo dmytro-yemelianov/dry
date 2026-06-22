@@ -405,6 +405,11 @@
         "z": 0.3
       },
       {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
+      },
+      {
         "op": "extruder",
         "on": false
       },
@@ -415,6 +420,11 @@
         "z": 0.3
       },
       {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
+      },
+      {
         "op": "extruder",
         "on": false
       },
@@ -423,6 +433,11 @@
         "x": 106.0,
         "y": 103.0,
         "z": 0.3
+      },
+      {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
       },
       {
         "op": "extruder",
@@ -435,6 +450,11 @@
         "z": 0.3
       },
       {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
+      },
+      {
         "op": "extruder",
         "on": false
       },
@@ -445,6 +465,11 @@
         "z": 0.3
       },
       {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
+      },
+      {
         "op": "extruder",
         "on": false
       },
@@ -453,6 +478,11 @@
         "x": 106.0,
         "y": 97.0,
         "z": 0.3
+      },
+      {
+        "op": "deposit",
+        "volume": 2.0,
+        "speed": 200.0
       }
     ]
   },
@@ -471,8 +501,8 @@
           null
         ],
         "end": [
-          10.0,
-          12.0,
+          88.0,
+          91.0,
           0.3
         ],
         "travel": true,
@@ -480,176 +510,8 @@
         "length": 0.0,
         "volume": 0.0,
         "filament": 0.0,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          12.0,
-          0.3
-        ],
-        "end": [
-          110.0,
-          12.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 100.0,
-        "volume": 8.000000000000002,
-        "filament": 3.326013504614304,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          110.0,
-          12.0,
-          0.3
-        ],
-        "end": [
-          110.0,
-          14.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 2.0,
-        "volume": 0.16000000000000003,
-        "filament": 0.06652027009228607,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          110.0,
-          14.0,
-          0.3
-        ],
-        "end": [
-          10.0,
-          14.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 100.0,
-        "volume": 8.000000000000002,
-        "filament": 3.326013504614304,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          14.0,
-          0.3
-        ],
-        "end": [
-          10.0,
-          16.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 2.0,
-        "volume": 0.16000000000000003,
-        "filament": 0.06652027009228607,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          10.0,
-          16.0,
-          0.3
-        ],
-        "end": [
-          88.0,
-          16.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 78.0,
-        "volume": 6.240000000000001,
-        "filament": 2.594290533599157,
-        "width": 0.4,
-        "height": 0.2,
-        "kind": "line",
-        "centre": null,
-        "clockwise": false,
-        "temperature": null,
-        "fan": null,
-        "flow": null,
-        "tool": null,
-        "dwell_s": null,
-        "orientation": null
-      },
-      {
-        "start": [
-          88.0,
-          16.0,
-          0.3
-        ],
-        "end": [
-          88.0,
-          91.0,
-          0.3
-        ],
-        "travel": false,
-        "speed": 1000.0,
-        "length": 75.0,
-        "volume": 6.000000000000001,
-        "filament": 2.4945101284607274,
-        "width": 0.4,
-        "height": 0.2,
+        "width": 0.6,
+        "height": 0.3,
         "kind": "line",
         "centre": null,
         "clockwise": false,
@@ -2544,24 +2406,18 @@
     "flavor": "marlin"
   },
   "expected_metrics": {
-    "total_time_s": 67.56292555369508,
-    "print_time_s": 67.14,
+    "total_time_s": 46.14292555369509,
+    "print_time_s": 45.72000000000002,
     "travel_time_s": 0.42292555369506757,
-    "extruding_distance": 1119.0000000000005,
+    "extruding_distance": 762.0000000000005,
     "travel_distance": 56.390073826009015,
-    "extruded_volume": 177.71999999999994,
-    "filament_length": 73.88739000500672,
-    "segment_count": 73,
+    "extruded_volume": 149.15999999999997,
+    "filament_length": 62.01352179353368,
+    "segment_count": 67,
     "max_flow_rate": 3.0000000000000004
   },
   "expected_gcode": [
-    "G0 F8000 X10 Y12 Z0.3",
-    "G1 F1000 X110 E3.326014",
-    "G1 Y14 E0.06652",
-    "G1 X10 E3.326014",
-    "G1 Y16 E0.06652",
-    "G1 X88 E2.594291",
-    "G1 Y91 E2.49451",
+    "G0 F8000 X88 Y91 Z0.3",
     "G1 F1000 X112 E1.796047",
     "G1 Y91.6 E0.044901",
     "G1 X88 E1.796047",

@@ -362,3 +362,81 @@ test('TPMS generator slices implicit fields into resolvable Dry contours', () =>
     'TPMS should reject runaway marching-squares resolutions'
   );
 });
+
+function buildDesignFromOps(ops: any[]): Design {
+  const d = new Design();
+  for (const op of ops) {
+    const name = op.op;
+    if (name === 'geometry') {
+      d.geometry(op.width, op.height);
+    } else if (name === 'extruder') {
+      d.extruder(op.on);
+    } else if (name === 'speed') {
+      d.speed(op.print);
+    } else if (name === 'move') {
+      d.point(op.x ?? null, op.y ?? null, op.z ?? null);
+    } else if (name === 'arc') {
+      d.arc({
+        cx: op.cx,
+        cy: op.cy,
+        x: op.x ?? null,
+        y: op.y ?? null,
+        z: op.z ?? null,
+        clockwise: op.clockwise ?? false,
+      });
+    } else if (name === 'temperature') {
+      d.temperature(op.nozzle ?? op.value);
+    } else if (name === 'fan') {
+      d.fan(op.speed);
+    } else if (name === 'flow') {
+      d.flow(op.ratio);
+    } else if (name === 'tool') {
+      d.tool(op.index);
+    } else if (name === 'orient') {
+      d.orient(op.i, op.j, op.k);
+    } else if (name === 'dwell') {
+      d.dwell(op.seconds);
+    } else if (name === 'manual_gcode') {
+      d.manualGcode(op.text);
+    } else if (name === 'retract') {
+      d.retract(op.distance ?? null, op.speed ?? null);
+    } else if (name === 'unretract') {
+      d.unretract(op.distance ?? null, op.speed ?? null);
+    } else if (name === 'deposit') {
+      d.deposit(op.volume, op.speed);
+    } else {
+      throw new Error(`Unknown L1 op ${name}`);
+    }
+  }
+  return d;
+}
+
+test('every gallery design reproduces oracle via fluent builder', () => {
+  let checked = 0;
+  for (const file of fs.readdirSync(path.join(CONF, 'gallery'))) {
+    if (!file.endsWith('.json')) continue;
+    const fx = fixture('gallery', file.replace(/\.json$/, ''));
+    
+    // Reconstruct via fluent builder
+    const d = buildDesignFromOps(fx.l1.ops);
+    
+    // 1. G-code conformance
+    const gotGcode = d.gcode(
+      'generic',
+      fx.params.relative_e,
+      fx.params.travel_g1_e0,
+      false
+    );
+    assert.deepEqual(gotGcode, fx.expected_gcode, `[${fx.design}] g-code mismatch`);
+    
+    // 2. Simulation metrics conformance
+    const m = d.simulate('generic');
+    const want = fx.expected_metrics;
+    assert.equal(m.segment_count, want.segment_count, `[${fx.design}] segment count mismatch`);
+    assert.ok(Math.abs(m.total_time_s - want.total_time_s) < 1e-9, `[${fx.design}] total time mismatch: ${m.total_time_s} vs ${want.total_time_s}`);
+    assert.ok(Math.abs(m.extruded_volume - want.extruded_volume) < 1e-9, `[${fx.design}] extruded volume mismatch: ${m.extruded_volume} vs ${want.extruded_volume}`);
+    assert.ok(Math.abs(m.filament_length - want.filament_length) < 1e-9, `[${fx.design}] filament length mismatch: ${m.filament_length} vs ${want.filament_length}`);
+    checked++;
+  }
+  assert.ok(checked >= 1, 'no gallery fixtures');
+});

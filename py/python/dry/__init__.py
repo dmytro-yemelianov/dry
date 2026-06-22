@@ -93,6 +93,36 @@ class Design:
         self.ops.append({"op": "dwell", "seconds": seconds})
         return self
 
+    def manual_gcode(self, text):
+        "Inject verbatim custom G-code."
+        self.ops.append({"op": "manual_gcode", "text": str(text)})
+        return self
+
+    def deposit(self, volume, speed):
+        "Stationary extrusion of a set volume (mm³) at feedrate (mm/min)."
+        self.ops.append({"op": "deposit", "volume": float(volume), "speed": float(speed)})
+        return self
+
+    def retract(self, distance=None, speed=None):
+        "Retract filament."
+        op = {"op": "retract"}
+        if distance is not None:
+            op["distance"] = float(distance)
+        if speed is not None:
+            op["speed"] = float(speed)
+        self.ops.append(op)
+        return self
+
+    def unretract(self, distance=None, speed=None):
+        "Prime filament back after a retraction."
+        op = {"op": "unretract"}
+        if distance is not None:
+            op["distance"] = float(distance)
+        if speed is not None:
+            op["speed"] = float(speed)
+        self.ops.append(op)
+        return self
+
     # ---- engine calls ----
     def gcode(self, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False, kinematics="ab"):
         "Resolve + emit motion g-code (a list of lines)."

@@ -41,7 +41,7 @@ impl std::error::Error for ResolveError {}
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Set the extrusion bead cross-section (mm).
-    Geometry { width: f64, height: f64 },
+    Geometry { width: Option<f64>, height: Option<f64> },
     /// Turn the extruder on/off (off ⇒ subsequent moves are travels).
     Extruder { on: bool },
     /// Set the print feedrate (mm/min).
@@ -77,6 +77,24 @@ pub enum Op {
     /// point in `points` (a list of `[x, y, z]`, each axis `None` ⇒ inherited from the running
     /// position). Lowered to line segments in `resolve` (sampling `SAMPLES` points per span).
     Spline { points: Vec<[Option<f64>; 3]> },
+    /// Verbatim custom G-code injection.
+    #[serde(rename = "manual_gcode")]
+    ManualGcode { text: String },
+    /// Explicit E-axis retraction.
+    Retract {
+        distance: Option<f64>,
+        speed: Option<f64>,
+    },
+    /// Explicit E-axis unretraction/prime.
+    Unretract {
+        distance: Option<f64>,
+        speed: Option<f64>,
+    },
+    /// Stationary extrusion of a set volume (mm³).
+    Deposit {
+        volume: f64,
+        speed: f64,
+    },
 }
 
 /// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).
@@ -95,6 +113,10 @@ pub struct ResolveParams {
     pub print_speed: f64,
     pub travel_speed: f64,
     pub dia: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retraction_speed: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retraction_distance: Option<f64>,
 }
 
 impl Default for ResolveParams {
@@ -104,6 +126,8 @@ impl Default for ResolveParams {
             print_speed: 1000.0,
             travel_speed: 8000.0,
             dia: 1.75,
+            retraction_speed: None,
+            retraction_distance: None,
         }
     }
 }
@@ -168,8 +192,12 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
         let prefix = |field: &str| format!("ops[{idx}].{field}");
         match op {
             Op::Geometry { width, height } => {
-                require_positive(&prefix("width"), *width)?;
-                require_positive(&prefix("height"), *height)?;
+                if let Some(w) = width {
+                    require_positive(&prefix("width"), *w)?;
+                }
+                if let Some(h) = height {
+                    require_positive(&prefix("height"), *h)?;
+                }
             }
             Op::Extruder { .. } | Op::Tool { .. } => {}
             Op::Speed { print } => require_positive(&prefix("print"), *print)?,
@@ -217,6 +245,33 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
                         point[2],
                     )?;
                 }
+            }
+            Op::ManualGcode { text } => {
+                if text.is_empty() {
+                    return Err(ResolveError::new(format!(
+                        "ops[{idx}].manual_gcode text must not be empty"
+                    )));
+                }
+            }
+            Op::Retract { distance, speed } => {
+                if let Some(d) = distance {
+                    require_positive(&prefix("distance"), *d)?;
+                }
+                if let Some(s) = speed {
+                    require_positive(&prefix("speed"), *s)?;
+                }
+            }
+            Op::Unretract { distance, speed } => {
+                if let Some(d) = distance {
+                    require_positive(&prefix("distance"), *d)?;
+                }
+                if let Some(s) = speed {
+                    require_positive(&prefix("speed"), *s)?;
+                }
+            }
+            Op::Deposit { volume, speed } => {
+                require_positive(&prefix("volume"), *volume)?;
+                require_positive(&prefix("speed"), *speed)?;
             }
         }
     }
@@ -345,8 +400,12 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 width: w,
                 height: h,
             } => {
-                width = Length::mm(w);
-                height = Length::mm(h);
+                if let Some(w_val) = w {
+                    width = Length::mm(w_val);
+                }
+                if let Some(h_val) = h {
+                    height = Length::mm(h_val);
+                }
             }
             Op::Extruder { on: o } => on = o,
             Op::Speed { print: s } => print = Feedrate(s),
@@ -382,34 +441,36 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     y.map(Length::mm).or(pos[1]),
                     z.map(Length::mm).or(pos[2]),
                 ];
-                let length = dist(pos, end);
-                let volume = if on {
-                    length * width * height * flow
-                } else {
-                    Volume::ZERO
-                };
-                segs.push(Segment {
-                    start: pos,
-                    end,
-                    travel: !on,
-                    speed: if on { print } else { travel_speed },
-                    length,
-                    volume,
-                    filament: volume / area,
-                    width: Some(width),
-                    height: Some(height),
-                    kind: SegmentKind::Line,
-                    centre: None,
-                    clockwise: false,
-                    temperature: temp,
-                    fan,
-                    flow: flow_field,
-                    tool,
-                    dwell_s: None,
-                    orientation,
-                    control_points: None,
-                });
-                pos = end;
+                if end != pos {
+                    let length = dist(pos, end);
+                    let volume = if on {
+                        length * width * height * flow
+                    } else {
+                        Volume::ZERO
+                    };
+                    segs.push(Segment {
+                        start: pos,
+                        end,
+                        travel: !on,
+                        speed: if on { print } else { travel_speed },
+                        length,
+                        volume,
+                        filament: volume / area,
+                        width: Some(width),
+                        height: Some(height),
+                        kind: SegmentKind::Line,
+                        centre: None,
+                        clockwise: false,
+                        temperature: temp,
+                        fan,
+                        flow: flow_field,
+                        tool,
+                        dwell_s: None,
+                        orientation,
+                        control_points: None,
+                    });
+                    pos = end;
+                }
             }
             Op::Arc {
                 cx,
@@ -556,6 +617,82 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     control_points: Some(control_points),
                 });
                 pos = temp_pos;
+            }
+            Op::ManualGcode { .. } => {}
+            Op::Retract { distance, speed } => {
+                let dist = distance.or(p.retraction_distance).unwrap_or(0.0);
+                let sp = speed.or(p.retraction_speed).unwrap_or(1000.0);
+                segs.push(Segment {
+                    start: pos,
+                    end: pos,
+                    travel: true,
+                    speed: Feedrate(sp),
+                    length: Length::ZERO,
+                    volume: Volume::ZERO,
+                    filament: Length::mm(-dist),
+                    width: None,
+                    height: None,
+                    kind: SegmentKind::Retract,
+                    centre: None,
+                    clockwise: false,
+                    temperature: temp,
+                    fan,
+                    flow: None,
+                    tool,
+                    dwell_s: None,
+                    orientation,
+                    control_points: None,
+                });
+            }
+            Op::Unretract { distance, speed } => {
+                let dist = distance.or(p.retraction_distance).unwrap_or(0.0);
+                let sp = speed.or(p.retraction_speed).unwrap_or(1000.0);
+                segs.push(Segment {
+                    start: pos,
+                    end: pos,
+                    travel: true,
+                    speed: Feedrate(sp),
+                    length: Length::ZERO,
+                    volume: Volume::ZERO,
+                    filament: Length::mm(dist),
+                    width: None,
+                    height: None,
+                    kind: SegmentKind::Unretract,
+                    centre: None,
+                    clockwise: false,
+                    temperature: temp,
+                    fan,
+                    flow: None,
+                    tool,
+                    dwell_s: None,
+                    orientation,
+                    control_points: None,
+                });
+            }
+            Op::Deposit { volume, speed } => {
+                let vol = Volume(volume);
+                let fil = vol / area;
+                segs.push(Segment {
+                    start: pos,
+                    end: pos,
+                    travel: false,
+                    speed: Feedrate(speed),
+                    length: Length::ZERO,
+                    volume: vol,
+                    filament: fil,
+                    width: None,
+                    height: None,
+                    kind: SegmentKind::Deposit,
+                    centre: None,
+                    clockwise: false,
+                    temperature: temp,
+                    fan,
+                    flow: None,
+                    tool,
+                    dwell_s: None,
+                    orientation,
+                    control_points: None,
+                });
             }
         }
     }

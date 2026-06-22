@@ -23,7 +23,11 @@ export type Op =
   | { op: 'flow'; ratio: number }
   | { op: 'tool'; index: number }
   | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number };
+  | { op: 'dwell'; seconds: number }
+  | { op: 'manual_gcode'; text: string }
+  | { op: 'retract'; distance: number | null; speed: number | null }
+  | { op: 'unretract'; distance: number | null; speed: number | null }
+  | { op: 'deposit'; volume: number; speed: number };
 
 /** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
 export interface ResolveParams {
@@ -46,7 +50,7 @@ export interface Metrics {
 }
 
 /** One resolved L2 motion segment. */
-export type SegmentKind = 'line' | 'arc' | 'spline' | 'dwell';
+export type SegmentKind = 'line' | 'arc' | 'spline' | 'dwell' | 'retract' | 'unretract' | 'deposit';
 
 export interface Segment {
   start: (number | null)[];

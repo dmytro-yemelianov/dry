@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added support for G1 E0 travel format and dialect-specific dwell commands round-tripping.
 - **Conformance Suite (`conformance/`)**:
   - Created a repeatable Python exporter pipeline (`conformance/export.py`) that exports golden, base G-code, simulate, profiles, and round-trip fixtures from the sibling `fullcontrol` repository.
+- **Python & TypeScript Gallery Conformance (Phase 2.5)**:
+  - Reimplemented all 26 gallery authoring designs in both the Python SDK (`py/`) and TypeScript SDK (`sdk/ts/`) to serve as the authoring conformance suite.
+  - Extended the Python fluent `Design` builder and TypeScript `Design`/`ops` builders with `retract()`, `unretract()`, and `deposit()` methods.
+  - Added support for stationary deposition (`Op::Deposit`) and retraction (`Op::Retract`, `Op::Unretract`) in the Rust core, Resolve pass, and binary columnar codec.
+  - Resolved floating-point inequality and axis coordinate emission format requirements to match oracle G-code output.
 
 ## [0.1.0] - 2026-06-22
 

@@ -95,6 +95,30 @@ export class Design {
     return this;
   }
 
+  /** Inject verbatim custom G-code. */
+  manualGcode(text: string): this {
+    this.ops.push({ op: 'manual_gcode', text });
+    return this;
+  }
+
+  /** Retract filament. */
+  retract(distance: number | null = null, speed: number | null = null): this {
+    this.ops.push({ op: 'retract', distance, speed });
+    return this;
+  }
+
+  /** Prime filament back after a retraction. */
+  unretract(distance: number | null = null, speed: number | null = null): this {
+    this.ops.push({ op: 'unretract', distance, speed });
+    return this;
+  }
+
+  /** Stationary extrusion of a set volume (mm³) at feedrate (mm/min). */
+  deposit(volume: number, speed: number): this {
+    this.ops.push({ op: 'deposit', volume, speed });
+    return this;
+  }
+
   // ---- engine calls ----
 
   /** Resolve + emit motion g-code (an array of lines). */

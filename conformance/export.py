@@ -102,6 +102,8 @@ def step_to_op(s):
         return {'op': 'pressure_advance', 'value': _a(s.value)}
     elif t == 'ManualGcode':
         return {'op': 'manual_gcode', 'text': str(s.text)}
+    elif t == 'StationaryExtrusion':
+        return {'op': 'deposit', 'volume': _a(s.volume), 'speed': _a(s.speed)}
     elif t == 'GcodeComment':
         return {'op': 'comment', 'text': str(s.text)}
     raise ValueError(f'no L1 mapping for step {t}')
@@ -183,7 +185,7 @@ for name in sorted(_SMALL):
     controls = fc.GcodeControls(printer_name='generic', initialization_data=_BUILD)
     controls.initialize()
     dstate = State(steps, controls)
-    tp = resolve(steps, controls, state=dstate)
+    tp = resolve(steps, controls, include_procedures=False, state=dstate)
     
     # Map to Dry L1 Ops
     ops = []
