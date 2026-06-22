@@ -1,8 +1,6 @@
 use dry_core::{
-    adaptive_speed_with_params, coasting_with_dist, z_hop_with_params,
-    optimize_aggressive_pipeline, optimize_pipeline,
-    resolve, simulate, Design, ResolveParams,
-    Length,
+    adaptive_speed_with_params, coasting_with_dist, optimize_aggressive_pipeline,
+    optimize_pipeline, resolve, simulate, z_hop_with_params, Design, Length, ResolveParams,
 };
 
 fn design(ops: &str) -> Design {
@@ -11,14 +9,17 @@ fn design(ops: &str) -> Design {
 
 #[test]
 fn test_coasting_preserves_geometry_and_reduces_volume() {
-    let tp = resolve(&design(
-        r#"[{"op":"geometry","width":0.6,"height":0.2},
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
             {"op":"move","x":0,"y":0,"z":0.2},
             {"op":"extruder","on":true},
             {"op":"move","x":10,"y":0,"z":0.2},
             {"op":"extruder","on":false},
-            {"op":"move","x":20,"y":0,"z":0.2}]"#
-    ), &ResolveParams::default());
+            {"op":"move","x":20,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
 
     let original_printing = tp.segments.iter().find(|s| !s.travel).cloned().unwrap();
 
@@ -47,14 +48,17 @@ fn test_coasting_preserves_geometry_and_reduces_volume() {
 
 #[test]
 fn test_zhop_splits_eligible_travels() {
-    let tp = resolve(&design(
-        r#"[{"op":"geometry","width":0.6,"height":0.2},
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
             {"op":"move","x":0,"y":0,"z":0.2},
             {"op":"extruder","on":true},
             {"op":"move","x":10,"y":0,"z":0.2},
             {"op":"extruder","on":false},
-            {"op":"move","x":20,"y":0,"z":0.2}]"#
-    ), &ResolveParams::default());
+            {"op":"move","x":20,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
 
     let opt = z_hop_with_params(&tp, Length::mm(0.5), Length::mm(5.0));
 
@@ -83,13 +87,16 @@ fn test_zhop_splits_eligible_travels() {
 
 #[test]
 fn test_adaptive_speed_reduces_speed_on_corners() {
-    let tp = resolve(&design(
-        r#"[{"op":"geometry","width":0.6,"height":0.2},
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
             {"op":"move","x":0,"y":0,"z":0.2},
             {"op":"extruder","on":true},
             {"op":"move","x":10,"y":0,"z":0.2},
-            {"op":"move","x":10,"y":10,"z":0.2}]"#
-    ), &ResolveParams::default());
+            {"op":"move","x":10,"y":10,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
 
     let opt = adaptive_speed_with_params(&tp, 500.0);
 
@@ -97,7 +104,13 @@ fn test_adaptive_speed_reduces_speed_on_corners() {
     assert_eq!(printing_segs.len(), 2);
 
     // The 90-degree corner has dot product 0, factor is sqrt(0.5) ~ 0.707.
-    let speed_before = tp.segments.iter().find(|s| !s.travel).unwrap().speed.value();
+    let speed_before = tp
+        .segments
+        .iter()
+        .find(|s| !s.travel)
+        .unwrap()
+        .speed
+        .value();
     let speed_after_1 = printing_segs[0].speed.value();
     let speed_after_2 = printing_segs[1].speed.value();
 
@@ -107,13 +120,16 @@ fn test_adaptive_speed_reduces_speed_on_corners() {
 
 #[test]
 fn test_pipelines_preserve_total_extruded_volume() {
-    let tp = resolve(&design(
-        r#"[{"op":"geometry","width":0.6,"height":0.2},
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
             {"op":"move","x":0,"y":0,"z":0.2},
             {"op":"extruder","on":true},
             {"op":"move","x":10,"y":0,"z":0.2},
-            {"op":"move","x":20,"y":0,"z":0.2}]"#
-    ), &ResolveParams::default());
+            {"op":"move","x":20,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
 
     let safe = optimize_pipeline(&tp);
     let aggressive = optimize_aggressive_pipeline(&tp);

@@ -26,7 +26,9 @@ impl GcodeProcedure {
     /// Return the G-code procedure split into separate lines.
     pub fn to_lines(&self) -> Vec<String> {
         match self {
-            GcodeProcedure::Single(s) => s.lines().map(|line| line.trim_end().to_string()).collect(),
+            GcodeProcedure::Single(s) => {
+                s.lines().map(|line| line.trim_end().to_string()).collect()
+            }
             GcodeProcedure::Lines(v) => v.clone(),
         }
     }
@@ -261,11 +263,26 @@ impl Profile {
         )?;
         validate_positive("process.line_width", self.process.line_width)?;
         validate_positive("process.layer_height", self.process.layer_height)?;
-        validate_positive("process.max_retraction_distance", self.process.max_retraction_distance)?;
-        validate_positive("process.max_retraction_speed", self.process.max_retraction_speed)?;
-        validate_positive("process.max_travel_without_retraction", self.process.max_travel_without_retraction)?;
-        validate_positive_range("process.first_layer_height_range", self.process.first_layer_height_range)?;
-        validate_positive_range("process.first_layer_speed_range", self.process.first_layer_speed_range)?;
+        validate_positive(
+            "process.max_retraction_distance",
+            self.process.max_retraction_distance,
+        )?;
+        validate_positive(
+            "process.max_retraction_speed",
+            self.process.max_retraction_speed,
+        )?;
+        validate_positive(
+            "process.max_travel_without_retraction",
+            self.process.max_travel_without_retraction,
+        )?;
+        validate_positive_range(
+            "process.first_layer_height_range",
+            self.process.first_layer_height_range,
+        )?;
+        validate_positive_range(
+            "process.first_layer_speed_range",
+            self.process.first_layer_speed_range,
+        )?;
         Ok(())
     }
 
@@ -299,10 +316,10 @@ impl Profile {
 
     /// Convert profile material/process defaults to G-code import parameters.
     pub fn gcode_import_params(&self) -> GcodeImportParams {
-        let relative_e = match self.firmware.flavor.as_deref() {
-            Some("klipper") | Some("duet") => true,
-            _ => false,
-        };
+        let relative_e = matches!(
+            self.firmware.flavor.as_deref(),
+            Some("klipper") | Some("duet")
+        );
         GcodeImportParams {
             version: 0,
             filament_diameter: self.material.filament_diameter.unwrap_or(1.75),
@@ -395,7 +412,7 @@ mod tests {
           ]
         }"#;
         let profile = Profile::from_json(profile_str).unwrap();
-        
+
         let start = profile.start_gcode.as_ref().unwrap();
         assert_eq!(
             start.to_lines(),

@@ -1,7 +1,6 @@
 use super::{
-    parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeParseError,
+    parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
-    GcodeModalState,
 };
 use crate::emit::{emit, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
@@ -264,10 +263,7 @@ pub fn import_gcode_with_map(
     if params.relative_e {
         initial_state.extrusion_mode = ExtrusionMode::Relative;
     }
-    import_parsed_gcode_with_map(
-        parse_gcode_lines_with_state(source, initial_state)?,
-        params,
-    )
+    import_parsed_gcode_with_map(parse_gcode_lines_with_state(source, initial_state)?, params)
 }
 
 /// Parse and lift a G-code reader into a Dry L2 [`Toolpath`].

@@ -25,6 +25,9 @@ pub enum SegmentKind {
     Arc,
     Spline,
     Dwell,
+    Retract,
+    Unretract,
+    Deposit,
 }
 
 impl SegmentKind {
@@ -34,6 +37,9 @@ impl SegmentKind {
             SegmentKind::Arc => "arc",
             SegmentKind::Spline => "spline",
             SegmentKind::Dwell => "dwell",
+            SegmentKind::Retract => "retract",
+            SegmentKind::Unretract => "unretract",
+            SegmentKind::Deposit => "deposit",
         }
     }
 
@@ -43,6 +49,9 @@ impl SegmentKind {
             "arc" => Some(SegmentKind::Arc),
             "spline" => Some(SegmentKind::Spline),
             "dwell" => Some(SegmentKind::Dwell),
+            "retract" => Some(SegmentKind::Retract),
+            "unretract" => Some(SegmentKind::Unretract),
+            "deposit" => Some(SegmentKind::Deposit),
             _ => None,
         }
     }

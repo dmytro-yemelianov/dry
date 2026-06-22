@@ -30,6 +30,9 @@ fn segment_kind_tag(kind: SegmentKind) -> u8 {
         SegmentKind::Arc => 1,
         SegmentKind::Spline => 2,
         SegmentKind::Dwell => 3,
+        SegmentKind::Retract => 4,
+        SegmentKind::Unretract => 5,
+        SegmentKind::Deposit => 6,
     }
 }
 
@@ -39,6 +42,9 @@ fn segment_kind_from_tag(tag: u8) -> Result<SegmentKind, CodecError> {
         1 => Ok(SegmentKind::Arc),
         2 => Ok(SegmentKind::Spline),
         3 => Ok(SegmentKind::Dwell),
+        4 => Ok(SegmentKind::Retract),
+        5 => Ok(SegmentKind::Unretract),
+        6 => Ok(SegmentKind::Deposit),
         _ => Err(CodecError::BadKind(format!("tag {tag}"))),
     }
 }

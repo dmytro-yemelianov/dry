@@ -2,7 +2,11 @@ use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Length, Volume};
 
 /// Interpolate a 3D point between `start` and `end` at parameter `t` in `[0, 1]`.
-fn interpolate_point(start: [Option<Length>; 3], end: [Option<Length>; 3], t: f64) -> [Option<Length>; 3] {
+fn interpolate_point(
+    start: [Option<Length>; 3],
+    end: [Option<Length>; 3],
+    t: f64,
+) -> [Option<Length>; 3] {
     let mut out = [None, None, None];
     for i in 0..3 {
         if let (Some(s), Some(e)) = (start[i], end[i]) {

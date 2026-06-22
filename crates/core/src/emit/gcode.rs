@@ -208,6 +208,13 @@ where
             continue;
         }
 
+        if s.kind == SegmentKind::Retract || s.kind == SegmentKind::Unretract {
+            if prev_speed != Some(s.speed) {
+                prev_speed = Some(s.speed);
+            }
+            continue;
+        }
+
         // Track programmed coordinates.
         let mut start_prog = prog_pos;
         for (i, axis) in start_prog.iter_mut().enumerate() {
@@ -251,7 +258,7 @@ where
 
         for (i, &letter) in letters.iter().enumerate() {
             let explicit = s.end[i].is_some();
-            let changed = pos[i].is_none_or(|v| (v.value() - target_axes[i]).abs() > 1e-9);
+            let changed = pos[i].is_none_or(|v| v.value() != target_axes[i]);
             let force = is_arc && i < 2;
             let emit_axis = if p.five_axis {
                 changed || explicit

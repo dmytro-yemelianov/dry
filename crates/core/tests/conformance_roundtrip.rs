@@ -1,7 +1,7 @@
 //! Conformance: Dry G-code round-trip parser gate.
 //! Parses Marlin, Klipper, and Duet flavor G-code to Toolpath IR, and re-emits to match original G-code byte-for-byte.
 
-use dry_core::{emit, EmitParams, GcodeImportParams, import_gcode};
+use dry_core::{emit, import_gcode, EmitParams, GcodeImportParams};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -66,6 +66,10 @@ fn roundtrip_conformance_byte_for_byte() {
         );
         checked += 1;
     }
-    assert!(checked >= 12, "expected at least 12 roundtrip fixtures, found {}", checked);
+    assert!(
+        checked >= 12,
+        "expected at least 12 roundtrip fixtures, found {}",
+        checked
+    );
     println!("G-code round-trip conformance: {checked} fixtures passed");
 }
