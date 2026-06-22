@@ -14,6 +14,6 @@ mod spline;
 #[cfg(test)]
 mod tests;
 
-pub use self::gcode::{emit, emit_stream, emit_stream_to_writer, EmitParams};
+pub use self::gcode::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor};
 pub use self::kinematics::Kinematics;
 pub use self::spline::SplineFlatteningIterator;

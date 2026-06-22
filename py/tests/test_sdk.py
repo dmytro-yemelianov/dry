@@ -109,3 +109,23 @@ def test_verify_contracts():
     assert len(report_z["findings"]) > 0
     assert report_z["findings"][0]["rule"] == "monotonic-z"
 
+
+def test_optimized_ir_runs_without_error():
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2).point(20, 0, 0.2)
+    assert len(d.ir()["segments"]) == 3
+    opt = d.optimized_ir()
+    assert opt["version"] == 0
+    # The two collinear segments [0,0]->[10,0]->[20,0] should be merged into one.
+    # Total segments: 1 positioning (travel) + 1 merged extrusion = 2.
+    assert len(opt["segments"]) == 2
+    assert opt["segments"][1]["end"] == [20.0, 0.0, 0.2]
+
+
+def test_binary_roundtrips():
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    bin_data = d.binary()
+    assert isinstance(bin_data, bytes)
+    assert bin_data.startswith(b"DRY0") or bin_data.startswith(b"DRY1")
+
+
+

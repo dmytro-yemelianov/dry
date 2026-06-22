@@ -71,10 +71,31 @@ export interface Segment {
   control_points?: [number, number, number][];
 }
 
+export interface ToolpathMeta {
+  generator?: string;
+  units?: string;
+  source_hash?: string;
+  invariants?: string[];
+}
+
 /** The resolved L2 Dry IR. */
 export interface Toolpath {
   version: number;
+  meta?: ToolpathMeta;
   segments: Segment[];
+}
+
+export type Severity = 'error' | 'warning';
+
+export interface Finding {
+  rule: string;
+  severity: Severity;
+  segment: number | null;
+  message: string;
+}
+
+export interface Report {
+  findings: Finding[];
 }
 
 /** Device defaults (the generic printer). More profiles land with the device-profile work. */
@@ -83,3 +104,4 @@ export const PRINTERS: Record<string, ResolveParams> = {
 };
 
 export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
+

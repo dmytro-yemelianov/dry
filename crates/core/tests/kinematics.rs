@@ -39,6 +39,7 @@ fn params(five_axis: bool, kinematics: Kinematics) -> EmitParams {
         travel_g1_e0: false,
         five_axis,
         kinematics,
+        ..EmitParams::default()
     }
 }
 

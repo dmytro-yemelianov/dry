@@ -4,8 +4,8 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    emit, parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, verify, Contracts,
-    Design, EmitParams, Kinematics, Op, ResolveParams,
+    emit, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate,
+    verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -43,6 +43,7 @@ fn resolve_gcode(
             travel_g1_e0,
             five_axis,
             kinematics,
+            ..EmitParams::default()
         },
     ))
 }
@@ -61,6 +62,23 @@ fn resolve_ir(ops_json: &str, params_json: &str) -> PyResult<String> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(tp.to_json())
+}
+
+/// Resolve a design and return the L2 toolpath IR as a binary byte array.
+#[pyfunction]
+fn resolve_binary(ops_json: &str, params_json: &str) -> PyResult<Vec<u8>> {
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(tp.to_bytes())
+}
+
+/// Resolve a design, run the standard L2 optimization pipeline, and return the resulting
+/// L2 toolpath IR as a JSON string.
+#[pyfunction]
+fn resolve_optimized_ir(ops_json: &str, params_json: &str) -> PyResult<String> {
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(optimize_pipeline(&tp).to_json())
 }
 
 /// Resolve a design and verify it against machine-safety contracts, returning the JSON report.
@@ -117,6 +135,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_optimized_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }

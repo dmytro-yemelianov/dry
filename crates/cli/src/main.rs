@@ -6,7 +6,7 @@ use dry_core::{
     emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
     optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv,
     simulate, simulate_stream, trace_summary_with_sources, verify, verify_stream, Contracts,
-    EmitParams, GcodeImportParams, Kinematics, Profile, Toolpath,
+    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, Profile, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -357,6 +357,7 @@ fn run(cli: Cli) -> ExitCode {
                 travel_g1_e0: false,
                 five_axis,
                 kinematics: kinematics.into(),
+                ..EmitParams::default()
             };
             match out {
                 Some(path) => {
@@ -605,6 +606,7 @@ fn run(cli: Cli) -> ExitCode {
                 travel_g1_e0: false,
                 five_axis: false,
                 kinematics: Kinematics::default(),
+                flavor: profile.as_ref().map(|p| p.emit_params().flavor).unwrap_or(FirmwareFlavor::Marlin),
             };
             let rewritten_lines = if optimize {
                 let span_toolpaths = imported

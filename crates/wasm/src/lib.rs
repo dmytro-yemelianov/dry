@@ -37,6 +37,7 @@ pub fn resolve_gcode(
             travel_g1_e0,
             five_axis,
             kinematics,
+            ..EmitParams::default()
         },
     ))
 }
