@@ -91,6 +91,13 @@ def test_flow_multiplier_scales_volume():
     assert abs(s - b * 0.8) < 1e-12
 
 
+def test_default_retraction_builders_emit_real_e_moves():
+    d = dry.Design().geometry(0.6, 0.2).point(0, 0, 0.2).retract().unretract()
+    gcode = d.gcode()
+    assert gcode[1] == "G1 F1000 E-1"
+    assert gcode[2] == "G1 E1"
+
+
 def test_verify_contracts():
     # Valid design
     d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
@@ -126,6 +133,5 @@ def test_binary_roundtrips():
     bin_data = d.binary()
     assert isinstance(bin_data, bytes)
     assert bin_data.startswith(b"DRY0") or bin_data.startswith(b"DRY1")
-
 
 

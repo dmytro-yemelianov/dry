@@ -172,6 +172,12 @@ test('flow multiplier scales deposited volume', () => {
   assert.ok(Math.abs(s - b * 0.8) < 1e-12, `${s} vs ${b * 0.8}`);
 });
 
+test('default retraction builders emit real E moves', () => {
+  const gcode = new Design().geometry(0.6, 0.2).point(0, 0, 0.2).retract().unretract().gcode();
+  assert.equal(gcode[1], 'G1 F1000 E-1');
+  assert.equal(gcode[2], 'G1 E1');
+});
+
 // verify() safety contracts.
 test('verify() finds contract violations', () => {
   const d = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(10, 0, 0.2);

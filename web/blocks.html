@@ -683,6 +683,18 @@ function safeMethod(target, name) {
   throw new Error(`unsupported member ${name}`);
 }
 
+function safeMathMember(name) {
+  if (!Object.prototype.hasOwnProperty.call(SAFE_MATH, name)) throw new Error(`unsupported Math.${name}`);
+  return SAFE_MATH[name];
+}
+
+function safeIndex(target, index) {
+  if (!Array.isArray(target) && typeof target !== 'string') throw new Error('unsupported indexed target');
+  const n = Number(index);
+  if (!Number.isInteger(n)) throw new Error(`unsupported index ${String(index)}`);
+  return target[n];
+}
+
 function safeEvalExpression(expr, env) {
   const tokens = tokenizeExpr(expr);
   let pos = 0;
@@ -731,12 +743,11 @@ function safeEvalExpression(expr, env) {
         const member = peek();
         if (member.type !== 'ident') throw new Error('expected member name');
         pos++;
-        value = value === MATH_SENTINEL ? SAFE_MATH[member.value] : safeMethod(value, member.value);
-        if (value === undefined) throw new Error(`unsupported Math.${member.value}`);
+        value = value === MATH_SENTINEL ? safeMathMember(member.value) : safeMethod(value, member.value);
       } else if (match('[')) {
         const index = parseExpression();
         expect(']');
-        value = value == null ? undefined : value[index];
+        value = safeIndex(value, index);
       } else if (match('(')) {
         const args = parseList(')', parseExpression);
         if (typeof value !== 'function') throw new Error('target is not callable');

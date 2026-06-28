@@ -204,8 +204,22 @@ impl ImportedGcode {
         toolpath: &Toolpath,
         params: &EmitParams,
     ) -> Result<Vec<String>, GcodeImportError> {
-        let emitted = emit(toolpath, params);
-        self.splice_motion_lines(&emitted)
+        let mut span_toolpaths = Vec::new();
+        for span in self.motion_spans() {
+            let range = span.segment_range();
+            if range.end > toolpath.segments.len() {
+                return Err(GcodeImportError::new(
+                    span.last_source_line,
+                    "replacement toolpath has fewer segments than the imported source map",
+                ));
+            }
+            span_toolpaths.push(Toolpath {
+                version: toolpath.version,
+                meta: toolpath.meta.clone(),
+                segments: toolpath.segments[range].to_vec(),
+            });
+        }
+        self.emit_source_preserving_spans(&span_toolpaths, params)
     }
 
     pub fn emit_source_preserving_spans(
@@ -213,12 +227,74 @@ impl ImportedGcode {
         span_toolpaths: &[Toolpath],
         params: &EmitParams,
     ) -> Result<Vec<String>, GcodeImportError> {
-        let span_motion_lines = span_toolpaths
-            .iter()
-            .map(|toolpath| emit(toolpath, params))
-            .collect::<Vec<_>>();
+        let span_motion_lines = self.emit_normalized_span_lines(span_toolpaths, params)?;
         self.splice_motion_spans(&span_motion_lines)
     }
+
+    fn emit_normalized_span_lines(
+        &self,
+        span_toolpaths: &[Toolpath],
+        params: &EmitParams,
+    ) -> Result<Vec<Vec<String>>, GcodeImportError> {
+        let reset_flow = self
+            .toolpath
+            .segments
+            .iter()
+            .any(|segment| segment.flow.is_some());
+        let flat_toolpath = Toolpath {
+            version: self.toolpath.version,
+            meta: self.toolpath.meta.clone(),
+            segments: span_toolpaths
+                .iter()
+                .flat_map(|toolpath| toolpath.segments.iter().cloned())
+                .collect(),
+        };
+        let emitted = emit(&flat_toolpath, params);
+        let mut emitted_offset = 0usize;
+        let mut span_motion_lines = Vec::with_capacity(span_toolpaths.len());
+
+        for span_toolpath in span_toolpaths {
+            let span_line_count = emit(span_toolpath, params).len();
+            let end = emitted_offset + span_line_count;
+            if end > emitted.len() {
+                return Err(GcodeImportError::new(
+                    0,
+                    format!(
+                        "internal rewrite line accounting failed: span needs {span_line_count} lines at offset {emitted_offset}, but only {} total lines were emitted",
+                        emitted.len()
+                    ),
+                ));
+            }
+            let mut lines = modal_rewrite_prologue(params, reset_flow);
+            lines.extend(emitted[emitted_offset..end].iter().cloned());
+            emitted_offset = end;
+            span_motion_lines.push(lines);
+        }
+
+        if emitted_offset != emitted.len() {
+            return Err(GcodeImportError::new(
+                0,
+                format!(
+                    "internal rewrite line accounting failed: consumed {emitted_offset} of {} emitted lines",
+                    emitted.len()
+                ),
+            ));
+        }
+
+        Ok(span_motion_lines)
+    }
+}
+
+fn modal_rewrite_prologue(params: &EmitParams, reset_flow: bool) -> Vec<String> {
+    let mut lines = vec![
+        "G21".to_string(),
+        "G90".to_string(),
+        if params.relative_e { "M83" } else { "M82" }.to_string(),
+    ];
+    if reset_flow {
+        lines.push("M221 S100".to_string());
+    }
+    lines
 }
 
 #[derive(Debug, Clone)]
@@ -773,12 +849,17 @@ mod tests {
         let lines = imported
             .emit_source_preserving(&imported.toolpath, &EmitParams::default())
             .unwrap();
-        assert_eq!(lines.len(), 5);
         assert_eq!(lines[0], "; header");
         assert_eq!(lines[1], "M83");
-        assert_eq!(lines[3], "M104 S210");
-        assert!(lines[2].starts_with("G0 "));
-        assert!(lines[4].starts_with("G1 "));
+        assert_eq!(lines[2], "G21");
+        assert_eq!(lines[3], "G90");
+        assert_eq!(lines[4], "M83");
+        assert!(lines[5].starts_with("G0 "));
+        assert_eq!(lines[6], "M104 S210");
+        assert_eq!(lines[7], "G21");
+        assert_eq!(lines[8], "G90");
+        assert_eq!(lines[9], "M83");
+        assert!(lines[10].starts_with("G1 "));
     }
 
     #[test]
@@ -793,8 +874,23 @@ mod tests {
         let lines = imported
             .emit_source_preserving(&imported.toolpath, &EmitParams::default())
             .unwrap();
-        assert_eq!(lines[2], "F1200");
-        assert!(lines[3].starts_with("G1 "));
+        assert_eq!(lines[5], "F1200");
+        assert_eq!(lines[6], "G21");
+        assert_eq!(lines[7], "G90");
+        assert_eq!(lines[8], "M83");
+        assert!(lines[9].starts_with("G1 "));
+    }
+
+    #[test]
+    fn source_preserving_emit_resets_flow_multiplier() {
+        let imported =
+            import_gcode_with_map("M221 S90\nM83\nG1 X10 E1 F1200\n", &Default::default()).unwrap();
+        let lines = imported
+            .emit_source_preserving(&imported.toolpath, &EmitParams::default())
+            .unwrap();
+        assert_eq!(lines[0], "M221 S90");
+        assert!(lines.iter().any(|line| line == "M221 S100"));
+        assert!(lines.iter().any(|line| line == "G1 F1200 X10 E0.9"));
     }
 
     #[test]

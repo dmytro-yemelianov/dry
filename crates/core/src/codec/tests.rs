@@ -119,3 +119,54 @@ fn test_streaming_decoders() {
     let json_segs: Vec<Segment> = json_iter.map(|r| r.unwrap()).collect();
     assert_eq!(json_segs, tp.segments);
 }
+
+#[test]
+fn json_segment_iterator_uses_the_structural_segments_key() {
+    use crate::units::{Feedrate, Length, Volume};
+
+    let segment = Segment {
+        start: [
+            Some(Length::mm(0.0)),
+            Some(Length::mm(0.0)),
+            Some(Length::mm(0.2)),
+        ],
+        end: [
+            Some(Length::mm(10.0)),
+            Some(Length::mm(0.0)),
+            Some(Length::mm(0.2)),
+        ],
+        travel: false,
+        speed: Feedrate(600.0),
+        length: Length::mm(10.0),
+        volume: Volume(1.0),
+        filament: Length::mm(1.0),
+        width: Some(Length::mm(0.5)),
+        height: Some(Length::mm(0.2)),
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    };
+    let json = serde_json::json!({
+        "version": 0,
+        "meta": {
+            "generator": "segments",
+            "units": "mm",
+            "invariants": []
+        },
+        "segments": [segment.clone()]
+    })
+    .to_string();
+
+    let got: Vec<Segment> = JsonSegmentsIterator::new(json.as_bytes())
+        .map(|result| result.unwrap())
+        .collect();
+    assert_eq!(got, vec![segment]);
+}

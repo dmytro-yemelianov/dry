@@ -116,8 +116,9 @@ pub fn coasting_with_dist(tp: &Toolpath, coasting_dist: Length) -> Toolpath {
     let mut run: Vec<Segment> = Vec::new();
 
     for seg in &tp.segments {
-        let is_run_break = seg.travel || seg.kind == SegmentKind::Dwell;
-        if is_run_break {
+        let can_split_for_coasting =
+            !seg.travel && matches!(seg.kind, SegmentKind::Line | SegmentKind::Arc);
+        if !can_split_for_coasting {
             if !run.is_empty() {
                 out.extend(process_run(&run, coasting_dist));
                 run.clear();

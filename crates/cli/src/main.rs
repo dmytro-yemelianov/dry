@@ -611,32 +611,30 @@ fn run(cli: Cli) -> ExitCode {
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
             };
-            let rewritten_lines = if optimize {
-                let span_toolpaths = imported
-                    .motion_spans()
-                    .into_iter()
-                    .map(|span| {
-                        let range = span.segment_range();
-                        let span_toolpath = Toolpath {
-                            version: imported.toolpath.version,
-                            meta: imported.toolpath.meta.clone(),
-                            segments: imported.toolpath.segments[range].to_vec(),
-                        };
+            let span_toolpaths = imported
+                .motion_spans()
+                .into_iter()
+                .map(|span| {
+                    let range = span.segment_range();
+                    let span_toolpath = Toolpath {
+                        version: imported.toolpath.version,
+                        meta: imported.toolpath.meta.clone(),
+                        segments: imported.toolpath.segments[range].to_vec(),
+                    };
+                    if optimize {
                         if reorder_travel {
                             optimize_aggressive_pipeline(&span_toolpath)
                         } else {
                             optimize_pipeline(&span_toolpath)
                         }
-                    })
-                    .collect::<Vec<_>>();
-                imported
-                    .emit_source_preserving_spans(&span_toolpaths, &emit_params)
-                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")))
-            } else {
-                imported
-                    .emit_source_preserving(&imported.toolpath, &emit_params)
-                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")))
-            };
+                    } else {
+                        span_toolpath
+                    }
+                })
+                .collect::<Vec<_>>();
+            let rewritten_lines = imported
+                .emit_source_preserving_spans(&span_toolpaths, &emit_params)
+                .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")));
             let rewritten = rewritten_lines.join("\n");
             match out {
                 Some(path) => fs::write(&path, rewritten + "\n")

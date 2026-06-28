@@ -1,6 +1,7 @@
 use dry_core::{
     adaptive_speed_with_params, coasting_with_dist, optimize_aggressive_pipeline,
     optimize_pipeline, resolve, simulate, z_hop_with_params, Design, Length, ResolveParams,
+    SegmentKind,
 };
 
 fn design(ops: &str) -> Design {
@@ -83,6 +84,28 @@ fn test_zhop_splits_eligible_travels() {
     assert_eq!(travel.end[2].unwrap().value(), 0.7);
     assert_eq!(lower.start[2].unwrap().value(), 0.7);
     assert_eq!(lower.end[2].unwrap().value(), 0.2);
+}
+
+#[test]
+fn test_coasting_leaves_spline_segments_unchanged() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
+            {"op":"move","x":0,"y":0,"z":0.2},
+            {"op":"extruder","on":true},
+            {"op":"spline","points":[[10,0,0.2],[10,10,0.2],[0,10,0.2]]}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+
+    let opt = coasting_with_dist(&tp, Length::mm(2.0));
+    let splines: Vec<_> = opt
+        .segments
+        .iter()
+        .filter(|segment| segment.kind == SegmentKind::Spline)
+        .collect();
+    assert_eq!(splines.len(), 1);
+    assert_eq!(splines[0], &tp.segments[1]);
 }
 
 #[test]

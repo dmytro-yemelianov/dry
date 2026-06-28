@@ -130,6 +130,23 @@ fn authored_retractions_emit_extruder_moves_and_have_time() {
 }
 
 #[test]
+fn default_retractions_emit_real_extruder_moves() {
+    let d = design(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},
+            {"op":"move","x":0,"y":0,"z":0.2},
+            {"op":"retract"},
+            {"op":"unretract"}]"#,
+    );
+    let tp = resolve(&d, &ResolveParams::default());
+    assert_eq!(tp.segments[1].filament.value(), -1.0);
+    assert_eq!(tp.segments[2].filament.value(), 1.0);
+
+    let g = emit(&tp, &EmitParams::default());
+    assert_eq!(g[1], "G1 F1000 E-1");
+    assert_eq!(g[2], "G1 E1");
+}
+
+#[test]
 fn stationary_deposit_has_print_time_and_flow() {
     let d = design(
         r#"[{"op":"geometry","width":0.6,"height":0.2},

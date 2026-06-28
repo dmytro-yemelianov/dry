@@ -645,7 +645,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 control_points: None,
             }),
             Op::Retract { distance, speed } => {
-                let dist = distance.or(p.retraction_distance).unwrap_or(0.0);
+                let dist = distance.or(p.retraction_distance).unwrap_or(1.0);
                 let sp = speed.or(p.retraction_speed).unwrap_or(1000.0);
                 segs.push(Segment {
                     start: pos,
@@ -671,7 +671,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 });
             }
             Op::Unretract { distance, speed } => {
-                let dist = distance.or(p.retraction_distance).unwrap_or(0.0);
+                let dist = distance.or(p.retraction_distance).unwrap_or(1.0);
                 let sp = speed.or(p.retraction_speed).unwrap_or(1000.0);
                 segs.push(Segment {
                     start: pos,

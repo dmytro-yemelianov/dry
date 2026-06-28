@@ -47,6 +47,9 @@ assert(blocksHtml.includes('MAX_PATTERN_POINTS'), 'pattern generators should cap
 assert(blocksHtml.includes('safeEvalExpression'), 'expression evaluator should use the safe parser');
 assert(!blocksHtml.includes('new Function'), 'expression evaluator must not execute generated JavaScript');
 assert(blocksHtml.includes('SAFE_HELPERS'), 'expression evaluator should whitelist generated helpers');
+assert(blocksHtml.includes('safeMathMember'), 'expression evaluator should guard Math member access');
+assert(blocksHtml.includes('safeIndex'), 'expression evaluator should guard bracket access');
+assert(blocksHtml.includes('value = safeIndex(value, index)'), 'expression evaluator must not use raw bracket property access');
 assert(viewerJs.includes('VIEW_PANELS'), 'viewer multi-view panel definitions are missing');
 assert(viewerJs.includes('renderViews'), 'viewer multi-view renderer is missing');
 assert(viewerJs.includes('activeViewPanels'), 'viewer should switch between Iso-only and multi-view panels');

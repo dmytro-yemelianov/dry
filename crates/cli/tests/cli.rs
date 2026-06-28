@@ -358,12 +358,87 @@ fn rewrite_gcode_preserves_non_motion_source_lines() {
         .lines()
         .map(str::to_owned)
         .collect();
-    assert_eq!(lines.len(), 5);
     assert_eq!(lines[0], "; header");
     assert_eq!(lines[1], "M83");
-    assert!(lines[2].starts_with("G0 "));
-    assert_eq!(lines[3], "M104 S210");
-    assert!(lines[4].starts_with("G1 "));
+    assert_eq!(lines[2], "G21");
+    assert_eq!(lines[3], "G90");
+    assert_eq!(lines[4], "M83");
+    assert!(lines[5].starts_with("G0 "));
+    assert_eq!(lines[6], "M104 S210");
+    assert_eq!(lines[7], "G21");
+    assert_eq!(lines[8], "G90");
+    assert_eq!(lines[9], "M83");
+    assert!(lines[10].starts_with("G1 "));
+}
+
+#[test]
+fn rewrite_gcode_normalizes_relative_xyz_before_rewritten_motion() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-rewrite-relative-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "G91\nM83\nG1 X10 E1 F1200\nG1 X10 E1 F1200\n").unwrap();
+
+    let out = Command::new(bin())
+        .args(["rewrite-gcode", input.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "rewrite-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let lines: Vec<_> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(lines[0], "G91");
+    assert_eq!(lines[2], "G21");
+    assert_eq!(lines[3], "G90");
+    assert!(lines.iter().any(|line| line == "G1 X20 E1"), "{lines:?}");
+}
+
+#[test]
+fn rewrite_gcode_resets_preserved_flow_multiplier() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-rewrite-flow-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M221 S90\nM83\nG1 X10 E1 F1200\n").unwrap();
+
+    let out = Command::new(bin())
+        .args(["rewrite-gcode", input.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "rewrite-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let lines: Vec<_> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(lines[0], "M221 S90");
+    assert!(lines.iter().any(|line| line == "M221 S100"), "{lines:?}");
+    assert!(
+        lines.iter().any(|line| line == "G1 F1200 X10 E0.9"),
+        "{lines:?}"
+    );
 }
 
 #[test]
@@ -408,8 +483,17 @@ fn rewrite_gcode_optimizes_each_motion_span_locally() {
         .collect();
     assert_eq!(lines[0], "; header");
     assert!(lines.iter().any(|line| line == "M104 S210"));
+    let motion_lines: Vec<_> = lines
+        .iter()
+        .filter(|line| {
+            line.starts_with("G0 ")
+                || line.starts_with("G1 ")
+                || line.starts_with("G2 ")
+                || line.starts_with("G3 ")
+        })
+        .collect();
     assert!(
-        lines.len() < 7,
+        motion_lines.len() < 5,
         "span-local optimize should reduce motion lines: {lines:?}"
     );
 }
