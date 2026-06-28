@@ -15,6 +15,8 @@ pub enum CodecError {
     BadMeta,
     /// The segment kind dictionary contained a value this engine does not support.
     BadKind(String),
+    /// The value cannot be represented in the fixed-width binary format.
+    TooLarge { field: &'static str, len: usize },
     /// Generic or underlying I/O / JSON deserialization error.
     Other(String),
 }
@@ -29,6 +31,9 @@ impl std::fmt::Display for CodecError {
             CodecError::BadCompression => write!(f, "corrupt compressed body"),
             CodecError::BadMeta => write!(f, "invalid IR meta header"),
             CodecError::BadKind(s) => write!(f, "unsupported segment kind {s:?}"),
+            CodecError::TooLarge { field, len } => {
+                write!(f, "{field} length/count {len} exceeds u32::MAX")
+            }
             CodecError::Other(s) => write!(f, "error: {s}"),
         }
     }

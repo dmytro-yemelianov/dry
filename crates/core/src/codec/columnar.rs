@@ -1,4 +1,4 @@
-use super::util::Reader;
+use super::util::{checked_u32_len, Reader};
 use super::{CodecError, ENC_VER, LEGACY_ENC_VER, MAGIC};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
@@ -56,24 +56,27 @@ fn push_opt_string_col(
     out: &mut Vec<u8>,
     segs: &[Segment],
     get: impl Fn(&Segment) -> Option<&str>,
-) {
+) -> Result<(), CodecError> {
     push_bits(out, segs.len(), |i| get(&segs[i]).is_some());
     for s in segs {
         if let Some(value) = get(s) {
-            body_push_string(out, value);
+            body_push_string(out, value)?;
         }
     }
+    Ok(())
 }
 
-fn body_push_string(out: &mut Vec<u8>, value: &str) {
-    out.extend_from_slice(&(value.len() as u32).to_le_bytes());
+fn body_push_string(out: &mut Vec<u8>, value: &str) -> Result<(), CodecError> {
+    out.extend_from_slice(&checked_u32_len(value.len(), "string")?.to_le_bytes());
     out.extend_from_slice(value.as_bytes());
+    Ok(())
 }
 
 /// Encode a toolpath to the compact columnar binary form.
-pub fn encode(tp: &Toolpath) -> Vec<u8> {
+pub fn try_encode(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
     let segs = &tp.segments;
     let n = segs.len();
+    let n_u32 = checked_u32_len(n, "segment count")?;
 
     // build the column body, then DEFLATE it (columns put like-valued data adjacent, which compresses
     // far better than row-interleaved JSON).
@@ -109,7 +112,9 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     push_bits(&mut body, n, |i| segs[i].control_points.is_some());
     for s in segs {
         if let Some(ref points) = s.control_points {
-            body.extend_from_slice(&(points.len() as u32).to_le_bytes());
+            body.extend_from_slice(
+                &checked_u32_len(points.len(), "control point count")?.to_le_bytes(),
+            );
             for pt in points {
                 body.extend_from_slice(&pt[0].value().to_le_bytes());
                 body.extend_from_slice(&pt[1].value().to_le_bytes());
@@ -117,7 +122,7 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
             }
         }
     }
-    push_opt_string_col(&mut body, segs, |s| s.manual_gcode.as_deref());
+    push_opt_string_col(&mut body, segs, |s| s.manual_gcode.as_deref())?;
 
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<SegmentKind> = Vec::new();
@@ -127,12 +132,12 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
             dict.push(s.kind);
             dict.len() - 1
         });
-        idx.push(pos as u32);
+        idx.push(checked_u32_len(pos, "kind dictionary index")?);
     }
-    body.extend_from_slice(&(dict.len() as u32).to_le_bytes());
+    body.extend_from_slice(&checked_u32_len(dict.len(), "kind dictionary length")?.to_le_bytes());
     for k in &dict {
         let k = k.as_str();
-        body.extend_from_slice(&(k.len() as u32).to_le_bytes());
+        body.extend_from_slice(&checked_u32_len(k.len(), "kind string")?.to_le_bytes());
         body.extend_from_slice(k.as_bytes());
     }
     for i in &idx {
@@ -146,7 +151,7 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
         Some(meta) => {
             body.push(1);
             let json = serde_json::to_string(meta).expect("Meta serialises");
-            body.extend_from_slice(&(json.len() as u32).to_le_bytes());
+            body.extend_from_slice(&checked_u32_len(json.len(), "meta JSON")?.to_le_bytes());
             body.extend_from_slice(json.as_bytes());
         }
     }
@@ -156,10 +161,15 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
     out.extend_from_slice(&MAGIC);
     out.push(ENC_VER);
     out.extend_from_slice(&tp.version.to_le_bytes());
-    out.extend_from_slice(&(n as u32).to_le_bytes());
-    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    out.extend_from_slice(&n_u32.to_le_bytes());
+    out.extend_from_slice(&checked_u32_len(body.len(), "body length")?.to_le_bytes());
     out.extend_from_slice(&compressed);
-    out
+    Ok(out)
+}
+
+/// Encode a toolpath to the compact columnar binary form.
+pub fn encode(tp: &Toolpath) -> Vec<u8> {
+    try_encode(tp).expect("Dry columnar binary encode failed")
 }
 
 #[derive(Debug, Clone)]

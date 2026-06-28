@@ -379,7 +379,9 @@ fn run(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Cmd::Pack { file, out } => {
-            let bytes = load(&file).to_streaming_bytes();
+            let bytes = load(&file)
+                .try_to_streaming_bytes()
+                .unwrap_or_else(|e| die(format!("cannot encode {file}: {e}")));
             fs::write(&out, &bytes).unwrap_or_else(|e| die(format!("cannot write {out}: {e}")));
             eprintln!("packed {file} → {out} ({} bytes)", bytes.len());
             ExitCode::SUCCESS

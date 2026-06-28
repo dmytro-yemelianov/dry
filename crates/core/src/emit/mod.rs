@@ -14,6 +14,7 @@ mod spline;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use self::gcode::num as format_number;
 pub use self::gcode::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor};
 pub use self::kinematics::Kinematics;
 pub use self::spline::SplineFlatteningIterator;

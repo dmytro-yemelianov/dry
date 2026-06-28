@@ -61,8 +61,10 @@ mod tests;
 use crate::ir::{Meta, Segment, Toolpath};
 use std::io::{BufReader, Cursor, Read};
 
-pub use self::chunked::{decode_chunked_streaming, encode_chunked, ChunkedSegmentsIterator};
-pub use self::columnar::{decode_streaming, encode, BinarySegmentsIterator};
+pub use self::chunked::{
+    decode_chunked_streaming, encode_chunked, try_encode_chunked, ChunkedSegmentsIterator,
+};
+pub use self::columnar::{decode_streaming, encode, try_encode, BinarySegmentsIterator};
 pub use self::error::CodecError;
 pub use self::json::JsonSegmentsIterator;
 

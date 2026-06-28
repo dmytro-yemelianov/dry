@@ -159,13 +159,26 @@ impl Toolpath<Vec<Segment>> {
 
     /// Encode to the compact columnar `DRY0` binary form (`docs/01-architecture.md` §6; see
     /// [`crate::codec`]).
+    pub fn try_to_bytes(&self) -> Result<Vec<u8>, crate::codec::CodecError> {
+        crate::codec::try_encode(self)
+    }
+
+    /// Encode to the compact columnar `DRY0` binary form (`docs/01-architecture.md` §6; see
+    /// [`crate::codec`]).
     pub fn to_bytes(&self) -> Vec<u8> {
-        crate::codec::encode(self)
+        self.try_to_bytes()
+            .expect("Dry columnar binary encode failed")
+    }
+
+    /// Encode to the chunked streaming `DRY1` binary form.
+    pub fn try_to_streaming_bytes(&self) -> Result<Vec<u8>, crate::codec::CodecError> {
+        crate::codec::try_encode_chunked(self)
     }
 
     /// Encode to the chunked streaming `DRY1` binary form.
     pub fn to_streaming_bytes(&self) -> Vec<u8> {
-        crate::codec::encode_chunked(self)
+        self.try_to_streaming_bytes()
+            .expect("Dry chunked binary encode failed")
     }
 
     /// Decode from either binary form. Lossless: `from_bytes(&to_bytes()) == self`.

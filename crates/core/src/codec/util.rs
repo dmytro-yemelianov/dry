@@ -73,6 +73,10 @@ pub(super) fn read_error(error: std::io::Error) -> CodecError {
     }
 }
 
+pub(super) fn checked_u32_len(value: usize, field: &'static str) -> Result<u32, CodecError> {
+    u32::try_from(value).map_err(|_| CodecError::TooLarge { field, len: value })
+}
+
 pub(super) fn read_array<const N: usize, R: Read>(reader: &mut R) -> Result<[u8; N], CodecError> {
     let mut bytes = [0u8; N];
     reader.read_exact(&mut bytes).map_err(read_error)?;

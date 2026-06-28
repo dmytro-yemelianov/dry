@@ -1,4 +1,4 @@
-use super::util::{read_array, read_u32, read_u8, read_vec, Reader};
+use super::util::{checked_u32_len, read_array, read_u32, read_u8, read_vec, Reader};
 use super::{
     CodecError, CHUNKED_ENC_VER, CHUNKED_MAGIC, DEFAULT_CHUNK_SIZE, LEGACY_CHUNKED_ENC_VER,
 };
@@ -75,14 +75,15 @@ fn push_opt_f64(out: &mut Vec<u8>, value: Option<f64>) {
     }
 }
 
-fn push_opt_string(out: &mut Vec<u8>, value: Option<&str>) {
+fn push_opt_string(out: &mut Vec<u8>, value: Option<&str>) -> Result<(), CodecError> {
     if let Some(value) = value {
-        push_u32(out, value.len() as u32);
+        push_u32(out, checked_u32_len(value.len(), "manual gcode string")?);
         out.extend_from_slice(value.as_bytes());
     }
+    Ok(())
 }
 
-fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) {
+fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) -> Result<(), CodecError> {
     let mut flags = 0u32;
     if s.travel {
         flags |= FLAG_TRAVEL;
@@ -167,7 +168,7 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) {
     push_opt_f64(out, s.fan);
     push_opt_f64(out, s.flow);
     push_opt_f64(out, s.dwell_s);
-    push_opt_string(out, s.manual_gcode.as_deref());
+    push_opt_string(out, s.manual_gcode.as_deref())?;
     if let Some(tool) = s.tool {
         push_u32(out, tool);
     }
@@ -177,29 +178,35 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) {
         }
     }
     if let Some(points) = &s.control_points {
-        push_u32(out, points.len() as u32);
+        push_u32(out, checked_u32_len(points.len(), "control point count")?);
         for point in points {
             push_f64(out, point[0].value());
             push_f64(out, point[1].value());
             push_f64(out, point[2].value());
         }
     }
+    Ok(())
 }
 
-pub(super) fn encode_chunked_with_block_size(tp: &Toolpath, block_size: usize) -> Vec<u8> {
+pub(super) fn try_encode_chunked_with_block_size(
+    tp: &Toolpath,
+    block_size: usize,
+) -> Result<Vec<u8>, CodecError> {
     let block_size = block_size.max(1);
+    let segment_count = checked_u32_len(tp.segments.len(), "segment count")?;
+    let block_size_u32 = checked_u32_len(block_size, "chunk block size")?;
     let mut out = Vec::new();
     out.extend_from_slice(&CHUNKED_MAGIC);
     out.push(CHUNKED_ENC_VER);
     push_u32(&mut out, tp.version);
-    push_u32(&mut out, tp.segments.len() as u32);
-    push_u32(&mut out, block_size as u32);
+    push_u32(&mut out, segment_count);
+    push_u32(&mut out, block_size_u32);
     match &tp.meta {
         None => out.push(0),
         Some(meta) => {
             out.push(1);
             let json = serde_json::to_string(meta).expect("Meta serialises");
-            push_u32(&mut out, json.len() as u32);
+            push_u32(&mut out, checked_u32_len(json.len(), "meta JSON")?);
             out.extend_from_slice(json.as_bytes());
         }
     }
@@ -207,21 +214,37 @@ pub(super) fn encode_chunked_with_block_size(tp: &Toolpath, block_size: usize) -
     for chunk in tp.segments.chunks(block_size) {
         let mut body = Vec::new();
         for segment in chunk {
-            encode_segment_row(&mut body, segment);
+            encode_segment_row(&mut body, segment)?;
         }
         let compressed = miniz_oxide::deflate::compress_to_vec(&body, 8);
-        push_u32(&mut out, chunk.len() as u32);
-        push_u32(&mut out, body.len() as u32);
-        push_u32(&mut out, compressed.len() as u32);
+        push_u32(
+            &mut out,
+            checked_u32_len(chunk.len(), "chunk segment count")?,
+        );
+        push_u32(&mut out, checked_u32_len(body.len(), "chunk body length")?);
+        push_u32(
+            &mut out,
+            checked_u32_len(compressed.len(), "compressed chunk length")?,
+        );
         out.extend_from_slice(&compressed);
     }
 
-    out
+    Ok(out)
+}
+
+#[cfg(test)]
+pub(super) fn encode_chunked_with_block_size(tp: &Toolpath, block_size: usize) -> Vec<u8> {
+    try_encode_chunked_with_block_size(tp, block_size).expect("Dry chunked binary encode failed")
+}
+
+/// Encode a toolpath to the chunked streaming binary form.
+pub fn try_encode_chunked(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
+    try_encode_chunked_with_block_size(tp, DEFAULT_CHUNK_SIZE)
 }
 
 /// Encode a toolpath to the chunked streaming binary form.
 pub fn encode_chunked(tp: &Toolpath) -> Vec<u8> {
-    encode_chunked_with_block_size(tp, DEFAULT_CHUNK_SIZE)
+    try_encode_chunked(tp).expect("Dry chunked binary encode failed")
 }
 
 fn opt_length_from_flag(

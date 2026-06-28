@@ -419,8 +419,8 @@
       </div>
       <div class="stat-grid" aria-label="repository stats">
         <div class="stat"><b>6,616</b><span>source and doc lines reviewed in primary files</span></div>
-        <div class="stat"><b>81</b><span>Rust workspace tests expected after this pass</span></div>
-        <div class="stat"><b>9</b><span>Python SDK tests passing through uv</span></div>
+        <div class="stat"><b>144</b><span>Rust workspace tests passing after this pass</span></div>
+        <div class="stat"><b>38</b><span>Python SDK tests passing through the local venv</span></div>
         <div class="stat"><b>9</b><span>wasm oracle fixtures reproduced</span></div>
       </div>
     </section>
@@ -549,15 +549,13 @@
     <section id="checks">
       <h2>Verification Run</h2>
       <div class="checks">
-        <div class="check"><strong>Pass</strong><span><code>cargo test --workspace</code>: 83 tests</span></div>
-        <div class="check"><strong>Pass</strong><span><code>cargo clippy --workspace --all-targets -- -D warnings</code></span></div>
-        <div class="check"><strong>Pass</strong><span><code>cd sdk/ts &amp;&amp; npm run tsc</code></span></div>
-        <div class="check"><strong>Pass</strong><span><code>cd py &amp;&amp; uv run pytest -q</code>: 9 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cargo test --workspace</code>: 144 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cargo clippy --all-targets -- -D warnings</code></span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd sdk/ts &amp;&amp; npm run build &amp;&amp; npm test</code>: 21 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd py &amp;&amp; maturin develop &amp;&amp; pytest tests/ -q</code>: 38 tests</span></div>
         <div class="check"><strong>Pass</strong><span><code>node web/smoke.cjs web/pkg-node ...</code>: 9 fixtures</span></div>
         <div class="check"><strong>Pass</strong><span><code>node web/blocks-regression.mjs</code>: Blockly/static web contracts</span></div>
-        <div class="check"><strong>Note</strong><span><code>python3 -m pytest</code> lacked pytest; <code>uv</code> worked.</span></div>
         <div class="check"><strong>Note</strong><span>Ignored local build dirs total roughly 2.1 GB.</span></div>
-        <div class="check"><strong>Note</strong><span>Existing dirty files were left intact.</span></div>
       </div>
     </section>
   </main>
@@ -624,9 +622,9 @@ const findings = [
   {
     severity: 'low',
     category: 'perf',
-    title: 'JSON segment streaming is brittle',
-    detail: 'JsonSegmentsIterator scans bytes until it sees the literal segments key instead of parsing the outer JSON structure. It works for current fixtures but can select the wrong token in hostile or unusual JSON.',
-    fix: 'Use serde_json streaming over a known schema or require bare Toolpath JSON for streaming commands.'
+    title: 'Addressed: JSON segment reads are structural',
+    detail: 'JsonSegmentsIterator now parses the outer JSON value and then decodes either a bare Toolpath or an ir-wrapped payload, avoiding literal-key byte scans.',
+    fix: 'Remaining follow-up: JSON inputs still materialize before segment iteration; use DRY1 for bounded-memory streaming archives.'
   },
   {
     severity: 'low',

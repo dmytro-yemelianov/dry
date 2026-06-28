@@ -1,4 +1,4 @@
-use super::chunked::encode_chunked_with_block_size;
+use super::chunked::{encode_chunked_with_block_size, try_encode_chunked_with_block_size};
 use super::*;
 use crate::SegmentKind;
 use std::io::Cursor;
@@ -17,6 +17,32 @@ fn empty_toolpath_round_trips() {
 fn bad_magic_is_an_error() {
     assert_eq!(decode(b"XXXX...."), Err(CodecError::BadMagic));
     assert_eq!(decode(b"DRY"), Err(CodecError::Truncated));
+}
+
+#[test]
+#[cfg(target_pointer_width = "64")]
+fn checked_u32_lengths_reject_oversize_values() {
+    let too_large = u32::MAX as usize + 1;
+    assert_eq!(
+        super::util::checked_u32_len(too_large, "test"),
+        Err(CodecError::TooLarge {
+            field: "test",
+            len: too_large
+        })
+    );
+
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    assert_eq!(
+        try_encode_chunked_with_block_size(&tp, too_large),
+        Err(CodecError::TooLarge {
+            field: "chunk block size",
+            len: too_large
+        })
+    );
 }
 
 #[test]

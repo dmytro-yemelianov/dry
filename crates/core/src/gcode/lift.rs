@@ -2,7 +2,7 @@ use super::{
     parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-use crate::emit::{emit, EmitParams};
+use crate::emit::{emit, format_number, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use std::f64::consts::{PI, TAU};
@@ -251,6 +251,7 @@ impl ImportedGcode {
         };
         let emitted = emit(&flat_toolpath, params);
         let mut emitted_offset = 0usize;
+        let mut absolute_e_start = Length::ZERO;
         let mut span_motion_lines = Vec::with_capacity(span_toolpaths.len());
 
         for span_toolpath in span_toolpaths {
@@ -265,9 +266,12 @@ impl ImportedGcode {
                     ),
                 ));
             }
-            let mut lines = modal_rewrite_prologue(params, reset_flow);
+            let mut lines = modal_rewrite_prologue(params, reset_flow, absolute_e_start);
             lines.extend(emitted[emitted_offset..end].iter().cloned());
             emitted_offset = end;
+            for segment in &span_toolpath.segments {
+                absolute_e_start = absolute_e_start + segment.filament;
+            }
             span_motion_lines.push(lines);
         }
 
@@ -285,12 +289,19 @@ impl ImportedGcode {
     }
 }
 
-fn modal_rewrite_prologue(params: &EmitParams, reset_flow: bool) -> Vec<String> {
+fn modal_rewrite_prologue(
+    params: &EmitParams,
+    reset_flow: bool,
+    absolute_e_start: Length,
+) -> Vec<String> {
     let mut lines = vec![
         "G21".to_string(),
         "G90".to_string(),
         if params.relative_e { "M83" } else { "M82" }.to_string(),
     ];
+    if !params.relative_e {
+        lines.push(format!("G92 E{}", format_number(absolute_e_start.value())));
+    }
     if reset_flow {
         lines.push("M221 S100".to_string());
     }
@@ -891,6 +902,31 @@ mod tests {
         assert_eq!(lines[0], "M221 S90");
         assert!(lines.iter().any(|line| line == "M221 S100"));
         assert!(lines.iter().any(|line| line == "G1 F1200 X10 E0.9"));
+    }
+
+    #[test]
+    fn source_preserving_absolute_e_realigns_after_g92() {
+        let imported = import_gcode_with_map(
+            "M82\nG1 X10 E1 F1200\nG92 E0\nG1 X20 E1 F1200\n",
+            &Default::default(),
+        )
+        .unwrap();
+        let lines = imported
+            .emit_source_preserving(
+                &imported.toolpath,
+                &EmitParams {
+                    relative_e: false,
+                    ..EmitParams::default()
+                },
+            )
+            .unwrap();
+
+        assert_eq!(lines[0], "M82");
+        assert_eq!(lines[4], "G92 E0");
+        assert_eq!(lines[5], "G1 F1200 X10 E1");
+        assert_eq!(lines[6], "G92 E0");
+        assert_eq!(lines[10], "G92 E1");
+        assert_eq!(lines[11], "G1 X20 E2");
     }
 
     #[test]

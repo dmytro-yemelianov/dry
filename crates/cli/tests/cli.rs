@@ -442,6 +442,38 @@ fn rewrite_gcode_resets_preserved_flow_multiplier() {
 }
 
 #[test]
+fn rewrite_gcode_absolute_e_realigns_after_preserved_g92() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-rewrite-absolute-e-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "M82\nG1 X10 E1 F1200\nG92 E0\nG1 X20 E1 F1200\n").unwrap();
+
+    let out = Command::new(bin())
+        .args(["rewrite-gcode", input.to_str().unwrap(), "--absolute-e"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "rewrite-gcode --absolute-e failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let lines: Vec<_> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    assert!(lines.iter().any(|line| line == "G92 E1"), "{lines:?}");
+    assert!(lines.iter().any(|line| line == "G1 X20 E2"), "{lines:?}");
+}
+
+#[test]
 fn rewrite_gcode_optimizes_each_motion_span_locally() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
