@@ -203,6 +203,22 @@ fn excessive_retraction_speed_is_flagged() {
 }
 
 #[test]
+fn stationary_deposit_is_not_a_retraction_prime() {
+    let d = design_json(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},
+            {"op":"move","x":0,"y":0,"z":0.2},
+            {"op":"deposit","volume":5.0,"speed":6000.0}]"#,
+    );
+    let tp = resolve(&d, &ResolveParams::default());
+    let c = Contracts {
+        max_retraction_speed: Some(3000.0),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report.findings.iter().any(|f| f.rule == "retraction-speed"));
+}
+
+#[test]
 fn excessive_retraction_distance_is_flagged() {
     let tp = import_gcode("G1 E-4.5 F2000\n", &GcodeImportParams::default()).unwrap();
     let c = Contracts {

@@ -8,7 +8,7 @@
 //! ```text
 //! header (uncompressed):
 //!   magic    "DRY0"   (4 bytes)
-//!   enc_ver  u8       (the encoding version; 0)
+//!   enc_ver  u8       (the encoding version; 1; version 0 is accepted without manual_gcode)
 //!   ir_ver   u32      (Toolpath.version — the IR schema version)
 //!   n        u32      (segment count)
 //!   body_len u32      (uncompressed body length, the inflate bound)
@@ -17,7 +17,7 @@
 //!   nullable f64 columns  (validity bitmap + n×f64):  start{x,y,z}, end{x,y,z}, width, height,
 //!                                                     centre{x,y}
 //!   dense   f64 columns  (n×f64):  speed, length, volume, filament
-//!   channel columns  (nullable):  temperature, fan, flow, dwell_s (f64); tool (u32);
+//!   channel columns  (nullable):  temperature, fan, flow, dwell_s (f64); manual_gcode (utf-8); tool (u32);
 //!                                  orientation (validity bitmap + n×3 f64)
 //!   kind    dictionary:  dict_len u32, [str_len u32, bytes…]…, then n×u32 indices
 //!   meta    trailer:  present u8 (0/1); if 1, a u32 length + the UTF-8 bytes of the IR header
@@ -34,7 +34,7 @@
 //! ```text
 //! header (uncompressed):
 //!   magic       "DRY1" (4 bytes)
-//!   enc_ver     u8     (the streaming encoding version; 1)
+//!   enc_ver     u8     (the streaming encoding version; 2; version 1 is accepted without manual_gcode)
 //!   ir_ver      u32
 //!   n           u32
 //!   block_size  u32
@@ -67,9 +67,11 @@ pub use self::error::CodecError;
 pub use self::json::JsonSegmentsIterator;
 
 pub(super) const MAGIC: [u8; 4] = *b"DRY0";
-pub(super) const ENC_VER: u8 = 0;
+pub(super) const LEGACY_ENC_VER: u8 = 0;
+pub(super) const ENC_VER: u8 = 1;
 pub(super) const CHUNKED_MAGIC: [u8; 4] = *b"DRY1";
-pub(super) const CHUNKED_ENC_VER: u8 = 1;
+pub(super) const LEGACY_CHUNKED_ENC_VER: u8 = 1;
+pub(super) const CHUNKED_ENC_VER: u8 = 2;
 pub(super) const DEFAULT_CHUNK_SIZE: usize = 512;
 
 pub type SegmentStream = Box<dyn Iterator<Item = Result<Segment, CodecError>>>;

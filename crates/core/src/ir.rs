@@ -28,6 +28,7 @@ pub enum SegmentKind {
     Retract,
     Unretract,
     Deposit,
+    ManualGcode,
 }
 
 impl SegmentKind {
@@ -40,6 +41,7 @@ impl SegmentKind {
             SegmentKind::Retract => "retract",
             SegmentKind::Unretract => "unretract",
             SegmentKind::Deposit => "deposit",
+            SegmentKind::ManualGcode => "manual_gcode",
         }
     }
 
@@ -52,6 +54,7 @@ impl SegmentKind {
             "retract" => Some(SegmentKind::Retract),
             "unretract" => Some(SegmentKind::Unretract),
             "deposit" => Some(SegmentKind::Deposit),
+            "manual_gcode" => Some(SegmentKind::ManualGcode),
             _ => None,
         }
     }
@@ -102,6 +105,9 @@ pub struct Segment {
     /// Dwell duration (s) — present only for [`SegmentKind::Dwell`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dwell_s: Option<f64>,
+    /// Verbatim G-code — present only for [`SegmentKind::ManualGcode`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manual_gcode: Option<String>,
     /// Toolframe orientation: the tool-direction unit vector `(i, j, k)`. `None` ⇒ identity (+Z), i.e.
     /// 3-axis. Carrying it makes non-planar / 5-axis a first-class IR property (§2).
     #[serde(default, skip_serializing_if = "Option::is_none")]

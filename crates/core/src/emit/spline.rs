@@ -95,6 +95,7 @@ where
                                     flow: s.flow,
                                     tool: s.tool,
                                     dwell_s: None,
+                                    manual_gcode: None,
                                     orientation: s.orientation,
                                     control_points: None,
                                 });

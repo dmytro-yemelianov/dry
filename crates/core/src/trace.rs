@@ -355,6 +355,7 @@ mod tests {
             flow: None,
             tool: None,
             dwell_s: None,
+            manual_gcode: None,
             orientation: None,
             control_points: None,
         }

@@ -472,7 +472,8 @@ where
 
         // --- retraction checks ---
         let is_retract = s.filament.value() < 0.0;
-        let is_unretract = s.filament.value() > 0.0 && s.length.value() == 0.0;
+        let is_unretract =
+            s.filament.value() > 0.0 && s.length.value() == 0.0 && s.volume.value() == 0.0;
         if is_retract || is_unretract {
             if let Some(max_speed) = c.max_retraction_speed {
                 if s.speed.value() > max_speed {
@@ -489,6 +490,7 @@ where
                 }
             }
         }
+        let extrudes_material = !s.travel && s.volume.value() > 0.0;
         if is_retract {
             let dist = -s.filament.value();
             if let Some(max_dist) = c.max_retraction_distance {
@@ -504,7 +506,7 @@ where
                 }
             }
             retracted = true;
-        } else if is_unretract || (!s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0) {
+        } else if is_unretract || extrudes_material {
             retracted = false;
             travel_run_length = 0.0;
             flagged_travel = false;

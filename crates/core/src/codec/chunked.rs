@@ -1,5 +1,7 @@
 use super::util::{read_array, read_u32, read_u8, read_vec, Reader};
-use super::{CodecError, CHUNKED_ENC_VER, CHUNKED_MAGIC, DEFAULT_CHUNK_SIZE};
+use super::{
+    CodecError, CHUNKED_ENC_VER, CHUNKED_MAGIC, DEFAULT_CHUNK_SIZE, LEGACY_CHUNKED_ENC_VER,
+};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
 use std::io::{BufReader, Read};
@@ -22,7 +24,9 @@ const FLAG_DWELL: u32 = 1 << 14;
 const FLAG_TOOL: u32 = 1 << 15;
 const FLAG_ORIENTATION: u32 = 1 << 16;
 const FLAG_CONTROL_POINTS: u32 = 1 << 17;
-const KNOWN_SEGMENT_FLAGS: u32 = (1 << 18) - 1;
+const FLAG_MANUAL_GCODE: u32 = 1 << 18;
+const LEGACY_KNOWN_SEGMENT_FLAGS: u32 = (1 << 18) - 1;
+const KNOWN_SEGMENT_FLAGS: u32 = (1 << 19) - 1;
 
 fn segment_kind_tag(kind: SegmentKind) -> u8 {
     match kind {
@@ -33,6 +37,7 @@ fn segment_kind_tag(kind: SegmentKind) -> u8 {
         SegmentKind::Retract => 4,
         SegmentKind::Unretract => 5,
         SegmentKind::Deposit => 6,
+        SegmentKind::ManualGcode => 7,
     }
 }
 
@@ -45,6 +50,7 @@ fn segment_kind_from_tag(tag: u8) -> Result<SegmentKind, CodecError> {
         4 => Ok(SegmentKind::Retract),
         5 => Ok(SegmentKind::Unretract),
         6 => Ok(SegmentKind::Deposit),
+        7 => Ok(SegmentKind::ManualGcode),
         _ => Err(CodecError::BadKind(format!("tag {tag}"))),
     }
 }
@@ -66,6 +72,13 @@ fn push_opt_length(out: &mut Vec<u8>, value: Option<Length>) {
 fn push_opt_f64(out: &mut Vec<u8>, value: Option<f64>) {
     if let Some(value) = value {
         push_f64(out, value);
+    }
+}
+
+fn push_opt_string(out: &mut Vec<u8>, value: Option<&str>) {
+    if let Some(value) = value {
+        push_u32(out, value.len() as u32);
+        out.extend_from_slice(value.as_bytes());
     }
 }
 
@@ -125,6 +138,9 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) {
     if s.control_points.is_some() {
         flags |= FLAG_CONTROL_POINTS;
     }
+    if s.manual_gcode.is_some() {
+        flags |= FLAG_MANUAL_GCODE;
+    }
 
     push_u32(out, flags);
     out.push(segment_kind_tag(s.kind));
@@ -151,6 +167,7 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) {
     push_opt_f64(out, s.fan);
     push_opt_f64(out, s.flow);
     push_opt_f64(out, s.dwell_s);
+    push_opt_string(out, s.manual_gcode.as_deref());
     if let Some(tool) = s.tool {
         push_u32(out, tool);
     }
@@ -227,12 +244,32 @@ fn opt_f64_from_flag(r: &mut Reader<'_>, flags: u32, flag: u32) -> Result<Option
     }
 }
 
-fn decode_segment_row(r: &mut Reader<'_>) -> Result<Segment, CodecError> {
+fn opt_string_from_flag(
+    r: &mut Reader<'_>,
+    flags: u32,
+    flag: u32,
+) -> Result<Option<String>, CodecError> {
+    if flags & flag == 0 {
+        Ok(None)
+    } else {
+        let len = r.u32()? as usize;
+        let bytes = r.take(len)?;
+        let value = std::str::from_utf8(bytes).map_err(|_| CodecError::BadUtf8)?;
+        Ok(Some(value.to_string()))
+    }
+}
+
+fn decode_segment_row(r: &mut Reader<'_>, enc: u8) -> Result<Segment, CodecError> {
     let flags = r.u32()?;
-    if flags & !KNOWN_SEGMENT_FLAGS != 0 {
+    let known_flags = if enc == LEGACY_CHUNKED_ENC_VER {
+        LEGACY_KNOWN_SEGMENT_FLAGS
+    } else {
+        KNOWN_SEGMENT_FLAGS
+    };
+    if flags & !known_flags != 0 {
         return Err(CodecError::Other(format!(
             "unsupported segment flags 0x{:08x}",
-            flags & !KNOWN_SEGMENT_FLAGS
+            flags & !known_flags
         )));
     }
     let kind = segment_kind_from_tag(r.u8()?)?;
@@ -264,6 +301,11 @@ fn decode_segment_row(r: &mut Reader<'_>) -> Result<Segment, CodecError> {
     let fan = opt_f64_from_flag(r, flags, FLAG_FAN)?;
     let flow = opt_f64_from_flag(r, flags, FLAG_FLOW)?;
     let dwell_s = opt_f64_from_flag(r, flags, FLAG_DWELL)?;
+    let manual_gcode = if enc == LEGACY_CHUNKED_ENC_VER {
+        None
+    } else {
+        opt_string_from_flag(r, flags, FLAG_MANUAL_GCODE)?
+    };
     let tool = if flags & FLAG_TOOL == 0 {
         None
     } else {
@@ -307,6 +349,7 @@ fn decode_segment_row(r: &mut Reader<'_>) -> Result<Segment, CodecError> {
         flow,
         tool,
         dwell_s,
+        manual_gcode,
         orientation,
         control_points,
     })
@@ -316,6 +359,7 @@ pub struct ChunkedSegmentsIterator<R: Read> {
     reader: BufReader<R>,
     remaining: usize,
     block: std::vec::IntoIter<Segment>,
+    enc: u8,
 }
 
 impl<R: Read> ChunkedSegmentsIterator<R> {
@@ -336,7 +380,7 @@ impl<R: Read> ChunkedSegmentsIterator<R> {
         let mut r = Reader::new(&body);
         let mut segments = Vec::with_capacity(block_n);
         for _ in 0..block_n {
-            segments.push(decode_segment_row(&mut r)?);
+            segments.push(decode_segment_row(&mut r, self.enc)?);
         }
         if r.at != body.len() {
             return Err(CodecError::Other(
@@ -379,7 +423,7 @@ pub fn decode_chunked_streaming<R: Read>(
         return Err(CodecError::BadMagic);
     }
     let enc = read_u8(&mut reader)?;
-    if enc != CHUNKED_ENC_VER {
+    if enc != CHUNKED_ENC_VER && enc != LEGACY_CHUNKED_ENC_VER {
         return Err(CodecError::UnsupportedVersion(enc));
     }
     let version = read_u32(&mut reader)?;
@@ -407,6 +451,7 @@ pub fn decode_chunked_streaming<R: Read>(
             reader,
             remaining: n,
             block: Vec::new().into_iter(),
+            enc,
         },
     ))
 }

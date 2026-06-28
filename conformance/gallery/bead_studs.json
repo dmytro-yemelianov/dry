@@ -2406,15 +2406,15 @@
     "flavor": "marlin"
   },
   "expected_metrics": {
-    "total_time_s": 46.14292555369509,
-    "print_time_s": 45.72000000000002,
+    "total_time_s": 47.63963163077153,
+    "print_time_s": 47.21670607707646,
     "travel_time_s": 0.42292555369506757,
     "extruding_distance": 762.0000000000005,
     "travel_distance": 56.390073826009015,
     "extruded_volume": 149.15999999999997,
     "filament_length": 62.01352179353368,
-    "segment_count": 67,
-    "max_flow_rate": 3.0000000000000004
+    "segment_count": 73,
+    "max_flow_rate": 8.01760625134895
   },
   "expected_gcode": [
     "G0 F8000 X88 Y91 Z0.3",

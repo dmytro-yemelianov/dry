@@ -160,6 +160,7 @@ fn fit_arc(segs: &[Segment]) -> Option<Segment> {
         flow: first.flow,
         tool: first.tool,
         dwell_s: None,
+        manual_gcode: None,
         orientation: first.orientation,
         control_points: None,
     })

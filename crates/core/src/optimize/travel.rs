@@ -57,6 +57,7 @@ fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], template: &Se
         flow: None,
         tool: template.tool,
         dwell_s: None,
+        manual_gcode: None,
         orientation: template.orientation,
         control_points: None,
     }

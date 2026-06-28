@@ -44,8 +44,9 @@ assert(blocksHtml.includes('<block type="dry_vase_helix"'), 'toolbox missing com
 assert(blocksHtml.includes("case 'dry_vase_helix'"), 'generator missing compact vase helix block');
 assert(blocksHtml.includes('MAX_PATTERN_POINTS'), 'pattern generators should cap emitted point counts');
 
-assert(blocksHtml.includes('JS().definitions_'), 'expression evaluator ignores Blockly helper definitions');
-assert(blocksHtml.includes("key !== 'variables'"), 'expression evaluator should not inject variable declarations as helpers');
+assert(blocksHtml.includes('safeEvalExpression'), 'expression evaluator should use the safe parser');
+assert(!blocksHtml.includes('new Function'), 'expression evaluator must not execute generated JavaScript');
+assert(blocksHtml.includes('SAFE_HELPERS'), 'expression evaluator should whitelist generated helpers');
 assert(viewerJs.includes('VIEW_PANELS'), 'viewer multi-view panel definitions are missing');
 assert(viewerJs.includes('renderViews'), 'viewer multi-view renderer is missing');
 assert(viewerJs.includes('activeViewPanels'), 'viewer should switch between Iso-only and multi-view panels');

@@ -432,6 +432,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 flow: None,
                 tool,
                 dwell_s: Some(seconds),
+                manual_gcode: None,
                 orientation,
                 control_points: None,
             }),
@@ -466,6 +467,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                         flow: flow_field,
                         tool,
                         dwell_s: None,
+                        manual_gcode: None,
                         orientation,
                         control_points: None,
                     });
@@ -530,6 +532,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: flow_field,
                     tool,
                     dwell_s: None,
+                    manual_gcode: None,
                     orientation,
                     control_points: None,
                 });
@@ -613,12 +616,34 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: flow_field,
                     tool,
                     dwell_s: None,
+                    manual_gcode: None,
                     orientation,
                     control_points: Some(control_points),
                 });
                 pos = temp_pos;
             }
-            Op::ManualGcode { .. } => {}
+            Op::ManualGcode { ref text } => segs.push(Segment {
+                start: pos,
+                end: pos,
+                travel: true,
+                speed: Feedrate::ZERO,
+                length: Length::ZERO,
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::ManualGcode,
+                centre: None,
+                clockwise: false,
+                temperature: temp,
+                fan,
+                flow: None,
+                tool,
+                dwell_s: None,
+                manual_gcode: Some(text.clone()),
+                orientation,
+                control_points: None,
+            }),
             Op::Retract { distance, speed } => {
                 let dist = distance.or(p.retraction_distance).unwrap_or(0.0);
                 let sp = speed.or(p.retraction_speed).unwrap_or(1000.0);
@@ -640,6 +665,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: None,
                     tool,
                     dwell_s: None,
+                    manual_gcode: None,
                     orientation,
                     control_points: None,
                 });
@@ -665,6 +691,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: None,
                     tool,
                     dwell_s: None,
+                    manual_gcode: None,
                     orientation,
                     control_points: None,
                 });
@@ -690,6 +717,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     flow: None,
                     tool,
                     dwell_s: None,
+                    manual_gcode: None,
                     orientation,
                     control_points: None,
                 });

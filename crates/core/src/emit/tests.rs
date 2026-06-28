@@ -37,6 +37,7 @@ fn test_travel_g1_e0() {
             flow: None,
             tool: None,
             dwell_s: None,
+            manual_gcode: None,
             orientation: None,
             control_points: None,
         }],
@@ -93,6 +94,7 @@ fn travel_arcs_emit_arc_commands_without_extrusion() {
         flow: None,
         tool: None,
         dwell_s: None,
+        manual_gcode: None,
         orientation: None,
         control_points: None,
     };
@@ -143,6 +145,7 @@ fn test_dwell_firmware_flavors() {
         flow: None,
         tool: None,
         dwell_s: Some(1.5),
+        manual_gcode: None,
         orientation: None,
         control_points: None,
     };

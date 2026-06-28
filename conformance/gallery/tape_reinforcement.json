@@ -5699,6 +5699,7 @@
     "G0 Y30",
     "G0 X50",
     "G0 Y70",
+    "M0 ; pause - lay reinforcing tape",
     "G0 X30 Z0.4",
     "G0 Y30",
     "G0 X30.5",

@@ -190,6 +190,15 @@ where
 
     for res in segments {
         let s = res?;
+        if s.kind == SegmentKind::ManualGcode {
+            if let Some(text) = &s.manual_gcode {
+                for line in text.lines() {
+                    write_line(writer, &mut first_line, line)?;
+                }
+            }
+            continue;
+        }
+
         // a dwell is a pause in the motion stream, not a move: emit dialect-specific dwell command and carry on (it
         // does not touch the running position or feedrate).
         if s.kind == SegmentKind::Dwell {
@@ -204,13 +213,6 @@ where
                     }
                 };
                 write_line(writer, &mut first_line, &cmd)?;
-            }
-            continue;
-        }
-
-        if s.kind == SegmentKind::Retract || s.kind == SegmentKind::Unretract {
-            if prev_speed != Some(s.speed) {
-                prev_speed = Some(s.speed);
             }
             continue;
         }
@@ -231,13 +233,14 @@ where
         prog_pos = end_prog;
 
         let is_arc = s.kind == SegmentKind::Arc && s.centre.is_some();
+        let has_e_word = !s.travel || s.filament != Length::ZERO;
         let cmd = if is_arc {
             if s.clockwise {
                 "G2"
             } else {
                 "G3"
             }
-        } else if s.travel && !p.travel_g1_e0 {
+        } else if s.travel && !p.travel_g1_e0 && !has_e_word {
             "G0"
         } else {
             "G1"
@@ -308,14 +311,14 @@ where
         }
 
         if p.relative_e {
-            if !s.travel {
+            if has_e_word {
                 toks.push(format!("E{}", num(s.filament.value())));
             } else if p.travel_g1_e0 {
                 toks.push("E0".to_string());
             }
         } else {
             e_abs = e_abs + s.filament;
-            if !s.travel || p.travel_g1_e0 {
+            if has_e_word || p.travel_g1_e0 {
                 toks.push(format!("E{}", num(e_abs.value())));
             }
         }

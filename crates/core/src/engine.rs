@@ -8,7 +8,7 @@
 //! path length; `segment_count` counts moves with non-zero duration; `max_flow_rate` is the peak per-move
 //! volumetric flow.
 
-use crate::ir::{SegmentKind, Toolpath};
+use crate::ir::Toolpath;
 use crate::units::{Feedrate, Flow, Length, Time, Volume};
 use serde::{Deserialize, Serialize};
 
@@ -28,13 +28,13 @@ pub struct Metrics {
 }
 
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
-    if s.speed == Feedrate::ZERO || s.kind == SegmentKind::Deposit {
+    if s.speed == Feedrate::ZERO {
         return None;
     }
     if s.length > Length::ZERO {
         Some(s.length / s.speed)
-    } else if !s.travel && s.volume > Volume::ZERO && s.filament > Length::ZERO {
-        Some(s.filament / s.speed)
+    } else if s.filament != Length::ZERO {
+        Some(Length::mm(s.filament.value().abs()) / s.speed)
     } else {
         None
     }

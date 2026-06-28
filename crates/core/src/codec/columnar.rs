@@ -1,5 +1,5 @@
 use super::util::Reader;
-use super::{CodecError, ENC_VER, MAGIC};
+use super::{CodecError, ENC_VER, LEGACY_ENC_VER, MAGIC};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
 
@@ -52,6 +52,24 @@ fn push_opt_vec3_col(
     }
 }
 
+fn push_opt_string_col(
+    out: &mut Vec<u8>,
+    segs: &[Segment],
+    get: impl Fn(&Segment) -> Option<&str>,
+) {
+    push_bits(out, segs.len(), |i| get(&segs[i]).is_some());
+    for s in segs {
+        if let Some(value) = get(s) {
+            body_push_string(out, value);
+        }
+    }
+}
+
+fn body_push_string(out: &mut Vec<u8>, value: &str) {
+    out.extend_from_slice(&(value.len() as u32).to_le_bytes());
+    out.extend_from_slice(value.as_bytes());
+}
+
 /// Encode a toolpath to the compact columnar binary form.
 pub fn encode(tp: &Toolpath) -> Vec<u8> {
     let segs = &tp.segments;
@@ -99,6 +117,7 @@ pub fn encode(tp: &Toolpath) -> Vec<u8> {
             }
         }
     }
+    push_opt_string_col(&mut body, segs, |s| s.manual_gcode.as_deref());
 
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<SegmentKind> = Vec::new();
@@ -167,6 +186,7 @@ pub struct BinarySegmentsIterator {
     pub fan: Vec<Option<f64>>,
     pub flow: Vec<Option<f64>>,
     pub dwell_s: Vec<Option<f64>>,
+    pub manual_gcode: Vec<Option<String>>,
     pub tool: Vec<Option<u32>>,
     pub orientation: Vec<Option<[f64; 3]>>,
     pub control_points: Vec<Option<Vec<[Length; 3]>>>,
@@ -225,6 +245,7 @@ impl Iterator for BinarySegmentsIterator {
             flow: self.flow[i],
             tool: self.tool[i],
             dwell_s: self.dwell_s[i],
+            manual_gcode: self.manual_gcode[i].clone(),
             orientation: self.orientation[i],
             control_points: self.control_points[i].clone(),
         }))
@@ -240,7 +261,7 @@ pub fn decode_streaming(
         return Err(CodecError::BadMagic);
     }
     let enc = h.u8()?;
-    if enc != ENC_VER {
+    if enc != ENC_VER && enc != LEGACY_ENC_VER {
         return Err(CodecError::UnsupportedVersion(enc));
     }
     let version = h.u32()?;
@@ -296,6 +317,22 @@ pub fn decode_streaming(
             control_points.push(None);
         }
     }
+    let manual_gcode = if enc == LEGACY_ENC_VER {
+        vec![None; n]
+    } else {
+        let valid = r.bits(n)?;
+        let mut values = Vec::with_capacity(n);
+        for v in valid {
+            if v {
+                let len = r.u32()? as usize;
+                let value = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
+                values.push(Some(value.to_string()));
+            } else {
+                values.push(None);
+            }
+        }
+        values
+    };
 
     let dict_len = r.u32()? as usize;
     let mut dict: Vec<SegmentKind> = Vec::with_capacity(dict_len);
@@ -344,6 +381,7 @@ pub fn decode_streaming(
         fan,
         flow,
         dwell_s,
+        manual_gcode,
         tool,
         orientation,
         control_points,

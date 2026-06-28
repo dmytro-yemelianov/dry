@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Dry - toolpath compiler infrastructure</title>
+<meta name="description" content="Dry is a typed, units-aware toolpath compiler infrastructure with a Rust engine, CLI, Python and TypeScript SDKs, wasm bindings, browser demos and conformance fixtures." />
+<style>
+  :root {
+    --page: #f5f7f8;
+    --panel: #ffffff;
+    --ink: #182026;
+    --muted: #5f6d78;
+    --line: #d6dde2;
+    --line-strong: #aab7c1;
+    --core: #087e8b;
+    --sdk: #a25f16;
+    --web: #6457a6;
+    --target: #b4433d;
+    --ok: #23844d;
+    --code-bg: #eef4f4;
+    --shadow: rgba(24, 32, 38, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 0;
+  }
+  a { color: var(--core); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  code {
+    color: #086772;
+    background: var(--code-bg);
+    border: 1px solid #cde0e1;
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.92em;
+  }
+  pre {
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    background: #172126;
+    color: #eaf1f2;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(245, 247, 248, 0.94);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .topbar {
+    min-height: 68px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 12px 22px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .brand {
+    display: grid;
+    gap: 2px;
+    min-width: 220px;
+  }
+  .brand strong {
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  nav a, .button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.84);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  nav a:hover, .button:hover {
+    border-color: var(--core);
+    color: var(--core);
+    text-decoration: none;
+  }
+  .button.primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+  }
+  .button.primary:hover {
+    background: var(--core);
+    border-color: var(--core);
+    color: #fff;
+  }
+
+  .hero {
+    position: relative;
+    height: clamp(560px, 76svh, 740px);
+    min-height: 520px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background: #eef2f4;
+  }
+  #architectureScene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .hero-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 1240px;
+    height: 100%;
+    margin: 0 auto;
+    padding: clamp(46px, 8vh, 92px) 22px 34px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    pointer-events: none;
+  }
+  .eyebrow {
+    margin: 0 0 12px;
+    color: #30414c;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    max-width: 760px;
+    font-size: clamp(54px, 10vw, 132px);
+    line-height: 0.92;
+    letter-spacing: 0;
+  }
+  .lead {
+    margin: 18px 0 0;
+    max-width: 760px;
+    color: #2f3d47;
+    font-size: clamp(17px, 2.2vw, 24px);
+    line-height: 1.35;
+  }
+  .hero-actions {
+    margin-top: 26px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    pointer-events: auto;
+  }
+
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 28px 22px 56px;
+    display: grid;
+    gap: 28px;
+  }
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .signal, .module, .entry, .principle {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 26px var(--shadow);
+  }
+  .signal {
+    min-height: 110px;
+    padding: 16px;
+  }
+  .signal b {
+    display: block;
+    color: var(--core);
+    font-size: 20px;
+    line-height: 1.1;
+  }
+  .signal span {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  section {
+    display: grid;
+    gap: 14px;
+  }
+  .section-head {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(260px, 1fr);
+    gap: 22px;
+    align-items: end;
+  }
+  h2 {
+    margin: 0;
+    font-size: clamp(26px, 3vw, 42px);
+    line-height: 1.06;
+    letter-spacing: 0;
+  }
+  .section-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 52px 1.15fr 52px 1fr;
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .lane {
+    min-width: 230px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 12px 26px var(--shadow);
+  }
+  .lane h3, .module h3, .entry h3, .principle h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+  .lane ul, .module ul, .principle ul {
+    margin: 0;
+    padding-left: 18px;
+    color: #40505c;
+  }
+  li + li { margin-top: 4px; }
+  .lane.sdk { border-top: 4px solid var(--sdk); }
+  .lane.core { border-top: 4px solid var(--core); }
+  .lane.target { border-top: 4px solid var(--target); }
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 24px;
+  }
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .module {
+    min-height: 176px;
+    padding: 15px;
+  }
+  .module p, .entry p, .principle p {
+    margin: 0;
+    color: #40505c;
+  }
+  .module .tag {
+    display: inline-flex;
+    margin-bottom: 10px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .tag.core { background: var(--core); }
+  .tag.sdk { background: var(--sdk); }
+  .tag.web { background: var(--web); }
+  .tag.data { background: var(--target); }
+  .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .entry {
+    padding: 15px;
+    display: grid;
+    gap: 10px;
+  }
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .principle {
+    padding: 15px;
+  }
+  footer {
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    padding: 18px 22px 34px;
+  }
+  footer div {
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 980px) {
+    .topbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+    nav { margin-left: 0; justify-content: flex-start; }
+    .hero {
+      height: auto;
+      min-height: 620px;
+    }
+    .hero-copy {
+      min-height: 620px;
+      justify-content: flex-end;
+      padding-top: 86px;
+    }
+    .strip, .module-grid, .entry-grid, .principles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .section-head {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 14px; }
+    .topbar { padding: 12px 14px; }
+    nav a { flex: 1 1 auto; }
+    .hero {
+      min-height: 650px;
+    }
+    .hero-copy {
+      min-height: 650px;
+      padding: 84px 14px 24px;
+    }
+    .lead { font-size: 17px; }
+    main { padding: 22px 14px 44px; }
+    .strip, .module-grid, .entry-grid, .principles {
+      grid-template-columns: 1fr;
+    }
+    .flow {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .arrow { display: none; }
+    .hero-actions .button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="topbar">
+    <div class="brand">
+      <strong>Dry</strong>
+      <span>Toolpath compiler infrastructure</span>
+    </div>
+    <nav aria-label="Dry navigation">
+      <a href="web/index.html">Gallery</a>
+      <a href="web/blocks.html">Visual authoring</a>
+      <a href="web/architecture.html">Architecture audit</a>
+      <a href="docs/01-architecture.md">Spec</a>
+      <a href="README.md">README</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" aria-label="Dry overview">
+  <canvas id="architectureScene" aria-hidden="true"></canvas>
+  <div class="hero-copy">
+    <p class="eyebrow">Typed IR for machine motion</p>
+    <h1>Dry</h1>
+    <p class="lead">
+      A Rust toolpath compiler with thin Python, TypeScript, CLI and browser front-ends. Designs lower
+      through a units-aware IR into simulation, verification, optimization, binary codecs and G-code.
+    </p>
+    <div class="hero-actions">
+      <a class="button primary" href="web/index.html">Open browser gallery</a>
+      <a class="button" href="web/blocks.html">Open visual authoring</a>
+      <a class="button" href="#structure">View structure</a>
+    </div>
+  </div>
+</section>
+
+<main>
+  <div class="strip" aria-label="project summary">
+    <div class="signal"><b>One engine</b><span><code>crates/core</code> owns lowering, simulation, verification, optimization, import, emit and codecs.</span></div>
+    <div class="signal"><b>Thin front-ends</b><span>CLI, Python, TypeScript and wasm mostly pass L1 operations into the same core contracts.</span></div>
+    <div class="signal"><b>Browser demo</b><span><code>web/</code> runs the wasm engine with 3D playback, g-code sync, gallery and Blockly authoring.</span></div>
+    <div class="signal"><b>Conformance-first</b><span>Fixtures under <code>conformance/</code> keep output behavior reproducible across surfaces.</span></div>
+  </div>
+
+  <section id="flow" aria-labelledby="flow-title">
+    <div class="section-head">
+      <h2 id="flow-title">Compiler Flow</h2>
+      <p>Dry treats a machine path as a program: authoring surfaces produce L1 design operations, the core resolves them into L2 motion, then downstream passes analyze or emit target formats.</p>
+    </div>
+    <div class="flow" role="img" aria-label="Dry compiler flow from authoring SDKs to Rust engine to targets">
+      <div class="lane sdk">
+        <h3>Authoring SDKs</h3>
+        <ul>
+          <li><code>py/python/dry</code> fluent Python API</li>
+          <li><code>sdk/ts/src</code> TypeScript API</li>
+          <li><code>web/blocks.html</code> Blockly authoring</li>
+          <li><code>crates/cli</code> command-line entry point</li>
+        </ul>
+      </div>
+      <div class="arrow">-&gt;</div>
+      <div class="lane core">
+        <h3>Rust Engine</h3>
+        <ul>
+          <li><code>resolve</code>: design ops to resolved toolpath</li>
+          <li><code>ir</code> and <code>units</code>: typed segment contract</li>
+          <li><code>engine</code>, <code>verify</code>, <code>optimize</code></li>
+          <li><code>gcode</code>, <code>emit</code>, <code>codec</code>, <code>trace</code></li>
+        </ul>
+      </div>
+      <div class="arrow">-&gt;</div>
+      <div class="lane target">
+        <h3>Targets</h3>
+        <ul>
+          <li>Motion G-code and 5-axis rotary words</li>
+          <li>JSON and chunked binary Dry IR</li>
+          <li>Metrics, trace windows and findings</li>
+          <li>Browser 3D viewer and export panels</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="structure" aria-labelledby="structure-title">
+    <div class="section-head">
+      <h2 id="structure-title">Repository Structure</h2>
+      <p>The repo is split by responsibility: core compiler logic, bindings, web surfaces, documentation and conformance data. Generated build artifacts live beside some bindings but are not the conceptual source of truth.</p>
+    </div>
+    <div class="module-grid">
+      <article class="module">
+        <span class="tag core">Core</span>
+        <h3><code>crates/core</code></h3>
+        <p>Dependency-light Dry IR and engine. This is where L1 ops become L2 motion and where analysis, verification, import/export and codecs live.</p>
+      </article>
+      <article class="module">
+        <span class="tag core">CLI</span>
+        <h3><code>crates/cli</code></h3>
+        <p>The <code>dry</code> command exposes inspect, simulate, emit, verify, optimize, pack/unpack and G-code review workflows.</p>
+      </article>
+      <article class="module">
+        <span class="tag sdk">Binding</span>
+        <h3><code>crates/wasm</code></h3>
+        <p>wasm-bindgen adapter that brings the same Rust engine into the browser and TypeScript SDK build.</p>
+      </article>
+      <article class="module">
+        <span class="tag sdk">Python</span>
+        <h3><code>py</code></h3>
+        <p>PyO3 native module plus a Pythonic authoring layer. Tests compare SDK behavior with committed fixtures.</p>
+      </article>
+      <article class="module">
+        <span class="tag sdk">TypeScript</span>
+        <h3><code>sdk/ts</code></h3>
+        <p>Fluent TypeScript authoring SDK over the wasm engine, with reusable lattice and TPMS generators.</p>
+      </article>
+      <article class="module">
+        <span class="tag web">Web</span>
+        <h3><code>web</code></h3>
+        <p>Interactive gallery, Blockly visual authoring, shared Three.js viewer, static strategy pages and wasm smoke tests.</p>
+      </article>
+      <article class="module">
+        <span class="tag data">Data</span>
+        <h3><code>conformance</code></h3>
+        <p>Golden g-code, simulation outputs, gallery designs and printer profiles used to keep behavior stable.</p>
+      </article>
+      <article class="module">
+        <span class="tag data">Docs</span>
+        <h3><code>docs</code></h3>
+        <p>Vision, architecture, roadmap, conformance plan, task backlog, product directions and clean-room notes.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="contracts-title">
+    <div class="section-head">
+      <h2 id="contracts-title">Design Contracts</h2>
+      <p>The strongest architectural choice is keeping process behavior in the Rust core while adapters stay narrow. That keeps every surface aligned without cloning compiler logic.</p>
+    </div>
+    <div class="principles">
+      <article class="principle">
+        <h3>Typed motion vocabulary</h3>
+        <p><code>SegmentKind</code>, units wrappers and serde-compatible wire values make the IR explicit while preserving readable JSON fixtures.</p>
+      </article>
+      <article class="principle">
+        <h3>Explicit passes</h3>
+        <p>Lowering, simulation, verification, optimization, emitting, importing and tracing are separate modules with focused tests.</p>
+      </article>
+      <article class="principle">
+        <h3>Clean-room conformance</h3>
+        <p>Dry validates behavior against committed corpora and keeps GPL reference code out of the released implementation.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="entry-title">
+    <div class="section-head">
+      <h2 id="entry-title">Useful Entrypoints</h2>
+      <p>These are the shortest paths into the project when developing, testing or demonstrating it locally.</p>
+    </div>
+    <div class="entry-grid">
+      <article class="entry">
+        <h3>Native CLI</h3>
+        <pre><code>cargo run -p dry-cli --bin dry -- emit conformance/gcode/square.json
+cargo run -p dry-cli --bin dry -- verify conformance/gcode/square.json</code></pre>
+      </article>
+      <article class="entry">
+        <h3>Python SDK</h3>
+        <pre><code>cd py
+maturin develop
+pytest tests/ -q</code></pre>
+      </article>
+      <article class="entry">
+        <h3>Browser / wasm</h3>
+        <pre><code>bash web/build.sh
+python3 -m http.server
+# open /web/ or /web/blocks.html</code></pre>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>Apache-2.0. See <a href="LICENSE">LICENSE</a>, <a href="NOTICE">NOTICE</a> and <a href="docs/CLEANROOM.md">clean-room notes</a>.</div>
+</footer>
+
+<script>
+(() => {
+  const canvas = document.getElementById("architectureScene");
+  const ctx = canvas.getContext("2d");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const colors = {
+    author: "#a25f16",
+    engine: "#087e8b",
+    target: "#b4433d",
+    web: "#6457a6",
+    ink: "#182026",
+    muted: "#5f6d78",
+    line: "#bfccd4",
+    plate: "rgba(255, 255, 255, 0.74)"
+  };
+  const nodes = [
+    { label: "Python", group: "author", x: 0.12, y: 0.24 },
+    { label: "TypeScript", group: "author", x: 0.14, y: 0.42 },
+    { label: "CLI", group: "author", x: 0.12, y: 0.60 },
+    { label: "resolve", group: "engine", x: 0.46, y: 0.23 },
+    { label: "IR + units", group: "engine", x: 0.53, y: 0.40 },
+    { label: "verify", group: "engine", x: 0.44, y: 0.58 },
+    { label: "optimize", group: "engine", x: 0.57, y: 0.66 },
+    { label: "G-code", group: "target", x: 0.83, y: 0.27 },
+    { label: "Binary IR", group: "target", x: 0.84, y: 0.47 },
+    { label: "Web 3D", group: "web", x: 0.80, y: 0.66 }
+  ];
+  const edges = [
+    [0, 3], [1, 3], [2, 3], [3, 4], [4, 5], [4, 6], [5, 7], [6, 7], [4, 8], [4, 9]
+  ];
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function point(node, w, h) {
+    return { x: node.x * w, y: node.y * h };
+  }
+
+  function roundedRect(x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawNode(node, w, h) {
+    const p = point(node, w, h);
+    const width = Math.max(92, Math.min(150, w * 0.12));
+    const height = 42;
+    const color = colors[node.group] || colors.engine;
+    roundedRect(p.x - width / 2, p.y - height / 2, width, height, 8);
+    ctx.fillStyle = colors.plate;
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = colors.ink;
+    ctx.font = "700 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(node.label, p.x, p.y + 1);
+  }
+
+  function drawToolpath(w, h, t) {
+    const baseX = w * 0.58;
+    const baseY = h * 0.74;
+    const scale = Math.min(w, h) * 0.14;
+    ctx.save();
+    ctx.translate(baseX, baseY);
+    ctx.rotate(-0.08);
+    ctx.strokeStyle = "rgba(8, 126, 139, 0.52)";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let i = 0; i <= 180; i += 1) {
+      const a = i / 180 * Math.PI * 4.6;
+      const r = scale * (0.12 + i / 220);
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r * 0.62;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    const head = (t * 0.00018) % 1;
+    const a = head * Math.PI * 4.6;
+    const r = scale * (0.12 + head * 180 / 220);
+    ctx.fillStyle = "#b4433d";
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * r, Math.sin(a) * r * 0.62, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function draw(t = 0) {
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#eef2f4";
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = "rgba(24, 32, 38, 0.08)";
+    ctx.lineWidth = 1;
+    const grid = 42;
+    for (let x = (t * 0.012) % grid - grid; x < w + grid; x += grid) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h + grid; y += grid) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    edges.forEach(([from, to], idx) => {
+      const a = point(nodes[from], w, h);
+      const b = point(nodes[to], w, h);
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      const midX = (a.x + b.x) / 2;
+      ctx.bezierCurveTo(midX, a.y, midX, b.y, b.x, b.y);
+      ctx.stroke();
+      const pulse = reduceMotion ? 1 : ((t * 0.001 + idx * 0.13) % 1);
+      const x = a.x + (b.x - a.x) * pulse;
+      const y = a.y + (b.y - a.y) * pulse;
+      ctx.fillStyle = idx % 3 === 0 ? colors.author : idx % 3 === 1 ? colors.engine : colors.target;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    drawToolpath(w, h, t);
+    nodes.forEach((node) => drawNode(node, w, h));
+
+    ctx.fillStyle = "rgba(238, 242, 244, 0.78)";
+    ctx.fillRect(0, 0, w * 0.58, h);
+
+    if (!reduceMotion) requestAnimationFrame(draw);
+  }
+
+  resize();
+  window.addEventListener("resize", () => {
+    resize();
+    draw(performance.now());
+  });
+  draw(performance.now());
+})();
+</script>
+</body>
+</html>

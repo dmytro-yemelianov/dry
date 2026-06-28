@@ -422,7 +422,7 @@ fn classify_record(
         state.feedrate = Some(feedrate);
     }
 
-    let has_axis_motion_words = ['X', 'Y', 'Z', 'E', 'I', 'J', 'K', 'F']
+    let has_axis_motion_words = ['X', 'Y', 'Z', 'E', 'I', 'J', 'K']
         .into_iter()
         .any(|letter| word_value(words, letter).is_some());
     let has_dwell_words = explicit_motion == Some(MotionMode::Dwell)

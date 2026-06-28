@@ -159,6 +159,7 @@ cd .. && python3 -m http.server
 
 | | |
 |---|---|
+| `../index.html` | repository landing page - first-screen structure overview with a live architecture canvas, repo map, contracts and entrypoint commands |
 | `index.html` | the gallery — source/design thumbnail cards, printer profiles, export/macros, **3D viewport + playback synced to highlighted, explained g-code**, live metrics, **optimize** + **verify** panels |
 | `blocks.html`| **Blockly visual authoring** — drag blocks to build an L1 design; live 3D + g-code preview via `viewer.js` |
 | `architecture.html` | static architecture/audit webapp — repo map, module relations, bottlenecks, inconsistencies, bad practices, decisions and verification status |

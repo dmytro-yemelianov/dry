@@ -50,7 +50,15 @@ export interface Metrics {
 }
 
 /** One resolved L2 motion segment. */
-export type SegmentKind = 'line' | 'arc' | 'spline' | 'dwell' | 'retract' | 'unretract' | 'deposit';
+export type SegmentKind =
+  | 'line'
+  | 'arc'
+  | 'spline'
+  | 'dwell'
+  | 'retract'
+  | 'unretract'
+  | 'deposit'
+  | 'manual_gcode';
 
 export interface Segment {
   start: (number | null)[];
@@ -71,6 +79,7 @@ export interface Segment {
   flow?: number;
   tool?: number;
   dwell_s?: number;
+  manual_gcode?: string;
   orientation?: [number, number, number];
   control_points?: [number, number, number][];
 }
@@ -108,4 +117,3 @@ export const PRINTERS: Record<string, ResolveParams> = {
 };
 
 export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
-

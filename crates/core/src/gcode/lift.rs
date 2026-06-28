@@ -429,6 +429,7 @@ fn lift_motion(
             flow: None,
             tool: state.tool,
             dwell_s,
+            manual_gcode: None,
             orientation: None,
             control_points: None,
         }));
@@ -495,6 +496,7 @@ fn lift_motion(
         flow,
         tool: state.tool,
         dwell_s: None,
+        manual_gcode: None,
         orientation: None,
         control_points: None,
     }))
@@ -777,6 +779,22 @@ mod tests {
         assert_eq!(lines[3], "M104 S210");
         assert!(lines[2].starts_with("G0 "));
         assert!(lines[4].starts_with("G1 "));
+    }
+
+    #[test]
+    fn source_preserving_emit_keeps_feedrate_only_lines() {
+        let imported = import_gcode_with_map(
+            "M83\nG1 X0 Y0 Z0.2 F9000\nF1200\nG1 X10 E1\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(imported.segment_source_lines, vec![2, 4]);
+
+        let lines = imported
+            .emit_source_preserving(&imported.toolpath, &EmitParams::default())
+            .unwrap();
+        assert_eq!(lines[2], "F1200");
+        assert!(lines[3].starts_with("G1 "));
     }
 
     #[test]

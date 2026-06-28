@@ -123,6 +123,7 @@
       <span>Build L1 toolpaths with blocks, resolve live, inspect 3D playback and generated g-code.</span>
     </div>
     <nav aria-label="Dry authoring navigation">
+      <a href="../index.html">Overview</a>
       <a href="architecture.html">Architecture audit</a>
       <a href="opportunities.html">Product directions</a>
       <a href="index.html">Gallery</a>
@@ -597,16 +598,218 @@ function finiteField(block, name, ctx, fallback = 0) {
   return fallback;
 }
 
+const SAFE_MATH = Object.freeze({
+  PI: Math.PI, E: Math.E, SQRT2: Math.SQRT2, SQRT1_2: Math.SQRT1_2,
+  abs: Math.abs, sqrt: Math.sqrt, log: Math.log, exp: Math.exp, pow: Math.pow,
+  round: Math.round, ceil: Math.ceil, floor: Math.floor,
+  sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+  min: Math.min, max: Math.max, atan2: Math.atan2,
+});
+const SAFE_HELPERS = new Set(['variables', 'listsRepeat', 'mathIsPrime']);
+const MATH_SENTINEL = Object.freeze({ kind: 'Math' });
+
+function listsRepeat(value, n) {
+  const count = Math.max(0, Math.min(MAX_LOOP_UNROLL, Math.floor(Number(n) || 0)));
+  return Array.from({ length: count }, () => value);
+}
+
+function mathIsPrime(value) {
+  const n = Math.floor(Math.abs(Number(value)));
+  if (n === 2 || n === 3) return true;
+  if (n < 2 || n % 2 === 0 || n % 3 === 0) return false;
+  for (let i = 5; i * i <= n; i += 6) if (n % i === 0 || n % (i + 2) === 0) return false;
+  return true;
+}
+
+function tokenizeExpr(expr) {
+  const tokens = [];
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    const two = expr.slice(i, i + 2);
+    const three = expr.slice(i, i + 3);
+    if (three === '===' || three === '!==') { tokens.push({ type: 'op', value: three }); i += 3; continue; }
+    if (['==', '!=', '<=', '>=', '&&', '||'].includes(two)) { tokens.push({ type: 'op', value: two }); i += 2; continue; }
+    if ('+-*/%<>()[]?:.,!'.includes(ch)) { tokens.push({ type: 'op', value: ch }); i++; continue; }
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      let value = '';
+      i++;
+      while (i < expr.length && expr[i] !== quote) {
+        if (expr[i] === '\\') {
+          i++;
+          const esc = expr[i];
+          value += esc === 'n' ? '\n' : esc === 't' ? '\t' : esc || '';
+          i++;
+        } else {
+          value += expr[i++];
+        }
+      }
+      if (expr[i] !== quote) throw new Error('unterminated string literal');
+      i++;
+      tokens.push({ type: 'string', value });
+      continue;
+    }
+    const num = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i.exec(expr.slice(i));
+    if (num) {
+      tokens.push({ type: 'number', value: Number(num[0]) });
+      i += num[0].length;
+      continue;
+    }
+    const ident = /^[A-Za-z_$][A-Za-z0-9_$]*/.exec(expr.slice(i));
+    if (ident) {
+      tokens.push({ type: 'ident', value: ident[0] });
+      i += ident[0].length;
+      continue;
+    }
+    throw new Error(`unsupported token ${ch}`);
+  }
+  tokens.push({ type: 'eof', value: '' });
+  return tokens;
+}
+
+function safeMethod(target, name) {
+  if (name === 'length' && (Array.isArray(target) || typeof target === 'string')) return target.length;
+  if (!Array.isArray(target) && typeof target !== 'string') throw new Error(`unsupported member ${name}`);
+  const copy = Array.isArray(target) ? target.slice() : target;
+  if (name === 'indexOf') return (...args) => copy.indexOf(args[0]);
+  if (name === 'lastIndexOf') return (...args) => copy.lastIndexOf(args[0]);
+  if (name === 'slice') return (...args) => copy.slice(...args);
+  if (name === 'reverse') return () => Array.isArray(copy) ? copy.slice().reverse() : copy.split('').reverse().join('');
+  if (name === 'shift') return () => Array.isArray(copy) ? copy.shift() : copy[0];
+  if (name === 'pop') return () => Array.isArray(copy) ? copy.pop() : copy[copy.length - 1];
+  if (name === 'splice') return (...args) => Array.isArray(copy) ? copy.splice(...args) : [];
+  throw new Error(`unsupported member ${name}`);
+}
+
+function safeEvalExpression(expr, env) {
+  const tokens = tokenizeExpr(expr);
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const match = (value) => {
+    if (peek().value === value) { pos++; return true; }
+    return false;
+  };
+  const expect = (value) => {
+    if (!match(value)) throw new Error(`expected ${value}`);
+  };
+  const parseList = (end, parseItem) => {
+    const items = [];
+    if (match(end)) return items;
+    do { items.push(parseItem()); } while (match(','));
+    expect(end);
+    return items;
+  };
+  const parsePrimary = () => {
+    const t = peek();
+    if (t.type === 'number' || t.type === 'string') { pos++; return t.value; }
+    if (t.type === 'ident') {
+      pos++;
+      if (t.value === 'true') return true;
+      if (t.value === 'false') return false;
+      if (t.value === 'null') return null;
+      if (t.value === 'Infinity') return Infinity;
+      if (t.value === 'Math') return MATH_SENTINEL;
+      if (t.value === 'listsRepeat') return listsRepeat;
+      if (t.value === 'mathIsPrime') return mathIsPrime;
+      if (Object.prototype.hasOwnProperty.call(env, t.value)) return env[t.value];
+      throw new Error(`unknown variable ${t.value}`);
+    }
+    if (match('(')) {
+      const value = parseExpression();
+      expect(')');
+      return value;
+    }
+    if (match('[')) return parseList(']', parseExpression);
+    throw new Error('expected value');
+  };
+  const parsePostfix = () => {
+    let value = parsePrimary();
+    for (;;) {
+      if (match('.')) {
+        const member = peek();
+        if (member.type !== 'ident') throw new Error('expected member name');
+        pos++;
+        value = value === MATH_SENTINEL ? SAFE_MATH[member.value] : safeMethod(value, member.value);
+        if (value === undefined) throw new Error(`unsupported Math.${member.value}`);
+      } else if (match('[')) {
+        const index = parseExpression();
+        expect(']');
+        value = value == null ? undefined : value[index];
+      } else if (match('(')) {
+        const args = parseList(')', parseExpression);
+        if (typeof value !== 'function') throw new Error('target is not callable');
+        value = value(...args);
+      } else {
+        return value;
+      }
+    }
+  };
+  const parseUnary = () => {
+    if (match('!')) return !parseUnary();
+    if (match('-')) return -parseUnary();
+    if (match('+')) return +parseUnary();
+    return parsePostfix();
+  };
+  const binary = (next, ops) => {
+    let left = next();
+    while (ops.includes(peek().value)) {
+      const op = peek().value;
+      pos++;
+      const right = next();
+      if (op === '*') left *= right;
+      else if (op === '/') left /= right;
+      else if (op === '%') left %= right;
+      else if (op === '+') left += right;
+      else if (op === '-') left -= right;
+      else if (op === '<') left = left < right;
+      else if (op === '<=') left = left <= right;
+      else if (op === '>') left = left > right;
+      else if (op === '>=') left = left >= right;
+      else if (op === '==') left = left == right;
+      else if (op === '!=') left = left != right;
+      else if (op === '===') left = left === right;
+      else if (op === '!==') left = left !== right;
+    }
+    return left;
+  };
+  const parseMul = () => binary(parseUnary, ['*', '/', '%']);
+  const parseAdd = () => binary(parseMul, ['+', '-']);
+  const parseRel = () => binary(parseAdd, ['<', '<=', '>', '>=']);
+  const parseEq = () => binary(parseRel, ['==', '!=', '===', '!==']);
+  const parseAnd = () => {
+    let left = parseEq();
+    while (match('&&')) left = left && parseEq();
+    return left;
+  };
+  const parseOr = () => {
+    let left = parseAnd();
+    while (match('||')) left = left || parseAnd();
+    return left;
+  };
+  const parseConditional = () => {
+    const test = parseOr();
+    if (!match('?')) return test;
+    const yes = parseExpression();
+    expect(':');
+    const no = parseExpression();
+    return test ? yes : no;
+  };
+  const parseExpression = parseConditional;
+  const value = parseExpression();
+  if (peek().type !== 'eof') throw new Error(`unexpected token ${peek().value}`);
+  return value;
+}
+
 function evalExpr(block, name, env, ctx) {
   const expr = JS().valueToCode(block, name, JS().ORDER_NONE);
   if (expr == null || expr === '') return undefined;
   try {
-    const names = Object.keys(env), vals = names.map((k) => env[k]);
-    const helpers = Object.entries(JS().definitions_ || {})
-      .filter(([key]) => key !== 'variables')
-      .map(([, code]) => code)
-      .join('\n\n');
-    return new Function(...names, 'Math', helpers + '\nreturn (' + expr + ');')(...vals, Math);
+    const helperNames = Object.keys(JS().definitions_ || {});
+    const unknownHelper = helperNames.find((key) => !SAFE_HELPERS.has(key));
+    if (unknownHelper) throw new Error(`unsupported generated helper ${unknownHelper}`);
+    return safeEvalExpression(expr, env);
   } catch (e) {
     addDiagnostic(ctx, block, name, e && e.message ? e.message : 'invalid expression');
     return undefined;

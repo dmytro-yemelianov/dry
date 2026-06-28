@@ -61,6 +61,7 @@ pub fn z_hop_with_params(tp: &Toolpath, zhop_height: Length, zhop_min_dist: Leng
                 flow: None,
                 tool: s.tool,
                 dwell_s: None,
+                manual_gcode: None,
                 orientation: s.orientation,
                 control_points: None,
             };
@@ -84,6 +85,7 @@ pub fn z_hop_with_params(tp: &Toolpath, zhop_height: Length, zhop_min_dist: Leng
                 flow: None,
                 tool: s.tool,
                 dwell_s: None,
+                manual_gcode: None,
                 orientation: s.orientation,
                 control_points: None,
             };
@@ -108,6 +110,7 @@ pub fn z_hop_with_params(tp: &Toolpath, zhop_height: Length, zhop_min_dist: Leng
                 flow: None,
                 tool: s.tool,
                 dwell_s: None,
+                manual_gcode: None,
                 orientation: s.orientation,
                 control_points: None,
             };
