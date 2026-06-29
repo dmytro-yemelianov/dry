@@ -1,0 +1,28 @@
+{
+  "findings": [
+    {
+      "rule": "travel-extrudes",
+      "severity": "error",
+      "segment": 0,
+      "message": "travel move deposits 0.5000 mm³ (should be 0)"
+    },
+    {
+      "rule": "bead",
+      "severity": "error",
+      "segment": 1,
+      "message": "extruding move has a non-positive bead (width 0, height 0)"
+    },
+    {
+      "rule": "orientation-not-unit",
+      "severity": "error",
+      "segment": 2,
+      "message": "toolframe orientation [1, 1, 1] has magnitude 1.7320508075688772 (must be 1)"
+    },
+    {
+      "rule": "arc-radius",
+      "severity": "error",
+      "segment": 3,
+      "message": "arc endpoint radius differs from start radius by 1.049876 mm"
+    }
+  ]
+}

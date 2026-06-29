@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-reports-v1.schema.json",
+  "title": "Dry report outputs v1",
+  "description": "Schemas for Dry's report outputs (see docs/11-profiles-and-reports.md): the verify Report, the review-gcode report, and the trace-gcode report. Use the $defs by name to validate a given output: VerifyReport, ReviewReport, TraceReport.",
+  "$defs": {
+    "Severity": {
+      "type": "string",
+      "enum": ["error", "warning"]
+    },
+    "Finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "severity", "segment", "message"],
+      "properties": {
+        "rule": { "type": "string", "description": "stable kebab-case rule id (see the rule catalog)" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "segment": { "type": ["integer", "null"], "minimum": 0 },
+        "message": { "type": "string" }
+      }
+    },
+    "LocatedFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "severity", "segment", "source_line", "message"],
+      "properties": {
+        "rule": { "type": "string" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "segment": { "type": ["integer", "null"], "minimum": 0 },
+        "source_line": { "type": ["integer", "null"], "minimum": 0 },
+        "message": { "type": "string" }
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_time_s",
+        "print_time_s",
+        "travel_time_s",
+        "extruding_distance",
+        "travel_distance",
+        "extruded_volume",
+        "filament_length",
+        "segment_count",
+        "max_flow_rate"
+      ],
+      "properties": {
+        "total_time_s": { "type": "number" },
+        "print_time_s": { "type": "number" },
+        "travel_time_s": { "type": "number" },
+        "extruding_distance": { "type": "number" },
+        "travel_distance": { "type": "number" },
+        "extruded_volume": { "type": "number" },
+        "filament_length": { "type": "number" },
+        "segment_count": { "type": "integer", "minimum": 0 },
+        "max_flow_rate": { "type": "number" }
+      }
+    },
+    "VerifyReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings"],
+      "properties": {
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } }
+      }
+    },
+    "ReviewReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "profile", "segments", "metrics", "findings", "error_count"],
+      "properties": {
+        "file": { "type": ["string", "null"] },
+        "profile": { "type": ["string", "null"] },
+        "segments": { "type": "integer", "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/Metrics" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/LocatedFinding" } },
+        "error_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "TraceWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "start_time_s",
+        "end_time_s",
+        "segment_start",
+        "segment_end",
+        "duration_s",
+        "print_time_s",
+        "travel_time_s",
+        "dwell_time_s",
+        "extruding_distance_mm",
+        "travel_distance_mm",
+        "extruded_volume_mm3",
+        "filament_mm",
+        "max_feedrate_mm_min",
+        "max_flow_mm3_s"
+      ],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "start_time_s": { "type": "number" },
+        "end_time_s": { "type": "number" },
+        "segment_start": { "type": ["integer", "null"], "minimum": 0 },
+        "segment_end": { "type": ["integer", "null"], "minimum": 0 },
+        "source_line_start": { "type": "integer", "minimum": 0 },
+        "source_line_end": { "type": "integer", "minimum": 0 },
+        "duration_s": { "type": "number" },
+        "print_time_s": { "type": "number" },
+        "travel_time_s": { "type": "number" },
+        "dwell_time_s": { "type": "number" },
+        "extruding_distance_mm": { "type": "number" },
+        "travel_distance_mm": { "type": "number" },
+        "extruded_volume_mm3": { "type": "number" },
+        "filament_mm": { "type": "number" },
+        "max_feedrate_mm_min": { "type": "number" },
+        "max_flow_mm3_s": { "type": "number" }
+      }
+    },
+    "TraceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_s",
+        "segment_count",
+        "moving_segment_count",
+        "total_time_s",
+        "print_time_s",
+        "travel_time_s",
+        "dwell_time_s",
+        "extruding_distance_mm",
+        "travel_distance_mm",
+        "extruded_volume_mm3",
+        "filament_mm",
+        "max_feedrate_mm_min",
+        "max_flow_mm3_s",
+        "windows"
+      ],
+      "properties": {
+        "window_s": { "type": "number" },
+        "segment_count": { "type": "integer", "minimum": 0 },
+        "moving_segment_count": { "type": "integer", "minimum": 0 },
+        "total_time_s": { "type": "number" },
+        "print_time_s": { "type": "number" },
+        "travel_time_s": { "type": "number" },
+        "dwell_time_s": { "type": "number" },
+        "extruding_distance_mm": { "type": "number" },
+        "travel_distance_mm": { "type": "number" },
+        "extruded_volume_mm3": { "type": "number" },
+        "filament_mm": { "type": "number" },
+        "max_feedrate_mm_min": { "type": "number" },
+        "max_flow_mm3_s": { "type": "number" },
+        "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } }
+      }
+    },
+    "TraceReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "profile", "trace"],
+      "properties": {
+        "file": { "type": ["string", "null"] },
+        "profile": { "type": ["string", "null"] },
+        "trace": { "$ref": "#/$defs/TraceSummary" }
+      }
+    }
+  }
+}

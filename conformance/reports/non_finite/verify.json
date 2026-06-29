@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "rule": "finite",
+      "severity": "error",
+      "segment": 0,
+      "message": "segment carries a non-finite value"
+    }
+  ]
+}

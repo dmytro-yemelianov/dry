@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-profile-v1.schema.json",
+  "title": "Dry machine/material profile v1",
+  "description": "Schema for a Dry machine/material/process profile (see docs/11-profiles-and-reports.md). Describes the canonical field names that Dry writes. The engine ALSO accepts documented deserialization aliases (bounds, speed_range, max_flow, max_volumetric_flow, min_temp, min_nozzle_temp) and, like serde, ignores unknown keys; this schema validates the canonical form.",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Profile schema version. v1 is the initial Dry profile schema."
+    },
+    "name": { "type": "string", "description": "Human-readable profile name, for reports." },
+    "firmware": {
+      "type": "object",
+      "properties": {
+        "flavor": { "type": "string", "description": "e.g. marlin, klipper, duet" }
+      }
+    },
+    "machine": {
+      "type": "object",
+      "properties": {
+        "build_volume": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "number" }
+          },
+          "description": "[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]] in mm (alias: bounds)."
+        },
+        "feedrate_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" },
+          "description": "[min,max] mm/min for extruding moves (alias: speed_range)."
+        }
+      }
+    },
+    "material": {
+      "type": "object",
+      "properties": {
+        "filament_diameter": { "type": "number", "exclusiveMinimum": 0 },
+        "max_volumetric_flow_mm3_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "mm^3/s (aliases: max_flow, max_volumetric_flow)."
+        },
+        "min_nozzle_temperature_c": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "deg C (aliases: min_temp, min_nozzle_temp)."
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "properties": {
+        "line_width": { "type": "number", "exclusiveMinimum": 0 },
+        "layer_height": { "type": "number", "exclusiveMinimum": 0 },
+        "monotonic_z": { "type": "boolean" },
+        "max_retraction_distance": { "type": "number", "exclusiveMinimum": 0 },
+        "max_retraction_speed": { "type": "number", "exclusiveMinimum": 0 },
+        "max_travel_without_retraction": { "type": "number", "exclusiveMinimum": 0 },
+        "first_layer_height_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0 }
+        },
+        "first_layer_speed_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "start_gcode": { "$ref": "#/$defs/GcodeProcedure" },
+    "end_gcode": { "$ref": "#/$defs/GcodeProcedure" }
+  },
+  "$defs": {
+    "GcodeProcedure": {
+      "description": "A start/end procedure as a single multi-line string or an array of command lines.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    }
+  }
+}
