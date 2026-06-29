@@ -6,9 +6,11 @@
 //! [`crate::resolve::resolve_checked`] exactly like hand-authored designs, so generators are pure L1
 //! sugar and inherit the whole engine (verify / simulate / emit) for free.
 //!
-//! The first generator is the gyroid TPMS infill ([`tpms`]); the other surfaces, the PyO3 exposure and
-//! the TS-SDK delegation are deferred follow-ups.
+//! The first generator is the TPMS infill ([`tpms`]) with all ten surfaces ([`tpms::Surface`]); the
+//! PyO3 exposure and the TS-SDK delegation are deferred follow-ups.
 
 pub mod tpms;
 
-pub use tpms::{tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, TpmsError, TpmsOptions};
+pub use tpms::{
+    tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
+};

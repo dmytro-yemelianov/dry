@@ -44,7 +44,9 @@ pub use gcode::{
     GcodeParseError, GcodeParser, GcodeRecord, GcodeWord, ImportedGcode, MotionMode, MotionRecord,
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-pub use generate::{tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, TpmsError, TpmsOptions};
+pub use generate::{
+    tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
+};
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_params, apply_safe_gated, arc_fit, coasting,
