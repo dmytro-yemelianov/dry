@@ -1379,8 +1379,17 @@ export function createViewer(cfg) {
       const bounds = cfg.getBounds ? cfg.getBounds() : '';
       const monotonicZ = cfg.getMonotonicZ ? cfg.getMonotonicZ() : false;
       const speedRange = cfg.getSpeedRange ? cfg.getSpeedRange() : '';
+      // resolve_verify takes native typed contracts: bounds/ranges cross as flat Float64Arrays
+      // (undefined disables the check). The retraction/first-layer limits aren't surfaced in the
+      // viewer UI, so they stay unset (0 / undefined).
+      const flat = (csv) => {
+        const parts = String(csv ?? '').split(',').map((s) => Number(s.trim())).filter(Number.isFinite);
+        return parts.length ? new Float64Array(parts) : undefined;
+      };
       report = measure(profile, 'resolveVerifyMs', () =>
-        JSON.parse(wasm.resolve_verify(opsJson, paramsJson, maxFlow, minTemp, bounds, monotonicZ, speedRange)));
+        JSON.parse(wasm.resolve_verify(
+          opsJson, paramsJson, maxFlow, minTemp, flat(bounds), monotonicZ, flat(speedRange),
+          0, 0, 0, undefined, undefined)));
       const findings = report.findings || [];
       verifyEl.replaceChildren();
       if (findings.length) {
