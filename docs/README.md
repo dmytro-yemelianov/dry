@@ -22,6 +22,7 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`07-tpms-codegen.md`](07-tpms-codegen.md) | TPMS implicit-field contour code generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces. |
 | [`08-production-transition.md`](08-production-transition.md) | Production transition plan: readiness definition, workstreams, release gates, milestones and what not to claim yet. |
 | [`09-customer-readiness.md`](09-customer-readiness.md) | Customer readiness matrix: best-fit segments, pilot design, product packages and segment-specific gates. |
+| [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md) | Normative Dry IR v0 specification: the JSON wire form, the `DRY0` (columnar) and `DRY1` (chunked streaming) binary encodings, the three version axes, the SemVer/compatibility policy, and the semantic conformance model. Paired with [`../spec/dry-ir-v0.schema.json`](../spec/dry-ir-v0.schema.json) and the public, independently-validated [`../conformance/vectors/`](../conformance/vectors). |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine

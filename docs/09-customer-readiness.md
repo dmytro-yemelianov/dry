@@ -227,9 +227,9 @@ Gate:
 
 Gate:
 
-- Dry IR schema and semver policy are published;
+- Dry IR schema and semver policy are published; ✅ [`docs/10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md) + [`spec/dry-ir-v0.schema.json`](../spec/dry-ir-v0.schema.json)
 - package releases are tagged;
-- conformance vectors are public;
+- conformance vectors are public; ✅ [`conformance/vectors/`](../conformance/vectors) (independently validated, no `dry-core`)
 - bindings expose typed errors consistently.
 
 ### CAD/workbench users

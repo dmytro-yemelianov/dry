@@ -46,6 +46,12 @@ Dry should be considered production-ready only when these conditions are true:
 
 ### 1. IR standard and compatibility
 
+> **Delivered (v0):** [`docs/10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md),
+> [`spec/dry-ir-v0.schema.json`](../spec/dry-ir-v0.schema.json), the public
+> [`conformance/vectors/`](../conformance/vectors) (JSON + `DRY0`/`DRY1` + metrics + g-code), a Rust
+> drift gate (`crates/core/tests/spec_vectors.rs`) and an independent, `dry-core`-free Python validator
+> (`tools/validate_vectors.py`). All three acceptance criteria below are met for v0.
+
 Deliverables:
 
 - `Dry IR v0` schema document covering JSON, `DRY0`, `DRY1`, units, segment kinds and metadata.
