@@ -9,8 +9,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
-The production-transition work below introduces a behavioral change to `verify`; the next release should
-bump the version accordingly (see `docs/12-releasing.md`).
+## [0.3.0] - 2026-06-29
+
+The production-transition program: the public IR contract, the safety/profile contract, a release
+pipeline, scale gates, and a known-limitations page. Includes a behavioral change to `verify` (hence the
+minor bump).
 
 ### Added
 - **Dry IR v0 public contract** — a normative spec (`docs/10-dry-ir-v0-spec.md`) for the JSON wire form
@@ -22,7 +25,12 @@ bump the version accordingly (see `docs/12-releasing.md`).
   ids + per-rule severities), example profiles, and drift-gated golden reports.
 - **Release pipeline** — a tag-triggered `release.yml` producing CLI binaries (macOS/Linux/Windows) with
   checksums, Python wheels (maturin) and an npm package, attached to the GitHub Release; PyPI/npm
-  publishing activates when registry secrets are present.
+  publishing activates when registry secrets are present (`docs/12-releasing.md`).
+- **Performance & scale gates** — a deterministic bounded-memory gate proving `DRY1` streaming stays
+  bounded while JSON/`DRY0` materialize, criterion benchmarks over the codecs and passes, and a CI
+  bench-compile gate (`docs/13-performance-and-scale.md`).
+- **Known-limitations page** — an honest account of current scope boundaries and sharp edges
+  (`docs/14-known-limitations.md`).
 
 ### Changed
 - **Verification severities** — `travel-without-retraction`, `first-layer-height` and `first-layer-speed`
