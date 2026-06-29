@@ -5,13 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+# Jobs run on the shared self-hosted Linux x64 runner (Hetzner; labels [self-hosted, X64]), the same
+# box that backs rapsody's CI. The toolchains are provisioned per-run (dtolnay/rust-toolchain,
+# setup-node, setup-python, `cargo install wasm-bindgen-cli`), so the image stays minimal.
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   core:
     name: core (fmt + clippy + test, native + wasm)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -42,7 +46,7 @@ jobs:
 
   python-sdk:
     name: python SDK (maturin build + pytest)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -71,7 +75,7 @@ jobs:
 
   wasm:
     name: wasm binding (build + node reproduces the oracle)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -100,7 +104,7 @@ jobs:
 
   ts-sdk:
     name: TypeScript SDK (build + reproduces the oracle)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -123,7 +127,7 @@ jobs:
 
   spec-vectors:
     name: spec vectors (independent python validator, no dry-core)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -145,7 +149,7 @@ jobs:
 
   bench:
     name: benches (compile gate)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
