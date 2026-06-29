@@ -9,6 +9,24 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **Native typed contracts (Python)** — the PyO3 `verify()` boundary now accepts structured `bounds`
+  (`[[x0,x1],[y0,y1],[z0,z1]]`), `speed_range` and first-layer ranges as native typed values instead of
+  CSV strings, and exposes the previously-hidden retraction / first-layer contract fields as kwargs.
+  Legacy CSV strings are still accepted (normalized in the SDK layer); no wire or behavioral change for
+  existing callers.
+- **Gyroid TPMS generator in the Rust engine core** — a new `generate` tier ports the gyroid
+  triply-periodic-minimal-surface generator from the TypeScript SDK into `dry-core` (marching-squares
+  slicing, contour stitching, nearest-neighbour ordering, adaptive-Z, sample-budget guard), exposed
+  through a new `resolve_tpms_gcode` wasm entry point. Uses `libm` for native/wasm determinism — output
+  differs sub-micron from the JS generator, so correctness is validated by geometric invariants, not
+  byte-identity (the other nine surfaces, PyO3 exposure and TS-SDK delegation are deferred).
+- **Profile-gated `safe` optimization mode** — `rewrite-gcode --mode safe` runs the geometry-local
+  passes (collinear merge + arc fit) and accepts the rewrite per motion span only when it introduces no
+  new error-severity verifier finding under the active profile's contracts; rejected spans pass through
+  verbatim. Adds a schema-validated `--json` `RewriteReport` envelope. `balanced`/`max` are reserved; the
+  legacy `--optimize` / `--reorder-travel` behavior is unchanged.
+
 ## [0.4.0] - 2026-06-29
 
 Post-0.3.0 work — all additive (no behavioral changes from 0.3.0).
