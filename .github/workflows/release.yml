@@ -1,0 +1,184 @@
+name: Release
+
+# Tag a release with `vX.Y.Z` (matching the workspace/py/ts versions — see docs/12-releasing.md).
+# This builds installable artifacts for every front-end, attaches them to the GitHub Release with
+# checksums, and (when registry secrets are present) publishes to PyPI and npm.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_BINDGEN_VERSION: "0.2.123"
+
+jobs:
+  guard:
+    name: guard (tag matches manifest versions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: version/tag consistency
+        run: bash scripts/check-version.sh "${GITHUB_REF_NAME}"
+
+  cli:
+    name: cli (${{ matrix.target }})
+    needs: guard
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+          - { os: macos-13, target: x86_64-apple-darwin }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: build
+        run: cargo build --release -p dry-cli --target ${{ matrix.target }}
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          bin="dry"
+          [ "${{ runner.os }}" = "Windows" ] && bin="dry.exe"
+          stage="dry-${ver}-${{ matrix.target }}"
+          mkdir -p "dist/$stage"
+          cp "target/${{ matrix.target }}/release/$bin" "dist/$stage/"
+          cp README.md LICENSE "dist/$stage/" 2>/dev/null || true
+          tar -C dist -czf "dist/${stage}.tar.gz" "$stage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: dist/*.tar.gz
+
+  wheels:
+    name: wheels (${{ matrix.os }})
+    needs: guard
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: py
+          command: build
+          args: --release --out ../dist-wheels
+          manylinux: ${{ matrix.os == 'ubuntu-latest' && 'auto' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist-wheels/*
+
+  sdist:
+    name: sdist (python)
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: py
+          command: sdist
+          args: --out ../dist-wheels
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist-wheels/*
+
+  ts:
+    name: ts (npm package)
+    needs: guard
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" --locked
+      - name: build + pack
+        working-directory: sdk/ts
+        run: |
+          npm ci
+          npm run build
+          npm pack --pack-destination ../../dist-npm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm
+          path: dist-npm/*.tgz
+      - name: publish to npm (gated on NPM_TOKEN secret)
+        if: ${{ env.NPM_TOKEN != '' }}
+        working-directory: sdk/ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  release:
+    name: github release
+    needs: [cli, wheels, sdist, ts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: collect assets + checksums
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.whl' -o -name '*.tgz' -o -name '*.zip' \) -exec cp -n {} dist/ \;
+          cd dist
+          sha256sum * > SHA256SUMS
+          echo "--- release assets ---"; ls -l
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+  pypi:
+    name: publish to PyPI (gated on PYPI_API_TOKEN secret)
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: collect dists
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp -n {} dist/ \;
+      - name: publish
+        if: ${{ env.PYPI_API_TOKEN != '' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}

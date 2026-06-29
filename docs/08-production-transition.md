@@ -67,6 +67,13 @@ Acceptance:
 
 ### 2. Release engineering
 
+> **Delivered (initial):** a tag-triggered [`release.yml`](../.github/workflows/release.yml) builds CLI
+> binaries (macOS/Linux/Windows) with `SHA256SUMS`, Python wheels (maturin) and an npm package, attaches
+> them to the GitHub Release, and publishes to PyPI/npm when secrets are present; a version/tag guard
+> (`scripts/check-version.sh`) keeps the manifests in lockstep. Process + install-without-source:
+> [`docs/12-releasing.md`](12-releasing.md). Remaining: exercise the pipeline on a real tag and add more
+> binary targets where useful.
+
 Deliverables:
 
 - Tagged release process.

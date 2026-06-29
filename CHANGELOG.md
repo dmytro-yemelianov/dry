@@ -3,7 +3,34 @@
 All notable changes to the Dry compiler project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Dry IR and the
+profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
+`docs/11-profiles-and-reports.md`).
+
+## [Unreleased]
+
+The production-transition work below introduces a behavioral change to `verify`; the next release should
+bump the version accordingly (see `docs/12-releasing.md`).
+
+### Added
+- **Dry IR v0 public contract** — a normative spec (`docs/10-dry-ir-v0-spec.md`) for the JSON wire form
+  and the `DRY0`/`DRY1` binary encodings, a draft-2020-12 JSON Schema, a curated public vector set under
+  `conformance/vectors/`, and an independent (no `dry-core`) Python validator. Conformance is semantic,
+  not cross-language byte-identity.
+- **Profile + report contracts** — `docs/11-profiles-and-reports.md`, JSON Schemas for the profile input
+  and the verify/review/trace report outputs, a closed verification **rule catalog** (stable kebab-case
+  ids + per-rule severities), example profiles, and drift-gated golden reports.
+- **Release pipeline** — a tag-triggered `release.yml` producing CLI binaries (macOS/Linux/Windows) with
+  checksums, Python wheels (maturin) and an npm package, attached to the GitHub Release; PyPI/npm
+  publishing activates when registry secrets are present.
+
+### Changed
+- **Verification severities** — `travel-without-retraction`, `first-layer-height` and `first-layer-speed`
+  are now **warnings** rather than errors. A toolpath whose only findings are these no longer fails
+  `verify`/`review-gcode` on those alone (`error_count` excludes warnings; the exit code is `0`). All
+  other rules remain errors.
+- The `review-gcode` and `trace-gcode` JSON outputs are now backed by typed report envelopes; the wire
+  shape is unchanged.
 
 ## [0.2.0] - 2026-06-22
 
