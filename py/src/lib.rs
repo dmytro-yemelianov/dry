@@ -4,8 +4,8 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    emit, optimize_pipeline, resolve_checked, simulate, verify, Contracts, Design, EmitParams,
-    Kinematics, Op, ResolveParams,
+    emit, optimize_pipeline, resolve_checked, simulate, try_tpms_ops, verify, Contracts, Design,
+    EmitParams, Kinematics, Op, ResolveParams, TpmsOptions,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -33,6 +33,40 @@ fn resolve_gcode(
     kinematics: &str,
 ) -> PyResult<Vec<String>> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let kinematics =
+        Kinematics::named(kinematics).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(emit(
+        &tp,
+        &EmitParams {
+            relative_e,
+            travel_g1_e0,
+            five_axis,
+            kinematics,
+            ..EmitParams::default()
+        },
+    ))
+}
+
+/// Generate a TPMS infill design and emit motion g-code (one string per line).
+///
+/// `tpms_options_json` is the TPMS option bundle (camelCase, matching the engine/TS wire form), e.g.
+/// `{"surface":"gyroid","cellSize":12}`. An unknown surface name (or any malformed option) is a clean
+/// `ValueError`, never a panic.
+#[pyfunction]
+#[pyo3(signature = (tpms_options_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, kinematics="ab"))]
+fn resolve_tpms_gcode(
+    tpms_options_json: &str,
+    params_json: &str,
+    relative_e: bool,
+    travel_g1_e0: bool,
+    five_axis: bool,
+    kinematics: &str,
+) -> PyResult<Vec<String>> {
+    let options: TpmsOptions = serde_json::from_str(tpms_options_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid tpms options: {e}")))?;
+    let ops = try_tpms_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let tp = resolve_checked(&Design { ops }, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
         Kinematics::named(kinematics).map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -184,6 +218,7 @@ fn resolve_verify(
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_tpms_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;

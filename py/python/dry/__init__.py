@@ -15,7 +15,13 @@ import json
 
 from . import _native  # the Rust engine (PyO3)
 
-__all__ = ["Design", "PRINTERS"]
+__all__ = ["Design", "PRINTERS", "tpms_gcode", "TPMS_SURFACES"]
+
+# The TPMS surfaces the engine can slice (kebab-case, matching the `surface` option / TS SDK).
+TPMS_SURFACES = (
+    "gyroid", "schwarz-p", "schwarz-d", "iwp", "neovius",
+    "fischer-koch-s", "fischer-koch-y", "frd", "lidinoid", "split-p",
+)
 
 # Device defaults (the lowering's print/travel feedrate + filament diameter). Mirrors the engine's
 # ResolveParams; more profiles are added as the device-profile work lands.
@@ -208,6 +214,26 @@ def _range_to_list(rng):
     if rng is None or not isinstance(rng, str):
         return rng
     return [float(v) for v in rng.split(",")]
+
+
+def tpms_gcode(options, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False,
+               kinematics="ab"):
+    """Generate TPMS infill g-code (a list of lines) from an options dict.
+
+    `options` is the TPMS option bundle with camelCase keys (matching the engine / TS SDK), e.g.
+    ``{"surface": "schwarz-p", "cellSize": 12, "cellsX": 2}``. The `surface` is one of
+    `TPMS_SURFACES` (default ``"gyroid"``); an unknown name raises ``ValueError``. The field math runs
+    in the engine (libm), so output differs sub-micron from the TypeScript generator — there is no
+    byte-identity contract between them.
+    """
+    return _native.resolve_tpms_gcode(
+        json.dumps(options or {}),
+        _params(printer),
+        relative_e,
+        bool(travel_g1_e0),
+        bool(five_axis),
+        str(kinematics),
+    )
 
 
 def _params(printer):

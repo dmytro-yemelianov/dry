@@ -3,6 +3,8 @@ a design authored in Python emits the same g-code as the corresponding `conforma
 import json
 import os
 
+import pytest
+
 import dry
 
 HERE = os.path.dirname(__file__)
@@ -180,3 +182,41 @@ def test_binary_roundtrips():
     assert bin_data.startswith(b"DRY0") or bin_data.startswith(b"DRY1")
 
 
+
+def _moves(lines):
+    return [ln for ln in lines if ln.startswith("G0 ") or ln.startswith("G1 ")]
+
+
+def test_tpms_gyroid_emits_gcode():
+    # Default surface is gyroid; a single small cell still yields real contour moves.
+    lines = dry.tpms_gcode({"cellsX": 1, "cellsY": 1, "cellsZ": 1})
+    assert isinstance(lines, list) and lines
+    assert _moves(lines), "expected G0/G1 moves"
+
+
+def test_tpms_other_surfaces_emit_gcode():
+    # A 2x2x2 block guarantees iso-crossings for every surface.
+    base = {"cellsX": 2, "cellsY": 2, "cellsZ": 2, "cellSize": 8, "samplesPerCell": 12,
+            "layerHeight": 0.4}
+    for surface in ("schwarz-p", "fischer-koch-s", "split-p"):
+        lines = dry.tpms_gcode({**base, "surface": surface})
+        assert _moves(lines), f"{surface}: expected G0/G1 moves"
+
+
+def test_tpms_all_surfaces_are_accepted():
+    base = {"cellsX": 2, "cellsY": 2, "cellsZ": 2, "cellSize": 8, "samplesPerCell": 10,
+            "layerHeight": 0.5}
+    for surface in dry.TPMS_SURFACES:
+        assert _moves(dry.tpms_gcode({**base, "surface": surface})), surface
+
+
+def test_tpms_unknown_surface_raises():
+    with pytest.raises(ValueError):
+        dry.tpms_gcode({"surface": "bogus", "cellsX": 1, "cellsY": 1, "cellsZ": 1})
+
+
+def test_tpms_budget_guard_raises():
+    # 11x11 samples over 11 layers = 1331 field samples; a 1330 cap must trip the guardrail.
+    with pytest.raises(ValueError):
+        dry.tpms_gcode({"cellSize": 10, "cellsX": 1, "cellsY": 1, "cellsZ": 1,
+                        "samplesPerCell": 10, "layerHeight": 1, "maxFieldSamples": 1330})
