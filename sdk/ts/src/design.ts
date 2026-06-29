@@ -10,6 +10,21 @@ function params(printer: string) {
   return p;
 }
 
+/** Accept structured build-volume bounds `[[x0,x1],[y0,y1],[z0,z1]]` (mm) or a CSV string. */
+function boundsToCsv(bounds: string | number[][]): string {
+  if (typeof bounds === 'string') return bounds;
+  const flat = bounds.flat();
+  if (flat.length !== 6) throw new Error('bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string');
+  return flat.join(',');
+}
+
+/** Accept a structured `[min, max]` (mm/min) or a CSV string. */
+function rangeToCsv(range: string | [number, number]): string {
+  if (typeof range === 'string') return range;
+  if (range.length !== 2) throw new Error('speedRange must be [min, max] or a CSV string');
+  return range.join(',');
+}
+
 export class Design {
   readonly ops: Op[] = [];
 
@@ -147,15 +162,27 @@ export class Design {
     return resolveOptimizedIr(this.ops, params(printer));
   }
 
-  /** Resolve + verify; returns safety report findings. */
+  /**
+   * Resolve + verify; returns safety report findings. `bounds` accepts a structured
+   * `[[x0,x1],[y0,y1],[z0,z1]]` (mm) or the legacy CSV string `"x0,x1,y0,y1,z0,z1"`; `speedRange`
+   * accepts `[min, max]` (mm/min) or `"min,max"`.
+   */
   verify(
     printer = 'generic',
     maxFlow = 0,
     minTemp = 0,
-    bounds = '',
+    bounds: string | number[][] = '',
     monotonicZ = false,
-    speedRange = ''
+    speedRange: string | [number, number] = ''
   ): Report {
-    return resolveVerify(this.ops, params(printer), maxFlow, minTemp, bounds, monotonicZ, speedRange);
+    return resolveVerify(
+      this.ops,
+      params(printer),
+      maxFlow,
+      minTemp,
+      boundsToCsv(bounds),
+      monotonicZ,
+      rangeToCsv(speedRange)
+    );
   }
 }

@@ -31,8 +31,16 @@ for name in ['golden', 'gcode', 'gallery', 'profiles', 'roundtrip', 'simulate']:
 print("1. Exporting golden outputs...")
 golden_src = os.path.join(FULLCONTROL_ROOT, 'tests', 'unit', 'golden')
 golden_dst = os.path.join(DRY_ROOT, 'conformance', 'golden')
+# Windows reserves device names (con, prn, aux, nul, com1-9, lpt1-9): a file like `aux.txt` cannot be
+# checked out on Windows, so a reserved stem is suffixed with `_` to keep the corpus cross-platform.
+_RESERVED = {"con", "prn", "aux", "nul",
+             *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 for txt_path in glob.glob(os.path.join(golden_src, '*.txt')):
-    shutil.copy(txt_path, golden_dst)
+    base = os.path.basename(txt_path)
+    stem, ext = os.path.splitext(base)
+    if stem.lower() in _RESERVED:
+        base = f"{stem}_{ext}"
+    shutil.copy(txt_path, os.path.join(golden_dst, base))
 print(f"Copied {len(glob.glob(os.path.join(golden_dst, '*.txt')))} golden files.")
 
 

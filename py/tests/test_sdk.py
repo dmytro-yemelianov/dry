@@ -117,6 +117,17 @@ def test_verify_contracts():
     assert report_z["findings"][0]["rule"] == "monotonic-z"
 
 
+def test_verify_accepts_structured_limits():
+    # The SDK accepts structured limits, not just comma-strings; both must agree.
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(150, 0, 0.2)
+    structured = d.verify(bounds=[[0, 100], [0, 100], [0, 50]], speed_range=[300, 9000])
+    csv = d.verify(bounds="0,100,0,100,0,50", speed_range="300,9000")
+    assert structured == csv
+    assert any(f["rule"] == "bounds" for f in structured["findings"])
+    # None and pass-through string still behave.
+    assert d.verify(bounds=None)["findings"] == []
+
+
 def test_optimized_ir_runs_without_error():
     d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2).point(20, 0, 0.2)
     assert len(d.ir()["segments"]) == 3

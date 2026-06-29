@@ -26,8 +26,8 @@ def main():
     design = build()
 
     # 1) verify against a machine envelope BEFORE emitting; verify() returns {"findings": [...]}.
-    #    NOTE: bounds is a CSV string "x0,x1,y0,y1,z0,z1" (mm) — see docs/14 on the comma-string API edge.
-    report = design.verify(bounds="0,200,0,200,0,200")
+    #    bounds is structured [[x0,x1],[y0,y1],[z0,z1]] in mm (a CSV string is also accepted).
+    report = design.verify(bounds=[[0, 200], [0, 200], [0, 200]])
     findings = report["findings"]
     errors = [f for f in findings if f["severity"] == "error"]
     print(f"verify: {len(findings)} finding(s), {len(errors)} error(s)")
