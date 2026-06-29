@@ -197,6 +197,49 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Assemble an offline LLM-explanation bundle (trace + forensics + verify + a curated prompt).
+    ///
+    /// The engine never calls an LLM — `explain` produces a facts-plus-prompt briefing you paste into
+    /// Claude (or hand to an agent). Markdown by default; `--json` emits the structured ExplainBundle.
+    Explain {
+        file: String,
+        /// Machine/material profile JSON to supply import defaults and verifier contracts.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        /// Assumed line width in mm for structural bead and flow checks.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Assumed layer height in mm for structural bead and flow checks.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Max volumetric flow (mm³/s).
+        #[arg(long)]
+        max_flow: Option<f64>,
+        /// Build volume as `x0,x1,y0,y1,z0,z1` (mm).
+        #[arg(long)]
+        bounds: Option<String>,
+        /// Require Z to be non-decreasing.
+        #[arg(long)]
+        monotonic_z: bool,
+        /// Minimum nozzle temperature (°C) required to extrude.
+        #[arg(long)]
+        min_temp: Option<f64>,
+        /// Allowed feedrate range `min,max` (mm/min) for extruding moves.
+        #[arg(long)]
+        speed_range: Option<String>,
+        /// Fixed trace window duration in seconds.
+        #[arg(long, default_value_t = 5.0)]
+        window_s: f64,
+        /// Emit the structured ExplainBundle as JSON instead of Markdown.
+        #[arg(long)]
+        json: bool,
+        /// Write the bundle to this file instead of stdout.
+        #[arg(long)]
+        out: Option<String>,
+    },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
         file: String,
@@ -757,6 +800,93 @@ fn run(cli: Cli) -> ExitCode {
                 for h in &report.hotspots {
                     println!("  hotspot:   {} ({}) — {}", h.kind, h.count, h.note);
                 }
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Explain {
+            file,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            max_flow,
+            bounds,
+            monotonic_z,
+            min_temp,
+            speed_range,
+            window_s,
+            json,
+            out,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_review_params(
+                profile.as_ref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+            );
+            let imported = import_gcode_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+
+            // verify against the profile's contracts (+ any CLI overrides).
+            let metrics = simulate(&imported.toolpath);
+            let profiled = profile.is_some();
+            let contracts = contracts_from_inputs(
+                profile.as_ref(),
+                bounds.as_deref(),
+                max_flow,
+                speed_range.as_deref(),
+                monotonic_z,
+                min_temp,
+            );
+            let report = verify(&imported.toolpath, &contracts);
+            let review = dry_core::ReviewReport::build(
+                Some(file.clone()),
+                profile_label(profile.as_ref()),
+                imported.toolpath.segments.len(),
+                metrics,
+                &report,
+                |segment| imported.source_line_for_segment(segment),
+            );
+
+            // trace (carrying source-line ranges) + forensics.
+            let source_lines: Vec<_> = imported
+                .segment_source_lines
+                .iter()
+                .copied()
+                .map(Some)
+                .collect();
+            let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
+                .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
+            let trace_report = dry_core::TraceReport {
+                file: Some(file.clone()),
+                profile: profile_label(profile.as_ref()),
+                trace,
+            };
+            let forensics = dry_core::forensics_analyze(&imported);
+
+            let bundle = dry_core::build_explain_bundle(
+                Some(file.clone()),
+                profile_label(profile.as_ref()),
+                profiled,
+                dry_core::ExplainReports {
+                    trace: trace_report,
+                    forensics,
+                    verify: review,
+                },
+            );
+
+            let rendered = if json {
+                serde_json::to_string_pretty(&bundle).unwrap() + "\n"
+            } else {
+                dry_core::render_markdown(&bundle)
+            };
+            match out {
+                Some(path) => fs::write(&path, rendered)
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => print!("{rendered}"),
             }
             ExitCode::SUCCESS
         }

@@ -7,9 +7,9 @@
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
 use dry_core::{
-    apply_gated, apply_safe_gated, simulate, trace_summary, verify, Contracts, Feedrate, Length,
-    OptimizeMode, Profile, ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind,
-    Toolpath, TraceReport, Volume,
+    apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary, verify,
+    Contracts, ExplainReports, Feedrate, Length, OptimizeMode, Profile, ReviewReport,
+    RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport, Volume,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -504,6 +504,85 @@ fn rewrite_balanced_report_golden_matches_or_update() {
     write_or_check(
         dir.join("rewrite_balanced").join("report.json"),
         report_json.as_bytes(),
+        update,
+    );
+}
+
+/// Golden for `dry explain --json`: the full explanation bundle (trace + forensics + verify + the
+/// curated prompt) for the PrusaSlicer sample. Drift-gated like the other report goldens, and validated
+/// against the `ExplainBundle` schema by `tools/validate_reports.py`.
+#[test]
+fn explain_bundle_golden_matches_or_update() {
+    let update = update_mode();
+    let dir = reports_dir();
+
+    let sample = fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/sliced-prusa-sample.gcode"),
+    )
+    .expect("prusa sample exists");
+    let imported =
+        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+            .expect("import sample");
+
+    let metrics = simulate(&imported.toolpath);
+    let report = verify(&imported.toolpath, &Contracts::default());
+    let review = ReviewReport::build(
+        Some("sliced-prusa-sample.gcode".to_string()),
+        None,
+        imported.toolpath.segments.len(),
+        metrics,
+        &report,
+        |seg| imported.source_line_for_segment(seg),
+    );
+
+    let source_lines: Vec<Option<usize>> = imported
+        .segment_source_lines
+        .iter()
+        .copied()
+        .map(Some)
+        .collect();
+    let trace = dry_core::trace_summary_with_sources(&imported.toolpath, 5.0, &source_lines)
+        .expect("trace sample");
+    let trace_report = TraceReport {
+        file: Some("sliced-prusa-sample.gcode".to_string()),
+        profile: None,
+        trace,
+    };
+
+    let forensics = dry_core::forensics_analyze(&imported);
+
+    let bundle = build_explain_bundle(
+        Some("sliced-prusa-sample.gcode".to_string()),
+        None,
+        false,
+        ExplainReports {
+            trace: trace_report,
+            forensics,
+            verify: review,
+        },
+    );
+
+    // Invariants: the prompt carries the safety guardrail; the markdown render has all three sections.
+    assert!(
+        bundle.prompt.contains(dry_core::explain::GUARDRAIL),
+        "explain prompt must carry the re-verify guardrail"
+    );
+    let md = dry_core::render_markdown(&bundle);
+    for marker in [
+        "## Headlines",
+        "## Facts",
+        "## Prompt",
+        dry_core::explain::GUARDRAIL,
+    ] {
+        assert!(md.contains(marker), "markdown missing: {marker}");
+    }
+
+    let bundle_json = serde_json::to_string_pretty(&bundle).unwrap() + "\n";
+    write_or_check(
+        dir.join("explain").join("explain.json"),
+        bundle_json.as_bytes(),
         update,
     );
 }

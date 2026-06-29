@@ -23,6 +23,7 @@ REPORT_KINDS = {
     "trace.json": "TraceReport",
     "forensics.json": "ForensicsReport",
     "report.json": "RewriteReport",
+    "explain.json": "ExplainBundle",
 }
 
 

@@ -126,3 +126,17 @@ dry rewrite-gcode examples/part.gcode --optimize -o optimized.gcode
 ```
 Comments, temperature and other non-motion lines are kept in place; only motion is re-emitted. Add
 `--reorder-travel` to reorder extrusion runs (changes print order).
+
+### `explain` — an offline LLM-explanation bundle
+```sh
+dry explain examples/sliced-prusa-sample.gcode                      # Markdown briefing to stdout
+dry explain examples/part.gcode --profile profiles/voron.json       # gate verify with a profile
+dry explain examples/part.gcode --json --out bundle.json            # structured ExplainBundle
+```
+`explain` runs `trace`, `forensics` and `verify` internally and assembles the facts plus a curated
+prompt into a single, self-contained bundle you paste into Claude (or hand to an agent / MCP). The
+engine never calls an LLM — the bundle is deterministic and reproducible. The prompt asks the model to
+explain *what the print is, why it's slow, and what's risky*, and to propose changes — under a hard
+guardrail that **any** suggested change is a hypothesis that must be re-checked with `dry verify` /
+`dry review-gcode` before it's trusted. Markdown by default; `--json` emits the `ExplainBundle`
+(`docs/11` §3.5). Works best with a frontier model — Claude Opus 4.8 (`claude-opus-4-8`).
