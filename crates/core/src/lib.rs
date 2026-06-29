@@ -18,6 +18,7 @@ pub mod gcode;
 pub mod ir;
 pub mod optimize;
 pub mod profile;
+pub mod report;
 pub mod resolve;
 pub mod trace;
 pub mod units;
@@ -46,12 +47,13 @@ pub use optimize::{
 pub use profile::{
     FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
 };
+pub use report::{LocatedFinding, ReviewReport, TraceReport};
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };
 pub use trace::{trace_summary, trace_summary_with_sources, TraceError, TraceSummary, TraceWindow};
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
-    parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError, Contracts,
-    Finding, Report, Severity,
+    catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
+    Contracts, Finding, Report, Rule, RuleId, Severity,
 };

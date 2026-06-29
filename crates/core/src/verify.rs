@@ -93,7 +93,7 @@ pub fn parse_speed_range_csv(s: &str) -> Result<[f64; 2], ContractParseError> {
 }
 
 /// How serious a finding is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// The toolpath is unsafe / invalid.
@@ -102,11 +102,149 @@ pub enum Severity {
     Warning,
 }
 
+/// The closed set of verification rule ids. This is the single source of truth for the rule vocabulary,
+/// each rule's default [`Severity`], and its one-line summary — the rule catalog (`docs/11`) and the
+/// report schema (`spec/dry-reports-v1.schema.json`) are derived from it. A rule is **error** unless it
+/// is a process/quality advisory (stringing, first-layer adhesion) rather than a machine-safety or
+/// geometric-validity violation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleId {
+    /// A quantity is non-finite (NaN/inf).
+    Finite,
+    /// A travel move deposits material.
+    TravelExtrudes,
+    /// An extruding move has a non-positive bead (width/height).
+    Bead,
+    /// The toolframe orientation is not a unit vector.
+    OrientationNotUnit,
+    /// An arc's endpoint radius disagrees with its start radius (or the arc is malformed).
+    ArcRadius,
+    /// A move leaves the build volume.
+    Bounds,
+    /// Volumetric flow exceeds the ceiling.
+    MaxFlow,
+    /// An extruding feedrate is outside the allowed range.
+    Speed,
+    /// Z decreases where it must be non-decreasing.
+    MonotonicZ,
+    /// Extruding below the minimum nozzle temperature (or with none set).
+    ColdExtrusion,
+    /// A retraction distance exceeds the limit.
+    RetractionDistance,
+    /// A retraction/unretraction speed exceeds the limit.
+    RetractionSpeed,
+    /// A travel run exceeds the allowed distance without a retraction (stringing risk — advisory).
+    TravelWithoutRetraction,
+    /// First-layer height is outside the allowed range (adhesion — advisory).
+    FirstLayerHeight,
+    /// First-layer speed is outside the allowed range (adhesion — advisory).
+    FirstLayerSpeed,
+}
+
+/// One rule's catalog entry.
+#[derive(Debug, Clone, Copy)]
+pub struct Rule {
+    pub id: RuleId,
+    pub severity: Severity,
+    pub summary: &'static str,
+}
+
+impl RuleId {
+    /// Every rule, in catalog order.
+    pub const ALL: [RuleId; 15] = [
+        RuleId::Finite,
+        RuleId::TravelExtrudes,
+        RuleId::Bead,
+        RuleId::OrientationNotUnit,
+        RuleId::ArcRadius,
+        RuleId::Bounds,
+        RuleId::MaxFlow,
+        RuleId::Speed,
+        RuleId::MonotonicZ,
+        RuleId::ColdExtrusion,
+        RuleId::RetractionDistance,
+        RuleId::RetractionSpeed,
+        RuleId::TravelWithoutRetraction,
+        RuleId::FirstLayerHeight,
+        RuleId::FirstLayerSpeed,
+    ];
+
+    /// The stable kebab-case wire id.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RuleId::Finite => "finite",
+            RuleId::TravelExtrudes => "travel-extrudes",
+            RuleId::Bead => "bead",
+            RuleId::OrientationNotUnit => "orientation-not-unit",
+            RuleId::ArcRadius => "arc-radius",
+            RuleId::Bounds => "bounds",
+            RuleId::MaxFlow => "max-flow",
+            RuleId::Speed => "speed",
+            RuleId::MonotonicZ => "monotonic-z",
+            RuleId::ColdExtrusion => "cold-extrusion",
+            RuleId::RetractionDistance => "retraction-distance",
+            RuleId::RetractionSpeed => "retraction-speed",
+            RuleId::TravelWithoutRetraction => "travel-without-retraction",
+            RuleId::FirstLayerHeight => "first-layer-height",
+            RuleId::FirstLayerSpeed => "first-layer-speed",
+        }
+    }
+
+    /// Parse a wire id back into a [`RuleId`].
+    pub fn from_wire(s: &str) -> Option<RuleId> {
+        RuleId::ALL.into_iter().find(|r| r.as_str() == s)
+    }
+
+    /// The rule's default severity.
+    pub fn default_severity(self) -> Severity {
+        match self {
+            RuleId::TravelWithoutRetraction
+            | RuleId::FirstLayerHeight
+            | RuleId::FirstLayerSpeed => Severity::Warning,
+            _ => Severity::Error,
+        }
+    }
+
+    /// A one-line human summary for the catalog/docs.
+    pub fn summary(self) -> &'static str {
+        match self {
+            RuleId::Finite => "a quantity is non-finite (NaN or infinite)",
+            RuleId::TravelExtrudes => "a travel (non-printing) move deposits material",
+            RuleId::Bead => "an extruding move has a non-positive bead width or height",
+            RuleId::OrientationNotUnit => "the toolframe orientation vector is not unit length",
+            RuleId::ArcRadius => "an arc's endpoint radius disagrees with its start radius",
+            RuleId::Bounds => "a move leaves the build volume",
+            RuleId::MaxFlow => "volumetric flow exceeds the configured ceiling",
+            RuleId::Speed => "an extruding feedrate is outside the allowed range",
+            RuleId::MonotonicZ => "Z decreases where it is required to be non-decreasing",
+            RuleId::ColdExtrusion => "extruding below the minimum nozzle temperature",
+            RuleId::RetractionDistance => "a retraction distance exceeds the limit",
+            RuleId::RetractionSpeed => "a retraction or unretraction speed exceeds the limit",
+            RuleId::TravelWithoutRetraction => {
+                "a travel run exceeds the allowed distance without a retraction"
+            }
+            RuleId::FirstLayerHeight => "the first-layer height is outside the allowed range",
+            RuleId::FirstLayerSpeed => "the first-layer speed is outside the allowed range",
+        }
+    }
+}
+
+/// The full rule catalog (id, default severity, summary), in catalog order.
+pub fn catalog() -> Vec<Rule> {
+    RuleId::ALL
+        .into_iter()
+        .map(|id| Rule {
+            id,
+            severity: id.default_severity(),
+            summary: id.summary(),
+        })
+        .collect()
+}
+
 /// One located issue found by [`verify`].
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Finding {
-    /// A stable kebab-case rule id (`bounds`, `max-flow`, `speed`, `monotonic-z`, `cold-extrusion`,
-    /// `finite`, `travel-extrudes`, `bead`, `orientation-not-unit`).
+    /// A stable kebab-case rule id from the [`RuleId`] catalog.
     pub rule: String,
     pub severity: Severity,
     /// The offending segment index, if the finding is local to one move.
@@ -116,7 +254,7 @@ pub struct Finding {
 }
 
 /// The result of verifying a toolpath.
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Report {
     pub findings: Vec<Finding>,
 }
@@ -321,10 +459,10 @@ where
     I: IntoIterator<Item = Result<Segment, crate::codec::CodecError>>,
 {
     let mut r = Report::default();
-    let mut push = |rule: &str, severity, segment, message: String| {
+    let mut push = |rule: RuleId, segment, message: String| {
         r.findings.push(Finding {
-            rule: rule.to_string(),
-            severity,
+            rule: rule.as_str().to_string(),
+            severity: rule.default_severity(),
             segment,
             message,
         });
@@ -349,16 +487,14 @@ where
         let nums = segment_numbers(&s);
         if nums.iter().any(|v| !v.is_finite()) {
             push(
-                "finite",
-                Severity::Error,
+                RuleId::Finite,
                 Some(i),
                 "segment carries a non-finite value".into(),
             );
         }
         if s.travel && s.volume.value() > 0.0 {
             push(
-                "travel-extrudes",
-                Severity::Error,
+                RuleId::TravelExtrudes,
                 Some(i),
                 format!(
                     "travel move deposits {:.4} mm³ (should be 0)",
@@ -371,8 +507,7 @@ where
             let h = s.height.map(|l| l.value()).unwrap_or(0.0);
             if w <= 0.0 || h <= 0.0 {
                 push(
-                    "bead",
-                    Severity::Error,
+                    RuleId::Bead,
                     Some(i),
                     format!("extruding move has a non-positive bead (width {w}, height {h})"),
                 );
@@ -383,8 +518,7 @@ where
             let mag = libm::sqrt(x * x + y * y + z * z);
             if (mag - 1.0).abs() > 1e-6 {
                 push(
-                    "orientation-not-unit",
-                    Severity::Error,
+                    RuleId::OrientationNotUnit,
                     Some(i),
                     format!(
                         "toolframe orientation [{x}, {y}, {z}] has magnitude {mag} (must be 1)"
@@ -393,7 +527,7 @@ where
             }
         }
         if let Some(message) = arc_radius_error(&s) {
-            push("arc-radius", Severity::Error, Some(i), message);
+            push(RuleId::ArcRadius, Some(i), message);
         }
 
         // --- contract-driven checks ---
@@ -404,8 +538,7 @@ where
                         let v = v.value();
                         if v < b[k][0] || v > b[k][1] {
                             push(
-                                "bounds",
-                                Severity::Error,
+                                RuleId::Bounds,
                                 Some(i),
                                 format!(
                                     "{} = {v} is outside the build volume [{}, {}]",
@@ -421,8 +554,7 @@ where
         if let (Some(max), Some(f)) = (c.max_flow, flow(&s)) {
             if f > max {
                 push(
-                    "max-flow",
-                    Severity::Error,
+                    RuleId::MaxFlow,
                     Some(i),
                     format!("flow {f:.3} mm³/s exceeds the ceiling {max:.3}"),
                 );
@@ -433,8 +565,7 @@ where
                 let v = s.speed.value();
                 if v < lo || v > hi {
                     push(
-                        "speed",
-                        Severity::Error,
+                        RuleId::Speed,
                         Some(i),
                         format!("feedrate {v} is outside [{lo}, {hi}] mm/min"),
                     );
@@ -445,8 +576,7 @@ where
             if let (Some(z0), Some(z1)) = (s.start[2], s.end[2]) {
                 if z1 < z0 {
                     push(
-                        "monotonic-z",
-                        Severity::Error,
+                        RuleId::MonotonicZ,
                         Some(i),
                         format!("Z decreases from {} to {}", z0.value(), z1.value()),
                     );
@@ -462,8 +592,7 @@ where
                     .map(|t| format!("{t}"))
                     .unwrap_or_else(|| "unset".into());
                 push(
-                    "cold-extrusion",
-                    Severity::Error,
+                    RuleId::ColdExtrusion,
                     Some(i),
                     format!("extruding at nozzle temperature {got} (< {min} °C)"),
                 );
@@ -478,8 +607,7 @@ where
             if let Some(max_speed) = c.max_retraction_speed {
                 if s.speed.value() > max_speed {
                     push(
-                        "retraction-speed",
-                        Severity::Error,
+                        RuleId::RetractionSpeed,
                         Some(i),
                         format!(
                             "retraction speed {} mm/min exceeds the limit of {}",
@@ -496,8 +624,7 @@ where
             if let Some(max_dist) = c.max_retraction_distance {
                 if dist > max_dist {
                     push(
-                        "retraction-distance",
-                        Severity::Error,
+                        RuleId::RetractionDistance,
                         Some(i),
                         format!(
                             "retraction distance {dist:.3} mm exceeds the limit of {max_dist:.3}"
@@ -515,8 +642,7 @@ where
             if let Some(max_travel) = c.max_travel_without_retract {
                 if travel_run_length > max_travel && !retracted && !flagged_travel {
                     push(
-                        "travel-without-retraction",
-                        Severity::Error,
+                        RuleId::TravelWithoutRetraction,
                         Some(i),
                         format!(
                             "travel run distance {travel_run_length:.3} mm exceeds limit of {max_travel:.3} without retraction"
@@ -544,8 +670,7 @@ where
                     let h_val = s.height.map(|h| h.value()).unwrap_or(first_layer_z);
                     if h_val < min_h || h_val > max_h {
                         push(
-                            "first-layer-height",
-                            Severity::Error,
+                            RuleId::FirstLayerHeight,
                             Some(i),
                             format!(
                                 "first layer height {h_val:.3} mm is outside the range [{min_h:.3}, {max_h:.3}]"
@@ -557,8 +682,7 @@ where
                     let speed_val = s.speed.value();
                     if speed_val < min_s || speed_val > max_s {
                         push(
-                            "first-layer-speed",
-                            Severity::Error,
+                            RuleId::FirstLayerSpeed,
                             Some(i),
                             format!(
                                 "first layer speed {speed_val:.3} mm/min is outside the range [{min_s:.3}, {max_s:.3}]"
@@ -590,5 +714,31 @@ mod tests {
             segments: vec![],
         };
         assert!(verify(&tp, &Contracts::default()).ok());
+    }
+
+    #[test]
+    fn rule_catalog_is_consistent() {
+        let cat = catalog();
+        assert_eq!(cat.len(), RuleId::ALL.len());
+        for rule in &cat {
+            // wire id round-trips and is unique-mapping
+            assert_eq!(RuleId::from_wire(rule.id.as_str()), Some(rule.id));
+            assert!(!rule.summary.is_empty());
+            assert_eq!(rule.severity, rule.id.default_severity());
+        }
+        // the three process/quality advisories are warnings; everything else is an error.
+        let warnings: Vec<&str> = cat
+            .iter()
+            .filter(|r| r.severity == Severity::Warning)
+            .map(|r| r.id.as_str())
+            .collect();
+        assert_eq!(
+            warnings,
+            vec![
+                "travel-without-retraction",
+                "first-layer-height",
+                "first-layer-speed"
+            ]
+        );
     }
 }
