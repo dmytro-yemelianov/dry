@@ -27,8 +27,8 @@ design = (dry.Design()
           .arc(cx=0, cy=0, x=0, y=10)            # quarter arc -> (0, 10)
           .point(0, 20, 0.2))                    # finish with a line
 
-# verify BEFORE emitting — bounds is a CSV string "x0,x1,y0,y1,z0,z1" (mm)
-report = design.verify(bounds="0,200,0,200,0,200")
+# verify BEFORE emitting — bounds is structured [[x0,x1],[y0,y1],[z0,z1]] (mm); a CSV string also works
+report = design.verify(bounds=[[0, 200], [0, 200], [0, 200]])
 assert not [f for f in report["findings"] if f["severity"] == "error"]
 
 print(design.simulate())                         # metrics dict
@@ -64,7 +64,7 @@ const design = new Design()
   .arc({ cx: 0, cy: 0, x: 0, y: 10 })
   .point(0, 20, 0.2);
 
-const report = design.verify('generic', 0, 0, '0,200,0,200,0,200'); // positional args; bounds is CSV
+const report = design.verify('generic', 0, 0, [[0, 200], [0, 200], [0, 200]]); // structured bounds (CSV also accepted)
 if (report.findings.some((f) => f.severity === 'error')) throw new Error('failed verification');
 
 console.log(design.simulate());
@@ -78,5 +78,6 @@ console.log(design.gcode().join('\n'));
 - Validate output on a real machine before printing — Dry's `verify` enforces only the documented rule
   catalog ([`11-profiles-and-reports.md`](../11-profiles-and-reports.md)), not machine-specific safety.
 
-> Known edges (see [`14-known-limitations.md`](../14-known-limitations.md)): `verify`/`gcode` take some
-> limits as **comma-strings** today, and `verify` reflects exactly the rule catalog — nothing more.
+> The SDK `verify()` accepts **structured** limits (`bounds=[[…]]`, `speed_range=[min,max]`) as well as
+> the legacy comma-strings. Note (see [`14-known-limitations.md`](../14-known-limitations.md)): `verify`
+> reflects exactly the rule catalog — nothing more.

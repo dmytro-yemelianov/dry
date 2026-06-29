@@ -152,16 +152,40 @@ class Design:
         return bytes(_native.resolve_binary(json.dumps(self.ops), _params(printer)))
 
     def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False, speed_range=None):
-        "Resolve + verify; returns a report dict with findings."
+        """Resolve + verify; returns a report dict with findings.
+
+        `bounds` accepts a structured `[[x0, x1], [y0, y1], [z0, z1]]` (mm) or the legacy CSV string
+        ``"x0,x1,y0,y1,z0,z1"``; `speed_range` accepts `[min, max]` (mm/min) or ``"min,max"``.
+        """
         return json.loads(_native.resolve_verify(
             json.dumps(self.ops),
             _params(printer),
             max_flow,
             min_temp,
-            bounds,
+            _bounds_to_csv(bounds),
             bool(monotonic_z),
-            speed_range
+            _range_to_csv(speed_range)
         ))
+
+
+def _bounds_to_csv(bounds):
+    "Accept [[x0,x1],[y0,y1],[z0,z1]] (mm), a CSV string, or None."
+    if bounds is None or isinstance(bounds, str):
+        return bounds
+    flat = [v for pair in bounds for v in pair]
+    if len(flat) != 6:
+        raise ValueError("bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string")
+    return ",".join(str(v) for v in flat)
+
+
+def _range_to_csv(rng):
+    "Accept [min, max] (mm/min), a CSV string, or None."
+    if rng is None or isinstance(rng, str):
+        return rng
+    pair = list(rng)
+    if len(pair) != 2:
+        raise ValueError("speed_range must be [min, max] or a CSV string")
+    return ",".join(str(v) for v in pair)
 
 
 def _params(printer):
