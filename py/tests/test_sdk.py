@@ -128,6 +128,40 @@ def test_verify_accepts_structured_limits():
     assert d.verify(bounds=None)["findings"] == []
 
 
+def test_verify_csv_string_backward_compat():
+    # Legacy CSV strings for bounds/speed_range must keep working now that the binding takes
+    # native typed contracts: the Python layer parses the string into the structured form.
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(150, 0, 0.2)
+    report = d.verify(bounds="0,100,0,100,0,50", speed_range="300,9000")
+    assert any(f["rule"] == "bounds" for f in report["findings"])
+    # The CSV path is identical to passing the equivalent structured limits.
+    structured = d.verify(bounds=[[0, 100], [0, 100], [0, 50]], speed_range=[300, 9000])
+    assert report == structured
+
+
+def test_verify_exposes_retraction_and_first_layer_limits():
+    # The newly-exposed typed Contracts fields (retraction + first-layer limits) reach the engine
+    # through structured kwargs and produce their findings.
+    d = (dry.Design().geometry(0.6, 0.2).extruder(True)
+         .point(0, 0, 0.2).point(10, 0, 0.2)
+         .extruder(False)
+         .point(200, 200, 0.2)                 # a long travel with no retraction
+         .retract(distance=5.0, speed=3000.0))  # an over-long, over-fast retraction
+    report = d.verify(
+        max_retraction_distance=2.0,
+        max_retraction_speed=1500.0,
+        max_travel_without_retract=50.0,
+        first_layer_height_range=[0.3, 0.5],
+        first_layer_speed_range=[2000.0, 3000.0],
+    )
+    rules = {f["rule"] for f in report["findings"]}
+    assert "retraction-distance" in rules
+    assert "retraction-speed" in rules
+    assert "travel-without-retraction" in rules
+    assert "first-layer-height" in rules
+    assert "first-layer-speed" in rules
+
+
 def test_optimized_ir_runs_without_error():
     d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2).point(20, 0, 0.2)
     assert len(d.ir()["segments"]) == 3
