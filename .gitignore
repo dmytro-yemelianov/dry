@@ -45,3 +45,6 @@ __pycache__/
 *.so
 *.egg-info/
 .pytest_cache/
+
+# Claude Code harness worktrees (per-agent, transient)
+.claude/worktrees/

@@ -1,9 +1,10 @@
 //! Gyroid TPMS infill generator (`docs/01-architecture.md` §1).
 //!
 //! A triply-periodic minimal surface (TPMS) is the zero level-set of a periodic implicit field. This
-//! generator slices the **gyroid** field — `sin(x)·cos(y) + sin(y)·cos(z) + sin(z)·cos(x)`, with the
-//! world coordinates scaled by `2π / cell_size` — into horizontal layers, extracts the iso-contours per
-//! layer with marching squares, stitches the raw line segments into continuous polylines, orders them
+//! generator slices a selectable TPMS field (default **gyroid**, `sin(x)·cos(y) + sin(y)·cos(z) +
+//! sin(z)·cos(x)`), with the world coordinates scaled by `2π / cell_size`, into horizontal layers,
+//! extracts the iso-contours per layer with marching squares, stitches the raw line segments into
+//! continuous polylines, orders them
 //! nearest-neighbour, and emits travel/extrude [`Op`]s. The result is an ordinary L1 [`Design`]: it
 //! lowers through [`crate::resolve`] like any hand-authored design.
 //!
@@ -12,8 +13,8 @@
 //! JS-`Math` reference; there is **no** byte-identity contract between the two — correctness is validated
 //! by geometric invariants (finite, in-bounds, balanced extruder state, verifies, deposits material).
 //!
-//! Only the gyroid surface is implemented here. The other nine surfaces, the PyO3 exposure and the
-//! TS-SDK delegation (for P4 cross-SDK identity) are deferred follow-ups.
+//! All ten surfaces from the TS SDK are implemented (see [`Surface`]); the PyO3 exposure and the
+//! TS-SDK delegation (for P4 cross-SDK identity) remain deferred follow-ups.
 
 use crate::resolve::{Design, Op};
 use std::collections::HashMap;
@@ -32,13 +33,33 @@ const DEFAULT_ADAPTIVE_MAX_DEPTH: u32 = 4;
 /// Field-sample budget guardrail for interactive/untrusted use.
 const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
 
+/// A triply-periodic minimal surface, selecting which nodal field [`Tpms`] slices. The JSON wire form
+/// is kebab-case (matching the TS SDK), e.g. `"schwarz-p"` or `"fischer-koch-s"`. Each formula is a
+/// clean-room port of the corresponding entry in the TS SDK's `generators/tpms.ts`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Surface {
+    #[default]
+    Gyroid,
+    SchwarzP,
+    SchwarzD,
+    Iwp,
+    Neovius,
+    FischerKochS,
+    FischerKochY,
+    Frd,
+    Lidinoid,
+    SplitP,
+}
+
 /// Options for [`tpms_ops`] / [`tpms_design`]. Every field is optional; an omitted field takes the
 /// documented default. The JSON wire form is camelCase (matching the TS SDK), e.g. `{"cellSize":12}`.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct TpmsOptions {
-    /// The surface name. Only `"gyroid"` (or omitted) is accepted by the Rust core.
-    pub surface: Option<String>,
+    /// The surface to slice; omitted defaults to [`Surface::Gyroid`]. Unknown names are a deserialize
+    /// error (the binding surfaces it as a structured failure, never a panic).
+    pub surface: Option<Surface>,
     /// Isosurface value: the contour traced is `field(x,y,z) = iso_level`.
     pub iso_level: Option<f64>,
     /// Cubic unit-cell size in mm.
@@ -178,6 +199,7 @@ struct AdaptiveOptions {
 
 /// The resolved, validated generator: every option folded into a concrete number plus derived sizes.
 struct Tpms {
+    surface: Surface,
     iso_level: f64,
     cell_size: f64,
     layer_height: f64,
@@ -208,13 +230,7 @@ struct Tpms {
 
 impl Tpms {
     fn resolve(options: &TpmsOptions) -> Result<Tpms, TpmsError> {
-        if let Some(surface) = &options.surface {
-            if surface != "gyroid" {
-                return Err(TpmsError::new(format!(
-                    "only the 'gyroid' surface is supported in the Rust core (got '{surface}')"
-                )));
-            }
-        }
+        let surface = options.surface.unwrap_or_default();
 
         let iso_level = finite("isoLevel", options.iso_level.unwrap_or(0.0))?;
         let cell_size = positive("cellSize", options.cell_size.unwrap_or(12.0))?;
@@ -311,6 +327,7 @@ impl Tpms {
         .min((depth / 2.0 - EPS).max(0.0));
 
         Ok(Tpms {
+            surface,
             iso_level,
             cell_size,
             layer_height,
@@ -339,10 +356,66 @@ impl Tpms {
         })
     }
 
-    /// The gyroid nodal field, scaled so one period spans one unit cell.
+    /// The selected surface's nodal field, scaled so one period spans one unit cell. Each arm is a
+    /// clean-room port of the matching `field` in the TS SDK's `generators/tpms.ts`.
     #[inline]
     fn field(&self, x: f64, y: f64, z: f64) -> f64 {
-        libm::sin(x) * libm::cos(y) + libm::sin(y) * libm::cos(z) + libm::sin(z) * libm::cos(x)
+        use libm::{cos, sin};
+        match self.surface {
+            Surface::Gyroid => sin(x) * cos(y) + sin(y) * cos(z) + sin(z) * cos(x),
+            Surface::SchwarzP => cos(x) + cos(y) + cos(z),
+            Surface::SchwarzD => {
+                sin(x) * sin(y) * sin(z)
+                    + sin(x) * cos(y) * cos(z)
+                    + cos(x) * sin(y) * cos(z)
+                    + cos(x) * cos(y) * sin(z)
+            }
+            Surface::Iwp => {
+                2.0 * (cos(x) * cos(y) + cos(y) * cos(z) + cos(z) * cos(x))
+                    - (cos(2.0 * x) + cos(2.0 * y) + cos(2.0 * z))
+            }
+            Surface::Neovius => 3.0 * (cos(x) + cos(y) + cos(z)) + 4.0 * cos(x) * cos(y) * cos(z),
+            Surface::FischerKochS => {
+                cos(2.0 * x) * sin(y) * cos(z)
+                    + cos(2.0 * y) * sin(z) * cos(x)
+                    + cos(2.0 * z) * sin(x) * cos(y)
+            }
+            Surface::FischerKochY => {
+                cos(x) * cos(y) * cos(z)
+                    + sin(x) * sin(y) * sin(z)
+                    + sin(2.0 * x) * sin(y)
+                    + sin(2.0 * y) * sin(z)
+                    + sin(x) * sin(2.0 * z)
+                    + sin(2.0 * x) * cos(z)
+                    + cos(x) * sin(2.0 * y)
+                    + cos(y) * sin(2.0 * z)
+            }
+            Surface::Frd => {
+                4.0 * cos(x) * cos(y) * cos(z)
+                    - (cos(2.0 * x) * cos(2.0 * y)
+                        + cos(2.0 * y) * cos(2.0 * z)
+                        + cos(2.0 * z) * cos(2.0 * x))
+            }
+            Surface::Lidinoid => {
+                sin(2.0 * x) * cos(y) * sin(z)
+                    + sin(2.0 * y) * cos(z) * sin(x)
+                    + sin(2.0 * z) * cos(x) * sin(y)
+                    - cos(2.0 * x) * cos(2.0 * y)
+                    - cos(2.0 * y) * cos(2.0 * z)
+                    - cos(2.0 * z) * cos(2.0 * x)
+                    + 0.3
+            }
+            Surface::SplitP => {
+                1.1 * (sin(2.0 * x) * sin(z) * cos(y)
+                    + sin(2.0 * y) * sin(x) * cos(z)
+                    + sin(2.0 * z) * sin(y) * cos(x))
+                    - 0.2
+                        * (cos(2.0 * x) * cos(2.0 * y)
+                            + cos(2.0 * y) * cos(2.0 * z)
+                            + cos(2.0 * z) * cos(2.0 * x))
+                    - 0.4 * (cos(2.0 * x) + cos(2.0 * y) + cos(2.0 * z))
+            }
+        }
     }
 
     fn emit(&self) -> Vec<Op> {
@@ -802,12 +875,12 @@ fn distance(a: Point, b: Point) -> f64 {
     libm::hypot(a.x - b.x, a.y - b.y)
 }
 
-/// Build the gyroid TPMS infill as an L1 op list, returning a structured error for invalid options.
+/// Build the selected TPMS infill as an L1 op list, returning a structured error for invalid options.
 pub fn try_tpms_ops(options: &TpmsOptions) -> Result<Vec<Op>, TpmsError> {
     Ok(Tpms::resolve(options)?.emit())
 }
 
-/// Build the gyroid TPMS infill as an L1 op list.
+/// Build the selected TPMS infill as an L1 op list.
 ///
 /// This compatibility wrapper panics on invalid options; bindings and other user-facing boundaries
 /// should call [`try_tpms_ops`] so they can return a structured error.
@@ -815,14 +888,14 @@ pub fn tpms_ops(options: &TpmsOptions) -> Vec<Op> {
     try_tpms_ops(options).expect("valid Dry TPMS options")
 }
 
-/// Build the gyroid TPMS infill as an L1 [`Design`], returning a structured error for invalid options.
+/// Build the selected TPMS infill as an L1 [`Design`], returning a structured error for invalid options.
 pub fn try_tpms_design(options: &TpmsOptions) -> Result<Design, TpmsError> {
     Ok(Design {
         ops: try_tpms_ops(options)?,
     })
 }
 
-/// Build the gyroid TPMS infill as an L1 [`Design`] (panics on invalid options; see [`try_tpms_design`]).
+/// Build the selected TPMS infill as an L1 [`Design`] (panics on invalid options; see [`try_tpms_design`]).
 pub fn tpms_design(options: &TpmsOptions) -> Design {
     Design {
         ops: tpms_ops(options),
@@ -961,14 +1034,123 @@ mod tests {
         );
     }
 
+    /// Every surface, sliced over a small multi-cell block, must produce real geometry that survives
+    /// the whole pipeline: balanced extruder ops, finite in-bounds moves, a clean permissive verify,
+    /// and non-zero deposited volume.
     #[test]
-    fn non_gyroid_surface_is_rejected() {
-        let options = TpmsOptions {
-            surface: Some("schwarz-p".to_string()),
+    fn every_surface_emits_valid_in_bounds_geometry() {
+        let surfaces = [
+            Surface::Gyroid,
+            Surface::SchwarzP,
+            Surface::SchwarzD,
+            Surface::Iwp,
+            Surface::Neovius,
+            Surface::FischerKochS,
+            Surface::FischerKochY,
+            Surface::Frd,
+            Surface::Lidinoid,
+            Surface::SplitP,
+        ];
+        // A 2x2x2 block guarantees several iso-crossings for every surface at isoLevel 0.
+        let (cells, cell, spc, lh, cx, cy, z0) = (2u32, 8.0, 12u32, 0.4, 50.0, 50.0, 0.2);
+        let span = cells as f64 * cell;
+        let (x_lo, x_hi) = (cx - span / 2.0, cx + span / 2.0);
+        let (y_lo, y_hi) = (cy - span / 2.0, cy + span / 2.0);
+        let (z_lo, z_hi) = (z0, z0 + span);
+        let tol = 1e-6;
+
+        for surface in surfaces {
+            let options = TpmsOptions {
+                surface: Some(surface),
+                cells_x: Some(cells),
+                cells_y: Some(cells),
+                cells_z: Some(cells),
+                cell_size: Some(cell),
+                samples_per_cell: Some(spc),
+                layer_height: Some(lh),
+                ..Default::default()
+            };
+            let ops = tpms_ops(&options);
+
+            let on = ops
+                .iter()
+                .filter(|o| matches!(o, Op::Extruder { on: true }))
+                .count();
+            let off = ops
+                .iter()
+                .filter(|o| matches!(o, Op::Extruder { on: false }))
+                .count();
+            assert!(on > 0, "{surface:?}: expected at least one extruding path");
+            assert_eq!(
+                off,
+                on + 1,
+                "{surface:?}: extruder on/off must balance (+1)"
+            );
+
+            let mut moves = 0;
+            for op in &ops {
+                if let Op::Move { x, y, z } = op {
+                    if let Some(x) = x {
+                        assert!(
+                            x.is_finite() && *x >= x_lo - tol && *x <= x_hi + tol,
+                            "{surface:?}: x = {x}"
+                        );
+                    }
+                    if let Some(y) = y {
+                        assert!(
+                            y.is_finite() && *y >= y_lo - tol && *y <= y_hi + tol,
+                            "{surface:?}: y = {y}"
+                        );
+                    }
+                    if let Some(z) = z {
+                        assert!(
+                            z.is_finite() && *z >= z_lo - tol && *z <= z_hi + tol,
+                            "{surface:?}: z = {z}"
+                        );
+                    }
+                    moves += 1;
+                }
+            }
+            assert!(moves > 0, "{surface:?}: expected moves");
+
+            let tp = resolve_checked(&tpms_design(&options), &ResolveParams::default())
+                .expect("resolve");
+            let report = verify(&tp, &Contracts::default());
+            assert!(
+                report.findings.is_empty(),
+                "{surface:?}: permissive verify should be clean, got {:?}",
+                report.findings
+            );
+            assert!(
+                simulate(&tp).extruded_volume.value() > 0.0,
+                "{surface:?}: expected non-zero extruded volume"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_surface_string_is_a_clean_deserialize_error() {
+        let err = serde_json::from_str::<TpmsOptions>(r#"{"surface":"bogus"}"#)
+            .expect_err("an unknown surface name must be a deserialize error, not a panic");
+        assert!(
+            err.to_string().contains("bogus") || err.to_string().contains("variant"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn omitted_surface_defaults_to_gyroid() {
+        let default_ops = tpms_ops(&small_cell());
+        let explicit = TpmsOptions {
+            surface: Some(Surface::Gyroid),
             ..small_cell()
         };
-        let err = try_tpms_ops(&options).expect_err("only gyroid is supported");
-        assert!(err.to_string().contains("gyroid"), "got: {err}");
+        let explicit_ops = tpms_ops(&explicit);
+        assert_eq!(
+            default_ops.len(),
+            explicit_ops.len(),
+            "omitting `surface` must match explicit gyroid"
+        );
     }
 
     #[test]
