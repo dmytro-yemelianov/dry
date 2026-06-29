@@ -47,14 +47,14 @@ pub use gcode::{
 pub use generate::{tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, TpmsError, TpmsOptions};
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
-    adaptive_speed, adaptive_speed_with_params, arc_fit, coasting, coasting_with_dist,
-    merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, travel_reorder, z_hop,
-    z_hop_with_params,
+    adaptive_speed, adaptive_speed_with_params, apply_safe_gated, arc_fit, coasting,
+    coasting_with_dist, merge_collinear, optimize_aggressive_pipeline, optimize_pipeline,
+    safe_pipeline, travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
 };
 pub use profile::{
     FirmwareProfile, MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
 };
-pub use report::{LocatedFinding, ReviewReport, TraceReport};
+pub use report::{LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport};
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };

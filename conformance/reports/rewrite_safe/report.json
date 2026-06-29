@@ -1,0 +1,50 @@
+{
+  "file": "two-span.gcode",
+  "profile": "safe-demo",
+  "mode": "safe",
+  "spans_total": 2,
+  "spans_accepted": 1,
+  "spans_rejected": 1,
+  "segment_count_before": 6,
+  "segment_count_after": 4,
+  "metrics_before": {
+    "total_time_s": 1.6070552360820167,
+    "print_time_s": 1.6070552360820167,
+    "travel_time_s": 0.0,
+    "extruding_distance": 40.17638090205041,
+    "travel_distance": 0.0,
+    "extruded_volume": 2.4,
+    "filament_length": 0.9600000000000001,
+    "segment_count": 6,
+    "max_flow_rate": 3.8637033051562715
+  },
+  "metrics_after": {
+    "total_time_s": 1.6070552360820165,
+    "print_time_s": 1.6070552360820165,
+    "travel_time_s": 0.0,
+    "extruding_distance": 40.17638090205041,
+    "travel_distance": 0.0,
+    "extruded_volume": 2.4,
+    "filament_length": 0.9600000000000001,
+    "segment_count": 4,
+    "max_flow_rate": 3.8637033051562715
+  },
+  "spans": [
+    {
+      "span_index": 0,
+      "accepted": true,
+      "segment_count_before": 3,
+      "segment_count_after": 1,
+      "new_error_rules": []
+    },
+    {
+      "span_index": 1,
+      "accepted": false,
+      "segment_count_before": 3,
+      "segment_count_after": 3,
+      "new_error_rules": [
+        "bounds"
+      ]
+    }
+  ]
+}

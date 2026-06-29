@@ -7,8 +7,9 @@
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
 use dry_core::{
-    simulate, trace_summary, verify, Contracts, Feedrate, Length, Profile, ReviewReport, Segment,
-    SegmentKind, Toolpath, TraceReport, Volume,
+    apply_safe_gated, simulate, trace_summary, verify, Contracts, Feedrate, Length, Profile,
+    ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport,
+    Volume,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -353,6 +354,96 @@ fn report_goldens_match_or_update() {
         all,
         "report goldens do not cover every RuleId (missing: {:?})",
         all.difference(&covered).collect::<Vec<_>>()
+    );
+}
+
+/// A plain extruding line move between two 3-D points (off [`base`]).
+fn line_seg(start: [f64; 3], end: [f64; 3]) -> Segment {
+    let length =
+        ((end[0] - start[0]).powi(2) + (end[1] - start[1]).powi(2) + (end[2] - start[2]).powi(2))
+            .sqrt();
+    Segment {
+        start: [
+            Some(Length::mm(start[0])),
+            Some(Length::mm(start[1])),
+            Some(Length::mm(start[2])),
+        ],
+        end: [
+            Some(Length::mm(end[0])),
+            Some(Length::mm(end[1])),
+            Some(Length::mm(end[2])),
+        ],
+        length: Length::mm(length),
+        volume: Volume(0.4),
+        filament: Length::mm(0.16),
+        ..base()
+    }
+}
+
+/// Golden for `rewrite-gcode --json --mode safe`: a two-span case where span 0 (a collinear run) is
+/// accepted and canonicalised, and span 1 (a circular run whose fitted arc bulges out of the build
+/// volume) is rejected and passes through verbatim. Drift-gated like the other report goldens.
+#[test]
+fn rewrite_report_golden_matches_or_update() {
+    let update = update_mode();
+    let dir = reports_dir();
+
+    // build volume admits both spans' chord endpoints but not the fitted arc's top point (y = 5).
+    let contracts = Contracts {
+        bounds: Some([[0.0, 200.0], [0.0, 4.5], [0.0, 200.0]]),
+        ..Contracts::default()
+    };
+
+    // span 0: a collinear extruding run (merges to one move), in-bounds → accepted.
+    let span0 = vec![
+        line_seg([0.0, 1.0, 0.2], [10.0, 1.0, 0.2]),
+        line_seg([10.0, 1.0, 0.2], [20.0, 1.0, 0.2]),
+        line_seg([20.0, 1.0, 0.2], [30.0, 1.0, 0.2]),
+    ];
+    // span 1: four points on a circle of radius 5 centred at (10, 0), swept across the top. Every chord
+    // endpoint has y ≤ 4.33, but the arc passes through (10, 5) → a NEW bounds error → rejected.
+    let (cx, cy, r) = (10.0_f64, 0.0_f64, 5.0_f64);
+    let pt = |deg: f64| {
+        let a = deg.to_radians();
+        [cx + r * a.cos(), cy + r * a.sin(), 0.2]
+    };
+    let span1 = vec![
+        line_seg(pt(30.0), pt(60.0)),
+        line_seg(pt(60.0), pt(120.0)),
+        line_seg(pt(120.0), pt(150.0)),
+    ];
+
+    let mut before_segs: Vec<Segment> = Vec::new();
+    let mut after_segs: Vec<Segment> = Vec::new();
+    let mut span_results: Vec<RewriteSpanResult> = Vec::new();
+    for (index, span) in [span0, span1].into_iter().enumerate() {
+        let span_tp = tp(span);
+        let before_count = span_tp.segments.len();
+        let result = apply_safe_gated(&span_tp, &contracts);
+        before_segs.extend(span_tp.segments.iter().cloned());
+        after_segs.extend(result.toolpath.segments.iter().cloned());
+        span_results.push(RewriteSpanResult {
+            span_index: index,
+            accepted: result.accepted,
+            segment_count_before: before_count,
+            segment_count_after: result.toolpath.segments.len(),
+            new_error_rules: result.new_error_rules,
+        });
+    }
+
+    let report = RewriteReport::build(
+        Some("two-span.gcode".to_string()),
+        Some("safe-demo".to_string()),
+        "safe".to_string(),
+        &tp(before_segs),
+        &tp(after_segs),
+        span_results,
+    );
+    let report_json = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    write_or_check(
+        dir.join("rewrite_safe").join("report.json"),
+        report_json.as_bytes(),
+        update,
     );
 }
 

@@ -22,6 +22,7 @@ REPORT_KINDS = {
     "review.json": "ReviewReport",
     "trace.json": "TraceReport",
     "forensics.json": "ForensicsReport",
+    "report.json": "RewriteReport",
 }
 
 
