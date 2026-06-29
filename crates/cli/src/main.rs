@@ -672,6 +672,13 @@ fn run(cli: Cli) -> ExitCode {
                         .collect();
                     println!("  infill angle: {} (inferred)", angles.join("/"));
                 }
+                if let Some(sp) = report.infill_spacing_mm.value {
+                    println!("  infill spacing: ~{sp:.3}mm (inferred)");
+                }
+                println!(
+                    "  seam:      {} ({} loops, inferred)",
+                    report.seam.strategy, report.seam.loops
+                );
                 if report.declared.extrusion_width_mm.is_some()
                     || report.declared.infill_angle_deg.is_some()
                 {

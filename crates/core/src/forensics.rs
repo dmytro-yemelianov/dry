@@ -5,12 +5,13 @@
 //! - `measured` — a deterministic count/sum over the motion (travel distance, segment count);
 //! - `inferred` — an estimate derived from geometry (layer height, line width).
 //!
-//! Round 2 (issue #29) adds a probabilistic layer: declared-settings extraction from config comments,
-//! infill-angle inference from geometry, and an extrusion-multiplier estimate. Still out of scope:
-//! infill spacing/periodicity and seam/resonance modelling.
+//! The probabilistic layer (issue #29 rounds 2–3): declared-settings extraction from config comments,
+//! infill-angle and -spacing inference from geometry, an extrusion-multiplier estimate, and a
+//! seam-strategy hint. Still out of scope: resonance modelling and Cura's base64 config block.
 
 use crate::engine::segment_motion_time;
 use crate::gcode::ImportedGcode;
+use crate::ir::Segment;
 use serde::{Deserialize, Serialize};
 
 /// How a reported fact was obtained.
@@ -80,6 +81,15 @@ pub struct DeclaredSettings {
     pub infill_density: Option<String>,
 }
 
+/// A seam-placement hint inferred from where outer-wall loops start.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeamHint {
+    /// `aligned` (< 1 mm spread), `clustered` (< 5 mm), `scattered`, or `unknown` (< 2 loops).
+    pub strategy: String,
+    pub loops: usize,
+    pub source: Confidence,
+}
+
 /// The full forensics report.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForensicsReport {
@@ -93,8 +103,12 @@ pub struct ForensicsReport {
     pub features: Vec<FeatureStat>,
     /// Dominant infill directions in degrees (mod 180), inferred from geometry; empty if no infill.
     pub infill_angles_deg: Vec<f64>,
+    /// Perpendicular spacing between parallel infill lines (mm), inferred.
+    pub infill_spacing_mm: Estimate,
     /// Effective extrusion multiplier, inferred from deposited vs. nominal-bead volume.
     pub extrusion_multiplier: Estimate,
+    /// Seam-placement hint inferred from outer-wall loop starts.
+    pub seam: SeamHint,
     pub travel: TravelStat,
     pub hotspots: Vec<Hotspot>,
 }
@@ -252,6 +266,83 @@ fn dominant_angles(angles: Vec<f64>) -> Vec<f64> {
     out
 }
 
+/// Median perpendicular spacing between parallel infill lines, plus the gap coefficient-of-variation
+/// (a regularity signal). Needs the dominant infill angle and ≥ 2 distinct parallel lines.
+fn infill_spacing(mids: &[(f64, f64)], angle_deg: Option<f64>) -> Option<(f64, f64)> {
+    let angle = angle_deg?;
+    if mids.len() < 3 {
+        return None;
+    }
+    let perp = (angle + 90.0).to_radians();
+    let (c, s) = (libm::cos(perp), libm::sin(perp));
+    let mut offs: Vec<f64> = mids.iter().map(|(x, y)| x * c + y * s).collect();
+    offs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mut lines: Vec<f64> = Vec::new();
+    for o in offs {
+        if lines.last().is_none_or(|l| (o - l).abs() > 0.05) {
+            lines.push(o);
+        }
+    }
+    if lines.len() < 2 {
+        return None;
+    }
+    let gaps: Vec<f64> = lines.windows(2).map(|w| w[1] - w[0]).collect();
+    let mut g = gaps.clone();
+    let spacing = median(&mut g)?;
+    let mean = gaps.iter().sum::<f64>() / gaps.len() as f64;
+    let var = gaps.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / gaps.len() as f64;
+    let cv = if mean.abs() > 1e-9 {
+        libm::sqrt(var) / mean
+    } else {
+        0.0
+    };
+    Some((spacing, cv))
+}
+
+/// Classify the seam from where outer-wall loops start: a loop start is an outer-wall extruding segment
+/// whose predecessor was not outer-wall-extruding.
+fn seam_hint(segments: &[Segment], feature_at_line: &[&str], source_lines: &[usize]) -> SeamHint {
+    let mut starts: Vec<(f64, f64)> = Vec::new();
+    let mut prev_outer = false;
+    for (i, s) in segments.iter().enumerate() {
+        let line = source_lines.get(i).copied().unwrap_or(0);
+        let feature = feature_at_line.get(line).copied().unwrap_or("other");
+        let is_outer = !s.travel && s.volume.value() > 0.0 && feature == "outer-wall";
+        if is_outer && !prev_outer {
+            if let (Some(x), Some(y)) = (s.start[0].or(s.end[0]), s.start[1].or(s.end[1])) {
+                starts.push((x.value(), y.value()));
+            }
+        }
+        prev_outer = is_outer;
+    }
+    let loops = starts.len();
+    if loops < 2 {
+        return SeamHint {
+            strategy: "unknown".to_string(),
+            loops,
+            source: Confidence::Inferred,
+        };
+    }
+    let cx = starts.iter().map(|p| p.0).sum::<f64>() / loops as f64;
+    let cy = starts.iter().map(|p| p.1).sum::<f64>() / loops as f64;
+    let maxd = starts
+        .iter()
+        .map(|(x, y)| libm::hypot(x - cx, y - cy))
+        .fold(0.0, f64::max);
+    let strategy = if maxd < 1.0 {
+        "aligned"
+    } else if maxd < 5.0 {
+        "clustered"
+    } else {
+        "scattered"
+    };
+    SeamHint {
+        strategy: strategy.to_string(),
+        loops,
+        source: Confidence::Inferred,
+    }
+}
+
 #[derive(Default, Clone)]
 struct Agg {
     segments: usize,
@@ -291,6 +382,7 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     let mut retractions = 0usize;
     let mut tiny = 0usize;
     let mut infill_dirs: Vec<f64> = Vec::new();
+    let mut infill_mids: Vec<(f64, f64)> = Vec::new();
     let mut mults: Vec<f64> = Vec::new();
 
     // First pass: layer Z set (for the line-width estimate that needs layer height).
@@ -358,6 +450,10 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
                     deg -= 180.0;
                 }
                 infill_dirs.push(deg);
+                infill_mids.push((
+                    (sx.value() + ex.value()) / 2.0,
+                    (sy.value() + ey.value()) / 2.0,
+                ));
             }
         }
         let a = feats.entry(feature).or_default();
@@ -426,6 +522,23 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
         }
     };
 
+    let infill_angles_deg = dominant_angles(infill_dirs);
+    let infill_spacing_mm = match infill_spacing(&infill_mids, infill_angles_deg.first().copied()) {
+        Some((spacing, cv)) => Estimate {
+            value: Some(spacing),
+            confidence: Confidence::Inferred,
+            note: format!(
+                "median perpendicular gap between parallel infill lines (gap CV {cv:.2})"
+            ),
+        },
+        None => Estimate {
+            value: None,
+            confidence: Confidence::Inferred,
+            note: "needs ≥ 2 parallel infill lines at a dominant angle".to_string(),
+        },
+    };
+    let seam = seam_hint(segments, &feature_at_line, &imported.segment_source_lines);
+
     ForensicsReport {
         slicer,
         source_lines: lines.len(),
@@ -445,8 +558,10 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
         },
         declared,
         features,
-        infill_angles_deg: dominant_angles(infill_dirs),
+        infill_angles_deg,
+        infill_spacing_mm,
         extrusion_multiplier,
+        seam,
         travel: TravelStat {
             travel_moves,
             travel_distance_mm: travel_distance,
@@ -571,5 +686,60 @@ G1 X10 Y6 E0.4 F1800
         let features: Vec<&str> = r.features.iter().map(|f| f.feature.as_str()).collect();
         assert!(features.contains(&"outer-wall"), "{features:?}");
         assert!(features.contains(&"infill"), "{features:?}");
+
+        // round 3: spacing between the four parallel 45° infill lines.
+        assert!(
+            r.infill_spacing_mm.value.unwrap() > 0.0,
+            "{:?}",
+            r.infill_spacing_mm
+        );
+    }
+
+    // Two layers whose outer-wall loops both start at (0,0) → an aligned seam.
+    const ALIGNED_SEAM: &str = "\
+;Generated with Cura_SteamEngine 5.0
+M83
+;LAYER:0
+G1 Z0.2 F600
+;TYPE:WALL-OUTER
+G1 X0 Y0 F9000
+G1 X10 Y0 E0.4 F1200
+G1 X10 Y10 E0.4
+G1 X0 Y10 E0.4
+G1 X0 Y0 E0.4
+;LAYER:1
+G1 Z0.4 F600
+;TYPE:WALL-OUTER
+G1 X0 Y0 F9000
+G1 X10 Y0 E0.4 F1200
+G1 X10 Y10 E0.4
+G1 X0 Y10 E0.4
+G1 X0 Y0 E0.4
+";
+
+    #[test]
+    fn seam_is_aligned_when_loops_share_a_start() {
+        let imported = import_gcode_with_map(ALIGNED_SEAM, &GcodeImportParams::default()).unwrap();
+        let r = analyze(&imported);
+        assert_eq!(r.seam.loops, 2, "{:?}", r.seam);
+        assert_eq!(r.seam.strategy, "aligned", "{:?}", r.seam);
+        assert_eq!(r.seam.source, Confidence::Inferred);
+    }
+
+    #[test]
+    fn seam_unknown_with_fewer_than_two_loops() {
+        let single = "\
+;Generated with Cura_SteamEngine 5.0
+M83
+;TYPE:WALL-OUTER
+G1 X0 Y0 F9000
+G1 X10 Y0 E0.4 F1200
+G1 X10 Y10 E0.4
+G1 X0 Y0 E0.4
+";
+        let imported = import_gcode_with_map(single, &GcodeImportParams::default()).unwrap();
+        let r = analyze(&imported);
+        assert_eq!(r.seam.loops, 1);
+        assert_eq!(r.seam.strategy, "unknown");
     }
 }

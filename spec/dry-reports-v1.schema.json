@@ -241,6 +241,16 @@
         "infill_density": { "type": ["string", "null"] }
       }
     },
+    "SeamHint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "loops", "source"],
+      "properties": {
+        "strategy": { "type": "string" },
+        "loops": { "type": "integer", "minimum": 0 },
+        "source": { "$ref": "#/$defs/Confidence" }
+      }
+    },
     "ForensicsReport": {
       "type": "object",
       "additionalProperties": false,
@@ -253,7 +263,9 @@
         "declared",
         "features",
         "infill_angles_deg",
+        "infill_spacing_mm",
         "extrusion_multiplier",
+        "seam",
         "travel",
         "hotspots"
       ],
@@ -266,7 +278,9 @@
         "declared": { "$ref": "#/$defs/DeclaredSettings" },
         "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureStat" } },
         "infill_angles_deg": { "type": "array", "items": { "type": "number" } },
+        "infill_spacing_mm": { "$ref": "#/$defs/Estimate" },
         "extrusion_multiplier": { "$ref": "#/$defs/Estimate" },
+        "seam": { "$ref": "#/$defs/SeamHint" },
         "travel": { "$ref": "#/$defs/TravelStat" },
         "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
       }
