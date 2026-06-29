@@ -258,3 +258,5 @@ Do not claim:
 
 The correct current claim is narrower and stronger: Dry is a tested, deterministic toolpath compiler
 foundation with working FFF-centered workflows and a clear path to production hardening.
+
+> These caveats are now maintained as a living page: [`docs/14-known-limitations.md`](14-known-limitations.md).

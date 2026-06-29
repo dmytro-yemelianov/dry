@@ -264,7 +264,7 @@ Avoid this positioning for now:
 
 ## Immediate customer-readiness tasks
 
-1. Publish a known-limitations page.
+1. Publish a known-limitations page. ✅ [`docs/14-known-limitations.md`](14-known-limitations.md)
 2. Create installable CLI/Python/TS release artifacts.
 3. Write profile schema docs with 3 to 5 real examples.
 4. Publish a JSON report schema for verification and trace outputs.
