@@ -319,21 +319,29 @@ fn report_goldens_match_or_update() {
         }
     }
 
-    // Forensics golden from the sliced sample (slicer detection + feature attribution).
-    let sample = fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/sliced-sample.gcode"),
-    )
-    .expect("examples/sliced-sample.gcode exists");
-    let imported =
-        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
-            .expect("import sliced sample");
-    let forensics = dry_core::forensics_analyze(&imported);
-    let forensics_json = serde_json::to_string_pretty(&forensics).unwrap() + "\n";
-    write_or_check(
-        dir.join("forensics").join("forensics.json"),
-        forensics_json.as_bytes(),
-        update,
-    );
+    // Forensics goldens: a Cura sample (no config block) and a PrusaSlicer sample (config block +
+    // 45° infill → declared settings, inferred infill angle, recoverable extrusion multiplier).
+    for (sample_file, case) in [
+        ("examples/sliced-sample.gcode", "forensics"),
+        ("examples/sliced-prusa-sample.gcode", "forensics-prusa"),
+    ] {
+        let sample = fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(sample_file),
+        )
+        .unwrap_or_else(|_| panic!("{sample_file} exists"));
+        let imported =
+            dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+                .expect("import sample");
+        let forensics = dry_core::forensics_analyze(&imported);
+        let forensics_json = serde_json::to_string_pretty(&forensics).unwrap() + "\n";
+        write_or_check(
+            dir.join(case).join("forensics.json"),
+            forensics_json.as_bytes(),
+            update,
+        );
+    }
 
     // Completeness: every rule in the catalog must be exercised by at least one golden.
     let all: BTreeSet<String> = dry_core::RuleId::ALL

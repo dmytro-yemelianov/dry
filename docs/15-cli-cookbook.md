@@ -99,10 +99,21 @@ dry forensics-gcode examples/sliced-sample.gcode
 ```
 
 Add `--json` for the full `ForensicsReport`. Every derived fact carries a **confidence** tag —
-`from-comment` (a slicer marker), `measured`, or `inferred` (a geometry estimate) — so a guess is never
-presented as a measurement. Slicer feature markers (`;TYPE:` / `; FEATURE:`) are used when present;
-marker-less files degrade gracefully (one `unknown`/`inferred` bucket). First cut — see
-[`16-support-matrix.md`](16-support-matrix.md).
+`from-comment` (a slicer marker / config value), `measured`, or `inferred` (a geometry estimate) — so a
+guess is never presented as a measurement. When a PrusaSlicer-family **config block** is present, Dry also
+reports the **declared settings** (`layer_height`, `extrusion_width`, `fill_angle`, density), an inferred
+**infill angle** (from the geometry), and a recovered **extrusion multiplier**:
+
+```sh
+dry forensics-gcode examples/sliced-prusa-sample.gcode
+#   slicer:    PrusaSlicer
+#   extrusion×: ~1.101 (inferred)
+#   infill angle: 45° (inferred)
+#   declared:  width Some(0.45)mm, infill Some(45.0)°, density Some("20%") (from-comment)
+```
+
+Slicer feature markers (`;TYPE:` / `; FEATURE:`) are used when present; marker-less files degrade
+gracefully. See [`16-support-matrix.md`](16-support-matrix.md).
 
 ### `rewrite-gcode` — re-emit motion, preserve non-motion lines
 ```sh

@@ -661,6 +661,27 @@ fn run(cli: Cli) -> ExitCode {
                         .map(|v| format!("{v:.3}mm (inferred)"))
                         .unwrap_or_else(|| "unknown".into())
                 );
+                if let Some(m) = report.extrusion_multiplier.value {
+                    println!("  extrusion×: ~{m:.3} (inferred)");
+                }
+                if !report.infill_angles_deg.is_empty() {
+                    let angles: Vec<String> = report
+                        .infill_angles_deg
+                        .iter()
+                        .map(|a| format!("{a:.0}°"))
+                        .collect();
+                    println!("  infill angle: {} (inferred)", angles.join("/"));
+                }
+                if report.declared.extrusion_width_mm.is_some()
+                    || report.declared.infill_angle_deg.is_some()
+                {
+                    println!(
+                        "  declared:  width {:?}mm, infill {:?}°, density {:?} (from-comment)",
+                        report.declared.extrusion_width_mm,
+                        report.declared.infill_angle_deg,
+                        report.declared.infill_density
+                    );
+                }
                 println!("  features:");
                 for f in &report.features {
                     println!(

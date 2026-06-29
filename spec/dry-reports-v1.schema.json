@@ -231,6 +231,16 @@
         "note": { "type": "string" }
       }
     },
+    "DeclaredSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "layer_height_mm": { "type": ["number", "null"] },
+        "extrusion_width_mm": { "type": ["number", "null"] },
+        "infill_angle_deg": { "type": ["number", "null"] },
+        "infill_density": { "type": ["string", "null"] }
+      }
+    },
     "ForensicsReport": {
       "type": "object",
       "additionalProperties": false,
@@ -240,7 +250,10 @@
         "segment_count",
         "layers",
         "line_width_mm",
+        "declared",
         "features",
+        "infill_angles_deg",
+        "extrusion_multiplier",
         "travel",
         "hotspots"
       ],
@@ -250,7 +263,10 @@
         "segment_count": { "type": "integer", "minimum": 0 },
         "layers": { "$ref": "#/$defs/LayerModel" },
         "line_width_mm": { "$ref": "#/$defs/Estimate" },
+        "declared": { "$ref": "#/$defs/DeclaredSettings" },
         "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureStat" } },
+        "infill_angles_deg": { "type": "array", "items": { "type": "number" } },
+        "extrusion_multiplier": { "$ref": "#/$defs/Estimate" },
         "travel": { "$ref": "#/$defs/TravelStat" },
         "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
       }
