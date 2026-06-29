@@ -1,0 +1,18 @@
+{
+  "description": "A minimal line carrying a full Meta header (generator, units, source_hash, invariants).",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "meta",
+    "provenance"
+  ],
+  "frozen": true,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "meta_header"
+}

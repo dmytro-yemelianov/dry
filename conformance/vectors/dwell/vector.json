@@ -1,0 +1,17 @@
+{
+  "description": "A dwell (pause-in-place) segment with a duration.",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "dwell"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "dwell"
+}

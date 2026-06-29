@@ -1,0 +1,1 @@
+{"version":0,"meta":{"generator":"dry 0.2.0","units":"mm","source_hash":"0123456789abcdef","invariants":["monotonic_z","bounds"]},"segments":[{"start":[0.0,0.0,0.2],"end":[10.0,0.0,0.2],"travel":false,"speed":1500.0,"length":10.0,"volume":0.8,"filament":0.3326,"width":0.4,"height":0.2,"kind":"line","centre":null,"clockwise":false}]}

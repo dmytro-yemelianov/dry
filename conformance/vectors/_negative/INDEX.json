@@ -1,0 +1,44 @@
+[
+  {
+    "expect": "reject",
+    "file": "bad_magic.dry0",
+    "format": "binary",
+    "reason": "wrong magic (spec section 11)"
+  },
+  {
+    "expect": "reject",
+    "file": "unsupported_enc_ver.dry0",
+    "format": "binary",
+    "reason": "unsupported enc_ver"
+  },
+  {
+    "expect": "reject",
+    "file": "bad_body_len.dry0",
+    "format": "binary",
+    "reason": "inflated length != declared body_len"
+  },
+  {
+    "expect": "reject",
+    "file": "block_size_zero.dry1",
+    "format": "binary",
+    "reason": "DRY1 block_size == 0"
+  },
+  {
+    "expect": "reject",
+    "file": "truncated.dry1",
+    "format": "binary",
+    "reason": "truncated stream"
+  },
+  {
+    "expect": "reject",
+    "file": "unknown_kind.json",
+    "format": "json",
+    "reason": "unknown SegmentKind string"
+  },
+  {
+    "expect": "accept",
+    "file": "unknown_key_accepted.json",
+    "format": "json",
+    "reason": "unknown object keys are ignored (forward-compat)"
+  }
+]

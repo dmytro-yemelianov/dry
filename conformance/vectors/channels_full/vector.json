@@ -1,0 +1,20 @@
+{
+  "description": "An extruding line with every process channel set: temperature, fan, flow, tool.",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "temperature",
+    "fan",
+    "flow",
+    "tool"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "channels_full"
+}
