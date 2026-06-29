@@ -120,6 +120,52 @@ All three outputs are stable JSON contracts (`spec/dry-reports-v1.schema.json`).
 `trace` is a `TraceSummary`: totals plus fixed-duration `windows`, each carrying its segment range and —
 for imported G-code — its source-line range (`source_line_start`/`source_line_end`, omitted when absent).
 
+### 3.4 `rewrite-gcode --json` → `RewriteReport`
+
+`rewrite-gcode` re-emits imported motion while preserving the non-motion source lines in place. The
+`--mode safe` flag turns on a **gated** geometry-canonicalisation pass and `--json` reports its outcome:
+
+```json
+{
+  "file": "part.gcode",
+  "profile": "voron24-abs",
+  "mode": "safe",
+  "spans_total": 12,
+  "spans_accepted": 11,
+  "spans_rejected": 1,
+  "segment_count_before": 4096,
+  "segment_count_after": 3120,
+  "metrics_before": { "total_time_s": …, "segment_count": 4096, … },
+  "metrics_after": { "total_time_s": …, "segment_count": 3120, … },
+  "spans": [
+    { "span_index": 7, "accepted": false, "segment_count_before": 240, "segment_count_after": 240, "new_error_rules": ["bounds"] }
+  ]
+}
+```
+
+`metrics_before`/`metrics_after` are whole-file `Metrics` (§3.2) simulated before and after the rewrite.
+Each entry of `spans` is the per-span ledger: its `span_index` (source order), whether the rewrite was
+`accepted`, the segment count before/after, and `new_error_rules` — the error rule ids the rewrite would
+have **introduced** (empty when accepted). `file`/`profile` are `null` when not supplied.
+
+When `--json` is set the `RewriteReport` goes to stdout and the rewritten G-code goes to the (required)
+`--out` file. Without `--json`, the rewritten G-code is emitted as before and a one-line accept/reject
+summary plus each rejected span's new rules is printed to stderr.
+
+#### The `safe` gate
+
+`--mode safe` runs exactly the geometry-canonicalisation subset — `merge_collinear` then `arc_fit` (the
+adaptive-speed / coasting / travel-reorder / z-hop passes are reserved for the future `balanced`/`max`
+modes, which are **not yet implemented**). The rewrite is applied **per source motion span** and is
+*gated* against the verifier (§2): a span's rewrite is accepted only when it introduces **no new error
+rule** relative to the same span's input under the active contracts. Pre-existing input errors do not
+block the rewrite, and new *warning*-only findings do not block it; a rejected span passes through
+verbatim while its neighbours are still rewritten. Contracts come from the `--profile` (a profile maps to
+contracts via §2); with no profile the gate has no machine contracts and only the always-on structural
+invariants (`finite`, `bead`, `arc-radius`, `travel-extrudes`, `orientation-not-unit`) can reject a span,
+so a stderr warning is printed. The legacy ungated `--optimize` / `--optimize --reorder-travel` flags are
+unchanged and run the geometry / aggressive pipelines without the gate.
+
 ## 4. Stability & conformance
 
 - The profile schema, the rule catalog, and the report schemas are the public contract.

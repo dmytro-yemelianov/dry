@@ -297,6 +297,54 @@
         "travel_strategy": { "$ref": "#/$defs/TravelStrategy" },
         "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
       }
+    },
+    "RewriteSpanResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "span_index",
+        "accepted",
+        "segment_count_before",
+        "segment_count_after",
+        "new_error_rules"
+      ],
+      "properties": {
+        "span_index": { "type": "integer", "minimum": 0 },
+        "accepted": { "type": "boolean" },
+        "segment_count_before": { "type": "integer", "minimum": 0 },
+        "segment_count_after": { "type": "integer", "minimum": 0 },
+        "new_error_rules": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "RewriteReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "profile",
+        "mode",
+        "spans_total",
+        "spans_accepted",
+        "spans_rejected",
+        "segment_count_before",
+        "segment_count_after",
+        "metrics_before",
+        "metrics_after",
+        "spans"
+      ],
+      "properties": {
+        "file": { "type": ["string", "null"] },
+        "profile": { "type": ["string", "null"] },
+        "mode": { "type": "string" },
+        "spans_total": { "type": "integer", "minimum": 0 },
+        "spans_accepted": { "type": "integer", "minimum": 0 },
+        "spans_rejected": { "type": "integer", "minimum": 0 },
+        "segment_count_before": { "type": "integer", "minimum": 0 },
+        "segment_count_after": { "type": "integer", "minimum": 0 },
+        "metrics_before": { "$ref": "#/$defs/Metrics" },
+        "metrics_after": { "$ref": "#/$defs/Metrics" },
+        "spans": { "type": "array", "items": { "$ref": "#/$defs/RewriteSpanResult" } }
+      }
     }
   }
 }

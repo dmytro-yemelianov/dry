@@ -3,10 +3,11 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
+    apply_safe_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
     optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv,
     simulate, simulate_stream, trace_summary_with_sources, verify, verify_stream, Contracts,
-    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, Profile, Toolpath,
+    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, Profile,
+    RewriteReport, RewriteSpanResult, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -18,6 +19,24 @@ enum KinematicsArg {
     Ab,
     Ac,
     Bc,
+}
+
+/// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum OptimizeModeArg {
+    Safe,
+    Balanced,
+    Max,
+}
+
+impl From<OptimizeModeArg> for OptimizeMode {
+    fn from(m: OptimizeModeArg) -> Self {
+        match m {
+            OptimizeModeArg::Safe => OptimizeMode::Safe,
+            OptimizeModeArg::Balanced => OptimizeMode::Balanced,
+            OptimizeModeArg::Max => OptimizeMode::Max,
+        }
+    }
 }
 
 impl From<KinematicsArg> for Kinematics {
@@ -202,6 +221,13 @@ enum Cmd {
         /// Also reorder independent extrusion runs to reduce travel. Changes print order.
         #[arg(long)]
         reorder_travel: bool,
+        /// Gated optimisation mode (`safe`). `balanced`/`max` are reserved and not yet implemented.
+        /// When set, each motion span is rewritten only if it introduces no new verifier error.
+        #[arg(long, value_enum)]
+        mode: Option<OptimizeModeArg>,
+        /// Emit a `RewriteReport` as JSON to stdout (requires `--out` for the rewritten G-code).
+        #[arg(long)]
+        json: bool,
         /// Write rewritten G-code to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -733,8 +759,25 @@ fn run(cli: Cli) -> ExitCode {
             absolute_e,
             optimize,
             reorder_travel,
+            mode,
+            json,
             out,
         } => {
+            let mode = mode.map(OptimizeMode::from);
+            if matches!(mode, Some(OptimizeMode::Balanced) | Some(OptimizeMode::Max)) {
+                die(
+                    "--mode balanced and --mode max are not yet implemented; use --mode safe \
+                     (or --optimize for the ungated geometry pipeline)"
+                        .into(),
+                );
+            }
+            if json && out.is_none() {
+                die(
+                    "--json requires --out: the rewritten G-code is written to the --out file \
+                     while the RewriteReport goes to stdout"
+                        .into(),
+                );
+            }
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
             let profile = load_profile(profile.as_deref());
@@ -756,37 +799,120 @@ fn run(cli: Cli) -> ExitCode {
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
             };
-            let span_toolpaths = imported
-                .motion_spans()
-                .into_iter()
-                .map(|span| {
-                    let range = span.segment_range();
-                    let span_toolpath = Toolpath {
-                        version: imported.toolpath.version,
-                        meta: imported.toolpath.meta.clone(),
-                        segments: imported.toolpath.segments[range].to_vec(),
-                    };
-                    if optimize {
-                        if reorder_travel {
-                            optimize_aggressive_pipeline(&span_toolpath)
-                        } else {
-                            optimize_pipeline(&span_toolpath)
-                        }
-                    } else {
-                        span_toolpath
+
+            let span_tp = |range: std::ops::Range<usize>| Toolpath {
+                version: imported.toolpath.version,
+                meta: imported.toolpath.meta.clone(),
+                segments: imported.toolpath.segments[range].to_vec(),
+            };
+
+            if matches!(mode, Some(OptimizeMode::Safe)) {
+                // `safe`: rewrite each motion span only if it introduces no new verifier error.
+                let contracts =
+                    contracts_from_inputs(profile.as_ref(), None, None, None, false, None);
+                if profile.is_none() {
+                    eprintln!(
+                        "warning: rewrite-gcode --mode safe with no --profile — the safety gate has \
+                         no machine contracts, so only structural invariants (finite/bead/arc/\
+                         travel-extrudes) are checked"
+                    );
+                }
+                let mut span_toolpaths = Vec::new();
+                let mut before_segs = Vec::new();
+                let mut after_segs = Vec::new();
+                let mut span_results = Vec::new();
+                for (index, span) in imported.motion_spans().into_iter().enumerate() {
+                    let span_toolpath = span_tp(span.segment_range());
+                    let segment_count_before = span_toolpath.segments.len();
+                    let result = apply_safe_gated(&span_toolpath, &contracts);
+                    before_segs.extend(span_toolpath.segments.iter().cloned());
+                    after_segs.extend(result.toolpath.segments.iter().cloned());
+                    span_results.push(RewriteSpanResult {
+                        span_index: index,
+                        accepted: result.accepted,
+                        segment_count_before,
+                        segment_count_after: result.toolpath.segments.len(),
+                        new_error_rules: result.new_error_rules,
+                    });
+                    span_toolpaths.push(result.toolpath);
+                }
+                let rewritten_lines = imported
+                    .emit_source_preserving_spans(&span_toolpaths, &emit_params)
+                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")));
+                let rewritten = rewritten_lines.join("\n");
+
+                let before_tp = Toolpath {
+                    version: imported.toolpath.version,
+                    meta: imported.toolpath.meta.clone(),
+                    segments: before_segs,
+                };
+                let after_tp = Toolpath {
+                    version: imported.toolpath.version,
+                    meta: imported.toolpath.meta.clone(),
+                    segments: after_segs,
+                };
+                let report = RewriteReport::build(
+                    Some(file.clone()),
+                    profile_label(profile.as_ref()),
+                    "safe".to_string(),
+                    &before_tp,
+                    &after_tp,
+                    span_results,
+                );
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report).unwrap());
+                    let path = out.expect("--out is required with --json (checked above)");
+                    fs::write(&path, rewritten + "\n")
+                        .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                } else {
+                    eprintln!(
+                        "safe mode: {} spans — {} accepted, {} rejected",
+                        report.spans_total, report.spans_accepted, report.spans_rejected
+                    );
+                    for span in report.spans.iter().filter(|s| !s.accepted) {
+                        eprintln!(
+                            "  span {} rejected: would introduce {}",
+                            span.span_index,
+                            span.new_error_rules.join(", ")
+                        );
                     }
-                })
-                .collect::<Vec<_>>();
-            let rewritten_lines = imported
-                .emit_source_preserving_spans(&span_toolpaths, &emit_params)
-                .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")));
-            let rewritten = rewritten_lines.join("\n");
-            match out {
-                Some(path) => fs::write(&path, rewritten + "\n")
-                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
-                None => println!("{rewritten}"),
+                    match out {
+                        Some(path) => fs::write(&path, rewritten + "\n")
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                        None => println!("{rewritten}"),
+                    }
+                }
+                ExitCode::SUCCESS
+            } else {
+                // No mode: passthrough, or the legacy ungated `--optimize` geometry pipeline.
+                let span_toolpaths = imported
+                    .motion_spans()
+                    .into_iter()
+                    .map(|span| {
+                        let span_toolpath = span_tp(span.segment_range());
+                        if optimize {
+                            if reorder_travel {
+                                optimize_aggressive_pipeline(&span_toolpath)
+                            } else {
+                                optimize_pipeline(&span_toolpath)
+                            }
+                        } else {
+                            span_toolpath
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let rewritten_lines = imported
+                    .emit_source_preserving_spans(&span_toolpaths, &emit_params)
+                    .unwrap_or_else(|e| die(format!("cannot rewrite {file}: {e}")));
+                let rewritten = rewritten_lines.join("\n");
+                match out {
+                    Some(path) => fs::write(&path, rewritten + "\n")
+                        .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                    None => println!("{rewritten}"),
+                }
+                ExitCode::SUCCESS
             }
-            ExitCode::SUCCESS
         }
         Cmd::Optimize {
             file,
