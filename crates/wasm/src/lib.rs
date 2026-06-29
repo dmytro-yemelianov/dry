@@ -91,58 +91,9 @@ pub fn tpms_ops_json(tpms_options_json: &str) -> Result<String, JsError> {
     let options: TpmsOptions = serde_json::from_str(tpms_options_json)
         .map_err(|e| JsError::new(&format!("tpms options: {e}")))?;
     let ops = try_tpms_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
-    ops_to_json(&ops).map_err(|e| JsError::new(&e.to_string()))
-}
-
-/// Serialise an L1 op list to its documented internally-tagged JSON wire form
-/// (`{"op":"move","x":..,"y":..,"z":..}`, lowercase tag, `manual_gcode` renamed).
-///
-/// [`dry_core::Op`] derives only `Deserialize` — the engine reads L1 from the SDKs but never needs to
-/// emit it — so this binding mirrors that public contract here. Each op is built as a [`serde_json::Value`],
-/// which reuses serde_json's shortest-round-trip number formatting, so the bytes are identical to a
-/// derived `Serialize` (and the values round-trip exactly back through the engine). The match is
-/// exhaustive: a new core op variant fails this build rather than silently dropping out of the wire form.
-fn ops_to_json(ops: &[Op]) -> Result<String, serde_json::Error> {
-    use serde_json::{json, Value};
-    let values: Vec<Value> = ops
-        .iter()
-        .map(|op| match op {
-            Op::Geometry { width, height } => {
-                json!({ "op": "geometry", "width": width, "height": height })
-            }
-            Op::Extruder { on } => json!({ "op": "extruder", "on": on }),
-            Op::Speed { print } => json!({ "op": "speed", "print": print }),
-            Op::Temperature { nozzle } => json!({ "op": "temperature", "nozzle": nozzle }),
-            Op::Fan { speed } => json!({ "op": "fan", "speed": speed }),
-            Op::Flow { ratio } => json!({ "op": "flow", "ratio": ratio }),
-            Op::Tool { index } => json!({ "op": "tool", "index": index }),
-            Op::Orient { i, j, k } => json!({ "op": "orient", "i": i, "j": j, "k": k }),
-            Op::Dwell { seconds } => json!({ "op": "dwell", "seconds": seconds }),
-            Op::Move { x, y, z } => json!({ "op": "move", "x": x, "y": y, "z": z }),
-            Op::Arc {
-                cx,
-                cy,
-                x,
-                y,
-                z,
-                clockwise,
-            } => json!({
-                "op": "arc", "cx": cx, "cy": cy, "x": x, "y": y, "z": z, "clockwise": clockwise
-            }),
-            Op::Spline { points } => json!({ "op": "spline", "points": points }),
-            Op::ManualGcode { text } => json!({ "op": "manual_gcode", "text": text }),
-            Op::Retract { distance, speed } => {
-                json!({ "op": "retract", "distance": distance, "speed": speed })
-            }
-            Op::Unretract { distance, speed } => {
-                json!({ "op": "unretract", "distance": distance, "speed": speed })
-            }
-            Op::Deposit { volume, speed } => {
-                json!({ "op": "deposit", "volume": volume, "speed": speed })
-            }
-        })
-        .collect();
-    serde_json::to_string(&values)
+    // `dry_core::Op` now derives `Serialize` (symmetric with its `Deserialize`), so the wire form is
+    // emitted by serde directly — no hand-maintained mirror to drift from the canonical contract.
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Resolve a design and return its simulation metrics as a JSON string.
