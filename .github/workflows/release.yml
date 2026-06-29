@@ -126,6 +126,7 @@ jobs:
         run: |
           npm ci
           npm run build
+          mkdir -p ../../dist-npm
           npm pack --pack-destination ../../dist-npm
       - uses: actions/upload-artifact@v4
         with:
