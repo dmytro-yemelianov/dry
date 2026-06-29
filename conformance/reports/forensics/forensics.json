@@ -44,10 +44,20 @@
     }
   ],
   "infill_angles_deg": [],
+  "infill_spacing_mm": {
+    "value": null,
+    "confidence": "inferred",
+    "note": "needs ≥ 2 parallel infill lines at a dominant angle"
+  },
   "extrusion_multiplier": {
     "value": null,
     "confidence": "inferred",
     "note": "needs a declared extrusion width (no slicer config block found)"
+  },
+  "seam": {
+    "strategy": "aligned",
+    "loops": 2,
+    "source": "inferred"
   },
   "travel": {
     "travel_moves": 6,

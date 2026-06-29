@@ -46,10 +46,20 @@
   "infill_angles_deg": [
     45.0
   ],
+  "infill_spacing_mm": {
+    "value": 1.414213562373095,
+    "confidence": "inferred",
+    "note": "median perpendicular gap between parallel infill lines (gap CV 0.00)"
+  },
   "extrusion_multiplier": {
     "value": 1.1014374583445132,
     "confidence": "inferred",
     "note": "median deposited / nominal-bead volume, using the declared extrusion width"
+  },
+  "seam": {
+    "strategy": "unknown",
+    "loops": 1,
+    "source": "inferred"
   },
   "travel": {
     "travel_moves": 5,
