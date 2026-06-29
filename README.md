@@ -52,6 +52,8 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/05-product-directions.md`](docs/05-product-directions.md) | product directions: slicer vs workbench, post-slicer review, reverse engineering, time-series + LLM |
 | [`docs/06-lattice-research-codegen.md`](docs/06-lattice-research-codegen.md) | the star-polygon lattice research PDF mapped into a Dry code generator |
 | [`docs/07-tpms-codegen.md`](docs/07-tpms-codegen.md) | TPMS implicit-field contour generation for gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces |
+| [`docs/08-production-transition.md`](docs/08-production-transition.md) | transition plan from working v0 foundation to production-ready releases, pilots, gates and support boundaries |
+| [`docs/09-customer-readiness.md`](docs/09-customer-readiness.md) | customer/user readiness matrix, pilot templates and segment-specific production gates |
 
 ## Bootstrapped from FullControl
 
