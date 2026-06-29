@@ -29,6 +29,8 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`14-known-limitations.md`](14-known-limitations.md) | An honest account of current limitations: no slicing, FFF-only emission, experimental 5-axis, v0 IR, semantic (not byte) conformance, the `manualgcode` asymmetry, and the support boundary. |
 | [`15-cli-cookbook.md`](15-cli-cookbook.md) | Copy-pasteable, run-verified recipes for every CLI command (inspect/simulate/emit/optimize/verify/pack/unpack and import/review/trace/rewrite-gcode). |
 | [`pilots/`](pilots/) | Three pilot guides — [authoring](pilots/authoring.md) (generate→verify→emit), [post-slicer review](pilots/post-slicer-review.md) (review→trace→rewrite), [SDK integration](pilots/sdk-integration.md) (reproduce a vector) — backed by runnable [`../examples/`](../examples). |
+| [`16-support-matrix.md`](16-support-matrix.md) | What is Supported / Experimental / Out-of-scope across firmware flavors, file formats, targets, release platforms and workflows. |
+| [`17-provenance-and-licensing.md`](17-provenance-and-licensing.md) | The auditable corpus-provenance ledger (oracle-generated vs authored clean-room) and the runtime dependency-license audit (all permissive; the GPL oracle is dev/CI-only). |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine
