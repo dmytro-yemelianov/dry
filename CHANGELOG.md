@@ -9,6 +9,25 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+Post-0.3.0 work — all additive (no behavioral changes); the next release should bump to 0.4.0.
+
+### Added
+- **Product workflows & pilot guides** — a run-verified CLI cookbook (`docs/15`), three pilot guides
+  (`docs/pilots/`: authoring, post-slicer review, SDK integration) and runnable `examples/`. IR commands
+  handed raw g-code now fail with an actionable hint (use `import-gcode`/`review-gcode`).
+- **Governance & support** — `CONTRIBUTING.md`, `SECURITY.md`, a support matrix (`docs/16`) and an
+  auditable provenance + dependency-license ledger (`docs/17`).
+- **Typed contract input** — the Python/TypeScript SDK `verify()` now accepts structured `bounds` /
+  `speed_range` (lists) in addition to the legacy comma-strings.
+- **G-code forensics** — `dry forensics-gcode` and a `ForensicsReport`: slicer detection, feature
+  attribution from `;TYPE:`/`;FEATURE:` markers, layer model, line-width / declared-settings / infill-angle
+  / infill-spacing / extrusion-multiplier estimates, and seam- and travel-strategy hints. Every derived
+  fact carries a confidence tag (`from-comment` / `measured` / `inferred`); marker-less files degrade
+  gracefully. Drift-gated goldens, independently schema-validated.
+- **Supported firmware/printer profile matrix** — six curated clean-room profiles (Marlin/Klipper/Duet ×
+  PLA/PETG/ABS) under `conformance/profile-matrix/`, each schema-valid and drift-gated through the review
+  pipeline.
+
 ## [0.3.0] - 2026-06-29
 
 The production-transition program: the public IR contract, the safety/profile contract, a release
