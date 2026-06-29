@@ -78,7 +78,7 @@ fn balanced_accepts_clean_rewrite() {
         line_at([10.0, 1.0, 0.2], [20.0, 1.0, 0.2], 1500.0),
         line_at([20.0, 1.0, 0.2], [30.0, 1.0, 0.2], 1500.0),
     ]);
-    let result = apply_gated(&input, &Contracts::default(), OptimizeMode::Balanced);
+    let result = apply_gated(&input, &Contracts::default(), OptimizeMode::Balanced, None);
     assert!(
         result.accepted,
         "clean collinear run must accept under balanced"
@@ -89,7 +89,7 @@ fn balanced_accepts_clean_rewrite() {
         1,
         "collinear run merges to one move"
     );
-    assert_eq!(result.toolpath, balanced_pipeline(&input));
+    assert_eq!(result.toolpath, balanced_pipeline(&input, None));
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn balanced_shapes_speed_within_range() {
         speed_range: Some([600.0, 6000.0]),
         ..Contracts::default()
     };
-    let result = apply_gated(&input, &contracts, OptimizeMode::Balanced);
+    let result = apply_gated(&input, &contracts, OptimizeMode::Balanced, None);
     assert!(result.accepted, "shaped speed inside the range must accept");
     assert!(result.new_error_rules.is_empty());
     // adaptive_speed dropped the corner feedrate below the authored 1500 mm/min.
@@ -134,7 +134,7 @@ fn balanced_rejected_when_adaptive_speed_drops_below_min() {
         dry_core::verify(&input, &contracts).ok(),
         "authored 1500 mm/min must start in the [1200, 6000] range"
     );
-    let result = apply_gated(&input, &contracts, OptimizeMode::Balanced);
+    let result = apply_gated(&input, &contracts, OptimizeMode::Balanced, None);
     assert!(
         !result.accepted,
         "a shaped feedrate that drops below the range minimum must be rejected"
@@ -169,7 +169,7 @@ fn max_rejected_under_monotonic_z() {
         dry_core::verify(&input, &contracts).ok(),
         "the constant-Z authored input must satisfy monotonic-z"
     );
-    let result = apply_gated(&input, &contracts, OptimizeMode::Max);
+    let result = apply_gated(&input, &contracts, OptimizeMode::Max, None);
     assert!(
         !result.accepted,
         "z-hop's lowering move must be rejected under monotonic-z"
@@ -202,7 +202,7 @@ fn max_accepted_and_reduces_segments_under_permissive_contracts() {
     }
     let input = tp(segs);
     let before = input.segments.len();
-    let result = apply_gated(&input, &Contracts::default(), OptimizeMode::Max);
+    let result = apply_gated(&input, &Contracts::default(), OptimizeMode::Max, None);
     assert!(
         result.accepted,
         "max under permissive contracts must accept (no new error): {:?}",

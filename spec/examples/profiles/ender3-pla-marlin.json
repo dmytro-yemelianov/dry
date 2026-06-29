@@ -4,7 +4,8 @@
   "firmware": { "flavor": "marlin" },
   "machine": {
     "build_volume": [[0.0, 220.0], [0.0, 220.0], [0.0, 250.0]],
-    "feedrate_range": [300.0, 9000.0]
+    "feedrate_range": [300.0, 9000.0],
+    "kinematics": { "max_acceleration_mm_s2": 500, "max_junction_velocity_mm_s": 8 }
   },
   "material": {
     "filament_diameter": 1.75,

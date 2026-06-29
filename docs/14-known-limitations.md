@@ -45,6 +45,11 @@ Do not rely on Dry for any of these today:
 - **Profiles are intentionally small.** The v1 profile schema (`docs/11`) carries the limits the verifier
   can enforce plus import defaults — not a full slicer/material database. `firmware.flavor` is recognized
   for `marlin` / `klipper` / `duet`; others fall back to Marlin-style behavior.
+- **Kinematic limits shape, they do not verify.** `machine.kinematics` (max acceleration / junction
+  velocity) feeds the `balanced` optimisation pass to keep cornering speed within a deterministic,
+  firmware-agnostic machine envelope — but there is **no verifier rule** that checks a toolpath against
+  these limits, so `verify` will not flag a corner that exceeds them. The model is also deliberately
+  simple: no pressure-advance, input-shaper or firmware-specific calibration (deferred).
 - **Imported G-code recovers only what the text encodes.** Bead width/height, layer height and flow are
   recovered from import defaults/profile, not measured; reviewing G-code without those defaults yields
   `bead`/flow findings driven by the missing geometry, not the print.

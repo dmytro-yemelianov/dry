@@ -30,6 +30,8 @@ schema validates the canonical names.
 | `firmware` | `flavor` | string | — | `marlin` / `klipper` / `duet` |
 | `machine` | `build_volume` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | `bounds` | |
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
+| `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
+| `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
 | `material` | `filament_diameter` | mm > 0 | — | |
 | `material` | `max_volumetric_flow_mm3_s` | mm³/s > 0 | `max_flow`, `max_volumetric_flow` | |
 | `material` | `min_nozzle_temperature_c` | °C > 0 | `min_temp`, `min_nozzle_temp` | cold-extrusion guard |
@@ -44,8 +46,16 @@ schema validates the canonical names.
 | — | `start_gcode` / `end_gcode` | string \| `[string]` | — | a multi-line string or a list of command lines |
 
 Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive
-fields are finite and `> 0`; range fields are finite with a non-negative lower bound. A profile maps to
-verifier **contracts** (§2), import params, resolve params and emit params.
+fields are finite and `> 0`; range fields are finite with a non-negative lower bound; when present, both
+`machine.kinematics` fields are finite and `> 0`. A profile maps to verifier **contracts** (§2), import
+params, resolve params and emit params.
+
+`machine.kinematics` is a small, optional, **firmware-agnostic** motion model (a max acceleration and a
+max junction / square-corner velocity). It is *not* enforced by the verifier — it feeds the `balanced`
+optimisation pipeline (§3.4), where the acceleration drives the arc centripetal speed limit and the
+junction velocity adds an absolute per-junction feedrate cap, so cornering speed respects the real
+machine envelope deterministically. Pressure-advance and input-shaper models are deliberately out of
+scope for v1.
 
 **Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a
 minor change; removing/renaming/retyping a field or changing a default is a major change (a new
@@ -161,7 +171,7 @@ differ only in the IR→IR pipeline they run:
 | mode | pipeline | what it does |
 | --- | --- | --- |
 | `safe` | `merge_collinear` → `arc_fit` | geometry canonicalisation only (no metric or order change beyond arc fitting) |
-| `balanced` | `safe` + `adaptive_speed` | also shapes feedrate at sharp junctions / tight arcs; no reordering |
+| `balanced` | `safe` + `adaptive_speed` | also shapes feedrate at sharp junctions / tight arcs; no reordering. Consumes the profile's `machine.kinematics` (§1) when present — its max acceleration sets the arc centripetal limit and its max junction velocity caps the per-junction feedrate; absent, it uses the built-in 500 mm/s² default with no junction cap |
 | `max` | `balanced` + `coasting` + `travel_reorder` + `z_hop` | the full order-changing pipeline: trims ooze, reorders independent extrusion runs to cut travel, and lifts the nozzle on travels |
 
 The rewrite is applied **per source motion span** and is *gated* against the verifier (§2): a span's

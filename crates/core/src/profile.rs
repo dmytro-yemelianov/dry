@@ -100,6 +100,26 @@ pub struct MachineProfile {
         skip_serializing_if = "Option::is_none"
     )]
     pub feedrate_range: Option<[f64; 2]>,
+    /// Deterministic kinematic limits (max acceleration / junction velocity) consumed by the `balanced`
+    /// optimisation pipeline. Optional and additive: absent leaves `balanced` at its built-in defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kinematics: Option<MachineKinematics>,
+}
+
+/// Deterministic kinematic limits used to shape cornering speed in `balanced` mode.
+///
+/// These are firmware-agnostic motion limits — a max toolhead acceleration and a max junction
+/// (square-corner) velocity — not a firmware-specific calibration. Pressure-advance / input-shaper
+/// models are explicitly out of scope for v1.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct MachineKinematics {
+    /// Maximum toolhead acceleration in mm/s². Drives the arc centripetal speed limit `v = sqrt(a·r)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_acceleration_mm_s2: Option<f64>,
+    /// Maximum junction (square-corner) velocity in mm/s. Caps the per-junction feedrate so a sharp
+    /// corner is never taken faster than the machine can instantaneously change direction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_junction_velocity_mm_s: Option<f64>,
 }
 
 /// Material and hotend limits.
@@ -249,6 +269,16 @@ impl Profile {
             }
         }
         validate_positive_range("feedrate_range", self.machine.feedrate_range)?;
+        if let Some(kinematics) = &self.machine.kinematics {
+            validate_positive(
+                "machine.kinematics.max_acceleration_mm_s2",
+                kinematics.max_acceleration_mm_s2,
+            )?;
+            validate_positive(
+                "machine.kinematics.max_junction_velocity_mm_s",
+                kinematics.max_junction_velocity_mm_s,
+            )?;
+        }
         validate_positive(
             "material.filament_diameter",
             self.material.filament_diameter,

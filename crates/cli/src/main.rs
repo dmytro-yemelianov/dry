@@ -815,6 +815,9 @@ fn run(cli: Cli) -> ExitCode {
                 let mode_label = optimize_mode_label(mode);
                 let contracts =
                     contracts_from_inputs(profile.as_ref(), None, None, None, false, None);
+                // `balanced` consumes the active profile's deterministic kinematic limits (max
+                // acceleration / junction velocity); `safe`/`max` ignore them.
+                let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
                 if profile.is_none() {
                     eprintln!(
                         "warning: rewrite-gcode --mode {mode_label} with no --profile — the safety \
@@ -829,7 +832,7 @@ fn run(cli: Cli) -> ExitCode {
                 for (index, span) in imported.motion_spans().into_iter().enumerate() {
                     let span_toolpath = span_tp(span.segment_range());
                     let segment_count_before = span_toolpath.segments.len();
-                    let result = apply_gated(&span_toolpath, &contracts, mode);
+                    let result = apply_gated(&span_toolpath, &contracts, mode, kinematics);
                     before_segs.extend(span_toolpath.segments.iter().cloned());
                     after_segs.extend(result.toolpath.segments.iter().cloned());
                     span_results.push(RewriteSpanResult {
