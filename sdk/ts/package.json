@@ -1,6 +1,6 @@
 {
   "name": "@dry/sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the Dry engine (Rust, via wasm).",
   "license": "Apache-2.0",
   "repository": "https://github.com/dmytro-yemelianov/dry",

@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "dry-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "dry-core",
@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "criterion",
  "libm",
