@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "Cartesian 300 \u2014 PETG (Duet)",
+  "firmware": {
+    "flavor": "duet"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ],
+      [
+        0.0,
+        300.0
+      ]
+    ],
+    "feedrate_range": [
+      300.0,
+      12000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 9.0,
+    "min_nozzle_temperature_c": 220.0
+  },
+  "process": {
+    "line_width": 0.5,
+    "layer_height": 0.25,
+    "max_retraction_distance": 3.2,
+    "max_retraction_speed": 2100.0
+  }
+}

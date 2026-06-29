@@ -57,6 +57,26 @@ See [`12-releasing.md`](12-releasing.md) for install-without-source instructions
 | G-code forensics: slicer detection, feature attribution, layer/estimate | Experimental (first cut) | [`15-cli-cookbook.md`](15-cli-cookbook.md) |
 | Forensics: infill angle/spacing, extrusion-multiplier recovery, resonance | Out of scope (planned) | — |
 
+## Supported profile matrix
+
+A small, curated set of **supported** machine/material/firmware profiles (authored clean-room — see the
+provenance ledger, [`17`](17-provenance-and-licensing.md)) lives under
+[`../conformance/profile-matrix/`](../conformance/profile-matrix). Each is schema-valid and drift-gated
+through the review pipeline (`crates/core/tests/profile_matrix.rs`), with a committed golden `review.json`.
+
+| Entry | Firmware | Material | Envelope (mm) | Min nozzle |
+|---|---|---|---|---|
+| `marlin-pla-i3` | Marlin | PLA | 220×220×250 | 190 °C |
+| `marlin-petg-i3` | Marlin | PETG | 220×220×250 | 220 °C |
+| `klipper-pla-corexy` | Klipper | PLA | 350×350×250 | 190 °C |
+| `klipper-abs-corexy` | Klipper | ABS | 350×350×250 | 230 °C |
+| `duet-petg-cartesian` | Duet | PETG | 300×300×300 | 220 °C |
+| `duet-abs-corexy` | Duet | ABS | 256×256×256 | 230 °C |
+
+The goldens double as a demonstration: reviewing the same 210 °C sample (`examples/part.gcode`) is clean
+under the PLA profiles but correctly raises `cold-extrusion` under the PETG/ABS profiles — the
+material-temperature contract at work. Use these as starting points; copy and tune for your machine.
+
 ## Support expectations
 
 Pre-1.0: fixes target the latest release and `main`. Report bugs via GitHub issues; security/safety issues

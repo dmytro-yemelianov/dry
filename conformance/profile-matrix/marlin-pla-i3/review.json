@@ -1,0 +1,18 @@
+{
+  "file": "examples/part.gcode",
+  "profile": "i3 220 — PLA (Marlin)",
+  "segments": 7,
+  "metrics": {
+    "total_time_s": 4.18,
+    "print_time_s": 4.0,
+    "travel_time_s": 0.18,
+    "extruding_distance": 80.0,
+    "travel_distance": 1.8,
+    "extruded_volume": 7.696902001294993,
+    "filament_length": 3.2,
+    "segment_count": 5,
+    "max_flow_rate": 1.9242255003237483
+  },
+  "findings": [],
+  "error_count": 0
+}

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "CoreXY 256 \u2014 ABS (Duet)",
+  "firmware": {
+    "flavor": "duet"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        256.0
+      ],
+      [
+        0.0,
+        256.0
+      ],
+      [
+        0.0,
+        256.0
+      ]
+    ],
+    "feedrate_range": [
+      300.0,
+      15000.0
+    ]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 18.0,
+    "min_nozzle_temperature_c": 230.0
+  },
+  "process": {
+    "line_width": 0.42,
+    "layer_height": 0.2,
+    "max_retraction_distance": 1.5,
+    "max_retraction_speed": 2400.0
+  }
+}
