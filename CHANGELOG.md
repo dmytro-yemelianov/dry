@@ -9,7 +9,9 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
-Post-0.3.0 work — all additive (no behavioral changes); the next release should bump to 0.4.0.
+## [0.4.0] - 2026-06-29
+
+Post-0.3.0 work — all additive (no behavioral changes from 0.3.0).
 
 ### Added
 - **Product workflows & pilot guides** — a run-verified CLI cookbook (`docs/15`), three pilot guides
