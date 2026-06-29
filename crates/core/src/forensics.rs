@@ -5,9 +5,9 @@
 //! - `measured` — a deterministic count/sum over the motion (travel distance, segment count);
 //! - `inferred` — an estimate derived from geometry (layer height, line width).
 //!
-//! The probabilistic layer (issue #29 rounds 2–3): declared-settings extraction from config comments,
-//! infill-angle and -spacing inference from geometry, an extrusion-multiplier estimate, and a
-//! seam-strategy hint. Still out of scope: resonance modelling and Cura's base64 config block.
+//! The probabilistic layer (issue #29 rounds 2–4): declared-settings extraction from config comments,
+//! infill-angle and -spacing inference, an extrusion-multiplier estimate, and seam- and travel-strategy
+//! hints. Still out of scope: resonance modelling and Cura's base64 config block.
 
 use crate::engine::segment_motion_time;
 use crate::gcode::ImportedGcode;
@@ -90,6 +90,18 @@ pub struct SeamHint {
     pub source: Confidence,
 }
 
+/// A travel-strategy hint inferred from z-hop usage and retraction discipline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TravelStrategy {
+    /// Travel moves that lift Z (a Z increase across the travel). Measured.
+    pub z_hops: usize,
+    /// `retractions / travel_moves`. Measured.
+    pub retraction_ratio: f64,
+    /// `retract-on-travel` / `combing-likely` / `mixed` / `none`, optionally `+ z-hop`. Inferred.
+    pub hint: String,
+    pub source: Confidence,
+}
+
 /// The full forensics report.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForensicsReport {
@@ -110,6 +122,8 @@ pub struct ForensicsReport {
     /// Seam-placement hint inferred from outer-wall loop starts.
     pub seam: SeamHint,
     pub travel: TravelStat,
+    /// Travel-strategy hint (z-hop + retraction discipline).
+    pub travel_strategy: TravelStrategy,
     pub hotspots: Vec<Hotspot>,
 }
 
@@ -380,6 +394,7 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     let mut travel_moves = 0usize;
     let mut travel_distance = 0.0;
     let mut retractions = 0usize;
+    let mut z_hops = 0usize;
     let mut tiny = 0usize;
     let mut infill_dirs: Vec<f64> = Vec::new();
     let mut infill_mids: Vec<(f64, f64)> = Vec::new();
@@ -415,6 +430,11 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
         if s.travel {
             travel_moves += 1;
             travel_distance += s.length.value();
+            if let (Some(z0), Some(z1)) = (s.start[2], s.end[2]) {
+                if z1.value() > z0.value() + 1e-6 {
+                    z_hops += 1; // a travel that lifts Z
+                }
+            }
             continue; // travel handled by TravelStat, not per-feature
         }
         if s.volume.value() <= 0.0 {
@@ -539,6 +559,32 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     };
     let seam = seam_hint(segments, &feature_at_line, &imported.segment_source_lines);
 
+    let retraction_ratio = if travel_moves > 0 {
+        retractions as f64 / travel_moves as f64
+    } else {
+        0.0
+    };
+    let base = if travel_moves == 0 {
+        "none"
+    } else if retraction_ratio >= 0.7 {
+        "retract-on-travel"
+    } else if retraction_ratio <= 0.2 {
+        "combing-likely"
+    } else {
+        "mixed"
+    };
+    let hint = if z_hops > 0 && travel_moves > 0 {
+        format!("{base} + z-hop")
+    } else {
+        base.to_string()
+    };
+    let travel_strategy = TravelStrategy {
+        z_hops,
+        retraction_ratio,
+        hint,
+        source: Confidence::Inferred,
+    };
+
     ForensicsReport {
         slicer,
         source_lines: lines.len(),
@@ -567,6 +613,7 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
             travel_distance_mm: travel_distance,
             retractions,
         },
+        travel_strategy,
         hotspots,
     }
 }
@@ -741,5 +788,47 @@ G1 X0 Y0 E0.4
         let r = analyze(&imported);
         assert_eq!(r.seam.loops, 1);
         assert_eq!(r.seam.strategy, "unknown");
+    }
+
+    #[test]
+    fn travel_strategy_detects_zhop() {
+        let zhop = "\
+M83
+G1 X0 Y0 Z0.2 F9000
+G1 X10 Y0 E0.4 F1200
+G1 E-1 F2400
+G1 X0 Y0 Z0.6 F9000
+G1 X0 Y0 Z0.2 F600
+G1 E1 F2400
+";
+        let imported = import_gcode_with_map(zhop, &GcodeImportParams::default()).unwrap();
+        let r = analyze(&imported);
+        assert!(r.travel_strategy.z_hops >= 1, "{:?}", r.travel_strategy);
+        assert!(
+            r.travel_strategy.hint.contains("z-hop"),
+            "{}",
+            r.travel_strategy.hint
+        );
+        assert_eq!(r.travel_strategy.source, Confidence::Inferred);
+    }
+
+    #[test]
+    fn travel_strategy_combing_when_no_retractions() {
+        let combing = "\
+M83
+G1 X0 Y0 Z0.2 F9000
+G1 X10 Y0 E0.4 F1200
+G1 X20 Y0 F9000
+G1 X30 Y0 E0.4 F1200
+G1 X40 Y0 F9000
+";
+        let imported = import_gcode_with_map(combing, &GcodeImportParams::default()).unwrap();
+        let r = analyze(&imported);
+        assert_eq!(r.travel_strategy.z_hops, 0);
+        assert_eq!(
+            r.travel_strategy.hint, "combing-likely",
+            "ratio {}",
+            r.travel_strategy.retraction_ratio
+        );
     }
 }

@@ -712,6 +712,12 @@ fn run(cli: Cli) -> ExitCode {
                     report.travel.travel_distance_mm,
                     report.travel.retractions
                 );
+                println!(
+                    "  travel strategy: {} ({} z-hops, retract ratio {:.2}, inferred)",
+                    report.travel_strategy.hint,
+                    report.travel_strategy.z_hops,
+                    report.travel_strategy.retraction_ratio
+                );
                 for h in &report.hotspots {
                     println!("  hotspot:   {} ({}) — {}", h.kind, h.count, h.note);
                 }

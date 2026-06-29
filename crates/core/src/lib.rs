@@ -34,7 +34,7 @@ pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFla
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use forensics::{
     analyze as forensics_analyze, Confidence, DeclaredSettings, Estimate, FeatureStat,
-    ForensicsReport, Hotspot, LayerModel, SeamHint, TravelStat,
+    ForensicsReport, Hotspot, LayerModel, SeamHint, TravelStat, TravelStrategy,
 };
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,

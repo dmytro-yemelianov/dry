@@ -113,9 +113,11 @@ dry forensics-gcode examples/sliced-prusa-sample.gcode
 ```
 
 It also infers, from geometry, the **infill spacing** (perpendicular gap between parallel lines, with a
-regularity note) and a **seam-strategy hint** (clustering of outer-wall loop starts → `aligned` /
-`clustered` / `scattered`). Slicer feature markers (`;TYPE:` / `; FEATURE:`) are used when present;
-marker-less files degrade gracefully. See [`16-support-matrix.md`](16-support-matrix.md).
+regularity note), a **seam-strategy hint** (clustering of outer-wall loop starts → `aligned` /
+`clustered` / `scattered`), and a **travel-strategy hint** (z-hop usage + retraction discipline →
+`retract-on-travel` / `combing-likely` / `mixed`, with `+ z-hop`). Slicer feature markers (`;TYPE:` /
+`; FEATURE:`) are used when present; marker-less files degrade gracefully. See
+[`16-support-matrix.md`](16-support-matrix.md).
 
 ### `rewrite-gcode` — re-emit motion, preserve non-motion lines
 ```sh

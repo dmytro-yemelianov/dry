@@ -66,5 +66,11 @@
     "travel_distance_mm": 35.238481878825304,
     "retractions": 0
   },
+  "travel_strategy": {
+    "z_hops": 0,
+    "retraction_ratio": 0.0,
+    "hint": "combing-likely",
+    "source": "inferred"
+  },
   "hotspots": []
 }

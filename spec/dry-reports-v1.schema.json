@@ -251,6 +251,17 @@
         "source": { "$ref": "#/$defs/Confidence" }
       }
     },
+    "TravelStrategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["z_hops", "retraction_ratio", "hint", "source"],
+      "properties": {
+        "z_hops": { "type": "integer", "minimum": 0 },
+        "retraction_ratio": { "type": "number" },
+        "hint": { "type": "string" },
+        "source": { "$ref": "#/$defs/Confidence" }
+      }
+    },
     "ForensicsReport": {
       "type": "object",
       "additionalProperties": false,
@@ -267,6 +278,7 @@
         "extrusion_multiplier",
         "seam",
         "travel",
+        "travel_strategy",
         "hotspots"
       ],
       "properties": {
@@ -282,6 +294,7 @@
         "extrusion_multiplier": { "$ref": "#/$defs/Estimate" },
         "seam": { "$ref": "#/$defs/SeamHint" },
         "travel": { "$ref": "#/$defs/TravelStat" },
+        "travel_strategy": { "$ref": "#/$defs/TravelStrategy" },
         "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
       }
     }
