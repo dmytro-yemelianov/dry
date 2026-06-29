@@ -78,13 +78,38 @@ def main(argv: list[str]) -> int:
         if not found:
             n_profiles += 1
 
+    # The supported firmware/printer matrix: each entry's profile.json (profile schema) and its golden
+    # review.json (ReviewReport).
+    matrix_dir = root / "conformance" / "profile-matrix"
+    review_validator = report_validators["review.json"]
+    if matrix_dir.is_dir():
+        for entry in sorted(p for p in matrix_dir.iterdir() if p.is_dir()):
+            prof = entry / "profile.json"
+            if prof.exists():
+                doc = json.loads(prof.read_text())
+                ok = True
+                for e in sorted(profile_validator.iter_errors(doc), key=lambda e: list(e.path)):
+                    errors.append(f"[matrix/{entry.name}/profile.json] {e.message}")
+                    ok = False
+                if ok:
+                    n_profiles += 1
+            review = entry / "review.json"
+            if review.exists():
+                doc = json.loads(review.read_text())
+                ok = True
+                for e in sorted(review_validator.iter_errors(doc), key=lambda e: list(e.path)):
+                    errors.append(f"[matrix/{entry.name}/review.json] {e.message}")
+                    ok = False
+                if ok:
+                    n_reports += 1
+
     if errors:
         print(f"FAIL — {len(errors)} schema problem(s):", file=sys.stderr)
         for e in errors:
             print("  " + e, file=sys.stderr)
         return 1
     print(
-        f"OK — {n_reports} golden reports and {n_profiles} example profiles validate against the "
+        f"OK — {n_reports} golden reports and {n_profiles} profiles validate against the "
         f"published schemas with no dry-core."
     )
     return 0

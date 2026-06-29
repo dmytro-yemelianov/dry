@@ -1,0 +1,132 @@
+{
+  "entries": [
+    {
+      "build_volume": [
+        [
+          0.0,
+          256.0
+        ],
+        [
+          0.0,
+          256.0
+        ],
+        [
+          0.0,
+          256.0
+        ]
+      ],
+      "entry": "duet-abs-corexy",
+      "firmware": "duet",
+      "max_volumetric_flow_mm3_s": 18.0,
+      "min_nozzle_temperature_c": 230.0,
+      "name": "CoreXY 256 — ABS (Duet)"
+    },
+    {
+      "build_volume": [
+        [
+          0.0,
+          300.0
+        ],
+        [
+          0.0,
+          300.0
+        ],
+        [
+          0.0,
+          300.0
+        ]
+      ],
+      "entry": "duet-petg-cartesian",
+      "firmware": "duet",
+      "max_volumetric_flow_mm3_s": 9.0,
+      "min_nozzle_temperature_c": 220.0,
+      "name": "Cartesian 300 — PETG (Duet)"
+    },
+    {
+      "build_volume": [
+        [
+          0.0,
+          350.0
+        ],
+        [
+          0.0,
+          350.0
+        ],
+        [
+          0.0,
+          250.0
+        ]
+      ],
+      "entry": "klipper-abs-corexy",
+      "firmware": "klipper",
+      "max_volumetric_flow_mm3_s": 24.0,
+      "min_nozzle_temperature_c": 230.0,
+      "name": "CoreXY 350 — ABS (Klipper)"
+    },
+    {
+      "build_volume": [
+        [
+          0.0,
+          350.0
+        ],
+        [
+          0.0,
+          350.0
+        ],
+        [
+          0.0,
+          250.0
+        ]
+      ],
+      "entry": "klipper-pla-corexy",
+      "firmware": "klipper",
+      "max_volumetric_flow_mm3_s": 15.0,
+      "min_nozzle_temperature_c": 190.0,
+      "name": "CoreXY 350 — PLA (Klipper)"
+    },
+    {
+      "build_volume": [
+        [
+          0.0,
+          220.0
+        ],
+        [
+          0.0,
+          220.0
+        ],
+        [
+          0.0,
+          250.0
+        ]
+      ],
+      "entry": "marlin-petg-i3",
+      "firmware": "marlin",
+      "max_volumetric_flow_mm3_s": 8.0,
+      "min_nozzle_temperature_c": 220.0,
+      "name": "i3 220 — PETG (Marlin)"
+    },
+    {
+      "build_volume": [
+        [
+          0.0,
+          220.0
+        ],
+        [
+          0.0,
+          220.0
+        ],
+        [
+          0.0,
+          250.0
+        ]
+      ],
+      "entry": "marlin-pla-i3",
+      "firmware": "marlin",
+      "max_volumetric_flow_mm3_s": 12.0,
+      "min_nozzle_temperature_c": 190.0,
+      "name": "i3 220 — PLA (Marlin)"
+    }
+  ],
+  "review_schema": "spec/dry-reports-v1.schema.json#/$defs/ReviewReport",
+  "schema": "spec/dry-profile-v1.schema.json"
+}
