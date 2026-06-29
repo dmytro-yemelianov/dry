@@ -1,0 +1,47 @@
+{
+  "file": null,
+  "profile": null,
+  "segments": 4,
+  "metrics": {
+    "total_time_s": 1.6,
+    "print_time_s": 1.2000000000000002,
+    "travel_time_s": 0.4,
+    "extruding_distance": 30.0,
+    "travel_distance": 10.0,
+    "extruded_volume": 2.9000000000000004,
+    "filament_length": 1.32,
+    "segment_count": 4,
+    "max_flow_rate": 2.0
+  },
+  "findings": [
+    {
+      "rule": "travel-extrudes",
+      "severity": "error",
+      "segment": 0,
+      "source_line": null,
+      "message": "travel move deposits 0.5000 mm³ (should be 0)"
+    },
+    {
+      "rule": "bead",
+      "severity": "error",
+      "segment": 1,
+      "source_line": null,
+      "message": "extruding move has a non-positive bead (width 0, height 0)"
+    },
+    {
+      "rule": "orientation-not-unit",
+      "severity": "error",
+      "segment": 2,
+      "source_line": null,
+      "message": "toolframe orientation [1, 1, 1] has magnitude 1.7320508075688772 (must be 1)"
+    },
+    {
+      "rule": "arc-radius",
+      "severity": "error",
+      "segment": 3,
+      "source_line": null,
+      "message": "arc endpoint radius differs from start radius by 1.049876 mm"
+    }
+  ],
+  "error_count": 4
+}

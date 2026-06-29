@@ -1,0 +1,16 @@
+{
+  "findings": [
+    {
+      "rule": "first-layer-height",
+      "severity": "warning",
+      "segment": 0,
+      "message": "first layer height 0.500 mm is outside the range [0.100, 0.300]"
+    },
+    {
+      "rule": "first-layer-speed",
+      "severity": "warning",
+      "segment": 1,
+      "message": "first layer speed 3000.000 mm/min is outside the range [500.000, 2000.000]"
+    }
+  ]
+}

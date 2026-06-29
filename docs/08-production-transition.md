@@ -83,6 +83,12 @@ Acceptance:
 
 ### 3. Safety and profile workflow
 
+> **Delivered (v1):** [`docs/11-profiles-and-reports.md`](11-profiles-and-reports.md) with the
+> [`profile`](../spec/dry-profile-v1.schema.json) and [`reports`](../spec/dry-reports-v1.schema.json)
+> schemas, a closed verification rule catalog with stable ids + severities, example profiles, and
+> drift-gated golden reports re-validated independently by `tools/validate_reports.py`. Remaining: a
+> golden firmware/printer matrix and downstream automation report formats.
+
 Deliverables:
 
 - Profile schema reference with examples for common printer/material cases.

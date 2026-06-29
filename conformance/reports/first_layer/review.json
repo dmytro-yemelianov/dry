@@ -1,0 +1,33 @@
+{
+  "file": null,
+  "profile": null,
+  "segments": 2,
+  "metrics": {
+    "total_time_s": 0.6000000000000001,
+    "print_time_s": 0.6000000000000001,
+    "travel_time_s": 0.0,
+    "extruding_distance": 20.0,
+    "travel_distance": 0.0,
+    "extruded_volume": 1.6,
+    "filament_length": 0.66,
+    "segment_count": 2,
+    "max_flow_rate": 4.0
+  },
+  "findings": [
+    {
+      "rule": "first-layer-height",
+      "severity": "warning",
+      "segment": 0,
+      "source_line": null,
+      "message": "first layer height 0.500 mm is outside the range [0.100, 0.300]"
+    },
+    {
+      "rule": "first-layer-speed",
+      "severity": "warning",
+      "segment": 1,
+      "source_line": null,
+      "message": "first layer speed 3000.000 mm/min is outside the range [500.000, 2000.000]"
+    }
+  ],
+  "error_count": 0
+}

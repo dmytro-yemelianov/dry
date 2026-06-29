@@ -1,0 +1,129 @@
+# Dry profiles and reports — reference
+
+This is the **normative** reference for Dry's safety workflow contract: the machine/material **profile**
+schema, the **verification rule catalog** (stable ids + severities), and the **report output** shapes
+for `verify`, `review-gcode` and `trace-gcode`. The machine-readable schemas are
+[`../spec/dry-profile-v1.schema.json`](../spec/dry-profile-v1.schema.json) and
+[`../spec/dry-reports-v1.schema.json`](../spec/dry-reports-v1.schema.json); worked examples are under
+[`../spec/examples/profiles/`](../spec/examples/profiles) and the golden reports under
+[`../conformance/reports/`](../conformance/reports).
+
+The rule ids and severities here are generated from one source of truth — the `RuleId` registry in the
+engine (`crates/core/src/verify.rs`) — and the report shapes from the typed envelopes in
+`crates/core/src/report.rs`. Goldens are drift-gated against the engine and re-validated against the
+schemas by an independent Python validator (`tools/validate_reports.py`), the same discipline as the IR
+vectors in [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md).
+
+---
+
+## 1. Profile schema (v1)
+
+A profile is a small JSON document of the **factual limits** a toolpath is checked against plus the
+import defaults needed to lift slicer G-code. `version` MUST be `1`. Unknown keys are ignored
+(forward-compatibility). Several fields accept deserialization **aliases** (kept for ergonomics); the
+schema validates the canonical names.
+
+| Section | Field (canonical) | Type | Aliases | Notes |
+|---|---|---|---|---|
+| — | `version` | `1` | — | profile schema version |
+| — | `name` | string | — | human-readable, for reports |
+| `firmware` | `flavor` | string | — | `marlin` / `klipper` / `duet` |
+| `machine` | `build_volume` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | `bounds` | |
+| `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
+| `material` | `filament_diameter` | mm > 0 | — | |
+| `material` | `max_volumetric_flow_mm3_s` | mm³/s > 0 | `max_flow`, `max_volumetric_flow` | |
+| `material` | `min_nozzle_temperature_c` | °C > 0 | `min_temp`, `min_nozzle_temp` | cold-extrusion guard |
+| `process` | `line_width` | mm > 0 | — | import/review default |
+| `process` | `layer_height` | mm > 0 | — | import/review default |
+| `process` | `monotonic_z` | bool | — | require non-decreasing Z |
+| `process` | `max_retraction_distance` | mm > 0 | — | |
+| `process` | `max_retraction_speed` | mm/min > 0 | — | |
+| `process` | `max_travel_without_retraction` | mm > 0 | — | |
+| `process` | `first_layer_height_range` | `[min,max]` mm ≥ 0 | — | |
+| `process` | `first_layer_speed_range` | `[min,max]` mm/min ≥ 0 | — | |
+| — | `start_gcode` / `end_gcode` | string \| `[string]` | — | a multi-line string or a list of command lines |
+
+Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive
+fields are finite and `> 0`; range fields are finite with a non-negative lower bound. A profile maps to
+verifier **contracts** (§2), import params, resolve params and emit params.
+
+**Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a
+minor change; removing/renaming/retyping a field or changing a default is a major change (a new
+`version`).
+
+## 2. Verification rule catalog
+
+`verify` returns a `Report` of located **findings**. Each finding carries a stable kebab-case **rule id**
+and a **severity**. A rule with an "enabling contract" only fires when that contract is supplied (via a
+profile or CLI flag); structural rules always run.
+
+A rule is an **error** (a machine-safety, geometric-validity or contract violation) unless it is a
+**process/quality advisory** — `Report::ok()` is true and the CLI exit code is `0` when the only findings
+are warnings.
+
+| Rule id | Severity | Triggers when… | Enabled by |
+|---|---|---|---|
+| `finite` | error | a quantity is NaN or infinite | always |
+| `travel-extrudes` | error | a travel (non-printing) move deposits material | always |
+| `bead` | error | an extruding move has a non-positive bead width or height | always |
+| `orientation-not-unit` | error | the toolframe orientation vector is not unit length | always |
+| `arc-radius` | error | an arc's endpoint radius disagrees with its start radius | always |
+| `bounds` | error | a move leaves the build volume | `machine.build_volume` |
+| `max-flow` | error | volumetric flow exceeds the ceiling | `material.max_volumetric_flow_mm3_s` |
+| `speed` | error | an extruding feedrate is outside the allowed range | `machine.feedrate_range` |
+| `monotonic-z` | error | Z decreases where it must be non-decreasing | `process.monotonic_z` |
+| `cold-extrusion` | error | extruding below the minimum nozzle temperature | `material.min_nozzle_temperature_c` |
+| `retraction-distance` | error | a retraction distance exceeds the limit | `process.max_retraction_distance` |
+| `retraction-speed` | error | a retraction/unretraction speed exceeds the limit | `process.max_retraction_speed` |
+| `travel-without-retraction` | **warning** | a travel run exceeds the allowed distance without a retraction | `process.max_travel_without_retraction` |
+| `first-layer-height` | **warning** | the first-layer height is outside the allowed range | `process.first_layer_height_range` |
+| `first-layer-speed` | **warning** | the first-layer speed is outside the allowed range | `process.first_layer_speed_range` |
+
+The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
+the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
+changing a rule's default severity, is a notable change called out in release notes.
+
+## 3. Report outputs
+
+All three outputs are stable JSON contracts (`spec/dry-reports-v1.schema.json`).
+
+### 3.1 `verify --json` → `VerifyReport`
+
+```json
+{ "findings": [ { "rule": "bounds", "severity": "error", "segment": 3, "message": "…" } ] }
+```
+
+`segment` is the offending segment index or `null` for a whole-toolpath finding.
+
+### 3.2 `review-gcode --json` → `ReviewReport`
+
+```json
+{
+  "file": "part.gcode",
+  "profile": "voron24-abs",
+  "segments": 1234,
+  "metrics": { "total_time_s": …, "segment_count": 1234, "max_flow_rate": … },
+  "findings": [ { "rule": "max-flow", "severity": "error", "segment": 42, "source_line": 991, "message": "…" } ],
+  "error_count": 1
+}
+```
+
+`findings` here are **located** — each adds `source_line`, the original G-code line (or `null`).
+`error_count` counts only `error`-severity findings. `file` / `profile` are `null` when not supplied.
+
+### 3.3 `trace-gcode` → `TraceReport`
+
+```json
+{ "file": "part.gcode", "profile": null, "trace": { "window_s": 5.0, "segment_count": …, "windows": [ … ] } }
+```
+
+`trace` is a `TraceSummary`: totals plus fixed-duration `windows`, each carrying its segment range and —
+for imported G-code — its source-line range (`source_line_start`/`source_line_end`, omitted when absent).
+
+## 4. Stability & conformance
+
+- The profile schema, the rule catalog, and the report schemas are the public contract.
+- Golden reports under `conformance/reports/` are generated from engine seeds that exercise **every** rule
+  id and drift-gated by `crates/core/tests/report_goldens.rs`.
+- `tools/validate_reports.py` independently re-validates every golden report and example profile against
+  the published schemas (no `dry-core`), in the `spec-vectors` CI job.

@@ -461,34 +461,15 @@ fn run(cli: Cli) -> ExitCode {
             let report = verify(&imported.toolpath, &contracts);
 
             if json {
-                let findings: Vec<_> = report
-                    .findings
-                    .iter()
-                    .map(|finding| {
-                        let source_line = finding
-                            .segment
-                            .and_then(|segment| imported.source_line_for_segment(segment));
-                        serde_json::json!({
-                            "rule": &finding.rule,
-                            "severity": finding.severity,
-                            "segment": finding.segment,
-                            "source_line": source_line,
-                            "message": &finding.message,
-                        })
-                    })
-                    .collect();
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "file": file,
-                        "profile": profile_label(profile.as_ref()),
-                        "segments": imported.toolpath.segments.len(),
-                        "metrics": metrics,
-                        "findings": findings,
-                        "error_count": report.error_count(),
-                    }))
-                    .unwrap()
+                let review = dry_core::ReviewReport::build(
+                    Some(file.clone()),
+                    profile_label(profile.as_ref()),
+                    imported.toolpath.segments.len(),
+                    metrics.clone(),
+                    &report,
+                    |segment| imported.source_line_for_segment(segment),
                 );
+                println!("{}", serde_json::to_string_pretty(&review).unwrap());
             } else {
                 println!("review-gcode: {file}");
                 if let Some(label) = profile_label(profile.as_ref()) {
@@ -570,15 +551,12 @@ fn run(cli: Cli) -> ExitCode {
                 .collect();
             let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
                 .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&serde_json::json!({
-                    "file": file,
-                    "profile": profile_label(profile.as_ref()),
-                    "trace": trace,
-                }))
-                .unwrap()
-            );
+            let report = dry_core::TraceReport {
+                file: Some(file.clone()),
+                profile: profile_label(profile.as_ref()),
+                trace,
+            };
+            println!("{}", serde_json::to_string_pretty(&report).unwrap());
             ExitCode::SUCCESS
         }
         Cmd::RewriteGcode {

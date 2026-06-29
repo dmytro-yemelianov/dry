@@ -245,11 +245,15 @@ fn travel_without_retraction_is_flagged() {
         ..Contracts::default()
     };
     let report = verify(&tp, &c);
-    assert!(!report.ok());
-    assert!(report
+    // travel-without-retraction is a process/quality advisory: a warning, not an error. (The imported
+    // fixture also raises unrelated `bead` errors because it carries no width/height, so we check the
+    // target finding's severity rather than the whole report.)
+    let finding = report
         .findings
         .iter()
-        .any(|f| f.rule == "travel-without-retraction"));
+        .find(|f| f.rule == "travel-without-retraction")
+        .expect("flagged travel-without-retraction");
+    assert_eq!(finding.severity, Severity::Warning);
 }
 
 #[test]
@@ -264,11 +268,12 @@ fn first_layer_height_out_of_range_is_flagged() {
         ..Contracts::default()
     };
     let report = verify(&tp, &c);
-    assert!(!report.ok());
-    assert!(report
+    let finding = report
         .findings
         .iter()
-        .any(|f| f.rule == "first-layer-height"));
+        .find(|f| f.rule == "first-layer-height")
+        .expect("flagged first-layer-height");
+    assert_eq!(finding.severity, Severity::Warning);
 }
 
 #[test]
@@ -283,9 +288,10 @@ fn first_layer_speed_out_of_range_is_flagged() {
         ..Contracts::default()
     };
     let report = verify(&tp, &c);
-    assert!(!report.ok());
-    assert!(report
+    let finding = report
         .findings
         .iter()
-        .any(|f| f.rule == "first-layer-speed"));
+        .find(|f| f.rule == "first-layer-speed")
+        .expect("flagged first-layer-speed");
+    assert_eq!(finding.severity, Severity::Warning);
 }

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "i3-style 250x210, PETG, Marlin",
+  "firmware": { "flavor": "marlin" },
+  "machine": {
+    "build_volume": [[0.0, 250.0], [0.0, 210.0], [0.0, 210.0]],
+    "feedrate_range": [300.0, 12000.0]
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 8.0,
+    "min_nozzle_temperature_c": 220.0
+  },
+  "process": {
+    "line_width": 0.45,
+    "layer_height": 0.2,
+    "max_retraction_distance": 3.2,
+    "max_retraction_speed": 2100.0
+  }
+}
