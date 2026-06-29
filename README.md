@@ -61,6 +61,10 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/14-known-limitations.md`](docs/14-known-limitations.md) | an honest account of what Dry does **not** do (no slicing, FFF-only targets, experimental 5-axis, v0 IR) and the sharp edges in what it does |
 | [`docs/15-cli-cookbook.md`](docs/15-cli-cookbook.md) | copy-pasteable, verified recipes for every CLI command |
 | [`docs/pilots/`](docs/pilots/) | three pilot guides — [authoring](docs/pilots/authoring.md), [post-slicer review](docs/pilots/post-slicer-review.md), [SDK integration](docs/pilots/sdk-integration.md) — with runnable [`examples/`](examples/) |
+| [`docs/16-support-matrix.md`](docs/16-support-matrix.md) | what's Supported / Experimental / Out-of-scope across firmware, formats, targets, platforms and workflows |
+| [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) | auditable corpus-provenance ledger + dependency-license audit (no GPL ships) |
+
+Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
 
 ## Bootstrapped from FullControl
 

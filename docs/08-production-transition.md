@@ -168,6 +168,11 @@ Acceptance:
 
 ### 7. Governance, support and legal hygiene
 
+> **Delivered (initial):** [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`SECURITY.md`](../SECURITY.md), a
+> [support matrix](16-support-matrix.md), and an auditable
+> [provenance & dependency-license ledger](17-provenance-and-licensing.md) (no GPL ships; the oracle is
+> dev/CI-only). Remaining: a formal license review by counsel before public commercial positioning.
+
 Deliverables:
 
 - Clean-room provenance checklist for every generated corpus and profile.
