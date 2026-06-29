@@ -21,9 +21,10 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   slicing, contour stitching, nearest-neighbour ordering, adaptive-Z, sample-budget guard), exposed
   through a new `resolve_tpms_gcode` wasm entry point. All ten surfaces are supported (gyroid, schwarz-p,
   schwarz-d, iwp, neovius, fischer-koch-s/y, frd, lidinoid, split-p) via a typed `Surface` selector;
-  unknown names are a clean deserialize error. Uses `libm` for native/wasm determinism — output differs
-  sub-micron from the JS generator, so correctness is validated by geometric invariants, not
-  byte-identity (PyO3 exposure and TS-SDK delegation remain deferred).
+  unknown names are a clean deserialize error. Reachable from every front-end — `dry.tpms_gcode()`
+  (Python) and the `resolve_tpms_gcode` / `tpms_ops_json` wasm entries — and the TypeScript SDK now
+  **delegates** its TPMS generation to the compiled Rust engine, so all SDKs are byte-identical
+  (cross-SDK identity, P4). The engine uses `libm` for native/wasm determinism.
 - **Profile-gated optimization modes (`safe`/`balanced`/`max`)** — `rewrite-gcode --mode` runs an
   escalating pass set — `safe` (collinear merge + arc fit), `balanced` (+ adaptive junction/curvature
   speed shaping), `max` (+ coasting, travel reorder, z-hop) — and accepts the rewrite per motion span
@@ -31,6 +32,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   rejected spans pass through verbatim (e.g. `max` is rejected under a `monotonic_z` contract because
   z-hop lowers Z). Adds a schema-validated `--json` `RewriteReport` envelope. The legacy `--optimize` /
   `--reorder-travel` behavior is unchanged.
+- **Kinematic-limits machine model** — profiles gain an optional `machine.kinematics` block
+  (`max_acceleration_mm_s2`, `max_junction_velocity_mm_s`). `balanced` mode reads it to shape cornering
+  speed to the printer's real dynamics — the arc/junction limiter uses the profile's acceleration and an
+  absolute square-corner-velocity cap instead of hardcoded defaults. Deterministic and firmware-neutral
+  (read straight from a Klipper `printer.cfg`); pressure-advance / input-shaper remain deferred.
 
 ## [0.4.0] - 2026-06-29
 

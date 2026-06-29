@@ -10,7 +10,7 @@
 
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::f64::consts::TAU;
 
 /// A validation error found before lowering L1 ops to L2 motion.
@@ -37,7 +37,7 @@ impl std::error::Error for ResolveError {}
 
 /// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these
 /// (serialised internally-tagged: `{"op":"move","x":..,"y":..,"z":..}`).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Set the extrusion bead cross-section (mm).
