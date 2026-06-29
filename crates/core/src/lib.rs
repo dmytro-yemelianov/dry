@@ -16,6 +16,7 @@ pub mod emit;
 pub mod engine;
 pub mod forensics;
 pub mod gcode;
+pub mod generate;
 pub mod ir;
 pub mod optimize;
 pub mod profile;
@@ -43,6 +44,7 @@ pub use gcode::{
     GcodeParseError, GcodeParser, GcodeRecord, GcodeWord, ImportedGcode, MotionMode, MotionRecord,
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
+pub use generate::{tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, TpmsError, TpmsOptions};
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_params, arc_fit, coasting, coasting_with_dist,
