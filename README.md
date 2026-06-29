@@ -59,6 +59,8 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/12-releasing.md`](docs/12-releasing.md) | the tagged-release process (`release.yml`): CLI binaries + checksums, Python wheels, npm package, and install-without-source instructions |
 | [`docs/13-performance-and-scale.md`](docs/13-performance-and-scale.md) | the memory model (which ops stream vs materialize), criterion benchmarks, and the deterministic bounded-memory scale gate |
 | [`docs/14-known-limitations.md`](docs/14-known-limitations.md) | an honest account of what Dry does **not** do (no slicing, FFF-only targets, experimental 5-axis, v0 IR) and the sharp edges in what it does |
+| [`docs/15-cli-cookbook.md`](docs/15-cli-cookbook.md) | copy-pasteable, verified recipes for every CLI command |
+| [`docs/pilots/`](docs/pilots/) | three pilot guides — [authoring](docs/pilots/authoring.md), [post-slicer review](docs/pilots/post-slicer-review.md), [SDK integration](docs/pilots/sdk-integration.md) — with runnable [`examples/`](examples/) |
 
 ## Bootstrapped from FullControl
 

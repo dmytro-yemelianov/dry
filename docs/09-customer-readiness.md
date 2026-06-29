@@ -269,5 +269,5 @@ Avoid this positioning for now:
 3. Write profile schema docs with 3 to 5 real examples.
 4. Publish a JSON report schema for verification and trace outputs.
 5. Add large-file benchmarks and document streaming guarantees.
-6. Create 3 pilot guides: custom path authoring, post-slicer review, SDK integration.
+6. Create 3 pilot guides: custom path authoring, post-slicer review, SDK integration. ✅ [`docs/pilots/`](pilots/) + [CLI cookbook](15-cli-cookbook.md) + [`examples/`](../examples)
 7. Turn pilot feedback into stable rule IDs, examples and release blockers.

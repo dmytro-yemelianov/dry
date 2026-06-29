@@ -442,6 +442,36 @@ fn rewrite_gcode_resets_preserved_flow_multiplier() {
 }
 
 #[test]
+fn ir_command_on_raw_gcode_gives_actionable_hint() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-gcode-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &path,
+        "; a slicer file\nG1 X10 Y0 Z0.2 E0.5 F1200\nG1 X20 E0.5\n",
+    )
+    .unwrap();
+
+    // IR commands handed raw G-code must fail with a hint pointing at import/review (covering both the
+    // eager `load` path and the streaming `load_streaming` path), not a raw JSON parse error.
+    for cmd in ["emit", "simulate", "verify"] {
+        let out = Command::new(bin()).arg(cmd).arg(&path).output().unwrap();
+        assert!(!out.status.success(), "{cmd} on g-code should fail");
+        let err = String::from_utf8(out.stderr).unwrap();
+        assert!(
+            err.contains("looks like raw G-code") && err.contains("import-gcode"),
+            "{cmd} error was not actionable: {err}"
+        );
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
 fn rewrite_gcode_absolute_e_realigns_after_preserved_g92() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
