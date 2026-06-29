@@ -188,6 +188,17 @@ only the always-on structural invariants (`finite`, `bead`, `arc-radius`, `trave
 / `--optimize --reorder-travel` flags are unchanged and run the geometry / aggressive pipelines without
 the gate.
 
+### 3.5 `explain --json` → `ExplainBundle`
+
+`dry explain` assembles an **offline LLM-explanation bundle**: it runs `trace`, `forensics` and `verify`
+internally and emits `{ file, profile, profiled, reports: { trace, forensics, verify }, prompt }`. The
+three `reports` are the existing `TraceReport` / `ForensicsReport` / `ReviewReport` verbatim (so each
+still validates against its own `$def`); `prompt` is a deterministic, curated instruction block. The
+engine never calls an LLM — the bundle is the input you (or an agent/MCP) hand to one. The prompt's hard
+rule: every suggested change is a hypothesis that must be re-verified with `dry verify` / `review-gcode`
+before it is trusted. Markdown is the default output; `--json` emits this envelope. The schema `$def` is
+`ExplainBundle`; the golden lives at `conformance/reports/explain/explain.json`.
+
 ## 4. Stability & conformance
 
 - The profile schema, the rule catalog, and the report schemas are the public contract.

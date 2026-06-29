@@ -345,6 +345,28 @@
         "metrics_after": { "$ref": "#/$defs/Metrics" },
         "spans": { "type": "array", "items": { "$ref": "#/$defs/RewriteSpanResult" } }
       }
+    },
+    "ExplainReports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace", "forensics", "verify"],
+      "properties": {
+        "trace": { "$ref": "#/$defs/TraceReport" },
+        "forensics": { "$ref": "#/$defs/ForensicsReport" },
+        "verify": { "$ref": "#/$defs/ReviewReport" }
+      }
+    },
+    "ExplainBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "profile", "profiled", "reports", "prompt"],
+      "properties": {
+        "file": { "type": ["string", "null"] },
+        "profile": { "type": ["string", "null"] },
+        "profiled": { "type": "boolean" },
+        "reports": { "$ref": "#/$defs/ExplainReports" },
+        "prompt": { "type": "string" }
+      }
     }
   }
 }

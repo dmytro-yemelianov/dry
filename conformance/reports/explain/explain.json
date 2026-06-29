@@ -1,0 +1,199 @@
+{
+  "file": "sliced-prusa-sample.gcode",
+  "profile": null,
+  "profiled": false,
+  "reports": {
+    "trace": {
+      "file": "sliced-prusa-sample.gcode",
+      "profile": null,
+      "trace": {
+        "window_s": 5.0,
+        "segment_count": 13,
+        "moving_segment_count": 11,
+        "total_time_s": 3.7434176790568037,
+        "print_time_s": 3.5084944665313014,
+        "travel_time_s": 0.23492321252550205,
+        "dwell_time_s": 0.0,
+        "extruding_distance_mm": 85.25483399593905,
+        "travel_distance_mm": 35.238481878825304,
+        "extruded_volume_mm3": 8.659014751456867,
+        "filament_mm": 3.6,
+        "max_feedrate_mm_min": 9000.0,
+        "max_flow_mm3_s": 3.401582249527499,
+        "windows": [
+          {
+            "index": 0,
+            "start_time_s": 0.0,
+            "end_time_s": 5.0,
+            "segment_start": 0,
+            "segment_end": 13,
+            "source_line_start": 6,
+            "source_line_end": 19,
+            "duration_s": 3.7434176790568037,
+            "print_time_s": 3.5084944665313014,
+            "travel_time_s": 0.2349232125255023,
+            "dwell_time_s": 0.0,
+            "extruding_distance_mm": 85.25483399593905,
+            "travel_distance_mm": 35.23848187882534,
+            "extruded_volume_mm3": 8.659014751456866,
+            "filament_mm": 3.6,
+            "max_feedrate_mm_min": 9000.0,
+            "max_flow_mm3_s": 3.401582249527499
+          }
+        ]
+      }
+    },
+    "forensics": {
+      "slicer": "PrusaSlicer",
+      "source_lines": 24,
+      "segment_count": 13,
+      "layers": {
+        "layer_count": 0,
+        "layer_height_mm": {
+          "value": null,
+          "confidence": "inferred",
+          "note": "median Z delta between extruding layers"
+        }
+      },
+      "line_width_mm": {
+        "value": null,
+        "confidence": "inferred",
+        "note": "median of volume / (length × layer-height) over extruding moves"
+      },
+      "declared": {
+        "layer_height_mm": 0.2,
+        "extrusion_width_mm": 0.45,
+        "infill_angle_deg": 45.0,
+        "infill_density": "20%"
+      },
+      "features": [
+        {
+          "feature": "infill",
+          "source": "from-comment",
+          "segments": 4,
+          "extruding_distance_mm": 45.25483399593904,
+          "time_s": 1.5084944665313014,
+          "min_speed_mm_min": 1800.0,
+          "max_speed_mm_min": 1800.0,
+          "peak_flow_mm3_s": 3.401582249527499
+        },
+        {
+          "feature": "outer-wall",
+          "source": "from-comment",
+          "segments": 4,
+          "extruding_distance_mm": 40.0,
+          "time_s": 2.0,
+          "min_speed_mm_min": 1200.0,
+          "max_speed_mm_min": 1200.0,
+          "peak_flow_mm3_s": 1.9242255003237483
+        }
+      ],
+      "infill_angles_deg": [
+        45.0
+      ],
+      "infill_spacing_mm": {
+        "value": 1.414213562373095,
+        "confidence": "inferred",
+        "note": "median perpendicular gap between parallel infill lines (gap CV 0.00)"
+      },
+      "extrusion_multiplier": {
+        "value": 1.1014374583445132,
+        "confidence": "inferred",
+        "note": "median deposited / nominal-bead volume, using the declared extrusion width"
+      },
+      "seam": {
+        "strategy": "unknown",
+        "loops": 1,
+        "source": "inferred"
+      },
+      "travel": {
+        "travel_moves": 5,
+        "travel_distance_mm": 35.238481878825304,
+        "retractions": 0
+      },
+      "travel_strategy": {
+        "z_hops": 0,
+        "retraction_ratio": 0.0,
+        "hint": "combing-likely",
+        "source": "inferred"
+      },
+      "hotspots": []
+    },
+    "verify": {
+      "file": "sliced-prusa-sample.gcode",
+      "profile": null,
+      "segments": 13,
+      "metrics": {
+        "total_time_s": 3.7434176790568037,
+        "print_time_s": 3.5084944665313014,
+        "travel_time_s": 0.23492321252550205,
+        "extruding_distance": 85.25483399593905,
+        "travel_distance": 35.238481878825304,
+        "extruded_volume": 8.659014751456867,
+        "filament_length": 3.6,
+        "segment_count": 11,
+        "max_flow_rate": 3.401582249527499
+      },
+      "findings": [
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 1,
+          "source_line": 7,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 2,
+          "source_line": 8,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 3,
+          "source_line": 9,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 4,
+          "source_line": 10,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 6,
+          "source_line": 13,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 8,
+          "source_line": 15,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 10,
+          "source_line": 17,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        },
+        {
+          "rule": "bead",
+          "severity": "error",
+          "segment": 12,
+          "source_line": 19,
+          "message": "extruding move has a non-positive bead (width 0, height 0)"
+        }
+      ],
+      "error_count": 8
+    }
+  },
+  "prompt": "You are a senior 3D-printing / CNC process engineer. Below this prompt are three deterministic analyses of a sliced G-code toolpath, produced by the Dry compiler: a TRACE (per-window motion/time series), a FORENSICS report (slicer + settings inference, every value confidence-tagged `from-comment`/`measured`/`inferred`), and a VERIFY report (machine-safety findings).\n\nGround rules — do not violate:\n- The numbers in the reports are ground truth from a deterministic engine. Do not recompute, estimate, or invent metrics; cite the reports.\n- Respect every forensics confidence tag — never state an `inferred` value as certain.\n- Any setting or profile change you propose is a HYPOTHESIS, not a verified fix: it MUST be re-checked by re-running `dry verify` / `dry review-gcode` against the profile before it is trusted. Never present a change as safe without that gate.\n\nContext: file `sliced-prusa-sample.gcode`, no profile (verify ran with default contracts).\n\nDo the following, in order:\n1. WHAT IS THIS PRINT? Summarise from the forensics report (slicer, layer model, line width, infill angle/spacing, seam, travel strategy), noting confidence where it matters.\n2. WHERE DOES THE TIME GO, AND WHY IS IT SLOW? Use the trace windows — name the slowest windows and the dominant cost (print vs travel vs dwell), and the feedrate/flow ceilings.\n3. WHAT'S RISKY? Summarise the verify findings by severity and what each implies for the print.\n4. RECOMMENDATIONS. Propose a prioritised table — columns: Change | Expected effect | How to re-verify with dry — ordered by impact, each naming the exact profile field or slicer setting.\n\nThis analysis works best with a frontier model: Claude Opus 4.8 (`claude-opus-4-8`); use Claude Fable 5 (`claude-fable-5`) for the most demanding analysis."
+}

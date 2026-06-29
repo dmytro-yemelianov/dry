@@ -37,6 +37,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   speed to the printer's real dynamics — the arc/junction limiter uses the profile's acceleration and an
   absolute square-corner-velocity cap instead of hardcoded defaults. Deterministic and firmware-neutral
   (read straight from a Klipper `printer.cfg`); pressure-advance / input-shaper remain deferred.
+- **`dry explain` — offline LLM-explanation bundle (Direction 4 v1)** — a new command assembles the
+  deterministic `trace` + `forensics` + `verify` reports plus a curated prompt into one self-contained
+  briefing (Markdown by default; `--json` → a schema-validated `ExplainBundle`) to hand to an LLM. The
+  engine never calls a model, so the bundle is reproducible and golden-tested; the prompt's hard rule is
+  that any suggested change is a hypothesis that must be re-verified with `dry verify` / `review-gcode`
+  before it's trusted. Recommends Claude Opus 4.8. The online `dry explain --llm` path is deferred.
 
 ## [0.4.0] - 2026-06-29
 
