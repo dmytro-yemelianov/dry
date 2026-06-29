@@ -85,6 +85,25 @@ dry trace-gcode examples/part.gcode --window-s 5
 ```
 Each window carries its segment range and source-line range — see [`13`](13-performance-and-scale.md) for the streaming model.
 
+### `forensics-gcode` — infer slicer behavior (explainable)
+
+```sh
+dry forensics-gcode examples/sliced-sample.gcode
+#   slicer:    Cura
+#   layers:    2 (height ~0.200mm)
+#   line width: ~0.481mm (inferred)
+#   features:
+#     outer-wall      8 segs, 160.0mm, 1200-1200 mm/min, peak 1.92 mm³/s [from-comment]
+#     infill          2 segs, 45.3mm, 1800-1800 mm/min, peak 1.91 mm³/s [from-comment]
+#   travel:    6 moves, 31.3mm, 0 retractions
+```
+
+Add `--json` for the full `ForensicsReport`. Every derived fact carries a **confidence** tag —
+`from-comment` (a slicer marker), `measured`, or `inferred` (a geometry estimate) — so a guess is never
+presented as a measurement. Slicer feature markers (`;TYPE:` / `; FEATURE:`) are used when present;
+marker-less files degrade gracefully (one `unknown`/`inferred` bucket). First cut — see
+[`16-support-matrix.md`](16-support-matrix.md).
+
 ### `rewrite-gcode` — re-emit motion, preserve non-motion lines
 ```sh
 dry rewrite-gcode examples/part.gcode -o normalized.gcode

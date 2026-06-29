@@ -1,0 +1,46 @@
+{
+  "slicer": "Cura",
+  "source_lines": 34,
+  "segment_count": 16,
+  "layers": {
+    "layer_count": 2,
+    "layer_height_mm": {
+      "value": 0.2,
+      "confidence": "inferred",
+      "note": "median Z delta between extruding layers"
+    }
+  },
+  "line_width_mm": {
+    "value": 0.48105637508093707,
+    "confidence": "inferred",
+    "note": "median of volume / (length × layer-height) over extruding moves"
+  },
+  "features": [
+    {
+      "feature": "infill",
+      "source": "from-comment",
+      "segments": 2,
+      "extruding_distance_mm": 45.254833995939045,
+      "time_s": 1.5084944665313016,
+      "min_speed_mm_min": 1800.0,
+      "max_speed_mm_min": 1800.0,
+      "peak_flow_mm3_s": 1.9133900153592178
+    },
+    {
+      "feature": "outer-wall",
+      "source": "from-comment",
+      "segments": 8,
+      "extruding_distance_mm": 160.0,
+      "time_s": 8.0,
+      "min_speed_mm_min": 1200.0,
+      "max_speed_mm_min": 1200.0,
+      "peak_flow_mm3_s": 1.9242255003237483
+    }
+  ],
+  "travel": {
+    "travel_moves": 6,
+    "travel_distance_mm": 31.312698372208093,
+    "retractions": 0
+  },
+  "hotspots": []
+}

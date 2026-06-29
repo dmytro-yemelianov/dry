@@ -625,3 +625,43 @@ fn verify_runs_and_reports_findings() {
         + &String::from_utf8(out_speed.stdout).unwrap();
     assert!(text_speed.contains("speed"));
 }
+
+#[test]
+fn forensics_gcode_detects_slicer_and_attributes_features() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-forensics-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &input,
+        ";Generated with Cura_SteamEngine 5.0\nM83\n;LAYER:0\nG1 Z0.2 F600\n;TYPE:WALL-OUTER\n\
+         G1 X0 Y0 F9000\nG1 X20 Y0 E0.8 F1200\n;TYPE:FILL\nG1 X2 Y2 F9000\nG1 X18 Y18 E0.6 F1800\n",
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["forensics-gcode", input.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "forensics-gcode failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let report: Value = serde_json::from_slice(&out.stdout).expect("valid forensics JSON");
+    assert_eq!(report["slicer"], "Cura");
+    let features: Vec<&str> = report["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["feature"].as_str().unwrap())
+        .collect();
+    assert!(features.contains(&"outer-wall"), "{features:?}");
+    assert!(features.contains(&"infill"), "{features:?}");
+    assert_eq!(report["features"][0]["source"], "from-comment");
+}

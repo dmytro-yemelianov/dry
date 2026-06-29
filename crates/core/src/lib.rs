@@ -14,6 +14,7 @@
 pub mod codec;
 pub mod emit;
 pub mod engine;
+pub mod forensics;
 pub mod gcode;
 pub mod ir;
 pub mod optimize;
@@ -31,6 +32,10 @@ pub use codec::{
 };
 pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
 pub use engine::{simulate, simulate_stream, Metrics};
+pub use forensics::{
+    analyze as forensics_analyze, Confidence, Estimate, FeatureStat, ForensicsReport, Hotspot,
+    LayerModel, TravelStat,
+};
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
     import_parsed_gcode, import_parsed_gcode_with_map, parse_gcode_lines, DistanceMode,
