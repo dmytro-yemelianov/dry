@@ -95,6 +95,22 @@ pub fn adaptive_speed(tp: &Toolpath) -> Toolpath {
 }
 
 pub fn adaptive_speed_with_params(tp: &Toolpath, a_limit: f64) -> Toolpath {
+    adaptive_speed_with_kinematics(tp, a_limit, None)
+}
+
+/// Adaptive-speed shaping with explicit kinematic limits.
+///
+/// `a_limit` (mm/s²) drives the arc centripetal speed limit `v_max = sqrt(a·r)`, exactly as
+/// [`adaptive_speed_with_params`]. When `junction_velocity` is `Some(scv)` (a max junction /
+/// square-corner velocity in mm/s), each contiguous-printing junction additionally gets an **absolute**
+/// feedrate cap `scv · sqrt((1 + dot) / 2) · 60` (mm/min) on top of the existing relative cosine factor,
+/// so a sharp corner is never taken faster than the machine can change direction. With `None` the result
+/// is identical to [`adaptive_speed_with_params`].
+pub fn adaptive_speed_with_kinematics(
+    tp: &Toolpath,
+    a_limit: f64,
+    junction_velocity: Option<f64>,
+) -> Toolpath {
     if a_limit <= 0.0 {
         return tp.clone();
     }
@@ -126,6 +142,9 @@ pub fn adaptive_speed_with_params(tp: &Toolpath, a_limit: f64) -> Toolpath {
         }
 
         let mut speed_scale = 1.0_f64;
+        // Absolute per-junction feedrate ceiling (mm/min) from the optional junction velocity. Stays
+        // `INFINITY` (no cap) when no junction velocity is supplied or this segment has no junction.
+        let mut v_cap_mm_min = f64::INFINITY;
 
         // 1. Curvature (arc radius) limit
         if s.kind == SegmentKind::Arc {
@@ -162,6 +181,9 @@ pub fn adaptive_speed_with_params(tp: &Toolpath, a_limit: f64) -> Toolpath {
                         let factor = libm::sqrt(((1.0 + dot) / 2.0).max(0.0));
                         let clamped_factor = factor.clamp(0.2, 1.0);
                         speed_scale = speed_scale.min(clamped_factor);
+                        if let Some(scv) = junction_velocity {
+                            v_cap_mm_min = v_cap_mm_min.min(scv * factor * 60.0);
+                        }
                     }
                 }
             }
@@ -177,13 +199,24 @@ pub fn adaptive_speed_with_params(tp: &Toolpath, a_limit: f64) -> Toolpath {
                         let factor = libm::sqrt(((1.0 + dot) / 2.0).max(0.0));
                         let clamped_factor = factor.clamp(0.2, 1.0);
                         speed_scale = speed_scale.min(clamped_factor);
+                        if let Some(scv) = junction_velocity {
+                            v_cap_mm_min = v_cap_mm_min.min(scv * factor * 60.0);
+                        }
                     }
                 }
             }
         }
 
+        // Apply the relative cosine scale first, then the absolute junction-velocity ceiling.
+        let mut new_speed = s.speed.value();
         if speed_scale < 1.0 {
-            new_segments[i].speed = Feedrate(s.speed.value() * speed_scale);
+            new_speed *= speed_scale;
+        }
+        if new_speed > v_cap_mm_min {
+            new_speed = v_cap_mm_min;
+        }
+        if new_speed < s.speed.value() {
+            new_segments[i].speed = Feedrate(new_speed);
         }
     }
 

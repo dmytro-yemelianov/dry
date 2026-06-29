@@ -18,9 +18,12 @@ mod z_hop;
 mod tests;
 
 use crate::ir::Toolpath;
+use crate::profile::MachineKinematics;
 use crate::verify::Contracts;
 
-pub use self::adaptive_speed::{adaptive_speed, adaptive_speed_with_params};
+pub use self::adaptive_speed::{
+    adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,
+};
 pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};
 pub use self::merge::merge_collinear;
@@ -59,8 +62,21 @@ pub fn safe_pipeline(tp: &Toolpath) -> Toolpath {
 /// The `balanced` optimisation pipeline: the [`safe_pipeline`] geometry subset followed by conservative
 /// `adaptive_speed` shaping (junction/curvature feedrate scaling). It deliberately stops short of the
 /// order-changing `coasting` / `travel_reorder` / `z_hop` passes (reserved for `max`).
-pub fn balanced_pipeline(tp: &Toolpath) -> Toolpath {
-    adaptive_speed(&safe_pipeline(tp))
+///
+/// When `kinematics` carries a profile's deterministic machine limits, the shaping uses its max
+/// acceleration for the arc centripetal limit and its max junction velocity for an absolute per-junction
+/// feedrate cap (see [`adaptive_speed_with_kinematics`]); otherwise it falls back to the built-in 500
+/// mm/s² acceleration with no junction-velocity cap.
+pub fn balanced_pipeline(tp: &Toolpath, kinematics: Option<&MachineKinematics>) -> Toolpath {
+    let safe = safe_pipeline(tp);
+    match kinematics {
+        Some(k) => adaptive_speed_with_kinematics(
+            &safe,
+            k.max_acceleration_mm_s2.unwrap_or(500.0),
+            k.max_junction_velocity_mm_s,
+        ),
+        None => adaptive_speed(&safe),
+    }
 }
 
 /// The `max` optimisation pipeline: the full order-changing body
@@ -71,11 +87,16 @@ pub fn max_pipeline(tp: &Toolpath) -> Toolpath {
     optimize_aggressive_pipeline(tp)
 }
 
-/// The IR→IR pipeline a given [`OptimizeMode`] runs before the gate decides whether to keep it.
-fn pipeline_for(mode: OptimizeMode, tp: &Toolpath) -> Toolpath {
+/// The IR→IR pipeline a given [`OptimizeMode`] runs before the gate decides whether to keep it. Only
+/// `balanced` consumes `kinematics`; `safe` and `max` ignore it.
+fn pipeline_for(
+    mode: OptimizeMode,
+    tp: &Toolpath,
+    kinematics: Option<&MachineKinematics>,
+) -> Toolpath {
     match mode {
         OptimizeMode::Safe => safe_pipeline(tp),
-        OptimizeMode::Balanced => balanced_pipeline(tp),
+        OptimizeMode::Balanced => balanced_pipeline(tp, kinematics),
         OptimizeMode::Max => max_pipeline(tp),
     }
 }
@@ -96,7 +117,12 @@ pub struct GatedResult {
 /// findings do not block. On rejection the input is returned verbatim, with the offending rule ids in
 /// `new_error_rules`. Apply this per motion span so a rejected span passes through while its neighbours
 /// are still rewritten.
-pub fn apply_gated(tp: &Toolpath, contracts: &Contracts, mode: OptimizeMode) -> GatedResult {
+pub fn apply_gated(
+    tp: &Toolpath,
+    contracts: &Contracts,
+    mode: OptimizeMode,
+    kinematics: Option<&MachineKinematics>,
+) -> GatedResult {
     use crate::verify::{verify, Severity};
     use std::collections::BTreeSet;
 
@@ -110,7 +136,7 @@ pub fn apply_gated(tp: &Toolpath, contracts: &Contracts, mode: OptimizeMode) -> 
     };
 
     let pre_errors = error_rules(tp);
-    let rewritten = pipeline_for(mode, tp);
+    let rewritten = pipeline_for(mode, tp, kinematics);
     let post_errors = error_rules(&rewritten);
     let new_error_rules: Vec<String> = post_errors.difference(&pre_errors).cloned().collect();
 
@@ -130,9 +156,9 @@ pub fn apply_gated(tp: &Toolpath, contracts: &Contracts, mode: OptimizeMode) -> 
 }
 
 /// The `safe`-mode gate: [`apply_gated`] with [`OptimizeMode::Safe`]. Kept as a thin wrapper for the
-/// existing callers/tests.
+/// existing callers/tests. `safe` ignores kinematics, so this passes `None`.
 pub fn apply_safe_gated(tp: &Toolpath, contracts: &Contracts) -> GatedResult {
-    apply_gated(tp, contracts, OptimizeMode::Safe)
+    apply_gated(tp, contracts, OptimizeMode::Safe, None)
 }
 
 /// An order-changing L2 optimisation pipeline. This may reduce travel but can change thermal/seam/process

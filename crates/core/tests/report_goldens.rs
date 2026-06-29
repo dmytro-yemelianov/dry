@@ -480,7 +480,7 @@ fn rewrite_balanced_report_golden_matches_or_update() {
     for (index, span) in [span0, span1].into_iter().enumerate() {
         let span_tp = tp(span);
         let before_count = span_tp.segments.len();
-        let result = apply_gated(&span_tp, &contracts, OptimizeMode::Balanced);
+        let result = apply_gated(&span_tp, &contracts, OptimizeMode::Balanced, None);
         before_segs.extend(span_tp.segments.iter().cloned());
         after_segs.extend(result.toolpath.segments.iter().cloned());
         span_results.push(RewriteSpanResult {

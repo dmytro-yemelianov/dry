@@ -39,6 +39,22 @@
           "maxItems": 2,
           "items": { "type": "number" },
           "description": "[min,max] mm/min for extruding moves (alias: speed_range)."
+        },
+        "kinematics": {
+          "type": "object",
+          "description": "Deterministic kinematic limits consumed by the `balanced` optimisation pipeline (see docs/11). Optional and additive; firmware-agnostic (no pressure-advance / input-shaper model).",
+          "properties": {
+            "max_acceleration_mm_s2": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Max toolhead acceleration in mm/s^2; drives the arc centripetal speed limit v=sqrt(a*r)."
+            },
+            "max_junction_velocity_mm_s": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Max junction (square-corner) velocity in mm/s; caps the per-junction feedrate."
+            }
+          }
         }
       }
     },
