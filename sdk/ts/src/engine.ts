@@ -14,6 +14,7 @@ interface DryWasm {
     fiveAxis: boolean,
     kinematics: string
   ): string[];
+  tpms_ops_json(tpmsOptionsJson: string): string;
   resolve_metrics(opsJson: string, paramsJson: string): string;
   resolve_ir(opsJson: string, paramsJson: string): string;
   resolve_optimized_ir(opsJson: string, paramsJson: string): string;
@@ -55,6 +56,15 @@ export function resolveGcode(
     fiveAxis,
     kinematics
   );
+}
+
+/**
+ * Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
+ * `TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
+ * TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
+ */
+export function tpmsOps(optionsJson: string): string {
+  return wasm.tpms_ops_json(optionsJson);
 }
 
 /** Resolve a design and return its simulation metrics. */
