@@ -1,3 +1,9 @@
+# Standalone workspace root: the engine workspace (../../Cargo.toml) excludes this binding crate, but
+# cargo still walks parent directories looking for an owning workspace. An empty `[workspace]` table
+# marks dry-wasm as its own root so it builds with `--manifest-path` even from a nested git worktree
+# (where the parent repo's workspace would otherwise claim, then reject, this crate).
+[workspace]
+
 [package]
 name = "dry-wasm"
 description = "wasm-bindgen binding for Dry — the toolpath compiler engine, in the browser / Node."

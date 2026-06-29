@@ -5,7 +5,8 @@
 
 use dry_core::{
     emit, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate,
-    verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
+    try_tpms_ops, verify, Contracts, Design, EmitParams, Kinematics, Op, ResolveParams,
+    TpmsOptions,
 };
 use wasm_bindgen::prelude::*;
 
@@ -29,6 +30,41 @@ pub fn resolve_gcode(
 ) -> Result<Vec<String>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let kinematics = Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(emit(
+        &tp,
+        &EmitParams {
+            relative_e,
+            travel_g1_e0,
+            five_axis,
+            kinematics,
+            ..EmitParams::default()
+        },
+    ))
+}
+
+/// Generate a gyroid TPMS infill design, resolve it, and emit motion g-code (a JS array of strings).
+///
+/// `tpms_options_json` is the camelCase [`TpmsOptions`] bundle (e.g. `{"cellSize":12,"cellsX":3}`);
+/// `params_json` is the machine/material [`ResolveParams`]. The remaining flags mirror
+/// [`resolve_gcode`]. The gyroid field uses `libm`, so the output differs sub-micron from the TS SDK's
+/// `Math`-based generator — there is no byte-identity contract between them.
+#[wasm_bindgen]
+pub fn resolve_tpms_gcode(
+    tpms_options_json: &str,
+    params_json: &str,
+    relative_e: bool,
+    travel_g1_e0: bool,
+    five_axis: bool,
+    kinematics_str: &str,
+) -> Result<Vec<String>, JsError> {
+    let options: TpmsOptions = serde_json::from_str(tpms_options_json)
+        .map_err(|e| JsError::new(&format!("tpms options: {e}")))?;
+    let params: ResolveParams =
+        serde_json::from_str(params_json).map_err(|e| JsError::new(&format!("params: {e}")))?;
+    let ops = try_tpms_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
+    let design = Design { ops };
+    let tp = resolve_checked(&design, &params).map_err(|e| JsError::new(&e.to_string()))?;
     let kinematics = Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(emit(
         &tp,
