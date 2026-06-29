@@ -10,19 +10,35 @@ function params(printer: string) {
   return p;
 }
 
-/** Accept structured build-volume bounds `[[x0,x1],[y0,y1],[z0,z1]]` (mm) or a CSV string. */
-function boundsToCsv(bounds: string | number[][]): string {
-  if (typeof bounds === 'string') return bounds;
+/**
+ * Normalise build-volume bounds to the flat `[x0,x1,y0,y1,z0,z1]` (mm) the engine expects, or
+ * `undefined` when unset. Accepts a structured `[[x0,x1],[y0,y1],[z0,z1]]` or the legacy CSV string.
+ */
+function boundsToFlat(bounds: string | number[][]): Float64Array | undefined {
+  if (typeof bounds === 'string') {
+    if (bounds.trim() === '') return undefined;
+    const flat = bounds.split(',').map(Number);
+    if (flat.length !== 6) throw new Error("bounds CSV must be 'x0,x1,y0,y1,z0,z1'");
+    return Float64Array.from(flat);
+  }
   const flat = bounds.flat();
   if (flat.length !== 6) throw new Error('bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string');
-  return flat.join(',');
+  return Float64Array.from(flat);
 }
 
-/** Accept a structured `[min, max]` (mm/min) or a CSV string. */
-function rangeToCsv(range: string | [number, number]): string {
-  if (typeof range === 'string') return range;
-  if (range.length !== 2) throw new Error('speedRange must be [min, max] or a CSV string');
-  return range.join(',');
+/**
+ * Normalise a `[min, max]` range to the flat pair the engine expects, or `undefined` when unset.
+ * Accepts a structured `[min, max]` or the legacy `"min,max"` CSV string.
+ */
+function rangeToFlat(name: string, range: string | [number, number]): Float64Array | undefined {
+  if (typeof range === 'string') {
+    if (range.trim() === '') return undefined;
+    const flat = range.split(',').map(Number);
+    if (flat.length !== 2) throw new Error(`${name} CSV must be 'min,max'`);
+    return Float64Array.from(flat);
+  }
+  if (range.length !== 2) throw new Error(`${name} must be [min, max] or a CSV string`);
+  return Float64Array.from(range);
 }
 
 export class Design {
@@ -163,9 +179,17 @@ export class Design {
   }
 
   /**
-   * Resolve + verify; returns safety report findings. `bounds` accepts a structured
-   * `[[x0,x1],[y0,y1],[z0,z1]]` (mm) or the legacy CSV string `"x0,x1,y0,y1,z0,z1"`; `speedRange`
-   * accepts `[min, max]` (mm/min) or `"min,max"`.
+   * Resolve + verify against machine-safety contracts; returns the safety report findings. The
+   * structured limits cross to the engine as native typed contracts (no CSV round-trip):
+   *
+   *  - `bounds` — build volume as `[[x0,x1],[y0,y1],[z0,z1]]` (mm). The legacy CSV string
+   *    `"x0,x1,y0,y1,z0,z1"` is still accepted for backward compatibility.
+   *  - `speedRange` — extruding feedrate `[min, max]` (mm/min); the legacy `"min,max"` CSV is accepted.
+   *  - `maxFlow` (mm³/s), `minTemp` (°C), `monotonicZ` (bool); 0 means unset for the scalar ceilings.
+   *  - `maxRetractionDistance` (mm), `maxRetractionSpeed` (mm/min), `maxTravelWithoutRetract` (mm) —
+   *    retraction / stringing limits.
+   *  - `firstLayerHeightRange`, `firstLayerSpeedRange` — first-layer adhesion limits, each `[min, max]`
+   *    (or a `"min,max"` CSV string).
    */
   verify(
     printer = 'generic',
@@ -173,16 +197,26 @@ export class Design {
     minTemp = 0,
     bounds: string | number[][] = '',
     monotonicZ = false,
-    speedRange: string | [number, number] = ''
+    speedRange: string | [number, number] = '',
+    maxRetractionDistance = 0,
+    maxRetractionSpeed = 0,
+    maxTravelWithoutRetract = 0,
+    firstLayerHeightRange: string | [number, number] = '',
+    firstLayerSpeedRange: string | [number, number] = ''
   ): Report {
     return resolveVerify(
       this.ops,
       params(printer),
       maxFlow,
       minTemp,
-      boundsToCsv(bounds),
+      boundsToFlat(bounds),
       monotonicZ,
-      rangeToCsv(speedRange)
+      rangeToFlat('speedRange', speedRange),
+      maxRetractionDistance,
+      maxRetractionSpeed,
+      maxTravelWithoutRetract,
+      rangeToFlat('firstLayerHeightRange', firstLayerHeightRange),
+      rangeToFlat('firstLayerSpeedRange', firstLayerSpeedRange)
     );
   }
 }

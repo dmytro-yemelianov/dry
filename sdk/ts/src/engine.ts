@@ -22,9 +22,14 @@ interface DryWasm {
     paramsJson: string,
     maxFlow: number,
     minTemp: number,
-    bounds: string,
+    bounds: Float64Array | undefined,
     monotonicZ: boolean,
-    speedRange: string
+    speedRange: Float64Array | undefined,
+    maxRetractionDistance: number,
+    maxRetractionSpeed: number,
+    maxTravelWithoutRetract: number,
+    firstLayerHeightRange: Float64Array | undefined,
+    firstLayerSpeedRange: Float64Array | undefined
   ): string;
 }
 
@@ -67,15 +72,24 @@ export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
   return JSON.parse(wasm.resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
 }
 
-/** Resolve a design and verify it against safety contracts. */
+/**
+ * Resolve a design and verify it against safety contracts. The structured limits cross to the wasm
+ * engine as native typed values — `bounds` flat as `[x0,x1,y0,y1,z0,z1]` and each range as `[min,max]`
+ * (a `Float64Array`, or `undefined` to disable that check); the scalar ceilings use 0 to mean unset.
+ */
 export function resolveVerify(
   ops: Op[],
   params: ResolveParams,
   maxFlow = 0,
   minTemp = 0,
-  bounds = '',
+  bounds?: Float64Array,
   monotonicZ = false,
-  speedRange = ''
+  speedRange?: Float64Array,
+  maxRetractionDistance = 0,
+  maxRetractionSpeed = 0,
+  maxTravelWithoutRetract = 0,
+  firstLayerHeightRange?: Float64Array,
+  firstLayerSpeedRange?: Float64Array
 ): Report {
   return JSON.parse(
     wasm.resolve_verify(
@@ -85,7 +99,12 @@ export function resolveVerify(
       minTemp,
       bounds,
       monotonicZ,
-      speedRange
+      speedRange,
+      maxRetractionDistance,
+      maxRetractionSpeed,
+      maxTravelWithoutRetract,
+      firstLayerHeightRange,
+      firstLayerSpeedRange
     )
   );
 }
