@@ -159,6 +159,25 @@ enum Cmd {
         #[arg(long, default_value_t = 5.0)]
         window_s: f64,
     },
+    /// Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags.
+    ForensicsGcode {
+        file: String,
+        /// Machine/material profile JSON to supply import defaults.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        /// Optional line width in mm to attach to extruding segments.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Optional layer height in mm to attach to extruding segments.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Print the full ForensicsReport as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
         file: String,
@@ -597,6 +616,78 @@ fn run(cli: Cli) -> ExitCode {
                 trace,
             };
             println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            ExitCode::SUCCESS
+        }
+        Cmd::ForensicsGcode {
+            file,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            json,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_import_params(
+                profile.as_ref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+            );
+            let imported = import_gcode_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let report = dry_core::forensics_analyze(&imported);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            } else {
+                println!("forensics-gcode: {file}");
+                println!("  slicer:    {}", report.slicer);
+                println!(
+                    "  layers:    {} (height ~{})",
+                    report.layers.layer_count,
+                    report
+                        .layers
+                        .layer_height_mm
+                        .value
+                        .map(|v| format!("{v:.3}mm"))
+                        .unwrap_or_else(|| "unknown".into())
+                );
+                println!(
+                    "  line width: ~{}",
+                    report
+                        .line_width_mm
+                        .value
+                        .map(|v| format!("{v:.3}mm (inferred)"))
+                        .unwrap_or_else(|| "unknown".into())
+                );
+                println!("  features:");
+                for f in &report.features {
+                    println!(
+                        "    {:<12} {:>4} segs, {:.1}mm, {:.0}-{:.0} mm/min, peak {:.2} mm³/s [{}]",
+                        f.feature,
+                        f.segments,
+                        f.extruding_distance_mm,
+                        f.min_speed_mm_min,
+                        f.max_speed_mm_min,
+                        f.peak_flow_mm3_s,
+                        match f.source {
+                            dry_core::Confidence::FromComment => "from-comment",
+                            dry_core::Confidence::Measured => "measured",
+                            dry_core::Confidence::Inferred => "inferred",
+                        }
+                    );
+                }
+                println!(
+                    "  travel:    {} moves, {:.1}mm, {} retractions",
+                    report.travel.travel_moves,
+                    report.travel.travel_distance_mm,
+                    report.travel.retractions
+                );
+                for h in &report.hotspots {
+                    println!("  hotspot:   {} ({}) — {}", h.kind, h.count, h.note);
+                }
+            }
             ExitCode::SUCCESS
         }
         Cmd::RewriteGcode {

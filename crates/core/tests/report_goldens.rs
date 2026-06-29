@@ -319,6 +319,22 @@ fn report_goldens_match_or_update() {
         }
     }
 
+    // Forensics golden from the sliced sample (slicer detection + feature attribution).
+    let sample = fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/sliced-sample.gcode"),
+    )
+    .expect("examples/sliced-sample.gcode exists");
+    let imported =
+        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+            .expect("import sliced sample");
+    let forensics = dry_core::forensics_analyze(&imported);
+    let forensics_json = serde_json::to_string_pretty(&forensics).unwrap() + "\n";
+    write_or_check(
+        dir.join("forensics").join("forensics.json"),
+        forensics_json.as_bytes(),
+        update,
+    );
+
     // Completeness: every rule in the catalog must be exercised by at least one golden.
     let all: BTreeSet<String> = dry_core::RuleId::ALL
         .iter()

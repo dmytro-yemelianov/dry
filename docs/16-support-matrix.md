@@ -54,7 +54,8 @@ See [`12-releasing.md`](12-releasing.md) for install-without-source instructions
 | Post-slicer: review → trace → rewrite (CLI) | Supported | [`pilots/post-slicer-review.md`](pilots/post-slicer-review.md) |
 | SDK integration: reproduce a vector | Supported | [`pilots/sdk-integration.md`](pilots/sdk-integration.md) |
 | Optimize (merge collinear / arc-fit / travel-reorder) | Supported | [`15-cli-cookbook.md`](15-cli-cookbook.md) |
-| G-code forensics / slicer inference | Out of scope (planned) | — |
+| G-code forensics: slicer detection, feature attribution, layer/estimate | Experimental (first cut) | [`15-cli-cookbook.md`](15-cli-cookbook.md) |
+| Forensics: infill angle/spacing, extrusion-multiplier recovery, resonance | Out of scope (planned) | — |
 
 ## Support expectations
 

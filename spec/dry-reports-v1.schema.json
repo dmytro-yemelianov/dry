@@ -163,6 +163,97 @@
         "profile": { "type": ["string", "null"] },
         "trace": { "$ref": "#/$defs/TraceSummary" }
       }
+    },
+    "Confidence": {
+      "type": "string",
+      "enum": ["measured", "from-comment", "inferred"]
+    },
+    "Estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "confidence", "note"],
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "confidence": { "$ref": "#/$defs/Confidence" },
+        "note": { "type": "string" }
+      }
+    },
+    "FeatureStat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature",
+        "source",
+        "segments",
+        "extruding_distance_mm",
+        "time_s",
+        "min_speed_mm_min",
+        "max_speed_mm_min",
+        "peak_flow_mm3_s"
+      ],
+      "properties": {
+        "feature": { "type": "string" },
+        "source": { "$ref": "#/$defs/Confidence" },
+        "segments": { "type": "integer", "minimum": 0 },
+        "extruding_distance_mm": { "type": "number" },
+        "time_s": { "type": "number" },
+        "min_speed_mm_min": { "type": "number" },
+        "max_speed_mm_min": { "type": "number" },
+        "peak_flow_mm3_s": { "type": "number" }
+      }
+    },
+    "LayerModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer_count", "layer_height_mm"],
+      "properties": {
+        "layer_count": { "type": "integer", "minimum": 0 },
+        "layer_height_mm": { "$ref": "#/$defs/Estimate" }
+      }
+    },
+    "TravelStat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["travel_moves", "travel_distance_mm", "retractions"],
+      "properties": {
+        "travel_moves": { "type": "integer", "minimum": 0 },
+        "travel_distance_mm": { "type": "number" },
+        "retractions": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Hotspot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "count", "note"],
+      "properties": {
+        "kind": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "ForensicsReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slicer",
+        "source_lines",
+        "segment_count",
+        "layers",
+        "line_width_mm",
+        "features",
+        "travel",
+        "hotspots"
+      ],
+      "properties": {
+        "slicer": { "type": "string" },
+        "source_lines": { "type": "integer", "minimum": 0 },
+        "segment_count": { "type": "integer", "minimum": 0 },
+        "layers": { "$ref": "#/$defs/LayerModel" },
+        "line_width_mm": { "$ref": "#/$defs/Estimate" },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureStat" } },
+        "travel": { "$ref": "#/$defs/TravelStat" },
+        "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
+      }
     }
   }
 }
