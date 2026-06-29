@@ -123,7 +123,8 @@ for imported G-code — its source-line range (`source_line_start`/`source_line_
 ### 3.4 `rewrite-gcode --json` → `RewriteReport`
 
 `rewrite-gcode` re-emits imported motion while preserving the non-motion source lines in place. The
-`--mode safe` flag turns on a **gated** geometry-canonicalisation pass and `--json` reports its outcome:
+`--mode safe|balanced|max` flag turns on a **gated** optimisation pass and `--json` reports its outcome
+(`mode` echoes the chosen mode):
 
 ```json
 {
@@ -152,19 +153,30 @@ When `--json` is set the `RewriteReport` goes to stdout and the rewritten G-code
 `--out` file. Without `--json`, the rewritten G-code is emitted as before and a one-line accept/reject
 summary plus each rejected span's new rules is printed to stderr.
 
-#### The `safe` gate
+#### The optimisation gate
 
-`--mode safe` runs exactly the geometry-canonicalisation subset — `merge_collinear` then `arc_fit` (the
-adaptive-speed / coasting / travel-reorder / z-hop passes are reserved for the future `balanced`/`max`
-modes, which are **not yet implemented**). The rewrite is applied **per source motion span** and is
-*gated* against the verifier (§2): a span's rewrite is accepted only when it introduces **no new error
-rule** relative to the same span's input under the active contracts. Pre-existing input errors do not
-block the rewrite, and new *warning*-only findings do not block it; a rejected span passes through
-verbatim while its neighbours are still rewritten. Contracts come from the `--profile` (a profile maps to
-contracts via §2); with no profile the gate has no machine contracts and only the always-on structural
-invariants (`finite`, `bead`, `arc-radius`, `travel-extrudes`, `orientation-not-unit`) can reject a span,
-so a stderr warning is printed. The legacy ungated `--optimize` / `--optimize --reorder-travel` flags are
-unchanged and run the geometry / aggressive pipelines without the gate.
+`--mode` selects how aggressive the per-span rewrite is; all three modes share the **same gate** and
+differ only in the IR→IR pipeline they run:
+
+| mode | pipeline | what it does |
+| --- | --- | --- |
+| `safe` | `merge_collinear` → `arc_fit` | geometry canonicalisation only (no metric or order change beyond arc fitting) |
+| `balanced` | `safe` + `adaptive_speed` | also shapes feedrate at sharp junctions / tight arcs; no reordering |
+| `max` | `balanced` + `coasting` + `travel_reorder` + `z_hop` | the full order-changing pipeline: trims ooze, reorders independent extrusion runs to cut travel, and lifts the nozzle on travels |
+
+The rewrite is applied **per source motion span** and is *gated* against the verifier (§2): a span's
+rewrite is accepted only when it introduces **no new error rule** relative to the same span's input under
+the active contracts. Pre-existing input errors do not block the rewrite, and new *warning*-only findings
+do not block it; a rejected span passes through verbatim while its neighbours are still rewritten.
+Because `balanced`/`max` change feedrates, travel order and Z, the gate is what makes them safe to expose:
+e.g. `balanced` is rejected on a span where `adaptive_speed` would scale a junction feedrate below a
+`speed_range` minimum (a new `speed` error), and `max` is rejected on a span where `z_hop`'s lowering
+move would violate a `monotonic_z` contract (a new `monotonic-z` error). Contracts come from the
+`--profile` (a profile maps to contracts via §2); with no profile the gate has no machine contracts and
+only the always-on structural invariants (`finite`, `bead`, `arc-radius`, `travel-extrudes`,
+`orientation-not-unit`) can reject a span, so a stderr warning is printed. The legacy ungated `--optimize`
+/ `--optimize --reorder-travel` flags are unchanged and run the geometry / aggressive pipelines without
+the gate.
 
 ## 4. Stability & conformance
 

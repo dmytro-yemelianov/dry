@@ -27,16 +27,18 @@ pub use self::merge::merge_collinear;
 pub use self::travel::travel_reorder;
 pub use self::z_hop::{z_hop, z_hop_with_params};
 
-/// The optimisation aggressiveness a caller opts into. `Safe` is geometry-canonicalisation only and is
-/// gated against the verifier (see [`apply_safe_gated`]); `Balanced` and `Max` are reserved for the
-/// order-changing / speed-shaping passes and are not yet wired up (`docs/11-profiles-and-reports.md`).
+/// The optimisation aggressiveness a caller opts into. Every mode is gated against the verifier the same
+/// way (see [`apply_gated`]): a span's rewrite is kept only when it introduces no new error rule
+/// (`docs/11-profiles-and-reports.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptimizeMode {
     /// Geometry canonicalisation only (`merge_collinear` then `arc_fit`), gated per span.
     Safe,
-    /// Reserved: add speed-shaping / coasting passes. Not yet implemented.
+    /// `Safe` plus conservative `adaptive_speed` shaping (junction/curvature feedrate scaling); no
+    /// reordering, coasting or z-hop.
     Balanced,
-    /// Reserved: add travel reordering / z-hop on top of `Balanced`. Not yet implemented.
+    /// The full order-changing pipeline on top of `Balanced`: also `coasting`, `travel_reorder` and
+    /// `z_hop`.
     Max,
 }
 
@@ -54,7 +56,31 @@ pub fn safe_pipeline(tp: &Toolpath) -> Toolpath {
     arc_fit(&merge_collinear(tp))
 }
 
-/// The outcome of a single gated `safe` rewrite ([`apply_safe_gated`]).
+/// The `balanced` optimisation pipeline: the [`safe_pipeline`] geometry subset followed by conservative
+/// `adaptive_speed` shaping (junction/curvature feedrate scaling). It deliberately stops short of the
+/// order-changing `coasting` / `travel_reorder` / `z_hop` passes (reserved for `max`).
+pub fn balanced_pipeline(tp: &Toolpath) -> Toolpath {
+    adaptive_speed(&safe_pipeline(tp))
+}
+
+/// The `max` optimisation pipeline: the full order-changing body
+/// (`merge_collinear` → `arc_fit` → `adaptive_speed` → `coasting` → `travel_reorder` → `z_hop`). This may
+/// reduce travel/segment count but can change thermal/seam/process sequencing, so it is only reached
+/// through the per-span gate.
+pub fn max_pipeline(tp: &Toolpath) -> Toolpath {
+    optimize_aggressive_pipeline(tp)
+}
+
+/// The IR→IR pipeline a given [`OptimizeMode`] runs before the gate decides whether to keep it.
+fn pipeline_for(mode: OptimizeMode, tp: &Toolpath) -> Toolpath {
+    match mode {
+        OptimizeMode::Safe => safe_pipeline(tp),
+        OptimizeMode::Balanced => balanced_pipeline(tp),
+        OptimizeMode::Max => max_pipeline(tp),
+    }
+}
+
+/// The outcome of a single gated rewrite ([`apply_gated`] / [`apply_safe_gated`]).
 #[derive(Debug, Clone)]
 pub struct GatedResult {
     /// The rewritten toolpath when accepted, or the input verbatim when rejected.
@@ -65,11 +91,12 @@ pub struct GatedResult {
     pub new_error_rules: Vec<String>,
 }
 
-/// Run [`safe_pipeline`] and accept the result only if it introduces no **new** error rule relative to
-/// the input under `contracts`. Pre-existing input errors do not block; new warning-only findings do not
-/// block. On rejection the input is returned verbatim, with the offending rule ids in `new_error_rules`.
-/// Apply this per motion span so a rejected span passes through while its neighbours are still rewritten.
-pub fn apply_safe_gated(tp: &Toolpath, contracts: &Contracts) -> GatedResult {
+/// Run the pipeline for `mode` and accept the result only if it introduces no **new** error rule
+/// relative to the input under `contracts`. Pre-existing input errors do not block; new warning-only
+/// findings do not block. On rejection the input is returned verbatim, with the offending rule ids in
+/// `new_error_rules`. Apply this per motion span so a rejected span passes through while its neighbours
+/// are still rewritten.
+pub fn apply_gated(tp: &Toolpath, contracts: &Contracts, mode: OptimizeMode) -> GatedResult {
     use crate::verify::{verify, Severity};
     use std::collections::BTreeSet;
 
@@ -83,7 +110,7 @@ pub fn apply_safe_gated(tp: &Toolpath, contracts: &Contracts) -> GatedResult {
     };
 
     let pre_errors = error_rules(tp);
-    let rewritten = safe_pipeline(tp);
+    let rewritten = pipeline_for(mode, tp);
     let post_errors = error_rules(&rewritten);
     let new_error_rules: Vec<String> = post_errors.difference(&pre_errors).cloned().collect();
 
@@ -100,6 +127,12 @@ pub fn apply_safe_gated(tp: &Toolpath, contracts: &Contracts) -> GatedResult {
             new_error_rules,
         }
     }
+}
+
+/// The `safe`-mode gate: [`apply_gated`] with [`OptimizeMode::Safe`]. Kept as a thin wrapper for the
+/// existing callers/tests.
+pub fn apply_safe_gated(tp: &Toolpath, contracts: &Contracts) -> GatedResult {
+    apply_gated(tp, contracts, OptimizeMode::Safe)
 }
 
 /// An order-changing L2 optimisation pipeline. This may reduce travel but can change thermal/seam/process

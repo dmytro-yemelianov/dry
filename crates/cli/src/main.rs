@@ -3,7 +3,7 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    apply_safe_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
+    apply_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
     optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv,
     simulate, simulate_stream, trace_summary_with_sources, verify, verify_stream, Contracts,
     EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, Profile,
@@ -221,8 +221,9 @@ enum Cmd {
         /// Also reorder independent extrusion runs to reduce travel. Changes print order.
         #[arg(long)]
         reorder_travel: bool,
-        /// Gated optimisation mode (`safe`). `balanced`/`max` are reserved and not yet implemented.
-        /// When set, each motion span is rewritten only if it introduces no new verifier error.
+        /// Gated optimisation mode (`safe`|`balanced`|`max`). When set, each motion span is rewritten
+        /// only if it introduces no new verifier error: `safe` canonicalises geometry, `balanced` adds
+        /// adaptive-speed shaping, `max` also reorders travel and adds z-hop.
         #[arg(long, value_enum)]
         mode: Option<OptimizeModeArg>,
         /// Emit a `RewriteReport` as JSON to stdout (requires `--out` for the rewritten G-code).
@@ -273,6 +274,15 @@ enum Cmd {
 fn die(msg: String) -> ! {
     eprintln!("error: {msg}");
     std::process::exit(2);
+}
+
+/// The wire label for an [`OptimizeMode`], used for the `RewriteReport.mode` string and stderr summary.
+fn optimize_mode_label(mode: OptimizeMode) -> &'static str {
+    match mode {
+        OptimizeMode::Safe => "safe",
+        OptimizeMode::Balanced => "balanced",
+        OptimizeMode::Max => "max",
+    }
 }
 
 /// Heuristic: does this text look like raw slicer G-code (rather than Dry IR JSON)? True when the first
@@ -764,13 +774,6 @@ fn run(cli: Cli) -> ExitCode {
             out,
         } => {
             let mode = mode.map(OptimizeMode::from);
-            if matches!(mode, Some(OptimizeMode::Balanced) | Some(OptimizeMode::Max)) {
-                die(
-                    "--mode balanced and --mode max are not yet implemented; use --mode safe \
-                     (or --optimize for the ungated geometry pipeline)"
-                        .into(),
-                );
-            }
             if json && out.is_none() {
                 die(
                     "--json requires --out: the rewritten G-code is written to the --out file \
@@ -806,15 +809,17 @@ fn run(cli: Cli) -> ExitCode {
                 segments: imported.toolpath.segments[range].to_vec(),
             };
 
-            if matches!(mode, Some(OptimizeMode::Safe)) {
-                // `safe`: rewrite each motion span only if it introduces no new verifier error.
+            if let Some(mode) = mode {
+                // gated optimisation: rewrite each motion span only if it introduces no new verifier
+                // error under the active profile contracts.
+                let mode_label = optimize_mode_label(mode);
                 let contracts =
                     contracts_from_inputs(profile.as_ref(), None, None, None, false, None);
                 if profile.is_none() {
                     eprintln!(
-                        "warning: rewrite-gcode --mode safe with no --profile — the safety gate has \
-                         no machine contracts, so only structural invariants (finite/bead/arc/\
-                         travel-extrudes) are checked"
+                        "warning: rewrite-gcode --mode {mode_label} with no --profile — the safety \
+                         gate has no machine contracts, so only structural invariants (finite/bead/\
+                         arc/travel-extrudes) are checked"
                     );
                 }
                 let mut span_toolpaths = Vec::new();
@@ -824,7 +829,7 @@ fn run(cli: Cli) -> ExitCode {
                 for (index, span) in imported.motion_spans().into_iter().enumerate() {
                     let span_toolpath = span_tp(span.segment_range());
                     let segment_count_before = span_toolpath.segments.len();
-                    let result = apply_safe_gated(&span_toolpath, &contracts);
+                    let result = apply_gated(&span_toolpath, &contracts, mode);
                     before_segs.extend(span_toolpath.segments.iter().cloned());
                     after_segs.extend(result.toolpath.segments.iter().cloned());
                     span_results.push(RewriteSpanResult {
@@ -854,7 +859,7 @@ fn run(cli: Cli) -> ExitCode {
                 let report = RewriteReport::build(
                     Some(file.clone()),
                     profile_label(profile.as_ref()),
-                    "safe".to_string(),
+                    mode_label.to_string(),
                     &before_tp,
                     &after_tp,
                     span_results,
@@ -867,7 +872,7 @@ fn run(cli: Cli) -> ExitCode {
                         .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
                 } else {
                     eprintln!(
-                        "safe mode: {} spans — {} accepted, {} rejected",
+                        "{mode_label} mode: {} spans — {} accepted, {} rejected",
                         report.spans_total, report.spans_accepted, report.spans_rejected
                     );
                     for span in report.spans.iter().filter(|s| !s.accepted) {

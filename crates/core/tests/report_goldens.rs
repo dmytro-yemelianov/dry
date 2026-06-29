@@ -7,9 +7,9 @@
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
 use dry_core::{
-    apply_safe_gated, simulate, trace_summary, verify, Contracts, Feedrate, Length, Profile,
-    ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport,
-    Volume,
+    apply_gated, apply_safe_gated, simulate, trace_summary, verify, Contracts, Feedrate, Length,
+    OptimizeMode, Profile, ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind,
+    Toolpath, TraceReport, Volume,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -442,6 +442,67 @@ fn rewrite_report_golden_matches_or_update() {
     let report_json = serde_json::to_string_pretty(&report).unwrap() + "\n";
     write_or_check(
         dir.join("rewrite_safe").join("report.json"),
+        report_json.as_bytes(),
+        update,
+    );
+}
+
+/// Golden for `rewrite-gcode --json --mode balanced`: a two-span case under a `speed_range` contract
+/// where span 0 (a collinear run) is canonicalised, shaped and accepted, while span 1 (a sharp 90°
+/// corner) has its junction feedrate scaled by `adaptive_speed` below the range minimum, introducing a
+/// new `speed` error → rejected and passed through verbatim. Drift-gated like the other report goldens.
+#[test]
+fn rewrite_balanced_report_golden_matches_or_update() {
+    let update = update_mode();
+    let dir = reports_dir();
+
+    // a feedrate floor that admits the authored 1500 mm/min but not the corner's shaped speed (~1060).
+    let contracts = Contracts {
+        speed_range: Some([1200.0, 6000.0]),
+        ..Contracts::default()
+    };
+
+    // span 0: a collinear extruding run (merges to one move; isolated → adaptive-speed no-op) → accepted.
+    let span0 = vec![
+        line_seg([0.0, 1.0, 0.2], [10.0, 1.0, 0.2]),
+        line_seg([10.0, 1.0, 0.2], [20.0, 1.0, 0.2]),
+        line_seg([20.0, 1.0, 0.2], [30.0, 1.0, 0.2]),
+    ];
+    // span 1: a 90° corner. `adaptive_speed` scales both legs to ~0.707×1500 < 1200 → new `speed` error.
+    let span1 = vec![
+        line_seg([0.0, 0.0, 0.2], [10.0, 0.0, 0.2]),
+        line_seg([10.0, 0.0, 0.2], [10.0, 10.0, 0.2]),
+    ];
+
+    let mut before_segs: Vec<Segment> = Vec::new();
+    let mut after_segs: Vec<Segment> = Vec::new();
+    let mut span_results: Vec<RewriteSpanResult> = Vec::new();
+    for (index, span) in [span0, span1].into_iter().enumerate() {
+        let span_tp = tp(span);
+        let before_count = span_tp.segments.len();
+        let result = apply_gated(&span_tp, &contracts, OptimizeMode::Balanced);
+        before_segs.extend(span_tp.segments.iter().cloned());
+        after_segs.extend(result.toolpath.segments.iter().cloned());
+        span_results.push(RewriteSpanResult {
+            span_index: index,
+            accepted: result.accepted,
+            segment_count_before: before_count,
+            segment_count_after: result.toolpath.segments.len(),
+            new_error_rules: result.new_error_rules,
+        });
+    }
+
+    let report = RewriteReport::build(
+        Some("two-span.gcode".to_string()),
+        Some("balanced-demo".to_string()),
+        "balanced".to_string(),
+        &tp(before_segs),
+        &tp(after_segs),
+        span_results,
+    );
+    let report_json = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    write_or_check(
+        dir.join("rewrite_balanced").join("report.json"),
         report_json.as_bytes(),
         update,
     );
