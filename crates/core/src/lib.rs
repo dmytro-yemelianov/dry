@@ -21,6 +21,7 @@ pub mod generate;
 pub mod ir;
 pub mod optimize;
 pub mod profile;
+pub mod recommend;
 pub mod report;
 pub mod resolve;
 pub mod trace;
@@ -59,6 +60,10 @@ pub use optimize::{
 pub use profile::{
     FirmwareProfile, MachineKinematics, MachineProfile, MaterialProfile, ProcessProfile, Profile,
     ProfileError,
+};
+pub use recommend::{
+    classify, ActionKind, Classified, ContractField, ContractOverride, ExecutableAction,
+    Recommendation,
 };
 pub use report::{LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport};
 pub use resolve::{
