@@ -151,41 +151,63 @@ class Design:
         "Resolve + encode to binary DRY1 format; returns a bytes object."
         return bytes(_native.resolve_binary(json.dumps(self.ops), _params(printer)))
 
-    def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False, speed_range=None):
-        """Resolve + verify; returns a report dict with findings.
+    def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False,
+               speed_range=None, max_retraction_distance=None, max_retraction_speed=None,
+               max_travel_without_retract=None, first_layer_height_range=None,
+               first_layer_speed_range=None):
+        """Resolve + verify against machine-safety contracts; returns a report dict with findings.
 
-        `bounds` accepts a structured `[[x0, x1], [y0, y1], [z0, z1]]` (mm) or the legacy CSV string
-        ``"x0,x1,y0,y1,z0,z1"``; `speed_range` accepts `[min, max]` (mm/min) or ``"min,max"``.
+        Structured limits cross to the engine as native typed contracts (no CSV round-trip):
+
+          - `bounds` — build volume as `[[x0, x1], [y0, y1], [z0, z1]]` (mm). The legacy CSV string
+            ``"x0,x1,y0,y1,z0,z1"`` is still accepted and parsed here for backward compatibility.
+          - `speed_range` — extruding feedrate `[min, max]` (mm/min); the legacy ``"min,max"`` CSV
+            string is still accepted.
+          - `max_flow` (mm³/s), `min_temp` (°C), `monotonic_z` (bool).
+          - `max_retraction_distance` (mm), `max_retraction_speed` (mm/min),
+            `max_travel_without_retract` (mm) — retraction / stringing limits.
+          - `first_layer_height_range`, `first_layer_speed_range` — first-layer adhesion limits, each
+            `[min, max]` (or a ``"min,max"`` CSV string).
         """
         return json.loads(_native.resolve_verify(
             json.dumps(self.ops),
             _params(printer),
             max_flow,
             min_temp,
-            _bounds_to_csv(bounds),
+            _bounds_to_list(bounds),
             bool(monotonic_z),
-            _range_to_csv(speed_range)
+            _range_to_list(speed_range),
+            max_retraction_distance,
+            max_retraction_speed,
+            max_travel_without_retract,
+            _range_to_list(first_layer_height_range),
+            _range_to_list(first_layer_speed_range),
         ))
 
 
-def _bounds_to_csv(bounds):
-    "Accept [[x0,x1],[y0,y1],[z0,z1]] (mm), a CSV string, or None."
-    if bounds is None or isinstance(bounds, str):
+def _bounds_to_list(bounds):
+    """Normalise bounds to the structured `[[x0,x1],[y0,y1],[z0,z1]]` the binding expects.
+
+    A structured list/tuple passes straight through (the binding validates its shape); a legacy
+    ``"x0,x1,y0,y1,z0,z1"`` CSV string is parsed here; ``None`` stays ``None``.
+    """
+    if bounds is None or not isinstance(bounds, str):
         return bounds
-    flat = [v for pair in bounds for v in pair]
+    flat = [float(v) for v in bounds.split(",")]
     if len(flat) != 6:
-        raise ValueError("bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string")
-    return ",".join(str(v) for v in flat)
+        raise ValueError("bounds CSV must be 'x0,x1,y0,y1,z0,z1'")
+    return [[flat[0], flat[1]], [flat[2], flat[3]], [flat[4], flat[5]]]
 
 
-def _range_to_csv(rng):
-    "Accept [min, max] (mm/min), a CSV string, or None."
-    if rng is None or isinstance(rng, str):
+def _range_to_list(rng):
+    """Normalise a `[min, max]` range to the list the binding expects.
+
+    A structured list/tuple passes straight through (the binding validates its shape); a legacy
+    ``"min,max"`` CSV string is parsed here; ``None`` stays ``None``.
+    """
+    if rng is None or not isinstance(rng, str):
         return rng
-    pair = list(rng)
-    if len(pair) != 2:
-        raise ValueError("speed_range must be [min, max] or a CSV string")
-    return ",".join(str(v) for v in pair)
+    return [float(v) for v in rng.split(",")]
 
 
 def _params(printer):

@@ -1,0 +1,6 @@
+# This crate is a thin PyO3 adapter: its `#[pyfunction]`s mirror the Python SDK's keyword
+# signatures, so a verify entry point that exposes every typed Contracts field naturally carries
+# more parameters than clippy's default `too_many_arguments` threshold (7). Raising the threshold
+# here is the structural fix for that boundary shape — the binding stays `-D warnings` clean with no
+# per-item `#[allow]` silencing.
+too-many-arguments-threshold = 12
