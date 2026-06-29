@@ -1,0 +1,235 @@
+{
+  "ir_version": 0,
+  "schema": "spec/dry-ir-v0.schema.json",
+  "spec": "docs/10-dry-ir-v0-spec.md",
+  "vectors": [
+    {
+      "artifacts": {
+        "expected.dry0": "8c6f95dafd10e380e1b559f25eeeb0b828741f1e27b34a6623caf3132a214a13",
+        "expected.dry1": "d63bad419409681b69eba44a949428e1b2888f25cc37a49b34b8887962778c00",
+        "expected.gcode": "1d910202dc1ac7baf9e5f4727dc3aafb415d5c6402e211b822f8306f21874590",
+        "input.json": "6af9d0266e7856c653380c2f453bd6f20b3695bad673bf24b7196f95700e4aae",
+        "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
+        "vector.json": "f96c5902d220c187c862bd6cb9093a24bc14df52f7e1bd31766b3ad792586a38"
+      },
+      "description": "One extruding line, all channels unset — the byte-identity baseline.",
+      "feature_tags": [
+        "line",
+        "no-channels"
+      ],
+      "frozen": true,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "minimal_line"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "eb36779c4a7bbaff77edd521e9c649b0a54db98745b63d10e3cf417c468ae6bd",
+        "expected.dry1": "623b1b76060088d86657948a6ee6857dac3cd478e515ae4dade5176cd8c4b9c9",
+        "expected.gcode": "c027b348a111494f7834b400983c4974077437f6697b9d50133f5bfb0b95963b",
+        "input.json": "ea00e4d9e9a6903b8eb3a9ec9afb87e19dc8381ede8ba13f1f3930c8e8f19521",
+        "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
+        "vector.json": "af5363cc4a34a7f8bc66d0b38889a4612817384933e526750126180221181407"
+      },
+      "description": "A travel move with undefined (null) start axes, then an extruding line.",
+      "feature_tags": [
+        "travel",
+        "null-axes"
+      ],
+      "frozen": true,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "travel_and_line"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "73fe0133e410379157c8c6d920cebd4e6f57c5365fe11c6eeb8c50c683f6f41e",
+        "expected.dry1": "f754ec94d2c067c87cceb6ed425bd2643335ca381aeb0f5a2d45682f2ddf18e8",
+        "expected.gcode": "b5fdd0f0dcbe8e6b2d77ce3b6d3694b37e2887982f9178a185991ea101febfac",
+        "input.json": "176b0e04aa71e773d4e4c07550663868fc34a83c01b12bf6df5d01c9b7f7ffa2",
+        "metrics.json": "76a182a334806eaf80f2b3a7cdd577d7d5a24ef8978497dae910143cdc4af9a6",
+        "vector.json": "c638c85d2dc52c698707561228a345da401d8d2a8024959cfc44a20850099079"
+      },
+      "description": "Two arcs sharing a centre: one clockwise (G2), one counter-clockwise (G3).",
+      "feature_tags": [
+        "arc",
+        "centre",
+        "clockwise"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "arc_g2_g3"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "a15b10db6bbc8548f1683d9e18ef93e349a6ed69175a829e033ea1bfb259b733",
+        "expected.dry1": "609b86f0141f2fbd54e21c2fd8677bb6373327cd710b99f4fc0634bb0f1c2e80",
+        "expected.gcode": "1386d7cbbd5368df21b28dc85fdb6189d2fe850d049dd2111c0d9da3f9a9a3ca",
+        "input.json": "91e67a1c5fd42b6d81410be2f14046dc259979332d3406f501d48efe96620c0c",
+        "metrics.json": "5ca913279cc5d98965f1861e6ac4e82dfcd030a35fab7f6e1261418aaca970be",
+        "vector.json": "b3fc4e2c8850d07f48391c48b93b596dad750cda6ffb351b742d4f77a278e0ba"
+      },
+      "description": "A spline segment carrying control points.",
+      "feature_tags": [
+        "spline",
+        "control-points"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "spline"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "90a31647248427c238a65e6b2901929a5c5f7fe2361287c1564fc2e9c845a950",
+        "expected.dry1": "b976e8185529fd6abae29647b911d338033957a05d392033a56b55cf8d6ca732",
+        "expected.gcode": "e4b69c68f956193d81ed2ec62d923ea8428d0f2af1a46faa51ced6c68a593f10",
+        "input.json": "1f31c1f605201aec8f4ffd4100bd0933fbb01b2557e013372ace1b403814787a",
+        "metrics.json": "9155b43250e10c80506a2ebf1980f84221c879ef45fb45dcae5feda43d9cf324",
+        "vector.json": "5c8de0457d4edfe266f87243ef84b0057be813b33355e956740fb3af92f857d6"
+      },
+      "description": "A dwell (pause-in-place) segment with a duration.",
+      "feature_tags": [
+        "dwell"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "dwell"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "da2dfdd874f6bde1ea36dad818b6564499bc19071db01189a2bf686cef666881",
+        "expected.dry1": "0d0823a97e1e400a8f83adedaf95c11f6c7b8ed8002fdade649384fcadc7c46c",
+        "expected.gcode": "acc2e715ce8dad5c760326b1929e7202ee986246828b4ed86d8eb6358c53b5dd",
+        "input.json": "64aa167970df359b6e0e6fd633627cf382a71188b214ac5a2b52fc4daff48bfa",
+        "metrics.json": "f50026eca5d8903e5d276e38ee3755e8754a53527f67253ba08b40a4d4bcc26f",
+        "vector.json": "4c54b9f686b070e898386fdc837c97c0cacae322cd5b1ee8e706eeb391c10d66"
+      },
+      "description": "An extruder-only retract followed by an unretract.",
+      "feature_tags": [
+        "retract",
+        "unretract"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "retract_unretract"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "4bd233ae44b2fbd2af18f7d21ab7eb739d105c6c246c2e99c43df86d0b1986d8",
+        "expected.dry1": "c4cd2f57b96e4559edb0b8ac80f526aa8fcde25ca358186fd49fa4057bca92ab",
+        "expected.gcode": "225d41b0581ea81f3ed03d70d091dfd261d075d63a97b8b7f0764d0f8e83d28f",
+        "input.json": "66bb8d7b964d2f0365393cb576e945804e21ea8f66f9dd2f7267f2f0e85ccd9d",
+        "metrics.json": "aec23d09e37edd961880209e0cbb4614ec1534e2b4da0dd06e1f4ab77f960810",
+        "vector.json": "9860039fd1c2559a222e7a92cd4e0dbe063942b1e9ec15e92f8c8a0c7e1da049"
+      },
+      "description": "A stationary deposit segment.",
+      "feature_tags": [
+        "deposit"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "deposit"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "f165e97cd74cd6fa535fca7fe208aa56d380e5d8bdeac91217f56f07e1edbfe6",
+        "expected.dry1": "1a5fd4ef8b7dd8c7d0d3caf3b58c71993a66a4abc568f3ce97840bd50c74e89b",
+        "expected.gcode": "b2d52c595be52bac06ac640d6ff5488666be68cd7cd85c2641c12a0885abf6a8",
+        "input.json": "9d47ff174e35eb123df663421dfbf71a839aa2ace56cf57300903a1e1fd7e1bf",
+        "metrics.json": "5e33135f21edf718ada0d209e08f6822d32002c6871bb26a31eb72ec1bb7c79c",
+        "vector.json": "9ca9d0d1af076116fade11b1bd9694729d212472b5a7e1c650a50acb45d5759e"
+      },
+      "description": "A verbatim manual-gcode segment — exercises the three-way kind asymmetry (JSON 'manualgcode', DRY0 'manual_gcode', DRY1 tag 7; spec section 10).",
+      "feature_tags": [
+        "manual-gcode",
+        "kind-asymmetry"
+      ],
+      "frozen": true,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "manual_gcode"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "e0361c2e48c6317bc146bddb110af588765a5f06347ae2d53107674c6818238f",
+        "expected.dry1": "eead99f795ea6b6d3231f3dc3d126546803b88c6a43845f3d3256844bb924e72",
+        "expected.gcode": "1d910202dc1ac7baf9e5f4727dc3aafb415d5c6402e211b822f8306f21874590",
+        "input.json": "7bb7fcb0d194fba1bb2a6c0e77cabea59692071737d8f99f749d3d9176f0d6db",
+        "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
+        "vector.json": "65a0501a4613d87f0dc369d58c4102994f405e4a40f1456b3b7b99301d8407fd"
+      },
+      "description": "An extruding line with every process channel set: temperature, fan, flow, tool.",
+      "feature_tags": [
+        "temperature",
+        "fan",
+        "flow",
+        "tool"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "channels_full"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "ba18b8d006e2299dce11aecaf8dc73a6e48cb55bc8f2e11dadf49980d4266b9c",
+        "expected.dry1": "f3b8f8a1c2a8a8e6c480f159243ab65a3f3545dc7325997534ffb5fea9478e90",
+        "expected.gcode": "f2bbaf5984f5a4e46c83beee5a5f5daff4bc97c3b554ca261c8a47bde27c5f6b",
+        "input.json": "ee3cc0013e7a732ea34d33e11cd1a197a80f4edf4ba4e854cf08fe2f6746b68f",
+        "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
+        "vector.json": "f77754b8c3448e2743dbf3d3235be914504258beeee68a2e0adac4f18824cabd"
+      },
+      "description": "An extruding line carrying a non-trivial toolframe orientation (5-axis).",
+      "feature_tags": [
+        "orientation",
+        "five-axis"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "five_axis"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "69f48c7b4a39431fd5b2055f046ada564cec5725a54166670deebaf99d56e957",
+        "expected.dry1": "ff238f1144748c4897cfa6a9802bf68bc607004df7e4245d26200b1306b20691",
+        "expected.gcode": "1d910202dc1ac7baf9e5f4727dc3aafb415d5c6402e211b822f8306f21874590",
+        "input.json": "d59469552dcb3ac12faced467a53ca9a3f87ed50fe96b22d56cfd6d9d999cfcb",
+        "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
+        "vector.json": "eb959a16839b20d27627db3550d7c0f7556d9483ba3c779ea16422419be42bc6"
+      },
+      "description": "A minimal line carrying a full Meta header (generator, units, source_hash, invariants).",
+      "feature_tags": [
+        "meta",
+        "provenance"
+      ],
+      "frozen": true,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "meta_header"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "a51f64d54dede438c324f4d08739cd2b1cb904fe26977c4cc79fa5146141b752",
+        "expected.dry1": "d8f19dd2167499616db3dbebeac6bdbf99be51c51a6a9fa76d790c5352be3ada",
+        "input.json": "4028a7647f7c5a9845d34a26af25d9e8eb95593c427ef57ccb008f9954456a95",
+        "metrics.json": "5e33135f21edf718ada0d209e08f6822d32002c6871bb26a31eb72ec1bb7c79c",
+        "vector.json": "7158222b19b095edd13aaf0a8b2bda86db6dad66ef590ee649df38323c4bb5be"
+      },
+      "description": "An empty toolpath (zero segments). Serializes as {\"version\":0,\"segments\":[]}.",
+      "feature_tags": [
+        "empty",
+        "edge-case"
+      ],
+      "frozen": true,
+      "has_gcode": false,
+      "ir_version": 0,
+      "name": "empty"
+    }
+  ]
+}

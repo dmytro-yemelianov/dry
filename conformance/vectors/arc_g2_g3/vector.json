@@ -1,0 +1,19 @@
+{
+  "description": "Two arcs sharing a centre: one clockwise (G2), one counter-clockwise (G3).",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "arc",
+    "centre",
+    "clockwise"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "arc_g2_g3"
+}

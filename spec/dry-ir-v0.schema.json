@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-ir-v0.schema.json",
+  "title": "Dry IR v0 toolpath (JSON wire form)",
+  "description": "Normative JSON Schema for the Dry IR v0 JSON wire form. See docs/10-dry-ir-v0-spec.md. NOTE: this schema describes v0 exactly and rejects unknown keys so it catches authoring mistakes in conformance vectors; a forward-compatible *reader* instead ignores unknown object keys (see spec section 8).",
+  "$ref": "#/$defs/Toolpath",
+  "$defs": {
+    "Toolpath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "segments"],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "description": "IR schema version; v0 => 0."
+        },
+        "meta": { "$ref": "#/$defs/Meta" },
+        "segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Segment" }
+        }
+      }
+    },
+    "Meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional self-describing header; every field omitted when empty.",
+      "properties": {
+        "generator": { "type": "string" },
+        "units": { "type": "string" },
+        "source_hash": { "type": "string" },
+        "invariants": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "SegmentKind": {
+      "type": "string",
+      "enum": [
+        "line",
+        "arc",
+        "spline",
+        "dwell",
+        "retract",
+        "unretract",
+        "deposit",
+        "manualgcode"
+      ],
+      "description": "JSON spelling of the segment kind. Note 'manualgcode' has no underscore on the JSON wire (binary forms use 'manual_gcode' / tag 7); see spec section 10."
+    },
+    "OptAxis3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": ["number", "null"] },
+      "description": "Absolute (x,y,z); a component is null when undefined before first set."
+    },
+    "Vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "Segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "travel",
+        "speed",
+        "length",
+        "volume",
+        "filament",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "start": { "$ref": "#/$defs/OptAxis3" },
+        "end": { "$ref": "#/$defs/OptAxis3" },
+        "travel": { "type": "boolean" },
+        "speed": { "type": "number", "description": "feedrate (mm/min)" },
+        "length": { "type": "number", "description": "path length (mm)" },
+        "volume": { "type": "number", "description": "deposited volume (mm^3)" },
+        "filament": { "type": "number", "description": "feedstock length consumed (mm)" },
+        "width": { "type": ["number", "null"] },
+        "height": { "type": ["number", "null"] },
+        "kind": { "$ref": "#/$defs/SegmentKind" },
+        "centre": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "type": "number" }
+            }
+          ],
+          "description": "arc centre (cx,cy); present only for kind 'arc'."
+        },
+        "clockwise": { "type": "boolean", "description": "true => G2, false => G3" },
+        "temperature": { "type": "number" },
+        "fan": { "type": "number" },
+        "flow": { "type": "number" },
+        "tool": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "dwell_s": { "type": "number", "description": "dwell duration (s); kind 'dwell' only." },
+        "manual_gcode": {
+          "type": "string",
+          "description": "verbatim g-code; kind 'manualgcode' only."
+        },
+        "orientation": {
+          "$ref": "#/$defs/Vec3",
+          "description": "tool-direction unit vector (i,j,k); absent => +Z (3-axis)."
+        },
+        "control_points": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Vec3" },
+          "description": "spline control points; kind 'spline' only."
+        }
+      }
+    }
+  }
+}

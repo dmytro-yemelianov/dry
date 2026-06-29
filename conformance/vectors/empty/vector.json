@@ -1,0 +1,12 @@
+{
+  "description": "An empty toolpath (zero segments). Serializes as {\"version\":0,\"segments\":[]}.",
+  "emit_params": null,
+  "feature_tags": [
+    "empty",
+    "edge-case"
+  ],
+  "frozen": true,
+  "has_gcode": false,
+  "ir_version": 0,
+  "name": "empty"
+}

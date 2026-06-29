@@ -1,0 +1,17 @@
+{
+  "description": "A stationary deposit segment.",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "deposit"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "deposit"
+}

@@ -1,0 +1,18 @@
+{
+  "description": "One extruding line, all channels unset — the byte-identity baseline.",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "line",
+    "no-channels"
+  ],
+  "frozen": true,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "minimal_line"
+}
