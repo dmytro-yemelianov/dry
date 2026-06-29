@@ -33,7 +33,9 @@ jobs:
         include:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
           - { os: macos-latest, target: aarch64-apple-darwin }
-          - { os: macos-13, target: x86_64-apple-darwin }
+          # Intel-mac binary is cross-compiled on the Apple-Silicon runner (the Apple SDK supports both
+          # arches), avoiding the deprecated/queue-limited macos-13 Intel runner.
+          - { os: macos-latest, target: x86_64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
       - uses: actions/checkout@v4
