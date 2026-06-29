@@ -57,6 +57,7 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/10-dry-ir-v0-spec.md`](docs/10-dry-ir-v0-spec.md) | normative Dry IR v0 spec (JSON + DRY0/DRY1 binary), versioning & compatibility policy, conformance model; paired with [`spec/dry-ir-v0.schema.json`](spec/dry-ir-v0.schema.json) and the public [`conformance/vectors/`](conformance/vectors) |
 | [`docs/11-profiles-and-reports.md`](docs/11-profiles-and-reports.md) | profile schema, the verification rule catalog (stable ids + severities), and the verify/review/trace report schemas; paired with [`spec/dry-profile-v1.schema.json`](spec/dry-profile-v1.schema.json), [`spec/dry-reports-v1.schema.json`](spec/dry-reports-v1.schema.json) and [`conformance/reports/`](conformance/reports) |
 | [`docs/12-releasing.md`](docs/12-releasing.md) | the tagged-release process (`release.yml`): CLI binaries + checksums, Python wheels, npm package, and install-without-source instructions |
+| [`docs/13-performance-and-scale.md`](docs/13-performance-and-scale.md) | the memory model (which ops stream vs materialize), criterion benchmarks, and the deterministic bounded-memory scale gate |
 
 ## Bootstrapped from FullControl
 
