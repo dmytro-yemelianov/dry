@@ -5,8 +5,9 @@
 //! - `measured` — a deterministic count/sum over the motion (travel distance, segment count);
 //! - `inferred` — an estimate derived from geometry (layer height, line width).
 //!
-//! This is a deterministic first cut (issue #29). Probabilistic inference (infill angle/spacing,
-//! extrusion-multiplier recovery, seam/resonance modelling) is intentionally out of scope.
+//! Round 2 (issue #29) adds a probabilistic layer: declared-settings extraction from config comments,
+//! infill-angle inference from geometry, and an extrusion-multiplier estimate. Still out of scope:
+//! infill spacing/periodicity and seam/resonance modelling.
 
 use crate::engine::segment_motion_time;
 use crate::gcode::ImportedGcode;
@@ -69,6 +70,16 @@ pub struct Hotspot {
     pub note: String,
 }
 
+/// Slicer settings extracted verbatim from `; key = value` config comments (PrusaSlicer family).
+/// Every present field is `from-comment`; `None` means the setting was not declared in the file.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DeclaredSettings {
+    pub layer_height_mm: Option<f64>,
+    pub extrusion_width_mm: Option<f64>,
+    pub infill_angle_deg: Option<f64>,
+    pub infill_density: Option<String>,
+}
+
 /// The full forensics report.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForensicsReport {
@@ -77,7 +88,13 @@ pub struct ForensicsReport {
     pub segment_count: usize,
     pub layers: LayerModel,
     pub line_width_mm: Estimate,
+    /// Slicer settings read from config comments (all `from-comment`).
+    pub declared: DeclaredSettings,
     pub features: Vec<FeatureStat>,
+    /// Dominant infill directions in degrees (mod 180), inferred from geometry; empty if no infill.
+    pub infill_angles_deg: Vec<f64>,
+    /// Effective extrusion multiplier, inferred from deposited vs. nominal-bead volume.
+    pub extrusion_multiplier: Estimate,
     pub travel: TravelStat,
     pub hotspots: Vec<Hotspot>,
 }
@@ -168,6 +185,73 @@ fn median(values: &mut [f64]) -> Option<f64> {
     })
 }
 
+/// Extract slicer settings from `; key = value` config comments (PrusaSlicer / SuperSlicer / Orca).
+fn parse_declared_settings(lines: &[String]) -> DeclaredSettings {
+    let mut d = DeclaredSettings::default();
+    let num = |v: &str| {
+        v.trim()
+            .trim_end_matches('%')
+            .split(',')
+            .next()
+            .and_then(|x| x.trim().parse::<f64>().ok())
+    };
+    for line in lines {
+        let Some(body) = line.trim().strip_prefix(';') else {
+            continue;
+        };
+        let Some((k, v)) = body.split_once('=') else {
+            continue;
+        };
+        let (key, val) = (k.trim().to_ascii_lowercase(), v.trim());
+        match key.as_str() {
+            "layer_height" => d.layer_height_mm = num(val).or(d.layer_height_mm),
+            "extrusion_width" => d.extrusion_width_mm = num(val).or(d.extrusion_width_mm),
+            "perimeter_extrusion_width" | "infill_extrusion_width" => {
+                d.extrusion_width_mm = d.extrusion_width_mm.or_else(|| num(val))
+            }
+            "fill_angle" | "infill_angle" => d.infill_angle_deg = num(val).or(d.infill_angle_deg),
+            "fill_density" | "infill_density" if !val.is_empty() => {
+                d.infill_density = d.infill_density.take().or_else(|| Some(val.to_string()))
+            }
+            _ => {}
+        }
+    }
+    d
+}
+
+/// The dominant infill direction(s) in degrees (mod 180), via a 5° histogram. Empty when too few
+/// samples or no clear mode. Returns up to two modes (e.g. alternating 45°/135° infill).
+fn dominant_angles(angles: Vec<f64>) -> Vec<f64> {
+    const BIN: f64 = 5.0;
+    let nbins = (180.0 / BIN) as usize;
+    if angles.len() < 3 {
+        return Vec::new();
+    }
+    let mut bins: Vec<Vec<f64>> = vec![Vec::new(); nbins];
+    for a in &angles {
+        let idx = ((a / BIN) as usize).min(nbins - 1);
+        bins[idx].push(*a);
+    }
+    let maxc = bins.iter().map(|b| b.len()).max().unwrap_or(0);
+    if maxc == 0 {
+        return Vec::new();
+    }
+    let mut idxs: Vec<usize> = (0..nbins)
+        .filter(|&i| !bins[i].is_empty() && bins[i].len() >= maxc.div_ceil(2))
+        .collect();
+    idxs.sort_by_key(|&i| std::cmp::Reverse(bins[i].len()));
+    idxs.truncate(2);
+    let mut out: Vec<f64> = idxs
+        .into_iter()
+        .map(|i| {
+            let mut v = bins[i].clone();
+            (median(&mut v).unwrap() * 10.0).round() / 10.0
+        })
+        .collect();
+    out.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    out
+}
+
 #[derive(Default, Clone)]
 struct Agg {
     segments: usize,
@@ -183,6 +267,7 @@ struct Agg {
 pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     let lines = &imported.source_lines;
     let slicer = detect_slicer(lines);
+    let declared = parse_declared_settings(lines);
 
     // Active feature per 1-based source line: carry the most recent marker forward.
     let mut feature_at_line: Vec<&'static str> = vec!["other"; lines.len() + 2];
@@ -205,6 +290,8 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     let mut travel_distance = 0.0;
     let mut retractions = 0usize;
     let mut tiny = 0usize;
+    let mut infill_dirs: Vec<f64> = Vec::new();
+    let mut mults: Vec<f64> = Vec::new();
 
     // First pass: layer Z set (for the line-width estimate that needs layer height).
     for s in segments {
@@ -218,6 +305,13 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
     zs.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
     let mut z_deltas: Vec<f64> = zs.windows(2).map(|w| w[1] - w[0]).collect();
     let layer_height = median(&mut z_deltas);
+
+    // Nominal bead for the extrusion-multiplier estimate (needs a *declared* width to be meaningful).
+    let nominal_w = declared.extrusion_width_mm.filter(|w| *w > 0.0);
+    let nominal_h = declared
+        .layer_height_mm
+        .or(layer_height)
+        .filter(|h| *h > 0.0);
 
     for (i, s) in segments.iter().enumerate() {
         let speed = s.speed.value();
@@ -244,9 +338,28 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
                 widths.push(s.volume.value() / (len * lh));
             }
         }
+        if let (Some(w), Some(h)) = (nominal_w, nominal_h) {
+            if len > 0.0 {
+                mults.push(s.volume.value() / (w * h * len));
+            }
+        }
 
         let line = imported.segment_source_lines.get(i).copied().unwrap_or(0);
         let feature = feature_at_line.get(line).copied().unwrap_or("other");
+
+        if feature == "infill" && len > 0.0 {
+            if let (Some(sx), Some(sy), Some(ex), Some(ey)) =
+                (s.start[0], s.start[1], s.end[0], s.end[1])
+            {
+                let mut deg = libm::atan2(ey.value() - sy.value(), ex.value() - sx.value())
+                    .to_degrees()
+                    .rem_euclid(180.0);
+                if deg >= 180.0 {
+                    deg -= 180.0;
+                }
+                infill_dirs.push(deg);
+            }
+        }
         let a = feats.entry(feature).or_default();
         if !a.seen {
             a.seen = true;
@@ -298,6 +411,21 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
         });
     }
 
+    let extrusion_multiplier = if nominal_w.is_some() {
+        Estimate {
+            value: median(&mut mults),
+            confidence: Confidence::Inferred,
+            note: "median deposited / nominal-bead volume, using the declared extrusion width"
+                .to_string(),
+        }
+    } else {
+        Estimate {
+            value: None,
+            confidence: Confidence::Inferred,
+            note: "needs a declared extrusion width (no slicer config block found)".to_string(),
+        }
+    };
+
     ForensicsReport {
         slicer,
         source_lines: lines.len(),
@@ -315,7 +443,10 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
             confidence: Confidence::Inferred,
             note: "median of volume / (length × layer-height) over extruding moves".to_string(),
         },
+        declared,
         features,
+        infill_angles_deg: dominant_angles(infill_dirs),
+        extrusion_multiplier,
         travel: TravelStat {
             travel_moves,
             travel_distance_mm: travel_distance,
@@ -383,5 +514,62 @@ M104 S0
         // no markers -> a single inferred "unknown" feature bucket
         assert!(r.features.iter().all(|f| f.feature == "unknown"));
         assert!(r.features.iter().all(|f| f.source == Confidence::Inferred));
+        // no config block -> no declared settings, no recoverable multiplier
+        assert!(r.declared.layer_height_mm.is_none());
+        assert!(r.extrusion_multiplier.value.is_none());
+    }
+
+    const PRUSA: &str = "\
+; generated by PrusaSlicer 2.7.0
+M83
+;Z:0.2
+;TYPE:External perimeter
+G1 X0 Y0 F9000
+G1 X10 Y0 E0.4 F1200
+G1 X10 Y10 E0.4
+G1 X0 Y10 E0.4
+G1 X0 Y0 E0.4
+;TYPE:Internal infill
+G1 X0 Y0 F9000
+G1 X10 Y10 E0.6 F1800
+G1 X2 Y0 F9000
+G1 X10 Y8 E0.5 F1800
+G1 X0 Y2 F9000
+G1 X8 Y10 E0.5 F1800
+G1 X4 Y0 F9000
+G1 X10 Y6 E0.4 F1800
+; layer_height = 0.2
+; extrusion_width = 0.45
+; fill_angle = 45
+; fill_density = 20%
+";
+
+    #[test]
+    fn round2_declared_settings_infill_angle_and_multiplier() {
+        let imported = import_gcode_with_map(PRUSA, &GcodeImportParams::default()).unwrap();
+        let r = analyze(&imported);
+        assert_eq!(r.slicer, "PrusaSlicer");
+
+        // declared settings from the config block (from-comment).
+        assert_eq!(r.declared.layer_height_mm, Some(0.2));
+        assert_eq!(r.declared.extrusion_width_mm, Some(0.45));
+        assert_eq!(r.declared.infill_angle_deg, Some(45.0));
+        assert_eq!(r.declared.infill_density.as_deref(), Some("20%"));
+
+        // infill direction inferred from geometry (the diagonals are 45°).
+        assert!(!r.infill_angles_deg.is_empty(), "no infill angle inferred");
+        assert!(
+            r.infill_angles_deg.iter().any(|a| (a - 45.0).abs() < 6.0),
+            "{:?}",
+            r.infill_angles_deg
+        );
+
+        // multiplier recoverable now that a nominal width is declared.
+        assert!(r.extrusion_multiplier.value.is_some());
+
+        // External perimeter -> outer-wall, Internal infill -> infill.
+        let features: Vec<&str> = r.features.iter().map(|f| f.feature.as_str()).collect();
+        assert!(features.contains(&"outer-wall"), "{features:?}");
+        assert!(features.contains(&"infill"), "{features:?}");
     }
 }

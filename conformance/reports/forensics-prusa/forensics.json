@@ -1,57 +1,59 @@
 {
-  "slicer": "Cura",
-  "source_lines": 34,
-  "segment_count": 16,
+  "slicer": "PrusaSlicer",
+  "source_lines": 24,
+  "segment_count": 13,
   "layers": {
-    "layer_count": 2,
+    "layer_count": 0,
     "layer_height_mm": {
-      "value": 0.2,
+      "value": null,
       "confidence": "inferred",
       "note": "median Z delta between extruding layers"
     }
   },
   "line_width_mm": {
-    "value": 0.48105637508093707,
+    "value": null,
     "confidence": "inferred",
     "note": "median of volume / (length × layer-height) over extruding moves"
   },
   "declared": {
-    "layer_height_mm": null,
-    "extrusion_width_mm": null,
-    "infill_angle_deg": null,
-    "infill_density": null
+    "layer_height_mm": 0.2,
+    "extrusion_width_mm": 0.45,
+    "infill_angle_deg": 45.0,
+    "infill_density": "20%"
   },
   "features": [
     {
       "feature": "infill",
       "source": "from-comment",
-      "segments": 2,
-      "extruding_distance_mm": 45.254833995939045,
-      "time_s": 1.5084944665313016,
+      "segments": 4,
+      "extruding_distance_mm": 45.25483399593904,
+      "time_s": 1.5084944665313014,
       "min_speed_mm_min": 1800.0,
       "max_speed_mm_min": 1800.0,
-      "peak_flow_mm3_s": 1.9133900153592178
+      "peak_flow_mm3_s": 3.401582249527499
     },
     {
       "feature": "outer-wall",
       "source": "from-comment",
-      "segments": 8,
-      "extruding_distance_mm": 160.0,
-      "time_s": 8.0,
+      "segments": 4,
+      "extruding_distance_mm": 40.0,
+      "time_s": 2.0,
       "min_speed_mm_min": 1200.0,
       "max_speed_mm_min": 1200.0,
       "peak_flow_mm3_s": 1.9242255003237483
     }
   ],
-  "infill_angles_deg": [],
+  "infill_angles_deg": [
+    45.0
+  ],
   "extrusion_multiplier": {
-    "value": null,
+    "value": 1.1014374583445132,
     "confidence": "inferred",
-    "note": "needs a declared extrusion width (no slicer config block found)"
+    "note": "median deposited / nominal-bead volume, using the declared extrusion width"
   },
   "travel": {
-    "travel_moves": 6,
-    "travel_distance_mm": 31.312698372208093,
+    "travel_moves": 5,
+    "travel_distance_mm": 35.238481878825304,
     "retractions": 0
   },
   "hotspots": []

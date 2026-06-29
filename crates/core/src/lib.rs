@@ -33,8 +33,8 @@ pub use codec::{
 pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use forensics::{
-    analyze as forensics_analyze, Confidence, Estimate, FeatureStat, ForensicsReport, Hotspot,
-    LayerModel, TravelStat,
+    analyze as forensics_analyze, Confidence, DeclaredSettings, Estimate, FeatureStat,
+    ForensicsReport, Hotspot, LayerModel, TravelStat,
 };
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
