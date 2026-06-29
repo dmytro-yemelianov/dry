@@ -133,6 +133,11 @@ Acceptance:
 
 ### 5. Product workflows
 
+> **Delivered (initial):** a run-verified [CLI cookbook](15-cli-cookbook.md), three
+> [pilot guides](pilots/) (authoring, post-slicer review, SDK integration) with runnable
+> [`examples/`](../examples), and an actionable error when an IR command is handed raw g-code. Remaining:
+> a guided browser workflow and deeper per-segment example inputs.
+
 Deliverables:
 
 - CLI recipes for: import, verify, trace, rewrite, optimize, pack and unpack.

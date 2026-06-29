@@ -27,6 +27,8 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`12-releasing.md`](12-releasing.md) | The tagged-release process (`.github/workflows/release.yml`): version/tag guard, CLI binaries + `SHA256SUMS`, Python wheels (maturin), npm package, gated PyPI/npm publishing, and install-without-source instructions. |
 | [`13-performance-and-scale.md`](13-performance-and-scale.md) | The memory model (the `DRY1` streaming path is bounded-memory; JSON/`DRY0` materialize), the criterion benchmarks, and the deterministic bounded-memory scale gate (`tests/memory_scale.rs`). |
 | [`14-known-limitations.md`](14-known-limitations.md) | An honest account of current limitations: no slicing, FFF-only emission, experimental 5-axis, v0 IR, semantic (not byte) conformance, the `manualgcode` asymmetry, and the support boundary. |
+| [`15-cli-cookbook.md`](15-cli-cookbook.md) | Copy-pasteable, run-verified recipes for every CLI command (inspect/simulate/emit/optimize/verify/pack/unpack and import/review/trace/rewrite-gcode). |
+| [`pilots/`](pilots/) | Three pilot guides — [authoring](pilots/authoring.md) (generate→verify→emit), [post-slicer review](pilots/post-slicer-review.md) (review→trace→rewrite), [SDK integration](pilots/sdk-integration.md) (reproduce a vector) — backed by runnable [`../examples/`](../examples). |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine

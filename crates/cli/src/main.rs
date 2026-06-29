@@ -230,10 +230,40 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Heuristic: does this text look like raw slicer G-code (rather than Dry IR JSON)? True when the first
+/// meaningful line (skipping blanks and `;`/`(` comments) starts with a `G`/`M`/`T` word.
+fn looks_like_gcode(text: &str) -> bool {
+    for line in text.lines() {
+        let t = line.trim_start();
+        if t.is_empty() || t.starts_with(';') || t.starts_with('(') {
+            continue;
+        }
+        let mut chars = t.chars();
+        if let Some(c0) = chars.next() {
+            if matches!(c0, 'G' | 'M' | 'T' | 'g' | 'm' | 't') {
+                return chars.next().is_some_and(|c1| c1.is_ascii_digit());
+            }
+        }
+        return false;
+    }
+    false
+}
+
+/// Die with an actionable hint when an IR command is handed raw G-code.
+fn gcode_not_ir(file: &str) -> ! {
+    die(format!(
+        "{file} looks like raw G-code, not Dry IR JSON. Use `dry import-gcode {file}` to convert it to \
+         Dry IR, or `dry review-gcode {file}` / `dry trace-gcode {file}` to work on it directly."
+    ))
+}
+
 /// Load a Dry IR `Toolpath` from a file that is either a bare `{version, segments}` or a fixture with
 /// an `ir` key.
 fn load(file: &str) -> Toolpath {
     let text = fs::read_to_string(file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+    if looks_like_gcode(&text) {
+        gcode_not_ir(file);
+    }
     let v: serde_json::Value =
         serde_json::from_str(&text).unwrap_or_else(|e| die(format!("invalid JSON in {file}: {e}")));
     let ir = v.get("ir").cloned().unwrap_or(v);
@@ -263,6 +293,16 @@ fn load_streaming(
         let (_version, _meta, iter) = dry_core::decode_any_streaming(f)?;
         Ok(iter)
     } else {
+        // Not a Dry binary: sniff a prefix for raw G-code mistakenly passed to an IR command.
+        let mut prefix = [0u8; 256];
+        let n = f
+            .read(&mut prefix)
+            .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+        f.seek(std::io::SeekFrom::Start(0))
+            .map_err(|e| dry_core::CodecError::Other(e.to_string()))?;
+        if looks_like_gcode(&String::from_utf8_lossy(&prefix[..n])) {
+            gcode_not_ir(file);
+        }
         let iter = dry_core::JsonSegmentsIterator::new(f);
         Ok(Box::new(iter))
     }
