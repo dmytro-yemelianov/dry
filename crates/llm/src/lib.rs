@@ -124,34 +124,39 @@ pub fn cost_usd(model: &str, usage: &Usage) -> Option<f64> {
     )
 }
 
-/// Send the bundle to the Anthropic Messages API and decode the structured reply.
-/// This is the only function in the workspace that performs network I/O.
-pub fn analyze(
+/// POST a Messages request body and return the parsed JSON response. The only network I/O in the
+/// workspace; both `analyze` (explain) and `narrate_compare` (compare) go through here.
+pub fn post_messages(
     cfg: &ClientConfig,
-    bundle: &dry_core::ExplainBundle,
-) -> Result<AnalysisResponse, LlmError> {
+    body: serde_json::Value,
+) -> Result<serde_json::Value, LlmError> {
     if cfg.api_key.is_empty() {
         return Err(LlmError::MissingKey);
     }
-    let body = build_request(cfg, bundle);
-    let resp = ureq::post("https://api.anthropic.com/v1/messages")
+    match ureq::post("https://api.anthropic.com/v1/messages")
         .set("x-api-key", &cfg.api_key)
         .set("anthropic-version", "2023-06-01")
         .set("content-type", "application/json")
-        .send_json(body);
-    match resp {
-        Ok(r) => {
-            let json: serde_json::Value = r
-                .into_json()
-                .map_err(|e| LlmError::Decode(format!("invalid JSON from API: {e}")))?;
-            decode_response(&json)
-        }
+        .send_json(body)
+    {
+        Ok(r) => r
+            .into_json()
+            .map_err(|e| LlmError::Decode(format!("invalid JSON from API: {e}"))),
         Err(ureq::Error::Status(code, r)) => {
             let snippet = r.into_string().unwrap_or_default();
             Err(LlmError::Http(code, snippet.chars().take(500).collect()))
         }
         Err(ureq::Error::Transport(t)) => Err(LlmError::Transport(t.to_string())),
     }
+}
+
+/// Send the bundle to the Anthropic Messages API and decode the structured reply.
+pub fn analyze(
+    cfg: &ClientConfig,
+    bundle: &dry_core::ExplainBundle,
+) -> Result<AnalysisResponse, LlmError> {
+    let json = post_messages(cfg, build_request(cfg, bundle))?;
+    decode_response(&json)
 }
 
 /// Parse a `POST /v1/messages` response body into an [`AnalysisResponse`]. Pure — no network.
@@ -288,6 +293,19 @@ mod tests {
             output_tokens: 10,
         };
         assert!(cost_usd("some-future-model", &u).is_none());
+    }
+
+    #[test]
+    fn post_messages_empty_key_returns_missing_key() {
+        let cfg = ClientConfig {
+            api_key: "".into(),
+            model: "claude-sonnet-4-6".into(),
+            max_tokens: 4096,
+        };
+        assert!(matches!(
+            post_messages(&cfg, serde_json::json!({})),
+            Err(LlmError::MissingKey)
+        ));
     }
 
     #[test]
