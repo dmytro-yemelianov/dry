@@ -158,3 +158,25 @@ the recommendations. `explain` is an **analyst** — it measures and recommends;
 **producer** that materializes the winner. Markdown by default; `--json` emits a structured envelope
 (`docs/11` §3.6) with `{meta, analysis, recommendations, results, usage, cost_usd}` that is **not**
 drift-gated (model output is non-deterministic), unlike the deterministic offline `ExplainBundle`.
+
+### `compare` — forensic delta between two G-code files
+```sh
+dry compare examples/part-a.gcode examples/part-b.gcode        # Markdown delta (A → B)
+dry compare examples/part-a.gcode examples/part-b.gcode --json # structured CompareDelta
+```
+`compare` runs `trace`, `forensics` and `verify` on both files and reports the side-by-side
+differences: time/flow metrics (with deltas and percent changes), slicer detection, declared and
+inferred settings that changed, and safety findings added/removed. The delta is deterministic,
+reproducible and golden-tested (`conformance/reports/compare/`). Supports the same import flags as
+`explain` (`--profile`, `--filament-diameter`, `--line-width`, `--layer-height`, `--window-s`). Markdown by default;
+`--json` emits the structured `CompareDelta` schema (`docs/11` §3.7).
+
+Add `--llm --model <id>` to call Claude directly and get a narrative analysis:
+```sh
+ANTHROPIC_API_KEY=… dry compare examples/part-a.gcode examples/part-b.gcode --llm --model claude-sonnet-4-6
+```
+The online path assembles the offline delta, calls Claude for a narrative ("what changed, why it
+matters, which is better"), and reports token usage and cost estimate to stderr. Requires
+`ANTHROPIC_API_KEY` and `--model <id>`. The narrative is advisory and non-deterministic; the delta
+itself stays gated. Use `--json` to emit the full envelope (`docs/11` §3.8) with
+`{delta, narrative, usage, cost_usd}` (not drift-gated, unlike the deterministic offline delta).

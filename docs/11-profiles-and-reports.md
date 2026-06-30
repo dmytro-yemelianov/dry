@@ -252,6 +252,74 @@ non-deterministic, so results are advisory and must be reviewed. The determinist
 The cost readout (optional, per-model pricing tables in `dry-llm`) is informational only and prints to
 stderr alongside token counts.
 
+### 3.7 `compare --json` → `CompareDelta`
+
+`dry compare` runs `trace`, `forensics` and `verify` on two G-code files and reports the forensic
+delta: side-by-side metrics, changed settings, and added/removed safety findings. The output is
+deterministic, reproducible and golden-tested (like `explain` offline). The schema is:
+
+```json
+{
+  "slicer": { "before": "Cura", "after": "PrusaSlicer" },
+  "time": {
+    "total": { "before": 120.5, "after": 110.3, "abs": -10.2, "pct": -8.46 },
+    "print": { "before": 110.2, "after": 100.0, "abs": -10.2, "pct": -9.26 },
+    "travel": { "before": 10.3, "after": 10.3, "abs": 0.0, "pct": null }
+  },
+  "peak_flow_mm3_s": { "before": 8.2, "after": 7.9, "abs": -0.3, "pct": -3.66 },
+  "layer_count": { "before": 100.0, "after": 100.0, "abs": 0.0, "pct": null },
+  "travel_distance_mm": { "before": 2100.0, "after": 2050.0, "abs": -50.0, "pct": -2.38 },
+  "retractions": { "before": 45.0, "after": 42.0, "abs": -3.0, "pct": -6.67 },
+  "settings": [
+    { "field": "declared.layer_height_mm", "before": "0.2", "after": "0.15" },
+    { "field": "seam.strategy", "before": "aligned", "after": "scattered" }
+  ],
+  "findings": {
+    "before_count": 2,
+    "after_count": 1,
+    "added": ["max-flow@2450"],
+    "removed": ["speed@1020"]
+  }
+}
+```
+
+`slicer` is `null` when the slicer is unchanged. Each numeric metric is a `ScalarDelta` with
+`before`, `after`, `abs` (absolute change), and `pct` (percent change, `null` when `before == 0`).
+`settings` lists only the fields that changed (declared and inferred forensics settings). `findings`
+keyed as `"<rule>@<source_line>"` so a finding that moved lines reads as removed+added rather than
+silently unchanged. The delta itself is **drift-gated** — golden-tested against the engine.
+
+### 3.8 `compare --llm --json` → narrative over the delta
+
+`dry compare --llm --model <id>` calls Claude directly to analyze the forensic delta and produce a
+narrative. The `--json` envelope is:
+
+```json
+{
+  "delta": { … },
+  "narrative": {
+    "summary": "Layer height reduced, flow optimized, retractions decreased.",
+    "what_changed": "Layer height from 0.2mm to 0.15mm. Flow peak capped by retraction discipline. …",
+    "why_it_matters": "Finer layers improve surface finish and geometric accuracy. Lower flow reduces nozzle …",
+    "better": "b",
+    "better_rationale": "B prints 8.5% faster with tighter geometry and lower risk of stringing."
+  },
+  "usage": {
+    "input_tokens": 2048,
+    "output_tokens": 512
+  },
+  "cost_usd": 0.0091
+}
+```
+
+`delta` is the full `CompareDelta` from §3.7 (deterministic, drift-gated). `narrative` holds the
+model's five-field analysis: a summary, what changed, why it matters, which file is better
+(`better` is one of `"a"`, `"b"`, or `"either"`), and the
+rationale for that judgment. Token usage and cost (optional, `null` for unknown-pricing models) are
+informational. **This envelope is NOT drift-gated** — model output is non-deterministic, so it is
+advisory only. Use it to understand the forensic delta qualitatively; apply any measured improvements
+only after manual review.
+
 ## 4. Stability & conformance
 
 - The profile schema, the rule catalog, and the report schemas are the public contract.

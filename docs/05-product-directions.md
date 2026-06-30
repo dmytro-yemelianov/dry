@@ -320,15 +320,17 @@ Example findings:
 
 ## 4. Time-series analysis with LLM assistance
 
-> **Status (v1+v2 shipped):** `dry explain` assembles an **offline** explanation bundle — the deterministic
+> **Status (v1+v2+v3 shipped):** `dry explain` assembles an **offline** explanation bundle — the deterministic
 > `trace` + `forensics` + `verify` reports plus a curated prompt — that the user feeds to an LLM (Claude
 > Code, the API, or any model). The engine never calls an LLM, so the bundle stays deterministic and
 > reproducible, and the verifier remains the only thing that gates a rewrite. The online `dry explain
 > --llm --model <id>` path has shipped (v2): calls Claude directly, classifies recommendations as
 > executable or advisory, applies executable ones, re-traces and re-verifies, and reports measured
 > before/after improvements with a gate verdict. The deterministic sub-parts stay gated; non-deterministic
-> output is advisory. The next phase (`compare` — side-by-side slicer tuning analysis) is deferred. See
-> `docs/11` §3.5–3.6 and `docs/15` (the cookbook).
+> output is advisory. The post-slicer cluster is now complete with `dry compare` (v3): a deterministic,
+> drift-gated forensic diff of two G-code files (time, flow, settings, findings), with an optional
+> `--llm --model <id>` narrative overlay (non-deterministic, advisory). See `docs/11` §3.5–3.8 and
+> `docs/15` (the cookbook).
 
 LLMs should be used around time-series analysis, not as the numerical engine.
 

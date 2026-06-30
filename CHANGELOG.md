@@ -47,6 +47,9 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   engine never calls a model, so the bundle is reproducible and golden-tested; the prompt's hard rule is
   that any suggested change is a hypothesis that must be re-verified with `dry verify` / `review-gcode`
   before it's trusted. Recommends Claude Opus 4.8. The online `dry explain --llm` path is deferred.
+- `dry compare <a> <b>`: deterministic two-file forensic delta (slicer/settings, time/flow, findings
+  added/removed), drift-gated; optional `--llm --model <id>` adds a model narrative ("what changed, why,
+  which is better") reusing the `dry-llm` client. New pure `dry-core::compare`; no new crate.
 
 ## [0.4.0] - 2026-06-29
 
