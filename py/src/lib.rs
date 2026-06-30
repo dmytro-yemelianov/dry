@@ -4,8 +4,9 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    emit, optimize_pipeline, resolve_checked, simulate, try_tpms_ops, verify, Contracts, Design,
-    EmitParams, Kinematics, Op, ResolveParams, TpmsOptions,
+    balanced_pipeline, emit, optimize_pipeline, resolve_checked, safe_pipeline, simulate,
+    try_tpms_ops, verify, Contracts, Design, EmitParams, KinematicContracts, Kinematics,
+    MachineKinematics, Op, ResolveParams, TpmsOptions,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -19,6 +20,28 @@ fn parse_design(ops_json: &str) -> PyResult<Design> {
 fn parse_params(params_json: &str) -> PyResult<ResolveParams> {
     serde_json::from_str(params_json)
         .map_err(|e| PyValueError::new_err(format!("invalid params: {e}")))
+}
+
+/// Parse the optional `kinematics_json` kwarg into [`MachineKinematics`]. `None` or empty string →
+/// `None`. A non-empty string that fails to parse is a clear [`PyValueError`] (never a panic).
+///
+/// # Name disambiguation
+///
+/// [`Kinematics`] (also used in this crate) is the **5-axis rotary geometry** selector for arc
+/// strategy (Cartesian, CoreXY, …). [`MachineKinematics`] is unrelated: it carries **profile
+/// motion limits** — peak-acceleration and junction-velocity ceilings that feed `balanced_pipeline`
+/// and the `peak-acceleration` / `junction-velocity` verify rules.
+fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKinematics>> {
+    let s = match kinematics_json {
+        None => return Ok(None),
+        Some(s) => s.trim(),
+    };
+    if s.is_empty() {
+        return Ok(None);
+    }
+    serde_json::from_str::<MachineKinematics>(s)
+        .map(Some)
+        .map_err(|e| PyValueError::new_err(format!("invalid kinematics_json: {e}")))
 }
 
 /// Resolve a design and emit motion g-code (one string per line).
@@ -115,6 +138,31 @@ fn resolve_optimized_ir(ops_json: &str, params_json: &str) -> PyResult<String> {
     Ok(optimize_pipeline(&tp).to_json())
 }
 
+/// Resolve a design, run the balanced (kinematics-aware) L2 optimization pipeline, and return the
+/// resulting L2 toolpath IR as a JSON string.
+///
+/// When `kinematics_json` is a non-empty JSON object (`{"max_acceleration_mm_s2":3000,…}`), the
+/// engine runs [`balanced_pipeline`] with those motion limits, which applies arc centripetal speed
+/// clamping and junction-velocity capping in addition to all standard optimizations. `None` or an
+/// empty / whitespace-only string falls back to [`safe_pipeline`].
+///
+/// A malformed non-empty `kinematics_json` surfaces as a `ValueError` — never a panic.
+#[pyfunction]
+#[pyo3(signature = (ops_json, params_json, kinematics_json=None))]
+fn resolve_balanced_ir(
+    ops_json: &str,
+    params_json: &str,
+    kinematics_json: Option<&str>,
+) -> PyResult<String> {
+    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let out = match parse_kinematics(kinematics_json)? {
+        Some(k) => balanced_pipeline(&tp, Some(&k)),
+        None => safe_pipeline(&tp),
+    };
+    Ok(out.to_json())
+}
+
 /// Build `[[x0,x1],[y0,y1],[z0,z1]]` build-volume bounds from the structured Python value, validating
 /// the shape and returning a clear [`PyValueError`] (never a panic) on a malformed input.
 fn build_bounds(bounds: Option<Vec<Vec<f64>>>) -> PyResult<Option<[[f64; 2]; 3]>> {
@@ -163,7 +211,13 @@ fn build_range(name: &str, range: Option<Vec<f64>>) -> PyResult<Option<[f64; 2]>
 }
 
 /// Resolve a design and verify it against machine-safety contracts, returning the JSON report.
+///
+/// The optional `kinematics_json` kwarg accepts the same JSON object as [`resolve_balanced_ir`]:
+/// when non-empty, it enables the `peak-acceleration` and `junction-velocity` verify rules; `None`
+/// or empty disables them (i.e. `Contracts.kinematics = None`). This kwarg is non-breaking for
+/// existing Python callers — existing call sites that omit it keep the old behaviour.
 #[pyfunction]
+#[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
     ops_json,
     params_json,
@@ -177,6 +231,7 @@ fn build_range(name: &str, range: Option<Vec<f64>>) -> PyResult<Option<[f64; 2]>
     max_travel_without_retract=None,
     first_layer_height_range=None,
     first_layer_speed_range=None,
+    kinematics_json=None,
 ))]
 fn resolve_verify(
     ops_json: &str,
@@ -191,9 +246,15 @@ fn resolve_verify(
     max_travel_without_retract: Option<f64>,
     first_layer_height_range: Option<Vec<f64>>,
     first_layer_speed_range: Option<Vec<f64>>,
+    kinematics_json: Option<&str>,
 ) -> PyResult<String> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    let kinematics = parse_kinematics(kinematics_json)?.map(|k| KinematicContracts {
+        max_acceleration_mm_s2: k.max_acceleration_mm_s2,
+        max_junction_velocity_mm_s: k.max_junction_velocity_mm_s,
+    });
 
     let contracts = Contracts {
         bounds: build_bounds(bounds)?,
@@ -209,6 +270,7 @@ fn resolve_verify(
             first_layer_height_range,
         )?,
         first_layer_speed_range: build_range("first_layer_speed_range", first_layer_speed_range)?,
+        kinematics,
     };
 
     let report = verify(&tp, &contracts);
@@ -223,6 +285,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_optimized_ir, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_balanced_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }

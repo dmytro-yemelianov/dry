@@ -153,6 +153,21 @@ class Design:
         "Resolve + optimize; returns a dict ({version, segments})."
         return json.loads(_native.resolve_optimized_ir(json.dumps(self.ops), _params(printer)))
 
+    def balanced_ir(self, printer="generic", kinematics=None):
+        """Resolve + balanced (kinematics-aware) optimize; returns a dict ({version, segments}).
+
+        `kinematics` is a dict with optional keys `max_acceleration_mm_s2` (mm/s²) and
+        `max_junction_velocity_mm_s` (mm/s). When supplied, the engine applies arc centripetal
+        speed clamping and junction-velocity capping in addition to the standard optimizations
+        (``balanced_pipeline``). When ``None`` (default), falls back to ``safe_pipeline``.
+        """
+        kin_json = json.dumps(kinematics) if kinematics is not None else None
+        return json.loads(_native.resolve_balanced_ir(
+            json.dumps(self.ops),
+            _params(printer),
+            kin_json,
+        ))
+
     def binary(self, printer="generic"):
         "Resolve + encode to binary DRY1 format; returns a bytes object."
         return bytes(_native.resolve_binary(json.dumps(self.ops), _params(printer)))
@@ -160,7 +175,7 @@ class Design:
     def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False,
                speed_range=None, max_retraction_distance=None, max_retraction_speed=None,
                max_travel_without_retract=None, first_layer_height_range=None,
-               first_layer_speed_range=None):
+               first_layer_speed_range=None, kinematics=None):
         """Resolve + verify against machine-safety contracts; returns a report dict with findings.
 
         Structured limits cross to the engine as native typed contracts (no CSV round-trip):
@@ -174,7 +189,11 @@ class Design:
             `max_travel_without_retract` (mm) — retraction / stringing limits.
           - `first_layer_height_range`, `first_layer_speed_range` — first-layer adhesion limits, each
             `[min, max]` (or a ``"min,max"`` CSV string).
+          - `kinematics` — dict with optional `max_acceleration_mm_s2` (mm/s²) and/or
+            `max_junction_velocity_mm_s` (mm/s). When supplied, enables the ``peak-acceleration``
+            and ``junction-velocity`` verify rules; ``None`` disables them.
         """
+        kin_json = json.dumps(kinematics) if kinematics is not None else None
         return json.loads(_native.resolve_verify(
             json.dumps(self.ops),
             _params(printer),
@@ -188,6 +207,7 @@ class Design:
             max_travel_without_retract,
             _range_to_list(first_layer_height_range),
             _range_to_list(first_layer_speed_range),
+            kin_json,
         ))
 
 
