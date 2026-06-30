@@ -418,9 +418,9 @@
         </p>
       </div>
       <div class="stat-grid" aria-label="repository stats">
-        <div class="stat"><b>6,616</b><span>source and doc lines reviewed in primary files</span></div>
-        <div class="stat"><b>144</b><span>Rust workspace tests passing after this pass</span></div>
-        <div class="stat"><b>38</b><span>Python SDK tests passing through the local venv</span></div>
+        <div class="stat"><b>Repo-wide</b><span>source and doc review across primary files</span></div>
+        <div class="stat"><b>236</b><span>Rust workspace tests passing after this pass</span></div>
+        <div class="stat"><b>32</b><span>Python SDK tests passing through the local venv</span></div>
         <div class="stat"><b>9</b><span>wasm oracle fixtures reproduced</span></div>
       </div>
     </section>
@@ -496,7 +496,7 @@
         <article class="module">
           <h3><code>crates/cli</code>, <code>py</code>, <code>wasm</code>, <code>sdk/ts</code></h3>
           <p>Thin adapters around the core. They mostly parse JSON ops and expose core operations.</p>
-          <div class="deps">Shared helpers parse contract CSV and kinematics names.</div>
+          <div class="deps">The wasm boundary passes limits as native typed values; the CLI keeps CSV flags through shared core helpers.</div>
         </article>
         <article class="module">
           <h3><code>web/viewer.js</code></h3>
@@ -537,7 +537,7 @@
         </article>
         <article class="decision">
           <h3>Centralize boundary parsing</h3>
-          <p>Done for contract CSV parsing and kinematics names through core helpers. A future typed JSON contract object would remove the remaining string boundary.</p>
+          <p>Done through core helpers, and the typed contract boundary has shipped: <code>resolve_verify</code>/<code>resolve_balanced_ir</code> in wasm take limits as native typed values — bounds and ranges as flat <code>Float64Array</code>, kinematics as a JSON object — with no CSV round-trip. The CLI still uses CSV flags.</p>
         </article>
         <article class="decision">
           <h3>Update docs as part of feature landing</h3>
@@ -549,10 +549,10 @@
     <section id="checks">
       <h2>Verification Run</h2>
       <div class="checks">
-        <div class="check"><strong>Pass</strong><span><code>cargo test --workspace</code>: 144 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cargo test --workspace</code>: 236 tests</span></div>
         <div class="check"><strong>Pass</strong><span><code>cargo clippy --all-targets -- -D warnings</code></span></div>
-        <div class="check"><strong>Pass</strong><span><code>cd sdk/ts &amp;&amp; npm run build &amp;&amp; npm test</code>: 21 tests</span></div>
-        <div class="check"><strong>Pass</strong><span><code>cd py &amp;&amp; maturin develop &amp;&amp; pytest tests/ -q</code>: 38 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd sdk/ts &amp;&amp; npm run build &amp;&amp; npm test</code>: 30 tests</span></div>
+        <div class="check"><strong>Pass</strong><span><code>cd py &amp;&amp; maturin develop &amp;&amp; pytest tests/ -q</code>: 32 tests</span></div>
         <div class="check"><strong>Pass</strong><span><code>node web/smoke.cjs web/pkg-node ...</code>: 9 fixtures</span></div>
         <div class="check"><strong>Pass</strong><span><code>node web/blocks-regression.mjs</code>: Blockly/static web contracts</span></div>
         <div class="check"><strong>Note</strong><span>Ignored local build dirs total roughly 2.1 GB.</span></div>
@@ -602,8 +602,8 @@ const findings = [
     severity: 'low',
     category: 'practice',
     title: 'Addressed: boundary parsing is centralized',
-    detail: 'CLI, wasm and Python now use core helpers for bounds, speed ranges and kinematics names.',
-    fix: 'Remaining follow-up: replace comma strings with a typed JSON contract object in public APIs.'
+    detail: 'CLI, wasm and Python use core helpers for bounds, speed ranges and kinematics. The wasm boundary now passes these as native typed values — bounds and ranges as flat Float64Array, kinematics as a JSON object — with no CSV round-trip.',
+    fix: 'Remaining follow-up: the CLI still accepts CSV flags; fold it onto the same typed contract if a public typed API is published.'
   },
   {
     severity: 'low',
