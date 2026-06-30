@@ -6,9 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{
-    FirmwareProfile, MachineKinematics, MachineProfile, MaterialProfile, ProcessProfile, Profile,
-};
+use super::{FirmwareProfile, MachineKinematics, Profile};
 
 // ── public types ──────────────────────────────────────────────────────────────
 
@@ -151,9 +149,6 @@ pub fn import_klipper(
         firmware: FirmwareProfile {
             flavor: Some("klipper".to_string()),
         },
-        machine: MachineProfile::default(),
-        material: MaterialProfile::default(),
-        process: ProcessProfile::default(),
         ..Profile::default()
     };
 
@@ -220,13 +215,19 @@ pub fn import_klipper(
         let y_min = get_stepper("stepper_y", "position_min").unwrap_or(0.0);
         let y_max = get_stepper("stepper_y", "position_max");
         let z_min = get_stepper("stepper_z", "position_min").unwrap_or(0.0);
-        let z_max = get_stepper("stepper_z", "position_max").unwrap_or(0.0);
+        let z_max = get_stepper("stepper_z", "position_max");
 
-        if let (Some(xmax), Some(ymax)) = (x_max, y_max) {
-            profile.machine.build_volume = Some([[x_min, xmax], [y_min, ymax], [z_min, z_max]]);
+        if let (Some(xmax), Some(ymax), Some(zmax)) = (x_max, y_max, z_max) {
+            profile.machine.build_volume = Some([[x_min, xmax], [y_min, ymax], [z_min, zmax]]);
             warnings.push(KlipperImportWarning {
                 field: "machine.build_volume".to_string(),
                 message: "machine.build_volume approximated from stepper position limits"
+                    .to_string(),
+            });
+        } else {
+            warnings.push(KlipperImportWarning {
+                field: "machine.build_volume".to_string(),
+                message: "machine.build_volume omitted — a stepper section is missing position_max"
                     .to_string(),
             });
         }
@@ -379,6 +380,32 @@ mod tests {
         // retract_speed 35 mm/s → 2100 mm/min
         assert_eq!(p.process.max_retraction_speed, Some(2100.0));
         p.validate().expect("imported profile validates");
+    }
+
+    #[test]
+    fn build_volume_set_when_all_three_stepper_maxes_present() {
+        let (p, w) = import_klipper(CFG).unwrap();
+        assert_eq!(
+            p.machine.build_volume,
+            Some([[0.0, 250.0], [0.0, 210.0], [0.0, 210.0]])
+        );
+        // approximation warning present
+        assert!(w.iter().any(|x| x.field == "machine.build_volume"
+            && x.message.contains("approximated from stepper")));
+    }
+
+    #[test]
+    fn build_volume_omitted_when_stepper_z_position_max_absent() {
+        let cfg_no_z_max = "\
+[printer]\nkinematics: cartesian\nmax_accel: 1000\n\
+[stepper_x]\nposition_min: 0\nposition_max: 200\n\
+[stepper_y]\nposition_min: 0\nposition_max: 200\n\
+[stepper_z]\nposition_min: 0\n";
+        let (p, w) = import_klipper(cfg_no_z_max).unwrap();
+        assert!(p.machine.build_volume.is_none());
+        assert!(w.iter().any(
+            |x| x.field == "machine.build_volume" && x.message.contains("missing position_max")
+        ));
     }
 
     #[test]
