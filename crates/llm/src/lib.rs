@@ -105,6 +105,55 @@ struct StructuredAnalysis {
     recommendations: Vec<dry_core::Recommendation>,
 }
 
+/// Per-1M-token (input, output) USD pricing, keyed by exact model id.
+fn price_per_mtok(model: &str) -> Option<(f64, f64)> {
+    match model {
+        "claude-opus-4-8" | "claude-opus-4-7" | "claude-opus-4-6" => Some((5.0, 25.0)),
+        "claude-sonnet-4-6" => Some((3.0, 15.0)),
+        "claude-haiku-4-5" => Some((1.0, 5.0)),
+        "claude-fable-5" => Some((10.0, 50.0)),
+        _ => None,
+    }
+}
+
+/// Estimated USD cost for a call, or `None` for an unknown model.
+pub fn cost_usd(model: &str, usage: &Usage) -> Option<f64> {
+    let (in_rate, out_rate) = price_per_mtok(model)?;
+    Some(
+        (usage.input_tokens as f64 / 1e6) * in_rate + (usage.output_tokens as f64 / 1e6) * out_rate,
+    )
+}
+
+/// Send the bundle to the Anthropic Messages API and decode the structured reply.
+/// This is the only function in the workspace that performs network I/O.
+pub fn analyze(
+    cfg: &ClientConfig,
+    bundle: &dry_core::ExplainBundle,
+) -> Result<AnalysisResponse, LlmError> {
+    if cfg.api_key.is_empty() {
+        return Err(LlmError::MissingKey);
+    }
+    let body = build_request(cfg, bundle);
+    let resp = ureq::post("https://api.anthropic.com/v1/messages")
+        .set("x-api-key", &cfg.api_key)
+        .set("anthropic-version", "2023-06-01")
+        .set("content-type", "application/json")
+        .send_json(body);
+    match resp {
+        Ok(r) => {
+            let json: serde_json::Value = r
+                .into_json()
+                .map_err(|e| LlmError::Decode(format!("invalid JSON from API: {e}")))?;
+            decode_response(&json)
+        }
+        Err(ureq::Error::Status(code, r)) => {
+            let snippet = r.into_string().unwrap_or_default();
+            Err(LlmError::Http(code, snippet.chars().take(500).collect()))
+        }
+        Err(ureq::Error::Transport(t)) => Err(LlmError::Transport(t.to_string())),
+    }
+}
+
 /// Parse a `POST /v1/messages` response body into an [`AnalysisResponse`]. Pure — no network.
 pub fn decode_response(body: &serde_json::Value) -> Result<AnalysisResponse, LlmError> {
     if body["stop_reason"] == "refusal" {
@@ -217,6 +266,28 @@ mod tests {
             "usage": { "input_tokens": 1, "output_tokens": 1 }
         });
         assert!(matches!(decode_response(&body), Err(LlmError::Decode(_))));
+    }
+
+    #[test]
+    fn cost_known_model() {
+        let u = Usage {
+            input_tokens: 1_000_000,
+            output_tokens: 1_000_000,
+        };
+        let c = cost_usd("claude-sonnet-4-6", &u).unwrap();
+        assert!(
+            (c - 18.0).abs() < 1e-9,
+            "1M in @ $3 + 1M out @ $15 = $18, got {c}"
+        );
+    }
+
+    #[test]
+    fn cost_unknown_model_is_none() {
+        let u = Usage {
+            input_tokens: 10,
+            output_tokens: 10,
+        };
+        assert!(cost_usd("some-future-model", &u).is_none());
     }
 
     #[test]
