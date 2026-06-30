@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "name": "voron",
+  "firmware": {
+    "flavor": "klipper"
+  },
+  "machine": {
+    "build_volume": [
+      [
+        0.0,
+        350.0
+      ],
+      [
+        0.0,
+        350.0
+      ],
+      [
+        -5.0,
+        310.0
+      ]
+    ],
+    "kinematics": {
+      "max_acceleration_mm_s2": 3000.0,
+      "max_junction_velocity_mm_s": 5.0
+    }
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "min_nozzle_temperature_c": 170.0
+  },
+  "process": {
+    "line_width": 0.4,
+    "monotonic_z": false,
+    "max_retraction_distance": 0.5,
+    "max_retraction_speed": 2100.0
+  }
+}

@@ -4,10 +4,10 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     apply_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
-    optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv, parse_speed_range_csv,
-    simulate, simulate_stream, trace_summary_with_sources, verify, verify_stream, Contracts,
-    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, Profile,
-    RewriteReport, RewriteSpanResult, Toolpath,
+    import_klipper, optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv,
+    parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources, verify,
+    verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
+    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -105,6 +105,14 @@ enum Cmd {
         /// Write JSON to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
+    },
+    /// Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume).
+    ImportPrinterCfg {
+        file: String,
+        #[arg(long)]
+        out: Option<String>,
+        #[arg(long)]
+        name: Option<String>,
     },
     /// Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation.
     ImportGcode {
@@ -568,6 +576,25 @@ fn run(cli: Cli) -> ExitCode {
                 Some(path) => fs::write(&path, json + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
                 None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::ImportPrinterCfg { file, out, name } => {
+            let text = fs::read_to_string(&file)
+                .unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let (mut profile, warnings) =
+                import_klipper(&text).unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            if let Some(n) = name {
+                profile.name = Some(n);
+            }
+            for w in &warnings {
+                eprintln!("warning: {} — {}", w.field, w.message);
+            }
+            let json = serde_json::to_string_pretty(&profile).unwrap() + "\n";
+            match out {
+                Some(path) => fs::write(&path, json)
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => print!("{json}"),
             }
             ExitCode::SUCCESS
         }

@@ -686,3 +686,32 @@ fn forensics_gcode_detects_slicer_and_attributes_features() {
     assert!(features.contains(&"infill"), "{features:?}");
     assert_eq!(report["features"][0]["source"], "from-comment");
 }
+
+#[test]
+fn import_printer_cfg_matches_golden() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/profiles");
+    let out = Command::new(bin())
+        .args([
+            "import-printer-cfg",
+            dir.join("klipper_voron.cfg").to_str().unwrap(),
+            "--name",
+            "voron",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "import-printer-cfg failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got: Value = serde_json::from_slice(&out.stdout).expect("valid profile JSON");
+    let want: Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("klipper_voron.expected.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(got, want, "imported profile must match the golden");
+    assert_eq!(
+        got["machine"]["kinematics"]["max_acceleration_mm_s2"],
+        3000.0
+    ); // sanity vs the fixture's max_accel
+}
