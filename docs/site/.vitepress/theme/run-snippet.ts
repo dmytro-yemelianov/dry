@@ -62,12 +62,12 @@ function wrapReturn(js: string): string {
 
   const body = trimTrailingSemicolons(cleaned);
   const split = lastTopLevelStatementStart(body);
-  if (split === 0) return shouldReturn(body) ? `return (${body});` : `${body};\nreturn undefined;`;
+  if (split === 0) return shouldReturn(body) ? `return (\n${body}\n);` : `${body};\nreturn undefined;`;
 
   const head = body.slice(0, split).trimEnd();
   const tail = body.slice(split).trim();
   if (!tail || !shouldReturn(tail)) return `${body};\nreturn undefined;`;
-  return `${head}\nreturn (${tail});`;
+  return `${head}\nreturn (\n${tail}\n);`;
 }
 
 function shouldReturn(statement: string): boolean {
