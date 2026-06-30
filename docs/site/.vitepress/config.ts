@@ -5,6 +5,7 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url)); // docs/site/.vitepress
 const repoRoot = path.resolve(here, '../../..'); // -> repo root
 const sdkSrc = path.resolve(repoRoot, 'sdk/ts/src');
+const webSpline = path.resolve(repoRoot, 'web/spline.js');
 
 export default defineConfig({
   title: 'Dry',
@@ -32,7 +33,7 @@ export default defineConfig({
     },
   },
   vite: {
-    resolve: { alias: { '@sdk': sdkSrc } },
+    resolve: { alias: { '@sdk': sdkSrc, '@webspline': webSpline } },
     server: { fs: { allow: [repoRoot] } },
   },
 });
