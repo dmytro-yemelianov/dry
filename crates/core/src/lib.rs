@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+pub mod compare;
 pub mod emit;
 pub mod engine;
 pub mod explain;
@@ -32,6 +33,10 @@ pub use codec::{
     decode_any_streaming, decode_chunked_streaming, decode_streaming, encode_chunked,
     BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError, JsonSegmentsIterator,
     SegmentStream, StreamingDecode,
+};
+pub use compare::{
+    compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
+    ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
 pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
 pub use engine::{simulate, simulate_stream, Metrics};
