@@ -1,9 +1,10 @@
 import DefaultTheme from 'vitepress/theme';
 import type { Theme } from 'vitepress';
+import LiveExample from './LiveExample.vue';
 
 export default {
   extends: DefaultTheme,
-  enhanceApp() {
-    // <LiveExample> is registered here in Task 6.
+  enhanceApp({ app }) {
+    app.component('LiveExample', LiveExample);
   },
 } satisfies Theme;
