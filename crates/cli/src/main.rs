@@ -163,6 +163,27 @@ enum Cmd {
         /// Allowed feedrate range `min,max` (mm/min) for extruding moves.
         #[arg(long)]
         speed_range: Option<String>,
+        /// Maximum retraction distance (mm).
+        #[arg(long)]
+        max_retraction_distance: Option<f64>,
+        /// Maximum retraction speed (mm/min).
+        #[arg(long)]
+        max_retraction_speed: Option<f64>,
+        /// Maximum travel run distance (mm) allowed without a retraction.
+        #[arg(long)]
+        max_travel_without_retract: Option<f64>,
+        /// Allowed first-layer Z height range `min,max` (mm).
+        #[arg(long)]
+        first_layer_height_range: Option<String>,
+        /// Allowed first-layer feedrate range `min,max` (mm/min).
+        #[arg(long)]
+        first_layer_speed_range: Option<String>,
+        /// Maximum toolhead acceleration (mm/s²) for the arc peak-acceleration check.
+        #[arg(long)]
+        max_accel: Option<f64>,
+        /// Maximum junction (square-corner) velocity (mm/s) for the junction-velocity check.
+        #[arg(long)]
+        junction_velocity: Option<f64>,
         /// Print metrics/findings as JSON.
         #[arg(long)]
         json: bool,
@@ -364,7 +385,10 @@ enum Cmd {
         json: bool,
     },
     /// Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found.
-    /// Flags: `--bounds`, `--max-flow`, `--monotonic-z`, `--min-temp`, `--json`.
+    /// Flags: `--bounds`, `--max-flow`, `--speed-range`, `--monotonic-z`, `--min-temp`,
+    /// `--max-retraction-distance`, `--max-retraction-speed`, `--max-travel-without-retract`,
+    /// `--first-layer-height-range`, `--first-layer-speed-range`, `--max-accel`,
+    /// `--junction-velocity`, `--json`.
     Verify {
         file: String,
         /// Machine/material profile JSON to supply verifier contracts.
@@ -385,6 +409,27 @@ enum Cmd {
         /// Allowed feedrate range `min,max` (mm/min) for extruding moves.
         #[arg(long)]
         speed_range: Option<String>,
+        /// Maximum retraction distance (mm).
+        #[arg(long)]
+        max_retraction_distance: Option<f64>,
+        /// Maximum retraction speed (mm/min).
+        #[arg(long)]
+        max_retraction_speed: Option<f64>,
+        /// Maximum travel run distance (mm) allowed without a retraction.
+        #[arg(long)]
+        max_travel_without_retract: Option<f64>,
+        /// Allowed first-layer Z height range `min,max` (mm).
+        #[arg(long)]
+        first_layer_height_range: Option<String>,
+        /// Allowed first-layer feedrate range `min,max` (mm/min).
+        #[arg(long)]
+        first_layer_speed_range: Option<String>,
+        /// Maximum toolhead acceleration (mm/s²) for the arc peak-acceleration check.
+        #[arg(long)]
+        max_accel: Option<f64>,
+        /// Maximum junction (square-corner) velocity (mm/s) for the junction-velocity check.
+        #[arg(long)]
+        junction_velocity: Option<f64>,
         /// Print findings as JSON.
         #[arg(long)]
         json: bool,
@@ -670,6 +715,13 @@ fn run(cli: Cli) -> ExitCode {
             monotonic_z,
             min_temp,
             speed_range,
+            max_retraction_distance,
+            max_retraction_speed,
+            max_travel_without_retract,
+            first_layer_height_range,
+            first_layer_speed_range,
+            max_accel,
+            junction_velocity,
             json,
         } => {
             let input =
@@ -686,11 +738,20 @@ fn run(cli: Cli) -> ExitCode {
             let metrics = simulate(&imported.toolpath);
             let contracts = contracts_from_inputs(
                 profile.as_ref(),
-                bounds.as_deref(),
-                max_flow,
-                speed_range.as_deref(),
-                monotonic_z,
-                min_temp,
+                ContractOverrides {
+                    bounds: bounds.as_deref(),
+                    max_flow,
+                    speed_range: speed_range.as_deref(),
+                    monotonic_z,
+                    min_temp,
+                    max_retraction_distance,
+                    max_retraction_speed,
+                    max_travel_without_retract,
+                    first_layer_height_range: first_layer_height_range.as_deref(),
+                    first_layer_speed_range: first_layer_speed_range.as_deref(),
+                    max_accel,
+                    junction_velocity,
+                },
             );
             let report = verify(&imported.toolpath, &contracts);
 
@@ -1081,7 +1142,7 @@ fn run(cli: Cli) -> ExitCode {
                 // error under the active profile contracts.
                 let mode_label = optimize_mode_label(mode);
                 let contracts =
-                    contracts_from_inputs(profile.as_ref(), None, None, None, false, None);
+                    contracts_from_inputs(profile.as_ref(), ContractOverrides::default());
                 // `balanced` consumes the active profile's deterministic kinematic limits (max
                 // acceleration / junction velocity); `safe`/`max` ignore them.
                 let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
@@ -1272,6 +1333,13 @@ fn run(cli: Cli) -> ExitCode {
             monotonic_z,
             min_temp,
             speed_range,
+            max_retraction_distance,
+            max_retraction_speed,
+            max_travel_without_retract,
+            first_layer_height_range,
+            first_layer_speed_range,
+            max_accel,
+            junction_velocity,
             json,
         } => {
             let stream =
@@ -1279,11 +1347,20 @@ fn run(cli: Cli) -> ExitCode {
             let profile = load_profile(profile.as_deref());
             let contracts = contracts_from_inputs(
                 profile.as_ref(),
-                bounds.as_deref(),
-                max_flow,
-                speed_range.as_deref(),
-                monotonic_z,
-                min_temp,
+                ContractOverrides {
+                    bounds: bounds.as_deref(),
+                    max_flow,
+                    speed_range: speed_range.as_deref(),
+                    monotonic_z,
+                    min_temp,
+                    max_retraction_distance,
+                    max_retraction_speed,
+                    max_travel_without_retract,
+                    first_layer_height_range: first_layer_height_range.as_deref(),
+                    first_layer_speed_range: first_layer_speed_range.as_deref(),
+                    max_accel,
+                    junction_velocity,
+                },
             );
             let report = verify_stream(stream, &contracts)
                 .unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
@@ -1368,29 +1445,69 @@ fn gcode_review_params(
     params
 }
 
-fn contracts_from_inputs(
-    profile: Option<&Profile>,
-    bounds: Option<&str>,
+/// CLI overrides for the verifier [`Contracts`]. Each set field overrides the corresponding
+/// profile-sourced value — mirroring how `--max-flow`/`--bounds` already compose with `--profile`:
+/// the profile supplies the baseline, a set flag wins. Unset fields leave the profile value intact.
+/// The kinematic flags override only their sub-field, preserving the profile's other kinematic limit.
+#[derive(Default)]
+struct ContractOverrides<'a> {
+    bounds: Option<&'a str>,
     max_flow: Option<f64>,
-    speed_range: Option<&str>,
+    speed_range: Option<&'a str>,
     monotonic_z: bool,
     min_temp: Option<f64>,
-) -> Contracts {
+    max_retraction_distance: Option<f64>,
+    max_retraction_speed: Option<f64>,
+    max_travel_without_retract: Option<f64>,
+    first_layer_height_range: Option<&'a str>,
+    first_layer_speed_range: Option<&'a str>,
+    max_accel: Option<f64>,
+    junction_velocity: Option<f64>,
+}
+
+fn contracts_from_inputs(profile: Option<&Profile>, overrides: ContractOverrides) -> Contracts {
     let mut contracts = profile.map(Profile::contracts).unwrap_or_default();
-    if let Some(bounds) = bounds {
+    if let Some(bounds) = overrides.bounds {
         contracts.bounds = Some(parse_bounds(bounds));
     }
-    if let Some(max_flow) = max_flow {
+    if let Some(max_flow) = overrides.max_flow {
         contracts.max_flow = Some(max_flow);
     }
-    if let Some(speed_range) = speed_range {
+    if let Some(speed_range) = overrides.speed_range {
         contracts.speed_range = Some(parse_speed_range(speed_range));
     }
-    if monotonic_z {
+    if overrides.monotonic_z {
         contracts.monotonic_z = true;
     }
-    if let Some(min_temp) = min_temp {
+    if let Some(min_temp) = overrides.min_temp {
         contracts.min_temp = Some(min_temp);
+    }
+    if let Some(max_retraction_distance) = overrides.max_retraction_distance {
+        contracts.max_retraction_distance = Some(max_retraction_distance);
+    }
+    if let Some(max_retraction_speed) = overrides.max_retraction_speed {
+        contracts.max_retraction_speed = Some(max_retraction_speed);
+    }
+    if let Some(max_travel_without_retract) = overrides.max_travel_without_retract {
+        contracts.max_travel_without_retract = Some(max_travel_without_retract);
+    }
+    if let Some(range) = overrides.first_layer_height_range {
+        contracts.first_layer_height_range = Some(parse_range("first-layer-height-range", range));
+    }
+    if let Some(range) = overrides.first_layer_speed_range {
+        contracts.first_layer_speed_range = Some(parse_range("first-layer-speed-range", range));
+    }
+    // Kinematics: a set flag overrides only its sub-field, keeping any profile-sourced limit for the
+    // other. Build a fresh `KinematicContracts` when the profile carried none.
+    if overrides.max_accel.is_some() || overrides.junction_velocity.is_some() {
+        let mut kinematics = contracts.kinematics.unwrap_or_default();
+        if let Some(max_accel) = overrides.max_accel {
+            kinematics.max_acceleration_mm_s2 = Some(max_accel);
+        }
+        if let Some(junction_velocity) = overrides.junction_velocity {
+            kinematics.max_junction_velocity_mm_s = Some(junction_velocity);
+        }
+        contracts.kinematics = Some(kinematics);
     }
     contracts
 }
@@ -1403,6 +1520,11 @@ fn parse_bounds(s: &str) -> [[f64; 2]; 3] {
 /// Parse `min,max` into a speed range; exits 2 on a malformed value.
 fn parse_speed_range(s: &str) -> [f64; 2] {
     parse_speed_range_csv(s).unwrap_or_else(|e| die(format!("bad --speed-range: {e}")))
+}
+
+/// Parse `min,max` into a two-element range, attributing a malformed value to `--{flag}`; exits 2.
+fn parse_range(flag: &str, s: &str) -> [f64; 2] {
+    parse_speed_range_csv(s).unwrap_or_else(|e| die(format!("bad --{flag}: {e}")))
 }
 
 /// Assembled inputs needed by the offline `explain` renderer and the LLM handler.
@@ -1449,11 +1571,14 @@ fn assemble_explain(
     let profiled = profile.is_some();
     let contracts = contracts_from_inputs(
         profile.as_ref(),
-        bounds,
-        max_flow,
-        speed_range,
-        monotonic_z,
-        min_temp,
+        ContractOverrides {
+            bounds,
+            max_flow,
+            speed_range,
+            monotonic_z,
+            min_temp,
+            ..ContractOverrides::default()
+        },
     );
     let report = verify(&imported.toolpath, &contracts);
     let label = profile_label(profile.as_ref());
@@ -1754,11 +1879,14 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
     );
     let contracts = contracts_from_inputs(
         profile.as_ref(),
-        args.bounds.as_deref(),
-        args.max_flow,
-        args.speed_range.as_deref(),
-        args.monotonic_z,
-        args.min_temp,
+        ContractOverrides {
+            bounds: args.bounds.as_deref(),
+            max_flow: args.max_flow,
+            speed_range: args.speed_range.as_deref(),
+            monotonic_z: args.monotonic_z,
+            min_temp: args.min_temp,
+            ..ContractOverrides::default()
+        },
     );
 
     // The bytes we will upload: rewritten in memory when --rewrite, else the original file verbatim.

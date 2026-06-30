@@ -648,6 +648,56 @@ fn verify_runs_and_reports_findings() {
 }
 
 #[test]
+fn review_gcode_max_retraction_distance_flag_fires_rule() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-retract-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    // Relative E (M83): the `G1 E-5` is a pure retraction of 5 mm.
+    std::fs::write(
+        &input,
+        "M83\nG1 X0 Y0 Z0.2 F1800\nG1 X10 E0.5 F1200\nG1 E-5 F1800\nG1 X20 F9000\n",
+    )
+    .unwrap();
+
+    // Without the flag the 5 mm retraction is unconstrained → OK.
+    let ok = Command::new(bin())
+        .args(["review-gcode", input.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        ok.status.success(),
+        "no retraction contract → no finding: {}",
+        String::from_utf8_lossy(&ok.stdout)
+    );
+
+    // With a 1 mm limit the 5 mm retraction trips the retraction-distance rule (non-zero exit).
+    let bad = Command::new(bin())
+        .args([
+            "review-gcode",
+            input.to_str().unwrap(),
+            "--max-retraction-distance",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        !bad.status.success(),
+        "--max-retraction-distance 1 should fail the 5 mm retraction"
+    );
+    let text = String::from_utf8(bad.stderr).unwrap() + &String::from_utf8(bad.stdout).unwrap();
+    assert!(
+        text.contains("retraction-distance"),
+        "expected a retraction-distance finding, got: {text}"
+    );
+}
+
+#[test]
 fn forensics_gcode_detects_slicer_and_attributes_features() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
