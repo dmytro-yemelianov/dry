@@ -2,6 +2,8 @@
 //! (`ureq`) that sends a [`dry_core::ExplainBundle`] (the curated prompt + the deterministic reports)
 //! and gets back structured recommendations the engine then gates. No async runtime.
 
+use serde::Deserialize;
+
 /// Connection + model parameters for one call.
 pub struct ClientConfig {
     pub api_key: String,
@@ -56,6 +58,81 @@ pub fn build_request(cfg: &ClientConfig, bundle: &dry_core::ExplainBundle) -> se
     })
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct Usage {
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnalysisResponse {
+    pub summary: String,
+    pub time_analysis: String,
+    pub risks: String,
+    pub recommendations: Vec<dry_core::Recommendation>,
+    pub usage: Usage,
+}
+
+#[derive(Debug)]
+pub enum LlmError {
+    MissingKey,
+    Http(u16, String),
+    Refusal(String),
+    Decode(String),
+    Transport(String),
+}
+
+impl std::fmt::Display for LlmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LlmError::MissingKey => write!(f, "set ANTHROPIC_API_KEY to use --llm"),
+            LlmError::Http(code, body) => write!(f, "Anthropic API returned HTTP {code}: {body}"),
+            LlmError::Refusal(cat) => write!(f, "model declined the request (category: {cat})"),
+            LlmError::Decode(msg) => write!(f, "could not parse the model response: {msg}"),
+            LlmError::Transport(msg) => write!(f, "network error calling the Anthropic API: {msg}"),
+        }
+    }
+}
+impl std::error::Error for LlmError {}
+
+#[derive(Deserialize)]
+struct StructuredAnalysis {
+    summary: String,
+    time_analysis: String,
+    risks: String,
+    recommendations: Vec<dry_core::Recommendation>,
+}
+
+/// Parse a `POST /v1/messages` response body into an [`AnalysisResponse`]. Pure — no network.
+pub fn decode_response(body: &serde_json::Value) -> Result<AnalysisResponse, LlmError> {
+    if body["stop_reason"] == "refusal" {
+        let category = body["stop_details"]["category"]
+            .as_str()
+            .unwrap_or("unspecified");
+        return Err(LlmError::Refusal(category.to_string()));
+    }
+    let text = body["content"]
+        .as_array()
+        .and_then(|blocks| blocks.iter().find(|b| b["type"] == "text"))
+        .and_then(|b| b["text"].as_str())
+        .ok_or_else(|| LlmError::Decode("response had no text content block".into()))?;
+    let analysis: StructuredAnalysis =
+        serde_json::from_str(text).map_err(|e| LlmError::Decode(format!("{e}: {text}")))?;
+    let usage: Usage = serde_json::from_value(body["usage"].clone()).unwrap_or(Usage {
+        input_tokens: 0,
+        output_tokens: 0,
+    });
+    Ok(AnalysisResponse {
+        summary: analysis.summary,
+        time_analysis: analysis.time_analysis,
+        risks: analysis.risks,
+        recommendations: analysis.recommendations,
+        usage,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +177,46 @@ mod tests {
                 verify: review,
             },
         )
+    }
+
+    #[test]
+    fn decodes_structured_success() {
+        let analysis = serde_json::json!({
+            "summary": "PLA benchy", "time_analysis": "travel-bound", "risks": "none",
+            "recommendations": [{
+                "title": "Reorder travel", "rationale": "lots of travel", "expected_effect": "-15% time",
+                "priority": 1, "action_kind": "rewrite", "mode": "max"
+            }]
+        }).to_string();
+        let body = serde_json::json!({
+            "stop_reason": "end_turn",
+            "content": [{ "type": "text", "text": analysis }],
+            "usage": { "input_tokens": 4210, "output_tokens": 905 }
+        });
+        let r = decode_response(&body).expect("decode");
+        assert_eq!(r.summary, "PLA benchy");
+        assert_eq!(r.recommendations.len(), 1);
+        assert_eq!(r.usage.input_tokens, 4210);
+    }
+
+    #[test]
+    fn refusal_is_an_error_not_a_panic() {
+        let body = serde_json::json!({
+            "stop_reason": "refusal",
+            "stop_details": { "category": "cyber" },
+            "content": []
+        });
+        assert!(matches!(decode_response(&body), Err(LlmError::Refusal(_))));
+    }
+
+    #[test]
+    fn malformed_content_is_decode_error() {
+        let body = serde_json::json!({
+            "stop_reason": "end_turn",
+            "content": [{ "type": "text", "text": "not json" }],
+            "usage": { "input_tokens": 1, "output_tokens": 1 }
+        });
+        assert!(matches!(decode_response(&body), Err(LlmError::Decode(_))));
     }
 
     #[test]
