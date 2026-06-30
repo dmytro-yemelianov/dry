@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "rule": "junction-velocity",
+      "severity": "warning",
+      "segment": 1,
+      "message": "junction velocity 25.000 mm/s exceeds the machine limit of 20.000 mm/s"
+    },
+    {
+      "rule": "peak-acceleration",
+      "severity": "error",
+      "segment": 2,
+      "message": "arc centripetal acceleration 10000.000 mm/s² exceeds the machine limit of 500.000 mm/s²"
+    },
+    {
+      "rule": "junction-velocity",
+      "severity": "warning",
+      "segment": 2,
+      "message": "junction velocity 25.000 mm/s exceeds the machine limit of 20.000 mm/s"
+    }
+  ]
+}

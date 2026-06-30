@@ -212,6 +212,7 @@ pub fn resolve_verify(
             first_layer_height_range,
         )?,
         first_layer_speed_range: build_range("first_layer_speed_range", first_layer_speed_range)?,
+        kinematics: None,
     };
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let report = verify(&tp, &contracts);

@@ -40,6 +40,17 @@ pub struct Contracts {
     pub first_layer_height_range: Option<[f64; 2]>,
     /// Allowed speed range `[min, max]` (mm/min) for the first layer.
     pub first_layer_speed_range: Option<[f64; 2]>,
+    /// Kinematic limits for the peak-acceleration / junction-velocity rules. `None` disables them.
+    #[serde(default)]
+    pub kinematics: Option<KinematicContracts>,
+}
+
+/// Kinematic limits checked by the `peak-acceleration` (arc centripetal) and `junction-velocity`
+/// (per-junction Δv) rules. An unset field disables its check.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct KinematicContracts {
+    pub max_acceleration_mm_s2: Option<f64>,
+    pub max_junction_velocity_mm_s: Option<f64>,
 }
 
 /// A user-facing contract configuration parse error.
@@ -139,6 +150,10 @@ pub enum RuleId {
     FirstLayerHeight,
     /// First-layer speed is outside the allowed range (adhesion — advisory).
     FirstLayerSpeed,
+    /// An arc's centripetal acceleration exceeds the machine's max acceleration.
+    PeakAcceleration,
+    /// A junction's velocity change exceeds the machine's square-corner velocity.
+    JunctionVelocity,
 }
 
 /// One rule's catalog entry.
@@ -151,7 +166,7 @@ pub struct Rule {
 
 impl RuleId {
     /// Every rule, in catalog order.
-    pub const ALL: [RuleId; 15] = [
+    pub const ALL: [RuleId; 17] = [
         RuleId::Finite,
         RuleId::TravelExtrudes,
         RuleId::Bead,
@@ -167,6 +182,8 @@ impl RuleId {
         RuleId::TravelWithoutRetraction,
         RuleId::FirstLayerHeight,
         RuleId::FirstLayerSpeed,
+        RuleId::PeakAcceleration,
+        RuleId::JunctionVelocity,
     ];
 
     /// The stable kebab-case wire id.
@@ -187,6 +204,8 @@ impl RuleId {
             RuleId::TravelWithoutRetraction => "travel-without-retraction",
             RuleId::FirstLayerHeight => "first-layer-height",
             RuleId::FirstLayerSpeed => "first-layer-speed",
+            RuleId::PeakAcceleration => "peak-acceleration",
+            RuleId::JunctionVelocity => "junction-velocity",
         }
     }
 
@@ -200,7 +219,8 @@ impl RuleId {
         match self {
             RuleId::TravelWithoutRetraction
             | RuleId::FirstLayerHeight
-            | RuleId::FirstLayerSpeed => Severity::Warning,
+            | RuleId::FirstLayerSpeed
+            | RuleId::JunctionVelocity => Severity::Warning,
             _ => Severity::Error,
         }
     }
@@ -225,6 +245,12 @@ impl RuleId {
             }
             RuleId::FirstLayerHeight => "the first-layer height is outside the allowed range",
             RuleId::FirstLayerSpeed => "the first-layer speed is outside the allowed range",
+            RuleId::PeakAcceleration => {
+                "an arc's centripetal acceleration exceeds the machine's max acceleration"
+            }
+            RuleId::JunctionVelocity => {
+                "a junction's velocity change exceeds the machine's square-corner velocity"
+            }
         }
     }
 }
@@ -481,6 +507,10 @@ where
     let mut travel_run_length = 0.0;
     let mut retracted = true;
     let mut flagged_travel = false;
+    // For junction-velocity: track the direction of the previous extruding segment so we can
+    // detect angle changes at junctions and compare the entry speed to the limit.
+    let mut prev_ext_dir: Option<[f64; 3]> = None;
+    let mut prev_ext_speed_mm_s: f64 = 0.0;
 
     for (i, s) in segments_vec.into_iter().enumerate() {
         // --- structural invariants (always on) ---
@@ -692,6 +722,81 @@ where
                 }
             }
         }
+
+        // --- kinematic checks ---
+        if let Some(k) = &c.kinematics {
+            // PeakAcceleration: centripetal acceleration of an arc must not exceed the machine max.
+            // a = v² / r  where v is in mm/s and r is the arc radius in mm.
+            if let Some(max_a) = k.max_acceleration_mm_s2 {
+                if s.kind == SegmentKind::Arc {
+                    if let (Some([cx, cy]), Some(sx), Some(sy)) = (s.centre, s.start[0], s.start[1])
+                    {
+                        let radius = (sx - cx).hypot(sy - cy).value();
+                        if radius > 0.0 {
+                            let speed_mm_s = s.speed.value() / 60.0;
+                            let centripetal_a = speed_mm_s * speed_mm_s / radius;
+                            if centripetal_a > max_a {
+                                push(
+                                    RuleId::PeakAcceleration,
+                                    Some(i),
+                                    format!(
+                                        "arc centripetal acceleration {centripetal_a:.3} mm/s² \
+                                         exceeds the machine limit of {max_a:.3} mm/s²"
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // JunctionVelocity: at each corner between two consecutive extruding moves the
+            // entry speed must not exceed the machine's square-corner (junction) velocity limit.
+            // We approximate the junction speed as the minimum of the two adjoining segment
+            // speeds and fire if a direction change is detected (dot product < 1 − ε).
+            if let Some(max_jv) = k.max_junction_velocity_mm_s {
+                if !s.travel && s.length.value() > 0.0 {
+                    // Compute normalised direction of this segment.
+                    let dx = s.end[0].map(|v| v.value()).unwrap_or(0.0)
+                        - s.start[0].map(|v| v.value()).unwrap_or(0.0);
+                    let dy = s.end[1].map(|v| v.value()).unwrap_or(0.0)
+                        - s.start[1].map(|v| v.value()).unwrap_or(0.0);
+                    let dz = s.end[2].map(|v| v.value()).unwrap_or(0.0)
+                        - s.start[2].map(|v| v.value()).unwrap_or(0.0);
+                    let mag = libm::sqrt(dx * dx + dy * dy + dz * dz);
+                    let curr_dir = if mag > 0.0 {
+                        Some([dx / mag, dy / mag, dz / mag])
+                    } else {
+                        None
+                    };
+
+                    if let (Some(pd), Some(cd)) = (prev_ext_dir, curr_dir) {
+                        let dot = pd[0] * cd[0] + pd[1] * cd[1] + pd[2] * cd[2];
+                        // Only check corners with a meaningful angle change (> ~0.8°).
+                        if dot < 0.9999 {
+                            let speed_mm_s = s.speed.value() / 60.0;
+                            let junction_speed = prev_ext_speed_mm_s.min(speed_mm_s);
+                            if junction_speed > max_jv {
+                                push(
+                                    RuleId::JunctionVelocity,
+                                    Some(i),
+                                    format!(
+                                        "junction velocity {junction_speed:.3} mm/s exceeds \
+                                         the machine limit of {max_jv:.3} mm/s"
+                                    ),
+                                );
+                            }
+                        }
+                    }
+
+                    prev_ext_dir = curr_dir;
+                    prev_ext_speed_mm_s = s.speed.value() / 60.0;
+                } else if s.travel {
+                    // Reset junction tracking across travel moves.
+                    prev_ext_dir = None;
+                }
+            }
+        }
     }
     Ok(r)
 }
@@ -705,6 +810,28 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn catalog_includes_the_two_kinematic_rules() {
+        let cat = catalog();
+        let pa = cat
+            .iter()
+            .find(|r| r.id == RuleId::PeakAcceleration)
+            .expect("peak-acceleration in catalog");
+        assert_eq!(pa.severity, Severity::Error);
+        assert_eq!(RuleId::PeakAcceleration.as_str(), "peak-acceleration");
+        let jv = cat
+            .iter()
+            .find(|r| r.id == RuleId::JunctionVelocity)
+            .expect("junction-velocity in catalog");
+        assert_eq!(jv.severity, Severity::Warning);
+        assert_eq!(RuleId::JunctionVelocity.as_str(), "junction-velocity");
+    }
+
+    #[test]
+    fn contracts_default_has_no_kinematics() {
+        assert!(Contracts::default().kinematics.is_none());
+    }
 
     #[test]
     fn empty_toolpath_is_ok() {
@@ -726,7 +853,7 @@ mod tests {
             assert!(!rule.summary.is_empty());
             assert_eq!(rule.severity, rule.id.default_severity());
         }
-        // the three process/quality advisories are warnings; everything else is an error.
+        // process/quality advisories are warnings; everything else is an error.
         let warnings: Vec<&str> = cat
             .iter()
             .filter(|r| r.severity == Severity::Warning)
@@ -737,7 +864,8 @@ mod tests {
             vec![
                 "travel-without-retraction",
                 "first-layer-height",
-                "first-layer-speed"
+                "first-layer-speed",
+                "junction-velocity",
             ]
         );
     }

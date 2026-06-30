@@ -1,0 +1,40 @@
+{
+  "file": null,
+  "profile": null,
+  "segments": 3,
+  "metrics": {
+    "total_time_s": 0.815707963267949,
+    "print_time_s": 0.815707963267949,
+    "travel_time_s": 0.0,
+    "extruding_distance": 21.5707963267949,
+    "travel_distance": 0.0,
+    "extruded_volume": 2.4000000000000004,
+    "filament_length": 0.99,
+    "segment_count": 3,
+    "max_flow_rate": 50.92958178940652
+  },
+  "findings": [
+    {
+      "rule": "junction-velocity",
+      "severity": "warning",
+      "segment": 1,
+      "source_line": null,
+      "message": "junction velocity 25.000 mm/s exceeds the machine limit of 20.000 mm/s"
+    },
+    {
+      "rule": "peak-acceleration",
+      "severity": "error",
+      "segment": 2,
+      "source_line": null,
+      "message": "arc centripetal acceleration 10000.000 mm/s² exceeds the machine limit of 500.000 mm/s²"
+    },
+    {
+      "rule": "junction-velocity",
+      "severity": "warning",
+      "segment": 2,
+      "source_line": null,
+      "message": "junction velocity 25.000 mm/s exceeds the machine limit of 20.000 mm/s"
+    }
+  ],
+  "error_count": 1
+}

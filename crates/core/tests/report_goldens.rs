@@ -8,8 +8,9 @@
 
 use dry_core::{
     apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary, verify,
-    Contracts, ExplainReports, Feedrate, Length, OptimizeMode, Profile, ReviewReport,
-    RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport, Volume,
+    Contracts, ExplainReports, Feedrate, KinematicContracts, Length, OptimizeMode, Profile,
+    ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport,
+    Volume,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -257,12 +258,79 @@ fn cases() -> Vec<Case> {
         full: true,
     };
 
+    // --- kinematics: peak-acceleration (arc), junction-velocity (90° corner). ---
+    // Arc radius = 1 mm at 6000 mm/min → centripetal_a = (100 mm/s)²/1 mm = 10 000 mm/s² >> 500.
+    // Two extruding lines at 90° at 1500 mm/min (25 mm/s) >> junction limit of 20 mm/s.
+    let kinematics_case = Case {
+        name: "kinematics",
+        toolpath: tp(vec![
+            // two extruding lines at 90° — triggers junction-velocity at the corner
+            Segment {
+                start: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                length: Length::mm(10.0),
+                ..base()
+            },
+            Segment {
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                length: Length::mm(10.0),
+                ..base()
+            },
+            // arc with radius 1 mm at high speed — triggers peak-acceleration
+            // centre (5,0), start (5,1), end (6,0): both radii = 1 mm ✓
+            Segment {
+                start: [
+                    Some(Length::mm(5.0)),
+                    Some(Length::mm(1.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(6.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(6000.0),
+                length: Length::mm(std::f64::consts::FRAC_PI_2), // ≈ quarter-arc arc-length
+                kind: SegmentKind::Arc,
+                centre: Some([Length::mm(5.0), Length::mm(0.0)]),
+                clockwise: true,
+                ..base()
+            },
+        ]),
+        contracts: Contracts {
+            kinematics: Some(KinematicContracts {
+                max_acceleration_mm_s2: Some(500.0),
+                max_junction_velocity_mm_s: Some(20.0),
+            }),
+            ..Contracts::default()
+        },
+        full: true,
+    };
+
     vec![
         non_finite,
         structural,
         contracts_case,
         retraction,
         first_layer,
+        kinematics_case,
     ]
 }
 

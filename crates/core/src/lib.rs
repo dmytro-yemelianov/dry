@@ -78,5 +78,5 @@ pub use trace::{trace_summary, trace_summary_with_sources, TraceError, TraceSumm
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
     catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
-    Contracts, Finding, Report, Rule, RuleId, Severity,
+    Contracts, Finding, KinematicContracts, Report, Rule, RuleId, Severity,
 };

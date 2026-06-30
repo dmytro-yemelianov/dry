@@ -329,6 +329,12 @@ impl Profile {
             max_travel_without_retract: self.process.max_travel_without_retraction,
             first_layer_height_range: self.process.first_layer_height_range,
             first_layer_speed_range: self.process.first_layer_speed_range,
+            kinematics: self.machine.kinematics.as_ref().map(|k| {
+                crate::verify::KinematicContracts {
+                    max_acceleration_mm_s2: k.max_acceleration_mm_s2,
+                    max_junction_velocity_mm_s: k.max_junction_velocity_mm_s,
+                }
+            }),
         }
     }
 
