@@ -4,8 +4,9 @@
 //! isolated from the core cargo workspace).
 
 use dry_core::{
-    emit, optimize_pipeline, resolve_checked, simulate, try_tpms_ops, verify, Contracts, Design,
-    EmitParams, Kinematics, Op, ResolveParams, TpmsOptions,
+    balanced_pipeline, emit, optimize_pipeline, resolve_checked, safe_pipeline, simulate,
+    try_tpms_ops, verify, Contracts, Design, EmitParams, KinematicContracts, Kinematics,
+    MachineKinematics, Op, ResolveParams, TpmsOptions,
 };
 use wasm_bindgen::prelude::*;
 
@@ -171,6 +172,51 @@ fn build_range(name: &str, range: Option<Box<[f64]>>) -> Result<Option<[f64; 2]>
     Ok(Some([values[0], values[1]]))
 }
 
+/// Parse the optional `kinematics_json` boundary string into [`MachineKinematics`]. Empty → `None`.
+/// A non-empty string that fails to parse is a clear [`JsError`] (never a panic).
+///
+/// # Name disambiguation
+///
+/// [`Kinematics`] (also exported in this crate) is the **5-axis rotary geometry** selector used by
+/// `resolve_gcode` / `resolve_tpms_gcode` to select the correct arc strategy (Cartesian, CoreXY, …).
+/// [`MachineKinematics`] is unrelated: it carries **profile motion limits** — specifically the
+/// peak-acceleration and junction-velocity ceilings that feed the `balanced_pipeline` and the
+/// `peak-acceleration` / `junction-velocity` verify rules.
+fn parse_kinematics(kinematics_json: &str) -> Result<Option<MachineKinematics>, JsError> {
+    let s = kinematics_json.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    serde_json::from_str::<MachineKinematics>(s)
+        .map(Some)
+        .map_err(|e| JsError::new(&format!("invalid kinematics_json: {e}")))
+}
+
+/// Resolve a design, run the balanced (kinematics-aware) L2 optimization pipeline, and return the
+/// resulting L2 Dry IR as a JSON string.
+///
+/// When `kinematics_json` is a non-empty JSON object (`{"max_acceleration_mm_s2":3000,…}`), the
+/// engine runs [`balanced_pipeline`] with those motion limits, which applies arc centripetal speed
+/// clamping and junction-velocity capping in addition to all standard optimizations. An empty or
+/// whitespace-only string falls back to [`safe_pipeline`] (the same pipeline used by
+/// [`resolve_ir`] for parity).
+///
+/// A malformed non-empty `kinematics_json` surfaces as a clear [`JsError`] — never a panic.
+#[wasm_bindgen]
+pub fn resolve_balanced_ir(
+    ops_json: &str,
+    params_json: &str,
+    kinematics_json: &str,
+) -> Result<String, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let out = match parse_kinematics(kinematics_json)? {
+        Some(k) => balanced_pipeline(&tp, Some(&k)),
+        None => safe_pipeline(&tp),
+    };
+    Ok(out.to_json())
+}
+
 /// Resolve a design and verify it against machine-safety contracts, returning the JSON
 /// [`dry_core::Report`] (`{"findings":[{"rule","severity","segment","message"}]}`).
 ///
@@ -181,7 +227,13 @@ fn build_range(name: &str, range: Option<Box<[f64]>>) -> Result<Option<[f64; 2]>
 /// (`max_flow_opt`, `min_temp_opt`, `max_retraction_distance_opt`, `max_retraction_speed_opt`,
 /// `max_travel_without_retract_opt`) follow the convention that 0 (or any non-positive value) means
 /// unset. `monotonic_z` requires Z to be non-decreasing.
+///
+/// The optional `kinematics_json` trailing param accepts the same JSON object as
+/// [`resolve_balanced_ir`]: when non-empty, it enables the `peak-acceleration` and
+/// `junction-velocity` verify rules; an empty or whitespace-only string disables them (i.e.
+/// `Contracts.kinematics = None`).
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_verify(
     ops_json: &str,
     params_json: &str,
@@ -195,9 +247,14 @@ pub fn resolve_verify(
     max_travel_without_retract_opt: f64,
     first_layer_height_range: Option<Box<[f64]>>,
     first_layer_speed_range: Option<Box<[f64]>>,
+    kinematics_json: &str,
 ) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let positive = |v: f64| if v > 0.0 { Some(v) } else { None };
+    let kinematics = parse_kinematics(kinematics_json)?.map(|k| KinematicContracts {
+        max_acceleration_mm_s2: k.max_acceleration_mm_s2,
+        max_junction_velocity_mm_s: k.max_junction_velocity_mm_s,
+    });
     let contracts = Contracts {
         bounds: build_bounds(bounds)?,
         max_flow: positive(max_flow_opt),
@@ -212,9 +269,47 @@ pub fn resolve_verify(
             first_layer_height_range,
         )?,
         first_layer_speed_range: build_range("first_layer_speed_range", first_layer_speed_range)?,
-        kinematics: None,
+        kinematics,
     };
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let report = verify(&tp, &contracts);
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_kinematics_empty_returns_none() {
+        assert!(parse_kinematics("").unwrap().is_none());
+        assert!(parse_kinematics("   ").unwrap().is_none());
+    }
+
+    #[test]
+    fn parse_kinematics_valid_json_returns_some() {
+        let k = parse_kinematics(r#"{"max_acceleration_mm_s2":3000}"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(k.max_acceleration_mm_s2, Some(3000.0));
+        assert_eq!(k.max_junction_velocity_mm_s, None);
+    }
+
+    #[test]
+    fn parse_kinematics_both_fields() {
+        let k = parse_kinematics(
+            r#"{"max_acceleration_mm_s2":5000,"max_junction_velocity_mm_s":10.0}"#,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(k.max_acceleration_mm_s2, Some(5000.0));
+        assert_eq!(k.max_junction_velocity_mm_s, Some(10.0));
+    }
+
+    // JsError::new panics on non-wasm targets; this test only runs under wasm32.
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn parse_kinematics_invalid_json_returns_error() {
+        assert!(parse_kinematics("not-json").is_err());
+    }
 }
