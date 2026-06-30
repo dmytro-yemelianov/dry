@@ -9,3 +9,5 @@ hero:
       text: Start the tour
       link: /guide/
 ---
+
+<LiveExample src="author" :outputs="['gcode', 'ir']" />
