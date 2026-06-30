@@ -15,6 +15,7 @@
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.36.1",
+    "@dry/sdk": "file:../../sdk/ts",
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^5.2.4",
