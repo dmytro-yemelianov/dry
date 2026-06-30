@@ -2,7 +2,16 @@
 // (`gcode`/`simulate`/`ir`) resolve those ops in wasm — the SDK itself holds no toolpath logic.
 import type { Metrics, Op, Report, Toolpath } from './ops';
 import { PRINTERS } from './ops';
-import { resolveGcode, resolveIr, resolveMetrics, resolveOptimizedIr, resolveVerify } from './engine';
+import {
+  resolveBalancedIr,
+  resolveBinary,
+  resolveGcode,
+  resolveIr,
+  resolveMetrics,
+  resolveOptimizedIr,
+  resolveVerify,
+} from './engine';
+import type { MachineKinematics } from './engine';
 
 function params(printer: string) {
   const p = PRINTERS[printer];
@@ -179,6 +188,21 @@ export class Design {
   }
 
   /**
+   * Resolve through the kinematics-aware balanced optimization pipeline. When `kinematics` is
+   * provided its acceleration/junction-velocity limits shape the output (arc centripetal speed
+   * clamping + junction-velocity capping) on top of all standard optimizations. Omitting
+   * `kinematics` falls back to the safe pipeline (same as `optimizedIr`).
+   */
+  balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath {
+    return resolveBalancedIr(this.ops, params(printer), kinematics);
+  }
+
+  /** Resolve + encode to the binary DRY1 format; returns the raw bytes. */
+  binary(printer = 'generic'): Uint8Array {
+    return resolveBinary(this.ops, params(printer));
+  }
+
+  /**
    * Resolve + verify against machine-safety contracts; returns the safety report findings. The
    * structured limits cross to the engine as native typed contracts (no CSV round-trip):
    *
@@ -190,6 +214,9 @@ export class Design {
    *    retraction / stringing limits.
    *  - `firstLayerHeightRange`, `firstLayerSpeedRange` — first-layer adhesion limits, each `[min, max]`
    *    (or a `"min,max"` CSV string).
+   *  - `kinematics` — machine motion limits (`max_acceleration_mm_s2` and/or
+   *    `max_junction_velocity_mm_s`). When supplied, enables the `peak-acceleration` and
+   *    `junction-velocity` verify rules; omitting it disables them.
    */
   verify(
     printer = 'generic',
@@ -202,7 +229,8 @@ export class Design {
     maxRetractionSpeed = 0,
     maxTravelWithoutRetract = 0,
     firstLayerHeightRange: string | [number, number] = '',
-    firstLayerSpeedRange: string | [number, number] = ''
+    firstLayerSpeedRange: string | [number, number] = '',
+    kinematics?: MachineKinematics
   ): Report {
     return resolveVerify(
       this.ops,
@@ -216,7 +244,8 @@ export class Design {
       maxRetractionSpeed,
       maxTravelWithoutRetract,
       rangeToFlat('firstLayerHeightRange', firstLayerHeightRange),
-      rangeToFlat('firstLayerSpeedRange', firstLayerSpeedRange)
+      rangeToFlat('firstLayerSpeedRange', firstLayerSpeedRange),
+      kinematics
     );
   }
 }

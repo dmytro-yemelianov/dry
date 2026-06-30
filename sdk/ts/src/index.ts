@@ -12,7 +12,9 @@ export { Design } from './design';
 export {
   resolveGcode,
   resolveMetrics,
+  resolveMetricsIr,
   resolveIr,
+  resolveBinary,
   resolveOptimizedIr,
   resolveBalancedIr,
   resolveVerify,

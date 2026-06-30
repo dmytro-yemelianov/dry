@@ -29,7 +29,9 @@ interface DryWasm {
   ): string[];
   tpms_ops_json(tpmsOptionsJson: string): string;
   resolve_metrics(opsJson: string, paramsJson: string): string;
+  metrics_ir(irJson: string): string;
   resolve_ir(opsJson: string, paramsJson: string): string;
+  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
   resolve_optimized_ir(opsJson: string, paramsJson: string): string;
   resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
   resolve_verify(
@@ -87,9 +89,25 @@ export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
   return JSON.parse(wasm.resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
 }
 
+/**
+ * Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
+ * `resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
+ * report the before/after time and peak flow of an optimized or balanced IR (which has no originating
+ * op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
+ * `optimizedIr`/`balancedIr` toolpath).
+ */
+export function resolveMetricsIr(irJson: string): Metrics {
+  return JSON.parse(wasm.metrics_ir(irJson));
+}
+
 /** Resolve a design to the L2 Dry IR. */
 export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
   return JSON.parse(wasm.resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
+}
+
+/** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
+export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
+  return wasm.resolve_binary(JSON.stringify(ops), JSON.stringify(params));
 }
 
 /** Resolve a design through the standard L2 optimization pipeline. */
