@@ -285,6 +285,7 @@ dependencies = [
  "clap",
  "dry-core",
  "dry-llm",
+ "dry-moonraker",
  "serde_json",
 ]
 
@@ -305,6 +306,15 @@ name = "dry-llm"
 version = "0.4.0"
 dependencies = [
  "dry-core",
+ "serde",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "dry-moonraker"
+version = "0.4.0"
+dependencies = [
  "serde",
  "serde_json",
  "ureq",

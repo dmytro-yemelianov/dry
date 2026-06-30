@@ -329,6 +329,40 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<String>,
     },
+    /// Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate).
+    Upload {
+        file: String,
+        #[arg(long)]
+        moonraker: String,
+        #[arg(long, default_value = "MOONRAKER_API_KEY")]
+        api_key_env: String,
+        #[arg(long)]
+        print: bool,
+        #[arg(long)]
+        force: bool,
+        #[arg(long, value_enum)]
+        rewrite: Option<OptimizeModeArg>,
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        #[arg(long)]
+        line_width: Option<f64>,
+        #[arg(long)]
+        layer_height: Option<f64>,
+        #[arg(long)]
+        max_flow: Option<f64>,
+        #[arg(long)]
+        bounds: Option<String>,
+        #[arg(long)]
+        monotonic_z: bool,
+        #[arg(long)]
+        min_temp: Option<f64>,
+        #[arg(long)]
+        speed_range: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found.
     /// Flags: `--bounds`, `--max-flow`, `--monotonic-z`, `--min-temp`, `--json`.
     Verify {
@@ -1195,6 +1229,41 @@ fn run(cli: Cli) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Cmd::Upload {
+            file,
+            moonraker,
+            api_key_env,
+            print,
+            force,
+            rewrite,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            max_flow,
+            bounds,
+            monotonic_z,
+            min_temp,
+            speed_range,
+            json,
+        } => run_upload(UploadArgs {
+            file,
+            moonraker,
+            api_key_env,
+            print,
+            force,
+            rewrite,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            max_flow,
+            bounds,
+            monotonic_z,
+            min_temp,
+            speed_range,
+            json,
+        }),
         Cmd::Verify {
             file,
             profile,
@@ -1632,6 +1701,41 @@ fn run_compare_llm(_args: CompareLlmArgs) -> std::process::ExitCode {
         "this build was compiled without --llm support; rebuild with `cargo build --features llm`"
             .into(),
     )
+}
+
+// Fields are consumed by `run_upload`; suppress dead-code lint in all builds until the
+// real implementation (Task 4) replaces the temporary stub and reads every field.
+#[allow(dead_code)]
+struct UploadArgs {
+    file: String,
+    moonraker: String,
+    api_key_env: String,
+    print: bool,
+    force: bool,
+    rewrite: Option<OptimizeModeArg>,
+    profile: Option<String>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+    max_flow: Option<f64>,
+    bounds: Option<String>,
+    monotonic_z: bool,
+    min_temp: Option<f64>,
+    speed_range: Option<String>,
+    json: bool,
+}
+
+#[cfg(not(feature = "moonraker"))]
+fn run_upload(_: UploadArgs) -> std::process::ExitCode {
+    die(
+        "this build was compiled without moonraker support; rebuild with `cargo build --features moonraker`"
+            .into(),
+    )
+}
+
+#[cfg(feature = "moonraker")]
+fn run_upload(_: UploadArgs) -> std::process::ExitCode {
+    unimplemented!()
 }
 
 #[cfg(feature = "llm")]
