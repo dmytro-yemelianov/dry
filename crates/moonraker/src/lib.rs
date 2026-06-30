@@ -57,6 +57,64 @@ pub fn join_url(base: &str, path: &str) -> String {
     format!("{}{}", base.trim_end_matches('/'), path)
 }
 
+fn decode_upload(v: &serde_json::Value) -> Result<UploadResponse, MoonrakerError> {
+    v["item"]["path"]
+        .as_str()
+        .map(|p| UploadResponse {
+            filename: p.to_string(),
+        })
+        .ok_or_else(|| MoonrakerError::Decode(format!("no item.path in upload response: {v}")))
+}
+
+fn post(
+    cfg: &MoonrakerConfig,
+    path: &str,
+    content_type: &str,
+    body: &[u8],
+) -> Result<serde_json::Value, MoonrakerError> {
+    let mut req = ureq::post(&join_url(&cfg.base_url, path)).set("Content-Type", content_type);
+    if let Some(k) = &cfg.api_key {
+        req = req.set("X-Api-Key", k);
+    }
+    match req.send_bytes(body) {
+        Ok(r) => r
+            .into_json()
+            .map_err(|e| MoonrakerError::Decode(format!("invalid JSON: {e}"))),
+        Err(ureq::Error::Status(code, r)) => Err(MoonrakerError::Http(
+            code,
+            r.into_string()
+                .unwrap_or_default()
+                .chars()
+                .take(500)
+                .collect(),
+        )),
+        Err(ureq::Error::Transport(t)) => Err(MoonrakerError::Transport(t.to_string())),
+    }
+}
+
+/// POST the g-code to `/server/files/upload` as multipart/form-data. Network.
+pub fn upload_file(
+    cfg: &MoonrakerConfig,
+    filename: &str,
+    bytes: &[u8],
+) -> Result<UploadResponse, MoonrakerError> {
+    let body = build_multipart(filename, bytes);
+    let ct = format!("multipart/form-data; boundary={MULTIPART_BOUNDARY}");
+    decode_upload(&post(cfg, "/server/files/upload", &ct, &body)?)
+}
+
+/// Start a print of an already-uploaded file via `/printer/print/start`. Network.
+pub fn start_print(cfg: &MoonrakerConfig, filename: &str) -> Result<PrintResponse, MoonrakerError> {
+    let body = serde_json::json!({ "filename": filename }).to_string();
+    let _ = post(
+        cfg,
+        "/printer/print/start",
+        "application/json",
+        body.as_bytes(),
+    )?;
+    Ok(PrintResponse { job_started: true })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,5 +138,17 @@ mod tests {
             join_url("http://voron.local", "/server/files/upload"),
             "http://voron.local/server/files/upload"
         );
+    }
+    #[test]
+    fn upload_response_decodes_filename() {
+        // Moonraker upload returns { "item": { "path": "part.gcode", ... }, ... }
+        let v: serde_json::Value =
+            serde_json::from_str(r#"{"item":{"path":"part.gcode"}}"#).unwrap();
+        assert_eq!(decode_upload(&v).unwrap().filename, "part.gcode");
+    }
+    #[test]
+    fn missing_path_is_decode_error() {
+        let v: serde_json::Value = serde_json::from_str(r#"{"item":{}}"#).unwrap();
+        assert!(matches!(decode_upload(&v), Err(MoonrakerError::Decode(_))));
     }
 }
