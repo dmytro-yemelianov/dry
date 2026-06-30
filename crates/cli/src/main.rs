@@ -850,70 +850,23 @@ fn run(cli: Cli) -> ExitCode {
                     max_applies,
                 });
             }
-            let input =
-                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
-            let profile = load_profile(profile.as_deref());
-            let params = gcode_review_params(
-                profile.as_ref(),
+            let a = assemble_explain(
+                &file,
+                profile.as_deref(),
                 filament_diameter,
                 line_width,
                 layer_height,
-            );
-            let imported = import_gcode_reader_with_map(input, &params)
-                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
-
-            // verify against the profile's contracts (+ any CLI overrides).
-            let metrics = simulate(&imported.toolpath);
-            let profiled = profile.is_some();
-            let contracts = contracts_from_inputs(
-                profile.as_ref(),
                 bounds.as_deref(),
                 max_flow,
                 speed_range.as_deref(),
                 monotonic_z,
                 min_temp,
+                window_s,
             );
-            let report = verify(&imported.toolpath, &contracts);
-            let review = dry_core::ReviewReport::build(
-                Some(file.clone()),
-                profile_label(profile.as_ref()),
-                imported.toolpath.segments.len(),
-                metrics,
-                &report,
-                |segment| imported.source_line_for_segment(segment),
-            );
-
-            // trace (carrying source-line ranges) + forensics.
-            let source_lines: Vec<_> = imported
-                .segment_source_lines
-                .iter()
-                .copied()
-                .map(Some)
-                .collect();
-            let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
-                .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
-            let trace_report = dry_core::TraceReport {
-                file: Some(file.clone()),
-                profile: profile_label(profile.as_ref()),
-                trace,
-            };
-            let forensics = dry_core::forensics_analyze(&imported);
-
-            let bundle = dry_core::build_explain_bundle(
-                Some(file.clone()),
-                profile_label(profile.as_ref()),
-                profiled,
-                dry_core::ExplainReports {
-                    trace: trace_report,
-                    forensics,
-                    verify: review,
-                },
-            );
-
             let rendered = if json {
-                serde_json::to_string_pretty(&bundle).unwrap() + "\n"
+                serde_json::to_string_pretty(&a.bundle).unwrap() + "\n"
             } else {
-                dry_core::render_markdown(&bundle)
+                dry_core::render_markdown(&a.bundle)
             };
             match out {
                 Some(path) => fs::write(&path, rendered)
@@ -1265,11 +1218,109 @@ fn parse_speed_range(s: &str) -> [f64; 2] {
     parse_speed_range_csv(s).unwrap_or_else(|e| die(format!("bad --speed-range: {e}")))
 }
 
+/// Assembled inputs needed by the offline `explain` renderer and the LLM handler.
+// Fields `imported`, `contracts`, `profile`, `profiled` are consumed only by the
+// `#[cfg(feature = "llm")]` handler; suppress the dead-code lint in default builds.
+#[cfg_attr(not(feature = "llm"), allow(dead_code))]
+struct ExplainAssembly {
+    imported: dry_core::ImportedGcode,
+    contracts: Contracts,
+    profile: Option<Profile>,
+    profiled: bool,
+    bundle: dry_core::ExplainBundle,
+}
+
+/// Import, simulate, verify, trace, forensics, and build the explain bundle.
+/// Shared by the offline `Cmd::Explain` arm and `run_explain_llm`.
+#[allow(clippy::too_many_arguments)]
+fn assemble_explain(
+    file: &str,
+    profile_path: Option<&str>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+    bounds: Option<&str>,
+    max_flow: Option<f64>,
+    speed_range: Option<&str>,
+    monotonic_z: bool,
+    min_temp: Option<f64>,
+    window_s: f64,
+) -> ExplainAssembly {
+    let input = fs::File::open(file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+    let profile = load_profile(profile_path);
+    let params = gcode_review_params(
+        profile.as_ref(),
+        filament_diameter,
+        line_width,
+        layer_height,
+    );
+    let imported = import_gcode_reader_with_map(input, &params)
+        .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+
+    // verify against the profile's contracts (+ any CLI overrides).
+    let metrics = simulate(&imported.toolpath);
+    let profiled = profile.is_some();
+    let contracts = contracts_from_inputs(
+        profile.as_ref(),
+        bounds,
+        max_flow,
+        speed_range,
+        monotonic_z,
+        min_temp,
+    );
+    let report = verify(&imported.toolpath, &contracts);
+    let label = profile_label(profile.as_ref());
+    let review = dry_core::ReviewReport::build(
+        Some(file.to_string()),
+        label.clone(),
+        imported.toolpath.segments.len(),
+        metrics,
+        &report,
+        |segment| imported.source_line_for_segment(segment),
+    );
+
+    // trace (carrying source-line ranges) + forensics.
+    let source_lines: Vec<_> = imported
+        .segment_source_lines
+        .iter()
+        .copied()
+        .map(Some)
+        .collect();
+    let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
+        .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
+    let trace_report = dry_core::TraceReport {
+        file: Some(file.to_string()),
+        profile: label.clone(),
+        trace,
+    };
+    let forensics = dry_core::forensics_analyze(&imported);
+
+    let bundle = dry_core::build_explain_bundle(
+        Some(file.to_string()),
+        label,
+        profiled,
+        dry_core::ExplainReports {
+            trace: trace_report,
+            forensics,
+            verify: review,
+        },
+    );
+
+    ExplainAssembly {
+        imported,
+        contracts,
+        profile,
+        profiled,
+        bundle,
+    }
+}
+
 fn main() -> ExitCode {
     run(Cli::parse())
 }
 
-#[allow(dead_code)] // fields consumed by Task-7 run_explain_llm
+// Fields are consumed by `run_explain_llm`; suppress dead-code in non-llm builds.
+#[cfg_attr(not(feature = "llm"), allow(dead_code))]
 struct ExplainLlmArgs {
     file: String,
     profile: Option<String>,
@@ -1297,6 +1348,147 @@ fn run_explain_llm(_args: ExplainLlmArgs) -> std::process::ExitCode {
 }
 
 #[cfg(feature = "llm")]
-fn run_explain_llm(_args: ExplainLlmArgs) -> std::process::ExitCode {
-    unimplemented!()
+fn run_explain_llm(args: ExplainLlmArgs) -> std::process::ExitCode {
+    use dry_core::{apply_executable, classify, Classified};
+
+    let model = args.model.unwrap_or_else(|| {
+        die("--llm requires --model <id> (e.g. --model claude-sonnet-4-6)".into())
+    });
+    let api_key = std::env::var("ANTHROPIC_API_KEY")
+        .unwrap_or_else(|_| die("set ANTHROPIC_API_KEY to use --llm".into()));
+
+    // 1. Build the bundle exactly as the offline path does.
+    let a = assemble_explain(
+        &args.file,
+        args.profile.as_deref(),
+        args.filament_diameter,
+        args.line_width,
+        args.layer_height,
+        args.bounds.as_deref(),
+        args.max_flow,
+        args.speed_range.as_deref(),
+        args.monotonic_z,
+        args.min_temp,
+        args.window_s,
+    );
+
+    // 2. Call Claude.
+    let cfg = dry_llm::ClientConfig {
+        api_key,
+        model: model.clone(),
+        max_tokens: 8192,
+    };
+    let analysis = dry_llm::analyze(&cfg, &a.bundle).unwrap_or_else(|e| die(e.to_string()));
+
+    // 3. Cost readout (stderr).
+    match dry_llm::cost_usd(&model, &analysis.usage) {
+        Some(c) => eprintln!(
+            "{model} · in {} tok / out {} tok · ~${c:.4}",
+            analysis.usage.input_tokens, analysis.usage.output_tokens
+        ),
+        None => eprintln!(
+            "{model} · in {} tok / out {} tok · (pricing unknown for {model})",
+            analysis.usage.input_tokens, analysis.usage.output_tokens
+        ),
+    }
+
+    // 4. Classify, then apply executable recommendations (highest priority first, capped).
+    let kinematics = a
+        .profile
+        .as_ref()
+        .and_then(|p| p.machine.kinematics.as_ref());
+    let mut recs: Vec<_> = analysis.recommendations.iter().collect();
+    recs.sort_by_key(|r| r.priority);
+    let mut results: Vec<(String, dry_core::ExecutionResult)> = Vec::new();
+    let mut advisories: Vec<(String, String)> = Vec::new();
+    let mut applied = 0usize;
+    let mut skipped = 0usize;
+    for rec in &recs {
+        match classify(rec) {
+            Classified::Executable(action) => {
+                if applied >= args.max_applies {
+                    skipped += 1;
+                    continue;
+                }
+                let result = apply_executable(
+                    &action,
+                    &a.imported,
+                    &a.contracts,
+                    kinematics,
+                    args.window_s,
+                );
+                results.push((rec.title.clone(), result));
+                applied += 1;
+            }
+            Classified::Advisory(reason) => advisories.push((rec.title.clone(), reason)),
+        }
+    }
+    if skipped > 0 {
+        eprintln!(
+            "note: {skipped} executable recommendation(s) skipped (over --max-applies {})",
+            args.max_applies
+        );
+    }
+
+    // 5. Render.
+    let rendered = if args.json {
+        let envelope = serde_json::json!({
+            "meta": { "file": args.file, "model": model, "profiled": a.profiled },
+            "analysis": {
+                "summary": analysis.summary,
+                "time_analysis": analysis.time_analysis,
+                "risks": analysis.risks,
+            },
+            "recommendations": analysis.recommendations,
+            "results": results.iter().map(|(_, r)| r).collect::<Vec<_>>(),
+            "usage": {
+                "input_tokens": analysis.usage.input_tokens,
+                "output_tokens": analysis.usage.output_tokens,
+            },
+            "cost_usd": dry_llm::cost_usd(&model, &analysis.usage),
+        });
+        serde_json::to_string_pretty(&envelope).unwrap() + "\n"
+    } else {
+        render_llm_markdown(&args.file, &model, &analysis, &results, &advisories)
+    };
+    match args.out {
+        Some(path) => {
+            fs::write(&path, rendered).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")))
+        }
+        None => print!("{rendered}"),
+    }
+    std::process::ExitCode::SUCCESS
+}
+
+#[cfg(feature = "llm")]
+fn render_llm_markdown(
+    file: &str,
+    model: &str,
+    analysis: &dry_llm::AnalysisResponse,
+    results: &[(String, dry_core::ExecutionResult)],
+    advisories: &[(String, String)],
+) -> String {
+    use std::fmt::Write as _;
+    let mut md = String::new();
+    let _ = writeln!(md, "# Dry explain --llm — {file}  (model {model})\n");
+    let _ = writeln!(md, "## Summary\n\n{}\n", analysis.summary);
+    let _ = writeln!(md, "## Time analysis\n\n{}\n", analysis.time_analysis);
+    let _ = writeln!(md, "## Risks\n\n{}\n", analysis.risks);
+    let _ = writeln!(md, "## Results — measured by dry\n");
+    let _ = writeln!(md, "| Change | Status | Measured |");
+    let _ = writeln!(md, "|---|---|---|");
+    for (title, r) in results {
+        let _ = writeln!(
+            md,
+            "| {title} | {} ({:?}) | {} |",
+            r.action, r.verdict, r.note
+        );
+    }
+    for (title, reason) in advisories {
+        let _ = writeln!(
+            md,
+            "| {title} | advisory — unverified | {reason}; apply in your slicer |"
+        );
+    }
+    md
 }
