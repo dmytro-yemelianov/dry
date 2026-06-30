@@ -16,11 +16,13 @@ const props = withDefaults(defineProps<{ src?: string; code?: string; outputs?: 
 
 function seed(): string {
   if (props.code) return props.code.trim();
+  const inline = slotSourceHost.value?.textContent?.trim();
+  if (inline) return inline;
   const hit = Object.entries(EXAMPLES).find(([key]) => key.endsWith(`/${props.src}.ts`));
   return (hit?.[1] ?? `// example '${props.src}' not found`).trim();
 }
 
-const source = ref(seed());
+const source = ref(props.code?.trim() ?? '');
 const error = ref('');
 const tab = ref(props.outputs[0]);
 const gcode = ref<string[]>([]);
@@ -29,6 +31,7 @@ const metricsText = ref('');
 const verifyText = ref('');
 const canvas = ref<HTMLCanvasElement | null>(null);
 const editorHost = ref<HTMLElement | null>(null);
+const slotSourceHost = ref<HTMLElement | null>(null);
 const ready = ref(false);
 const view = shallowRef<EditorView | null>(null);
 
@@ -107,12 +110,14 @@ function runNow(): void {
 }
 
 onMounted(async () => {
+  const seeded = seed();
+  source.value = seeded;
   const testing = isTestMode();
   if (editorHost.value && !testing) {
     view.value = new EditorView({
       parent: editorHost.value,
       state: EditorState.create({
-        doc: source.value,
+        doc: seeded,
         extensions: [
           basicSetup,
           javascript({ typescript: true }),
@@ -147,6 +152,7 @@ function reset(): void {
 <template>
   <ClientOnly>
     <div class="live">
+      <div ref="slotSourceHost" class="live-slot-source"><slot /></div>
       <div class="live-code">
         <div class="live-bar">
           <span>TypeScript</span>
@@ -259,5 +265,9 @@ function reset(): void {
   opacity: 0.6;
   font-size: 13px;
   padding: 8px;
+}
+
+.live-slot-source {
+  display: none;
 }
 </style>

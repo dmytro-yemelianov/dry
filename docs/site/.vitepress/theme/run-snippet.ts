@@ -30,21 +30,22 @@ export function compileSnippet(src: string): (dry: Dry) => unknown {
 
 function importAliases(src: string): Array<{ imported: string; local: string }> {
   const aliases: Array<{ imported: string; local: string }> = [];
-  const named = /^\s*import\s+\{([^}]+)\}\s+from\s+['"]@dry\/sdk['"];?\s*$/gm;
+  const named = /\bimport\s+\{([^}]+)\}\s+from\s*=?\s*['"]@dry\/sdk['"];?/g;
   for (const match of src.matchAll(named)) {
     for (const item of match[1].split(',')) {
       const [imported, local = imported] = item.trim().split(/\s+as\s+/);
       if (imported && local && imported !== local) aliases.push({ imported: imported.trim(), local: local.trim() });
     }
   }
-  const namespace = /^\s*import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]@dry\/sdk['"];?\s*$/gm;
+  const namespace = /\bimport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s*=?\s*['"]@dry\/sdk['"];?/g;
   for (const match of src.matchAll(namespace)) aliases.push({ imported: '', local: match[1] });
   return aliases;
 }
 
 function stripModuleSyntax(src: string): string {
   return src
-    .replace(/^\s*import\s+[^;\n]+from\s+['"]@dry\/sdk['"];?\s*$/gm, '')
+    .replace(/\bimport\s+\{[^}]+\}\s+from\s*=?\s*['"]@dry\/sdk['"];?/g, '')
+    .replace(/\bimport\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s*=?\s*['"]@dry\/sdk['"];?/g, '')
     .replace(/^\s*export\s+\{[^}]+\};?\s*$/gm, '')
     .replace(/\bexport\s+default\s+/g, '')
     .replace(/\bexport\s+(?=(const|let|var|function|class)\b)/g, '');
