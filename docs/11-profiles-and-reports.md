@@ -59,7 +59,12 @@ max junction / square-corner velocity. It has two optional numeric fields:
 - `max_junction_velocity_mm_s` — the maximum velocity change allowed at a sharp junction (a per-junction
   feedrate cap), in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity)
   fires on contiguous printing segments with a velocity change Δv exceeding this value, and `balanced`
-  mode (§3.4) limits per-junction speed to respect it.
+  mode (§3.4) limits per-junction speed to respect it. This rule is an *advisory* approximation of
+  cornering — a flat Δv-vs-limit check, not a reproduction of firmware junction kinematics (Klipper's
+  square-corner-velocity feeds a junction-deviation formula that permits larger Δv on shallow corners),
+  so on real slicer g-code it may warn on corners the printer handles fine. It is a Warning, never a gate.
+  (The `peak-acceleration` rule, by contrast, evaluates every arc — including travel arcs — against the
+  acceleration limit.)
 
 Kinematic limits feed the `balanced` optimisation pipeline but are *not* enforced by the core verifier
 (they are gated in the rewrite process). Pressure-advance and input-shaper models are deliberately out of

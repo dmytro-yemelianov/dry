@@ -199,7 +199,7 @@ fn parse_kinematics(kinematics_json: &str) -> Result<Option<MachineKinematics>, 
 /// engine runs [`balanced_pipeline`] with those motion limits, which applies arc centripetal speed
 /// clamping and junction-velocity capping in addition to all standard optimizations. An empty or
 /// whitespace-only string falls back to [`safe_pipeline`] (the same pipeline used by
-/// [`resolve_ir`] for parity).
+/// [`resolve_optimized_ir`] for parity).
 ///
 /// A malformed non-empty `kinematics_json` surfaces as a clear [`JsError`] — never a panic.
 #[wasm_bindgen]
