@@ -239,6 +239,16 @@ enum Cmd {
         /// Write the bundle to this file instead of stdout.
         #[arg(long)]
         out: Option<String>,
+        /// Call Claude directly: build the bundle, get recommendations, apply the executable ones,
+        /// and report measured before/after results. Requires --model and ANTHROPIC_API_KEY.
+        #[arg(long)]
+        llm: bool,
+        /// Claude model id for --llm (e.g. claude-sonnet-4-6, claude-opus-4-8). Required with --llm.
+        #[arg(long)]
+        model: Option<String>,
+        /// Cap on how many executable recommendations --llm actually applies (highest priority first).
+        #[arg(long, default_value_t = 4)]
+        max_applies: usize,
     },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
@@ -817,7 +827,29 @@ fn run(cli: Cli) -> ExitCode {
             window_s,
             json,
             out,
+            llm,
+            model,
+            max_applies,
         } => {
+            if llm {
+                return run_explain_llm(ExplainLlmArgs {
+                    file,
+                    profile,
+                    filament_diameter,
+                    line_width,
+                    layer_height,
+                    max_flow,
+                    bounds,
+                    monotonic_z,
+                    min_temp,
+                    speed_range,
+                    window_s,
+                    json,
+                    out,
+                    model,
+                    max_applies,
+                });
+            }
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
             let profile = load_profile(profile.as_deref());
@@ -1235,4 +1267,36 @@ fn parse_speed_range(s: &str) -> [f64; 2] {
 
 fn main() -> ExitCode {
     run(Cli::parse())
+}
+
+#[allow(dead_code)] // fields consumed by Task-7 run_explain_llm
+struct ExplainLlmArgs {
+    file: String,
+    profile: Option<String>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+    max_flow: Option<f64>,
+    bounds: Option<String>,
+    monotonic_z: bool,
+    min_temp: Option<f64>,
+    speed_range: Option<String>,
+    window_s: f64,
+    json: bool,
+    out: Option<String>,
+    model: Option<String>,
+    max_applies: usize,
+}
+
+#[cfg(not(feature = "llm"))]
+fn run_explain_llm(_args: ExplainLlmArgs) -> std::process::ExitCode {
+    die(
+        "this build was compiled without --llm support; rebuild with `cargo build --features llm`"
+            .into(),
+    )
+}
+
+#[cfg(feature = "llm")]
+fn run_explain_llm(_args: ExplainLlmArgs) -> std::process::ExitCode {
+    unimplemented!()
 }

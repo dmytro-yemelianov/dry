@@ -10,7 +10,11 @@ repository.workspace = true
 name = "dry"
 path = "src/main.rs"
 
+[features]
+llm = ["dep:dry-llm"]
+
 [dependencies]
 dry-core = { path = "../core" }
+dry-llm = { path = "../llm", optional = true }
 clap = { version = "4", features = ["derive"] }
 serde_json = "1"
