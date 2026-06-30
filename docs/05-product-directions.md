@@ -137,21 +137,23 @@ polygon libraries for conventional layers. Dry can own:
 
 ## 2. Post-slicer review and Klipper optimization
 
-**Status (machine-model v2 shipped):** The core machine model is now live: `peak-acceleration` and
+**Status (Direction 2 v1 shipped: upload + gate + optional print/rewrite):** The core machine model is now live: `peak-acceleration` and
 `junction-velocity` verifier rules (Error/Warning, gated on profile's `machine.kinematics`);
 `dry import-printer-cfg` deriving a dry profile from a Klipper `printer.cfg` (maps `max_accel` /
 `square_corner_velocity` → machine kinematics, `position_max` → build volume, material/process defaults;
 warns on omitted fields like max volumetric flow and deferred models like input-shaper / pressure-advance);
 and SDKs (`resolve_balanced_ir` + `kinematics_json` on wasm/PyO3/TS) expose the motion model so
 `balanced` mode shapes arc and junction speeds to the printer's real envelope. PA and input-shaper
-remain deferred. This is one of the most practical near-term uses. Dry can sit between existing slicers
+remain deferred. The verify→printer on-ramp ships with `dry upload <file> --moonraker <host>`: a verify
+gate (accept/warn/reject) gates the upload, with optional `--rewrite` (safe/balanced/max), `--print`,
+and `--force` override. This is one of the most practical near-term uses. Dry can sit between existing slicers
 and the printer instead of replacing either.
 
 ```text
 PrusaSlicer / OrcaSlicer / Cura / SuperSlicer
   -> generated .gcode
-  -> Dry review/import
-  -> report, reject, annotate, or rewrite
+  -> Dry upload --moonraker (verify → accept/warn/reject)
+  -> optional --rewrite + --print
   -> Klipper / Moonraker / printer
 ```
 

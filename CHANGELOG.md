@@ -55,6 +55,9 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 - `dry compare <a> <b>`: deterministic two-file forensic delta (slicer/settings, time/flow, findings
   added/removed), drift-gated; optional `--llm --model <id>` adds a model narrative ("what changed, why,
   which is better") reusing the `dry-llm` client. New pure `dry-core::compare`; no new crate.
+- `dry upload <file> --moonraker <url>`: verify gate (accept/warn/reject) then upload the (optionally
+  `--rewrite`-cleaned) g-code to a Moonraker host, with optional `--print`; `--force` overrides the gate.
+  New feature-gated `dry-moonraker` crate is the only network code; `dry-core` stays pure.
 
 ## [0.4.0] - 2026-06-29
 

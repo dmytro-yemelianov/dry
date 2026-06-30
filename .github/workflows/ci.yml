@@ -46,6 +46,11 @@ jobs:
           cargo build --features llm
           cargo clippy --all-targets --features llm -- -D warnings
           cargo test -p dry-llm
+      - name: build + test with moonraker feature
+        run: |
+          cargo build --features moonraker
+          cargo clippy --all-targets --features moonraker -- -D warnings
+          cargo test -p dry-moonraker
       - name: build (wasm, dry-core)
         run: cargo build -p dry-core --target wasm32-unknown-unknown
 

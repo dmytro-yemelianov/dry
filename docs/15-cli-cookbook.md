@@ -206,6 +206,61 @@ matters, which is better"), and reports token usage and cost estimate to stderr.
 itself stays gated. Use `--json` to emit the full envelope (`docs/11` §3.8) with
 `{delta, narrative, usage, cost_usd}` (not drift-gated, unlike the deterministic offline delta).
 
+### `upload` — verify gate then upload to Moonraker
+```sh
+dry review-gcode examples/part.gcode --profile profiles/voron.json
+dry upload examples/part.gcode --moonraker http://voron.local --api-key-env MOONRAKER_API_KEY
+```
+
+Dry runs its verify gate on the file before upload:
+
+- **Accept** (0 errors, 0 warnings) → upload the g-code, optionally start the print.
+- **Warn** (0 errors, ≥1 warning) → upload but do NOT auto-start unless `--force` overrides.
+- **Reject** (≥1 error) → no upload, exit 1, unless `--force` overrides.
+
+Upload requires a Moonraker host (`--moonraker <url>`), an optional API key (default env var
+`MOONRAKER_API_KEY`; may be empty for trusted-client setups), and optional post-upload actions:
+
+```sh
+# Review first, then upload under a profile
+dry upload examples/part.gcode --moonraker http://voron.local --profile profiles/voron.json
+
+# Rewrite (safe/balanced/max) the g-code before uploading
+dry upload examples/part.gcode --moonraker http://voron.local --rewrite balanced
+
+# Upload and start the print immediately (gate permitting)
+dry upload examples/part.gcode --moonraker http://voron.local --print
+
+# Override the gate (warn → upload, reject → upload)
+dry upload examples/part.gcode --moonraker http://voron.local --force
+
+# Rewrite + profile + print workflow
+dry upload examples/part.gcode --moonraker http://voron.local --profile profiles/voron.json \
+  --rewrite balanced --print
+```
+
+The `--rewrite` mode works as in `rewrite-gcode --mode`: `safe` (collinear merge + arc fit), `balanced`
+(+ adaptive junction/curvature speed), `max` (+ coasting, travel reorder, z-hop). Rewritten bytes are
+uploaded under the source filename.
+
+Gate severity and contract flags follow the profile and CLI overrides from `review-gcode` and
+`verify`:
+
+```sh
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --profile profiles/voron.json \
+  --bounds 0,250,0,250,0,250 \
+  --max-flow 15 \
+  --monotonic-z \
+  --min-temp 190 \
+  --speed-range 10,300
+```
+
+Use `--json` to emit a structured upload response (host status, file path, print start outcome if
+requested). Use `--print` without `--force` to auto-start only when the gate accepts (0 errors, 0
+warnings); use `--force --print` to start regardless. New feature-gated `dry-moonraker` crate is the
+only network code; `dry-core` stays pure.
+
 ## Working with the SDKs (Python, TypeScript, Wasm)
 
 ### Kinematic limits in the SDKs
