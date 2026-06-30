@@ -187,6 +187,96 @@ pub fn decode_response(body: &serde_json::Value) -> Result<AnalysisResponse, Llm
     })
 }
 
+pub const COMPARE_SCHEMA: &str = r#"{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "what_changed", "why_it_matters", "better", "better_rationale"],
+  "properties": {
+    "summary": {"type": "string"},
+    "what_changed": {"type": "string"},
+    "why_it_matters": {"type": "string"},
+    "better": {"type": "string", "enum": ["a", "b", "either"]},
+    "better_rationale": {"type": "string"}
+  }
+}"#;
+
+#[derive(Debug, Clone)]
+pub struct CompareNarrative {
+    pub summary: String,
+    pub what_changed: String,
+    pub why_it_matters: String,
+    pub better: String,
+    pub better_rationale: String,
+    pub usage: Usage,
+}
+
+#[derive(Deserialize)]
+struct CompareStructured {
+    summary: String,
+    what_changed: String,
+    why_it_matters: String,
+    better: String,
+    better_rationale: String,
+}
+
+const COMPARE_SYSTEM: &str = "You are a senior 3D-printing / CNC process engineer comparing two \
+deterministic analyses (file A vs file B) of the same kind of part. Below is a CompareDelta computed by \
+the Dry engine — the numbers are ground truth; do not recompute them. Explain what changed between A and \
+B, why it matters for the print (time, flow, risk), and which file is better (or `either`) and why. Be \
+concrete and cite the deltas.";
+
+pub fn build_compare_request(cfg: &ClientConfig, delta_json: &str) -> serde_json::Value {
+    let schema: serde_json::Value =
+        serde_json::from_str(COMPARE_SCHEMA).expect("schema is valid JSON");
+    serde_json::json!({
+        "model": cfg.model,
+        "max_tokens": cfg.max_tokens,
+        "system": COMPARE_SYSTEM,
+        "messages": [
+            { "role": "user", "content": format!("CompareDelta (A → B) as JSON:\n\n{delta_json}") }
+        ],
+        "output_config": { "format": { "type": "json_schema", "schema": schema } }
+    })
+}
+
+pub fn decode_compare(body: &serde_json::Value) -> Result<CompareNarrative, LlmError> {
+    if body["stop_reason"] == "refusal" {
+        let category = body["stop_details"]["category"]
+            .as_str()
+            .unwrap_or("unspecified");
+        return Err(LlmError::Refusal(category.to_string()));
+    }
+    let text = body["content"]
+        .as_array()
+        .and_then(|b| b.iter().find(|x| x["type"] == "text"))
+        .and_then(|x| x["text"].as_str())
+        .ok_or_else(|| LlmError::Decode("response had no text content block".into()))?;
+    let s: CompareStructured =
+        serde_json::from_str(text).map_err(|e| LlmError::Decode(format!("{e}: {text}")))?;
+    let usage: Usage = serde_json::from_value(body["usage"].clone()).unwrap_or(Usage {
+        input_tokens: 0,
+        output_tokens: 0,
+    });
+    Ok(CompareNarrative {
+        summary: s.summary,
+        what_changed: s.what_changed,
+        why_it_matters: s.why_it_matters,
+        better: s.better,
+        better_rationale: s.better_rationale,
+        usage,
+    })
+}
+
+/// Send a CompareDelta to the model and decode the narrative. Network (via `post_messages`).
+pub fn narrate_compare(
+    cfg: &ClientConfig,
+    delta: &dry_core::CompareDelta,
+) -> Result<CompareNarrative, LlmError> {
+    let delta_json = serde_json::to_string(delta).unwrap_or_default();
+    let json = post_messages(cfg, build_compare_request(cfg, &delta_json))?;
+    decode_compare(&json)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,5 +425,49 @@ mod tests {
                 && user.contains("\"forensics\"")
                 && user.contains("\"verify\"")
         );
+    }
+
+    #[test]
+    fn compare_request_carries_delta_and_schema() {
+        let cfg = ClientConfig {
+            api_key: "k".into(),
+            model: "claude-sonnet-4-6".into(),
+            max_tokens: 4096,
+        };
+        let body = build_compare_request(&cfg, r#"{"time":{"total":{"abs":-3.2}}}"#);
+        assert_eq!(body["model"], "claude-sonnet-4-6");
+        assert_eq!(body["output_config"]["format"]["type"], "json_schema");
+        assert!(body["system"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("compar"));
+        assert!(body["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("\"abs\":-3.2"));
+    }
+
+    #[test]
+    fn decodes_compare_narrative() {
+        let analysis = serde_json::json!({
+            "summary": "B is faster", "what_changed": "feedrate up", "why_it_matters": "less time",
+            "better": "b", "better_rationale": "20% quicker, same risk profile"
+        })
+        .to_string();
+        let body = serde_json::json!({
+            "stop_reason": "end_turn",
+            "content": [{ "type": "text", "text": analysis }],
+            "usage": { "input_tokens": 800, "output_tokens": 200 }
+        });
+        let n = decode_compare(&body).expect("decode");
+        assert_eq!(n.better, "b");
+        assert_eq!(n.usage.output_tokens, 200);
+    }
+
+    #[test]
+    fn compare_refusal_is_an_error() {
+        let body = serde_json::json!({ "stop_reason": "refusal", "stop_details": { "category": "cyber" }, "content": [] });
+        assert!(matches!(decode_compare(&body), Err(LlmError::Refusal(_))));
     }
 }
