@@ -268,6 +268,12 @@ enum Cmd {
         json: bool,
         #[arg(long)]
         out: Option<String>,
+        /// Call the model directly: get a narrative over the forensic delta. Requires --model and ANTHROPIC_API_KEY.
+        #[arg(long)]
+        llm: bool,
+        /// Claude model id for --llm (e.g. claude-sonnet-4-6). Required with --llm.
+        #[arg(long)]
+        model: Option<String>,
     },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
@@ -904,7 +910,23 @@ fn run(cli: Cli) -> ExitCode {
             window_s,
             json,
             out,
+            llm,
+            model,
         } => {
+            if llm {
+                return run_compare_llm(CompareLlmArgs {
+                    file_a,
+                    file_b,
+                    profile,
+                    filament_diameter,
+                    line_width,
+                    layer_height,
+                    window_s,
+                    json,
+                    out,
+                    model,
+                });
+            }
             let a = assemble_explain(
                 &file_a,
                 profile.as_deref(),
@@ -938,11 +960,11 @@ fn run(cli: Cli) -> ExitCode {
                 dry_core::render_compare_markdown(&delta)
             };
             match out {
-                Some(path) => std::fs::write(&path, rendered)
+                Some(path) => fs::write(&path, rendered)
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
                 None => print!("{rendered}"),
             }
-            std::process::ExitCode::SUCCESS
+            ExitCode::SUCCESS
         }
         Cmd::RewriteGcode {
             file,
@@ -1560,4 +1582,118 @@ fn render_llm_markdown(
         );
     }
     md
+}
+
+// Fields are consumed by `run_compare_llm`; suppress dead-code in non-llm builds.
+#[cfg_attr(not(feature = "llm"), allow(dead_code))]
+struct CompareLlmArgs {
+    file_a: String,
+    file_b: String,
+    profile: Option<String>,
+    filament_diameter: Option<f64>,
+    line_width: Option<f64>,
+    layer_height: Option<f64>,
+    window_s: f64,
+    json: bool,
+    out: Option<String>,
+    model: Option<String>,
+}
+
+#[cfg(not(feature = "llm"))]
+fn run_compare_llm(_args: CompareLlmArgs) -> std::process::ExitCode {
+    die(
+        "this build was compiled without --llm support; rebuild with `cargo build --features llm`"
+            .into(),
+    )
+}
+
+#[cfg(feature = "llm")]
+fn run_compare_llm(args: CompareLlmArgs) -> std::process::ExitCode {
+    let model = args.model.unwrap_or_else(|| {
+        die("--llm requires --model <id> (e.g. --model claude-sonnet-4-6)".into())
+    });
+    let api_key = std::env::var("ANTHROPIC_API_KEY")
+        .unwrap_or_else(|_| die("set ANTHROPIC_API_KEY to use --llm".into()));
+    let a = assemble_explain(
+        &args.file_a,
+        args.profile.as_deref(),
+        args.filament_diameter,
+        args.line_width,
+        args.layer_height,
+        None,
+        None,
+        None,
+        false,
+        None,
+        args.window_s,
+    );
+    let b = assemble_explain(
+        &args.file_b,
+        args.profile.as_deref(),
+        args.filament_diameter,
+        args.line_width,
+        args.layer_height,
+        None,
+        None,
+        None,
+        false,
+        None,
+        args.window_s,
+    );
+    let delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+    let cfg = dry_llm::ClientConfig {
+        api_key,
+        model: model.clone(),
+        max_tokens: 4096,
+    };
+    let narrative = dry_llm::narrate_compare(&cfg, &delta).unwrap_or_else(|e| die(e.to_string()));
+    match dry_llm::cost_usd(&model, &narrative.usage) {
+        Some(c) => eprintln!(
+            "{model} · in {} tok / out {} tok · ~${c:.4}",
+            narrative.usage.input_tokens, narrative.usage.output_tokens
+        ),
+        None => eprintln!(
+            "{model} · in {} tok / out {} tok · (pricing unknown for {model})",
+            narrative.usage.input_tokens, narrative.usage.output_tokens
+        ),
+    }
+    let rendered = if args.json {
+        serde_json::to_string_pretty(&serde_json::json!({
+            "delta": delta,
+            "narrative": {
+                "summary": narrative.summary,
+                "what_changed": narrative.what_changed,
+                "why_it_matters": narrative.why_it_matters,
+                "better": narrative.better,
+                "better_rationale": narrative.better_rationale,
+            },
+            "usage": {
+                "input_tokens": narrative.usage.input_tokens,
+                "output_tokens": narrative.usage.output_tokens,
+            },
+            "cost_usd": dry_llm::cost_usd(&model, &narrative.usage),
+        }))
+        .unwrap()
+            + "\n"
+    } else {
+        let mut md = dry_core::render_compare_markdown(&delta);
+        use std::fmt::Write as _;
+        let _ = write!(
+            md,
+            "\n## LLM narrative ({model})\n\n**Summary:** {}\n\n**What changed:** {}\n\n**Why it matters:** {}\n\n**Better:** {} — {}\n",
+            narrative.summary,
+            narrative.what_changed,
+            narrative.why_it_matters,
+            narrative.better,
+            narrative.better_rationale
+        );
+        md
+    };
+    match args.out {
+        Some(path) => {
+            fs::write(&path, rendered).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")))
+        }
+        None => print!("{rendered}"),
+    }
+    std::process::ExitCode::SUCCESS
 }
