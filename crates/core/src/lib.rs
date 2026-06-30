@@ -62,8 +62,8 @@ pub use profile::{
     ProfileError,
 };
 pub use recommend::{
-    classify, ActionKind, Classified, ContractField, ContractOverride, ExecutableAction,
-    Recommendation,
+    apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
+    ExecutableAction, ExecutionResult, MetricSnapshot, Recommendation, Verdict,
 };
 pub use report::{LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport};
 pub use resolve::{
