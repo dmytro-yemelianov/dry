@@ -13,9 +13,12 @@ use std::fs;
 use std::io::Write;
 use std::process::ExitCode;
 
-/// CLI surface for [`Kinematics`]: the rotary kinematics selectable on `dry emit`.
+/// CLI surface for the **rotary-axes** selector on `dry emit` (the `--rotary-axes` flag): which two
+/// rotary axes (`ab`/`ac`/`bc`) carry the toolframe orientation for 5-axis words. This is the
+/// ab/ac/bc STRING — distinct from the machine motion-limits `kinematics` OBJECT
+/// (`--max-accel` / `--junction-velocity`) consumed by `verify` / `rewrite-gcode --mode balanced`.
 #[derive(Clone, Copy, Debug, ValueEnum)]
-enum KinematicsArg {
+enum RotaryAxesArg {
     Ab,
     Ac,
     Bc,
@@ -39,18 +42,18 @@ impl From<OptimizeModeArg> for OptimizeMode {
     }
 }
 
-impl From<KinematicsArg> for Kinematics {
-    fn from(k: KinematicsArg) -> Self {
+impl From<RotaryAxesArg> for Kinematics {
+    fn from(k: RotaryAxesArg) -> Self {
         match k {
-            KinematicsArg::Ab => Kinematics::Ab {
+            RotaryAxesArg::Ab => Kinematics::Ab {
                 pivot_offset: [0.0, 0.0, 0.0],
                 rotary_offset: [0.0, 0.0],
             },
-            KinematicsArg::Ac => Kinematics::Ac {
+            RotaryAxesArg::Ac => Kinematics::Ac {
                 pivot_offset: [0.0, 0.0, 0.0],
                 rotary_offset: [0.0, 0.0],
             },
-            KinematicsArg::Bc => Kinematics::Bc {
+            RotaryAxesArg::Bc => Kinematics::Bc {
                 pivot_offset: [0.0, 0.0, 0.0],
                 rotary_offset: [0.0, 0.0],
             },
@@ -85,9 +88,10 @@ enum Cmd {
         /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
-        /// Rotary kinematics for 5-axis words (ab|ac|bc).
-        #[arg(long, value_enum, default_value_t = KinematicsArg::Ab)]
-        kinematics: KinematicsArg,
+        /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
+        /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
+        #[arg(long, visible_alias = "kinematics", value_enum, default_value_t = RotaryAxesArg::Ab)]
+        rotary_axes: RotaryAxesArg,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -607,7 +611,7 @@ fn run(cli: Cli) -> ExitCode {
             file,
             absolute_e,
             five_axis,
-            kinematics,
+            rotary_axes,
             out,
         } => {
             let stream =
@@ -616,7 +620,7 @@ fn run(cli: Cli) -> ExitCode {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
-                kinematics: kinematics.into(),
+                kinematics: rotary_axes.into(),
                 ..EmitParams::default()
             };
             match out {

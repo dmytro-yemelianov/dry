@@ -57,6 +57,26 @@ fn emit_reproduces_the_fixture_gcode() {
 }
 
 #[test]
+fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
+    // The rotary-axes selector was renamed `--kinematics` → `--rotary-axes`; the old name stays a
+    // visible alias. Both must be accepted and produce byte-identical g-code for the same value.
+    let path = fixture("gcode", "square");
+    let run = |flag: &str| {
+        let out = Command::new(bin())
+            .args(["emit", path.to_str().unwrap(), flag, "ac"])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "`dry emit {flag} ac` must succeed");
+        String::from_utf8(out.stdout).unwrap()
+    };
+    assert_eq!(
+        run("--rotary-axes"),
+        run("--kinematics"),
+        "`--kinematics` must remain a working alias of `--rotary-axes`"
+    );
+}
+
+#[test]
 fn simulate_json_is_valid_and_matches_the_metrics() {
     let path = fixture("simulate", "square");
     let out = Command::new(bin())

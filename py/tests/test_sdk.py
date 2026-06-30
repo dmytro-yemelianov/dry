@@ -67,6 +67,27 @@ def test_toolframe_orientation_authors_onto_segments():
     assert d.ir()["segments"][1]["orientation"] == [0.6, 0.0, 0.8]
 
 
+def _oriented_5axis_design():
+    # A tilted toolframe so 5-axis emit produces real rotary words that depend on the rotary-axes pick.
+    return (dry.Design().geometry(0.6, 0.2).orient(0.6, 0.0, 0.8).extruder(True)
+            .point(0, 0, 0.2).point(10, 0, 0.2))
+
+
+def test_rotary_axes_selector_and_kinematics_alias_for_five_axis_emit():
+    """`gcode` renamed `kinematics` → `rotary_axes` (the ab/ac/bc string). The new keyword selects the
+    rotary axes; the old `kinematics` keyword stays a back-compat alias; both are non-breaking."""
+    d = _oriented_5axis_design()
+    ab = d.gcode(five_axis=True, rotary_axes="ab")
+    ac_new = d.gcode(five_axis=True, rotary_axes="ac")
+    # The selector actually changes the emitted rotary words.
+    assert ac_new != ab, "rotary_axes='ac' must differ from the default 'ab' rotary words"
+    # The legacy `kinematics=` alias still works and matches the new keyword.
+    ac_alias = d.gcode(five_axis=True, kinematics="ac")
+    assert ac_alias == ac_new, "legacy kinematics= alias must equal rotary_axes="
+    # Positional compatibility: the 5th positional arg is still the rotary-axes string.
+    assert d.gcode("generic", True, False, True, "ac") == ac_new
+
+
 def test_spline_authors_through_the_builder():
     d = (dry.Design().geometry(0.6, 0.2).extruder(True)
          .point(0, 0, 0.2)

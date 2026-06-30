@@ -161,15 +161,19 @@ export class Design {
 
   // ---- engine calls ----
 
-  /** Resolve + emit motion g-code (an array of lines). */
+  /**
+   * Resolve + emit motion g-code (an array of lines). `rotaryAxes` is the rotary-axes selector (the
+   * ab/ac/bc STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit —
+   * distinct from the machine motion-limits `kinematics` object used by `balancedIr` / `verify`.
+   */
   gcode(
     printer = 'generic',
     relativeE = true,
     travelG1E0 = false,
     fiveAxis = false,
-    kinematics = 'ab'
+    rotaryAxes = 'ab'
   ): string[] {
-    return resolveGcode(this.ops, params(printer), relativeE, travelG1E0, fiveAxis, kinematics);
+    return resolveGcode(this.ops, params(printer), relativeE, travelG1E0, fiveAxis, rotaryAxes);
   }
 
   /** Resolve + simulate; returns metrics (time, distances, material, peak flow). */

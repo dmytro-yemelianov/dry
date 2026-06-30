@@ -25,7 +25,7 @@ interface DryWasm {
     relativeE: boolean,
     travelG1E0: boolean,
     fiveAxis: boolean,
-    kinematics: string
+    rotaryAxes: string
   ): string[];
   tpms_ops_json(tpmsOptionsJson: string): string;
   resolve_metrics(opsJson: string, paramsJson: string): string;
@@ -56,14 +56,19 @@ interface DryWasm {
 const requireWasm = createRequire(__filename);
 const wasm: DryWasm = requireWasm(path.join(__dirname, '..', '..', 'wasm', 'dry_wasm.js'));
 
-/** Resolve a design and emit motion g-code. */
+/**
+ * Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
+ * STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
+ * from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
+ * `resolveVerify`.
+ */
 export function resolveGcode(
   ops: Op[],
   params: ResolveParams,
   relativeE = true,
   travelG1E0 = false,
   fiveAxis = false,
-  kinematics = 'ab'
+  rotaryAxes = 'ab'
 ): string[] {
   return wasm.resolve_gcode(
     JSON.stringify(ops),
@@ -71,7 +76,7 @@ export function resolveGcode(
     relativeE,
     travelG1E0,
     fiveAxis,
-    kinematics
+    rotaryAxes
   );
 }
 

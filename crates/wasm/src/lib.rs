@@ -19,6 +19,11 @@ fn parse(ops_json: &str, params_json: &str) -> Result<(Design, ResolveParams), J
 }
 
 /// Resolve a design and emit motion g-code (returned as a JS array of strings).
+///
+/// `rotary_axes` is the **rotary-axes selector** (the ab/ac/bc STRING) choosing which two rotary axes
+/// carry the toolframe orientation in 5-axis emit. It is unrelated to the machine motion-limits
+/// `kinematics_json` OBJECT (`{max_acceleration_mm_s2,…}`) consumed by [`resolve_balanced_ir`] /
+/// [`resolve_verify`].
 #[wasm_bindgen]
 pub fn resolve_gcode(
     ops_json: &str,
@@ -26,11 +31,11 @@ pub fn resolve_gcode(
     relative_e: bool,
     travel_g1_e0: bool,
     five_axis: bool,
-    kinematics_str: &str,
+    rotary_axes: &str,
 ) -> Result<Vec<String>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
-    let kinematics = Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
+    let kinematics = Kinematics::named(rotary_axes).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
@@ -46,8 +51,9 @@ pub fn resolve_gcode(
 /// Generate a gyroid TPMS infill design, resolve it, and emit motion g-code (a JS array of strings).
 ///
 /// `tpms_options_json` is the camelCase [`TpmsOptions`] bundle (e.g. `{"cellSize":12,"cellsX":3}`);
-/// `params_json` is the machine/material [`ResolveParams`]. The remaining flags mirror
-/// [`resolve_gcode`]. The gyroid field uses `libm`, so the output differs sub-micron from the TS SDK's
+/// `params_json` is the machine/material [`ResolveParams`]. `rotary_axes` is the rotary-axes selector
+/// (the ab/ac/bc STRING) — see [`resolve_gcode`]; it is unrelated to the motion-limits `kinematics_json`
+/// OBJECT. The gyroid field uses `libm`, so the output differs sub-micron from the TS SDK's
 /// `Math`-based generator — there is no byte-identity contract between them.
 #[wasm_bindgen]
 pub fn resolve_tpms_gcode(
@@ -56,7 +62,7 @@ pub fn resolve_tpms_gcode(
     relative_e: bool,
     travel_g1_e0: bool,
     five_axis: bool,
-    kinematics_str: &str,
+    rotary_axes: &str,
 ) -> Result<Vec<String>, JsError> {
     let options: TpmsOptions = serde_json::from_str(tpms_options_json)
         .map_err(|e| JsError::new(&format!("tpms options: {e}")))?;
@@ -65,7 +71,7 @@ pub fn resolve_tpms_gcode(
     let ops = try_tpms_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
     let design = Design { ops };
     let tp = resolve_checked(&design, &params).map_err(|e| JsError::new(&e.to_string()))?;
-    let kinematics = Kinematics::named(kinematics_str).map_err(|e| JsError::new(&e.to_string()))?;
+    let kinematics = Kinematics::named(rotary_axes).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
@@ -185,13 +191,15 @@ fn build_range(name: &str, range: Option<Box<[f64]>>) -> Result<Option<[f64; 2]>
 /// Parse the optional `kinematics_json` boundary string into [`MachineKinematics`]. Empty → `None`.
 /// A non-empty string that fails to parse is a clear [`JsError`] (never a panic).
 ///
-/// # Name disambiguation
+/// # Name disambiguation — two unrelated concepts
 ///
-/// [`Kinematics`] (also exported in this crate) is the **5-axis rotary geometry** selector used by
-/// `resolve_gcode` / `resolve_tpms_gcode` to select the correct arc strategy (Cartesian, CoreXY, …).
-/// [`MachineKinematics`] is unrelated: it carries **profile motion limits** — specifically the
-/// peak-acceleration and junction-velocity ceilings that feed the `balanced_pipeline` and the
-/// `peak-acceleration` / `junction-velocity` verify rules.
+/// - **`rotary_axes`** (the `resolve_gcode` / `resolve_tpms_gcode` param): the rotary-axes selector,
+///   a STRING `"ab"|"ac"|"bc"` choosing which two rotary axes carry the toolframe orientation in
+///   5-axis emit. Parsed into the core [`Kinematics`] enum.
+/// - **`kinematics_json`** (this function's input): the machine motion-limits OBJECT
+///   `{max_acceleration_mm_s2, max_junction_velocity_mm_s}` ([`MachineKinematics`]). It carries
+///   peak-acceleration and junction-velocity ceilings that feed [`balanced_pipeline`] and the
+///   `peak-acceleration` / `junction-velocity` verify rules. It has nothing to do with rotary axes.
 fn parse_kinematics(kinematics_json: &str) -> Result<Option<MachineKinematics>, JsError> {
     let s = kinematics_json.trim();
     if s.is_empty() {

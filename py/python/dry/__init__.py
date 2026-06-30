@@ -130,15 +130,24 @@ class Design:
         return self
 
     # ---- engine calls ----
-    def gcode(self, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False, kinematics="ab"):
-        "Resolve + emit motion g-code (a list of lines)."
+    def gcode(self, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False,
+              rotary_axes="ab", kinematics=None):
+        """Resolve + emit motion g-code (a list of lines).
+
+        `rotary_axes` is the rotary-axes selector — the ab/ac/bc STRING choosing which two rotary
+        axes carry the toolframe orientation in 5-axis emit (`five_axis=True`). NOTE: this is NOT the
+        machine motion-limits object (see ``balanced_ir`` / ``verify``'s ``kinematics`` for that).
+        `kinematics` is a deprecated alias for `rotary_axes`, kept for backward compatibility; when
+        provided (not ``None``) it takes precedence.
+        """
+        rotary = kinematics if kinematics is not None else rotary_axes
         return _native.resolve_gcode(
             json.dumps(self.ops),
             _params(printer),
             relative_e,
             bool(travel_g1_e0),
             bool(five_axis),
-            str(kinematics)
+            str(rotary)
         )
 
     def simulate(self, printer="generic"):
@@ -237,7 +246,7 @@ def _range_to_list(rng):
 
 
 def tpms_gcode(options, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False,
-               kinematics="ab"):
+               rotary_axes="ab", kinematics=None):
     """Generate TPMS infill g-code (a list of lines) from an options dict.
 
     `options` is the TPMS option bundle with camelCase keys (matching the engine / TS SDK), e.g.
@@ -245,14 +254,19 @@ def tpms_gcode(options, printer="generic", relative_e=True, travel_g1_e0=False, 
     `TPMS_SURFACES` (default ``"gyroid"``); an unknown name raises ``ValueError``. The field math runs
     in the engine (libm), so output differs sub-micron from the TypeScript generator — there is no
     byte-identity contract between them.
+
+    `rotary_axes` is the rotary-axes selector (the ab/ac/bc STRING) for 5-axis emit — NOT the machine
+    motion-limits object. `kinematics` is a deprecated alias for `rotary_axes`, kept for backward
+    compatibility; when provided (not ``None``) it takes precedence.
     """
+    rotary = kinematics if kinematics is not None else rotary_axes
     return _native.resolve_tpms_gcode(
         json.dumps(options or {}),
         _params(printer),
         relative_e,
         bool(travel_g1_e0),
         bool(five_axis),
-        str(kinematics),
+        str(rotary),
     )
 
 

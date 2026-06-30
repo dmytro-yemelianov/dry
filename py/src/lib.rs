@@ -25,12 +25,15 @@ fn parse_params(params_json: &str) -> PyResult<ResolveParams> {
 /// Parse the optional `kinematics_json` kwarg into [`MachineKinematics`]. `None` or empty string →
 /// `None`. A non-empty string that fails to parse is a clear [`PyValueError`] (never a panic).
 ///
-/// # Name disambiguation
+/// # Name disambiguation — two unrelated concepts
 ///
-/// [`Kinematics`] (also used in this crate) is the **5-axis rotary geometry** selector for arc
-/// strategy (Cartesian, CoreXY, …). [`MachineKinematics`] is unrelated: it carries **profile
-/// motion limits** — peak-acceleration and junction-velocity ceilings that feed `balanced_pipeline`
-/// and the `peak-acceleration` / `junction-velocity` verify rules.
+/// - **`rotary_axes`** (the `resolve_gcode` / `resolve_tpms_gcode` param): the rotary-axes selector,
+///   a STRING `"ab"|"ac"|"bc"` choosing which two rotary axes carry the toolframe orientation in
+///   5-axis emit. Parsed into the core [`Kinematics`] enum.
+/// - **`kinematics_json`** (this function's input): the machine motion-limits OBJECT
+///   `{max_acceleration_mm_s2, max_junction_velocity_mm_s}` ([`MachineKinematics`]) — the
+///   peak-acceleration and junction-velocity ceilings that feed `balanced_pipeline` and the
+///   `peak-acceleration` / `junction-velocity` verify rules. It has nothing to do with rotary axes.
 fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKinematics>> {
     let s = match kinematics_json {
         None => return Ok(None),
@@ -45,20 +48,24 @@ fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKin
 }
 
 /// Resolve a design and emit motion g-code (one string per line).
+///
+/// `rotary_axes` is the rotary-axes selector (the ab/ac/bc STRING) choosing which two rotary axes
+/// carry the toolframe orientation in 5-axis emit — unrelated to the machine motion-limits
+/// `kinematics_json` OBJECT consumed by `resolve_balanced_ir` / `resolve_verify`.
 #[pyfunction]
-#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, kinematics="ab"))]
+#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
 fn resolve_gcode(
     ops_json: &str,
     params_json: &str,
     relative_e: bool,
     travel_g1_e0: bool,
     five_axis: bool,
-    kinematics: &str,
+    rotary_axes: &str,
 ) -> PyResult<Vec<String>> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
-        Kinematics::named(kinematics).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
@@ -77,14 +84,14 @@ fn resolve_gcode(
 /// `{"surface":"gyroid","cellSize":12}`. An unknown surface name (or any malformed option) is a clean
 /// `ValueError`, never a panic.
 #[pyfunction]
-#[pyo3(signature = (tpms_options_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, kinematics="ab"))]
+#[pyo3(signature = (tpms_options_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
 fn resolve_tpms_gcode(
     tpms_options_json: &str,
     params_json: &str,
     relative_e: bool,
     travel_g1_e0: bool,
     five_axis: bool,
-    kinematics: &str,
+    rotary_axes: &str,
 ) -> PyResult<Vec<String>> {
     let options: TpmsOptions = serde_json::from_str(tpms_options_json)
         .map_err(|e| PyValueError::new_err(format!("invalid tpms options: {e}")))?;
@@ -92,7 +99,7 @@ fn resolve_tpms_gcode(
     let tp = resolve_checked(&Design { ops }, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
-        Kinematics::named(kinematics).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(emit(
         &tp,
         &EmitParams {
