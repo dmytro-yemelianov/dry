@@ -9,6 +9,9 @@ use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
 use serde::{Deserialize, Serialize};
 
+pub mod klipper;
+pub use klipper::{import_klipper, KlipperImportError, KlipperImportWarning};
+
 fn default_profile_version() -> u32 {
     1
 }

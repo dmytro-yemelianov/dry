@@ -63,8 +63,8 @@ pub use optimize::{
     travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
 };
 pub use profile::{
-    FirmwareProfile, MachineKinematics, MachineProfile, MaterialProfile, ProcessProfile, Profile,
-    ProfileError,
+    import_klipper, FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineKinematics,
+    MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
 };
 pub use recommend::{
     apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
