@@ -13,6 +13,9 @@ const M = (x, y, z) => ({ op: 'move', x, y, z });
 const ARC = (cx, cy, x, y, z, clockwise) => ({ op: 'arc', cx, cy, x, y, z, clockwise });
 const TEMP = (c) => ({ op: 'temperature', nozzle: c });
 const FAN = (v) => ({ op: 'fan', speed: v });
+const RETRACT = (distance, speed) => ({ op: 'retract', distance, speed });
+const UNRETRACT = (distance, speed) => ({ op: 'unretract', distance, speed });
+const SPLINE = (points) => ({ op: 'spline', points });
 const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; };
 
 function square(side = 10, z = 0.2) {
@@ -90,6 +93,36 @@ function layeredTower(side = 20, layers = 10, layerH = 0.3, cx = 50, cy = 50, z0
     for (let i = 1; i <= 4; i++) ops.push(M(corner[i % 4][0], corner[i % 4][1], z)); // square perimeter
   }
   return ops;
+}
+
+// A square tower printed with filament retraction: after each perimeter the filament is retracted,
+// the extruder lifts and travels (OFF) to the next layer start, then unretracts and resumes — the
+// canonical retract / travel / unretract cycle that suppresses oozing/stringing between layers.
+function retractionTower(side = 16, layers = 6, layerH = 0.4, retractDist = 1.2, retractSpeed = 2400, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), SPEED(1200)];
+  const h = side / 2;
+  const corner = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]];
+  for (let L = 0; L < layers; L++) {
+    const z = z0 + L * layerH;
+    ops.push(OFF, M(corner[0][0], corner[0][1], z));            // travel to the layer start
+    if (L > 0) ops.push(UNRETRACT(retractDist, retractSpeed));  // prime the filament before extruding
+    ops.push(ON);
+    for (let i = 1; i <= 4; i++) ops.push(M(corner[i % 4][0], corner[i % 4][1], z)); // square perimeter
+    if (L < layers - 1) ops.push(RETRACT(retractDist, retractSpeed)); // retract before the lift/travel
+  }
+  return ops;
+}
+
+// A smooth S-curve drawn as a single native Catmull-Rom spline op: travel to the curve start, then one
+// spline through control points sampled along a full sine wave (one up lobe + one down lobe).
+function splineSCurve(length = 64, amp = 16, points = 6, cx = 50, cy = 50, z = 0.2) {
+  const x0 = cx - length / 2;
+  const ctrl = [];
+  for (let i = 0; i <= points; i++) {
+    const f = i / points;
+    ctrl.push([x0 + f * length, cy + amp * Math.sin(f * TAU), z]);
+  }
+  return [G(0.6, 0.2), OFF, M(ctrl[0][0], ctrl[0][1], z), ON, SPLINE(ctrl.slice(1))];
 }
 
 // A rectangular panel: one perimeter, a travel, then a serpentine (zig-zag) infill — a complete layer.
@@ -374,6 +407,11 @@ const DESIGN_DEFS = {
     params: [range('w', 'width', 26, 4, 80, 0.5, 'mm'), range('h', 'height', 18, 4, 80, 0.5, 'mm'), range('r', 'radius', 5, 0.5, 30, 0.5, 'mm'), ...centerParams(), zParam('z', 0.4)],
     build: ({ w, h, r, cx, cy, z }) => roundedRect(w, h, Math.min(r, w / 2, h / 2), cx, cy, z),
   },
+  spline_s_curve: {
+    label: 'S-curve (native spline)', group: 'Curves', tags: ['spline', 'curve'],
+    params: [range('length', 'length', 64, 8, 100, 1, 'mm'), range('amp', 'amp', 16, 1, 40, 0.5, 'mm'), range('points', 'points', 6, 3, 24, 1, '1'), ...centerParams(), zParam()],
+    build: ({ length, amp, points, cx, cy, z }) => splineSCurve(length, amp, points, cx, cy, z),
+  },
   infill_panel: {
     label: 'Infill panel (perimeter + zig-zag)', group: 'Infill & multi-layer', tags: ['infill', 'travel'],
     params: [range('w', 'width', 26, 4, 80, 0.5, 'mm'), range('h', 'height', 18, 4, 80, 0.5, 'mm'), range('gap', 'gap', 2, 0.5, 12, 0.1, 'mm'), ...centerParams(), zParam()],
@@ -383,6 +421,11 @@ const DESIGN_DEFS = {
     label: 'Layered tower (10 layers + travels)', group: 'Infill & multi-layer', tags: ['multi-layer', 'travel'],
     params: [range('side', 'side', 20, 2, 80, 0.5, 'mm'), range('layers', 'layers', 10, 1, 80, 1, '1'), range('layerH', 'layer', 0.3, 0.05, 2, 0.01, 'mm'), ...centerParams(), zParam('z0', 0.2)],
     build: ({ side, layers, layerH, cx, cy, z0 }) => layeredTower(side, layers, layerH, cx, cy, z0),
+  },
+  retraction_tower: {
+    label: 'Retraction tower (retract / travel / unretract)', group: 'Infill & multi-layer', tags: ['multi-layer', 'travel', 'retract'],
+    params: [range('side', 'side', 16, 2, 80, 0.5, 'mm'), range('layers', 'layers', 6, 1, 60, 1, '1'), range('layerH', 'layer', 0.4, 0.05, 2, 0.01, 'mm'), range('retractDist', 'retract', 1.2, 0, 8, 0.1, 'mm'), range('retractSpeed', 'retract v', 2400, 60, 9000, 60, 'mm/min'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ side, layers, layerH, retractDist, retractSpeed, cx, cy, z0 }) => retractionTower(side, layers, layerH, retractDist, retractSpeed, cx, cy, z0),
   },
   spiral_vase: {
     label: 'Spiral vase (~120-seg helix)', group: 'Vases & non-planar', tags: ['non-planar', '3D'],

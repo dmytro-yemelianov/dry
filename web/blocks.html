@@ -248,6 +248,16 @@
     <block type="dry_tool"></block>
     <block type="dry_orient"></block>
     <block type="dry_dwell"></block>
+    <block type="dry_retract">
+      <value name="DISTANCE"><shadow type="math_number"><field name="NUM">1.2</field></shadow></value>
+      <value name="SPEED"><shadow type="math_number"><field name="NUM">2400</field></shadow></value>
+    </block>
+    <block type="dry_unretract">
+      <value name="DISTANCE"><shadow type="math_number"><field name="NUM">1.2</field></shadow></value>
+      <value name="SPEED"><shadow type="math_number"><field name="NUM">2400</field></shadow></value>
+    </block>
+    <block type="dry_deposit"></block>
+    <block type="dry_manual_gcode"></block>
   </category>
   <sep></sep>
   <category name="Flow" colour="20">
@@ -421,6 +431,32 @@ Blockly.defineBlocksWithJsonArray([
     args0: [ { type: 'field_number', name: 'SECONDS', value: 1, min: 0, precision: 0.01 } ],
     previousStatement: null, nextStatement: null, colour: 290,
     tooltip: 'Pause in place for a number of seconds.' },
+
+  // retract/unretract distance & speed are VALUE inputs (shadow math_number) so they behave like the
+  // move/arc coords: a connected/shadow value is emitted, an empty/disconnected input ⇒ null and the
+  // field is omitted from the op (the machine default is used).
+  { type: 'dry_retract', message0: 'retract  distance %1  speed %2',
+    args0: [ { type: 'input_value', name: 'DISTANCE', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'SPEED', check: 'Number', align: 'RIGHT' } ],
+    inputsInline: true, previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Retract filament before a travel. Clear distance or speed (empty value) to omit it and keep the machine default.' },
+
+  { type: 'dry_unretract', message0: 'unretract  distance %1  speed %2',
+    args0: [ { type: 'input_value', name: 'DISTANCE', check: 'Number', align: 'RIGHT' },
+             { type: 'input_value', name: 'SPEED', check: 'Number', align: 'RIGHT' } ],
+    inputsInline: true, previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Prime (unretract) filament after a travel. Clear distance or speed (empty value) to omit it and keep the machine default.' },
+
+  { type: 'dry_deposit', message0: 'deposit  volume %1 mm³  speed %2 mm/min',
+    args0: [ { type: 'field_number', name: 'VOLUME', value: 2, min: 0, precision: 0.01 },
+             { type: 'field_number', name: 'SPEED', value: 300, min: 0 } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Extrude a fixed volume of filament in place (stationary deposit) — e.g. a prime blob or dot.' },
+
+  { type: 'dry_manual_gcode', message0: 'manual g-code %1',
+    args0: [ { type: 'field_input', name: 'TEXT', text: 'M117 hello' } ],
+    previousStatement: null, nextStatement: null, colour: 290,
+    tooltip: 'Emit a verbatim line of g-code — an escape hatch for machine-specific commands.' },
 
   { type: 'dry_vase_helix',
     message0: 'vase helix  center x %1  y %2  z0 %3',
@@ -912,6 +948,30 @@ function genBlock(block, ops, env, ctx) {
       break;
     case 'dry_dwell':
       ops.push({ op: 'dwell', seconds: Number(block.getFieldValue('SECONDS')) });
+      break;
+    case 'dry_retract': {
+      const op = { op: 'retract' };
+      const distance = evalValue(block, 'DISTANCE', env, ctx);
+      const speed = evalValue(block, 'SPEED', env, ctx);
+      if (distance != null) op.distance = distance; // empty value ⇒ omit, like the move null-coords
+      if (speed != null) op.speed = speed;
+      ops.push(op);
+      break;
+    }
+    case 'dry_unretract': {
+      const op = { op: 'unretract' };
+      const distance = evalValue(block, 'DISTANCE', env, ctx);
+      const speed = evalValue(block, 'SPEED', env, ctx);
+      if (distance != null) op.distance = distance;
+      if (speed != null) op.speed = speed;
+      ops.push(op);
+      break;
+    }
+    case 'dry_deposit':
+      ops.push({ op: 'deposit', volume: Number(block.getFieldValue('VOLUME')), speed: Number(block.getFieldValue('SPEED')) });
+      break;
+    case 'dry_manual_gcode':
+      ops.push({ op: 'manual_gcode', text: String(block.getFieldValue('TEXT')) });
       break;
     case 'dry_vase_helix': {
       const cx = finiteField(block, 'CX', ctx, 50);
