@@ -137,8 +137,15 @@ polygon libraries for conventional layers. Dry can own:
 
 ## 2. Post-slicer review and Klipper optimization
 
-This is one of the most practical near-term uses. Dry can sit between existing slicers and the printer
-instead of replacing either.
+**Status (machine-model v2 shipped):** The core machine model is now live: `peak-acceleration` and
+`junction-velocity` verifier rules (Error/Warning, gated on profile's `machine.kinematics`);
+`dry import-printer-cfg` deriving a dry profile from a Klipper `printer.cfg` (maps `max_accel` /
+`square_corner_velocity` → machine kinematics, `position_max` → build volume, material/process defaults;
+warns on omitted fields like max volumetric flow and deferred models like input-shaper / pressure-advance);
+and SDKs (`resolve_balanced_ir` + `kinematics_json` on wasm/PyO3/TS) expose the motion model so
+`balanced` mode shapes arc and junction speeds to the printer's real envelope. PA and input-shaper
+remain deferred. This is one of the most practical near-term uses. Dry can sit between existing slicers
+and the printer instead of replacing either.
 
 ```text
 PrusaSlicer / OrcaSlicer / Cura / SuperSlicer

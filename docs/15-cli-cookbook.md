@@ -59,6 +59,31 @@ dry pack conformance/gcode/square.json -o square.dry   # → square.dry (125 byt
 dry unpack square.dry                                   # → {"version":0,"segments":[…]}
 ```
 
+## Working with Klipper configurations
+
+### `import-printer-cfg` — Klipper `printer.cfg` → Dry profile
+
+```sh
+dry import-printer-cfg ~/.config/klipper/printer.cfg --name voron24-abs
+# warning: machine.kinematics.max_acceleration_mm_s2 — … (optional; OK to omit if not in config)
+# { "version": 1, "name": "voron24-abs", "firmware": { "flavor": "klipper" }, … }
+```
+
+Use `--out PROFILE.json` to write the derived profile to a file instead of stdout. The importer maps
+Klipper fields to a Dry profile: `max_accel` and `square_corner_velocity` → `machine.kinematics`,
+`position_max` (all three axes required) → `machine.build_volume`, `filament_diameter` /
+`min_extrude_temp` / `firmware_retraction` / `nozzle_diameter` → material and process defaults. Warnings
+(to stderr) flag every omitted or lossy field: `feedrate_range` is absent; `max_volumetric_flow` can be
+added manually from hotend calibration; `input_shaper` and `pressure_advance` are deferred.
+
+**Typical workflow** — import the config, then review and optimize existing G-code with the new profile:
+
+```sh
+dry import-printer-cfg printer.cfg --out voron.json
+dry review-gcode sliced.gcode --profile voron.json          # diagnose
+dry rewrite-gcode sliced.gcode --profile voron.json --mode balanced -o rewritten.gcode  # optimize for the printer's dynamics
+```
+
 ## Working on slicer g-code
 
 ### `import-gcode` — g-code → Dry IR JSON
@@ -180,3 +205,27 @@ matters, which is better"), and reports token usage and cost estimate to stderr.
 `ANTHROPIC_API_KEY` and `--model <id>`. The narrative is advisory and non-deterministic; the delta
 itself stays gated. Use `--json` to emit the full envelope (`docs/11` §3.8) with
 `{delta, narrative, usage, cost_usd}` (not drift-gated, unlike the deterministic offline delta).
+
+## Working with the SDKs (Python, TypeScript, Wasm)
+
+### Kinematic limits in the SDKs
+
+The Python (`dry.verify()`), TypeScript (`verify()`), and Wasm (`verify_json()`) SDKs accept an
+optional kinematic-limits parameter: a JSON string of `{"max_acceleration_mm_s2": 3000,
+"max_junction_velocity_mm_s": 10}` (empty string or `null` → no kinematic checks). When supplied, the
+verifier fires the `peak-acceleration` and `junction-velocity` rules (see `docs/11` §2).
+
+Similarly, `resolve_balanced_ir()` and `resolve_verify()` (both on Python, TypeScript, and Wasm) accept a
+trailing `kinematics_json` parameter that shapes the `balanced` rewrite mode to respect the printer's
+motion envelope: arc/junction speed limiting based on the acceleration and square-corner velocity.
+
+Example (TypeScript):
+
+```ts
+const kinematics = JSON.stringify({
+  max_acceleration_mm_s2: 3000,
+  max_junction_velocity_mm_s: 10
+});
+const balanced_ir = dry.resolveBalancedIr(ops, resolve_params, kinematics);
+const report = dry.verify(balanced_ir, kinematics);
+```

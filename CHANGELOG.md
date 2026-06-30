@@ -10,6 +10,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Added
+- **Machine-model v2 (kinematics, end-to-end):** a `peak-acceleration` verifier rule (arc centripetal,
+  Error) + `junction-velocity` rule (Δv, Warning) gated on a profile's `machine.kinematics`; a new
+  `dry import-printer-cfg` that derives a profile from a Klipper printer.cfg; and `machine.kinematics`
+  exposed on the wasm/PyO3/TS SDKs (`resolve_balanced_ir` + `kinematics_json` on `resolve_verify`).
+  PA / input-shaper modeling remains deferred.
 - `dry explain --llm --model <id>`: online path that calls the Claude Messages API and closes the loop
   — applies executable recommendations (rewrite modes / contract overrides), re-traces + re-verifies, and
   reports measured before/after with a gate verdict; advisory (re-slice-only) suggestions are marked

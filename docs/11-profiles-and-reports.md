@@ -50,11 +50,19 @@ fields are finite and `> 0`; range fields are finite with a non-negative lower b
 `machine.kinematics` fields are finite and `> 0`. A profile maps to verifier **contracts** (§2), import
 params, resolve params and emit params.
 
-`machine.kinematics` is a small, optional, **firmware-agnostic** motion model (a max acceleration and a
-max junction / square-corner velocity). It is *not* enforced by the verifier — it feeds the `balanced`
-optimisation pipeline (§3.4), where the acceleration drives the arc centripetal speed limit and the
-junction velocity adds an absolute per-junction feedrate cap, so cornering speed respects the real
-machine envelope deterministically. Pressure-advance and input-shaper models are deliberately out of
+**`machine.kinematics`** is a small, optional, **firmware-agnostic** motion model: a max acceleration and a
+max junction / square-corner velocity. It has two optional numeric fields:
+
+- `max_acceleration_mm_s2` — the toolhead's maximum acceleration in mm/s². When set, the `peak-acceleration`
+  verifier rule (§2) flags arcs whose centripetal acceleration `v²/r` exceeds this value, and the `balanced`
+  rewrite mode (§3.4) caps arc speed to respect it.
+- `max_junction_velocity_mm_s` — the maximum velocity change allowed at a sharp junction (a per-junction
+  feedrate cap), in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity)
+  fires on contiguous printing segments with a velocity change Δv exceeding this value, and `balanced`
+  mode (§3.4) limits per-junction speed to respect it.
+
+Kinematic limits feed the `balanced` optimisation pipeline but are *not* enforced by the core verifier
+(they are gated in the rewrite process). Pressure-advance and input-shaper models are deliberately out of
 scope for v1.
 
 **Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a
@@ -88,6 +96,8 @@ are warnings.
 | `travel-without-retraction` | **warning** | a travel run exceeds the allowed distance without a retraction | `process.max_travel_without_retraction` |
 | `first-layer-height` | **warning** | the first-layer height is outside the allowed range | `process.first_layer_height_range` |
 | `first-layer-speed` | **warning** | the first-layer speed is outside the allowed range | `process.first_layer_speed_range` |
+| `peak-acceleration` | error | an arc's centripetal acceleration exceeds the machine's max acceleration | `machine.kinematics.max_acceleration_mm_s2` |
+| `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
