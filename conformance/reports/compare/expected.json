@@ -1,0 +1,54 @@
+{
+  "slicer": null,
+  "time": {
+    "total": {
+      "before": 2.0,
+      "after": 0.8,
+      "abs": -1.2,
+      "pct": -60.0
+    },
+    "print": {
+      "before": 2.0,
+      "after": 0.8,
+      "abs": -1.2,
+      "pct": -60.0
+    },
+    "travel": {
+      "before": 0.0,
+      "after": 0.0,
+      "abs": 0.0,
+      "pct": null
+    }
+  },
+  "peak_flow_mm3_s": {
+    "before": 2.405281875404685,
+    "after": 6.0132046885117125,
+    "abs": 3.6079228131070273,
+    "pct": 149.99999999999997
+  },
+  "layer_count": {
+    "before": 0.0,
+    "after": 0.0,
+    "abs": 0.0,
+    "pct": null
+  },
+  "travel_distance_mm": {
+    "before": 0.0,
+    "after": 0.0,
+    "abs": 0.0,
+    "pct": null
+  },
+  "retractions": {
+    "before": 0.0,
+    "after": 0.0,
+    "abs": 0.0,
+    "pct": null
+  },
+  "settings": [],
+  "findings": {
+    "before_count": 2,
+    "after_count": 2,
+    "added": [],
+    "removed": []
+  }
+}

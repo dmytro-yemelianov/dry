@@ -5,6 +5,27 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[test]
+fn compare_json_reports_a_time_delta() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/reports/compare");
+    let out = Command::new(bin())
+        .args([
+            "compare",
+            dir.join("slow.gcode").to_str().unwrap(),
+            dir.join("fast.gcode").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let delta: Value = serde_json::from_slice(&out.stdout).expect("valid CompareDelta JSON");
+    // fast is quicker → after < before on total time.
+    assert!(
+        delta["time"]["total"]["after"].as_f64().unwrap()
+            < delta["time"]["total"]["before"].as_f64().unwrap()
+    );
+}
+
 fn bin() -> &'static str {
     env!("CARGO_BIN_EXE_dry")
 }

@@ -250,6 +250,25 @@ enum Cmd {
         #[arg(long, default_value_t = 4)]
         max_applies: usize,
     },
+    /// Diff two analysed g-code files: settings, time/flow, and safety findings (A → B).
+    Compare {
+        file_a: String,
+        file_b: String,
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        #[arg(long)]
+        line_width: Option<f64>,
+        #[arg(long)]
+        layer_height: Option<f64>,
+        #[arg(long, default_value_t = 5.0)]
+        window_s: f64,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        out: Option<String>,
+    },
     /// Re-emit imported motion while preserving non-motion source G-code lines in place.
     RewriteGcode {
         file: String,
@@ -874,6 +893,56 @@ fn run(cli: Cli) -> ExitCode {
                 None => print!("{rendered}"),
             }
             ExitCode::SUCCESS
+        }
+        Cmd::Compare {
+            file_a,
+            file_b,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            window_s,
+            json,
+            out,
+        } => {
+            let a = assemble_explain(
+                &file_a,
+                profile.as_deref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+                None,
+                None,
+                None,
+                false,
+                None,
+                window_s,
+            );
+            let b = assemble_explain(
+                &file_b,
+                profile.as_deref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+                None,
+                None,
+                None,
+                false,
+                None,
+                window_s,
+            );
+            let delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+            let rendered = if json {
+                serde_json::to_string_pretty(&delta).unwrap() + "\n"
+            } else {
+                dry_core::render_compare_markdown(&delta)
+            };
+            match out {
+                Some(path) => std::fs::write(&path, rendered)
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => print!("{rendered}"),
+            }
+            std::process::ExitCode::SUCCESS
         }
         Cmd::RewriteGcode {
             file,
