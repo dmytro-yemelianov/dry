@@ -1440,7 +1440,7 @@ fn run_explain_llm(args: ExplainLlmArgs) -> std::process::ExitCode {
                 "risks": analysis.risks,
             },
             "recommendations": analysis.recommendations,
-            "results": results.iter().map(|(_, r)| r).collect::<Vec<_>>(),
+            "results": results.iter().map(|(title, r)| serde_json::json!({ "title": title, "result": r })).collect::<Vec<_>>(),
             "usage": {
                 "input_tokens": analysis.usage.input_tokens,
                 "output_tokens": analysis.usage.output_tokens,

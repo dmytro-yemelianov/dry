@@ -214,8 +214,30 @@ results. The `--json` envelope is:
     "time_analysis": "…",
     "risks": "…"
   },
-  "recommendations": [ { "title": "…", "priority": 0, "field": "speed_range", "action": "override" } ],
-  "results": [ { "action": "…", "verdict": "Accepted|Rejected", "note": "…" } ],
+  "recommendations": [
+    {
+      "title": "…",
+      "rationale": "…",
+      "expected_effect": "…",
+      "priority": 1,
+      "action_kind": "rewrite",
+      "mode": "balanced",
+      "field": null,
+      "value": null
+    }
+  ],
+  "results": [
+    {
+      "title": "…",
+      "result": {
+        "action": "rewrite-gcode --mode balanced",
+        "before": { "total_time_s": 120.5, "max_flow_mm3_s": 8.2, "findings": 0, "error_count": 0 },
+        "after":  { "total_time_s": 110.3, "max_flow_mm3_s": 7.9, "findings": 0, "error_count": 0 },
+        "verdict": "improved",
+        "note": "time 120.5s -> 110.3s, peak flow 8.20 -> 7.90 mm3/s"
+      }
+    }
+  ],
   "usage": {
     "input_tokens": 1234,
     "output_tokens": 567

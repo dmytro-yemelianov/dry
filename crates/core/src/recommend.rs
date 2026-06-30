@@ -437,4 +437,64 @@ mod tests {
             Classified::Advisory(_)
         ));
     }
+
+    #[test]
+    fn rewrite_safe_is_executable() {
+        let c = classify(&rec(ActionKind::Rewrite, Some("safe"), None, None));
+        assert!(matches!(
+            c,
+            Classified::Executable(ExecutableAction::Rewrite {
+                mode: OptimizeMode::Safe
+            })
+        ));
+    }
+
+    #[test]
+    fn rewrite_max_is_executable() {
+        let c = classify(&rec(ActionKind::Rewrite, Some("max"), None, None));
+        assert!(matches!(
+            c,
+            Classified::Executable(ExecutableAction::Rewrite {
+                mode: OptimizeMode::Max
+            })
+        ));
+    }
+
+    #[test]
+    fn contract_min_temp_is_executable() {
+        let c = classify(&rec(
+            ActionKind::Contract,
+            None,
+            Some("min_temp"),
+            Some("210"),
+        ));
+        match c {
+            Classified::Executable(ExecutableAction::Contract {
+                field: ContractField::MinTemp,
+                override_,
+            }) => {
+                assert!(
+                    matches!(override_, ContractOverride::Scalar(v) if (v - 210.0).abs() < 1e-9)
+                );
+            }
+            other => panic!("expected executable min_temp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn contract_monotonic_z_true_is_executable() {
+        let c = classify(&rec(
+            ActionKind::Contract,
+            None,
+            Some("monotonic_z"),
+            Some("true"),
+        ));
+        assert!(matches!(
+            c,
+            Classified::Executable(ExecutableAction::Contract {
+                field: ContractField::MonotonicZ,
+                override_: ContractOverride::Flag(true),
+            })
+        ));
+    }
 }
