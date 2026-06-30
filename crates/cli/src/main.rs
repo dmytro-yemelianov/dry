@@ -1703,9 +1703,9 @@ fn run_compare_llm(_args: CompareLlmArgs) -> std::process::ExitCode {
     )
 }
 
-// Fields are consumed by `run_upload`; suppress dead-code lint in all builds until the
-// real implementation (Task 4) replaces the temporary stub and reads every field.
-#[allow(dead_code)]
+// Fields are consumed by the `#[cfg(feature = "moonraker")]` `run_upload`; without the feature the
+// stub ignores them, so suppress dead-code only in that build.
+#[cfg_attr(not(feature = "moonraker"), allow(dead_code))]
 struct UploadArgs {
     file: String,
     moonraker: String,
@@ -1734,8 +1734,164 @@ fn run_upload(_: UploadArgs) -> std::process::ExitCode {
 }
 
 #[cfg(feature = "moonraker")]
-fn run_upload(_: UploadArgs) -> std::process::ExitCode {
-    unimplemented!()
+fn run_upload(args: UploadArgs) -> std::process::ExitCode {
+    use std::io::Cursor;
+    use std::path::Path;
+
+    let api_key = std::env::var(&args.api_key_env).ok();
+    let profile = load_profile(args.profile.as_deref());
+    if profile.is_none() {
+        eprintln!(
+            "warning: dry upload with no --profile — only structural invariants are checked \
+             (no flow/bounds/speed contracts); the gate will accept most files"
+        );
+    }
+    let params = gcode_review_params(
+        profile.as_ref(),
+        args.filament_diameter,
+        args.line_width,
+        args.layer_height,
+    );
+    let contracts = contracts_from_inputs(
+        profile.as_ref(),
+        args.bounds.as_deref(),
+        args.max_flow,
+        args.speed_range.as_deref(),
+        args.monotonic_z,
+        args.min_temp,
+    );
+
+    // The bytes we will upload: rewritten in memory when --rewrite, else the original file verbatim.
+    let rewrite_note;
+    let bytes_to_upload: Vec<u8> = if let Some(modearg) = args.rewrite {
+        let mode = OptimizeMode::from(modearg);
+        let input = fs::File::open(&args.file)
+            .unwrap_or_else(|e| die(format!("cannot read {}: {e}", args.file)));
+        let imported = import_gcode_reader_with_map(input, &params)
+            .unwrap_or_else(|e| die(format!("cannot import {}: {e}", args.file)));
+        let emit_params = EmitParams {
+            relative_e: true,
+            travel_g1_e0: false,
+            five_axis: false,
+            kinematics: Kinematics::default(),
+            flavor: profile
+                .as_ref()
+                .map(|p| p.emit_params().flavor)
+                .unwrap_or(FirmwareFlavor::Marlin),
+        };
+        let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
+        let mut span_toolpaths = Vec::new();
+        for span in imported.motion_spans() {
+            let span_tp = Toolpath {
+                version: imported.toolpath.version,
+                meta: imported.toolpath.meta.clone(),
+                segments: imported.toolpath.segments[span.segment_range()].to_vec(),
+            };
+            span_toolpaths.push(apply_gated(&span_tp, &contracts, mode, kinematics).toolpath);
+        }
+        let lines = imported
+            .emit_source_preserving_spans(&span_toolpaths, &emit_params)
+            .unwrap_or_else(|e| die(format!("cannot rewrite {}: {e}", args.file)));
+        rewrite_note = format!(" (rewritten --mode {})", optimize_mode_label(mode));
+        // Trailing newline mirrors `rewrite-gcode`'s on-disk output (some firmware expects a final \n).
+        (lines.join("\n") + "\n").into_bytes()
+    } else {
+        rewrite_note = String::new();
+        fs::read(&args.file).unwrap_or_else(|e| die(format!("cannot read {}: {e}", args.file)))
+    };
+
+    // Gate on exactly the bytes we will upload (re-import so findings + source lines match the upload).
+    let gate = import_gcode_reader_with_map(Cursor::new(bytes_to_upload.as_slice()), &params)
+        .unwrap_or_else(|e| die(format!("cannot import g-code for verification: {e}")));
+    let metrics = simulate(&gate.toolpath);
+    let report = verify(&gate.toolpath, &contracts);
+    let review = dry_core::ReviewReport::build(
+        Some(args.file.clone()),
+        profile_label(profile.as_ref()),
+        gate.toolpath.segments.len(),
+        metrics,
+        &report,
+        |segment| gate.source_line_for_segment(segment),
+    );
+
+    let errors = review.error_count;
+    let warnings = review
+        .findings
+        .iter()
+        .filter(|f| f.severity == dry_core::Severity::Warning)
+        .count();
+    for f in &review.findings {
+        let tag = if f.severity == dry_core::Severity::Error {
+            "Error"
+        } else {
+            "Warning"
+        };
+        let line = f
+            .source_line
+            .map(|l| format!(" line {l}"))
+            .unwrap_or_default();
+        eprintln!("  [{tag}] {}{line}: {}", f.rule, f.message);
+    }
+
+    if errors > 0 && !args.force {
+        eprintln!("error: upload blocked by {errors} error finding(s) (pass --force to override)");
+        return std::process::ExitCode::from(1);
+    }
+    let warn_mode = warnings > 0;
+
+    let basename = Path::new(&args.file)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("upload.gcode")
+        .to_string();
+    let cfg = dry_moonraker::MoonrakerConfig {
+        base_url: args.moonraker.clone(),
+        api_key,
+    };
+    let uploaded = dry_moonraker::upload_file(&cfg, &basename, &bytes_to_upload)
+        .unwrap_or_else(|e| die(e.to_string()));
+
+    let may_print = args.print && (!warn_mode || args.force) && (errors == 0 || args.force);
+    let mut printed = false;
+    if may_print {
+        dry_moonraker::start_print(&cfg, &uploaded.filename).unwrap_or_else(|e| die(e.to_string()));
+        printed = true;
+    }
+
+    if args.json {
+        let gate_verdict = if errors > 0 {
+            "reject-forced"
+        } else if warn_mode {
+            "warn"
+        } else {
+            "accept"
+        };
+        let env = serde_json::json!({
+            "gate": gate_verdict,
+            "uploaded": true,
+            "printed": printed,
+            "error_count": errors,
+            "warning_count": warnings,
+            "moonraker_url": args.moonraker,
+            "filename": uploaded.filename,
+            "rewrite": rewrite_note.trim(),
+        });
+        println!("{}", serde_json::to_string_pretty(&env).unwrap());
+    } else {
+        eprintln!("upload: {} → {}{}", args.file, args.moonraker, rewrite_note);
+        eprintln!(
+            "  verify: {} finding(s), {errors} error(s) — uploaded as {}",
+            review.findings.len(),
+            uploaded.filename
+        );
+        if warn_mode && args.print && !args.force {
+            eprintln!("  print NOT auto-started (warnings present; pass --force to start)");
+        }
+        if printed {
+            eprintln!("  printing: started");
+        }
+    }
+    std::process::ExitCode::SUCCESS
 }
 
 #[cfg(feature = "llm")]
