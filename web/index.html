@@ -348,6 +348,7 @@ import { STAR_POLYGON_FAMILIES, starPolygonLatticeOps } from './lattice-research
 import { TPMS_SURFACES, tpmsOps } from './tpms.js';
 import { createViewer } from './viewer.js';
 import { thumbnail } from './thumb.js';
+import { showWasmLoadError } from './wasm-load.js';
 
 const $ = (id) => document.getElementById(id);
 const PRINTER_PROFILES = {
@@ -427,24 +428,7 @@ const SOURCE_DEFS = [
   try {
     await init();
   } catch (err) {
-    console.error("Wasm load failed:", err);
-    const statusMsg = document.createElement('div');
-    statusMsg.style.color = '#ff6b6b';
-    statusMsg.style.padding = '20px';
-    statusMsg.style.background = '#2a1a1a';
-    statusMsg.style.border = '1px solid #ff4444';
-    statusMsg.style.borderRadius = '8px';
-    statusMsg.style.margin = '20px';
-    const h3 = document.createElement('h3');
-    h3.textContent = 'WebAssembly Engine Load Failed';
-    statusMsg.appendChild(h3);
-    const p1 = document.createElement('p');
-    p1.textContent = err.message || String(err);
-    statusMsg.appendChild(p1);
-    const p2 = document.createElement('p');
-    p2.textContent = 'Please run bash build.sh or refresh the page.';
-    statusMsg.appendChild(p2);
-    document.body.prepend(statusMsg);
+    showWasmLoadError(err);
     return;
   }
   const viewer = createViewer({
