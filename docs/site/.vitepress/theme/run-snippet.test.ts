@@ -31,3 +31,17 @@ test('destructured generator import resolves from the injected dry', () => {
   expect(r.ok).toBe(true);
   if (r.ok) expect(r.value).toEqual({ tag: 'tpms-design' });
 });
+
+test('semicolonless multi-statement snippets return the last expression', () => {
+  const src = `import { Design } from '@dry/sdk';\nconst d = new Design()\nd.point(0, 0, 0.2)\nd`;
+  const r = runSnippet(src, fakeDry);
+  expect(r.ok).toBe(true);
+  if (r.ok) expect((r.value as { gcode(): string[] }).gcode()).toEqual(['G1 X10 Y0']);
+});
+
+test('final expressions after declarations are returned', () => {
+  const src = `import { Design } from '@dry/sdk';\nfunction make() { return new Design() }\nmake()`;
+  const r = runSnippet(src, fakeDry);
+  expect(r.ok).toBe(true);
+  if (r.ok) expect((r.value as { gcode(): string[] }).gcode()).toEqual(['G1 X10 Y0']);
+});

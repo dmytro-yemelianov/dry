@@ -57,19 +57,20 @@ function wrapReturn(js: string): string {
     .join('\n')
     .trim();
   if (!cleaned) return 'return undefined;';
-  if (/^\s*(return|throw|if|for|while|switch|try|class|function)\b/.test(cleaned)) return cleaned;
+  if (/^\s*(return|throw)\b/.test(cleaned)) return cleaned;
 
   const body = trimTrailingSemicolons(cleaned);
-  const split = lastTopLevelSemicolon(body);
-  if (split === -1) {
-    if (/^\s*(const|let|var)\b/.test(body)) return `${body};\nreturn undefined;`;
-    return `return (${body});`;
-  }
+  const split = lastTopLevelStatementStart(body);
+  if (split === 0) return shouldReturn(body) ? `return (${body});` : `${body};\nreturn undefined;`;
 
-  const head = body.slice(0, split + 1);
-  const tail = body.slice(split + 1).trim();
-  if (!tail || /^\s*(const|let|var|return|throw)\b/.test(tail)) return `${body};\nreturn undefined;`;
+  const head = body.slice(0, split).trimEnd();
+  const tail = body.slice(split).trim();
+  if (!tail || !shouldReturn(tail)) return `${body};\nreturn undefined;`;
   return `${head}\nreturn (${tail});`;
+}
+
+function shouldReturn(statement: string): boolean {
+  return !/^\s*(const|let|var|return|throw|if|for|while|switch|try|class|function)\b/.test(statement);
 }
 
 function trimTrailingSemicolons(code: string): string {
@@ -78,13 +79,13 @@ function trimTrailingSemicolons(code: string): string {
   return code.slice(0, end);
 }
 
-function lastTopLevelSemicolon(code: string): number {
+function lastTopLevelStatementStart(code: string): number {
   let depth = 0;
   let quote: string | null = null;
   let escaped = false;
   let lineComment = false;
   let blockComment = false;
-  let last = -1;
+  let last = 0;
 
   for (let i = 0; i < code.length; i++) {
     const ch = code[i];
@@ -123,9 +124,32 @@ function lastTopLevelSemicolon(code: string): number {
     }
     if (ch === '(' || ch === '[' || ch === '{') depth++;
     else if (ch === ')' || ch === ']' || ch === '}') depth = Math.max(0, depth - 1);
-    else if (ch === ';' && depth === 0) last = i;
+    else if ((ch === ';' || ch === '\n') && depth === 0) {
+      const start = nextNonWhitespace(code, i + 1);
+      if (start !== -1 && (ch === ';' || canEndStatement(previousNonWhitespace(code, i - 1), code[start]))) {
+        last = start;
+      }
+    }
   }
   return last;
+}
+
+function previousNonWhitespace(code: string, start: number): string {
+  for (let i = start; i >= 0; i--) {
+    if (!/\s/.test(code[i])) return code[i];
+  }
+  return '';
+}
+
+function nextNonWhitespace(code: string, start: number): number {
+  for (let i = start; i < code.length; i++) {
+    if (!/\s/.test(code[i])) return i;
+  }
+  return -1;
+}
+
+function canEndStatement(prev: string, next: string): boolean {
+  return !!prev && /[\w$)\]}'"`0-9]/.test(prev) && !/[.[(,?:+\-*/%&|^]/.test(next);
 }
 
 export function runSnippet(src: string, dry: Dry):
