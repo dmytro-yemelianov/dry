@@ -135,6 +135,45 @@ jobs:
         working-directory: sdk/ts
         run: npm test
 
+  docs-site:
+    name: docs site (typecheck + unit + smoke)
+    runs-on: [self-hosted, X64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+      - name: build the Node SDK oracle
+        working-directory: sdk/ts
+        run: |
+          npm ci
+          npm run build
+      - name: install docs-site deps
+        working-directory: docs/site
+        run: npm ci
+      - name: type-check examples
+        working-directory: docs/site
+        run: npm run typecheck
+      - name: unit tests
+        working-directory: docs/site
+        run: |
+          bash build.sh wasm-only
+          npm run test
+      - name: build site
+        working-directory: docs/site
+        run: npm run build
+      - name: smoke (anti-drift)
+        working-directory: docs/site
+        run: |
+          npx playwright install --with-deps chromium
+          npm run smoke
+
   spec-vectors:
     name: spec vectors (independent python validator, no dry-core)
     runs-on: [self-hosted, X64]
