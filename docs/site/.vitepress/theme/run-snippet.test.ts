@@ -45,3 +45,17 @@ test('final expressions after declarations are returned', () => {
   expect(r.ok).toBe(true);
   if (r.ok) expect((r.value as { gcode(): string[] }).gcode()).toEqual(['G1 X10 Y0']);
 });
+
+test('trailing comments do not hide semicolonless final expressions', () => {
+  const src = `import { Design } from '@dry/sdk';\nconst d = new Design() // setup\nd`;
+  const r = runSnippet(src, fakeDry);
+  expect(r.ok).toBe(true);
+  if (r.ok) expect((r.value as { gcode(): string[] }).gcode()).toEqual(['G1 X10 Y0']);
+});
+
+test('else clauses are not rewritten as final expressions', () => {
+  const src = `if (false) {\n  throw new Error('bad')\n}\nelse {\n  throw new Error('expected')\n}`;
+  const r = runSnippet(src, fakeDry);
+  expect(r.ok).toBe(false);
+  if (!r.ok) expect(r.error).toMatch(/expected/);
+});

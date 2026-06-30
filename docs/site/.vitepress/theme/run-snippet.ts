@@ -70,7 +70,7 @@ function wrapReturn(js: string): string {
 }
 
 function shouldReturn(statement: string): boolean {
-  return !/^\s*(const|let|var|return|throw|if|for|while|switch|try|class|function)\b/.test(statement);
+  return !/^\s*(const|let|var|return|throw|if|else|for|while|switch|try|catch|finally|class|function)\b/.test(statement);
 }
 
 function trimTrailingSemicolons(code: string): string {
@@ -84,6 +84,7 @@ function lastTopLevelStatementStart(code: string): number {
   let quote: string | null = null;
   let escaped = false;
   let lineComment = false;
+  let lineCommentPrev = '';
   let blockComment = false;
   let last = 0;
 
@@ -92,7 +93,15 @@ function lastTopLevelStatementStart(code: string): number {
     const next = code[i + 1];
 
     if (lineComment) {
-      if (ch === '\n') lineComment = false;
+      if (ch === '\n') {
+        lineComment = false;
+        if (depth === 0) {
+          const start = nextNonWhitespace(code, i + 1);
+          if (start !== -1 && canEndStatement(lineCommentPrev, code[start]) && !continuesClause(code, start)) {
+            last = start;
+          }
+        }
+      }
       continue;
     }
     if (blockComment) {
@@ -110,6 +119,7 @@ function lastTopLevelStatementStart(code: string): number {
     }
     if (ch === '/' && next === '/') {
       lineComment = true;
+      lineCommentPrev = previousNonWhitespace(code, i - 1);
       i++;
       continue;
     }
@@ -126,7 +136,7 @@ function lastTopLevelStatementStart(code: string): number {
     else if (ch === ')' || ch === ']' || ch === '}') depth = Math.max(0, depth - 1);
     else if ((ch === ';' || ch === '\n') && depth === 0) {
       const start = nextNonWhitespace(code, i + 1);
-      if (start !== -1 && (ch === ';' || canEndStatement(previousNonWhitespace(code, i - 1), code[start]))) {
+      if (start !== -1 && !continuesClause(code, start) && (ch === ';' || canEndStatement(previousNonWhitespace(code, i - 1), code[start]))) {
         last = start;
       }
     }
@@ -150,6 +160,10 @@ function nextNonWhitespace(code: string, start: number): number {
 
 function canEndStatement(prev: string, next: string): boolean {
   return !!prev && /[\w$)\]}'"`0-9]/.test(prev) && !/[.[(,?:+\-*/%&|^]/.test(next);
+}
+
+function continuesClause(code: string, start: number): boolean {
+  return /^(else|catch|finally)\b/.test(code.slice(start));
 }
 
 export function runSnippet(src: string, dry: Dry):
