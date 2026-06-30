@@ -452,6 +452,34 @@ fn bounds_points(s: &Segment) -> Vec<[Option<Length>; 3]> {
     points
 }
 
+/// Arc radius in mm from the segment's start point and centre; `None` if the segment is not a
+/// well-formed arc (missing centre/start, or degenerate).
+fn arc_radius_mm(s: &Segment) -> Option<f64> {
+    let [cx, cy] = s.centre?;
+    let (sx, sy) = (s.start[0]?, s.start[1]?);
+    let r = (sx - cx).hypot(sy - cy).value();
+    if r > 0.0 {
+        Some(r)
+    } else {
+        None
+    }
+}
+
+/// True when the previous printing segment's end ≈ this segment's start (within 0.1 mm in X/Y/Z).
+fn junction_contiguous(
+    prev_end: &Option<[Option<Length>; 3]>,
+    start: &[Option<Length>; 3],
+) -> bool {
+    let Some(pe) = prev_end else {
+        return false;
+    };
+    (0..3).all(|k| match (pe[k], start[k]) {
+        (Some(a), Some(b)) => (a.value() - b.value()).abs() <= 0.1,
+        (None, None) => true,
+        _ => false,
+    })
+}
+
 fn arc_radius_error(s: &Segment) -> Option<String> {
     if s.kind != SegmentKind::Arc {
         return None;
@@ -507,10 +535,10 @@ where
     let mut travel_run_length = 0.0;
     let mut retracted = true;
     let mut flagged_travel = false;
-    // For junction-velocity: track the direction of the previous extruding segment so we can
-    // detect angle changes at junctions and compare the entry speed to the limit.
-    let mut prev_ext_dir: Option<[f64; 3]> = None;
-    let mut prev_ext_speed_mm_s: f64 = 0.0;
+    // For junction-velocity: track the end position and speed of the previous printing segment
+    // so we can compute Δv at contiguous junctions (reset on travel moves).
+    let mut prev_print_end: Option<[Option<Length>; 3]> = None;
+    let mut prev_speed_mm_s: Option<f64> = None;
 
     for (i, s) in segments_vec.into_iter().enumerate() {
         // --- structural invariants (always on) ---
@@ -724,77 +752,56 @@ where
         }
 
         // --- kinematic checks ---
-        if let Some(k) = &c.kinematics {
+        if let Some(kin) = &c.kinematics {
+            let is_print = !s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0;
+
             // PeakAcceleration: centripetal acceleration of an arc must not exceed the machine max.
             // a = v² / r  where v is in mm/s and r is the arc radius in mm.
-            if let Some(max_a) = k.max_acceleration_mm_s2 {
+            if let Some(max_a) = kin.max_acceleration_mm_s2 {
                 if s.kind == SegmentKind::Arc {
-                    if let (Some([cx, cy]), Some(sx), Some(sy)) = (s.centre, s.start[0], s.start[1])
-                    {
-                        let radius = (sx - cx).hypot(sy - cy).value();
-                        if radius > 0.0 {
-                            let speed_mm_s = s.speed.value() / 60.0;
-                            let centripetal_a = speed_mm_s * speed_mm_s / radius;
-                            if centripetal_a > max_a {
-                                push(
-                                    RuleId::PeakAcceleration,
-                                    Some(i),
-                                    format!(
-                                        "arc centripetal acceleration {centripetal_a:.3} mm/s² \
-                                         exceeds the machine limit of {max_a:.3} mm/s²"
-                                    ),
-                                );
-                            }
+                    if let Some(r) = arc_radius_mm(&s) {
+                        let v = s.speed.value() / 60.0;
+                        let a = v * v / r;
+                        if a > max_a {
+                            push(
+                                RuleId::PeakAcceleration,
+                                Some(i),
+                                format!(
+                                    "arc centripetal accel {a:.0} mm/s² exceeds max {max_a:.0}"
+                                ),
+                            );
                         }
                     }
                 }
             }
 
-            // JunctionVelocity: at each corner between two consecutive extruding moves the
-            // entry speed must not exceed the machine's square-corner (junction) velocity limit.
-            // We approximate the junction speed as the minimum of the two adjoining segment
-            // speeds and fire if a direction change is detected (dot product < 1 − ε).
-            if let Some(max_jv) = k.max_junction_velocity_mm_s {
-                if !s.travel && s.length.value() > 0.0 {
-                    // Compute normalised direction of this segment.
-                    let dx = s.end[0].map(|v| v.value()).unwrap_or(0.0)
-                        - s.start[0].map(|v| v.value()).unwrap_or(0.0);
-                    let dy = s.end[1].map(|v| v.value()).unwrap_or(0.0)
-                        - s.start[1].map(|v| v.value()).unwrap_or(0.0);
-                    let dz = s.end[2].map(|v| v.value()).unwrap_or(0.0)
-                        - s.start[2].map(|v| v.value()).unwrap_or(0.0);
-                    let mag = libm::sqrt(dx * dx + dy * dy + dz * dz);
-                    let curr_dir = if mag > 0.0 {
-                        Some([dx / mag, dy / mag, dz / mag])
-                    } else {
-                        None
-                    };
-
-                    if let (Some(pd), Some(cd)) = (prev_ext_dir, curr_dir) {
-                        let dot = pd[0] * cd[0] + pd[1] * cd[1] + pd[2] * cd[2];
-                        // Only check corners with a meaningful angle change (> ~0.8°).
-                        if dot < 0.9999 {
-                            let speed_mm_s = s.speed.value() / 60.0;
-                            let junction_speed = prev_ext_speed_mm_s.min(speed_mm_s);
-                            if junction_speed > max_jv {
-                                push(
-                                    RuleId::JunctionVelocity,
-                                    Some(i),
-                                    format!(
-                                        "junction velocity {junction_speed:.3} mm/s exceeds \
-                                         the machine limit of {max_jv:.3} mm/s"
-                                    ),
-                                );
-                            }
-                        }
+            // JunctionVelocity: fire when two contiguous printing segments have a Δv that exceeds
+            // the machine's square-corner velocity limit. Contiguity is required (within 0.1 mm)
+            // so non-adjacent segments (e.g. after a travel) never produce a false positive.
+            if let (Some(max_jv), Some(pv), true) =
+                (kin.max_junction_velocity_mm_s, prev_speed_mm_s, is_print)
+            {
+                if junction_contiguous(&prev_print_end, &s.start) {
+                    let dv = (s.speed.value() / 60.0 - pv).abs();
+                    if dv > max_jv {
+                        push(
+                            RuleId::JunctionVelocity,
+                            Some(i),
+                            format!(
+                                "junction Δv {dv:.1} mm/s exceeds square-corner velocity {max_jv:.1}"
+                            ),
+                        );
                     }
-
-                    prev_ext_dir = curr_dir;
-                    prev_ext_speed_mm_s = s.speed.value() / 60.0;
-                } else if s.travel {
-                    // Reset junction tracking across travel moves.
-                    prev_ext_dir = None;
                 }
+            }
+
+            if is_print {
+                prev_print_end = Some(s.end);
+                prev_speed_mm_s = Some(s.speed.value() / 60.0);
+            } else if s.travel {
+                // Reset junction tracking across travel moves.
+                prev_print_end = None;
+                prev_speed_mm_s = None;
             }
         }
     }
@@ -810,6 +817,159 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::units::{Feedrate, Volume};
+
+    /// A single arc segment with the given radius (mm) and speed (mm/min), valid geometry.
+    fn arc_toolpath(radius_mm: f64, speed_mm_min: f64) -> Toolpath {
+        // Centre at origin; start at (radius, 0), end at (0, radius) — a CCW quarter-circle.
+        // Both start and end radii equal radius_mm, so no arc-radius error fires.
+        Toolpath {
+            version: 0,
+            meta: None,
+            segments: vec![Segment {
+                start: [
+                    Some(Length::mm(radius_mm)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(radius_mm)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(speed_mm_min),
+                length: Length::mm(radius_mm * std::f64::consts::FRAC_PI_2),
+                volume: Volume(0.8),
+                filament: Length::mm(0.33),
+                width: Some(Length::mm(0.4)),
+                height: Some(Length::mm(0.2)),
+                kind: SegmentKind::Arc,
+                centre: Some([Length::mm(0.0), Length::mm(0.0)]),
+                clockwise: false,
+                travel: false,
+                temperature: Some(210.0),
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                manual_gcode: None,
+                orientation: None,
+                control_points: None,
+            }],
+        }
+    }
+
+    /// Two contiguous printing line segments (end of seg0 == start of seg1), at different speeds.
+    fn two_segment_junction(v0_mm_min: f64, v1_mm_min: f64) -> Toolpath {
+        let seg0 = Segment {
+            start: [
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            end: [
+                Some(Length::mm(10.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            speed: Feedrate(v0_mm_min),
+            length: Length::mm(10.0),
+            volume: Volume(0.8),
+            filament: Length::mm(0.33),
+            width: Some(Length::mm(0.4)),
+            height: Some(Length::mm(0.2)),
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            travel: false,
+            temperature: Some(210.0),
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: None,
+            control_points: None,
+        };
+        let seg1 = Segment {
+            start: [
+                Some(Length::mm(10.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            end: [
+                Some(Length::mm(10.0)),
+                Some(Length::mm(10.0)),
+                Some(Length::mm(0.2)),
+            ],
+            speed: Feedrate(v1_mm_min),
+            ..seg0.clone()
+        };
+        Toolpath {
+            version: 0,
+            meta: None,
+            segments: vec![seg0, seg1],
+        }
+    }
+
+    #[test]
+    fn arc_over_centripetal_limit_is_a_peak_acceleration_error() {
+        // Arc of radius 5 mm at 6000 mm/min → v = 100 mm/s → a = v²/r = 2000 mm/s² > 1000.
+        let tp = arc_toolpath(5.0, 6000.0);
+        let c = Contracts {
+            kinematics: Some(KinematicContracts {
+                max_acceleration_mm_s2: Some(1000.0),
+                max_junction_velocity_mm_s: None,
+            }),
+            ..Contracts::default()
+        };
+        let report = verify(&tp, &c);
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.rule == "peak-acceleration" && f.severity == Severity::Error),
+            "expected peak-acceleration Error, got: {:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn junction_over_scv_is_a_junction_velocity_warning() {
+        // Two contiguous printing segments: v0 = 600 mm/min (10 mm/s), v1 = 6000 mm/min (100 mm/s).
+        // Δv = 90 mm/s, limit = 5 mm/s → junction-velocity Warning.
+        let tp = two_segment_junction(600.0, 6000.0);
+        let c = Contracts {
+            kinematics: Some(KinematicContracts {
+                max_acceleration_mm_s2: None,
+                max_junction_velocity_mm_s: Some(5.0),
+            }),
+            ..Contracts::default()
+        };
+        let report = verify(&tp, &c);
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.rule == "junction-velocity" && f.severity == Severity::Warning),
+            "expected junction-velocity Warning, got: {:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn no_kinematics_means_no_kinematic_findings() {
+        let tp = arc_toolpath(5.0, 6000.0);
+        let report = verify(&tp, &Contracts::default());
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|f| f.rule == "peak-acceleration" || f.rule == "junction-velocity"),
+            "expected no kinematic findings, got: {:?}",
+            report.findings
+        );
+    }
 
     #[test]
     fn catalog_includes_the_two_kinematic_rules() {

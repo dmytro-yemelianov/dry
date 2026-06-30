@@ -258,13 +258,14 @@ fn cases() -> Vec<Case> {
         full: true,
     };
 
-    // --- kinematics: peak-acceleration (arc), junction-velocity (90° corner). ---
+    // --- kinematics: peak-acceleration (arc), junction-velocity (contiguous Δv). ---
     // Arc radius = 1 mm at 6000 mm/min → centripetal_a = (100 mm/s)²/1 mm = 10 000 mm/s² >> 500.
-    // Two extruding lines at 90° at 1500 mm/min (25 mm/s) >> junction limit of 20 mm/s.
+    // Seg 0 at 1500 mm/min (25 mm/s) → seg 1 at 3000 mm/min (50 mm/s): Δv = 25 mm/s > limit 20.
+    // The arc (seg 2) starts at (5,1) while seg 1 ends at (10,10): NOT contiguous → no jv false positive.
     let kinematics_case = Case {
         name: "kinematics",
         toolpath: tp(vec![
-            // two extruding lines at 90° — triggers junction-velocity at the corner
+            // seg 0: extruding line at 1500 mm/min (25 mm/s)
             Segment {
                 start: [
                     Some(Length::mm(0.0)),
@@ -279,6 +280,7 @@ fn cases() -> Vec<Case> {
                 length: Length::mm(10.0),
                 ..base()
             },
+            // seg 1: contiguous extruding line at 3000 mm/min (50 mm/s) — Δv = 25 mm/s > 20 → jv fires
             Segment {
                 start: [
                     Some(Length::mm(10.0)),
@@ -290,6 +292,7 @@ fn cases() -> Vec<Case> {
                     Some(Length::mm(10.0)),
                     Some(Length::mm(0.2)),
                 ],
+                speed: Feedrate(3000.0),
                 length: Length::mm(10.0),
                 ..base()
             },
