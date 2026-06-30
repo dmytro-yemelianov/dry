@@ -199,6 +199,37 @@ rule: every suggested change is a hypothesis that must be re-verified with `dry 
 before it is trusted. Markdown is the default output; `--json` emits this envelope. The schema `$def` is
 `ExplainBundle`; the golden lives at `conformance/reports/explain/explain.json`.
 
+### 3.6 `explain --llm --json` → online analysis response
+
+`dry explain --llm --model <id>` calls Claude directly and closes the loop: it classifies the model's
+recommendations as executable (re-check under verifier contracts) or advisory (human decision / slicer
+rework), applies the executable ones, re-simulates and re-verifies, and reports measured before/after
+results. The `--json` envelope is:
+
+```json
+{
+  "meta": { "file": "part.gcode", "model": "claude-sonnet-4-6", "profiled": true },
+  "analysis": {
+    "summary": "…",
+    "time_analysis": "…",
+    "risks": "…"
+  },
+  "recommendations": [ { "title": "…", "priority": 0, "field": "speed_range", "action": "override" } ],
+  "results": [ { "action": "…", "verdict": "Accepted|Rejected", "note": "…" } ],
+  "usage": {
+    "input_tokens": 1234,
+    "output_tokens": 567
+  },
+  "cost_usd": 0.0042
+}
+```
+
+**Key difference from `ExplainBundle`:** this envelope is **not drift-gated** — model output is
+non-deterministic, so results are advisory and must be reviewed. The deterministic sub-parts (`trace`,
+`forensics`, `verify` run inside `--llm`) stay gated; the verifier is the gate for any applied rewrite.
+The cost readout (optional, per-model pricing tables in `dry-llm`) is informational only and prints to
+stderr alongside token counts.
+
 ## 4. Stability & conformance
 
 - The profile schema, the rule catalog, and the report schemas are the public contract.

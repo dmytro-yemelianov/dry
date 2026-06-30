@@ -140,3 +140,21 @@ explain *what the print is, why it's slow, and what's risky*, and to propose cha
 guardrail that **any** suggested change is a hypothesis that must be re-checked with `dry verify` /
 `dry review-gcode` before it's trusted. Markdown by default; `--json` emits the `ExplainBundle`
 (`docs/11` §3.5). Works best with a frontier model — Claude Opus 4.8 (`claude-opus-4-8`).
+
+### `explain --llm` — online closed loop
+```sh
+ANTHROPIC_API_KEY=… dry explain examples/part.gcode --llm --model claude-sonnet-4-6 --profile profiles/voron.json
+```
+The online `--llm` path calls Claude directly: assembles the bundle, gets recommendations, classifies
+them (executable vs advisory), **applies** the executable ones to the imported g-code, re-traces and
+re-verifies, and reports the measured before/after improvements with a gate verdict. Requires
+`ANTHROPIC_API_KEY` and `--model <id>` (e.g. `--model claude-sonnet-4-6`). Cost estimate prints to
+stderr. Add `--max-applies <N>` (default 4) to cap how many executable recommendations are applied
+(highest priority first). Advisory suggestions (re-slice-only, not verifiable without the slicer) are
+marked unverified and reported for manual application in your slicer.
+
+To produce the improved g-code as a file, use `dry rewrite-gcode --mode <winner>` after reviewing
+the recommendations. `explain` is an **analyst** — it measures and recommends; `rewrite-gcode` is the
+**producer** that materializes the winner. Markdown by default; `--json` emits a structured envelope
+(`docs/11` §3.6) with `{meta, analysis, recommendations, results, usage, cost_usd}` that is **not**
+drift-gated (model output is non-deterministic), unlike the deterministic offline `ExplainBundle`.

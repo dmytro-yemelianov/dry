@@ -41,6 +41,10 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: test
         run: cargo test --all
+      - name: build + test with llm feature
+        run: |
+          cargo build --features llm
+          cargo test -p dry-llm
       - name: build (wasm, dry-core)
         run: cargo build -p dry-core --target wasm32-unknown-unknown
 

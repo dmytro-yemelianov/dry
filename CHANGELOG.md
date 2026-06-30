@@ -10,6 +10,10 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Added
+- `dry explain --llm --model <id>`: online path that calls the Claude Messages API and closes the loop
+  — applies executable recommendations (rewrite modes / contract overrides), re-traces + re-verifies, and
+  reports measured before/after with a gate verdict; advisory (re-slice-only) suggestions are marked
+  unverified. New feature-gated `dry-llm` crate is the only network code; `dry-core` stays pure.
 - **Native typed contracts (Python, TypeScript & wasm)** — the `verify()` boundary now accepts
   structured `bounds` (`[[x0,x1],[y0,y1],[z0,z1]]`), `speed_range` and first-layer ranges as native typed
   values instead of CSV strings, and exposes the previously-hidden retraction / first-layer contract
