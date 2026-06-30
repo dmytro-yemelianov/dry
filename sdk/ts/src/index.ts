@@ -8,6 +8,8 @@
 //   console.log(d.gcode().join('\n'));   // motion g-code
 //   console.log(d.simulate());           // metrics
 
+import './engine.node'; // side effect: install the Node wasm binding on import (Node entry only)
+
 export { Design } from './design';
 export {
   resolveGcode,

@@ -1,8 +1,6 @@
-// Loads the Dry wasm engine (nodejs target, CommonJS) and exposes typed, low-level resolve calls.
-// The .wasm + JS glue are built into ../wasm by build.sh. This module is the only place that touches
-// the binding; everything else works in terms of typed ops.
-import * as path from 'node:path';
-import { createRequire } from 'node:module';
+// Binding-agnostic Dry wasm engine wrapper: exposes typed, low-level resolve calls over whichever
+// wasm binding a platform loader installs (engine.node.ts on Node, engine.web.ts in the browser).
+// This module is the only place that touches the binding; everything else works in terms of typed ops.
 import type { Metrics, Op, Report, ResolveParams, Toolpath } from './ops';
 
 /**
@@ -18,7 +16,7 @@ export interface MachineKinematics {
   max_junction_velocity_mm_s?: number;
 }
 
-interface DryWasm {
+export interface DryWasm {
   resolve_gcode(
     opsJson: string,
     paramsJson: string,
@@ -51,10 +49,23 @@ interface DryWasm {
   ): string;
 }
 
-// compiled to dist/src/engine.js, so the wasm dir is two levels up (dist/src -> dist -> ts/wasm... two
-// `..` reach the package root). Resolved relative to this file so it works regardless of cwd.
-const requireWasm = createRequire(__filename);
-const wasm: DryWasm = requireWasm(path.join(__dirname, '..', '..', 'wasm', 'dry_wasm.js'));
+// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
+// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
+let wasm: DryWasm | undefined;
+
+/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
+export function setWasmBinding(binding: DryWasm): void {
+  wasm = binding;
+}
+
+function bind(): DryWasm {
+  if (!wasm) {
+    throw new Error(
+      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
+    );
+  }
+  return wasm;
+}
 
 /**
  * Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
@@ -70,7 +81,7 @@ export function resolveGcode(
   fiveAxis = false,
   rotaryAxes = 'ab'
 ): string[] {
-  return wasm.resolve_gcode(
+  return bind().resolve_gcode(
     JSON.stringify(ops),
     JSON.stringify(params),
     relativeE,
@@ -86,12 +97,12 @@ export function resolveGcode(
  * TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
  */
 export function tpmsOps(optionsJson: string): string {
-  return wasm.tpms_ops_json(optionsJson);
+  return bind().tpms_ops_json(optionsJson);
 }
 
 /** Resolve a design and return its simulation metrics. */
 export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(wasm.resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
+  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
 }
 
 /**
@@ -102,22 +113,22 @@ export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
  * `optimizedIr`/`balancedIr` toolpath).
  */
 export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(wasm.metrics_ir(irJson));
+  return JSON.parse(bind().metrics_ir(irJson));
 }
 
 /** Resolve a design to the L2 Dry IR. */
 export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(wasm.resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
+  return JSON.parse(bind().resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
 }
 
 /** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
 export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
-  return wasm.resolve_binary(JSON.stringify(ops), JSON.stringify(params));
+  return bind().resolve_binary(JSON.stringify(ops), JSON.stringify(params));
 }
 
 /** Resolve a design through the standard L2 optimization pipeline. */
 export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(wasm.resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
+  return JSON.parse(bind().resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
 }
 
 /**
@@ -133,7 +144,7 @@ export function resolveBalancedIr(
 ): Toolpath {
   const kinematicsJson = kinematics !== undefined ? JSON.stringify(kinematics) : '';
   return JSON.parse(
-    wasm.resolve_balanced_ir(JSON.stringify(ops), JSON.stringify(params), kinematicsJson)
+    bind().resolve_balanced_ir(JSON.stringify(ops), JSON.stringify(params), kinematicsJson)
   );
 }
 
@@ -160,7 +171,7 @@ export function resolveVerify(
 ): Report {
   const kinematicsJson = kinematics !== undefined ? JSON.stringify(kinematics) : '';
   return JSON.parse(
-    wasm.resolve_verify(
+    bind().resolve_verify(
       JSON.stringify(ops),
       JSON.stringify(params),
       maxFlow,
