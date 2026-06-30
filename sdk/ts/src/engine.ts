@@ -5,6 +5,19 @@ import * as path from 'node:path';
 import { createRequire } from 'node:module';
 import type { Metrics, Op, Report, ResolveParams, Toolpath } from './ops';
 
+/**
+ * Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
+ * snake_case to match the Rust serde serialization. All fields are optional; an unset field
+ * disables the corresponding check.
+ *
+ *  - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
+ *  - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
+ */
+export interface MachineKinematics {
+  max_acceleration_mm_s2?: number;
+  max_junction_velocity_mm_s?: number;
+}
+
 interface DryWasm {
   resolve_gcode(
     opsJson: string,
@@ -18,6 +31,7 @@ interface DryWasm {
   resolve_metrics(opsJson: string, paramsJson: string): string;
   resolve_ir(opsJson: string, paramsJson: string): string;
   resolve_optimized_ir(opsJson: string, paramsJson: string): string;
+  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
   resolve_verify(
     opsJson: string,
     paramsJson: string,
@@ -30,7 +44,8 @@ interface DryWasm {
     maxRetractionSpeed: number,
     maxTravelWithoutRetract: number,
     firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined
+    firstLayerSpeedRange: Float64Array | undefined,
+    kinematicsJson: string
   ): string;
 }
 
@@ -83,9 +98,27 @@ export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
 }
 
 /**
+ * Resolve a design through the kinematics-aware balanced optimization pipeline. When `kinematics`
+ * is provided its acceleration/junction-velocity limits shape the output (acceleration clamping +
+ * junction-velocity capping). Omitting `kinematics` falls back to the safe pipeline (same as
+ * `resolveOptimizedIr`).
+ */
+export function resolveBalancedIr(
+  ops: Op[],
+  params: ResolveParams,
+  kinematics?: MachineKinematics
+): Toolpath {
+  const kinematicsJson = kinematics !== undefined ? JSON.stringify(kinematics) : '';
+  return JSON.parse(
+    wasm.resolve_balanced_ir(JSON.stringify(ops), JSON.stringify(params), kinematicsJson)
+  );
+}
+
+/**
  * Resolve a design and verify it against safety contracts. The structured limits cross to the wasm
  * engine as native typed values — `bounds` flat as `[x0,x1,y0,y1,z0,z1]` and each range as `[min,max]`
  * (a `Float64Array`, or `undefined` to disable that check); the scalar ceilings use 0 to mean unset.
+ * The optional `kinematics` arg enables the `peak-acceleration` and `junction-velocity` verify rules.
  */
 export function resolveVerify(
   ops: Op[],
@@ -99,8 +132,10 @@ export function resolveVerify(
   maxRetractionSpeed = 0,
   maxTravelWithoutRetract = 0,
   firstLayerHeightRange?: Float64Array,
-  firstLayerSpeedRange?: Float64Array
+  firstLayerSpeedRange?: Float64Array,
+  kinematics?: MachineKinematics
 ): Report {
+  const kinematicsJson = kinematics !== undefined ? JSON.stringify(kinematics) : '';
   return JSON.parse(
     wasm.resolve_verify(
       JSON.stringify(ops),
@@ -114,7 +149,8 @@ export function resolveVerify(
       maxRetractionSpeed,
       maxTravelWithoutRetract,
       firstLayerHeightRange,
-      firstLayerSpeedRange
+      firstLayerSpeedRange,
+      kinematicsJson
     )
   );
 }
