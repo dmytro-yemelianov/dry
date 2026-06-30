@@ -184,6 +184,18 @@
     <div class="gcode-meta" id="gcodeMeta"></div>
     <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
     <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
+
+    <h2 class="section-title">Metrics</h2>
+    <dl class="metrics" id="metrics"></dl>
+
+    <h2 class="section-title">Verify <span class="sub">— machine-safety contracts</span></h2>
+    <div class="verify-grid">
+      <label>max flow <input type="number" id="maxFlow" value="0" step="0.5" min="0" /></label>
+      <label>min temp <input type="number" id="minTemp" value="0" step="5" min="0" /></label>
+      <label>max accel <input type="number" id="maxAccel" value="0" step="500" min="0" title="machine max acceleration (mm/s²) — enables peak-acceleration; 0 disables" /></label>
+      <label>junction vel <input type="number" id="junctionVel" value="0" step="1" min="0" title="square-corner / junction velocity (mm/s) — enables junction-velocity; 0 disables" /></label>
+    </div>
+    <div class="findings" id="findings"></div>
   </section>
 </main>
 <footer>Dry is clean-room (Apache-2.0). Blockly (Apache-2.0) and three.js (MIT) are vendored locally.</footer>
@@ -1046,8 +1058,18 @@ window.__blockDiagnostics = LAST_DIAGNOSTICS;
     gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
+    metricsEl: $('metrics'), verifyEl: $('findings'),
     wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
     params: RESOLVE_PARAMS,
+    getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
+    getMinTemp: () => parseFloat($('minTemp').value) || 0,
+    getKinematics: () => {
+      const a = parseFloat($('maxAccel').value) || 0, j = parseFloat($('junctionVel').value) || 0;
+      const o = {};
+      if (a > 0) o.max_acceleration_mm_s2 = a;
+      if (j > 0) o.max_junction_velocity_mm_s = j;
+      return Object.keys(o).length ? JSON.stringify(o) : '';
+    },
   });
 
   WORKSPACE = Blockly.inject('blocklyDiv', {

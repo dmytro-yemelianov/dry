@@ -1332,7 +1332,15 @@ export function createViewer(cfg) {
     const gcode = measure(profile, 'resolveGcodeMs', () => wasm.resolve_gcode(opsJson, paramsJson, relativeE, false, false, 'ab'));
     const m = measure(profile, 'resolveMetricsMs', () => JSON.parse(wasm.resolve_metrics(opsJson, paramsJson)));
     const ir = measure(profile, 'resolveIrMs', () => JSON.parse(wasm.resolve_ir(opsJson, paramsJson)));
-    const optimizedIr = measure(profile, 'resolveOptimizedIrMs', () => JSON.parse(wasm.resolve_optimized_ir(opsJson, paramsJson)));
+    // Optimize mode: 'safe' = standard pipeline (arc-fit + merge), 'balanced' = kinematics-aware
+    // re-speed (resolve_balanced_ir, fed by the machine motion limits). Pages without the selector
+    // (e.g. blocks.html) fall back to 'safe', matching the previous behaviour.
+    const optimizeMode = cfg.getOptimizeMode ? cfg.getOptimizeMode() : 'safe';
+    const kinematicsJson = cfg.getKinematics ? cfg.getKinematics() : '';
+    const optimizedIr = measure(profile, 'resolveOptimizedIrMs', () => JSON.parse(
+      optimizeMode === 'balanced' && wasm.resolve_balanced_ir
+        ? wasm.resolve_balanced_ir(opsJson, paramsJson, kinematicsJson)
+        : wasm.resolve_optimized_ir(opsJson, paramsJson)));
 
     GLINES = gcode;
     GSECTIONS = buildGcodeSections(gcode);
@@ -1366,11 +1374,27 @@ export function createViewer(cfg) {
     if (optimizeEl) {
       const raw = ir.segments.length, opt = optimizedIr.segments.length, saved = raw - opt;
       optimizeEl.replaceChildren();
-      optimizeEl.append(`segments: ${raw} → ${opt} `);
+      const head = document.createElement('div');
+      head.append(`${optimizeMode}: segments ${raw} → ${opt} `);
       const note = document.createElement('span');
       note.className = saved > 0 ? 'delta' : 'none';
-      note.textContent = saved > 0 ? `(−${saved})` : '(nothing to merge)';
-      optimizeEl.appendChild(note);
+      note.textContent = saved > 0 ? `(−${saved})` : '(no merge)';
+      head.appendChild(note);
+      optimizeEl.appendChild(head);
+      // Before/after time + peak flow. `m` is the raw-IR metrics; the optimized/balanced IR is
+      // re-simulated via metrics_ir (balanced re-speeds corners, so its time/flow differ).
+      if (wasm.metrics_ir) {
+        try {
+          const optM = JSON.parse(wasm.metrics_ir(JSON.stringify(optimizedIr)));
+          const dt = m.total_time_s - optM.total_time_s;
+          const line = document.createElement('div');
+          line.className = 'opt-metrics';
+          const dtTxt = Math.abs(dt) > 0.05 ? ` (${dt > 0 ? '−' : '+'}${formatDuration(Math.abs(dt))})` : '';
+          line.textContent = `time ${formatDuration(m.total_time_s)} → ${formatDuration(optM.total_time_s)}${dtTxt}`
+            + ` · peak flow ${(optM.max_flow_rate ?? 0).toFixed(2)} mm³/s`;
+          optimizeEl.appendChild(line);
+        } catch (_) { /* metrics_ir unavailable in an older bundle — segment delta still shown */ }
+      }
     }
 
     let report = null;
@@ -1379,9 +1403,14 @@ export function createViewer(cfg) {
       const bounds = cfg.getBounds ? cfg.getBounds() : '';
       const monotonicZ = cfg.getMonotonicZ ? cfg.getMonotonicZ() : false;
       const speedRange = cfg.getSpeedRange ? cfg.getSpeedRange() : '';
+      const maxRetractDist = cfg.getMaxRetractDist ? cfg.getMaxRetractDist() : 0;
+      const maxRetractSpeed = cfg.getMaxRetractSpeed ? cfg.getMaxRetractSpeed() : 0;
+      const maxTravelNoRetract = cfg.getMaxTravelNoRetract ? cfg.getMaxTravelNoRetract() : 0;
+      const firstLayerHeight = cfg.getFirstLayerHeight ? cfg.getFirstLayerHeight() : '';
+      const firstLayerSpeed = cfg.getFirstLayerSpeed ? cfg.getFirstLayerSpeed() : '';
       // resolve_verify takes native typed contracts: bounds/ranges cross as flat Float64Arrays
-      // (undefined disables the check). The retraction/first-layer limits aren't surfaced in the
-      // viewer UI, so they stay unset (0 / undefined).
+      // (undefined disables the check); scalar ceilings use 0 = unset; the 13th arg is the
+      // machine motion-limits as a kinematics JSON object ('' disables the kinematic rules).
       const flat = (csv) => {
         const parts = String(csv ?? '').split(',').map((s) => Number(s.trim())).filter(Number.isFinite);
         return parts.length ? new Float64Array(parts) : undefined;
@@ -1389,7 +1418,8 @@ export function createViewer(cfg) {
       report = measure(profile, 'resolveVerifyMs', () =>
         JSON.parse(wasm.resolve_verify(
           opsJson, paramsJson, maxFlow, minTemp, flat(bounds), monotonicZ, flat(speedRange),
-          0, 0, 0, undefined, undefined)));
+          maxRetractDist, maxRetractSpeed, maxTravelNoRetract,
+          flat(firstLayerHeight), flat(firstLayerSpeed), kinematicsJson)));
       const findings = report.findings || [];
       verifyEl.replaceChildren();
       if (findings.length) {

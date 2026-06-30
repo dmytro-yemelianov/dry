@@ -259,7 +259,16 @@
     <h2 class="section-title">Metrics</h2>
     <dl class="metrics" id="metrics"></dl>
 
-    <h2 class="section-title">Optimize <span class="sub">— standard L2 pipeline</span></h2>
+    <h2 class="section-title">Optimize <span class="sub">— safe / balanced (kinematics-aware)</span></h2>
+    <div class="optimize-controls">
+      <label>mode
+        <select id="optimizeMode">
+          <option value="safe">safe — arc-fit + merge</option>
+          <option value="balanced">balanced — kinematics-aware re-speed</option>
+        </select>
+      </label>
+      <span class="sub">balanced uses the max accel / junction velocity below</span>
+    </div>
     <div class="optimize" id="optimize"></div>
 
     <h2 class="section-title">Verify <span class="sub">— machine-safety contracts</span></h2>
@@ -268,6 +277,13 @@
       <label>min temp <input type="number" id="minTemp" value="180" step="5" min="0" /></label>
       <label>bounds <input type="text" id="bounds" value="" placeholder="x0,x1,y0,y1,z0,z1" /></label>
       <label>speed range <input type="text" id="speedRange" value="" placeholder="min,max" /></label>
+      <label>retract dist <input type="number" id="maxRetractDist" value="0" step="0.5" min="0" title="max retraction distance (mm); 0 disables" /></label>
+      <label>retract speed <input type="number" id="maxRetractSpeed" value="0" step="300" min="0" title="max (un)retraction speed (mm/min); 0 disables" /></label>
+      <label>max travel/retract <input type="number" id="maxTravelNoRetract" value="0" step="1" min="0" title="max travel distance without a retraction (mm); 0 disables" /></label>
+      <label>first-layer height <input type="text" id="firstLayerHeight" value="" placeholder="min,max" /></label>
+      <label>first-layer speed <input type="text" id="firstLayerSpeed" value="" placeholder="min,max" /></label>
+      <label>max accel <input type="number" id="maxAccel" value="0" step="500" min="0" title="machine max acceleration (mm/s²) — enables peak-acceleration + feeds balanced; 0 disables" /></label>
+      <label>junction vel <input type="number" id="junctionVel" value="0" step="1" min="0" title="square-corner / junction velocity (mm/s) — enables junction-velocity + feeds balanced; 0 disables" /></label>
       <label class="check"><input type="checkbox" id="monotonicZ" /> monotonic Z</label>
     </div>
     <div class="findings" id="findings"></div>
@@ -326,7 +342,7 @@
 
 <script type="module">
 import init, { resolve_gcode, resolve_metrics, resolve_ir,
-               resolve_optimized_ir, resolve_verify } from './pkg/dry_wasm.js';
+               resolve_optimized_ir, resolve_balanced_ir, resolve_verify, metrics_ir } from './pkg/dry_wasm.js';
 import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
 import { STAR_POLYGON_FAMILIES, starPolygonLatticeOps } from './lattice-research.js';
 import { TPMS_SURFACES, tpmsOps } from './tpms.js';
@@ -339,7 +355,9 @@ const PRINTER_PROFILES = {
     label: 'Generic FFF',
     description: 'Conservative motion defaults for a generic 1.75 mm FFF printer.',
     params: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
-    verify: { maxFlow: 8, minTemp: 180, bounds: '', speedRange: '', monotonicZ: false },
+    verify: { maxFlow: 8, minTemp: 180, bounds: '', speedRange: '', monotonicZ: false,
+              maxRetractDist: 0, maxRetractSpeed: 0, maxTravelNoRetract: 0,
+              firstLayerHeight: '', firstLayerSpeed: '', maxAccel: 0, junctionVel: 0 },
     temperatures: { nozzle: 210, bed: 60 },
     park: { x: 0, y: 180, zLift: 10 },
   },
@@ -347,7 +365,9 @@ const PRINTER_PROFILES = {
     label: 'PLA bed slinger 220',
     description: 'PLA-oriented profile for a 220 mm Cartesian bed.',
     params: { print_speed: 1800, travel_speed: 9000, dia: 1.75 },
-    verify: { maxFlow: 12, minTemp: 185, bounds: '0,220,0,220,0,250', speedRange: '60,9000', monotonicZ: false },
+    verify: { maxFlow: 12, minTemp: 185, bounds: '0,220,0,220,0,250', speedRange: '60,9000', monotonicZ: false,
+              maxRetractDist: 3, maxRetractSpeed: 2400, maxTravelNoRetract: 0,
+              firstLayerHeight: '0.1,0.32', firstLayerSpeed: '60,1800', maxAccel: 3000, junctionVel: 8 },
     temperatures: { nozzle: 205, bed: 60 },
     park: { x: 0, y: 210, zLift: 10 },
   },
@@ -355,7 +375,9 @@ const PRINTER_PROFILES = {
     label: 'PETG conservative',
     description: 'Lower-flow PETG baseline with hotter extrusion checks.',
     params: { print_speed: 1500, travel_speed: 8000, dia: 1.75 },
-    verify: { maxFlow: 8, minTemp: 220, bounds: '0,220,0,220,0,250', speedRange: '60,8000', monotonicZ: false },
+    verify: { maxFlow: 8, minTemp: 220, bounds: '0,220,0,220,0,250', speedRange: '60,8000', monotonicZ: false,
+              maxRetractDist: 4, maxRetractSpeed: 1800, maxTravelNoRetract: 0,
+              firstLayerHeight: '', firstLayerSpeed: '', maxAccel: 2500, junctionVel: 6 },
     temperatures: { nozzle: 235, bed: 80 },
     park: { x: 0, y: 210, zLift: 10 },
   },
@@ -363,7 +385,9 @@ const PRINTER_PROFILES = {
     label: 'Fast CoreXY 250',
     description: 'Higher-flow CoreXY-style preset for fast PLA exploration.',
     params: { print_speed: 4200, travel_speed: 18000, dia: 1.75 },
-    verify: { maxFlow: 24, minTemp: 190, bounds: '0,250,0,250,0,250', speedRange: '60,18000', monotonicZ: false },
+    verify: { maxFlow: 24, minTemp: 190, bounds: '0,250,0,250,0,250', speedRange: '60,18000', monotonicZ: false,
+              maxRetractDist: 1, maxRetractSpeed: 3600, maxTravelNoRetract: 0,
+              firstLayerHeight: '0.1,0.3', firstLayerSpeed: '60,3000', maxAccel: 8000, junctionVel: 12 },
     temperatures: { nozzle: 215, bed: 60 },
     park: { x: 125, y: 245, zLift: 15 },
   },
@@ -429,7 +453,7 @@ const SOURCE_DEFS = [
     gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
     clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
     renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
-    wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_verify },
+    wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_balanced_ir, resolve_verify, metrics_ir },
     params: RESOLVE_PARAMS,
     getParams: currentResolveParams,
     getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
@@ -437,6 +461,21 @@ const SOURCE_DEFS = [
     getBounds: () => $('bounds').value,
     getMonotonicZ: () => $('monotonicZ').checked,
     getSpeedRange: () => $('speedRange').value,
+    getMaxRetractDist: () => parseFloat($('maxRetractDist').value) || 0,
+    getMaxRetractSpeed: () => parseFloat($('maxRetractSpeed').value) || 0,
+    getMaxTravelNoRetract: () => parseFloat($('maxTravelNoRetract').value) || 0,
+    getFirstLayerHeight: () => $('firstLayerHeight').value,
+    getFirstLayerSpeed: () => $('firstLayerSpeed').value,
+    getOptimizeMode: () => $('optimizeMode')?.value || 'safe',
+    // Machine motion-limits as a kinematics JSON object ('' = none); feeds both balanced optimize and
+    // the peak-acceleration / junction-velocity verify rules.
+    getKinematics: () => {
+      const a = parseFloat($('maxAccel').value) || 0, j = parseFloat($('junctionVel').value) || 0;
+      const o = {};
+      if (a > 0) o.max_acceleration_mm_s2 = a;
+      if (j > 0) o.max_junction_velocity_mm_s = j;
+      return Object.keys(o).length ? JSON.stringify(o) : '';
+    },
   });
 
   // populate the picker grouped by `group` (one <optgroup> per group)
@@ -510,6 +549,13 @@ const SOURCE_DEFS = [
     $('bounds').value = verify.bounds || '';
     $('speedRange').value = verify.speedRange || '';
     $('monotonicZ').checked = Boolean(verify.monotonicZ);
+    $('maxRetractDist').value = String(verify.maxRetractDist ?? 0);
+    $('maxRetractSpeed').value = String(verify.maxRetractSpeed ?? 0);
+    $('maxTravelNoRetract').value = String(verify.maxTravelNoRetract ?? 0);
+    $('firstLayerHeight').value = verify.firstLayerHeight || '';
+    $('firstLayerSpeed').value = verify.firstLayerSpeed || '';
+    $('maxAccel').value = String(verify.maxAccel ?? 0);
+    $('junctionVel').value = String(verify.junctionVel ?? 0);
     $('macroNozzle').value = String(profile.temperatures?.nozzle ?? 210);
     $('macroBed').value = String(profile.temperatures?.bed ?? 60);
     renderPrinterProfileMeta();
@@ -1478,6 +1524,8 @@ const SOURCE_DEFS = [
     'tpmsSurface', 'tpmsPathMode', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
     'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter', 'tpmsAdaptive', 'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
     'relE', 'maxFlow', 'minTemp', 'bounds', 'monotonicZ', 'speedRange',
+    'maxRetractDist', 'maxRetractSpeed', 'maxTravelNoRetract', 'firstLayerHeight', 'firstLayerSpeed',
+    'maxAccel', 'junctionVel', 'optimizeMode',
   ]) {
     const el = $(id);
     if (id === 'design') {

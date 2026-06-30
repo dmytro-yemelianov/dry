@@ -6,7 +6,7 @@
 use dry_core::{
     balanced_pipeline, emit, optimize_pipeline, resolve_checked, safe_pipeline, simulate,
     try_tpms_ops, verify, Contracts, Design, EmitParams, KinematicContracts, Kinematics,
-    MachineKinematics, Op, ResolveParams, TpmsOptions,
+    MachineKinematics, Op, ResolveParams, Toolpath, TpmsOptions,
 };
 use wasm_bindgen::prelude::*;
 
@@ -102,6 +102,16 @@ pub fn tpms_ops_json(tpms_options_json: &str) -> Result<String, JsError> {
 pub fn resolve_metrics(ops_json: &str, params_json: &str) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&simulate(&tp)).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Simulate an already-resolved Dry IR (`{"version":..,"segments":[..]}`) and return its metrics as a
+/// JSON string. Unlike [`resolve_metrics`], which simulates an L1 design, this takes a toolpath IR
+/// directly — so a caller can report the before/after time and peak flow of an optimized or balanced
+/// IR, which has no originating op-list. A malformed IR surfaces as a clear [`JsError`] — never a panic.
+#[wasm_bindgen]
+pub fn metrics_ir(ir_json: &str) -> Result<String, JsError> {
+    let tp = Toolpath::from_json(ir_json).map_err(|e| JsError::new(&format!("ir: {e}")))?;
     serde_json::to_string(&simulate(&tp)).map_err(|e| JsError::new(&e.to_string()))
 }
 
