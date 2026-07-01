@@ -1,0 +1,37 @@
+.VPDoc:has(.vp-doc[class*='_reference']) .container {
+  max-width: none;
+}
+
+.VPDoc:has(.vp-doc[class*='_reference']) .content {
+  max-width: none;
+}
+
+.VPDoc:has(.vp-doc[class*='_reference']) .content-container {
+  max-width: 1120px;
+}
+
+.VPDoc:has(.vp-doc[class*='_reference']) .aside {
+  display: none;
+}
+
+.vp-doc[class*='_reference'] table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+.vp-doc[class*='_reference'] th,
+.vp-doc[class*='_reference'] td {
+  min-width: 7.5rem;
+  vertical-align: top;
+}
+
+.vp-doc[class*='_reference'] td:last-child,
+.vp-doc[class*='_reference'] th:last-child {
+  min-width: 18rem;
+}
+
+.vp-doc[class*='_reference'] pre {
+  max-width: 100%;
+}
