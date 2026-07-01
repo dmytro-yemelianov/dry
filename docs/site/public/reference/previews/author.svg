@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 760 430">
+  <title id="title">Author a path preview</title>
+  <desc id="desc">Rendered Dry toolpath preview for the author example.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#101826" />
+      <stop offset="1" stop-color="#07101b" />
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#26384f" stroke-width="1" opacity="0.42" />
+    </pattern>
+    <style>
+      .title{font:700 24px ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;fill:#eff6ff}.meta{font:500 13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#91a4bd}.print{fill:none;stroke:#38a0ff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.travel{fill:none;stroke:#8ca0b8;stroke-width:2;stroke-dasharray:7 7;stroke-linecap:round;opacity:.62}.dot-start{fill:#73e6a4}.dot-end{fill:#ffd166}.axis{stroke:#45617f;stroke-width:1.5;opacity:.7}
+    </style>
+  </defs>
+  <rect width="760" height="430" rx="24" fill="url(#bg)" />
+  <rect x="18" y="18" width="724" height="394" rx="18" fill="url(#grid)" opacity="0.95" />
+  <path class="axis" d="M52 378H132M52 378V298" />
+  <text class="title" x="34" y="52">Author a path</text>
+  <text class="meta" x="34" y="76">3 segments · generated from Dry IR</text>
+  <g><path class="print" d="M308.50 356.00 L451.50 356.00" />
+    <path class="print" d="M451.50 356.00 L451.36 349.76 L450.96 343.54 L450.28 337.33 L449.33 331.17 L448.11 325.05 L446.63 318.99 L444.88 313.00 L442.88 307.09 L440.61 301.28 L438.10 295.57 L435.34 289.97 L432.34 284.50 L429.10 279.17 L425.64 273.98 L421.95 268.95 L418.04 264.08 L413.93 259.39 L409.62 254.88 L405.11 250.57 L400.42 246.46 L395.55 242.55 L390.52 238.86 L385.33 235.40 L380.00 232.16 L374.53 229.16 L368.93 226.40 L363.22 223.89 L357.41 221.62 L351.50 219.62 L345.51 217.87 L339.45 216.39 L333.33 215.17 L327.17 214.22 L320.96 213.54 L314.74 213.14 L308.50 213.00" />
+    <path class="print" d="M308.50 213.00 L308.50 70.00" /></g>
+  <circle class="dot-start" cx="308.50" cy="356.00" r="5" />
+  <circle class="dot-end" cx="308.50" cy="70.00" r="5" />
+</svg>

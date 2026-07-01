@@ -35,3 +35,37 @@
 .vp-doc[class*='_reference'] pre {
   max-width: 100%;
 }
+
+.vp-doc[class*='_reference'] .reference-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0 2rem;
+}
+
+.vp-doc[class*='_reference'] .reference-preview-grid figure {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 18px;
+  background: var(--vp-c-bg-soft);
+}
+
+.vp-doc[class*='_reference'] .reference-preview-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.vp-doc[class*='_reference'] .reference-preview-grid figcaption {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem 1rem;
+}
+
+.vp-doc[class*='_reference'] .reference-preview-grid figcaption span {
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}

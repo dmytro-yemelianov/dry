@@ -119,6 +119,9 @@ const examplesPage = fs.existsSync(path.join(generatedDir, 'examples.md'))
   : '';
 for (const example of examples) {
   if (!examplesPage.includes(`/guide/${example.slug}`)) fail(`Example guide link is missing from generated reference: ${example.slug}`);
+  const previewPath = `docs/site/public/reference/previews/${example.slug}.svg`;
+  if (!fs.existsSync(repoPath(previewPath))) fail(`Example preview image is missing: ${previewPath}`);
+  if (!examplesPage.includes(`/reference/previews/${example.slug}.svg`)) fail(`Example preview image is missing from generated reference: ${example.slug}`);
   for (const source of Object.values(example.sources)) {
     if (!examplesPage.includes(source)) fail(`Example source is missing from generated reference: ${source}`);
   }

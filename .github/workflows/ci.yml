@@ -162,6 +162,7 @@ jobs:
         run: |
           npm run reference
           git -C ../.. diff --exit-code docs/site/reference/generated
+          git -C ../.. diff --exit-code docs/site/public/reference/previews
       - name: type-check examples
         working-directory: docs/site
         run: npm run typecheck
