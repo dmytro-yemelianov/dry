@@ -360,7 +360,7 @@ function reset(): void {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
+  grid-template-columns: 1fr;
   gap: 14px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
@@ -373,12 +373,6 @@ function reset(): void {
     width: min(1180px, calc(100vw - var(--vp-sidebar-width, 272px) - 160px));
     margin-left: 0;
     transform: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .live {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -411,7 +405,7 @@ function reset(): void {
 }
 
 .live-editor {
-  max-height: 320px;
+  max-height: 220px;
   overflow: auto;
 }
 
@@ -428,8 +422,8 @@ function reset(): void {
 
 .live-canvas-shell {
   position: relative;
-  min-height: 340px;
-  aspect-ratio: 16 / 10;
+  min-height: 380px;
+  aspect-ratio: 16 / 8;
   background: #0b0f17;
   border-radius: 6px;
   overflow: hidden;
