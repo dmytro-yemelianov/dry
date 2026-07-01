@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, computed } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, computed } from 'vue';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorState } from '@codemirror/state';
 import { getDry, initDryEngine } from './dry-engine';
 import { runSnippet } from './run-snippet';
-import { drawIr } from './render-ir';
+import { drawIr, presetAngles } from './render-ir';
 import type { ViewPreset } from './render-ir';
 import type { Metrics, Report, Toolpath } from '@sdk/ops';
 
@@ -41,12 +41,19 @@ const viewPreset = ref<ViewPreset>('xy');
 const zoom = ref(1);
 const panX = ref(0);
 const panY = ref(0);
-const rotationDeg = ref(0);
+const yawDeg = ref(0);
+const pitchDeg = ref(0);
+const rollDeg = ref(0);
+const playHead = ref<number | null>(null);
+const playing = ref(false);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
+let playTimer: ReturnType<typeof setInterval> | undefined;
 let dragStart: { x: number; y: number } | null = null;
 
 const tabs = computed(() => props.outputs);
+const segmentCount = computed(() => lastIr.value?.segments.length ?? 0);
+const visibleSegments = computed(() => playHead.value ?? segmentCount.value);
 const wants = (name: string) => props.outputs.includes(name);
 const isTestMode = (): boolean => {
   const meta = import.meta as ImportMeta & { env?: { MODE?: string } };
@@ -82,7 +89,11 @@ function drawCurrentIr(): void {
     zoom: zoom.value,
     panX: panX.value,
     panY: panY.value,
-    rotationDeg: rotationDeg.value,
+    yawDeg: yawDeg.value,
+    pitchDeg: pitchDeg.value,
+    rollDeg: rollDeg.value,
+    maxSegments: playHead.value ?? undefined,
+    activeSegment: playHead.value ? playHead.value - 1 : undefined,
   });
 }
 
@@ -90,12 +101,15 @@ function fitView(): void {
   zoom.value = 1;
   panX.value = 0;
   panY.value = 0;
-  rotationDeg.value = 0;
   drawCurrentIr();
 }
 
 function setView(next: ViewPreset): void {
   viewPreset.value = next;
+  const preset = presetAngles(next);
+  yawDeg.value = preset.yawDeg;
+  pitchDeg.value = preset.pitchDeg;
+  rollDeg.value = preset.rollDeg;
   fitView();
 }
 
@@ -110,9 +124,64 @@ function panBy(dx: number, dy: number): void {
   drawCurrentIr();
 }
 
-function rotateBy(deg: number): void {
-  rotationDeg.value = (rotationDeg.value + deg) % 360;
+function orbitBy(deltaYaw: number, deltaPitch: number): void {
+  yawDeg.value = (yawDeg.value + deltaYaw) % 360;
+  pitchDeg.value = Math.max(-89, Math.min(89, pitchDeg.value + deltaPitch));
   drawCurrentIr();
+}
+
+function rollBy(deg: number): void {
+  rollDeg.value = (rollDeg.value + deg) % 360;
+  drawCurrentIr();
+}
+
+function setPlayHead(next: number | null): void {
+  const max = segmentCount.value;
+  playHead.value = next === null ? null : Math.max(0, Math.min(max, next));
+  drawCurrentIr();
+}
+
+function stepBy(delta: number): void {
+  const current = playHead.value ?? segmentCount.value;
+  setPlayHead(current + delta);
+}
+
+function jumpStart(): void {
+  stopPlayback();
+  setPlayHead(segmentCount.value > 0 ? 1 : 0);
+}
+
+function jumpEnd(): void {
+  stopPlayback();
+  setPlayHead(null);
+}
+
+function stopPlayback(): void {
+  playing.value = false;
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = undefined;
+  }
+}
+
+function togglePlayback(): void {
+  if (playing.value) {
+    stopPlayback();
+    return;
+  }
+  if (!segmentCount.value) return;
+  if (playHead.value === null || playHead.value >= segmentCount.value) setPlayHead(1);
+  playing.value = true;
+  playTimer = setInterval(() => {
+    if (!playing.value) return;
+    const next = (playHead.value ?? 0) + 1;
+    if (next >= segmentCount.value) {
+      setPlayHead(null);
+      stopPlayback();
+      return;
+    }
+    setPlayHead(next);
+  }, 220);
 }
 
 function onCanvasPointerDown(event: PointerEvent): void {
@@ -122,7 +191,10 @@ function onCanvasPointerDown(event: PointerEvent): void {
 
 function onCanvasPointerMove(event: PointerEvent): void {
   if (!dragStart) return;
-  panBy(event.clientX - dragStart.x, event.clientY - dragStart.y);
+  const dx = event.clientX - dragStart.x;
+  const dy = event.clientY - dragStart.y;
+  if (event.shiftKey) panBy(dx, dy);
+  else orbitBy(dx * 0.35, -dy * 0.35);
   dragStart = { x: event.clientX, y: event.clientY };
 }
 
@@ -153,6 +225,8 @@ function runNow(): void {
     };
 
     const ir = isToolpath(result.value) ? result.value : typeof value?.ir === 'function' ? value.ir() : undefined;
+    stopPlayback();
+    playHead.value = null;
     lastIr.value = ir ?? null;
     drawCurrentIr();
     irText.value = ir ? JSON.stringify(ir, null, 2) : '';
@@ -213,6 +287,8 @@ onMounted(async () => {
   }
 });
 
+onBeforeUnmount(stopPlayback);
+
 function reset(): void {
   const next = seed();
   source.value = next;
@@ -262,8 +338,20 @@ function reset(): void {
             <button type="button" title="Pan right" @click="panBy(28, 0)">R</button>
             <button type="button" title="Pan up" @click="panBy(0, -28)">U</button>
             <button type="button" title="Pan down" @click="panBy(0, 28)">D</button>
-            <button type="button" title="Rotate left" @click="rotateBy(-15)">-15</button>
-            <button type="button" title="Rotate right" @click="rotateBy(15)">+15</button>
+            <button type="button" title="Orbit left" @click="orbitBy(-15, 0)">Yaw-</button>
+            <button type="button" title="Orbit right" @click="orbitBy(15, 0)">Yaw+</button>
+            <button type="button" title="Orbit up" @click="orbitBy(0, 12)">Pitch+</button>
+            <button type="button" title="Orbit down" @click="orbitBy(0, -12)">Pitch-</button>
+            <button type="button" title="Roll left" @click="rollBy(-15)">Roll-</button>
+            <button type="button" title="Roll right" @click="rollBy(15)">Roll+</button>
+          </div>
+          <div class="live-play-controls" aria-label="Toolpath playback controls">
+            <button type="button" title="First segment" @click="jumpStart">|&lt;</button>
+            <button type="button" title="Previous segment" @click="stepBy(-1)">&lt;</button>
+            <button type="button" :title="playing ? 'Pause' : 'Play'" @click="togglePlayback">{{ playing ? 'Pause' : 'Play' }}</button>
+            <button type="button" title="Next segment" @click="stepBy(1)">&gt;</button>
+            <button type="button" title="Full path" @click="jumpEnd">&gt;|</button>
+            <span>{{ visibleSegments }} / {{ segmentCount }}</span>
           </div>
         </div>
         <div class="live-tabs">
@@ -358,14 +446,15 @@ function reset(): void {
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: 8px;
+  bottom: 44px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   pointer-events: none;
 }
 
-.live-view-controls button {
+.live-view-controls button,
+.live-play-controls button {
   pointer-events: auto;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 4px;
@@ -381,6 +470,28 @@ function reset(): void {
   background: #2f8ee8;
   border-color: #67b4ff;
   color: #fff;
+}
+
+.live-play-controls {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.live-play-controls span {
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(8, 12, 20, 0.72);
+  color: #d7e2ef;
+  font-size: 11px;
+  line-height: 1;
+  padding: 6px 7px;
 }
 
 .live-tabs {
