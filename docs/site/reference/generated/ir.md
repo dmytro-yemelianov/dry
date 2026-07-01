@@ -4,97 +4,11 @@
 
 Generated from marked normative sections of the Dry IR specification.
 
+## Pages
+
+| Page | Contents |
+| --- | --- |
+| [Data model](/reference/generated/ir/data-model) | Toolpath, metadata, segment fields, and segment kinds. |
+| [JSON wire form](/reference/generated/ir/json-wire-form) | Canonical JSON representation and omission rules. |
+
 Source: `docs/10-dry-ir-v0-spec.md`
-
-## 3. Data model
-
-### 3.1 `Toolpath`
-
-| Field | Type | Notes |
-|---|---|---|
-| `version` | `u32` | IR schema version. v0 ⇒ `0`. Always present on the JSON wire (even when `0`). |
-| `meta` | `Meta` \| absent | Optional self-describing header (§3.2). Omitted entirely when absent. |
-| `segments` | array of `Segment` | Ordered move stream. MAY be empty. |
-
-### 3.2 `Meta`
-
-Optional provenance + declared invariants. Every field is omitted when empty, so a header-free toolpath
-has no `meta` key at all.
-
-| Field | Type | Notes |
-|---|---|---|
-| `generator` | string | Producing tool + version, e.g. `"dry 0.2.0"`. Omitted when absent. |
-| `units` | string | Length unit of coordinates, e.g. `"mm"`. Omitted when absent. |
-| `source_hash` | string | Hex content hash of the source design. Omitted when absent. |
-| `invariants` | array of string | Declared contract names the toolpath claims to satisfy. Omitted when empty. |
-
-### 3.3 `Segment`
-
-One resolved move from `start` to `end` (absolute coordinates). An axis component is `null` when
-undefined before it is first set (e.g. the very first positioning move).
-
-| Field | Type | Presence | Notes |
-|---|---|---|---|
-| `start` | `[number\|null; 3]` | always | absolute start `(x, y, z)` |
-| `end` | `[number\|null; 3]` | always | absolute end `(x, y, z)` |
-| `travel` | bool | always | non-extruding positioning move |
-| `speed` | number | always | feedrate (mm/min) |
-| `length` | number | always | true path length (arc length for arcs; `0` for a pure position) |
-| `volume` | number | always | deposited material volume (mm³) |
-| `filament` | number | always | feedstock length consumed (mm) |
-| `width` | number \| null | always (nullable) | bead width |
-| `height` | number \| null | always (nullable) | layer height |
-| `kind` | string enum | omitted ⇒ `"line"` | see §3.4 |
-| `centre` | `[number; 2]` \| null | omitted when null | arc centre `(cx, cy)`; present only for `arc` |
-| `clockwise` | bool | omitted ⇒ `false` | arc direction: `true` ⇒ G2, `false` ⇒ G3 |
-| `temperature` | number | omitted when unset | nozzle temperature (°C) |
-| `fan` | number | omitted when unset | part-cooling fan (0..1) |
-| `flow` | number | omitted when unset | flow multiplier; default `1.0` is omitted |
-| `tool` | `u32` | omitted when unset | active tool index |
-| `dwell_s` | number | omitted when unset | dwell duration (s); present only for `dwell` |
-| `manual_gcode` | string | omitted when unset | verbatim g-code; present only for `manualgcode` (see §10) |
-| `orientation` | `[number; 3]` | omitted when unset | tool-direction unit vector `(i,j,k)`; `null`/absent ⇒ +Z (3-axis) |
-| `control_points` | `[[number; 3]]` | omitted when unset | spline control points; present only for `spline` |
-
-On the JSON wire, fields marked "omitted when unset/null" carry serde `skip_serializing_if`, so a
-motion-only toolpath serializes without any channel keys. `start`, `end`, `width`, `height` are always
-present but MAY be `null` (per component for the arrays).
-
-### 3.4 `SegmentKind`
-
-The eight resolved primitives. **The on-wire encoding differs by format** (this asymmetry is normative
-for v0 — see §10):
-
-| Variant | JSON string | `DRY0` dictionary string | `DRY1` tag (`u8`) |
-|---|---|---|---|
-| Line | `"line"` | `line` | `0` |
-| Arc | `"arc"` | `arc` | `1` |
-| Spline | `"spline"` | `spline` | `2` |
-| Dwell | `"dwell"` | `dwell` | `3` |
-| Retract | `"retract"` | `retract` | `4` |
-| Unretract | `"unretract"` | `unretract` | `5` |
-| Deposit | `"deposit"` | `deposit` | `6` |
-| ManualGcode | `"manualgcode"` | `manual_gcode` | `7` |
-
-A reader **MUST** reject any other JSON string, dictionary string, or tag (§11). An external
-implementation **MUST** map all three encodings of a given row to the same logical kind.
-
-## 4. JSON wire form
-
-The JSON wire form is the canonical, human-readable representation.
-
-- **Object** with keys `version`, optional `meta`, `segments` (in that order from the reference encoder).
-- **Numbers** are JSON numbers; the reference encoder emits the shortest round-tripping decimal for each
-  `f64`. An independent encoder MAY format differently; conformance is by numeric value (§9), not text.
-- **Field order** from the reference encoder follows Rust struct declaration order. It is **not** a
-  conformance requirement; readers **MUST NOT** depend on key order.
-- **Omission**: `meta` and all `skip_serializing_if` fields (§3.3) are absent when unset. `version` is
-  always present. `start`/`end`/`width`/`height` are always present (possibly `null`).
-- **Unknown object keys**: readers **MUST** ignore unknown object keys (forward-compatibility, §8).
-- **Unknown enum strings**: readers **MUST** reject an unknown `kind` string.
-
-A minimal empty toolpath is exactly:
-
-```json
-{"version":0,"segments":[]}
-```

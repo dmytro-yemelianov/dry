@@ -55,6 +55,18 @@ function writeGenerated(name, text) {
   fs.writeFileSync(path.join(generatedDir, name), text, 'utf8');
 }
 
+function writeGeneratedPath(relativePath, text) {
+  const target = path.join(generatedDir, relativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, text, 'utf8');
+}
+
+function resetGeneratedDirs() {
+  for (const dirname of ['typescript-sdk', 'python-sdk', 'cli', 'ir', 'profiles-and-reports']) {
+    fs.rmSync(path.join(generatedDir, dirname), { recursive: true, force: true });
+  }
+}
+
 function cleanComment(raw) {
   if (!raw) return '';
   return raw
@@ -72,6 +84,14 @@ function firstSentence(text) {
 
 function escapeMarkdownInline(text) {
   return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\|/g, '\\|');
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function fenced(language, text) {
@@ -156,10 +176,12 @@ function classMethods(decl, sourceFile) {
       const name = nameText(member.name);
       const params = member.parameters.map((param) => paramInfo(param, sourceFile));
       const returns = typeText(member.type, sourceFile) || 'void';
+      const doc = docFor(member, sourceFile);
       return {
         name,
         signature: `${name}(${member.parameters.map((param) => param.getText(sourceFile)).join(', ')}): ${returns}`,
-        summary: firstSentence(docFor(member, sourceFile)),
+        summary: firstSentence(doc),
+        doc,
         params,
         returns,
       };
@@ -436,26 +458,94 @@ function renderFieldTable(fields) {
   return lines.join('\n');
 }
 
-function renderTsReference(exports) {
-  const declarations = exports.map(findTsDeclaration);
-  const lines = [
-    banner(),
-    '# TypeScript SDK',
-    '',
-    `Generated from \`${sourceFiles.tsIndex}\` and public re-export sources using the TypeScript compiler API.`,
-    '',
-    '## Public exports',
-    '',
-    '| Export | Kind | Source | Summary |',
-    '| --- | --- | --- | --- |',
-  ];
+const sampleByApiKey = new Map([
+  ['Design.gcode', 'author'],
+  ['Design.ir', 'lower'],
+  ['Design.simulate', 'simulate'],
+  ['Design.verify', 'verify'],
+  ['Design.optimizedIr', 'optimize'],
+  ['Design.balancedIr', 'optimize'],
+  ['Design.optimized_ir', 'optimize'],
+  ['Design.balanced_ir', 'optimize'],
+  ['tpms', 'generative'],
+  ['tpmsOps', 'generative'],
+  ['TpmsOptions', 'generative'],
+  ['TpmsSurface', 'generative'],
+  ['TpmsSurfaceSpec', 'generative'],
+  ['tpms_gcode', 'generative'],
+  ['Report', 'verify'],
+  ['Finding', 'verify'],
+  ['Severity', 'verify'],
+]);
 
-  for (const item of declarations) {
-    lines.push(`| \`${item.name}\` | ${item.kind} | \`${item.modulePath}\` | ${escapeMarkdownInline(item.summary)} |`);
+const cliSampleByCommand = new Map([
+  ['emit', 'author'],
+  ['ir', 'lower'],
+  ['import-gcode', 'lower'],
+  ['pack', 'lower'],
+  ['simulate', 'simulate'],
+  ['trace-gcode', 'simulate'],
+  ['verify', 'verify'],
+  ['review-gcode', 'verify'],
+  ['explain', 'verify'],
+  ['compare', 'verify'],
+  ['rewrite-gcode', 'optimize'],
+  ['optimize', 'optimize'],
+]);
+
+function exampleForSlug(slug) {
+  return examples.find((example) => example.slug === slug);
+}
+
+function sampleSlugForKey(key) {
+  return sampleByApiKey.get(key) || '';
+}
+
+function sampleLinkForSlug(slug) {
+  const example = slug ? exampleForSlug(slug) : null;
+  return example ? `[${escapeMarkdownInline(example.title)}](/guide/${example.slug})` : '';
+}
+
+function renderInlineSample(slug) {
+  const example = exampleForSlug(slug);
+  if (!example) return '';
+  const sources = Object.entries(example.sources || {})
+    .map(([language, source]) => `${escapeHtml(language)}: <code>${escapeHtml(source)}</code>`)
+    .join(' · ');
+  return [
+    '<figure class="reference-inline-sample">',
+    `  <a href="/guide/${example.slug}" aria-label="Open ${escapeHtml(example.title)} guide">`,
+    `    <img src="/reference/previews/${example.slug}.svg" alt="${escapeHtml(example.title)} rendered preview">`,
+    '  </a>',
+    '  <figcaption>',
+    `    <strong>Sample: <a href="/guide/${example.slug}">${escapeHtml(example.title)}</a></strong>`,
+    `    <span>${escapeHtml(example.description)}</span>`,
+    `    <small>${sources}</small>`,
+    '  </figcaption>',
+    '</figure>',
+    '',
+  ].join('\n');
+}
+
+function renderInlineSampleForKey(key) {
+  return renderInlineSample(sampleSlugForKey(key));
+}
+
+function renderPageLinks(links) {
+  const lines = ['## Pages', '', '| Page | Contents |', '| --- | --- |'];
+  for (const link of links) {
+    lines.push(`| [${escapeMarkdownInline(link.title)}](${link.href}) | ${escapeMarkdownInline(link.summary)} |`);
   }
+  lines.push('');
+  return lines.join('\n');
+}
 
-  for (const item of declarations) {
+function renderTsItemSections(items) {
+  const lines = [];
+  for (const item of items) {
     lines.push('', `## \`${item.name}\``, '', `Source: \`${item.modulePath}\``, '');
+    const itemSample = renderInlineSampleForKey(item.name);
+    if (itemSample) lines.push(itemSample);
     if (item.signature) lines.push(fenced('ts', item.signature), '');
     lines.push(item.doc || item.summary, '');
     const fields = renderFieldTable(item.fields);
@@ -463,17 +553,164 @@ function renderTsReference(exports) {
     const params = renderParamTable(item.params);
     if (params) lines.push('### Parameters', params, `Returns: \`${escapeMarkdownInline(item.returns || 'void')}\``, '');
     if (item.methods?.length) {
-      lines.push('### Methods', '', '| Method | Signature | Summary |', '| --- | --- | --- |');
+      lines.push('### Method summary', '', '| Method | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
       for (const method of item.methods) {
-        lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${escapeMarkdownInline(method.summary)} |`);
+        const sample = sampleLinkForSlug(sampleSlugForKey(`${item.name}.${method.name}`));
+        lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${sample} | ${escapeMarkdownInline(method.summary)} |`);
       }
-      lines.push('', '### Method details', '');
+      lines.push('');
       for (const method of item.methods) {
-        lines.push(`#### \`${method.name}\``, '', fenced('ts', method.signature), '');
+        lines.push(`### \`${method.name}\``, '');
+        const methodSample = renderInlineSampleForKey(`${item.name}.${method.name}`);
+        if (methodSample) lines.push(methodSample);
+        lines.push(fenced('ts', method.signature), '');
         const methodParams = renderParamTable(method.params);
-        if (methodParams) lines.push(methodParams);
-        lines.push(`Returns: \`${escapeMarkdownInline(method.returns)}\``, '', method.summary, '');
+        if (methodParams) lines.push('#### Parameters', methodParams);
+        lines.push(`Returns: \`${escapeMarkdownInline(method.returns)}\``, '', method.doc || method.summary, '');
       }
+    }
+  }
+  return lines.join('\n');
+}
+
+function renderTsDetailPage(title, intro, items) {
+  const lines = [banner(), `# ${title}`, '', intro, ''];
+  if (items.length) {
+    lines.push(renderTsItemSections(items));
+  } else {
+    lines.push('No public exports matched this generated section.', '');
+  }
+  return lines.join('\n');
+}
+
+function tsPageForItem(item) {
+  if (item.name === 'Design') {
+    return { title: 'Design', href: '/reference/generated/typescript-sdk/design' };
+  }
+  if (item.modulePath.includes('/generators/')) {
+    return { title: 'Generator exports', href: '/reference/generated/typescript-sdk/generators' };
+  }
+  return { title: 'Core types', href: '/reference/generated/typescript-sdk/types' };
+}
+
+function renderTsReference(exports) {
+  const declarations = exports.map(findTsDeclaration);
+  const designItems = declarations.filter((item) => item.name === 'Design');
+  const generatorItems = declarations.filter((item) => item.modulePath.includes('/generators/'));
+  const coreItems = declarations.filter((item) => item.name !== 'Design' && !item.modulePath.includes('/generators/'));
+
+  writeGeneratedPath(
+    'typescript-sdk/design.md',
+    renderTsDetailPage('TypeScript Design API', 'Fluent authoring, lowering, simulation, verification, and G-code emission APIs.', designItems),
+  );
+  writeGeneratedPath(
+    'typescript-sdk/types.md',
+    renderTsDetailPage('TypeScript core types', 'Public TypeScript types and report contracts re-exported by the SDK.', coreItems),
+  );
+  writeGeneratedPath(
+    'typescript-sdk/generators.md',
+    renderTsDetailPage('TypeScript generator exports', 'Procedural generator exports, including TPMS surfaces and options.', generatorItems),
+  );
+
+  const lines = [
+    banner(),
+    '# TypeScript SDK',
+    '',
+    `Generated from \`${sourceFiles.tsIndex}\` and public re-export sources using the TypeScript compiler API.`,
+    '',
+    renderPageLinks([
+      { title: 'Design', href: '/reference/generated/typescript-sdk/design', summary: 'Fluent authoring, output, simulation, and verifier methods.' },
+      { title: 'Core types', href: '/reference/generated/typescript-sdk/types', summary: 'IR, metrics, report, and shared public types.' },
+      { title: 'Generator exports', href: '/reference/generated/typescript-sdk/generators', summary: 'TPMS and other procedural generator exports.' },
+    ]),
+    '## Public exports',
+    '',
+    '| Export | Kind | Docs | Source | Sample | Summary |',
+    '| --- | --- | --- | --- | --- | --- |',
+  ];
+
+  for (const item of declarations) {
+    const page = tsPageForItem(item);
+    const sample = sampleLinkForSlug(sampleSlugForKey(item.name));
+    lines.push(`| \`${item.name}\` | ${item.kind} | [${page.title}](${page.href}) | \`${item.modulePath}\` | ${sample} | ${escapeMarkdownInline(item.summary)} |`);
+  }
+
+  return lines.join('\n');
+}
+
+function renderPythonClassDetails(klass) {
+  const lines = ['', `## \`${klass.name}\``, '', klass.doc || 'Declared in the public API.', '', '### Method summary', ''];
+  lines.push('| Method | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
+  for (const method of klass.methods) {
+    const sample = sampleLinkForSlug(sampleSlugForKey(`${klass.name}.${method.name}`));
+    lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(method.doc))} |`);
+  }
+  lines.push('');
+  for (const method of klass.methods) {
+    lines.push(`### \`${method.name}\``, '');
+    const methodSample = renderInlineSampleForKey(`${klass.name}.${method.name}`);
+    if (methodSample) lines.push(methodSample);
+    lines.push(fenced('py', method.signature), '');
+    const params = renderParamTable(method.params, 'Annotation');
+    if (params) lines.push('#### Parameters', params);
+    lines.push(`Returns: \`${escapeMarkdownInline(method.returns || 'None')}\``, '', method.doc || 'Declared in the public API.', '');
+  }
+  return lines.join('\n');
+}
+
+function renderPythonDesignPage(klass) {
+  const lines = [
+    banner(),
+    '# Python Design API',
+    '',
+    `Generated from \`${sourceFiles.pythonSdk}\` using Python AST extraction.`,
+    '',
+  ];
+  if (klass) {
+    lines.push(renderPythonClassDetails(klass));
+  } else {
+    lines.push('The public `Design` class was not found in `__all__`.', '');
+  }
+  return lines.join('\n');
+}
+
+function renderPythonModulePage(api) {
+  const classMap = new Map(api.classes.map((item) => [item.name, item]));
+  const functionMap = new Map(api.functions.map((item) => [item.name, item]));
+  const publicFunctions = api.functions.filter((item) => api.all.includes(item.name));
+  const publicAssignments = api.all.filter((name) => !classMap.has(name) && !functionMap.has(name) && api.assignments[name]);
+  const lines = [
+    banner(),
+    '# Python module API',
+    '',
+    `Generated from \`${sourceFiles.pythonSdk}\` using Python AST extraction.`,
+    '',
+  ];
+
+  if (publicAssignments.length) {
+    lines.push('## Values and aliases', '', '| Name | Kind | Value |', '| --- | --- | --- |');
+    for (const name of publicAssignments) {
+      const kind = new Set(['PRINTERS', 'TPMS_SURFACES']).has(name) ? 'constant' : 'type alias';
+      lines.push(`| \`${name}\` | ${kind} | \`${escapeMarkdownInline(api.assignments[name])}\` |`);
+    }
+    lines.push('');
+  }
+
+  if (publicFunctions.length) {
+    lines.push('## Functions', '', '| Function | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
+    for (const fn of publicFunctions) {
+      const sample = sampleLinkForSlug(sampleSlugForKey(fn.name));
+      lines.push(`| \`${fn.name}\` | \`${escapeMarkdownInline(fn.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(fn.doc))} |`);
+    }
+    lines.push('');
+    for (const fn of publicFunctions) {
+      lines.push(`### \`${fn.name}\``, '');
+      const fnSample = renderInlineSampleForKey(fn.name);
+      if (fnSample) lines.push(fnSample);
+      lines.push(fenced('py', fn.signature), '');
+      const params = renderParamTable(fn.params, 'Annotation');
+      if (params) lines.push('#### Parameters', params);
+      lines.push(`Returns: \`${escapeMarkdownInline(fn.returns || 'None')}\``, '', fn.doc || 'Declared in the public API.', '');
     }
   }
 
@@ -483,24 +720,36 @@ function renderTsReference(exports) {
 function renderPythonReference(api) {
   const classMap = new Map(api.classes.map((item) => [item.name, item]));
   const functionMap = new Map(api.functions.map((item) => [item.name, item]));
+  const designClass = classMap.get('Design');
+
+  writeGeneratedPath('python-sdk/design.md', renderPythonDesignPage(designClass));
+  writeGeneratedPath('python-sdk/module.md', renderPythonModulePage(api));
+
   const lines = [
     banner(),
     '# Python SDK',
     '',
     `Generated from \`${sourceFiles.pythonSdk}\` using Python AST extraction.`,
     '',
+    renderPageLinks([
+      { title: 'Design', href: '/reference/generated/python-sdk/design', summary: 'Fluent authoring, output, simulation, and verifier methods.' },
+      { title: 'Module API', href: '/reference/generated/python-sdk/module', summary: 'Top-level functions, constants, and aliases.' },
+    ]),
     '## Public names',
     '',
-    '| Name | Kind | Summary |',
-    '| --- | --- | --- |',
+    '| Name | Kind | Docs | Sample | Summary |',
+    '| --- | --- | --- | --- | --- |',
   ];
 
   for (const name of api.all) {
     let kind = 'value';
     let summary = '';
+    let docs = '[Module API](/reference/generated/python-sdk/module)';
+    let sample = sampleLinkForSlug(sampleSlugForKey(name));
     if (classMap.has(name)) {
       kind = 'class';
       summary = firstSentence(classMap.get(name).doc);
+      docs = '[Design](/reference/generated/python-sdk/design)';
     } else if (functionMap.has(name)) {
       kind = 'function';
       summary = firstSentence(functionMap.get(name).doc);
@@ -508,29 +757,7 @@ function renderPythonReference(api) {
       kind = new Set(['PRINTERS', 'TPMS_SURFACES']).has(name) ? 'constant' : 'type alias';
       summary = `\`${api.assignments[name]}\``;
     }
-    lines.push(`| \`${name}\` | ${kind} | ${escapeMarkdownInline(summary || 'Declared in the public API.')} |`);
-  }
-
-  for (const klass of api.classes.filter((item) => api.all.includes(item.name))) {
-    lines.push('', `## \`${klass.name}\``, '', klass.doc || 'Declared in the public API.', '', '### Methods', '');
-    lines.push('| Method | Signature | Summary |', '| --- | --- | --- |');
-    for (const method of klass.methods) {
-      lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${escapeMarkdownInline(firstSentence(method.doc))} |`);
-    }
-    lines.push('', '### Method details', '');
-    for (const method of klass.methods) {
-      lines.push(`#### \`${method.name}\``, '', fenced('py', method.signature), '');
-      const params = renderParamTable(method.params, 'Annotation');
-      if (params) lines.push(params);
-      lines.push(`Returns: \`${escapeMarkdownInline(method.returns || 'None')}\``, '', method.doc || 'Declared in the public API.', '');
-    }
-  }
-
-  for (const fn of api.functions.filter((item) => api.all.includes(item.name))) {
-    lines.push('', `## \`${fn.name}\``, '', fenced('py', fn.signature), '');
-    const params = renderParamTable(fn.params, 'Annotation');
-    if (params) lines.push(params);
-    lines.push(`Returns: \`${escapeMarkdownInline(fn.returns || 'None')}\``, '', fn.doc || 'Declared in the public API.', '');
+    lines.push(`| \`${name}\` | ${kind} | ${docs} | ${sample} | ${escapeMarkdownInline(summary || 'Declared in the public API.')} |`);
   }
 
   return lines.join('\n');
@@ -564,6 +791,20 @@ function parseCliCommands(helpText) {
   return commands;
 }
 
+function renderCliCommandPage(command) {
+  const lines = [
+    banner(),
+    `# \`dry ${command.name}\``,
+    '',
+    command.summary || 'Command help generated from the local CLI.',
+    '',
+  ];
+  const sample = renderInlineSample(cliSampleByCommand.get(command.name));
+  if (sample) lines.push(sample);
+  lines.push('## Help', '', fenced('text', command.help || `dry ${command.name} --help`), '');
+  return lines.join('\n');
+}
+
 function renderCliReference() {
   const rootHelp = runCliHelp(['--help']);
   if (!rootHelp) {
@@ -577,6 +818,9 @@ function renderCliReference() {
   const commandHelps = [];
   for (const command of commands) {
     commandHelps.push({ ...command, help: runCliHelp([command.name, '--help']) || '' });
+  }
+  for (const command of commandHelps) {
+    writeGeneratedPath(`cli/${command.name}.md`, renderCliCommandPage(command));
   }
 
   const lines = [
@@ -593,23 +837,106 @@ function renderCliReference() {
     '',
     '## Commands',
     '',
-    '| Command | Summary |',
-    '| --- | --- |',
+    '| Command | Sample | Summary |',
+    '| --- | --- | --- |',
   ];
 
   for (const command of commandHelps) {
-    lines.push(`| \`${command.name}\` | ${escapeMarkdownInline(command.summary)} |`);
-  }
-
-  for (const command of commandHelps) {
-    lines.push('', `### \`${command.name}\``, '', command.summary, '');
-    if (command.help) lines.push(fenced('text', command.help), '');
+    const sample = sampleLinkForSlug(cliSampleByCommand.get(command.name));
+    lines.push(`| [\`${command.name}\`](/reference/generated/cli/${command.name}) | ${sample} | ${escapeMarkdownInline(command.summary)} |`);
   }
 
   return {
     text: lines.join('\n'),
     helpHash: hashText([rootHelp, ...commandHelps.map((item) => item.help)].join('\n\n')),
   };
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function topLevelMarkdownSection(markdown, headingText) {
+  const cleaned = sanitizeExtractedMarkdown(markdown);
+  const headingRe = new RegExp(`^##\\s+${escapeRegExp(headingText)}\\s*$`, 'm');
+  const match = headingRe.exec(cleaned);
+  if (!match || match.index == null) return '';
+  const start = match.index;
+  const rest = cleaned.slice(start + match[0].length);
+  const next = rest.search(/^##\s+/m);
+  if (next === -1) return cleaned.slice(start).trim();
+  return cleaned.slice(start, start + match[0].length + next).trim();
+}
+
+function renderExtractedPage(title, sourcePath, content, missingMarker) {
+  const lines = [banner(), `# ${title}`, '', `Source: \`${sourcePath}\``, ''];
+  if (content) {
+    lines.push(content, '');
+  } else {
+    lines.push(`Marked section \`${missingMarker}\` was not found.`, '');
+  }
+  return lines.join('\n');
+}
+
+function renderIrReference() {
+  const content = extractMarkedSection(sourceFiles.irSpec, 'ir-core-model');
+  writeGeneratedPath(
+    'ir/data-model.md',
+    renderExtractedPage('IR data model', sourceFiles.irSpec, topLevelMarkdownSection(content, '3. Data model'), 'ir-core-model / 3. Data model'),
+  );
+  writeGeneratedPath(
+    'ir/json-wire-form.md',
+    renderExtractedPage('IR JSON wire form', sourceFiles.irSpec, topLevelMarkdownSection(content, '4. JSON wire form'), 'ir-core-model / 4. JSON wire form'),
+  );
+  return [
+    banner(),
+    '# IR',
+    '',
+    'Generated from marked normative sections of the Dry IR specification.',
+    '',
+    renderPageLinks([
+      { title: 'Data model', href: '/reference/generated/ir/data-model', summary: 'Toolpath, metadata, segment fields, and segment kinds.' },
+      { title: 'JSON wire form', href: '/reference/generated/ir/json-wire-form', summary: 'Canonical JSON representation and omission rules.' },
+    ]),
+    `Source: \`${sourceFiles.irSpec}\``,
+    '',
+  ].join('\n');
+}
+
+function renderProfilesReference() {
+  const profileContent = extractMarkedSection(sourceFiles.profilesReports, 'profiles-reports-core');
+  const matrixContent = extractMarkedSection(sourceFiles.supportMatrix, 'supported-profile-matrix');
+  writeGeneratedPath(
+    'profiles-and-reports/profile-schema.md',
+    renderExtractedPage('Profile schema', sourceFiles.profilesReports, topLevelMarkdownSection(profileContent, '1. Profile schema (v1)'), 'profiles-reports-core / 1. Profile schema (v1)'),
+  );
+  writeGeneratedPath(
+    'profiles-and-reports/verification-rules.md',
+    renderExtractedPage('Verification rules', sourceFiles.profilesReports, topLevelMarkdownSection(profileContent, '2. Verification rule catalog'), 'profiles-reports-core / 2. Verification rule catalog'),
+  );
+  writeGeneratedPath(
+    'profiles-and-reports/report-outputs.md',
+    renderExtractedPage('Report outputs', sourceFiles.profilesReports, topLevelMarkdownSection(profileContent, '3. Report outputs'), 'profiles-reports-core / 3. Report outputs'),
+  );
+  writeGeneratedPath(
+    'profiles-and-reports/supported-profile-matrix.md',
+    renderExtractedPage('Supported profile matrix', sourceFiles.supportMatrix, sanitizeExtractedMarkdown(matrixContent), 'supported-profile-matrix'),
+  );
+  return [
+    banner(),
+    '# Profiles and reports',
+    '',
+    'Generated from marked normative profile/report sections and the supported profile matrix.',
+    '',
+    renderPageLinks([
+      { title: 'Profile schema', href: '/reference/generated/profiles-and-reports/profile-schema', summary: 'Machine, material, process, and kinematics profile fields.' },
+      { title: 'Verification rules', href: '/reference/generated/profiles-and-reports/verification-rules', summary: 'Closed rule catalog with severities and enabling contracts.' },
+      { title: 'Report outputs', href: '/reference/generated/profiles-and-reports/report-outputs', summary: 'Stable JSON contracts for verify, review, trace, rewrite, explain, and compare.' },
+      { title: 'Supported profile matrix', href: '/reference/generated/profiles-and-reports/supported-profile-matrix', summary: 'Curated clean-room machine/material/firmware profiles.' },
+    ]),
+    `Sources: \`${sourceFiles.profilesReports}\`, \`${sourceFiles.supportMatrix}\``,
+    '',
+  ].join('\n');
 }
 
 function renderExamples(examples) {
@@ -657,7 +984,7 @@ function renderGenerators(exports) {
     banner(),
     '# Generators',
     '',
-    'Generated from TypeScript generator exports.',
+    'Generated from TypeScript generator exports. The full SDK grouping also lives under [TypeScript generator exports](/reference/generated/typescript-sdk/generators).',
     '',
     '| Export | Kind | Source | Summary |',
     '| --- | --- | --- | --- |',
@@ -669,6 +996,8 @@ function renderGenerators(exports) {
 
   for (const item of generatorExports) {
     lines.push('', `## \`${item.name}\``, '', `Source: \`${item.modulePath}\``, '', fenced('ts', item.signature), '', item.doc || item.summary, '');
+    const sample = renderInlineSampleForKey(item.name);
+    if (sample) lines.push(sample);
     const fields = renderFieldTable(item.fields);
     if (fields) lines.push(fields);
     const params = renderParamTable(item.params);
@@ -685,7 +1014,7 @@ function renderVerification(exports) {
     banner(),
     '# Verification',
     '',
-    'Generated from public report-related SDK types.',
+    'Generated from public report-related SDK types. Rule details are split into [Verification rules](/reference/generated/profiles-and-reports/verification-rules) and JSON contracts into [Report outputs](/reference/generated/profiles-and-reports/report-outputs).',
     '',
     '| Export | Kind | Source | Summary |',
     '| --- | --- | --- | --- |',
@@ -695,6 +1024,8 @@ function renderVerification(exports) {
   }
   for (const item of items) {
     lines.push('', `## \`${item.name}\``, '', fenced('ts', item.signature), '', item.doc || item.summary, '');
+    const sample = renderInlineSampleForKey(item.name);
+    if (sample) lines.push(sample);
     const fields = renderFieldTable(item.fields);
     if (fields) lines.push(fields);
   }
@@ -725,18 +1056,14 @@ function writeManifest(cliHelpHash) {
 const tsExports = parseTsExports();
 const pythonApi = parsePythonApi();
 const examples = readJson(sourceFiles.examples);
+resetGeneratedDirs();
 const cliReference = renderCliReference();
 
 writeGenerated('typescript-sdk.md', renderTsReference(tsExports));
 writeGenerated('python-sdk.md', renderPythonReference(pythonApi));
 writeGenerated('cli.md', cliReference.text);
-writeGenerated('ir.md', renderMarkedReference('IR', 'Generated from marked normative sections of the Dry IR specification.', [
-  { source: sourceFiles.irSpec, marker: 'ir-core-model' },
-]));
-writeGenerated('profiles-and-reports.md', renderMarkedReference('Profiles and reports', 'Generated from marked normative profile/report sections and the supported profile matrix.', [
-  { source: sourceFiles.profilesReports, marker: 'profiles-reports-core' },
-  { source: sourceFiles.supportMatrix, marker: 'supported-profile-matrix' },
-]));
+writeGenerated('ir.md', renderIrReference());
+writeGenerated('profiles-and-reports.md', renderProfilesReference());
 writeGenerated('generators.md', renderGenerators(tsExports));
 writeGenerated('verification.md', renderVerification(tsExports));
 writeGenerated('examples.md', renderExamples(examples));

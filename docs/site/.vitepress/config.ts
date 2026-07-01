@@ -11,6 +11,10 @@ export default defineConfig({
   title: 'Dry',
   description: 'Interactive docs for the Dry toolpath compiler — editable code, live execution.',
   themeConfig: {
+    outline: {
+      level: [2, 3],
+      label: 'On this page',
+    },
     nav: [
       { text: 'Guide', link: '/guide/' },
       { text: 'Reference', link: '/reference/' },
@@ -36,13 +40,57 @@ export default defineConfig({
           text: 'Reference',
           items: [
             { text: 'Overview', link: '/reference/' },
-            { text: 'TypeScript SDK', link: '/reference/generated/typescript-sdk' },
-            { text: 'Python SDK', link: '/reference/generated/python-sdk' },
-            { text: 'CLI', link: '/reference/generated/cli' },
-            { text: 'IR', link: '/reference/generated/ir' },
+            {
+              text: 'TypeScript SDK',
+              link: '/reference/generated/typescript-sdk',
+              items: [
+                { text: 'Design', link: '/reference/generated/typescript-sdk/design' },
+                { text: 'Core types', link: '/reference/generated/typescript-sdk/types' },
+                { text: 'Generator exports', link: '/reference/generated/typescript-sdk/generators' },
+              ],
+            },
+            {
+              text: 'Python SDK',
+              link: '/reference/generated/python-sdk',
+              items: [
+                { text: 'Design', link: '/reference/generated/python-sdk/design' },
+                { text: 'Module API', link: '/reference/generated/python-sdk/module' },
+              ],
+            },
+            {
+              text: 'CLI',
+              link: '/reference/generated/cli',
+              items: [
+                { text: 'emit', link: '/reference/generated/cli/emit' },
+                { text: 'verify', link: '/reference/generated/cli/verify' },
+                { text: 'simulate', link: '/reference/generated/cli/simulate' },
+                { text: 'review-gcode', link: '/reference/generated/cli/review-gcode' },
+                { text: 'rewrite-gcode', link: '/reference/generated/cli/rewrite-gcode' },
+                { text: 'trace-gcode', link: '/reference/generated/cli/trace-gcode' },
+                { text: 'explain', link: '/reference/generated/cli/explain' },
+                { text: 'compare', link: '/reference/generated/cli/compare' },
+              ],
+            },
+            {
+              text: 'IR',
+              link: '/reference/generated/ir',
+              items: [
+                { text: 'Data model', link: '/reference/generated/ir/data-model' },
+                { text: 'JSON wire form', link: '/reference/generated/ir/json-wire-form' },
+              ],
+            },
             { text: 'Generators', link: '/reference/generated/generators' },
             { text: 'Verification', link: '/reference/generated/verification' },
-            { text: 'Profiles and reports', link: '/reference/generated/profiles-and-reports' },
+            {
+              text: 'Profiles and reports',
+              link: '/reference/generated/profiles-and-reports',
+              items: [
+                { text: 'Profile schema', link: '/reference/generated/profiles-and-reports/profile-schema' },
+                { text: 'Rule catalog', link: '/reference/generated/profiles-and-reports/verification-rules' },
+                { text: 'Report outputs', link: '/reference/generated/profiles-and-reports/report-outputs' },
+                { text: 'Profile matrix', link: '/reference/generated/profiles-and-reports/supported-profile-matrix' },
+              ],
+            },
             { text: 'Examples', link: '/reference/generated/examples' },
           ],
         },
