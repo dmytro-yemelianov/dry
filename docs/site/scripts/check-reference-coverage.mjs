@@ -45,6 +45,17 @@ function parsePythonAll() {
   return [...match[1].matchAll(/["']([^"']+)["']/g)].map((item) => item[1]);
 }
 
+function parseCliCommandsFromPage(cliPage) {
+  const commands = [];
+  const tableMatch = cliPage.match(/\| Command \| Summary \|[\s\S]*?(?=\n## |\n### |$)/);
+  if (!tableMatch) return commands;
+  for (const line of tableMatch[0].split('\n')) {
+    const match = line.match(/^\| `([^`]+)` \|/);
+    if (match) commands.push(match[1]);
+  }
+  return commands;
+}
+
 const failures = [];
 
 const manifestPath = path.join(generatedDir, 'manifest.json');
@@ -64,22 +75,30 @@ if (!fs.existsSync(manifestPath)) {
   }
 }
 
-const tsPage = fs.existsSync(path.join(generatedDir, 'typescript-sdk.md'))
-  ? fs.readFileSync(path.join(generatedDir, 'typescript-sdk.md'), 'utf8')
-  : '';
+const tsPagePath = path.join(generatedDir, 'typescript-sdk.md');
+const tsPage = fs.existsSync(tsPagePath) ? fs.readFileSync(tsPagePath, 'utf8') : '';
 for (const name of parseTsExports()) {
-  if (!tsPage.includes(`\`${name}\``)) {
-    fail(`TypeScript export is missing from generated reference: ${name}`);
-  }
+  if (!tsPage.includes(`\`${name}\``)) fail(`TypeScript export is missing from generated reference: ${name}`);
+}
+for (const required of ['### Fields', '### Parameters', '### Method details']) {
+  if (!tsPage.includes(required)) fail(`TypeScript reference is missing structured section: ${required}`);
 }
 
-const pyPage = fs.existsSync(path.join(generatedDir, 'python-sdk.md'))
-  ? fs.readFileSync(path.join(generatedDir, 'python-sdk.md'), 'utf8')
-  : '';
+const pyPagePath = path.join(generatedDir, 'python-sdk.md');
+const pyPage = fs.existsSync(pyPagePath) ? fs.readFileSync(pyPagePath, 'utf8') : '';
 for (const name of parsePythonAll()) {
-  if (!pyPage.includes(`\`${name}\``)) {
-    fail(`Python public name is missing from generated reference: ${name}`);
-  }
+  if (!pyPage.includes(`\`${name}\``)) fail(`Python public name is missing from generated reference: ${name}`);
+}
+for (const required of ['### Method details', '| Parameter | Annotation | Default | Required |']) {
+  if (!pyPage.includes(required)) fail(`Python reference is missing structured section: ${required}`);
+}
+
+const cliPagePath = path.join(generatedDir, 'cli.md');
+const cliPage = fs.existsSync(cliPagePath) ? fs.readFileSync(cliPagePath, 'utf8') : '';
+if (!cliPage.includes('Generated from actual CLI help output.')) fail('CLI reference did not use actual CLI help output.');
+if (!cliPage.includes('## Root help')) fail('CLI reference is missing root help.');
+for (const command of parseCliCommandsFromPage(cliPage)) {
+  if (!cliPage.includes(`### \`${command}\``)) fail(`CLI command is missing detailed help section: ${command}`);
 }
 
 const examples = JSON.parse(read('docs/site/reference/source/examples.json'));
@@ -87,13 +106,9 @@ const examplesPage = fs.existsSync(path.join(generatedDir, 'examples.md'))
   ? fs.readFileSync(path.join(generatedDir, 'examples.md'), 'utf8')
   : '';
 for (const example of examples) {
-  if (!examplesPage.includes(`/guide/${example.slug}`)) {
-    fail(`Example guide link is missing from generated reference: ${example.slug}`);
-  }
+  if (!examplesPage.includes(`/guide/${example.slug}`)) fail(`Example guide link is missing from generated reference: ${example.slug}`);
   for (const source of Object.values(example.sources)) {
-    if (!examplesPage.includes(source)) {
-      fail(`Example source is missing from generated reference: ${source}`);
-    }
+    if (!examplesPage.includes(source)) fail(`Example source is missing from generated reference: ${source}`);
   }
 }
 

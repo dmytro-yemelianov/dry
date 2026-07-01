@@ -4,12 +4,74 @@
 
 Generated from public report-related SDK types.
 
-| Export | Source | Summary |
-| --- | --- | --- |
-| `Finding` | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `Report` | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `Severity` | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `ToolpathMeta` | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
+| Export | Kind | Source | Summary |
+| --- | --- | --- | --- |
+| `Finding` | interface | `sdk/ts/src/ops.ts` | Single verification finding, optionally tied to a resolved segment index. |
+| `Report` | interface | `sdk/ts/src/ops.ts` | Verification result containing all findings emitted by enabled rules. |
+| `Severity` | type | `sdk/ts/src/ops.ts` | Severity level for a verification finding. |
+| `ToolpathMeta` | interface | `sdk/ts/src/ops.ts` | Optional provenance and invariant metadata attached to a resolved toolpath. |
+
+## `Finding`
+
+```ts
+export interface Finding
+```
+
+Single verification finding, optionally tied to a resolved segment index.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `rule` | `string` | Yes | Stable rule identifier, such as `bounds` or `peak-acceleration`. |
+| `severity` | `Severity` | Yes | Whether the finding blocks the contract or is advisory. |
+| `segment` | `number \| null` | Yes | Zero-based segment index, or null when the finding is global. |
+| `message` | `string` | Yes | Human-readable finding details. |
+
+
+## `Report`
+
+```ts
+export interface Report
+```
+
+Verification result containing all findings emitted by enabled rules.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `findings` | `Finding[]` | Yes | Declared in the public API. |
+
+
+## `Severity`
+
+```ts
+export type Severity = 'error' | 'warning'
+```
+
+Severity level for a verification finding.
+
+
+## `ToolpathMeta`
+
+```ts
+export interface ToolpathMeta
+```
+
+Optional provenance and invariant metadata attached to a resolved toolpath.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `generator` | `string` | No | Name of the generator or pipeline that produced the toolpath. |
+| `units` | `string` | No | Coordinate and unit convention, normally millimeters. |
+| `source_hash` | `string` | No | Stable source hash when the toolpath was derived from an external artifact. |
+| `invariants` | `string[]` | No | Human-readable invariants the toolpath is expected to satisfy. |
 
 ## Related source documentation
 

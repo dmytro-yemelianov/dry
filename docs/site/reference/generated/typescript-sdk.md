@@ -2,104 +2,74 @@
 
 # TypeScript SDK
 
-Generated from `sdk/ts/src/index.ts` and public re-export sources.
+Generated from `sdk/ts/src/index.ts` and public re-export sources using the TypeScript compiler API.
 
 ## Public exports
 
 | Export | Kind | Source | Summary |
 | --- | --- | --- | --- |
-| `Design` | class | `sdk/ts/src/design.ts` | Normalise build-volume bounds to the flat `[x0,x1,y0,y1,z0,z1]` (mm) the engine expects, or |
-| `Finding` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
+| `Design` | class | `sdk/ts/src/design.ts` | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
+| `Finding` | interface | `sdk/ts/src/ops.ts` | Single verification finding, optionally tied to a resolved segment index. |
 | `MachineKinematics` | interface | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `Metrics` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `NormalizedStarPolygonAlpha` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `normalizeStarPolygonAlpha` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `Op` | type | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `PRINTERS` | const | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `Report` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `RESOLVE_PARAMS` | const | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `resolveBalancedIr` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveBinary` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveGcode` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveIr` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveMetrics` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveMetricsIr` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `resolveOptimizedIr` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `ResolveParams` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `resolveVerify` | function | `sdk/ts/src/engine.ts` | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
-| `Segment` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `SegmentKind` | type | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `Severity` | type | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `STAR_POLYGON_FAMILIES` | const | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `StarPolygonBasis` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `starPolygonDentRadiusRatio` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `StarPolygonFamily` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `starPolygonFamilySpec` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `StarPolygonFamilySpec` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `starPolygonLattice` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `starPolygonLatticeOps` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `StarPolygonLatticeOptions` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `StarPolygonRegime` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. */ |
-| `Toolpath` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `ToolpathMeta` | interface | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. */ |
-| `tpms` | function | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `TPMS_SURFACES` | const | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `tpmsField` | function | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `tpmsOps` | function | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `TpmsOptions` | interface | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `TpmsSurface` | type | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `tpmsSurfaceSpec` | function | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
-| `TpmsSurfaceSpec` | interface | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. */ |
+| `Metrics` | interface | `sdk/ts/src/ops.ts` | Simulation metrics returned by `simulate`. |
+| `NormalizedStarPolygonAlpha` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Normalized alpha angle and regime classification for a lattice family. |
+| `normalizeStarPolygonAlpha` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Normalize an alpha angle into its effective value and geometric regime. |
+| `Op` | type | `sdk/ts/src/ops.ts` | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
+| `PRINTERS` | const | `sdk/ts/src/ops.ts` | Device defaults (the generic printer). More profiles land with the device-profile work. |
+| `Report` | interface | `sdk/ts/src/ops.ts` | Verification result containing all findings emitted by enabled rules. |
+| `RESOLVE_PARAMS` | const | `sdk/ts/src/ops.ts` | Default resolver parameters for the generic built-in printer profile. |
+| `resolveBalancedIr` | function | `sdk/ts/src/engine.ts` | Resolve a design through the kinematics-aware balanced optimization pipeline. When `kinematics` |
+| `resolveBinary` | function | `sdk/ts/src/engine.ts` | Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). |
+| `resolveGcode` | function | `sdk/ts/src/engine.ts` | Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc |
+| `resolveIr` | function | `sdk/ts/src/engine.ts` | Resolve a design to the L2 Dry IR. |
+| `resolveMetrics` | function | `sdk/ts/src/engine.ts` | Resolve a design and return its simulation metrics. |
+| `resolveMetricsIr` | function | `sdk/ts/src/engine.ts` | Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike |
+| `resolveOptimizedIr` | function | `sdk/ts/src/engine.ts` | Resolve a design through the standard L2 optimization pipeline. |
+| `ResolveParams` | interface | `sdk/ts/src/ops.ts` | The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. |
+| `resolveVerify` | function | `sdk/ts/src/engine.ts` | Resolve a design and verify it against safety contracts. The structured limits cross to the wasm |
+| `Segment` | interface | `sdk/ts/src/ops.ts` | One resolved motion or process segment in the Dry L2 IR. |
+| `SegmentKind` | type | `sdk/ts/src/ops.ts` | One resolved L2 motion segment. |
+| `Severity` | type | `sdk/ts/src/ops.ts` | Severity level for a verification finding. |
+| `STAR_POLYGON_FAMILIES` | const | `sdk/ts/src/generators/starPolygonLattice.ts` | Metadata catalog for the supported star-polygon lattice families. |
+| `StarPolygonBasis` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Base tiling used by a star-polygon lattice family. |
+| `starPolygonDentRadiusRatio` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon. |
+| `StarPolygonFamily` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Star-polygon lattice family from the original M1-M4 construction. |
+| `starPolygonFamilySpec` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Return static metadata for a star-polygon lattice family. |
+| `StarPolygonFamilySpec` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Static metadata for one star-polygon lattice family. |
+| `starPolygonLattice` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Generate a fluent `Design` containing a star-polygon lattice toolpath. |
+| `starPolygonLatticeOps` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Generate Dry L1 authoring operations for a star-polygon lattice. |
+| `StarPolygonLatticeOptions` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Options for generating a star-polygon lattice toolpath. |
+| `StarPolygonRegime` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Geometric regime after normalizing the input alpha angle. |
+| `Toolpath` | interface | `sdk/ts/src/ops.ts` | The resolved L2 Dry IR. |
+| `ToolpathMeta` | interface | `sdk/ts/src/ops.ts` | Optional provenance and invariant metadata attached to a resolved toolpath. |
+| `tpms` | function | `sdk/ts/src/generators/tpms.ts` | Generate a fluent `Design` containing a TPMS toolpath. |
+| `TPMS_SURFACES` | const | `sdk/ts/src/generators/tpms.ts` | Metadata catalog for all supported TPMS surfaces. |
+| `tpmsField` | function | `sdk/ts/src/generators/tpms.ts` | Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. |
+| `tpmsOps` | function | `sdk/ts/src/generators/tpms.ts` | Build the selected TPMS infill as an L1 op list. Delegates generation to the Rust engine so the |
+| `TpmsOptions` | interface | `sdk/ts/src/generators/tpms.ts` | Options for slicing a TPMS scalar field into Dry authoring operations. |
+| `TpmsSurface` | type | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. |
+| `tpmsSurfaceSpec` | function | `sdk/ts/src/generators/tpms.ts` | Return display metadata for a TPMS surface. |
+| `TpmsSurfaceSpec` | interface | `sdk/ts/src/generators/tpms.ts` | Display metadata for a TPMS surface. |
 
 ## `Design`
 
 Source: `sdk/ts/src/design.ts`
 
 ```ts
-export class Design {
+export class Design
 ```
 
-Normalise build-volume bounds to the flat `[x0,x1,y0,y1,z0,z1]` (mm) the engine expects, or
-`undefined` when unset. Accepts a structured `[[x0,x1],[y0,y1],[z0,z1]]` or the legacy CSV string.
-/
-function boundsToFlat(bounds: string | number[][]): Float64Array | undefined {
-  if (typeof bounds === 'string') {
-    if (bounds.trim() === '') return undefined;
-    const flat = bounds.split(',').map(Number);
-    if (flat.length !== 6) throw new Error("bounds CSV must be 'x0,x1,y0,y1,z0,z1'");
-    return Float64Array.from(flat);
-  }
-  const flat = bounds.flat();
-  if (flat.length !== 6) throw new Error('bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string');
-  return Float64Array.from(flat);
-}
-
-/**
-Normalise a `[min, max]` range to the flat pair the engine expects, or `undefined` when unset.
-Accepts a structured `[min, max]` or the legacy `"min,max"` CSV string.
-/
-function rangeToFlat(name: string, range: string | [number, number]): Float64Array | undefined {
-  if (typeof range === 'string') {
-    if (range.trim() === '') return undefined;
-    const flat = range.split(',').map(Number);
-    if (flat.length !== 2) throw new Error(`${name} CSV must be 'min,max'`);
-    return Float64Array.from(flat);
-  }
-  if (range.length !== 2) throw new Error(`${name} must be [min, max] or a CSV string`);
-  return Float64Array.from(range);
-}
-
-/** Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. */
+Fluent builder for Dry L1 authoring operations and engine-backed resolution calls.
 
 ### Methods
 
 | Method | Signature | Summary |
 | --- | --- | --- |
 | `geometry` | `geometry(width: number, height: number): this` | Set the extrusion bead cross-section (mm). |
-| `extruder` | `extruder(on: boolean): this` | Turn the extruder on/off (off => subsequent moves are travels). |
+| `extruder` | `extruder(on: boolean): this` | Turn the extruder on/off (off =&gt; subsequent moves are travels). |
 | `speed` | `speed(printSpeed: number): this` | Set the print feedrate (mm/min). |
 | `point` | `point(x: number \| null = null, y: number \| null = null, z: number \| null = null): this` | Move to a point; an omitted axis is inherited from the running position. |
-| `arc` | `arc(a: { cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }): this` | A circular arc about (cx, cy) to an end point; clockwise => G2, else G3. |
+| `arc` | `arc(a: { cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }): this` | A circular arc about (cx, cy) to an end point; clockwise =&gt; G2, else G3. |
 | `spline` | `spline(points: [number \| null, number \| null, number \| null][]): this` | A Catmull-Rom spline from the running position through each (x, y, z) control point. |
 | `temperature` | `temperature(nozzle: number): this` | Set the nozzle temperature channel (°C). |
 | `fan` | `fan(speed: number): this` | Set the part-cooling fan channel (0..1). |
@@ -119,134 +89,397 @@ function rangeToFlat(name: string, range: string | [number, number]): Float64Arr
 | `binary` | `binary(printer = 'generic'): Uint8Array` | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
 | `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | Resolve + verify against machine-safety contracts; returns the safety report findings. The |
 
+### Method details
+
+#### `geometry`
+
+```ts
+geometry(width: number, height: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `width` | `number` |  | Yes |
+| `height` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the extrusion bead cross-section (mm).
+
+#### `extruder`
+
+```ts
+extruder(on: boolean): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `on` | `boolean` |  | Yes |
+
+Returns: `this`
+
+Turn the extruder on/off (off => subsequent moves are travels).
+
+#### `speed`
+
+```ts
+speed(printSpeed: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printSpeed` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the print feedrate (mm/min).
+
+#### `point`
+
+```ts
+point(x: number | null = null, y: number | null = null, z: number | null = null): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `x` | `number \| null` | `null` | No |
+| `y` | `number \| null` | `null` | No |
+| `z` | `number \| null` | `null` | No |
+
+Returns: `this`
+
+Move to a point; an omitted axis is inherited from the running position.
+
+#### `arc`
+
+```ts
+arc(a: { cx: number; cy: number; x?: number | null; y?: number | null; z?: number | null; clockwise?: boolean }): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `a` | `{ cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }` |  | Yes |
+
+Returns: `this`
+
+A circular arc about (cx, cy) to an end point; clockwise => G2, else G3.
+
+#### `spline`
+
+```ts
+spline(points: [number | null, number | null, number | null][]): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `points` | `[number \| null, number \| null, number \| null][]` |  | Yes |
+
+Returns: `this`
+
+A Catmull-Rom spline from the running position through each (x, y, z) control point.
+
+#### `temperature`
+
+```ts
+temperature(nozzle: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `nozzle` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the nozzle temperature channel (°C).
+
+#### `fan`
+
+```ts
+fan(speed: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `speed` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the part-cooling fan channel (0..1).
+
+#### `flow`
+
+```ts
+flow(ratio: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ratio` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the flow multiplier channel (scales deposited volume; default 1.0).
+
+#### `tool`
+
+```ts
+tool(index: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `index` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the active tool channel.
+
+#### `orient`
+
+```ts
+orient(i: number, j: number, k: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `i` | `number` |  | Yes |
+| `j` | `number` |  | Yes |
+| `k` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z.
+
+#### `dwell`
+
+```ts
+dwell(seconds: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `seconds` | `number` |  | Yes |
+
+Returns: `this`
+
+Pause in place for `seconds` (emits a `G4` dwell).
+
+#### `manualGcode`
+
+```ts
+manualGcode(text: string): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `text` | `string` |  | Yes |
+
+Returns: `this`
+
+Inject verbatim custom G-code.
+
+#### `retract`
+
+```ts
+retract(distance: number | null = null, speed: number | null = null): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `distance` | `number \| null` | `null` | No |
+| `speed` | `number \| null` | `null` | No |
+
+Returns: `this`
+
+Retract filament.
+
+#### `unretract`
+
+```ts
+unretract(distance: number | null = null, speed: number | null = null): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `distance` | `number \| null` | `null` | No |
+| `speed` | `number \| null` | `null` | No |
+
+Returns: `this`
+
+Prime filament back after a retraction.
+
+#### `deposit`
+
+```ts
+deposit(volume: number, speed: number): this
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `volume` | `number` |  | Yes |
+| `speed` | `number` |  | Yes |
+
+Returns: `this`
+
+Stationary extrusion of a set volume (mm³) at feedrate (mm/min).
+
+#### `gcode`
+
+```ts
+gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+| `relativeE` | `any` | `true` | No |
+| `travelG1E0` | `any` | `false` | No |
+| `fiveAxis` | `any` | `false` | No |
+| `rotaryAxes` | `any` | `'ab'` | No |
+
+Returns: `string[]`
+
+Resolve + emit motion g-code (an array of lines). `rotaryAxes` is the rotary-axes selector (the
+
+#### `simulate`
+
+```ts
+simulate(printer = 'generic'): Metrics
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `Metrics`
+
+Resolve + simulate; returns metrics (time, distances, material, peak flow).
+
+#### `ir`
+
+```ts
+ir(printer = 'generic'): Toolpath
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `Toolpath`
+
+Resolve to the L2 Dry IR ({ version, segments }).
+
+#### `optimizedIr`
+
+```ts
+optimizedIr(printer = 'generic'): Toolpath
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `Toolpath`
+
+Resolve through the standard L2 optimization pipeline.
+
+#### `balancedIr`
+
+```ts
+balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+| `kinematics` | `MachineKinematics` |  | No |
+
+Returns: `Toolpath`
+
+Resolve through the kinematics-aware balanced optimization pipeline. When `kinematics` is
+
+#### `binary`
+
+```ts
+binary(printer = 'generic'): Uint8Array
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `Uint8Array`
+
+Resolve + encode to the binary DRY1 format; returns the raw bytes.
+
+#### `verify`
+
+```ts
+verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string | number[][] = '', monotonicZ = false, speedRange: string | [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string | [number, number] = '', firstLayerSpeedRange: string | [number, number] = '', kinematics?: MachineKinematics): Report
+```
+
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `any` | `'generic'` | No |
+| `maxFlow` | `any` | `0` | No |
+| `minTemp` | `any` | `0` | No |
+| `bounds` | `string \| number[][]` | `''` | No |
+| `monotonicZ` | `any` | `false` | No |
+| `speedRange` | `string \| [number, number]` | `''` | No |
+| `maxRetractionDistance` | `any` | `0` | No |
+| `maxRetractionSpeed` | `any` | `0` | No |
+| `maxTravelWithoutRetract` | `any` | `0` | No |
+| `firstLayerHeightRange` | `string \| [number, number]` | `''` | No |
+| `firstLayerSpeedRange` | `string \| [number, number]` | `''` | No |
+| `kinematics` | `MachineKinematics` |  | No |
+
+Returns: `Report`
+
+Resolve + verify against machine-safety contracts; returns the safety report findings. The
+
 
 ## `Finding`
 
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface Finding {
+export interface Finding
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+Single verification finding, optionally tied to a resolved segment index.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
+### Fields
 
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
-export interface Toolpath {
-  version: number;
-  meta?: ToolpathMeta;
-  segments: Segment[];
-}
-
-/** Severity level for a verification finding. */
-export type Severity = 'error' | 'warning';
-
-/** Single verification finding, optionally tied to a resolved segment index. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `rule` | `string` | Yes | Stable rule identifier, such as `bounds` or `peak-acceleration`. |
+| `severity` | `Severity` | Yes | Whether the finding blocks the contract or is advisory. |
+| `segment` | `number \| null` | Yes | Zero-based segment index, or null when the finding is global. |
+| `message` | `string` | Yes | Human-readable finding details. |
 
 
 ## `MachineKinematics`
@@ -254,7 +487,7 @@ export type Severity = 'error' | 'warning';
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export interface MachineKinematics {
+export interface MachineKinematics
 ```
 
 Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
@@ -263,7 +496,14 @@ disables the corresponding check.
 
  - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
  - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `max_acceleration_mm_s2` | `number` | No | Declared in the public API. |
+| `max_junction_velocity_mm_s` | `number` | No | Declared in the public API. |
 
 
 ## `Metrics`
@@ -271,48 +511,25 @@ disables the corresponding check.
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface Metrics {
+export interface Metrics
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+Simulation metrics returned by `simulate`.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `total_time_s` | `number` | Yes | Total estimated time in seconds. |
+| `print_time_s` | `number` | Yes | Estimated extruding move time in seconds. |
+| `travel_time_s` | `number` | Yes | Estimated travel move time in seconds. |
+| `extruding_distance` | `number` | Yes | Total extruding path length in mm. |
+| `travel_distance` | `number` | Yes | Total non-extruding path length in mm. |
+| `extruded_volume` | `number` | Yes | Deposited material volume in cubic mm. |
+| `filament_length` | `number` | Yes | Filament consumed in mm. |
+| `segment_count` | `number` | Yes | Number of resolved toolpath segments. |
+| `max_flow_rate` | `number` | Yes | Maximum observed flow rate in cubic mm/s. |
 
 
 ## `NormalizedStarPolygonAlpha`
@@ -320,35 +537,20 @@ export interface ResolveParams {
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export interface NormalizedStarPolygonAlpha {
+export interface NormalizedStarPolygonAlpha
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Normalized alpha angle and regime classification for a lattice family.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
 
-/** Normalized alpha angle and regime classification for a lattice family. */
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `inputDeg` | `number` | Yes | Caller-provided alpha angle in degrees. |
+| `effectiveDeg` | `number` | Yes | Mirrored/effective alpha angle in degrees. |
+| `mirrored` | `boolean` | Yes | Whether the input angle was mirrored around the uniqueness limit. |
+| `regime` | `StarPolygonRegime` | Yes | Classified geometric regime. |
 
 
 ## `normalizeStarPolygonAlpha`
@@ -356,164 +558,19 @@ export interface StarPolygonFamilySpec {
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export function normalizeStarPolygonAlpha(
+export function normalizeStarPolygonAlpha(family: StarPolygonFamily, alphaDeg: number): NormalizedStarPolygonAlpha
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Normalize an alpha angle into its effective value and geometric regime.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
+### Parameters
 
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `family` | `StarPolygonFamily` |  | Yes |
+| `alphaDeg` | `number` |  | Yes |
 
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
-
-/** Return static metadata for a star-polygon lattice family. */
-export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
-  const spec = STAR_POLYGON_FAMILIES[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  return spec;
-}
-
-/** Normalize an alpha angle into its effective value and geometric regime. */
+Returns: `NormalizedStarPolygonAlpha`
 
 
 ## `Op`
@@ -521,10 +578,34 @@ export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFam
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export type Op =
+export type Op = | { op: 'geometry'; width: number; height: number }
+  | { op: 'extruder'; on: boolean }
+  | { op: 'speed'; print: number }
+  | { op: 'move'; x: number | null; y: number | null; z: number | null }
+  | {
+      op: 'arc';
+      cx: number;
+      cy: number;
+      x: number | null;
+      y: number | null;
+      z: number | null;
+      clockwise: boolean;
+    }
+  | { op: 'spline'; points: [number | null, number | null, number | null][] }
+  // process channels (§3): typed, defaulted, propagated by the engine.
+  | { op: 'temperature'; nozzle: number }
+  | { op: 'fan'; speed: number }
+  | { op: 'flow'; ratio: number }
+  | { op: 'tool'; index: number }
+  | { op: 'orient'; i: number; j: number; k: number }
+  | { op: 'dwell'; seconds: number }
+  | { op: 'manual_gcode'; text: string }
+  | { op: 'retract'; distance: number | null; speed: number | null }
+  | { op: 'unretract'; distance: number | null; speed: number | null }
+  | { op: 'deposit'; volume: number; speed: number }
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
+Authoring operation in Dry L1, before resolution into concrete toolpath segments.
 
 
 ## `PRINTERS`
@@ -532,145 +613,10 @@ Authoring operation in Dry L1, before resolution into concrete toolpath segments
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export const PRINTERS: Record<string, ResolveParams> = {
+export const PRINTERS: Record<string, ResolveParams>
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
-
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
-
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
-
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
-export interface Toolpath {
-  version: number;
-  meta?: ToolpathMeta;
-  segments: Segment[];
-}
-
-/** Severity level for a verification finding. */
-export type Severity = 'error' | 'warning';
-
-/** Single verification finding, optionally tied to a resolved segment index. */
-export interface Finding {
-  /** Stable rule identifier, such as `bounds` or `peak-acceleration`. */
-  rule: string;
-  /** Whether the finding blocks the contract or is advisory. */
-  severity: Severity;
-  /** Zero-based segment index, or null when the finding is global. */
-  segment: number | null;
-  /** Human-readable finding details. */
-  message: string;
-}
-
-/** Verification result containing all findings emitted by enabled rules. */
-export interface Report {
-  findings: Finding[];
-}
-
-/** Device defaults (the generic printer). More profiles land with the device-profile work. */
+Device defaults (the generic printer). More profiles land with the device-profile work.
 
 
 ## `Report`
@@ -678,140 +624,17 @@ export interface Report {
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface Report {
+export interface Report
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+Verification result containing all findings emitted by enabled rules.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
+### Fields
 
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
-export interface Toolpath {
-  version: number;
-  meta?: ToolpathMeta;
-  segments: Segment[];
-}
-
-/** Severity level for a verification finding. */
-export type Severity = 'error' | 'warning';
-
-/** Single verification finding, optionally tied to a resolved segment index. */
-export interface Finding {
-  /** Stable rule identifier, such as `bounds` or `peak-acceleration`. */
-  rule: string;
-  /** Whether the finding blocks the contract or is advisory. */
-  severity: Severity;
-  /** Zero-based segment index, or null when the finding is global. */
-  segment: number | null;
-  /** Human-readable finding details. */
-  message: string;
-}
-
-/** Verification result containing all findings emitted by enabled rules. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `findings` | `Finding[]` | Yes | Declared in the public API. |
 
 
 ## `RESOLVE_PARAMS`
@@ -819,150 +642,10 @@ export interface Finding {
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
+export const RESOLVE_PARAMS: ResolveParams
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
-
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
-
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
-
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
-export interface Toolpath {
-  version: number;
-  meta?: ToolpathMeta;
-  segments: Segment[];
-}
-
-/** Severity level for a verification finding. */
-export type Severity = 'error' | 'warning';
-
-/** Single verification finding, optionally tied to a resolved segment index. */
-export interface Finding {
-  /** Stable rule identifier, such as `bounds` or `peak-acceleration`. */
-  rule: string;
-  /** Whether the finding blocks the contract or is advisory. */
-  severity: Severity;
-  /** Zero-based segment index, or null when the finding is global. */
-  segment: number | null;
-  /** Human-readable finding details. */
-  message: string;
-}
-
-/** Verification result containing all findings emitted by enabled rules. */
-export interface Report {
-  findings: Finding[];
-}
-
-/** Device defaults (the generic printer). More profiles land with the device-profile work. */
-export const PRINTERS: Record<string, ResolveParams> = {
-  generic: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
-};
-
-/** Default resolver parameters for the generic built-in printer profile. */
+Default resolver parameters for the generic built-in printer profile.
 
 
 ## `resolveBalancedIr`
@@ -970,142 +653,23 @@ export const PRINTERS: Record<string, ResolveParams> = {
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveBalancedIr(
+export function resolveBalancedIr(ops: Op[], params: ResolveParams, kinematics?: MachineKinematics): Toolpath
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
-
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
-
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
-
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
-`resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
-report the before/after time and peak flow of an optimized or balanced IR (which has no originating
-op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
-`optimizedIr`/`balancedIr` toolpath).
-/
-export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(bind().metrics_ir(irJson));
-}
-
-/** Resolve a design to the L2 Dry IR. */
-export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
-export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
-  return bind().resolve_binary(JSON.stringify(ops), JSON.stringify(params));
-}
-
-/** Resolve a design through the standard L2 optimization pipeline. */
-export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
 Resolve a design through the kinematics-aware balanced optimization pipeline. When `kinematics`
 is provided its acceleration/junction-velocity limits shape the output (acceleration clamping +
 junction-velocity capping). Omitting `kinematics` falls back to the safe pipeline (same as
 `resolveOptimizedIr`).
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
+| `kinematics` | `MachineKinematics` |  | No |
+
+Returns: `Toolpath`
 
 
 ## `resolveBinary`
@@ -1113,127 +677,19 @@ junction-velocity capping). Omitting `kinematics` falls back to the safe pipelin
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
+export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
+Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes).
 
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
+### Parameters
 
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
 
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
-`resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
-report the before/after time and peak flow of an optimized or balanced IR (which has no originating
-op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
-`optimizedIr`/`balancedIr` toolpath).
-/
-export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(bind().metrics_ir(irJson));
-}
-
-/** Resolve a design to the L2 Dry IR. */
-export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
+Returns: `Uint8Array`
 
 
 ## `resolveGcode`
@@ -1241,78 +697,26 @@ export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveGcode(
+export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
-
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
-
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
-
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
 Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
 STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
 from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
 `resolveVerify`.
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
+| `relativeE` | `any` | `true` | No |
+| `travelG1E0` | `any` | `false` | No |
+| `fiveAxis` | `any` | `false` | No |
+| `rotaryAxes` | `any` | `'ab'` | No |
+
+Returns: `string[]`
 
 
 ## `resolveIr`
@@ -1320,122 +724,19 @@ from the machine motion-limits `MachineKinematics` object used by `resolveBalanc
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
+export function resolveIr(ops: Op[], params: ResolveParams): Toolpath
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
+Resolve a design to the L2 Dry IR.
 
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
+### Parameters
 
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
 
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
-`resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
-report the before/after time and peak flow of an optimized or balanced IR (which has no originating
-op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
-`optimizedIr`/`balancedIr` toolpath).
-/
-export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(bind().metrics_ir(irJson));
-}
-
-/** Resolve a design to the L2 Dry IR. */
+Returns: `Toolpath`
 
 
 ## `resolveMetrics`
@@ -1443,106 +744,19 @@ export function resolveMetricsIr(irJson: string): Metrics {
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
+export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
+Resolve a design and return its simulation metrics.
 
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
+### Parameters
 
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
 
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
+Returns: `Metrics`
 
 
 ## `resolveMetricsIr`
@@ -1550,117 +764,22 @@ export function tpmsOps(optionsJson: string): string {
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveMetricsIr(irJson: string): Metrics {
+export function resolveMetricsIr(irJson: string): Metrics
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
-
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
-
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
-
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
 Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
 `resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
 report the before/after time and peak flow of an optimized or balanced IR (which has no originating
 op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
 `optimizedIr`/`balancedIr` toolpath).
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `irJson` | `string` |  | Yes |
+
+Returns: `Metrics`
 
 
 ## `resolveOptimizedIr`
@@ -1668,132 +787,19 @@ op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
+export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
+Resolve a design through the standard L2 optimization pipeline.
 
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
+### Parameters
 
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
 
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
-`resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
-report the before/after time and peak flow of an optimized or balanced IR (which has no originating
-op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
-`optimizedIr`/`balancedIr` toolpath).
-/
-export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(bind().metrics_ir(irJson));
-}
-
-/** Resolve a design to the L2 Dry IR. */
-export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
-export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
-  return bind().resolve_binary(JSON.stringify(ops), JSON.stringify(params));
-}
-
-/** Resolve a design through the standard L2 optimization pipeline. */
+Returns: `Toolpath`
 
 
 ## `ResolveParams`
@@ -1801,38 +807,19 @@ export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface ResolveParams {
+export interface ResolveParams
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `print_speed` | `number` | Yes | Default extrusion feedrate in mm/min. |
+| `travel_speed` | `number` | Yes | Default travel feedrate in mm/min. |
+| `dia` | `number` | Yes | Filament diameter in mm. |
 
 
 ## `resolveVerify`
@@ -1840,159 +827,33 @@ export type Op =
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveVerify(
+export function resolveVerify(ops: Op[], params: ResolveParams, maxFlow = 0, minTemp = 0, bounds?: Float64Array, monotonicZ = false, speedRange?: Float64Array, maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange?: Float64Array, firstLayerSpeedRange?: Float64Array, kinematics?: MachineKinematics): Report
 ```
 
-Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are
-snake_case to match the Rust serde serialization. All fields are optional; an unset field
-disables the corresponding check.
-
- - `max_acceleration_mm_s2` — peak centripetal acceleration ceiling (mm/s²).
- - `max_junction_velocity_mm_s` — per-junction speed-change ceiling (mm/s).
-/
-export interface MachineKinematics {
-  max_acceleration_mm_s2?: number;
-  max_junction_velocity_mm_s?: number;
-}
-
-export interface DryWasm {
-  resolve_gcode(
-    opsJson: string,
-    paramsJson: string,
-    relativeE: boolean,
-    travelG1E0: boolean,
-    fiveAxis: boolean,
-    rotaryAxes: string
-  ): string[];
-  tpms_ops_json(tpmsOptionsJson: string): string;
-  resolve_metrics(opsJson: string, paramsJson: string): string;
-  metrics_ir(irJson: string): string;
-  resolve_ir(opsJson: string, paramsJson: string): string;
-  resolve_binary(opsJson: string, paramsJson: string): Uint8Array;
-  resolve_optimized_ir(opsJson: string, paramsJson: string): string;
-  resolve_balanced_ir(opsJson: string, paramsJson: string, kinematicsJson: string): string;
-  resolve_verify(
-    opsJson: string,
-    paramsJson: string,
-    maxFlow: number,
-    minTemp: number,
-    bounds: Float64Array | undefined,
-    monotonicZ: boolean,
-    speedRange: Float64Array | undefined,
-    maxRetractionDistance: number,
-    maxRetractionSpeed: number,
-    maxTravelWithoutRetract: number,
-    firstLayerHeightRange: Float64Array | undefined,
-    firstLayerSpeedRange: Float64Array | undefined,
-    kinematicsJson: string
-  ): string;
-}
-
-// The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
-// browser). Keeping engine.ts binding-agnostic is what lets the same Design API run client-side.
-let wasm: DryWasm | undefined;
-
-/** Install the resolved wasm binding. Called once by a platform loader before any resolve call. */
-export function setWasmBinding(binding: DryWasm): void {
-  wasm = binding;
-}
-
-function bind(): DryWasm {
-  if (!wasm) {
-    throw new Error(
-      'Dry wasm engine not initialised: import the Node entry (@dry/sdk) or call initDryWeb() first'
-    );
-  }
-  return wasm;
-}
-
-/**
-Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
-STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
-from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
-`resolveVerify`.
-/
-export function resolveGcode(
-  ops: Op[],
-  params: ResolveParams,
-  relativeE = true,
-  travelG1E0 = false,
-  fiveAxis = false,
-  rotaryAxes = 'ab'
-): string[] {
-  return bind().resolve_gcode(
-    JSON.stringify(ops),
-    JSON.stringify(params),
-    relativeE,
-    travelG1E0,
-    fiveAxis,
-    rotaryAxes
-  );
-}
-
-/**
-Generate a TPMS infill design's L1 op list in the Rust engine. `optionsJson` is the camelCase
-`TpmsOptions` wire form; the returned JSON is the `Op[]` list (before resolve/emit). The TS SDK's
-TPMS generator delegates here so its ops are byte-identical to the native/wasm path (`libm` math).
-/
-export function tpmsOps(optionsJson: string): string {
-  return bind().tpms_ops_json(optionsJson);
-}
-
-/** Resolve a design and return its simulation metrics. */
-export function resolveMetrics(ops: Op[], params: ResolveParams): Metrics {
-  return JSON.parse(bind().resolve_metrics(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike
-`resolveMetrics`, which simulates an L1 design, this takes a toolpath IR directly — so a caller can
-report the before/after time and peak flow of an optimized or balanced IR (which has no originating
-op-list). `irJson` is the JSON string of a `Toolpath` (e.g. the result of `JSON.stringify` on an
-`optimizedIr`/`balancedIr` toolpath).
-/
-export function resolveMetricsIr(irJson: string): Metrics {
-  return JSON.parse(bind().metrics_ir(irJson));
-}
-
-/** Resolve a design to the L2 Dry IR. */
-export function resolveIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/** Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). */
-export function resolveBinary(ops: Op[], params: ResolveParams): Uint8Array {
-  return bind().resolve_binary(JSON.stringify(ops), JSON.stringify(params));
-}
-
-/** Resolve a design through the standard L2 optimization pipeline. */
-export function resolveOptimizedIr(ops: Op[], params: ResolveParams): Toolpath {
-  return JSON.parse(bind().resolve_optimized_ir(JSON.stringify(ops), JSON.stringify(params)));
-}
-
-/**
-Resolve a design through the kinematics-aware balanced optimization pipeline. When `kinematics`
-is provided its acceleration/junction-velocity limits shape the output (acceleration clamping +
-junction-velocity capping). Omitting `kinematics` falls back to the safe pipeline (same as
-`resolveOptimizedIr`).
-/
-export function resolveBalancedIr(
-  ops: Op[],
-  params: ResolveParams,
-  kinematics?: MachineKinematics
-): Toolpath {
-  const kinematicsJson = kinematics !== undefined ? JSON.stringify(kinematics) : '';
-  return JSON.parse(
-    bind().resolve_balanced_ir(JSON.stringify(ops), JSON.stringify(params), kinematicsJson)
-  );
-}
-
-/**
 Resolve a design and verify it against safety contracts. The structured limits cross to the wasm
 engine as native typed values — `bounds` flat as `[x0,x1,y0,y1,z0,z1]` and each range as `[min,max]`
 (a `Float64Array`, or `undefined` to disable that check); the scalar ceilings use 0 to mean unset.
 The optional `kinematics` arg enables the `peak-acceleration` and `junction-velocity` verify rules.
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `ResolveParams` |  | Yes |
+| `maxFlow` | `any` | `0` | No |
+| `minTemp` | `any` | `0` | No |
+| `bounds` | `Float64Array` |  | No |
+| `monotonicZ` | `any` | `false` | No |
+| `speedRange` | `Float64Array` |  | No |
+| `maxRetractionDistance` | `any` | `0` | No |
+| `maxRetractionSpeed` | `any` | `0` | No |
+| `maxTravelWithoutRetract` | `any` | `0` | No |
+| `firstLayerHeightRange` | `Float64Array` |  | No |
+| `firstLayerSpeedRange` | `Float64Array` |  | No |
+| `kinematics` | `MachineKinematics` |  | No |
+
+Returns: `Report`
 
 
 ## `Segment`
@@ -2000,81 +861,36 @@ The optional `kinematics` arg enables the `peak-acceleration` and `junction-velo
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface Segment {
+export interface Segment
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+One resolved motion or process segment in the Dry L2 IR.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
+### Fields
 
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `start` | `(number \| null)[]` | Yes | Declared in the public API. |
+| `end` | `(number \| null)[]` | Yes | Declared in the public API. |
+| `travel` | `boolean` | Yes | Declared in the public API. |
+| `speed` | `number` | Yes | Declared in the public API. |
+| `length` | `number` | Yes | Declared in the public API. |
+| `volume` | `number` | Yes | Declared in the public API. |
+| `filament` | `number` | Yes | Declared in the public API. |
+| `width` | `number \| null` | Yes | Declared in the public API. |
+| `height` | `number \| null` | Yes | Declared in the public API. |
+| `kind` | `SegmentKind` | Yes | Declared in the public API. |
+| `centre` | `[number, number] \| null` | Yes | Declared in the public API. |
+| `clockwise` | `boolean` | Yes | Declared in the public API. |
+| `temperature` | `number` | No | Declared in the public API. |
+| `fan` | `number` | No | Declared in the public API. |
+| `flow` | `number` | No | Declared in the public API. |
+| `tool` | `number` | No | Declared in the public API. |
+| `dwell_s` | `number` | No | Declared in the public API. |
+| `manual_gcode` | `string` | No | Declared in the public API. |
+| `orientation` | `[number, number, number]` | No | Declared in the public API. |
+| `control_points` | `[number, number, number][]` | No | Declared in the public API. |
 
 
 ## `SegmentKind`
@@ -2082,70 +898,17 @@ export type SegmentKind =
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export type SegmentKind =
+export type SegmentKind = | 'line'
+  | 'arc'
+  | 'spline'
+  | 'dwell'
+  | 'retract'
+  | 'unretract'
+  | 'deposit'
+  | 'manual_gcode'
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
-
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
-
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
-
-/** One resolved L2 motion segment. */
+One resolved L2 motion segment.
 
 
 ## `Severity`
@@ -2153,125 +916,10 @@ export interface Metrics {
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export type Severity = 'error' | 'warning';
+export type Severity = 'error' | 'warning'
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
-
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
-
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
-
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
-export interface Toolpath {
-  version: number;
-  meta?: ToolpathMeta;
-  segments: Segment[];
-}
-
-/** Severity level for a verification finding. */
+Severity level for a verification finding.
 
 
 ## `STAR_POLYGON_FAMILIES`
@@ -2279,154 +927,10 @@ export interface Toolpath {
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
+export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec>
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
-
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
-
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
-
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
+Metadata catalog for the supported star-polygon lattice families.
 
 
 ## `StarPolygonBasis`
@@ -2434,14 +938,10 @@ const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export type StarPolygonBasis = 'triangular' | 'square';
+export type StarPolygonBasis = 'triangular' | 'square'
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
+Base tiling used by a star-polygon lattice family.
 
 
 ## `starPolygonDentRadiusRatio`
@@ -2449,192 +949,20 @@ export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-l
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number): number {
+export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number): number
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
-
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
-
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
-
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
-
-/** Return static metadata for a star-polygon lattice family. */
-export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
-  const spec = STAR_POLYGON_FAMILIES[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  return spec;
-}
-
-/** Normalize an alpha angle into its effective value and geometric regime. */
-export function normalizeStarPolygonAlpha(
-  family: StarPolygonFamily,
-  alphaDeg: number
-): NormalizedStarPolygonAlpha {
-  const spec = FAMILY_SPECS[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  finite('alphaDeg', alphaDeg);
-
-  const max = spec.alphaUlDeg * 2;
-  if (alphaDeg < 0 || alphaDeg > max) {
-    throw new Error(`${family} alphaDeg must be in 0..${max} degrees`);
-  }
-
-  const mirrored = alphaDeg > spec.alphaUlDeg;
-  const effectiveDeg = mirrored ? max - alphaDeg : alphaDeg;
-  const regime =
-    Math.abs(effectiveDeg - spec.alphaUlDeg) <= EPS ? 'uniqueness-limit'
-      : Math.abs(effectiveDeg - spec.alphaSplDeg) <= EPS ? 'star-limit'
-        : effectiveDeg < spec.alphaSplDeg ? 'star'
-          : 'convex';
-
-  return { inputDeg: alphaDeg, effectiveDeg, mirrored, regime };
-}
-
-/**
 Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon.
 At alphaSPL it equals cos(pi / n); at alphaUL it reaches 1.0.
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `starSides` | `number` |  | Yes |
+| `alphaDeg` | `number` |  | Yes |
+
+Returns: `number`
 
 
 ## `StarPolygonFamily`
@@ -2642,10 +970,10 @@ At alphaSPL it equals cos(pi / n); at alphaUL it reaches 1.0.
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
+export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4'
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
+Star-polygon lattice family from the original M1-M4 construction.
 
 
 ## `starPolygonFamilySpec`
@@ -2653,157 +981,18 @@ Star-polygon lattice family from the original M1-M4 construction. */
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
+export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Return static metadata for a star-polygon lattice family.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
+### Parameters
 
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `family` | `StarPolygonFamily` |  | Yes |
 
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
-
-/** Return static metadata for a star-polygon lattice family. */
+Returns: `StarPolygonFamilySpec`
 
 
 ## `StarPolygonFamilySpec`
@@ -2811,17 +1000,23 @@ export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilyS
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export interface StarPolygonFamilySpec {
+export interface StarPolygonFamilySpec
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Static metadata for one star-polygon lattice family.
 
-/** Static metadata for one star-polygon lattice family. */
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `family` | `StarPolygonFamily` | Yes | Family identifier. |
+| `topology` | `string` | Yes | Human-readable topology label. |
+| `starSides` | `number` | Yes | Number of star sides in the underlying polygon. |
+| `alphaSplDeg` | `number` | Yes | Star-polygon limit angle in degrees. |
+| `alphaUlDeg` | `number` | Yes | Uniqueness-limit angle in degrees. |
+| `basis` | `StarPolygonBasis` | Yes | Base tiling used by this family. |
+| `isotropicInPlane` | `boolean` | Yes | Whether the family is isotropic in the print plane. |
 
 
 ## `starPolygonLattice`
@@ -2829,240 +1024,18 @@ export type StarPolygonBasis = 'triangular' | 'square';
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export function starPolygonLattice(options: StarPolygonLatticeOptions = {}): Design {
+export function starPolygonLattice(options: StarPolygonLatticeOptions = {}): Design
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Generate a fluent `Design` containing a star-polygon lattice toolpath.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
+### Parameters
 
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `StarPolygonLatticeOptions` | `{}` | No |
 
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
-
-/** Return static metadata for a star-polygon lattice family. */
-export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
-  const spec = STAR_POLYGON_FAMILIES[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  return spec;
-}
-
-/** Normalize an alpha angle into its effective value and geometric regime. */
-export function normalizeStarPolygonAlpha(
-  family: StarPolygonFamily,
-  alphaDeg: number
-): NormalizedStarPolygonAlpha {
-  const spec = FAMILY_SPECS[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  finite('alphaDeg', alphaDeg);
-
-  const max = spec.alphaUlDeg * 2;
-  if (alphaDeg < 0 || alphaDeg > max) {
-    throw new Error(`${family} alphaDeg must be in 0..${max} degrees`);
-  }
-
-  const mirrored = alphaDeg > spec.alphaUlDeg;
-  const effectiveDeg = mirrored ? max - alphaDeg : alphaDeg;
-  const regime =
-    Math.abs(effectiveDeg - spec.alphaUlDeg) <= EPS ? 'uniqueness-limit'
-      : Math.abs(effectiveDeg - spec.alphaSplDeg) <= EPS ? 'star-limit'
-        : effectiveDeg < spec.alphaSplDeg ? 'star'
-          : 'convex';
-
-  return { inputDeg: alphaDeg, effectiveDeg, mirrored, regime };
-}
-
-/**
-Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon.
-At alphaSPL it equals cos(pi / n); at alphaUL it reaches 1.0.
-/
-export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number): number {
-  const n = integer('starSides', starSides, 3);
-  finite('alphaDeg', alphaDeg);
-  const phi = Math.PI / n;
-  const t = Math.tan((alphaDeg * DEG) / 2);
-  if (Math.abs(t) <= EPS) return 0;
-  return t / (Math.sin(phi) + t * Math.cos(phi));
-}
-
-/** Generate Dry L1 authoring operations for a star-polygon lattice. */
-export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): Op[] {
-  const family = options.family ?? 'M1';
-  if (!FAMILY_SPECS[family]) throw new Error(`unknown star-polygon lattice family '${family}'`);
-
-  const alphaDeg = finite('alphaDeg', options.alphaDeg ?? 30);
-  const cols = integer('cols', options.cols ?? 10, 1);
-  const rows = integer('rows', options.rows ?? 3, 1);
-  const segLength = positive('segLength', options.segLength ?? options.unit ?? 4.33);
-  const layers = integer('layers', options.layers ?? 2, 1);
-  const layerHeight = positive('layerHeight', options.layerHeight ?? 0.2);
-  const z0 = positiveOrZero('z0', options.z0 ?? 0.8 * layerHeight);
-  const startX = finite('startX', options.startX ?? options.centerX ?? 30);
-  const startY = finite('startY', options.startY ?? options.centerY ?? 30);
-  const beadWidth = positive('beadWidth', options.beadWidth ?? 0.5);
-  const beadHeight = positive('beadHeight', options.beadHeight ?? layerHeight);
-  const nozzleTemp = positive('nozzleTemp', options.nozzleTemp ?? 210);
-  const printSpeed = positive('printSpeed', options.printSpeed ?? 1000);
-  const flow = positive('flow', options.flow ?? 1);
-  const completeWidth = options.completeWidth ?? true;
-  const sacrificialReturn = options.sacrificialReturn ?? true;
-
-  const built = buildColabLattice(family, alphaDeg, segLength, cols, rows, completeWidth);
-  const lattice = sacrificialReturn ? [...built.steps, ...returnLines(built.repeatOffsetX)] : built.steps;
-  const layered = copyMoveSteps(lattice, { z: layerHeight }, layers);
-  const shifted = moveSteps(layered, { x: startX, y: startY, z: z0 });
-
-  const ops: Op[] = [
-    { op: 'geometry', width: beadWidth, height: beadHeight },
-    { op: 'temperature', nozzle: nozzleTemp },
-    { op: 'speed', print: printSpeed },
-  ];
-  if (Math.abs(flow - 1) > EPS) ops.push({ op: 'flow', ratio: flow });
-
-  appendStepOps(ops, shifted);
-  return ops;
-}
-
-/** Generate a fluent `Design` containing a star-polygon lattice toolpath. */
+Returns: `Design`
 
 
 ## `starPolygonLatticeOps`
@@ -3070,202 +1043,18 @@ export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): 
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): Op[] {
+export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): Op[]
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Generate Dry L1 authoring operations for a star-polygon lattice.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
+### Parameters
 
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `StarPolygonLatticeOptions` | `{}` | No |
 
-/** Options for generating a star-polygon lattice toolpath. */
-export interface StarPolygonLatticeOptions {
-  /** Paper lattice sub-family. */
-  family?: StarPolygonFamily;
-  /** Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. */
-  alphaDeg?: number;
-  /** Unit cells along the print length. The original notebook calls this units_x. */
-  cols?: number;
-  /** Unit cells in the print width. The original notebook calls this units_y. */
-  rows?: number;
-  /** Strut length in mm. This is the original notebook's seg_length parameter. */
-  segLength?: number;
-  /** Backward-compatible alias for segLength. */
-  unit?: number;
-  /** Printed layers. The original notebook defaults to two layers. */
-  layers?: number;
-  /** Distance between repeated layers in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. */
-  z0?: number;
-  /** XY start offset. */
-  startX?: number;
-  startY?: number;
-  /** Backward-compatible aliases for the old motif-centered generator. */
-  centerX?: number;
-  centerY?: number;
-  /** Extrusion bead geometry in mm. */
-  beadWidth?: number;
-  beadHeight?: number;
-  /** Process settings from the original notebook defaults. */
-  nozzleTemp?: number;
-  printSpeed?: number;
-  flow?: number;
-  /** Keep the three printed return lines that condition the next layer in the original notebook. */
-  sacrificialReturn?: boolean;
-  /** For M4, round odd row counts up to an even row-pair width like the original notebook. */
-  completeWidth?: boolean;
-  /** Deprecated no-op from the older motif approximation. */
-  outerRadiusRatio?: number;
-  /** Deprecated no-op from the older motif approximation. */
-  includeConnectors?: boolean;
-}
-
-interface FcPoint {
-  kind: 'point';
-  x: number | null;
-  y: number | null;
-  z: number | null;
-}
-
-interface FcExtruder {
-  kind: 'extruder';
-  on: boolean;
-}
-
-type FcStep = FcPoint | FcExtruder;
-
-interface FcVector {
-  x?: number;
-  y?: number;
-  z?: number;
-}
-
-interface BuiltLattice {
-  steps: FcStep[];
-  repeatOffsetX: number;
-}
-
-const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
-  M1: {
-    family: 'M1',
-    topology: '4 . 4*alpha . 4**alpha',
-    starSides: 4,
-    alphaSplDeg: 90,
-    alphaUlDeg: 135,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M2: {
-    family: 'M2',
-    topology: '3 . 6*alpha . 6**alpha',
-    starSides: 6,
-    alphaSplDeg: 120,
-    alphaUlDeg: 150,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M3: {
-    family: 'M3',
-    topology: '6 . 3*alpha . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'triangular',
-    isotropicInPlane: true,
-  },
-  M4: {
-    family: 'M4',
-    topology: '3 . 3*alpha . 3 . 3**alpha',
-    starSides: 3,
-    alphaSplDeg: 60,
-    alphaUlDeg: 120,
-    basis: 'square',
-    isotropicInPlane: false,
-  },
-};
-
-/** Metadata catalog for the supported star-polygon lattice families. */
-export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
-
-/** Return static metadata for a star-polygon lattice family. */
-export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
-  const spec = STAR_POLYGON_FAMILIES[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  return spec;
-}
-
-/** Normalize an alpha angle into its effective value and geometric regime. */
-export function normalizeStarPolygonAlpha(
-  family: StarPolygonFamily,
-  alphaDeg: number
-): NormalizedStarPolygonAlpha {
-  const spec = FAMILY_SPECS[family];
-  if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
-  finite('alphaDeg', alphaDeg);
-
-  const max = spec.alphaUlDeg * 2;
-  if (alphaDeg < 0 || alphaDeg > max) {
-    throw new Error(`${family} alphaDeg must be in 0..${max} degrees`);
-  }
-
-  const mirrored = alphaDeg > spec.alphaUlDeg;
-  const effectiveDeg = mirrored ? max - alphaDeg : alphaDeg;
-  const regime =
-    Math.abs(effectiveDeg - spec.alphaUlDeg) <= EPS ? 'uniqueness-limit'
-      : Math.abs(effectiveDeg - spec.alphaSplDeg) <= EPS ? 'star-limit'
-        : effectiveDeg < spec.alphaSplDeg ? 'star'
-          : 'convex';
-
-  return { inputDeg: alphaDeg, effectiveDeg, mirrored, regime };
-}
-
-/**
-Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon.
-At alphaSPL it equals cos(pi / n); at alphaUL it reaches 1.0.
-/
-export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number): number {
-  const n = integer('starSides', starSides, 3);
-  finite('alphaDeg', alphaDeg);
-  const phi = Math.PI / n;
-  const t = Math.tan((alphaDeg * DEG) / 2);
-  if (Math.abs(t) <= EPS) return 0;
-  return t / (Math.sin(phi) + t * Math.cos(phi));
-}
-
-/** Generate Dry L1 authoring operations for a star-polygon lattice. */
+Returns: `Op[]`
 
 
 ## `StarPolygonLatticeOptions`
@@ -3273,47 +1062,38 @@ export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number):
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export interface StarPolygonLatticeOptions {
+export interface StarPolygonLatticeOptions
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
-/** Base tiling used by a star-polygon lattice family. */
-export type StarPolygonBasis = 'triangular' | 'square';
+Options for generating a star-polygon lattice toolpath.
 
-/** Static metadata for one star-polygon lattice family. */
-export interface StarPolygonFamilySpec {
-  /** Family identifier. */
-  family: StarPolygonFamily;
-  /** Human-readable topology label. */
-  topology: string;
-  /** Number of star sides in the underlying polygon. */
-  starSides: number;
-  /** Star-polygon limit angle in degrees. */
-  alphaSplDeg: number;
-  /** Uniqueness-limit angle in degrees. */
-  alphaUlDeg: number;
-  /** Base tiling used by this family. */
-  basis: StarPolygonBasis;
-  /** Whether the family is isotropic in the print plane. */
-  isotropicInPlane: boolean;
-}
 
-/** Normalized alpha angle and regime classification for a lattice family. */
-export interface NormalizedStarPolygonAlpha {
-  /** Caller-provided alpha angle in degrees. */
-  inputDeg: number;
-  /** Mirrored/effective alpha angle in degrees. */
-  effectiveDeg: number;
-  /** Whether the input angle was mirrored around the uniqueness limit. */
-  mirrored: boolean;
-  /** Classified geometric regime. */
-  regime: StarPolygonRegime;
-}
+### Fields
 
-/** Options for generating a star-polygon lattice toolpath. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `family` | `StarPolygonFamily` | No | Paper lattice sub-family. |
+| `alphaDeg` | `number` | No | Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. |
+| `cols` | `number` | No | Unit cells along the print length. The original notebook calls this units_x. |
+| `rows` | `number` | No | Unit cells in the print width. The original notebook calls this units_y. |
+| `segLength` | `number` | No | Strut length in mm. This is the original notebook's seg_length parameter. |
+| `unit` | `number` | No | Backward-compatible alias for segLength. |
+| `layers` | `number` | No | Printed layers. The original notebook defaults to two layers. |
+| `layerHeight` | `number` | No | Distance between repeated layers in mm. |
+| `z0` | `number` | No | First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. |
+| `startX` | `number` | No | XY start offset. |
+| `startY` | `number` | No | Declared in the public API. |
+| `centerX` | `number` | No | Backward-compatible aliases for the old motif-centered generator. |
+| `centerY` | `number` | No | Declared in the public API. |
+| `beadWidth` | `number` | No | Extrusion bead geometry in mm. |
+| `beadHeight` | `number` | No | Declared in the public API. |
+| `nozzleTemp` | `number` | No | Process settings from the original notebook defaults. |
+| `printSpeed` | `number` | No | Declared in the public API. |
+| `flow` | `number` | No | Declared in the public API. |
+| `sacrificialReturn` | `boolean` | No | Keep the three printed return lines that condition the next layer in the original notebook. |
+| `completeWidth` | `boolean` | No | For M4, round odd row counts up to an even row-pair width like the original notebook. |
+| `outerRadiusRatio` | `number` | No | Deprecated no-op from the older motif approximation. |
+| `includeConnectors` | `boolean` | No | Deprecated no-op from the older motif approximation. |
 
 
 ## `StarPolygonRegime`
@@ -3321,12 +1101,10 @@ export interface NormalizedStarPolygonAlpha {
 Source: `sdk/ts/src/generators/starPolygonLattice.ts`
 
 ```ts
-export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
+export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit'
 ```
 
-Star-polygon lattice family from the original M1-M4 construction. */
-export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
-/** Geometric regime after normalizing the input alpha angle. */
+Geometric regime after normalizing the input alpha angle.
 
 
 ## `Toolpath`
@@ -3334,118 +1112,19 @@ export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface Toolpath {
+export interface Toolpath
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+The resolved L2 Dry IR.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
+### Fields
 
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
-export interface ToolpathMeta {
-  /** Name of the generator or pipeline that produced the toolpath. */
-  generator?: string;
-  /** Coordinate and unit convention, normally millimeters. */
-  units?: string;
-  /** Stable source hash when the toolpath was derived from an external artifact. */
-  source_hash?: string;
-  /** Human-readable invariants the toolpath is expected to satisfy. */
-  invariants?: string[];
-}
-
-/** The resolved L2 Dry IR. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `version` | `number` | Yes | Declared in the public API. |
+| `meta` | `ToolpathMeta` | No | Declared in the public API. |
+| `segments` | `Segment[]` | Yes | Declared in the public API. |
 
 
 ## `ToolpathMeta`
@@ -3453,106 +1132,20 @@ export interface ToolpathMeta {
 Source: `sdk/ts/src/ops.ts`
 
 ```ts
-export interface ToolpathMeta {
+export interface ToolpathMeta
 ```
 
-Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
-export type Op =
-  | { op: 'geometry'; width: number; height: number }
-  | { op: 'extruder'; on: boolean }
-  | { op: 'speed'; print: number }
-  | { op: 'move'; x: number | null; y: number | null; z: number | null }
-  | {
-      op: 'arc';
-      cx: number;
-      cy: number;
-      x: number | null;
-      y: number | null;
-      z: number | null;
-      clockwise: boolean;
-    }
-  | { op: 'spline'; points: [number | null, number | null, number | null][] }
-  // process channels (§3): typed, defaulted, propagated by the engine.
-  | { op: 'temperature'; nozzle: number }
-  | { op: 'fan'; speed: number }
-  | { op: 'flow'; ratio: number }
-  | { op: 'tool'; index: number }
-  | { op: 'orient'; i: number; j: number; k: number }
-  | { op: 'dwell'; seconds: number }
-  | { op: 'manual_gcode'; text: string }
-  | { op: 'retract'; distance: number | null; speed: number | null }
-  | { op: 'unretract'; distance: number | null; speed: number | null }
-  | { op: 'deposit'; volume: number; speed: number };
+Optional provenance and invariant metadata attached to a resolved toolpath.
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
-export interface ResolveParams {
-  /** Default extrusion feedrate in mm/min. */
-  print_speed: number;
-  /** Default travel feedrate in mm/min. */
-  travel_speed: number;
-  /** Filament diameter in mm. */
-  dia: number;
-}
 
-/** Simulation metrics returned by `simulate`. */
-export interface Metrics {
-  /** Total estimated time in seconds. */
-  total_time_s: number;
-  /** Estimated extruding move time in seconds. */
-  print_time_s: number;
-  /** Estimated travel move time in seconds. */
-  travel_time_s: number;
-  /** Total extruding path length in mm. */
-  extruding_distance: number;
-  /** Total non-extruding path length in mm. */
-  travel_distance: number;
-  /** Deposited material volume in cubic mm. */
-  extruded_volume: number;
-  /** Filament consumed in mm. */
-  filament_length: number;
-  /** Number of resolved toolpath segments. */
-  segment_count: number;
-  /** Maximum observed flow rate in cubic mm/s. */
-  max_flow_rate: number;
-}
+### Fields
 
-/** One resolved L2 motion segment. */
-export type SegmentKind =
-  | 'line'
-  | 'arc'
-  | 'spline'
-  | 'dwell'
-  | 'retract'
-  | 'unretract'
-  | 'deposit'
-  | 'manual_gcode';
-
-/** One resolved motion or process segment in the Dry L2 IR. */
-export interface Segment {
-  start: (number | null)[];
-  end: (number | null)[];
-  travel: boolean;
-  speed: number;
-  length: number;
-  volume: number;
-  filament: number;
-  width: number | null;
-  height: number | null;
-  kind: SegmentKind;
-  centre: [number, number] | null;
-  clockwise: boolean;
-  // process channels — present only when set (omitted from the IR otherwise).
-  temperature?: number;
-  fan?: number;
-  flow?: number;
-  tool?: number;
-  dwell_s?: number;
-  manual_gcode?: string;
-  orientation?: [number, number, number];
-  control_points?: [number, number, number][];
-}
-
-/** Optional provenance and invariant metadata attached to a resolved toolpath. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `generator` | `string` | No | Name of the generator or pipeline that produced the toolpath. |
+| `units` | `string` | No | Coordinate and unit convention, normally millimeters. |
+| `source_hash` | `string` | No | Stable source hash when the toolpath was derived from an external artifact. |
+| `invariants` | `string[]` | No | Human-readable invariants the toolpath is expected to satisfy. |
 
 
 ## `tpms`
@@ -3560,243 +1153,18 @@ export interface Segment {
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export function tpms(options: TpmsOptions = {}): Design {
+export function tpms(options: TpmsOptions = {}): Design
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
+Generate a fluent `Design` containing a TPMS toolpath.
 
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
+### Parameters
 
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `TpmsOptions` | `{}` | No |
 
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
-export interface TpmsOptions {
-  /** Surface family. Defaults to `gyroid`. */
-  surface?: TpmsSurface;
-  /** Isosurface value f(x,y,z)=isoLevel. */
-  isoLevel?: number;
-  /** Cubic unit-cell size in mm. */
-  cellSize?: number;
-  /** Unit cells along X. */
-  cellsX?: number;
-  /** Unit cells along Y. */
-  cellsY?: number;
-  /** Unit cells along Z. */
-  cellsZ?: number;
-  /** XY marching-squares resolution per unit cell. */
-  samplesPerCell?: number;
-  /** Layer height in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. */
-  z0?: number;
-  /** X coordinate for the generated field origin/center. */
-  centerX?: number;
-  /** Y coordinate for the generated field origin/center. */
-  centerY?: number;
-  /** Extrusion bead width in mm. */
-  beadWidth?: number;
-  /** Extrusion bead height in mm. */
-  beadHeight?: number;
-  /** Nozzle temperature in degrees Celsius. */
-  nozzleTemp?: number;
-  /** Print feedrate in mm/min. */
-  printSpeed?: number;
-  /** Flow multiplier. */
-  flow?: number;
-  /** Phase offsets in unit-cell periods, useful for moving seams/features. */
-  phaseX?: number;
-  phaseY?: number;
-  phaseZ?: number;
-  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
-  perimeter?: boolean;
-  /** Inset for the generated perimeter in mm. */
-  perimeterInset?: number;
-  /** Drop very short stitched contours. Defaults to one grid cell. */
-  minPathLength?: number;
-  /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
-  adaptive?: boolean;
-  /** Minimum adaptive layer height in mm. */
-  adaptiveMinLayerHeight?: number;
-  /** Maximum adaptive layer height in mm. */
-  adaptiveMaxLayerHeight?: number;
-  /** Maximum tolerated path-length delta before adaptive subdivision. */
-  adaptiveMaxLengthDelta?: number;
-  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
-  adaptiveMaxPointDelta?: number;
-  /** Maximum recursive adaptive subdivision depth. */
-  adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
-  maxFieldSamples?: number;
-}
-
-// Pure field evaluators — the nodal value of each surface at (x, y, z), with world coordinates already
-// scaled by 2π / cellSize. Used only by `tpmsField` (sampling/preview); toolpath geometry comes from
-// the Rust engine. The `label`/`equation` strings feed `TPMS_SURFACES` / `tpmsSurfaceSpec`.
-const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
-  gyroid: {
-    surface: 'gyroid',
-    label: 'Gyroid',
-    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
-    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
-  },
-  'schwarz-p': {
-    surface: 'schwarz-p',
-    label: 'Schwarz P',
-    equation: 'cos(x) + cos(y) + cos(z)',
-    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
-  },
-  'schwarz-d': {
-    surface: 'schwarz-d',
-    label: 'Schwarz D / Diamond',
-    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
-    field: (x, y, z) =>
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(x) * Math.cos(y) * Math.cos(z) +
-      Math.cos(x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(x) * Math.cos(y) * Math.sin(z),
-  },
-  iwp: {
-    surface: 'iwp',
-    label: 'Schoen I-WP',
-    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
-    field: (x, y, z) =>
-      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
-      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-  neovius: {
-    surface: 'neovius',
-    label: 'Neovius',
-    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
-    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
-  },
-  'fischer-koch-s': {
-    surface: 'fischer-koch-s',
-    label: 'Fischer-Koch S',
-    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
-    field: (x, y, z) =>
-      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
-      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
-  },
-  'fischer-koch-y': {
-    surface: 'fischer-koch-y',
-    label: 'Fischer-Koch Y',
-    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
-    field: (x, y, z) =>
-      Math.cos(x) * Math.cos(y) * Math.cos(z) +
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(2 * x) * Math.sin(y) +
-      Math.sin(2 * y) * Math.sin(z) +
-      Math.sin(x) * Math.sin(2 * z) +
-      Math.sin(2 * x) * Math.cos(z) +
-      Math.cos(x) * Math.sin(2 * y) +
-      Math.cos(y) * Math.sin(2 * z),
-  },
-  frd: {
-    surface: 'frd',
-    label: 'Schoen F-RD',
-    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
-    field: (x, y, z) =>
-      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
-      (Math.cos(2 * x) * Math.cos(2 * y) +
-        Math.cos(2 * y) * Math.cos(2 * z) +
-        Math.cos(2 * z) * Math.cos(2 * x)),
-  },
-  lidinoid: {
-    surface: 'lidinoid',
-    label: 'Lidinoid',
-    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
-    field: (x, y, z) =>
-      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
-      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
-      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
-      Math.cos(2 * x) * Math.cos(2 * y) -
-      Math.cos(2 * y) * Math.cos(2 * z) -
-      Math.cos(2 * z) * Math.cos(2 * x) +
-      0.3,
-  },
-  'split-p': {
-    surface: 'split-p',
-    label: 'Split P',
-    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
-    field: (x, y, z) =>
-      1.1 *
-        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
-          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
-          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
-      0.2 *
-        (Math.cos(2 * x) * Math.cos(2 * y) +
-          Math.cos(2 * y) * Math.cos(2 * z) +
-          Math.cos(2 * z) * Math.cos(2 * x)) -
-      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-};
-
-/** Metadata catalog for all supported TPMS surfaces. */
-export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
-  Object.entries(TPMS_INTERNAL).map(([key, spec]) => [
-    key,
-    { surface: spec.surface, label: spec.label, equation: spec.equation },
-  ])
-) as Record<TpmsSurface, TpmsSurfaceSpec>;
-
-/** Return display metadata for a TPMS surface. */
-export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
-  const spec = TPMS_SURFACES[surface];
-  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
-  return spec;
-}
-
-/** Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. */
-export function tpmsField(surface: TpmsSurface, x: number, y: number, z: number): number {
-  const spec = TPMS_INTERNAL[surface];
-  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
-  return spec.field(x, y, z);
-}
-
-/**
-Serialise options to the camelCase `TpmsOptions` wire form the Rust engine deserialises. The keys
-already match the engine 1:1, so this is mostly `JSON.stringify` — but JSON has no Infinity literal
-and the engine reads a non-positive `maxFieldSamples` as "no budget limit", so an explicit Infinity
-is mapped onto 0 to carry the unbounded sentinel across the boundary.
-/
-function serializeTpmsOptions(options: TpmsOptions): string {
-  const wire: TpmsOptions = { ...options };
-  if (wire.maxFieldSamples === Infinity) wire.maxFieldSamples = 0;
-  return JSON.stringify(wire);
-}
-
-/**
-Build the selected TPMS infill as an L1 op list. Delegates generation to the Rust engine so the
-output is byte-identical to the native CLI / Python SDK (the engine uses `libm`, not JS `Math`).
-Invalid options (unknown surface, budget overrun, …) throw the engine's structured error.
-/
-export function tpmsOps(options: TpmsOptions = {}): Op[] {
-  return JSON.parse(engineTpmsOps(serializeTpmsOptions(options))) as Op[];
-}
-
-/** Generate a fluent `Design` containing a TPMS toolpath. */
+Returns: `Design`
 
 
 ## `TPMS_SURFACES`
@@ -3804,200 +1172,10 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
+export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec>
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
-
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
-
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
-
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
-export interface TpmsOptions {
-  /** Surface family. Defaults to `gyroid`. */
-  surface?: TpmsSurface;
-  /** Isosurface value f(x,y,z)=isoLevel. */
-  isoLevel?: number;
-  /** Cubic unit-cell size in mm. */
-  cellSize?: number;
-  /** Unit cells along X. */
-  cellsX?: number;
-  /** Unit cells along Y. */
-  cellsY?: number;
-  /** Unit cells along Z. */
-  cellsZ?: number;
-  /** XY marching-squares resolution per unit cell. */
-  samplesPerCell?: number;
-  /** Layer height in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. */
-  z0?: number;
-  /** X coordinate for the generated field origin/center. */
-  centerX?: number;
-  /** Y coordinate for the generated field origin/center. */
-  centerY?: number;
-  /** Extrusion bead width in mm. */
-  beadWidth?: number;
-  /** Extrusion bead height in mm. */
-  beadHeight?: number;
-  /** Nozzle temperature in degrees Celsius. */
-  nozzleTemp?: number;
-  /** Print feedrate in mm/min. */
-  printSpeed?: number;
-  /** Flow multiplier. */
-  flow?: number;
-  /** Phase offsets in unit-cell periods, useful for moving seams/features. */
-  phaseX?: number;
-  phaseY?: number;
-  phaseZ?: number;
-  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
-  perimeter?: boolean;
-  /** Inset for the generated perimeter in mm. */
-  perimeterInset?: number;
-  /** Drop very short stitched contours. Defaults to one grid cell. */
-  minPathLength?: number;
-  /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
-  adaptive?: boolean;
-  /** Minimum adaptive layer height in mm. */
-  adaptiveMinLayerHeight?: number;
-  /** Maximum adaptive layer height in mm. */
-  adaptiveMaxLayerHeight?: number;
-  /** Maximum tolerated path-length delta before adaptive subdivision. */
-  adaptiveMaxLengthDelta?: number;
-  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
-  adaptiveMaxPointDelta?: number;
-  /** Maximum recursive adaptive subdivision depth. */
-  adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
-  maxFieldSamples?: number;
-}
-
-// Pure field evaluators — the nodal value of each surface at (x, y, z), with world coordinates already
-// scaled by 2π / cellSize. Used only by `tpmsField` (sampling/preview); toolpath geometry comes from
-// the Rust engine. The `label`/`equation` strings feed `TPMS_SURFACES` / `tpmsSurfaceSpec`.
-const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
-  gyroid: {
-    surface: 'gyroid',
-    label: 'Gyroid',
-    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
-    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
-  },
-  'schwarz-p': {
-    surface: 'schwarz-p',
-    label: 'Schwarz P',
-    equation: 'cos(x) + cos(y) + cos(z)',
-    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
-  },
-  'schwarz-d': {
-    surface: 'schwarz-d',
-    label: 'Schwarz D / Diamond',
-    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
-    field: (x, y, z) =>
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(x) * Math.cos(y) * Math.cos(z) +
-      Math.cos(x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(x) * Math.cos(y) * Math.sin(z),
-  },
-  iwp: {
-    surface: 'iwp',
-    label: 'Schoen I-WP',
-    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
-    field: (x, y, z) =>
-      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
-      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-  neovius: {
-    surface: 'neovius',
-    label: 'Neovius',
-    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
-    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
-  },
-  'fischer-koch-s': {
-    surface: 'fischer-koch-s',
-    label: 'Fischer-Koch S',
-    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
-    field: (x, y, z) =>
-      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
-      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
-  },
-  'fischer-koch-y': {
-    surface: 'fischer-koch-y',
-    label: 'Fischer-Koch Y',
-    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
-    field: (x, y, z) =>
-      Math.cos(x) * Math.cos(y) * Math.cos(z) +
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(2 * x) * Math.sin(y) +
-      Math.sin(2 * y) * Math.sin(z) +
-      Math.sin(x) * Math.sin(2 * z) +
-      Math.sin(2 * x) * Math.cos(z) +
-      Math.cos(x) * Math.sin(2 * y) +
-      Math.cos(y) * Math.sin(2 * z),
-  },
-  frd: {
-    surface: 'frd',
-    label: 'Schoen F-RD',
-    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
-    field: (x, y, z) =>
-      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
-      (Math.cos(2 * x) * Math.cos(2 * y) +
-        Math.cos(2 * y) * Math.cos(2 * z) +
-        Math.cos(2 * z) * Math.cos(2 * x)),
-  },
-  lidinoid: {
-    surface: 'lidinoid',
-    label: 'Lidinoid',
-    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
-    field: (x, y, z) =>
-      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
-      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
-      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
-      Math.cos(2 * x) * Math.cos(2 * y) -
-      Math.cos(2 * y) * Math.cos(2 * z) -
-      Math.cos(2 * z) * Math.cos(2 * x) +
-      0.3,
-  },
-  'split-p': {
-    surface: 'split-p',
-    label: 'Split P',
-    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
-    field: (x, y, z) =>
-      1.1 *
-        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
-          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
-          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
-      0.2 *
-        (Math.cos(2 * x) * Math.cos(2 * y) +
-          Math.cos(2 * y) * Math.cos(2 * z) +
-          Math.cos(2 * z) * Math.cos(2 * x)) -
-      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-};
-
-/** Metadata catalog for all supported TPMS surfaces. */
+Metadata catalog for all supported TPMS surfaces.
 
 
 ## `tpmsField`
@@ -4005,215 +1183,21 @@ const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export function tpmsField(surface: TpmsSurface, x: number, y: number, z: number): number {
+export function tpmsField(surface: TpmsSurface, x: number, y: number, z: number): number
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
+Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize.
 
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
+### Parameters
 
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `surface` | `TpmsSurface` |  | Yes |
+| `x` | `number` |  | Yes |
+| `y` | `number` |  | Yes |
+| `z` | `number` |  | Yes |
 
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
-export interface TpmsOptions {
-  /** Surface family. Defaults to `gyroid`. */
-  surface?: TpmsSurface;
-  /** Isosurface value f(x,y,z)=isoLevel. */
-  isoLevel?: number;
-  /** Cubic unit-cell size in mm. */
-  cellSize?: number;
-  /** Unit cells along X. */
-  cellsX?: number;
-  /** Unit cells along Y. */
-  cellsY?: number;
-  /** Unit cells along Z. */
-  cellsZ?: number;
-  /** XY marching-squares resolution per unit cell. */
-  samplesPerCell?: number;
-  /** Layer height in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. */
-  z0?: number;
-  /** X coordinate for the generated field origin/center. */
-  centerX?: number;
-  /** Y coordinate for the generated field origin/center. */
-  centerY?: number;
-  /** Extrusion bead width in mm. */
-  beadWidth?: number;
-  /** Extrusion bead height in mm. */
-  beadHeight?: number;
-  /** Nozzle temperature in degrees Celsius. */
-  nozzleTemp?: number;
-  /** Print feedrate in mm/min. */
-  printSpeed?: number;
-  /** Flow multiplier. */
-  flow?: number;
-  /** Phase offsets in unit-cell periods, useful for moving seams/features. */
-  phaseX?: number;
-  phaseY?: number;
-  phaseZ?: number;
-  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
-  perimeter?: boolean;
-  /** Inset for the generated perimeter in mm. */
-  perimeterInset?: number;
-  /** Drop very short stitched contours. Defaults to one grid cell. */
-  minPathLength?: number;
-  /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
-  adaptive?: boolean;
-  /** Minimum adaptive layer height in mm. */
-  adaptiveMinLayerHeight?: number;
-  /** Maximum adaptive layer height in mm. */
-  adaptiveMaxLayerHeight?: number;
-  /** Maximum tolerated path-length delta before adaptive subdivision. */
-  adaptiveMaxLengthDelta?: number;
-  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
-  adaptiveMaxPointDelta?: number;
-  /** Maximum recursive adaptive subdivision depth. */
-  adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
-  maxFieldSamples?: number;
-}
-
-// Pure field evaluators — the nodal value of each surface at (x, y, z), with world coordinates already
-// scaled by 2π / cellSize. Used only by `tpmsField` (sampling/preview); toolpath geometry comes from
-// the Rust engine. The `label`/`equation` strings feed `TPMS_SURFACES` / `tpmsSurfaceSpec`.
-const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
-  gyroid: {
-    surface: 'gyroid',
-    label: 'Gyroid',
-    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
-    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
-  },
-  'schwarz-p': {
-    surface: 'schwarz-p',
-    label: 'Schwarz P',
-    equation: 'cos(x) + cos(y) + cos(z)',
-    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
-  },
-  'schwarz-d': {
-    surface: 'schwarz-d',
-    label: 'Schwarz D / Diamond',
-    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
-    field: (x, y, z) =>
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(x) * Math.cos(y) * Math.cos(z) +
-      Math.cos(x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(x) * Math.cos(y) * Math.sin(z),
-  },
-  iwp: {
-    surface: 'iwp',
-    label: 'Schoen I-WP',
-    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
-    field: (x, y, z) =>
-      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
-      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-  neovius: {
-    surface: 'neovius',
-    label: 'Neovius',
-    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
-    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
-  },
-  'fischer-koch-s': {
-    surface: 'fischer-koch-s',
-    label: 'Fischer-Koch S',
-    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
-    field: (x, y, z) =>
-      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
-      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
-  },
-  'fischer-koch-y': {
-    surface: 'fischer-koch-y',
-    label: 'Fischer-Koch Y',
-    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
-    field: (x, y, z) =>
-      Math.cos(x) * Math.cos(y) * Math.cos(z) +
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(2 * x) * Math.sin(y) +
-      Math.sin(2 * y) * Math.sin(z) +
-      Math.sin(x) * Math.sin(2 * z) +
-      Math.sin(2 * x) * Math.cos(z) +
-      Math.cos(x) * Math.sin(2 * y) +
-      Math.cos(y) * Math.sin(2 * z),
-  },
-  frd: {
-    surface: 'frd',
-    label: 'Schoen F-RD',
-    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
-    field: (x, y, z) =>
-      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
-      (Math.cos(2 * x) * Math.cos(2 * y) +
-        Math.cos(2 * y) * Math.cos(2 * z) +
-        Math.cos(2 * z) * Math.cos(2 * x)),
-  },
-  lidinoid: {
-    surface: 'lidinoid',
-    label: 'Lidinoid',
-    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
-    field: (x, y, z) =>
-      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
-      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
-      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
-      Math.cos(2 * x) * Math.cos(2 * y) -
-      Math.cos(2 * y) * Math.cos(2 * z) -
-      Math.cos(2 * z) * Math.cos(2 * x) +
-      0.3,
-  },
-  'split-p': {
-    surface: 'split-p',
-    label: 'Split P',
-    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
-    field: (x, y, z) =>
-      1.1 *
-        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
-          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
-          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
-      0.2 *
-        (Math.cos(2 * x) * Math.cos(2 * y) +
-          Math.cos(2 * y) * Math.cos(2 * z) +
-          Math.cos(2 * z) * Math.cos(2 * x)) -
-      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-};
-
-/** Metadata catalog for all supported TPMS surfaces. */
-export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
-  Object.entries(TPMS_INTERNAL).map(([key, spec]) => [
-    key,
-    { surface: spec.surface, label: spec.label, equation: spec.equation },
-  ])
-) as Record<TpmsSurface, TpmsSurfaceSpec>;
-
-/** Return display metadata for a TPMS surface. */
-export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
-  const spec = TPMS_SURFACES[surface];
-  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
-  return spec;
-}
-
-/** Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. */
+Returns: `number`
 
 
 ## `tpmsOps`
@@ -4221,238 +1205,20 @@ export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export function tpmsOps(options: TpmsOptions = {}): Op[] {
+export function tpmsOps(options: TpmsOptions = {}): Op[]
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
-
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
-
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
-
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
-export interface TpmsOptions {
-  /** Surface family. Defaults to `gyroid`. */
-  surface?: TpmsSurface;
-  /** Isosurface value f(x,y,z)=isoLevel. */
-  isoLevel?: number;
-  /** Cubic unit-cell size in mm. */
-  cellSize?: number;
-  /** Unit cells along X. */
-  cellsX?: number;
-  /** Unit cells along Y. */
-  cellsY?: number;
-  /** Unit cells along Z. */
-  cellsZ?: number;
-  /** XY marching-squares resolution per unit cell. */
-  samplesPerCell?: number;
-  /** Layer height in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. */
-  z0?: number;
-  /** X coordinate for the generated field origin/center. */
-  centerX?: number;
-  /** Y coordinate for the generated field origin/center. */
-  centerY?: number;
-  /** Extrusion bead width in mm. */
-  beadWidth?: number;
-  /** Extrusion bead height in mm. */
-  beadHeight?: number;
-  /** Nozzle temperature in degrees Celsius. */
-  nozzleTemp?: number;
-  /** Print feedrate in mm/min. */
-  printSpeed?: number;
-  /** Flow multiplier. */
-  flow?: number;
-  /** Phase offsets in unit-cell periods, useful for moving seams/features. */
-  phaseX?: number;
-  phaseY?: number;
-  phaseZ?: number;
-  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
-  perimeter?: boolean;
-  /** Inset for the generated perimeter in mm. */
-  perimeterInset?: number;
-  /** Drop very short stitched contours. Defaults to one grid cell. */
-  minPathLength?: number;
-  /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
-  adaptive?: boolean;
-  /** Minimum adaptive layer height in mm. */
-  adaptiveMinLayerHeight?: number;
-  /** Maximum adaptive layer height in mm. */
-  adaptiveMaxLayerHeight?: number;
-  /** Maximum tolerated path-length delta before adaptive subdivision. */
-  adaptiveMaxLengthDelta?: number;
-  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
-  adaptiveMaxPointDelta?: number;
-  /** Maximum recursive adaptive subdivision depth. */
-  adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
-  maxFieldSamples?: number;
-}
-
-// Pure field evaluators — the nodal value of each surface at (x, y, z), with world coordinates already
-// scaled by 2π / cellSize. Used only by `tpmsField` (sampling/preview); toolpath geometry comes from
-// the Rust engine. The `label`/`equation` strings feed `TPMS_SURFACES` / `tpmsSurfaceSpec`.
-const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
-  gyroid: {
-    surface: 'gyroid',
-    label: 'Gyroid',
-    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
-    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
-  },
-  'schwarz-p': {
-    surface: 'schwarz-p',
-    label: 'Schwarz P',
-    equation: 'cos(x) + cos(y) + cos(z)',
-    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
-  },
-  'schwarz-d': {
-    surface: 'schwarz-d',
-    label: 'Schwarz D / Diamond',
-    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
-    field: (x, y, z) =>
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(x) * Math.cos(y) * Math.cos(z) +
-      Math.cos(x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(x) * Math.cos(y) * Math.sin(z),
-  },
-  iwp: {
-    surface: 'iwp',
-    label: 'Schoen I-WP',
-    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
-    field: (x, y, z) =>
-      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
-      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-  neovius: {
-    surface: 'neovius',
-    label: 'Neovius',
-    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
-    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
-  },
-  'fischer-koch-s': {
-    surface: 'fischer-koch-s',
-    label: 'Fischer-Koch S',
-    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
-    field: (x, y, z) =>
-      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
-      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
-  },
-  'fischer-koch-y': {
-    surface: 'fischer-koch-y',
-    label: 'Fischer-Koch Y',
-    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
-    field: (x, y, z) =>
-      Math.cos(x) * Math.cos(y) * Math.cos(z) +
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(2 * x) * Math.sin(y) +
-      Math.sin(2 * y) * Math.sin(z) +
-      Math.sin(x) * Math.sin(2 * z) +
-      Math.sin(2 * x) * Math.cos(z) +
-      Math.cos(x) * Math.sin(2 * y) +
-      Math.cos(y) * Math.sin(2 * z),
-  },
-  frd: {
-    surface: 'frd',
-    label: 'Schoen F-RD',
-    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
-    field: (x, y, z) =>
-      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
-      (Math.cos(2 * x) * Math.cos(2 * y) +
-        Math.cos(2 * y) * Math.cos(2 * z) +
-        Math.cos(2 * z) * Math.cos(2 * x)),
-  },
-  lidinoid: {
-    surface: 'lidinoid',
-    label: 'Lidinoid',
-    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
-    field: (x, y, z) =>
-      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
-      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
-      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
-      Math.cos(2 * x) * Math.cos(2 * y) -
-      Math.cos(2 * y) * Math.cos(2 * z) -
-      Math.cos(2 * z) * Math.cos(2 * x) +
-      0.3,
-  },
-  'split-p': {
-    surface: 'split-p',
-    label: 'Split P',
-    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
-    field: (x, y, z) =>
-      1.1 *
-        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
-          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
-          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
-      0.2 *
-        (Math.cos(2 * x) * Math.cos(2 * y) +
-          Math.cos(2 * y) * Math.cos(2 * z) +
-          Math.cos(2 * z) * Math.cos(2 * x)) -
-      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-};
-
-/** Metadata catalog for all supported TPMS surfaces. */
-export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
-  Object.entries(TPMS_INTERNAL).map(([key, spec]) => [
-    key,
-    { surface: spec.surface, label: spec.label, equation: spec.equation },
-  ])
-) as Record<TpmsSurface, TpmsSurfaceSpec>;
-
-/** Return display metadata for a TPMS surface. */
-export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
-  const spec = TPMS_SURFACES[surface];
-  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
-  return spec;
-}
-
-/** Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. */
-export function tpmsField(surface: TpmsSurface, x: number, y: number, z: number): number {
-  const spec = TPMS_INTERNAL[surface];
-  if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
-  return spec.field(x, y, z);
-}
-
-/**
-Serialise options to the camelCase `TpmsOptions` wire form the Rust engine deserialises. The keys
-already match the engine 1:1, so this is mostly `JSON.stringify` — but JSON has no Infinity literal
-and the engine reads a non-positive `maxFieldSamples` as "no budget limit", so an explicit Infinity
-is mapped onto 0 to carry the unbounded sentinel across the boundary.
-/
-function serializeTpmsOptions(options: TpmsOptions): string {
-  const wire: TpmsOptions = { ...options };
-  if (wire.maxFieldSamples === Infinity) wire.maxFieldSamples = 0;
-  return JSON.stringify(wire);
-}
-
-/**
 Build the selected TPMS infill as an L1 op list. Delegates generation to the Rust engine so the
 output is byte-identical to the native CLI / Python SDK (the engine uses `libm`, not JS `Math`).
 Invalid options (unknown surface, budget overrun, …) throw the engine's structured error.
-/
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `TpmsOptions` | `{}` | No |
+
+Returns: `Op[]`
 
 
 ## `TpmsOptions`
@@ -4460,37 +1226,45 @@ Invalid options (unknown surface, budget overrun, …) throw the engine's struct
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export interface TpmsOptions {
+export interface TpmsOptions
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
+Options for slicing a TPMS scalar field into Dry authoring operations.
 
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
 
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
+### Fields
 
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `surface` | `TpmsSurface` | No | Surface family. Defaults to `gyroid`. |
+| `isoLevel` | `number` | No | Isosurface value f(x,y,z)=isoLevel. |
+| `cellSize` | `number` | No | Cubic unit-cell size in mm. |
+| `cellsX` | `number` | No | Unit cells along X. |
+| `cellsY` | `number` | No | Unit cells along Y. |
+| `cellsZ` | `number` | No | Unit cells along Z. |
+| `samplesPerCell` | `number` | No | XY marching-squares resolution per unit cell. |
+| `layerHeight` | `number` | No | Layer height in mm. |
+| `z0` | `number` | No | First layer Z in mm. |
+| `centerX` | `number` | No | X coordinate for the generated field origin/center. |
+| `centerY` | `number` | No | Y coordinate for the generated field origin/center. |
+| `beadWidth` | `number` | No | Extrusion bead width in mm. |
+| `beadHeight` | `number` | No | Extrusion bead height in mm. |
+| `nozzleTemp` | `number` | No | Nozzle temperature in degrees Celsius. |
+| `printSpeed` | `number` | No | Print feedrate in mm/min. |
+| `flow` | `number` | No | Flow multiplier. |
+| `phaseX` | `number` | No | Phase offsets in unit-cell periods, useful for moving seams/features. |
+| `phaseY` | `number` | No | Declared in the public API. |
+| `phaseZ` | `number` | No | Declared in the public API. |
+| `perimeter` | `boolean` | No | Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. |
+| `perimeterInset` | `number` | No | Inset for the generated perimeter in mm. |
+| `minPathLength` | `number` | No | Drop very short stitched contours. Defaults to one grid cell. |
+| `adaptive` | `boolean` | No | Insert extra Z slices in intervals that are too tall or change contour topology sharply. |
+| `adaptiveMinLayerHeight` | `number` | No | Minimum adaptive layer height in mm. |
+| `adaptiveMaxLayerHeight` | `number` | No | Maximum adaptive layer height in mm. |
+| `adaptiveMaxLengthDelta` | `number` | No | Maximum tolerated path-length delta before adaptive subdivision. |
+| `adaptiveMaxPointDelta` | `number` | No | Maximum tolerated contour point-count delta before adaptive subdivision. |
+| `adaptiveMaxDepth` | `number` | No | Maximum recursive adaptive subdivision depth. |
+| `maxFieldSamples` | `number` | No | Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. |
 
 
 ## `TpmsSurface`
@@ -4498,10 +1272,19 @@ interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export type TpmsSurface =
+export type TpmsSurface = | 'gyroid'
+  | 'schwarz-p'
+  | 'schwarz-d'
+  | 'iwp'
+  | 'neovius'
+  | 'fischer-koch-s'
+  | 'fischer-koch-y'
+  | 'frd'
+  | 'lidinoid'
+  | 'split-p'
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
+Supported triply periodic minimal surface names for TPMS generation.
 
 
 ## `tpmsSurfaceSpec`
@@ -4509,208 +1292,18 @@ Supported triply periodic minimal surface names for TPMS generation. */
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
+export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
+Return display metadata for a TPMS surface.
 
-/** Display metadata for a TPMS surface. */
-export interface TpmsSurfaceSpec {
-  /** Stable surface identifier used in options. */
-  surface: TpmsSurface;
-  /** Human-readable surface label. */
-  label: string;
-  /** Mathematical field equation shown in reference docs/UI. */
-  equation: string;
-}
+### Parameters
 
-interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
-  field: (x: number, y: number, z: number) => number;
-}
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `surface` | `TpmsSurface` |  | Yes |
 
-/** Options for slicing a TPMS scalar field into Dry authoring operations. */
-export interface TpmsOptions {
-  /** Surface family. Defaults to `gyroid`. */
-  surface?: TpmsSurface;
-  /** Isosurface value f(x,y,z)=isoLevel. */
-  isoLevel?: number;
-  /** Cubic unit-cell size in mm. */
-  cellSize?: number;
-  /** Unit cells along X. */
-  cellsX?: number;
-  /** Unit cells along Y. */
-  cellsY?: number;
-  /** Unit cells along Z. */
-  cellsZ?: number;
-  /** XY marching-squares resolution per unit cell. */
-  samplesPerCell?: number;
-  /** Layer height in mm. */
-  layerHeight?: number;
-  /** First layer Z in mm. */
-  z0?: number;
-  /** X coordinate for the generated field origin/center. */
-  centerX?: number;
-  /** Y coordinate for the generated field origin/center. */
-  centerY?: number;
-  /** Extrusion bead width in mm. */
-  beadWidth?: number;
-  /** Extrusion bead height in mm. */
-  beadHeight?: number;
-  /** Nozzle temperature in degrees Celsius. */
-  nozzleTemp?: number;
-  /** Print feedrate in mm/min. */
-  printSpeed?: number;
-  /** Flow multiplier. */
-  flow?: number;
-  /** Phase offsets in unit-cell periods, useful for moving seams/features. */
-  phaseX?: number;
-  phaseY?: number;
-  phaseZ?: number;
-  /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
-  perimeter?: boolean;
-  /** Inset for the generated perimeter in mm. */
-  perimeterInset?: number;
-  /** Drop very short stitched contours. Defaults to one grid cell. */
-  minPathLength?: number;
-  /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
-  adaptive?: boolean;
-  /** Minimum adaptive layer height in mm. */
-  adaptiveMinLayerHeight?: number;
-  /** Maximum adaptive layer height in mm. */
-  adaptiveMaxLayerHeight?: number;
-  /** Maximum tolerated path-length delta before adaptive subdivision. */
-  adaptiveMaxLengthDelta?: number;
-  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
-  adaptiveMaxPointDelta?: number;
-  /** Maximum recursive adaptive subdivision depth. */
-  adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
-  maxFieldSamples?: number;
-}
-
-// Pure field evaluators — the nodal value of each surface at (x, y, z), with world coordinates already
-// scaled by 2π / cellSize. Used only by `tpmsField` (sampling/preview); toolpath geometry comes from
-// the Rust engine. The `label`/`equation` strings feed `TPMS_SURFACES` / `tpmsSurfaceSpec`.
-const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
-  gyroid: {
-    surface: 'gyroid',
-    label: 'Gyroid',
-    equation: 'sin(x) cos(y) + sin(y) cos(z) + sin(z) cos(x)',
-    field: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
-  },
-  'schwarz-p': {
-    surface: 'schwarz-p',
-    label: 'Schwarz P',
-    equation: 'cos(x) + cos(y) + cos(z)',
-    field: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
-  },
-  'schwarz-d': {
-    surface: 'schwarz-d',
-    label: 'Schwarz D / Diamond',
-    equation: 'sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)',
-    field: (x, y, z) =>
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(x) * Math.cos(y) * Math.cos(z) +
-      Math.cos(x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(x) * Math.cos(y) * Math.sin(z),
-  },
-  iwp: {
-    surface: 'iwp',
-    label: 'Schoen I-WP',
-    equation: '2(cos(x)cos(y)+cos(y)cos(z)+cos(z)cos(x)) - (cos(2x)+cos(2y)+cos(2z))',
-    field: (x, y, z) =>
-      2 * (Math.cos(x) * Math.cos(y) + Math.cos(y) * Math.cos(z) + Math.cos(z) * Math.cos(x)) -
-      (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-  neovius: {
-    surface: 'neovius',
-    label: 'Neovius',
-    equation: '3(cos(x)+cos(y)+cos(z)) + 4cos(x)cos(y)cos(z)',
-    field: (x, y, z) => 3 * (Math.cos(x) + Math.cos(y) + Math.cos(z)) + 4 * Math.cos(x) * Math.cos(y) * Math.cos(z),
-  },
-  'fischer-koch-s': {
-    surface: 'fischer-koch-s',
-    label: 'Fischer-Koch S',
-    equation: 'cos(2x)sin(y)cos(z) + cos(2y)sin(z)cos(x) + cos(2z)sin(x)cos(y)',
-    field: (x, y, z) =>
-      Math.cos(2 * x) * Math.sin(y) * Math.cos(z) +
-      Math.cos(2 * y) * Math.sin(z) * Math.cos(x) +
-      Math.cos(2 * z) * Math.sin(x) * Math.cos(y),
-  },
-  'fischer-koch-y': {
-    surface: 'fischer-koch-y',
-    label: 'Fischer-Koch Y',
-    equation: 'cos(x)cos(y)cos(z)+sin(x)sin(y)sin(z)+sin(2x)sin(y)+sin(2y)sin(z)+sin(x)sin(2z)+sin(2x)cos(z)+cos(x)sin(2y)+cos(y)sin(2z)',
-    field: (x, y, z) =>
-      Math.cos(x) * Math.cos(y) * Math.cos(z) +
-      Math.sin(x) * Math.sin(y) * Math.sin(z) +
-      Math.sin(2 * x) * Math.sin(y) +
-      Math.sin(2 * y) * Math.sin(z) +
-      Math.sin(x) * Math.sin(2 * z) +
-      Math.sin(2 * x) * Math.cos(z) +
-      Math.cos(x) * Math.sin(2 * y) +
-      Math.cos(y) * Math.sin(2 * z),
-  },
-  frd: {
-    surface: 'frd',
-    label: 'Schoen F-RD',
-    equation: '4cos(x)cos(y)cos(z) - (cos(2x)cos(2y)+cos(2y)cos(2z)+cos(2z)cos(2x))',
-    field: (x, y, z) =>
-      4 * Math.cos(x) * Math.cos(y) * Math.cos(z) -
-      (Math.cos(2 * x) * Math.cos(2 * y) +
-        Math.cos(2 * y) * Math.cos(2 * z) +
-        Math.cos(2 * z) * Math.cos(2 * x)),
-  },
-  lidinoid: {
-    surface: 'lidinoid',
-    label: 'Lidinoid',
-    equation: 'sin(2x)cos(y)sin(z)+sin(2y)cos(z)sin(x)+sin(2z)cos(x)sin(y)-cos(2x)cos(2y)-cos(2y)cos(2z)-cos(2z)cos(2x)+0.3',
-    field: (x, y, z) =>
-      Math.sin(2 * x) * Math.cos(y) * Math.sin(z) +
-      Math.sin(2 * y) * Math.cos(z) * Math.sin(x) +
-      Math.sin(2 * z) * Math.cos(x) * Math.sin(y) -
-      Math.cos(2 * x) * Math.cos(2 * y) -
-      Math.cos(2 * y) * Math.cos(2 * z) -
-      Math.cos(2 * z) * Math.cos(2 * x) +
-      0.3,
-  },
-  'split-p': {
-    surface: 'split-p',
-    label: 'Split P',
-    equation: '1.1(sum sin(2a)sin(c)cos(b)) - 0.2(sum cos(2a)cos(2b)) - 0.4(sum cos(2a))',
-    field: (x, y, z) =>
-      1.1 *
-        (Math.sin(2 * x) * Math.sin(z) * Math.cos(y) +
-          Math.sin(2 * y) * Math.sin(x) * Math.cos(z) +
-          Math.sin(2 * z) * Math.sin(y) * Math.cos(x)) -
-      0.2 *
-        (Math.cos(2 * x) * Math.cos(2 * y) +
-          Math.cos(2 * y) * Math.cos(2 * z) +
-          Math.cos(2 * z) * Math.cos(2 * x)) -
-      0.4 * (Math.cos(2 * x) + Math.cos(2 * y) + Math.cos(2 * z)),
-  },
-};
-
-/** Metadata catalog for all supported TPMS surfaces. */
-export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
-  Object.entries(TPMS_INTERNAL).map(([key, spec]) => [
-    key,
-    { surface: spec.surface, label: spec.label, equation: spec.equation },
-  ])
-) as Record<TpmsSurface, TpmsSurfaceSpec>;
-
-/** Return display metadata for a TPMS surface. */
+Returns: `TpmsSurfaceSpec`
 
 
 ## `TpmsSurfaceSpec`
@@ -4718,20 +1311,16 @@ export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEn
 Source: `sdk/ts/src/generators/tpms.ts`
 
 ```ts
-export interface TpmsSurfaceSpec {
+export interface TpmsSurfaceSpec
 ```
 
-Supported triply periodic minimal surface names for TPMS generation. */
-export type TpmsSurface =
-  | 'gyroid'
-  | 'schwarz-p'
-  | 'schwarz-d'
-  | 'iwp'
-  | 'neovius'
-  | 'fischer-koch-s'
-  | 'fischer-koch-y'
-  | 'frd'
-  | 'lidinoid'
-  | 'split-p';
+Display metadata for a TPMS surface.
 
-/** Display metadata for a TPMS surface. */
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `surface` | `TpmsSurface` | Yes | Stable surface identifier used in options. |
+| `label` | `string` | Yes | Human-readable surface label. |
+| `equation` | `string` | Yes | Mathematical field equation shown in reference docs/UI. |

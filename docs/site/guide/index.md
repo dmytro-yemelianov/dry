@@ -6,6 +6,9 @@ Dry is a toolpath compiler: a design is a program that lowers through a typed IR
 Every code block below is live. Edit it and the canvas, g-code, IR, metrics, and verify panes
 rerun against the same Rust/wasm engine the CLI and the Python/TypeScript SDKs use.
 
+Reference pages: [TypeScript SDK](../reference/generated/typescript-sdk), [Python SDK](../reference/generated/python-sdk),
+[CLI](../reference/generated/cli), [IR](../reference/generated/ir), [examples matrix](../reference/generated/examples).
+
 1. [Author a path](./author) - the fluent `Design` API
 2. [Lower to the Dry IR](./lower) - the typed L2 motion segments
 3. [Simulate](./simulate) - time, distance, material, peak flow
