@@ -2,14 +2,18 @@
 import { ref, shallowRef, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
+import { python } from '@codemirror/lang-python';
 import { getDry, initDryEngine } from './dry-engine';
 import { runSnippet } from './run-snippet';
 import { ThreeIrViewer } from './three-ir-viewer';
 import type { CadViewPreset } from './three-ir-viewer';
 import type { Metrics, Report, Toolpath } from '@sdk/ops';
 
-const EXAMPLES = import.meta.glob('../../examples/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const TS_EXAMPLES = import.meta.glob('../../examples/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const PY_EXAMPLES = import.meta.glob('../../examples/*.py', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+type CodeLanguage = 'ts' | 'py';
+const LANGUAGE_LABELS: Record<CodeLanguage, string> = { ts: 'TypeScript', py: 'Python' };
 
 const props = withDefaults(defineProps<{ src?: string; code?: string; outputs?: string[] }>(), {
   outputs: () => ['gcode', 'ir', 'metrics'],
@@ -19,11 +23,20 @@ function seed(): string {
   if (props.code) return props.code.trim();
   const inline = slotSourceHost.value?.textContent?.trim();
   if (inline) return inline;
-  const hit = Object.entries(EXAMPLES).find(([key]) => key.endsWith(`/${props.src}.ts`));
+  const hit = Object.entries(TS_EXAMPLES).find(([key]) => key.endsWith(`/${props.src}.ts`));
   return (hit?.[1] ?? `// example '${props.src}' not found`).trim();
 }
 
+function sourceFor(lang: CodeLanguage): string {
+  if (lang === 'ts') return source.value || seed();
+  const hit = Object.entries(PY_EXAMPLES).find(([key]) => key.endsWith(`/${props.src}.py`));
+  return (hit?.[1] ?? '# Python example not available for this snippet.').trim();
+}
+
 const source = ref(props.code?.trim() ?? '');
+const selectedLanguage = ref<CodeLanguage>('ts');
+const availableLanguages = computed<CodeLanguage[]>(() => props.code ? ['ts'] : ['ts', 'py']);
+const codeCollapsed = ref(false);
 const error = ref('');
 const tab = ref(props.outputs[0]);
 const gcode = ref<string[]>([]);
@@ -35,6 +48,8 @@ const editorHost = ref<HTMLElement | null>(null);
 const slotSourceHost = ref<HTMLElement | null>(null);
 const ready = ref(false);
 const view = shallowRef<EditorView | null>(null);
+const languageCompartment = new Compartment();
+const editableCompartment = new Compartment();
 const viewer = shallowRef<ThreeIrViewer | null>(null);
 const lastIr = shallowRef<Toolpath | null>(null);
 const viewPresets: Array<{ key: CadViewPreset; label: string }> = [
@@ -62,6 +77,26 @@ const isTestMode = (): boolean => {
 function schedule(): void {
   clearTimeout(timer);
   timer = setTimeout(runNow, 250);
+}
+
+function languageExtension(lang: CodeLanguage) {
+  return lang === 'py' ? python() : javascript({ typescript: true });
+}
+
+function setCodeLanguage(lang: CodeLanguage): void {
+  selectedLanguage.value = lang;
+  const doc = sourceFor(lang);
+  view.value?.dispatch({
+    changes: { from: 0, to: view.value.state.doc.length, insert: doc },
+    effects: [
+      languageCompartment.reconfigure(languageExtension(lang)),
+      editableCompartment.reconfigure(EditorState.readOnly.of(lang !== 'ts')),
+    ],
+  });
+}
+
+function toggleCodeCollapsed(): void {
+  codeCollapsed.value = !codeCollapsed.value;
 }
 
 function isToolpath(value: unknown): value is Toolpath {
@@ -203,9 +238,10 @@ onMounted(async () => {
         doc: seeded,
         extensions: [
           basicSetup,
-          javascript({ typescript: true }),
+          languageCompartment.of(languageExtension('ts')),
+          editableCompartment.of(EditorState.readOnly.of(false)),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
+            if (update.docChanged && selectedLanguage.value === 'ts') {
               source.value = update.state.doc.toString();
               schedule();
             }
@@ -233,7 +269,14 @@ onBeforeUnmount(() => {
 function reset(): void {
   const next = seed();
   source.value = next;
+  selectedLanguage.value = 'ts';
   view.value?.dispatch({ changes: { from: 0, to: view.value.state.doc.length, insert: next } });
+  view.value?.dispatch({
+    effects: [
+      languageCompartment.reconfigure(languageExtension('ts')),
+      editableCompartment.reconfigure(EditorState.readOnly.of(false)),
+    ],
+  });
   schedule();
 }
 </script>
@@ -242,12 +285,28 @@ function reset(): void {
   <ClientOnly>
     <div class="live">
       <div ref="slotSourceHost" class="live-slot-source"><slot /></div>
-      <div class="live-code">
+      <div class="live-code" :class="{ collapsed: codeCollapsed }">
         <div class="live-bar">
-          <span>TypeScript</span>
-          <button type="button" @click="reset">Reset</button>
+          <div class="live-language-tabs">
+            <button
+              v-for="lang in availableLanguages"
+              :key="lang"
+              type="button"
+              :class="{ on: selectedLanguage === lang }"
+              @click="setCodeLanguage(lang)"
+            >
+              {{ LANGUAGE_LABELS[lang] }}
+            </button>
+          </div>
+          <div class="live-code-actions">
+            <button type="button" @click="toggleCodeCollapsed">{{ codeCollapsed ? 'Show code' : 'Hide code' }}</button>
+            <button type="button" @click="reset">Reset TS</button>
+          </div>
         </div>
-        <div ref="editorHost" class="live-editor"></div>
+        <div v-show="!codeCollapsed" ref="editorHost" class="live-editor"></div>
+        <div v-if="!codeCollapsed && selectedLanguage !== 'ts'" class="live-code-note">
+          Reference only. The live preview runs the TypeScript version.
+        </div>
       </div>
       <div class="live-demo">
         <div class="live-canvas-shell">
@@ -327,9 +386,17 @@ function reset(): void {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   font-size: 12px;
   opacity: 0.75;
   padding: 2px 4px;
+}
+
+.live-language-tabs,
+.live-code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .live-bar button {
@@ -338,9 +405,25 @@ function reset(): void {
   padding: 2px 8px;
 }
 
+.live-language-tabs button.on {
+  background: var(--vp-c-brand-1);
+  color: #fff;
+}
+
 .live-editor {
   max-height: 320px;
   overflow: auto;
+}
+
+.live-code.collapsed {
+  align-self: start;
+}
+
+.live-code-note {
+  border-top: 1px solid var(--vp-c-divider);
+  font-size: 12px;
+  opacity: 0.72;
+  padding: 6px 4px 0;
 }
 
 .live-canvas-shell {
