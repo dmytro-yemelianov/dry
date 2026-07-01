@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorState } from '@codemirror/state';
 import { getDry, initDryEngine } from './dry-engine';
 import { runSnippet } from './run-snippet';
-import { drawIr, presetAngles } from './render-ir';
-import type { ViewPreset } from './render-ir';
+import { ThreeIrViewer } from './three-ir-viewer';
+import type { CadViewPreset } from './three-ir-viewer';
 import type { Metrics, Report, Toolpath } from '@sdk/ops';
 
 const EXAMPLES = import.meta.glob('../../examples/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -30,26 +30,25 @@ const gcode = ref<string[]>([]);
 const irText = ref('');
 const metricsText = ref('');
 const verifyText = ref('');
-const canvas = ref<HTMLCanvasElement | null>(null);
+const viewportHost = ref<HTMLElement | null>(null);
 const editorHost = ref<HTMLElement | null>(null);
 const slotSourceHost = ref<HTMLElement | null>(null);
 const ready = ref(false);
 const view = shallowRef<EditorView | null>(null);
+const viewer = shallowRef<ThreeIrViewer | null>(null);
 const lastIr = shallowRef<Toolpath | null>(null);
-const viewPresets: ViewPreset[] = ['xy', 'xz', 'yz', 'iso'];
-const viewPreset = ref<ViewPreset>('xy');
-const zoom = ref(1);
-const panX = ref(0);
-const panY = ref(0);
-const yawDeg = ref(0);
-const pitchDeg = ref(0);
-const rollDeg = ref(0);
+const viewPresets: Array<{ key: CadViewPreset; label: string }> = [
+  { key: 'top', label: 'Top' },
+  { key: 'front', label: 'Front' },
+  { key: 'right', label: 'Right' },
+  { key: 'iso', label: 'Iso' },
+];
+const viewPreset = ref<CadViewPreset>('iso');
 const playHead = ref<number | null>(null);
 const playing = ref(false);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let playTimer: ReturnType<typeof setInterval> | undefined;
-let dragStart: { x: number; y: number } | null = null;
 
 const tabs = computed(() => props.outputs);
 const segmentCount = computed(() => lastIr.value?.segments.length ?? 0);
@@ -78,61 +77,20 @@ function isReport(value: unknown): value is Report {
 }
 
 function drawCurrentIr(): void {
-  const ctx = canvas.value?.getContext('2d');
-  if (!ctx || !canvas.value) return;
-  if (!lastIr.value) {
-    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
-    return;
-  }
-  drawIr(ctx, lastIr.value, canvas.value.width, canvas.value.height, {
-    view: viewPreset.value,
-    zoom: zoom.value,
-    panX: panX.value,
-    panY: panY.value,
-    yawDeg: yawDeg.value,
-    pitchDeg: pitchDeg.value,
-    rollDeg: rollDeg.value,
+  if (!lastIr.value || !viewer.value) return;
+  viewer.value.render(lastIr.value, {
     maxSegments: playHead.value ?? undefined,
     activeSegment: playHead.value ? playHead.value - 1 : undefined,
   });
 }
 
 function fitView(): void {
-  zoom.value = 1;
-  panX.value = 0;
-  panY.value = 0;
-  drawCurrentIr();
+  viewer.value?.fit();
 }
 
-function setView(next: ViewPreset): void {
+function setView(next: CadViewPreset): void {
   viewPreset.value = next;
-  const preset = presetAngles(next);
-  yawDeg.value = preset.yawDeg;
-  pitchDeg.value = preset.pitchDeg;
-  rollDeg.value = preset.rollDeg;
-  fitView();
-}
-
-function zoomBy(scale: number): void {
-  zoom.value = Math.max(0.2, Math.min(8, zoom.value * scale));
-  drawCurrentIr();
-}
-
-function panBy(dx: number, dy: number): void {
-  panX.value += dx;
-  panY.value += dy;
-  drawCurrentIr();
-}
-
-function orbitBy(deltaYaw: number, deltaPitch: number): void {
-  yawDeg.value = (yawDeg.value + deltaYaw) % 360;
-  pitchDeg.value = Math.max(-89, Math.min(89, pitchDeg.value + deltaPitch));
-  drawCurrentIr();
-}
-
-function rollBy(deg: number): void {
-  rollDeg.value = (rollDeg.value + deg) % 360;
-  drawCurrentIr();
+  viewer.value?.setView(next);
 }
 
 function setPlayHead(next: number | null): void {
@@ -184,29 +142,6 @@ function togglePlayback(): void {
   }, 220);
 }
 
-function onCanvasPointerDown(event: PointerEvent): void {
-  dragStart = { x: event.clientX, y: event.clientY };
-  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-}
-
-function onCanvasPointerMove(event: PointerEvent): void {
-  if (!dragStart) return;
-  const dx = event.clientX - dragStart.x;
-  const dy = event.clientY - dragStart.y;
-  if (event.shiftKey) panBy(dx, dy);
-  else orbitBy(dx * 0.35, -dy * 0.35);
-  dragStart = { x: event.clientX, y: event.clientY };
-}
-
-function onCanvasPointerUp(event: PointerEvent): void {
-  dragStart = null;
-  (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
-}
-
-function onCanvasWheel(event: WheelEvent): void {
-  zoomBy(event.deltaY < 0 ? 1.12 : 0.89);
-}
-
 function runNow(): void {
   if (!ready.value) return;
   const result = runSnippet(source.value, getDry());
@@ -256,9 +191,11 @@ function runNow(): void {
 }
 
 onMounted(async () => {
+  await nextTick();
   const seeded = seed();
   source.value = seeded;
   const testing = isTestMode();
+  if (viewportHost.value && !testing) viewer.value = new ThreeIrViewer(viewportHost.value);
   if (editorHost.value && !testing) {
     view.value = new EditorView({
       parent: editorHost.value,
@@ -287,7 +224,11 @@ onMounted(async () => {
   }
 });
 
-onBeforeUnmount(stopPlayback);
+onBeforeUnmount(() => {
+  stopPlayback();
+  viewer.value?.dispose();
+  viewer.value = null;
+});
 
 function reset(): void {
   const next = seed();
@@ -310,40 +251,19 @@ function reset(): void {
       </div>
       <div class="live-demo">
         <div class="live-canvas-shell">
-          <canvas
-            ref="canvas"
-            width="900"
-            height="560"
-            @pointerdown="onCanvasPointerDown"
-            @pointermove="onCanvasPointerMove"
-            @pointerup="onCanvasPointerUp"
-            @pointercancel="onCanvasPointerUp"
-            @wheel.prevent="onCanvasWheel"
-          ></canvas>
-          <div class="live-view-controls" aria-label="Canvas view controls">
+          <div ref="viewportHost" class="live-viewport"></div>
+          <div class="live-view-controls" aria-label="CAD view controls">
             <button
               v-for="item in viewPresets"
-              :key="item"
+              :key="item.key"
               type="button"
-              :class="{ on: viewPreset === item }"
-              :title="`View ${item.toUpperCase()}`"
-              @click="setView(item)"
+              :class="{ on: viewPreset === item.key }"
+              :title="`${item.label} view`"
+              @click="setView(item.key)"
             >
-              {{ item.toUpperCase() }}
+              {{ item.label }}
             </button>
             <button type="button" title="Fit" @click="fitView">Fit</button>
-            <button type="button" title="Zoom in" @click="zoomBy(1.2)">+</button>
-            <button type="button" title="Zoom out" @click="zoomBy(0.84)">-</button>
-            <button type="button" title="Pan left" @click="panBy(-28, 0)">L</button>
-            <button type="button" title="Pan right" @click="panBy(28, 0)">R</button>
-            <button type="button" title="Pan up" @click="panBy(0, -28)">U</button>
-            <button type="button" title="Pan down" @click="panBy(0, 28)">D</button>
-            <button type="button" title="Orbit left" @click="orbitBy(-15, 0)">Yaw-</button>
-            <button type="button" title="Orbit right" @click="orbitBy(15, 0)">Yaw+</button>
-            <button type="button" title="Orbit up" @click="orbitBy(0, 12)">Pitch+</button>
-            <button type="button" title="Orbit down" @click="orbitBy(0, -12)">Pitch-</button>
-            <button type="button" title="Roll left" @click="rollBy(-15)">Roll-</button>
-            <button type="button" title="Roll right" @click="rollBy(15)">Roll+</button>
           </div>
           <div class="live-play-controls" aria-label="Toolpath playback controls">
             <button type="button" title="First segment" @click="jumpStart">|&lt;</button>
@@ -378,6 +298,8 @@ function reset(): void {
 
 <style scoped>
 .live {
+  position: relative;
+  z-index: 4;
   display: grid;
   grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
   gap: 14px;
@@ -430,27 +352,33 @@ function reset(): void {
   overflow: hidden;
 }
 
-.live-demo canvas {
-  display: block;
+.live-viewport {
   width: 100%;
   height: 100%;
-  touch-action: none;
+}
+
+.live-viewport :deep(canvas) {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
   cursor: grab;
 }
 
-.live-demo canvas:active {
+.live-viewport :deep(canvas:active) {
   cursor: grabbing;
 }
 
 .live-view-controls {
   position: absolute;
   left: 8px;
-  right: 8px;
+  right: auto;
   bottom: 44px;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 4px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .live-view-controls button,
@@ -481,6 +409,7 @@ function reset(): void {
   align-items: center;
   gap: 4px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .live-play-controls span {
