@@ -50,6 +50,7 @@ function rangeToFlat(name: string, range: string | [number, number]): Float64Arr
   return Float64Array.from(range);
 }
 
+/** Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. */
 export class Design {
   readonly ops: Op[] = [];
 

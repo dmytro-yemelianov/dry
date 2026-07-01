@@ -4,27 +4,44 @@ import type { Op } from '../ops';
 const DEG = Math.PI / 180;
 const EPS = 1e-9;
 
+/** Star-polygon lattice family from the original M1-M4 construction. */
 export type StarPolygonFamily = 'M1' | 'M2' | 'M3' | 'M4';
+/** Geometric regime after normalizing the input alpha angle. */
 export type StarPolygonRegime = 'star' | 'star-limit' | 'convex' | 'uniqueness-limit';
+/** Base tiling used by a star-polygon lattice family. */
 export type StarPolygonBasis = 'triangular' | 'square';
 
+/** Static metadata for one star-polygon lattice family. */
 export interface StarPolygonFamilySpec {
+  /** Family identifier. */
   family: StarPolygonFamily;
+  /** Human-readable topology label. */
   topology: string;
+  /** Number of star sides in the underlying polygon. */
   starSides: number;
+  /** Star-polygon limit angle in degrees. */
   alphaSplDeg: number;
+  /** Uniqueness-limit angle in degrees. */
   alphaUlDeg: number;
+  /** Base tiling used by this family. */
   basis: StarPolygonBasis;
+  /** Whether the family is isotropic in the print plane. */
   isotropicInPlane: boolean;
 }
 
+/** Normalized alpha angle and regime classification for a lattice family. */
 export interface NormalizedStarPolygonAlpha {
+  /** Caller-provided alpha angle in degrees. */
   inputDeg: number;
+  /** Mirrored/effective alpha angle in degrees. */
   effectiveDeg: number;
+  /** Whether the input angle was mirrored around the uniqueness limit. */
   mirrored: boolean;
+  /** Classified geometric regime. */
   regime: StarPolygonRegime;
 }
 
+/** Options for generating a star-polygon lattice toolpath. */
 export interface StarPolygonLatticeOptions {
   /** Paper lattice sub-family. */
   family?: StarPolygonFamily;
@@ -131,14 +148,17 @@ const FAMILY_SPECS: Record<StarPolygonFamily, StarPolygonFamilySpec> = {
   },
 };
 
+/** Metadata catalog for the supported star-polygon lattice families. */
 export const STAR_POLYGON_FAMILIES: Record<StarPolygonFamily, StarPolygonFamilySpec> = FAMILY_SPECS;
 
+/** Return static metadata for a star-polygon lattice family. */
 export function starPolygonFamilySpec(family: StarPolygonFamily): StarPolygonFamilySpec {
   const spec = STAR_POLYGON_FAMILIES[family];
   if (!spec) throw new Error(`unknown star-polygon lattice family '${family}'`);
   return spec;
 }
 
+/** Normalize an alpha angle into its effective value and geometric regime. */
 export function normalizeStarPolygonAlpha(
   family: StarPolygonFamily,
   alphaDeg: number
@@ -176,6 +196,7 @@ export function starPolygonDentRadiusRatio(starSides: number, alphaDeg: number):
   return t / (Math.sin(phi) + t * Math.cos(phi));
 }
 
+/** Generate Dry L1 authoring operations for a star-polygon lattice. */
 export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): Op[] {
   const family = options.family ?? 'M1';
   if (!FAMILY_SPECS[family]) throw new Error(`unknown star-polygon lattice family '${family}'`);
@@ -213,6 +234,7 @@ export function starPolygonLatticeOps(options: StarPolygonLatticeOptions = {}): 
   return ops;
 }
 
+/** Generate a fluent `Design` containing a star-polygon lattice toolpath. */
 export function starPolygonLattice(options: StarPolygonLatticeOptions = {}): Design {
   const design = new Design();
   design.ops.push(...starPolygonLatticeOps(options));

@@ -11,6 +11,7 @@ import { Design } from '../design';
 import type { Op } from '../ops';
 import { tpmsOps as engineTpmsOps } from '../engine';
 
+/** Supported triply periodic minimal surface names for TPMS generation. */
 export type TpmsSurface =
   | 'gyroid'
   | 'schwarz-p'
@@ -23,9 +24,13 @@ export type TpmsSurface =
   | 'lidinoid'
   | 'split-p';
 
+/** Display metadata for a TPMS surface. */
 export interface TpmsSurfaceSpec {
+  /** Stable surface identifier used in options. */
   surface: TpmsSurface;
+  /** Human-readable surface label. */
   label: string;
+  /** Mathematical field equation shown in reference docs/UI. */
   equation: string;
 }
 
@@ -33,25 +38,39 @@ interface InternalTpmsSurfaceSpec extends TpmsSurfaceSpec {
   field: (x: number, y: number, z: number) => number;
 }
 
+/** Options for slicing a TPMS scalar field into Dry authoring operations. */
 export interface TpmsOptions {
+  /** Surface family. Defaults to `gyroid`. */
   surface?: TpmsSurface;
   /** Isosurface value f(x,y,z)=isoLevel. */
   isoLevel?: number;
   /** Cubic unit-cell size in mm. */
   cellSize?: number;
+  /** Unit cells along X. */
   cellsX?: number;
+  /** Unit cells along Y. */
   cellsY?: number;
+  /** Unit cells along Z. */
   cellsZ?: number;
   /** XY marching-squares resolution per unit cell. */
   samplesPerCell?: number;
+  /** Layer height in mm. */
   layerHeight?: number;
+  /** First layer Z in mm. */
   z0?: number;
+  /** X coordinate for the generated field origin/center. */
   centerX?: number;
+  /** Y coordinate for the generated field origin/center. */
   centerY?: number;
+  /** Extrusion bead width in mm. */
   beadWidth?: number;
+  /** Extrusion bead height in mm. */
   beadHeight?: number;
+  /** Nozzle temperature in degrees Celsius. */
   nozzleTemp?: number;
+  /** Print feedrate in mm/min. */
   printSpeed?: number;
+  /** Flow multiplier. */
   flow?: number;
   /** Phase offsets in unit-cell periods, useful for moving seams/features. */
   phaseX?: number;
@@ -59,15 +78,21 @@ export interface TpmsOptions {
   phaseZ?: number;
   /** Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. */
   perimeter?: boolean;
+  /** Inset for the generated perimeter in mm. */
   perimeterInset?: number;
   /** Drop very short stitched contours. Defaults to one grid cell. */
   minPathLength?: number;
   /** Insert extra Z slices in intervals that are too tall or change contour topology sharply. */
   adaptive?: boolean;
+  /** Minimum adaptive layer height in mm. */
   adaptiveMinLayerHeight?: number;
+  /** Maximum adaptive layer height in mm. */
   adaptiveMaxLayerHeight?: number;
+  /** Maximum tolerated path-length delta before adaptive subdivision. */
   adaptiveMaxLengthDelta?: number;
+  /** Maximum tolerated contour point-count delta before adaptive subdivision. */
   adaptiveMaxPointDelta?: number;
+  /** Maximum recursive adaptive subdivision depth. */
   adaptiveMaxDepth?: number;
   /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
   maxFieldSamples?: number;
@@ -176,6 +201,7 @@ const TPMS_INTERNAL: Record<TpmsSurface, InternalTpmsSurfaceSpec> = {
   },
 };
 
+/** Metadata catalog for all supported TPMS surfaces. */
 export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEntries(
   Object.entries(TPMS_INTERNAL).map(([key, spec]) => [
     key,
@@ -183,6 +209,7 @@ export const TPMS_SURFACES: Record<TpmsSurface, TpmsSurfaceSpec> = Object.fromEn
   ])
 ) as Record<TpmsSurface, TpmsSurfaceSpec>;
 
+/** Return display metadata for a TPMS surface. */
 export function tpmsSurfaceSpec(surface: TpmsSurface): TpmsSurfaceSpec {
   const spec = TPMS_SURFACES[surface];
   if (!spec) throw new Error(`unknown TPMS surface '${surface}'`);
@@ -217,6 +244,7 @@ export function tpmsOps(options: TpmsOptions = {}): Op[] {
   return JSON.parse(engineTpmsOps(serializeTpmsOptions(options))) as Op[];
 }
 
+/** Generate a fluent `Design` containing a TPMS toolpath. */
 export function tpms(options: TpmsOptions = {}): Design {
   const design = new Design();
   design.ops.push(...tpmsOps(options));

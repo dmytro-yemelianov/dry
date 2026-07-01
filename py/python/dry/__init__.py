@@ -11,21 +11,52 @@ A thin, logic-free front-end onto the Dry engine (Rust, via the `_native` extens
     print("\\n".join(d.gcode()))      # motion g-code
     print(d.simulate())               # metrics
 """
+from __future__ import annotations
+
 import json
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from . import _native  # the Rust engine (PyO3)
 
-__all__ = ["Design", "PRINTERS", "tpms_gcode", "TPMS_SURFACES"]
+__all__ = [
+    "Bounds",
+    "Design",
+    "Kinematics",
+    "Metrics",
+    "Number",
+    "Op",
+    "Point",
+    "PRINTERS",
+    "Range",
+    "Report",
+    "ResolveParams",
+    "Toolpath",
+    "TpmsOptions",
+    "TPMS_SURFACES",
+    "tpms_gcode",
+]
+
+Number = Union[int, float]
+Point = Sequence[Number]
+Bounds = Union[Sequence[Sequence[Number]], str]
+Range = Union[Sequence[Number], str]
+Kinematics = Mapping[str, Number]
+ResolveParams = Mapping[str, Number]
+Op = Dict[str, Any]
+Metrics = Dict[str, Any]
+Toolpath = Dict[str, Any]
+Report = Dict[str, Any]
+TpmsOptions = Mapping[str, Any]
 
 # The TPMS surfaces the engine can slice (kebab-case, matching the `surface` option / TS SDK).
-TPMS_SURFACES = (
+TPMS_SURFACES: Tuple[str, ...] = (
     "gyroid", "schwarz-p", "schwarz-d", "iwp", "neovius",
     "fischer-koch-s", "fischer-koch-y", "frd", "lidinoid", "split-p",
 )
 
 # Device defaults (the lowering's print/travel feedrate + filament diameter). Mirrors the engine's
 # ResolveParams; more profiles are added as the device-profile work lands.
-PRINTERS = {
+PRINTERS: Dict[str, ResolveParams] = {
     "generic": {"print_speed": 1000.0, "travel_speed": 8000.0, "dia": 1.75},
 }
 
@@ -33,83 +64,100 @@ PRINTERS = {
 class Design:
     """An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use."""
 
-    def __init__(self):
-        self.ops = []
+    def __init__(self) -> None:
+        self.ops: List[Op] = []
 
-    def geometry(self, width, height):
+    def geometry(self, width: Number, height: Number) -> "Design":
         "Set the extrusion bead cross-section (mm)."
         self.ops.append({"op": "geometry", "width": width, "height": height})
         return self
 
-    def extruder(self, on):
+    def extruder(self, on: bool) -> "Design":
         "Turn the extruder on/off (off => subsequent moves are travels)."
         self.ops.append({"op": "extruder", "on": bool(on)})
         return self
 
-    def speed(self, print_speed):
+    def speed(self, print_speed: Number) -> "Design":
         "Set the print feedrate (mm/min)."
         self.ops.append({"op": "speed", "print": print_speed})
         return self
 
-    def point(self, x=None, y=None, z=None):
+    def point(
+        self,
+        x: Optional[Number] = None,
+        y: Optional[Number] = None,
+        z: Optional[Number] = None,
+    ) -> "Design":
         "Move to a point; an omitted axis is inherited from the running position."
         self.ops.append({"op": "move", "x": x, "y": y, "z": z})
         return self
 
-    def arc(self, cx, cy, x=None, y=None, z=None, clockwise=False):
+    def arc(
+        self,
+        cx: Number,
+        cy: Number,
+        x: Optional[Number] = None,
+        y: Optional[Number] = None,
+        z: Optional[Number] = None,
+        clockwise: bool = False,
+    ) -> "Design":
         "A circular arc about (cx, cy) to an end point; clockwise => G2, else G3."
         self.ops.append({"op": "arc", "cx": cx, "cy": cy, "x": x, "y": y, "z": z,
                          "clockwise": bool(clockwise)})
         return self
 
-    def spline(self, points):
+    def spline(self, points: Sequence[Point]) -> "Design":
         "A Catmull-Rom spline from the running position through each (x, y, z) control point."
         self.ops.append({"op": "spline",
                          "points": [[p[0], p[1], p[2]] for p in points]})
         return self
 
     # ---- process channels (§3): typed, defaulted, propagated by the engine ----
-    def temperature(self, nozzle):
+    def temperature(self, nozzle: Number) -> "Design":
         "Set the nozzle temperature channel (°C)."
         self.ops.append({"op": "temperature", "nozzle": nozzle})
         return self
 
-    def fan(self, speed):
+    def fan(self, speed: Number) -> "Design":
         "Set the part-cooling fan channel (0..1)."
         self.ops.append({"op": "fan", "speed": speed})
         return self
 
-    def flow(self, ratio):
+    def flow(self, ratio: Number) -> "Design":
         "Set the flow multiplier channel (scales deposited volume; default 1.0)."
         self.ops.append({"op": "flow", "ratio": ratio})
         return self
 
-    def tool(self, index):
+    def tool(self, index: int) -> "Design":
         "Set the active tool channel."
         self.ops.append({"op": "tool", "index": int(index)})
         return self
 
-    def orient(self, i, j, k):
+    def orient(self, i: Number, j: Number, k: Number) -> "Design":
         "Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z."
         self.ops.append({"op": "orient", "i": i, "j": j, "k": k})
         return self
 
-    def dwell(self, seconds):
+    def dwell(self, seconds: Number) -> "Design":
         "Pause in place for `seconds` (emits a G4 dwell)."
         self.ops.append({"op": "dwell", "seconds": seconds})
         return self
 
-    def manual_gcode(self, text):
+    def manual_gcode(self, text: str) -> "Design":
         "Inject verbatim custom G-code."
         self.ops.append({"op": "manual_gcode", "text": str(text)})
         return self
 
-    def deposit(self, volume, speed):
+    def deposit(self, volume: Number, speed: Number) -> "Design":
         "Stationary extrusion of a set volume (mm³) at feedrate (mm/min)."
         self.ops.append({"op": "deposit", "volume": float(volume), "speed": float(speed)})
         return self
 
-    def retract(self, distance=None, speed=None):
+    def retract(
+        self,
+        distance: Optional[Number] = None,
+        speed: Optional[Number] = None,
+    ) -> "Design":
         "Retract filament."
         op = {"op": "retract"}
         if distance is not None:
@@ -119,7 +167,11 @@ class Design:
         self.ops.append(op)
         return self
 
-    def unretract(self, distance=None, speed=None):
+    def unretract(
+        self,
+        distance: Optional[Number] = None,
+        speed: Optional[Number] = None,
+    ) -> "Design":
         "Prime filament back after a retraction."
         op = {"op": "unretract"}
         if distance is not None:
@@ -130,8 +182,15 @@ class Design:
         return self
 
     # ---- engine calls ----
-    def gcode(self, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False,
-              rotary_axes="ab", kinematics=None):
+    def gcode(
+        self,
+        printer: str = "generic",
+        relative_e: bool = True,
+        travel_g1_e0: bool = False,
+        five_axis: bool = False,
+        rotary_axes: str = "ab",
+        kinematics: Optional[str] = None,
+    ) -> List[str]:
         """Resolve + emit motion g-code (a list of lines).
 
         `rotary_axes` is the rotary-axes selector — the ab/ac/bc STRING choosing which two rotary
@@ -150,19 +209,23 @@ class Design:
             str(rotary)
         )
 
-    def simulate(self, printer="generic"):
+    def simulate(self, printer: str = "generic") -> Metrics:
         "Resolve + simulate; returns a metrics dict (time, distances, material, peak flow)."
         return json.loads(_native.resolve_metrics(json.dumps(self.ops), _params(printer)))
 
-    def ir(self, printer="generic"):
+    def ir(self, printer: str = "generic") -> Toolpath:
         "Resolve to the L2 Dry IR; returns a dict ({version, segments})."
         return json.loads(_native.resolve_ir(json.dumps(self.ops), _params(printer)))
 
-    def optimized_ir(self, printer="generic"):
+    def optimized_ir(self, printer: str = "generic") -> Toolpath:
         "Resolve + optimize; returns a dict ({version, segments})."
         return json.loads(_native.resolve_optimized_ir(json.dumps(self.ops), _params(printer)))
 
-    def balanced_ir(self, printer="generic", kinematics=None):
+    def balanced_ir(
+        self,
+        printer: str = "generic",
+        kinematics: Optional[Kinematics] = None,
+    ) -> Toolpath:
         """Resolve + balanced (kinematics-aware) optimize; returns a dict ({version, segments}).
 
         `kinematics` is a dict with optional keys `max_acceleration_mm_s2` (mm/s²) and
@@ -177,14 +240,25 @@ class Design:
             kin_json,
         ))
 
-    def binary(self, printer="generic"):
+    def binary(self, printer: str = "generic") -> bytes:
         "Resolve + encode to binary DRY1 format; returns a bytes object."
         return bytes(_native.resolve_binary(json.dumps(self.ops), _params(printer)))
 
-    def verify(self, printer="generic", max_flow=None, min_temp=None, bounds=None, monotonic_z=False,
-               speed_range=None, max_retraction_distance=None, max_retraction_speed=None,
-               max_travel_without_retract=None, first_layer_height_range=None,
-               first_layer_speed_range=None, kinematics=None):
+    def verify(
+        self,
+        printer: str = "generic",
+        max_flow: Optional[Number] = None,
+        min_temp: Optional[Number] = None,
+        bounds: Optional[Bounds] = None,
+        monotonic_z: bool = False,
+        speed_range: Optional[Range] = None,
+        max_retraction_distance: Optional[Number] = None,
+        max_retraction_speed: Optional[Number] = None,
+        max_travel_without_retract: Optional[Number] = None,
+        first_layer_height_range: Optional[Range] = None,
+        first_layer_speed_range: Optional[Range] = None,
+        kinematics: Optional[Kinematics] = None,
+    ) -> Report:
         """Resolve + verify against machine-safety contracts; returns a report dict with findings.
 
         Structured limits cross to the engine as native typed contracts (no CSV round-trip):
@@ -220,7 +294,7 @@ class Design:
         ))
 
 
-def _bounds_to_list(bounds):
+def _bounds_to_list(bounds: Optional[Bounds]) -> Any:
     """Normalise bounds to the structured `[[x0,x1],[y0,y1],[z0,z1]]` the binding expects.
 
     A structured list/tuple passes straight through (the binding validates its shape); a legacy
@@ -234,7 +308,7 @@ def _bounds_to_list(bounds):
     return [[flat[0], flat[1]], [flat[2], flat[3]], [flat[4], flat[5]]]
 
 
-def _range_to_list(rng):
+def _range_to_list(rng: Optional[Range]) -> Any:
     """Normalise a `[min, max]` range to the list the binding expects.
 
     A structured list/tuple passes straight through (the binding validates its shape); a legacy
@@ -245,8 +319,15 @@ def _range_to_list(rng):
     return [float(v) for v in rng.split(",")]
 
 
-def tpms_gcode(options, printer="generic", relative_e=True, travel_g1_e0=False, five_axis=False,
-               rotary_axes="ab", kinematics=None):
+def tpms_gcode(
+    options: Optional[TpmsOptions],
+    printer: str = "generic",
+    relative_e: bool = True,
+    travel_g1_e0: bool = False,
+    five_axis: bool = False,
+    rotary_axes: str = "ab",
+    kinematics: Optional[str] = None,
+) -> List[str]:
     """Generate TPMS infill g-code (a list of lines) from an options dict.
 
     `options` is the TPMS option bundle with camelCase keys (matching the engine / TS SDK), e.g.
@@ -270,7 +351,7 @@ def tpms_gcode(options, printer="generic", relative_e=True, travel_g1_e0=False, 
     )
 
 
-def _params(printer):
+def _params(printer: str) -> str:
     if printer not in PRINTERS:
         raise KeyError(f"unknown printer {printer!r}; known: {sorted(PRINTERS)}")
     return json.dumps(PRINTERS[printer])

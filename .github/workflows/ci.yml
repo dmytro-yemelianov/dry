@@ -157,6 +157,11 @@ jobs:
       - name: install docs-site deps
         working-directory: docs/site
         run: npm ci
+      - name: reference docs
+        working-directory: docs/site
+        run: |
+          npm run reference
+          git -C ../.. diff --exit-code docs/site/reference/generated
       - name: type-check examples
         working-directory: docs/site
         run: npm run typecheck

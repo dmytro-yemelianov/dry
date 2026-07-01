@@ -13,6 +13,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide/' },
+      { text: 'Reference', link: '/reference/' },
       { text: 'Gallery', link: 'https://github.com/dmytro-yemelianov/dry' },
     ],
     sidebar: {
@@ -27,6 +28,22 @@ export default defineConfig({
             { text: '4. Verify', link: '/guide/verify' },
             { text: '5. Optimize', link: '/guide/optimize' },
             { text: '6. Generative', link: '/guide/generative' },
+          ],
+        },
+      ],
+      '/reference/': [
+        {
+          text: 'Reference',
+          items: [
+            { text: 'Overview', link: '/reference/' },
+            { text: 'TypeScript SDK', link: '/reference/generated/typescript-sdk' },
+            { text: 'Python SDK', link: '/reference/generated/python-sdk' },
+            { text: 'CLI', link: '/reference/generated/cli' },
+            { text: 'IR', link: '/reference/generated/ir' },
+            { text: 'Generators', link: '/reference/generated/generators' },
+            { text: 'Verification', link: '/reference/generated/verification' },
+            { text: 'Profiles and reports', link: '/reference/generated/profiles-and-reports' },
+            { text: 'Examples', link: '/reference/generated/examples' },
           ],
         },
       ],

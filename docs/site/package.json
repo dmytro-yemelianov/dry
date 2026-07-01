@@ -4,8 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
+    "docs:check": "node scripts/check-reference-coverage.mjs",
+    "docs:gen": "node scripts/gen-reference.mjs",
     "build": "vitepress build",
     "preview": "vitepress preview --port 4173",
+    "reference": "npm run docs:gen && npm run docs:check",
     "wasm": "bash build.sh wasm-only",
     "typecheck": "tsc -p tsconfig.examples.json --noEmit",
     "test": "vitest run",
