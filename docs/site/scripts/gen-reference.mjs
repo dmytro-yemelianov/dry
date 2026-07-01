@@ -381,6 +381,37 @@ function renderHeadingIndex(title, sourcePath, intro) {
   return lines.join('\n');
 }
 
+function extractMarkedSection(relativePath, marker) {
+  if (!exists(relativePath)) return '';
+  const source = read(relativePath);
+  const start = `<!-- docs-gen:start ${marker} -->`;
+  const end = `<!-- docs-gen:end ${marker} -->`;
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end);
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return '';
+  return source.slice(startIndex + start.length, endIndex).trim();
+}
+
+function sanitizeExtractedMarkdown(markdown) {
+  return markdown.replace(/\[([^\]]+)\]\((?!https?:|#)([^)]+)\)/g, (_match, label, target) => {
+    return `${label} (\`${target}\`)`;
+  });
+}
+
+function renderMarkedReference(title, intro, sections) {
+  const lines = [banner(), `# ${title}`, '', intro, ''];
+  for (const section of sections) {
+    const content = extractMarkedSection(section.source, section.marker);
+    lines.push(`Source: \`${section.source}\``, '');
+    if (content) {
+      lines.push(sanitizeExtractedMarkdown(content), '');
+    } else {
+      lines.push(`Marked section \`${section.marker}\` was not found.`, '');
+    }
+  }
+  return lines.join('\n');
+}
+
 function renderParamTable(params, typeLabel = 'Type') {
   const visible = params.filter((param) => param.name !== 'self' && param.name !== '*');
   if (!visible.length) return '';
@@ -686,8 +717,13 @@ const cliReference = renderCliReference();
 writeGenerated('typescript-sdk.md', renderTsReference(tsExports));
 writeGenerated('python-sdk.md', renderPythonReference(pythonApi));
 writeGenerated('cli.md', cliReference.text);
-writeGenerated('ir.md', renderHeadingIndex('IR', sourceFiles.irSpec, 'Generated index of the Dry IR specification source sections.'));
-writeGenerated('profiles-and-reports.md', renderHeadingIndex('Profiles and reports', sourceFiles.profilesReports, 'Generated index of profile and report documentation source sections.'));
+writeGenerated('ir.md', renderMarkedReference('IR', 'Generated from marked normative sections of the Dry IR specification.', [
+  { source: sourceFiles.irSpec, marker: 'ir-core-model' },
+]));
+writeGenerated('profiles-and-reports.md', renderMarkedReference('Profiles and reports', 'Generated from marked normative profile/report sections and the supported profile matrix.', [
+  { source: sourceFiles.profilesReports, marker: 'profiles-reports-core' },
+  { source: sourceFiles.supportMatrix, marker: 'supported-profile-matrix' },
+]));
 writeGenerated('generators.md', renderGenerators(tsExports));
 writeGenerated('verification.md', renderVerification(tsExports));
 writeGenerated('examples.md', renderExamples(examples));

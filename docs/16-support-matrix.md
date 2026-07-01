@@ -57,6 +57,7 @@ See [`12-releasing.md`](12-releasing.md) for install-without-source instructions
 | G-code forensics: slicer detection, feature attribution, layer/estimate | Experimental (first cut) | [`15-cli-cookbook.md`](15-cli-cookbook.md) |
 | Forensics: infill angle/spacing, extrusion-multiplier recovery, resonance | Out of scope (planned) | — |
 
+<!-- docs-gen:start supported-profile-matrix -->
 ## Supported profile matrix
 
 A small, curated set of **supported** machine/material/firmware profiles (authored clean-room — see the
@@ -77,6 +78,7 @@ The goldens double as a demonstration: reviewing the same 210 °C sample (`examp
 under the PLA profiles but correctly raises `cold-extrusion` under the PETG/ABS profiles — the
 material-temperature contract at work. Use these as starting points; copy and tune for your machine.
 
+<!-- docs-gen:end supported-profile-matrix -->
 ## Support expectations
 
 Pre-1.0: fixes target the latest release and `main`. Report bugs via GitHub issues; security/safety issues

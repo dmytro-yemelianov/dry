@@ -101,6 +101,18 @@ for (const command of parseCliCommandsFromPage(cliPage)) {
   if (!cliPage.includes(`### \`${command}\``)) fail(`CLI command is missing detailed help section: ${command}`);
 }
 
+const irPagePath = path.join(generatedDir, 'ir.md');
+const irPage = fs.existsSync(irPagePath) ? fs.readFileSync(irPagePath, 'utf8') : '';
+for (const required of ['## 3. Data model', '### 3.3 `Segment`', '## 4. JSON wire form']) {
+  if (!irPage.includes(required)) fail(`IR reference is missing extracted section: ${required}`);
+}
+
+const profilesPagePath = path.join(generatedDir, 'profiles-and-reports.md');
+const profilesPage = fs.existsSync(profilesPagePath) ? fs.readFileSync(profilesPagePath, 'utf8') : '';
+for (const required of ['## 1. Profile schema (v1)', '## 2. Verification rule catalog', '## Supported profile matrix']) {
+  if (!profilesPage.includes(required)) fail(`Profiles reference is missing extracted section: ${required}`);
+}
+
 const examples = JSON.parse(read('docs/site/reference/source/examples.json'));
 const examplesPage = fs.existsSync(path.join(generatedDir, 'examples.md'))
   ? fs.readFileSync(path.join(generatedDir, 'examples.md'), 'utf8')

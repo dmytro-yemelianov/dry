@@ -16,6 +16,7 @@ vectors in [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md).
 
 ---
 
+<!-- docs-gen:start profiles-reports-core -->
 ## 1. Profile schema (v1)
 
 A profile is a small JSON document of the **factual limits** a toolpath is checked against plus the
@@ -335,6 +336,7 @@ informational. **This envelope is NOT drift-gated** — model output is non-dete
 advisory only. Use it to understand the forensic delta qualitatively; apply any measured improvements
 only after manual review.
 
+<!-- docs-gen:end profiles-reports-core -->
 ## 4. Stability & conformance
 
 - The profile schema, the rule catalog, and the report schemas are the public contract.

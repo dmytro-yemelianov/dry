@@ -31,15 +31,15 @@
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
-      "sha256": "550725a71a6547dcd01898dbf18420a83890ba6381f34197d14a0c0bc5467dbe"
+      "sha256": "c2caae5f60b4518bf3ef1bcc2845bff782d8d987d714be8edec9f8eacf1e38ab"
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "c117a7ed1abfc6581cb78b6153f6c7dd5cb76589efb3f4a7cd3a746adc0e39a8"
+      "sha256": "fe2cf9766b53325e50ca4828f7b63b6482bc31d8794abbf763b4465f06cc5315"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "0c9e55ba102fd0940b3d181e6b16dd0e28df3c8d8d71a5763608e8eb54007a6e"
+      "sha256": "390488c623443868c939ddb8b8233808e48f684541aa6044909b08a2cd6bf365"
     }
   },
   "dynamic": {
