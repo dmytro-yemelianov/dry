@@ -299,7 +299,7 @@ function reset(): void {
 <style scoped>
 .live {
   position: relative;
-  z-index: 4;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
   gap: 14px;
@@ -311,9 +311,9 @@ function reset(): void {
 
 @media (min-width: 960px) {
   .live {
-    width: min(1180px, calc(100vw - 64px));
-    margin-left: 50%;
-    transform: translateX(-50%);
+    width: min(1180px, calc(100vw - var(--vp-sidebar-width, 272px) - 160px));
+    margin-left: 0;
+    transform: none;
   }
 }
 
