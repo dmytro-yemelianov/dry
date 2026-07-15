@@ -4,6 +4,8 @@
 
 Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags
 
+<LiveExample src="verify" :outputs='["verify"]' />
+
 ## Help
 
 ```text

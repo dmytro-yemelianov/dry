@@ -4,16 +4,7 @@
 
 Re-emit imported motion while preserving non-motion source G-code lines in place
 
-<figure class="reference-inline-sample">
-  <a href="/guide/optimize" aria-label="Open Optimize guide">
-    <img src="/reference/previews/optimize.svg" alt="Optimize rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/optimize">Optimize</a></strong>
-    <span>Resolve through the optimization pipeline and inspect optimized IR.</span>
-    <small>typescript: <code>docs/site/examples/optimize.ts</code> · python: <code>docs/site/examples/optimize.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="optimize" :outputs='["ir"]' />
 
 ## Help
 

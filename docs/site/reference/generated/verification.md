@@ -19,16 +19,7 @@ export interface Finding
 
 Single verification finding, optionally tied to a resolved segment index.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 
 ### Fields
@@ -49,16 +40,7 @@ export interface Report
 
 Verification result containing all findings emitted by enabled rules.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 
 ### Fields
@@ -76,16 +58,7 @@ export type Severity = 'error' | 'warning'
 
 Severity level for a verification finding.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 
 ## `ToolpathMeta`

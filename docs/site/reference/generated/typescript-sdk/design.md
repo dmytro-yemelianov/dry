@@ -29,19 +29,19 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `fan` | `fan(speed: number): this` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `flow(ratio: number): this` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
 | `tool` | `tool(index: number): this` |  | Set the active tool channel. |
-| `orient` | `orient(i: number, j: number, k: number): this` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z. |
+| `orient` | `orient(i: number, j: number, k: number): this` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). |
 | `dwell` | `dwell(seconds: number): this` |  | Pause in place for `seconds` (emits a `G4` dwell). |
 | `manualGcode` | `manualGcode(text: string): this` |  | Inject verbatim custom G-code. |
 | `retract` | `retract(distance: number \| null = null, speed: number \| null = null): this` |  | Retract filament. |
 | `unretract` | `unretract(distance: number \| null = null, speed: number \| null = null): this` |  | Prime filament back after a retraction. |
 | `deposit` | `deposit(volume: number, speed: number): this` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
-| `gcode` | `gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). `rotaryAxes` is the rotary-axes selector (the |
+| `gcode` | `gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). |
 | `simulate` | `simulate(printer = 'generic'): Metrics` | [Simulate](/guide/simulate) | Resolve + simulate; returns metrics (time, distances, material, peak flow). |
 | `ir` | `ir(printer = 'generic'): Toolpath` | [Lower to the Dry IR](/guide/lower) | Resolve to the L2 Dry IR ({ version, segments }). |
 | `optimizedIr` | `optimizedIr(printer = 'generic'): Toolpath` | [Optimize](/guide/optimize) | Resolve through the standard L2 optimization pipeline. |
-| `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. When `kinematics` is |
+| `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. |
 | `binary` | `binary(printer = 'generic'): Uint8Array` |  | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
-| `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. The |
+| `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
 
 ### `geometry`
 
@@ -309,16 +309,7 @@ Stationary extrusion of a set volume (mm³) at feedrate (mm/min).
 
 ### `gcode`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/author" aria-label="Open Author a path guide">
-    <img src="/reference/previews/author.svg" alt="Author a path rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/author">Author a path</a></strong>
-    <span>Create a fluent L1 design and emit motion G-code.</span>
-    <small>typescript: <code>docs/site/examples/author.ts</code> · python: <code>docs/site/examples/author.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="author" :outputs='["gcode"]' />
 
 ```ts
 gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
@@ -342,16 +333,7 @@ distinct from the machine motion-limits `kinematics` object used by `balancedIr`
 
 ### `simulate`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/simulate" aria-label="Open Simulate guide">
-    <img src="/reference/previews/simulate.svg" alt="Simulate rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/simulate">Simulate</a></strong>
-    <span>Compute toolpath metrics such as time, distances, material, and peak flow.</span>
-    <small>typescript: <code>docs/site/examples/simulate.ts</code> · python: <code>docs/site/examples/simulate.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="simulate" :outputs='["metrics"]' />
 
 ```ts
 simulate(printer = 'generic'): Metrics
@@ -369,16 +351,7 @@ Resolve + simulate; returns metrics (time, distances, material, peak flow).
 
 ### `ir`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/lower" aria-label="Open Lower to the Dry IR guide">
-    <img src="/reference/previews/lower.svg" alt="Lower to the Dry IR rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/lower">Lower to the Dry IR</a></strong>
-    <span>Resolve an authored design into Dry's structured L2 toolpath IR.</span>
-    <small>typescript: <code>docs/site/examples/lower.ts</code> · python: <code>docs/site/examples/lower.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="lower" :outputs='["ir"]' />
 
 ```ts
 ir(printer = 'generic'): Toolpath
@@ -396,16 +369,7 @@ Resolve to the L2 Dry IR ({ version, segments }).
 
 ### `optimizedIr`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/optimize" aria-label="Open Optimize guide">
-    <img src="/reference/previews/optimize.svg" alt="Optimize rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/optimize">Optimize</a></strong>
-    <span>Resolve through the optimization pipeline and inspect optimized IR.</span>
-    <small>typescript: <code>docs/site/examples/optimize.ts</code> · python: <code>docs/site/examples/optimize.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="optimize" :outputs='["ir"]' />
 
 ```ts
 optimizedIr(printer = 'generic'): Toolpath
@@ -423,16 +387,7 @@ Resolve through the standard L2 optimization pipeline.
 
 ### `balancedIr`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/optimize" aria-label="Open Optimize guide">
-    <img src="/reference/previews/optimize.svg" alt="Optimize rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/optimize">Optimize</a></strong>
-    <span>Resolve through the optimization pipeline and inspect optimized IR.</span>
-    <small>typescript: <code>docs/site/examples/optimize.ts</code> · python: <code>docs/site/examples/optimize.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="optimize" :outputs='["ir"]' />
 
 ```ts
 balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath
@@ -470,16 +425,7 @@ Resolve + encode to the binary DRY1 format; returns the raw bytes.
 
 ### `verify`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ```ts
 verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string | number[][] = '', monotonicZ = false, speedRange: string | [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string | [number, number] = '', firstLayerSpeedRange: string | [number, number] = '', kinematics?: MachineKinematics): Report

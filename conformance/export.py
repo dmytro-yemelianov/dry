@@ -181,9 +181,57 @@ for name, steps in BASE_DESIGNS.items():
                    'expected': list(gcode)}, f, indent=2)
 
 
-# 3. Export Gallery Designs (the 27 examples)
+# 3. Export Gallery Designs. The fork registers 27 examples, but its small export matrix currently
+# contains 26. Keep the known gyroid gap explicit so a fork-side change cannot silently alter coverage.
 print("3. Exporting Gallery Designs...")
 from tests.unit.test_examples import _SMALL, _BUILD
+from examples import GALLERY
+
+_EXPECTED_GALLERY_NAMES = {
+    'arc_vase',
+    'bead_studs',
+    'blob_printing',
+    'brush_lettering',
+    'fractional_design_engine',
+    'freeform_frosting',
+    'gyroid_infill',
+    'helical_screw',
+    'hex_adapter',
+    'lampshade',
+    'mobius_band',
+    'nonplanar_spacer',
+    'nuts_and_bolts',
+    'overhang_challenge',
+    'phone_stand',
+    'pin_support_challenge',
+    'retraction_test',
+    'ripple_vase',
+    'snake_soapdish',
+    'spiral_vase',
+    'star_polygon_lattice',
+    'tape_reinforcement',
+    'textured_cone',
+    'towers_grid',
+    'trefoil_tube',
+    'twisted_polygon_vase',
+    'wave_bowl',
+}
+_gallery_names = set(GALLERY)
+if _gallery_names != _EXPECTED_GALLERY_NAMES:
+    raise RuntimeError(
+        'unexpected FullControl gallery registry: '
+        f'missing={sorted(_EXPECTED_GALLERY_NAMES - _gallery_names)}, '
+        f'extra={sorted(_gallery_names - _EXPECTED_GALLERY_NAMES)}'
+    )
+
+_missing_gallery_exports = _gallery_names - set(_SMALL)
+_extra_gallery_exports = set(_SMALL) - _gallery_names
+if _missing_gallery_exports != {'gyroid_infill'} or _extra_gallery_exports:
+    raise RuntimeError(
+        'unexpected FullControl gallery export matrix: '
+        f'missing={sorted(_missing_gallery_exports)}, '
+        f'extra={sorted(_extra_gallery_exports)}'
+    )
 
 for name in sorted(_SMALL):
     func = _SMALL[name]

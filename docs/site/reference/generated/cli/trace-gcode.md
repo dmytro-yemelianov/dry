@@ -4,16 +4,7 @@
 
 Summarize slicer G-code as fixed-window motion/time-series JSON
 
-<figure class="reference-inline-sample">
-  <a href="/guide/simulate" aria-label="Open Simulate guide">
-    <img src="/reference/previews/simulate.svg" alt="Simulate rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/simulate">Simulate</a></strong>
-    <span>Compute toolpath metrics such as time, distances, material, and peak flow.</span>
-    <small>typescript: <code>docs/site/examples/simulate.ts</code> · python: <code>docs/site/examples/simulate.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="simulate" :outputs='["metrics"]' />
 
 ## Help
 

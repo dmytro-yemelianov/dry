@@ -40,6 +40,38 @@ Generated from `docs/site/reference/source/examples.json`.
 | Author a path | [/author](/guide/author) | typescript, python | typescript: `docs/site/examples/author.ts`<br>python: `docs/site/examples/author.py` | gcode | `Design`, `geometry`, `extruder`, `point`, `gcode` |
 | Lower to the Dry IR | [/lower](/guide/lower) | typescript, python | typescript: `docs/site/examples/lower.ts`<br>python: `docs/site/examples/lower.py` | ir | `Design`, `ir`, `segments`, `toolpath` |
 | Simulate | [/simulate](/guide/simulate) | typescript, python | typescript: `docs/site/examples/simulate.ts`<br>python: `docs/site/examples/simulate.py` | metrics | `Design`, `simulate`, `metrics` |
-| Verify | [/verify](/guide/verify) | typescript, python | typescript: `docs/site/examples/verify.ts`<br>python: `docs/site/examples/verify.py` | report | `Design`, `verify`, `Report`, `Finding`, `Severity` |
+| Verify | [/verify](/guide/verify) | typescript, python | typescript: `docs/site/examples/verify.ts`<br>python: `docs/site/examples/verify.py` | verify | `Design`, `verify`, `Report`, `Finding`, `Severity` |
 | Optimize | [/optimize](/guide/optimize) | typescript, python | typescript: `docs/site/examples/optimize.ts`<br>python: `docs/site/examples/optimize.py` | ir | `Design`, `optimizedIr`, `balancedIr`, `toolpath` |
 | Generative | [/generative](/guide/generative) | typescript, python | typescript: `docs/site/examples/generative.ts`<br>python: `docs/site/examples/generative.py` | gcode, ir | `TPMS`, `tpms`, `tpmsOps`, `tpms_gcode` |
+
+## Interactive example runs
+
+### <a id="author"></a>Author a path: Create a fluent L1 design and emit motion G-code.
+Run this example from [/guide/author](/guide/author)
+
+<LiveExample src="author" :outputs='["gcode"]' />
+
+### <a id="lower"></a>Lower to the Dry IR: Resolve an authored design into Dry's structured L2 toolpath IR.
+Run this example from [/guide/lower](/guide/lower)
+
+<LiveExample src="lower" :outputs='["ir"]' />
+
+### <a id="simulate"></a>Simulate: Compute toolpath metrics such as time, distances, material, and peak flow.
+Run this example from [/guide/simulate](/guide/simulate)
+
+<LiveExample src="simulate" :outputs='["metrics"]' />
+
+### <a id="verify"></a>Verify: Check a resolved design against machine-safety contracts and inspect findings.
+Run this example from [/guide/verify](/guide/verify)
+
+<LiveExample src="verify" :outputs='["verify"]' />
+
+### <a id="optimize"></a>Optimize: Resolve through the optimization pipeline and inspect optimized IR.
+Run this example from [/guide/optimize](/guide/optimize)
+
+<LiveExample src="optimize" :outputs='["ir"]' />
+
+### <a id="generative"></a>Generative: Generate TPMS-style infill paths from structured options.
+Run this example from [/guide/generative](/guide/generative)
+
+<LiveExample src="generative" :outputs='["gcode","ir"]' />

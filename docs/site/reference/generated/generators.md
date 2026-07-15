@@ -21,7 +21,7 @@ Generated from TypeScript generator exports. The full SDK grouping also lives un
 | `tpms` | function | `sdk/ts/src/generators/tpms.ts` | Generate a fluent `Design` containing a TPMS toolpath. |
 | `TPMS_SURFACES` | const | `sdk/ts/src/generators/tpms.ts` | Metadata catalog for all supported TPMS surfaces. |
 | `tpmsField` | function | `sdk/ts/src/generators/tpms.ts` | Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. |
-| `tpmsOps` | function | `sdk/ts/src/generators/tpms.ts` | Build the selected TPMS infill as an L1 op list. Delegates generation to the Rust engine so the |
+| `tpmsOps` | function | `sdk/ts/src/generators/tpms.ts` | Build the selected TPMS infill as an L1 op list. |
 | `TpmsOptions` | interface | `sdk/ts/src/generators/tpms.ts` | Options for slicing a TPMS scalar field into Dry authoring operations. |
 | `TpmsSurface` | type | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. |
 | `tpmsSurfaceSpec` | function | `sdk/ts/src/generators/tpms.ts` | Return display metadata for a TPMS surface. |
@@ -219,14 +219,14 @@ Options for generating a star-polygon lattice toolpath.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `family` | `StarPolygonFamily` | No | Paper lattice sub-family. |
-| `alphaDeg` | `number` | No | Colab star-polygon angle alpha in degrees. The original notebook defaults to 30. |
-| `cols` | `number` | No | Unit cells along the print length. The original notebook calls this units_x. |
-| `rows` | `number` | No | Unit cells in the print width. The original notebook calls this units_y. |
-| `segLength` | `number` | No | Strut length in mm. This is the original notebook's seg_length parameter. |
+| `alphaDeg` | `number` | No | Colab star-polygon angle alpha in degrees. |
+| `cols` | `number` | No | Unit cells along the print length. |
+| `rows` | `number` | No | Unit cells in the print width. |
+| `segLength` | `number` | No | Strut length in mm. |
 | `unit` | `number` | No | Backward-compatible alias for segLength. |
-| `layers` | `number` | No | Printed layers. The original notebook defaults to two layers. |
+| `layers` | `number` | No | Printed layers. |
 | `layerHeight` | `number` | No | Distance between repeated layers in mm. |
-| `z0` | `number` | No | First layer Z in mm. Defaults to 0.8 * layerHeight like the original notebook. |
+| `z0` | `number` | No | First layer Z in mm. |
 | `startX` | `number` | No | XY start offset. |
 | `startY` | `number` | No | Declared in the public API. |
 | `centerX` | `number` | No | Backward-compatible aliases for the old motif-centered generator. |
@@ -263,16 +263,7 @@ export function tpms(options: TpmsOptions = {}): Design
 
 Generate a fluent `Design` containing a TPMS toolpath.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 ### Parameters
 
@@ -328,16 +319,7 @@ Build the selected TPMS infill as an L1 op list. Delegates generation to the Rus
 output is byte-identical to the native CLI / Python SDK (the engine uses `libm`, not JS `Math`).
 Invalid options (unknown surface, budget overrun, …) throw the engine's structured error.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 ### Parameters
 
@@ -358,23 +340,14 @@ export interface TpmsOptions
 
 Options for slicing a TPMS scalar field into Dry authoring operations.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 
 ### Fields
 
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
-| `surface` | `TpmsSurface` | No | Surface family. Defaults to `gyroid`. |
+| `surface` | `TpmsSurface` | No | Surface family. |
 | `isoLevel` | `number` | No | Isosurface value f(x,y,z)=isoLevel. |
 | `cellSize` | `number` | No | Cubic unit-cell size in mm. |
 | `cellsX` | `number` | No | Unit cells along X. |
@@ -395,14 +368,14 @@ Options for slicing a TPMS scalar field into Dry authoring operations.
 | `phaseZ` | `number` | No | Declared in the public API. |
 | `perimeter` | `boolean` | No | Add a single-wall rectangular perimeter around every sliced layer for infill-style previews. |
 | `perimeterInset` | `number` | No | Inset for the generated perimeter in mm. |
-| `minPathLength` | `number` | No | Drop very short stitched contours. Defaults to one grid cell. |
+| `minPathLength` | `number` | No | Drop very short stitched contours. |
 | `adaptive` | `boolean` | No | Insert extra Z slices in intervals that are too tall or change contour topology sharply. |
 | `adaptiveMinLayerHeight` | `number` | No | Minimum adaptive layer height in mm. |
 | `adaptiveMaxLayerHeight` | `number` | No | Maximum adaptive layer height in mm. |
 | `adaptiveMaxLengthDelta` | `number` | No | Maximum tolerated path-length delta before adaptive subdivision. |
 | `adaptiveMaxPointDelta` | `number` | No | Maximum tolerated contour point-count delta before adaptive subdivision. |
 | `adaptiveMaxDepth` | `number` | No | Maximum recursive adaptive subdivision depth. |
-| `maxFieldSamples` | `number` | No | Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. |
+| `maxFieldSamples` | `number` | No | Guardrail for browser/interactive use. |
 
 
 ## `TpmsSurface`
@@ -424,16 +397,7 @@ export type TpmsSurface = | 'gyroid'
 
 Supported triply periodic minimal surface names for TPMS generation.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 
 ## `tpmsSurfaceSpec`
@@ -465,16 +429,7 @@ export interface TpmsSurfaceSpec
 
 Display metadata for a TPMS surface.
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 
 ### Fields

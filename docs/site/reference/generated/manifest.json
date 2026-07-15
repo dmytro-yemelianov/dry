@@ -15,11 +15,11 @@
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
-      "sha256": "e694f54c492504512e6c3a13ef429ce40160c50569e7d3deb7a8243eb6566db5"
+      "sha256": "13c805ecc82f9779c08d18b1353ec5757e5fc0024f7ab68aa1f6e9455461d952"
     },
     "pages": {
       "path": "docs/site/reference/source/pages.json",
-      "sha256": "3bafc205dbbf67312ae26a9fc5f0933a5035038842842865502c7b8accbc7f18"
+      "sha256": "33dd7949bca8e4c24b2bb2ec8556d0fe605286bde200416bf4df12c17ff113d4"
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
@@ -27,7 +27,7 @@
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "959bca67ec24b5b5508a6d9de870d5b9605cfcd94bc60c660918eaf84fe64fbc"
+      "sha256": "01d49d4ed32b57f3c979b72ee688b6236d9577ce18ec2df0a6f304e991686e2f"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
