@@ -134,7 +134,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
       - name: install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" --locked
@@ -183,7 +182,8 @@ jobs:
             exit 1
           fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+            echo "::error::Release ${GITHUB_REF_NAME} already exists; refusing to modify it."
+            exit 1
           else
             gh release create "${GITHUB_REF_NAME}" "${assets[@]}" \
               --generate-notes \

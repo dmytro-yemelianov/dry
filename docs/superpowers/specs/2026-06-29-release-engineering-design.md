@@ -13,10 +13,9 @@ from a tag.
 
 ## Default decisions
 
-- **Build + attach, publish gated.** Every release always builds artifacts and attaches them to the
-  GitHub Release with sha256 checksums. Registry *publish* steps (PyPI, npm) are guarded by
-  `if: ${{ secrets.X != '' }}` so the pipeline works today without registry tokens and starts publishing
-  the moment secrets are added.
+- **Build + attach only.** Every release builds artifacts and attaches them to the private GitHub
+  Release with sha256 checksums. Public registry publishing and registry-token setup are intentionally
+  excluded.
 - **Hand-rolled workflow** using well-known actions (`softprops/action-gh-release`,
   `PyO3/maturin-action`, `actions/setup-node`), not a new umbrella tool — consistent with the repo's lean
   dependency posture.
