@@ -2,7 +2,8 @@ name: Release
 
 # Tag a release with `vX.Y.Z` (matching the workspace/py/ts versions — see docs/12-releasing.md).
 # This builds installable artifacts for every front-end, attaches them to the GitHub Release with
-# checksums, and (when registry secrets are present) publishes to PyPI and npm.
+# checksums, and keeps distribution inside this repository's private GitHub Releases. Public npm
+# and PyPI publishing is intentionally absent because the artifacts contain proprietary IP.
 on:
   push:
     tags: ["v*"]
@@ -16,9 +17,14 @@ env:
 
 jobs:
   guard:
-    name: guard (tag matches manifest versions)
+    name: guard (private repo + tag matches manifest versions)
     runs-on: ubuntu-latest
     steps:
+      - name: require private repository
+        if: ${{ github.event.repository.private != true }}
+        run: |
+          echo "::error::Release artifacts may only be created while the repository is private."
+          exit 1
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
@@ -115,11 +121,9 @@ jobs:
           path: dist-wheels/*
 
   ts:
-    name: ts (npm package)
+    name: ts (npm package artifact)
     needs: guard
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -145,12 +149,6 @@ jobs:
         with:
           name: npm
           path: dist-npm/*.tgz
-      - name: publish to npm (gated on NPM_TOKEN secret)
-        if: ${{ env.NPM_TOKEN != '' }}
-        working-directory: sdk/ts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
 
   release:
     name: github release
@@ -191,24 +189,3 @@ jobs:
               --generate-notes \
               --verify-tag
           fi
-
-  pypi:
-    name: publish to PyPI (gated on PYPI_API_TOKEN secret)
-    needs: [wheels, sdist]
-    runs-on: ubuntu-latest
-    env:
-      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          path: artifacts
-      - name: collect dists
-        run: |
-          mkdir -p dist
-          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp -n {} dist/ \;
-      - name: publish
-        if: ${{ env.PYPI_API_TOKEN != '' }}
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
-        with:
-          packages-dir: dist
-          password: ${{ secrets.PYPI_API_TOKEN }}
