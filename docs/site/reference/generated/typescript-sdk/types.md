@@ -9,16 +9,7 @@ Public TypeScript types and report contracts re-exported by the SDK.
 
 Source: `sdk/ts/src/ops.ts`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ```ts
 export interface Finding
@@ -137,16 +128,7 @@ Device defaults (the generic printer). More profiles land with the device-profil
 
 Source: `sdk/ts/src/ops.ts`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ```ts
 export interface Report
@@ -440,16 +422,7 @@ One resolved L2 motion segment.
 
 Source: `sdk/ts/src/ops.ts`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ```ts
 export type Severity = 'error' | 'warning'

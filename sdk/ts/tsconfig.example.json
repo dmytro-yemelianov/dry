@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@dry/sdk": ["./src/index.ts"]
+    },
+    "rootDir": "../..",
+    "outDir": "./dist/examples",
+    "declaration": false
+  },
+  "include": ["../../examples/authoring.ts"]
+}

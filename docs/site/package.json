@@ -6,7 +6,7 @@
     "dev": "vitepress dev",
     "docs:check": "node scripts/check-reference-coverage.mjs",
     "docs:gen": "node scripts/gen-example-previews.mjs && node scripts/gen-reference.mjs",
-    "build": "vitepress build",
+    "build": "vitepress build && node scripts/check-built-links.mjs",
     "preview": "vitepress preview --port 4173",
     "reference": "npm run docs:gen && npm run docs:check",
     "wasm": "bash build.sh wasm-only",

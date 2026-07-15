@@ -18,23 +18,23 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | --- | --- | --- | --- | --- | --- |
 | `Design` | class | [Design](/reference/generated/typescript-sdk/design) | `sdk/ts/src/design.ts` |  | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
 | `Finding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Single verification finding, optionally tied to a resolved segment index. |
-| `MachineKinematics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. Field names are |
+| `MachineKinematics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. |
 | `Metrics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Simulation metrics returned by `simulate`. |
 | `NormalizedStarPolygonAlpha` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalized alpha angle and regime classification for a lattice family. |
 | `normalizeStarPolygonAlpha` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalize an alpha angle into its effective value and geometric regime. |
 | `Op` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
-| `PRINTERS` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Device defaults (the generic printer). More profiles land with the device-profile work. |
+| `PRINTERS` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Device defaults (the generic printer). |
 | `Report` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Verification result containing all findings emitted by enabled rules. |
 | `RESOLVE_PARAMS` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Default resolver parameters for the generic built-in printer profile. |
-| `resolveBalancedIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design through the kinematics-aware balanced optimization pipeline. When `kinematics` |
+| `resolveBalancedIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design through the kinematics-aware balanced optimization pipeline. |
 | `resolveBinary` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and return the L2 Dry IR encoded as the binary DRY1 format (raw bytes). |
-| `resolveGcode` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc |
+| `resolveGcode` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and emit motion g-code. |
 | `resolveIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design to the L2 Dry IR. |
 | `resolveMetrics` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and return its simulation metrics. |
-| `resolveMetricsIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. Unlike |
+| `resolveMetricsIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. |
 | `resolveOptimizedIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design through the standard L2 optimization pipeline. |
 | `ResolveParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. |
-| `resolveVerify` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and verify it against safety contracts. The structured limits cross to the wasm |
+| `resolveVerify` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and verify it against safety contracts. |
 | `Segment` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | One resolved motion or process segment in the Dry L2 IR. |
 | `SegmentKind` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | One resolved L2 motion segment. |
 | `Severity` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Severity level for a verification finding. |
@@ -53,7 +53,7 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `tpms` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Generate a fluent `Design` containing a TPMS toolpath. |
 | `TPMS_SURFACES` | const | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Metadata catalog for all supported TPMS surfaces. |
 | `tpmsField` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. |
-| `tpmsOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Build the selected TPMS infill as an L1 op list. Delegates generation to the Rust engine so the |
+| `tpmsOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Build the selected TPMS infill as an L1 op list. |
 | `TpmsOptions` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Options for slicing a TPMS scalar field into Dry authoring operations. |
 | `TpmsSurface` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Supported triply periodic minimal surface names for TPMS generation. |
 | `tpmsSurfaceSpec` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Return display metadata for a TPMS surface. |

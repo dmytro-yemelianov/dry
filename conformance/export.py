@@ -181,9 +181,17 @@ for name, steps in BASE_DESIGNS.items():
                    'expected': list(gcode)}, f, indent=2)
 
 
-# 3. Export Gallery Designs (the 27 examples)
+# 3. Export Gallery Designs. The fork registers 27 examples, but its small export matrix currently
+# contains 26. Keep the known gyroid gap explicit so a fork-side change cannot silently alter coverage.
 print("3. Exporting Gallery Designs...")
 from tests.unit.test_examples import _SMALL, _BUILD
+from examples import GALLERY
+
+_missing_gallery_exports = set(GALLERY) - set(_SMALL)
+if _missing_gallery_exports != {'gyroid_infill'}:
+    raise RuntimeError(
+        f"unexpected FullControl gallery export gap: {sorted(_missing_gallery_exports)}"
+    )
 
 for name in sorted(_SMALL):
     func = _SMALL[name]

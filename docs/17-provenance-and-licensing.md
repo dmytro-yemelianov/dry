@@ -11,7 +11,7 @@ be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 | Path | Origin | Clean-room status | Regenerate |
 |---|---|---|---|
 | `conformance/gcode/` | FullControl oracle output | output-only (no code copied) | `conformance/export.py` |
-| `conformance/gallery/` | FullControl oracle (27-design gallery) | output-only | `conformance/export.py` |
+| `conformance/gallery/` | FullControl oracle (26 exported fixtures from a 27-design registry) | output-only | `conformance/export.py` |
 | `conformance/golden/` | FullControl oracle golden g-code | output-only | `conformance/export.py` |
 | `conformance/profiles/` | FullControl oracle device profiles | output-only | `conformance/export.py` |
 | `conformance/roundtrip/` | FullControl oracle | output-only | `conformance/export.py` |
