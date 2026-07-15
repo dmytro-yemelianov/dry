@@ -91,16 +91,31 @@ fn parse_csv_f64s(name: &str, s: &str, expected: usize) -> Result<Vec<f64>, Cont
     Ok(values)
 }
 
+fn validate_range_order(name: &str, [lo, hi]: [f64; 2]) -> Result<(), ContractParseError> {
+    if lo > hi {
+        return Err(ContractParseError::new(format!(
+            "{name} lower bound must be <= upper bound"
+        )));
+    }
+    Ok(())
+}
+
 /// Parse `x0,x1,y0,y1,z0,z1` into build-volume bounds.
 pub fn parse_bounds_csv(s: &str) -> Result<[[f64; 2]; 3], ContractParseError> {
     let v = parse_csv_f64s("bounds", s, 6)?;
-    Ok([[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]])
+    let bounds = [[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]];
+    for (axis, range) in ["x", "y", "z"].into_iter().zip(bounds) {
+        validate_range_order(&format!("bounds {axis}"), range)?;
+    }
+    Ok(bounds)
 }
 
 /// Parse `min,max` into an extruding-move feedrate range.
 pub fn parse_speed_range_csv(s: &str) -> Result<[f64; 2], ContractParseError> {
     let v = parse_csv_f64s("speed range", s, 2)?;
-    Ok([v[0], v[1]])
+    let range = [v[0], v[1]];
+    validate_range_order("speed range", range)?;
+    Ok(range)
 }
 
 /// How serious a finding is.
@@ -818,6 +833,35 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
 mod tests {
     use super::*;
     use crate::units::{Feedrate, Volume};
+
+    #[test]
+    fn contract_csv_parsers_reject_inverted_ranges() {
+        for (input, axis) in [
+            ("1,0,0,1,0,1", "x"),
+            ("0,1,1,0,0,1", "y"),
+            ("0,1,0,1,1,0", "z"),
+        ] {
+            let error = parse_bounds_csv(input).unwrap_err().to_string();
+            assert_eq!(
+                error,
+                format!("bounds {axis} lower bound must be <= upper bound")
+            );
+        }
+
+        assert_eq!(
+            parse_speed_range_csv("9000,300").unwrap_err().to_string(),
+            "speed range lower bound must be <= upper bound"
+        );
+    }
+
+    #[test]
+    fn contract_csv_parsers_allow_equal_endpoints() {
+        assert_eq!(
+            parse_bounds_csv("1,1,2,2,3,3").unwrap(),
+            [[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
+        );
+        assert_eq!(parse_speed_range_csv("600,600").unwrap(), [600.0, 600.0]);
+    }
 
     /// A single arc segment with the given radius (mm) and speed (mm/min), valid geometry.
     fn arc_toolpath(radius_mm: f64, speed_mm_min: f64) -> Toolpath {

@@ -193,6 +193,12 @@ fn build_bounds(bounds: Option<Vec<Vec<f64>>>) -> PyResult<Option<[[f64; 2]; 3]>
                 "bounds axis {i} values must be finite"
             )));
         }
+        if lo > hi {
+            let axis = ["x", "y", "z"][i];
+            return Err(PyValueError::new_err(format!(
+                "bounds {axis} lower bound must be <= upper bound"
+            )));
+        }
         out[i] = [*lo, *hi];
     }
     Ok(Some(out))
@@ -212,6 +218,11 @@ fn build_range(name: &str, range: Option<Vec<f64>>) -> PyResult<Option<[f64; 2]>
     if !lo.is_finite() || !hi.is_finite() {
         return Err(PyValueError::new_err(format!(
             "{name} values must be finite"
+        )));
+    }
+    if lo > hi {
+        return Err(PyValueError::new_err(format!(
+            "{name} lower bound must be <= upper bound"
         )));
     }
     Ok(Some([*lo, *hi]))
@@ -255,8 +266,8 @@ fn resolve_verify(
     first_layer_speed_range: Option<Vec<f64>>,
     kinematics_json: Option<&str>,
 ) -> PyResult<String> {
-    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let design = parse_design(ops_json)?;
+    let params = parse_params(params_json)?;
 
     let kinematics = parse_kinematics(kinematics_json)?.map(|k| KinematicContracts {
         max_acceleration_mm_s2: k.max_acceleration_mm_s2,
@@ -280,6 +291,7 @@ fn resolve_verify(
         kinematics,
     };
 
+    let tp = resolve_checked(&design, &params).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let report = verify(&tp, &contracts);
     serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
 }
