@@ -66,6 +66,19 @@ fn decode_upload(v: &serde_json::Value) -> Result<UploadResponse, MoonrakerError
         .ok_or_else(|| MoonrakerError::Decode(format!("no item.path in upload response: {v}")))
 }
 
+fn decode_print_start(v: &serde_json::Value) -> Result<PrintResponse, MoonrakerError> {
+    let job_started = match v.get("result") {
+        Some(serde_json::Value::String(status)) if status.eq_ignore_ascii_case("ok") => true,
+        Some(serde_json::Value::Bool(started)) => *started,
+        _ => {
+            return Err(MoonrakerError::Decode(format!(
+                "unexpected print-start response: {v}"
+            )))
+        }
+    };
+    Ok(PrintResponse { job_started })
+}
+
 fn post(
     cfg: &MoonrakerConfig,
     path: &str,
@@ -106,13 +119,13 @@ pub fn upload_file(
 /// Start a print of an already-uploaded file via `/printer/print/start`. Network.
 pub fn start_print(cfg: &MoonrakerConfig, filename: &str) -> Result<PrintResponse, MoonrakerError> {
     let body = serde_json::json!({ "filename": filename }).to_string();
-    let _ = post(
+    let response = post(
         cfg,
         "/printer/print/start",
         "application/json",
         body.as_bytes(),
     )?;
-    Ok(PrintResponse { job_started: true })
+    decode_print_start(&response)
 }
 
 #[cfg(test)]
@@ -150,5 +163,23 @@ mod tests {
     fn missing_path_is_decode_error() {
         let v: serde_json::Value = serde_json::from_str(r#"{"item":{}}"#).unwrap();
         assert!(matches!(decode_upload(&v), Err(MoonrakerError::Decode(_))));
+    }
+    #[test]
+    fn print_start_decodes_moonraker_ok_result() {
+        let v = serde_json::json!({ "result": "ok" });
+        assert!(decode_print_start(&v).unwrap().job_started);
+    }
+    #[test]
+    fn print_start_preserves_negative_result() {
+        let v = serde_json::json!({ "result": false });
+        assert!(!decode_print_start(&v).unwrap().job_started);
+    }
+    #[test]
+    fn unexpected_print_start_response_is_decode_error() {
+        let v = serde_json::json!({ "error": { "message": "printer not ready" } });
+        assert!(matches!(
+            decode_print_start(&v),
+            Err(MoonrakerError::Decode(_))
+        ));
     }
 }
