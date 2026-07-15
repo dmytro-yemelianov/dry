@@ -68,8 +68,9 @@ Acceptance:
 ### 2. Release engineering
 
 > **Delivered (initial):** a tag-triggered [`release.yml`](../.github/workflows/release.yml) builds CLI
-> binaries (macOS/Linux/Windows) with `SHA256SUMS`, Python wheels (maturin) and an npm package, attaches
-> them to a private GitHub Release, with no public registry publishing or registry-token setup; a
+> binaries (macOS/Linux/Windows) with `SHA256SUMS`, Python wheels and a Python source distribution
+> (maturin), and an npm package, then attaches them to a private GitHub Release, with no public registry
+> publishing or registry-token setup; a
 > version/tag guard (`scripts/check-version.sh`) keeps the manifests in lockstep. Process +
 > install-without-source:
 > [`docs/12-releasing.md`](12-releasing.md). Remaining: exercise the pipeline on a real tag and add more
