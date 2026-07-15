@@ -19,7 +19,7 @@ jobs:
     name: guard (tag matches manifest versions)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: version/tag consistency
         run: bash scripts/check-version.sh "${GITHUB_REF_NAME}"
 
@@ -38,7 +38,7 @@ jobs:
           - { os: macos-latest, target: x86_64-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -56,7 +56,7 @@ jobs:
           cp "target/${{ matrix.target }}/release/$bin" "dist/$stage/"
           cp README.md LICENSE "dist/$stage/" 2>/dev/null || true
           tar -C dist -czf "dist/${stage}.tar.gz" "$stage"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.target }}
           path: dist/*.tar.gz
@@ -70,8 +70,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: build wheels
@@ -81,7 +81,7 @@ jobs:
           command: build
           args: --release --out ../dist-wheels
           manylinux: ${{ matrix.os == 'ubuntu-latest' && 'auto' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: dist-wheels/*
@@ -91,8 +91,8 @@ jobs:
     needs: guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: build sdist
@@ -101,7 +101,7 @@ jobs:
           working-directory: py
           command: sdist
           args: --out ../dist-wheels
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist-wheels/*
@@ -113,11 +113,11 @@ jobs:
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
@@ -130,7 +130,7 @@ jobs:
           npm run build
           mkdir -p ../../dist-npm
           npm pack --pack-destination ../../dist-npm
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: npm
           path: dist-npm/*.tgz
@@ -146,8 +146,8 @@ jobs:
     needs: [cli, wheels, sdist, ts]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: collect assets + checksums
@@ -159,7 +159,7 @@ jobs:
           sha256sum * > SHA256SUMS
           echo "--- release assets ---"; ls -l
       - name: create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
@@ -172,7 +172,7 @@ jobs:
     env:
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: collect dists
