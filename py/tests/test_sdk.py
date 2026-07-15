@@ -165,6 +165,12 @@ def test_verify_rejects_inverted_contract_ranges(limits):
         d.verify(**limits)
 
 
+def test_verify_validates_contract_ranges_before_resolving_toolpath():
+    d = dry.Design().geometry(-0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    with pytest.raises(ValueError, match="bounds x lower bound must be <= upper bound"):
+        d.verify(bounds=[[100, 0], [0, 100], [0, 50]])
+
+
 def test_verify_allows_equal_contract_endpoints():
     d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
     report = d.verify(

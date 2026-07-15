@@ -266,8 +266,8 @@ fn resolve_verify(
     first_layer_speed_range: Option<Vec<f64>>,
     kinematics_json: Option<&str>,
 ) -> PyResult<String> {
-    let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let design = parse_design(ops_json)?;
+    let params = parse_params(params_json)?;
 
     let kinematics = parse_kinematics(kinematics_json)?.map(|k| KinematicContracts {
         max_acceleration_mm_s2: k.max_acceleration_mm_s2,
@@ -291,6 +291,7 @@ fn resolve_verify(
         kinematics,
     };
 
+    let tp = resolve_checked(&design, &params).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let report = verify(&tp, &contracts);
     serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
 }
