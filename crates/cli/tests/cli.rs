@@ -777,6 +777,36 @@ fn verify_runs_and_reports_findings() {
 }
 
 #[test]
+fn verify_rejects_inverted_contract_ranges() {
+    let path = fixture("gcode", "square");
+
+    for (flag, value, expected) in [
+        (
+            "--bounds",
+            "100,0,0,100,0,50",
+            "bounds x lower bound must be <= upper bound",
+        ),
+        (
+            "--speed-range",
+            "9000,300",
+            "speed range lower bound must be <= upper bound",
+        ),
+    ] {
+        let output = Command::new(bin())
+            .args(["verify", path.to_str().unwrap(), flag, value])
+            .output()
+            .unwrap();
+        assert!(
+            !output.status.success(),
+            "{flag} accepted an inverted range"
+        );
+        let text =
+            String::from_utf8(output.stderr).unwrap() + &String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains(expected), "unexpected {flag} error: {text}");
+    }
+}
+
+#[test]
 fn review_gcode_max_retraction_distance_flag_fires_rule() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

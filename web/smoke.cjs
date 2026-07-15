@@ -9,11 +9,13 @@ const simDir = process.argv[4];
 const dry = require(path.resolve(pkgDir, 'dry_wasm.js'));
 
 let checked = 0;
+let verifyFixture;
 for (const name of fs.readdirSync(gcodeDir)) {
   if (!name.endsWith('.json')) continue;
   const fx = JSON.parse(fs.readFileSync(path.join(gcodeDir, name), 'utf8'));
   const opsJson = JSON.stringify(fx.l1.ops);
   const paramsJson = JSON.stringify(fx.resolve_params);
+  verifyFixture ||= { opsJson, paramsJson };
 
   const got = dry.resolve_gcode(opsJson, paramsJson, fx.params.relative_e, false, false, 'ab');
   if (JSON.stringify(got) !== JSON.stringify(fx.expected)) {
@@ -41,4 +43,26 @@ for (const name of fs.readdirSync(gcodeDir)) {
   checked++;
 }
 if (checked < 1) { console.error('no fixtures'); process.exit(1); }
+
+const invertedContracts = [
+  ['bounds', new Float64Array([100, 0, 0, 100, 0, 50]), undefined, undefined, undefined],
+  ['speed_range', undefined, new Float64Array([9000, 300]), undefined, undefined],
+  ['first_layer_height_range', undefined, undefined, new Float64Array([0.5, 0.1]), undefined],
+  ['first_layer_speed_range', undefined, undefined, undefined, new Float64Array([3000, 1000])],
+];
+for (const [name, bounds, speedRange, firstLayerHeightRange, firstLayerSpeedRange] of invertedContracts) {
+  try {
+    dry.resolve_verify(
+      verifyFixture.opsJson, verifyFixture.paramsJson, 0, 0, bounds, false, speedRange,
+      0, 0, 0, firstLayerHeightRange, firstLayerSpeedRange, ''
+    );
+    console.error(`${name} accepted an inverted range`);
+    process.exit(1);
+  } catch (error) {
+    if (!String(error).includes('lower bound must be <= upper bound')) {
+      console.error(`${name} returned an unexpected error:`, error);
+      process.exit(1);
+    }
+  }
+}
 console.log(`wasm engine reproduced the oracle for ${checked} designs (incl spiral_vase)`);

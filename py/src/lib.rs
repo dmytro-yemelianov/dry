@@ -193,6 +193,12 @@ fn build_bounds(bounds: Option<Vec<Vec<f64>>>) -> PyResult<Option<[[f64; 2]; 3]>
                 "bounds axis {i} values must be finite"
             )));
         }
+        if lo > hi {
+            let axis = ["x", "y", "z"][i];
+            return Err(PyValueError::new_err(format!(
+                "bounds {axis} lower bound must be <= upper bound"
+            )));
+        }
         out[i] = [*lo, *hi];
     }
     Ok(Some(out))
@@ -212,6 +218,11 @@ fn build_range(name: &str, range: Option<Vec<f64>>) -> PyResult<Option<[f64; 2]>
     if !lo.is_finite() || !hi.is_finite() {
         return Err(PyValueError::new_err(format!(
             "{name} values must be finite"
+        )));
+    }
+    if lo > hi {
+        return Err(PyValueError::new_err(format!(
+            "{name} lower bound must be <= upper bound"
         )));
     }
     Ok(Some([*lo, *hi]))
