@@ -1986,7 +1986,14 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
     let may_print = args.print && (!warn_mode || args.force) && (errors == 0 || args.force);
     let mut printed = false;
     if may_print {
-        dry_moonraker::start_print(&cfg, &uploaded.filename).unwrap_or_else(|e| die(e.to_string()));
+        let response = dry_moonraker::start_print(&cfg, &uploaded.filename)
+            .unwrap_or_else(|e| die(e.to_string()));
+        if !response.job_started {
+            die(format!(
+                "Moonraker did not start printing {}",
+                uploaded.filename
+            ));
+        }
         printed = true;
     }
 
