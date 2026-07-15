@@ -19,29 +19,29 @@ A release is produced entirely by CI from a `vX.Y.Z` tag — `.github/workflows/
    git push origin vX.Y.Z
    ```
 5. CI runs `release.yml`:
-   - **guard** fails fast unless the tag matches every manifest version;
+   - **guard** fails fast unless the repository is private and the tag matches every manifest version;
    - **cli** builds binaries for Linux x86_64, macOS aarch64 + x86_64, and Windows x86_64;
    - **wheels** / **sdist** build Python artifacts via maturin (manylinux + macOS + Windows);
    - **ts** builds and packs the npm tarball;
    - **release** creates the GitHub Release, attaches every artifact plus a `SHA256SUMS` checksum file,
      and auto-generates notes.
 
-## Publishing to registries (optional)
+## Distribution boundary
 
-Artifacts are always attached to the GitHub Release. Registry publishing is **gated on secrets**, so it
-activates only once you add them:
+Artifacts are distributed only through this repository's **private GitHub Releases**. The workflow
+intentionally contains no npm or PyPI publishing jobs, credentials, or trusted-publisher setup because
+the release artifacts contain proprietary IP. Do not add public registry publishing without a separate
+security review and explicit authorization from the repository owner.
 
-- **PyPI** — add `PYPI_API_TOKEN`; the `pypi` job then publishes the wheels + sdist.
-- **npm** — add `NPM_TOKEN`; the `ts` job then runs `npm publish --access public` for `@dry/sdk`.
+The release guard also refuses to create artifacts when the repository is not private. This keeps a
+future visibility change from silently turning private release assets into public downloads.
 
-## Installing without building from source
+## Installing private release artifacts
 
-- **CLI** — download the `dry-<ver>-<target>.tar.gz` for your platform from the GitHub Release, verify it
+- **CLI** — download the `dry-<ver>-<target>.tar.gz` for your platform from the private GitHub Release, verify it
   against `SHA256SUMS`, extract, and run `./dry --help`.
-- **Python** — `pip install dry` (once published to PyPI), or `pip install <wheel>` from the release
-  assets.
-- **TypeScript** — `npm install @dry/sdk` (once published to npm), or `npm install <tarball>` from the
-  release assets.
+- **Python** — download the matching wheel from the private release and run `pip install <wheel>`.
+- **TypeScript** — download the npm tarball from the private release and run `npm install <tarball>`.
 
 ## Compatibility & migration
 
