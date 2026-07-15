@@ -36,8 +36,8 @@ security review and explicit authorization from the repository owner.
 The release guard also refuses to create artifacts when the repository is not private. This keeps a
 future visibility change from silently turning private release assets into public downloads.
 
-The hosted documentation is a separate distribution surface. Its built output is uploaded directly to
-a Cloudflare Pages project protected by Cloudflare Access; see
+The hosted documentation is a separate, public distribution surface. Its built output is uploaded
+directly to Cloudflare Pages without granting Cloudflare repository access; see
 [`18-cloudflare-publishing.md`](18-cloudflare-publishing.md). It does not replace or publish the private
 installable artifacts described here.
 
