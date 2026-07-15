@@ -17,12 +17,14 @@ jobs:
     name: core (fmt + clippy + test, native + wasm)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: fmt
@@ -59,11 +61,13 @@ jobs:
     name: python SDK (maturin build + pytest)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: rust check (the binding)
@@ -88,12 +92,14 @@ jobs:
     name: wasm binding (build + node reproduces the oracle)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       # the binding is excluded from the core workspace, so it gets its own fmt + clippy (same
@@ -117,11 +123,13 @@ jobs:
     name: TypeScript SDK (build + reproduces the oracle)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
@@ -142,13 +150,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
@@ -189,8 +197,10 @@ jobs:
     name: spec vectors (independent python validator, no dry-core)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: install validator deps (jsonschema only; the codec is pure stdlib)
@@ -211,7 +221,9 @@ jobs:
     name: benches (compile gate)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       # Keep the criterion benchmarks compiling against the current API (docs/13-performance-and-scale.md).
       # The deterministic bounded-memory scale gate (tests/memory_scale.rs) runs in the `core` job's
