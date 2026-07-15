@@ -1,6 +1,7 @@
 node_modules/
 .vitepress/cache/
 .vitepress/dist/
+.wrangler/
 public/pkg/
 test-results/
 playwright-report/
