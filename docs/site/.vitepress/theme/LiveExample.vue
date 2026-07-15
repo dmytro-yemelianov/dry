@@ -64,6 +64,7 @@ const playing = ref(false);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let playTimer: ReturnType<typeof setInterval> | undefined;
+let unmounted = false;
 
 const tabs = computed(() => props.outputs);
 const segmentCount = computed(() => lastIr.value?.segments.length ?? 0);
@@ -75,8 +76,12 @@ const isTestMode = (): boolean => {
 };
 
 function schedule(): void {
+  if (unmounted) return;
   clearTimeout(timer);
-  timer = setTimeout(runNow, 250);
+  timer = setTimeout(() => {
+    timer = undefined;
+    runNow();
+  }, 250);
 }
 
 function languageExtension(lang: CodeLanguage) {
@@ -112,11 +117,26 @@ function isReport(value: unknown): value is Report {
 }
 
 function drawCurrentIr(): void {
-  if (!lastIr.value || !viewer.value) return;
+  if (!viewer.value) return;
+  if (!lastIr.value) {
+    viewer.value.clear();
+    return;
+  }
   viewer.value.render(lastIr.value, {
     maxSegments: playHead.value ?? undefined,
     activeSegment: playHead.value ? playHead.value - 1 : undefined,
   });
+}
+
+function clearResultState(): void {
+  stopPlayback();
+  playHead.value = null;
+  lastIr.value = null;
+  viewer.value?.clear();
+  gcode.value = [];
+  irText.value = '';
+  metricsText.value = '';
+  verifyText.value = '';
 }
 
 function fitView(): void {
@@ -178,15 +198,17 @@ function togglePlayback(): void {
 }
 
 function runNow(): void {
-  if (!ready.value) return;
+  if (!ready.value || unmounted) return;
   const result = runSnippet(source.value, getDry());
   if (!result.ok) {
+    clearResultState();
     error.value = result.error;
     return;
   }
 
   error.value = '';
   try {
+    clearResultState();
     const value = result.value as {
       ir?: () => Toolpath;
       gcode?: () => string[];
@@ -195,8 +217,6 @@ function runNow(): void {
     };
 
     const ir = isToolpath(result.value) ? result.value : typeof value?.ir === 'function' ? value.ir() : undefined;
-    stopPlayback();
-    playHead.value = null;
     lastIr.value = ir ?? null;
     drawCurrentIr();
     irText.value = ir ? JSON.stringify(ir, null, 2) : '';
@@ -221,6 +241,7 @@ function runNow(): void {
         ? JSON.stringify(value.verify('generic', 0, 0, [[0, 250], [0, 210], [0, 220]]), null, 2)
         : '';
   } catch (e) {
+    clearResultState();
     error.value = e instanceof Error ? e.message : String(e);
   }
 }
@@ -253,15 +274,22 @@ onMounted(async () => {
 
   try {
     if (!testing) await initDryEngine();
+    if (unmounted) return;
     ready.value = true;
     runNow();
   } catch (e) {
+    if (unmounted) return;
     error.value = `couldn't load the Dry engine (wasm): ${e instanceof Error ? e.message : String(e)}`;
   }
 });
 
 onBeforeUnmount(() => {
+  unmounted = true;
+  clearTimeout(timer);
+  timer = undefined;
   stopPlayback();
+  view.value?.destroy();
+  view.value = null;
   viewer.value?.dispose();
   viewer.value = null;
 });

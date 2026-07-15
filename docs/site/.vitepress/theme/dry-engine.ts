@@ -55,7 +55,11 @@ export function initDryEngine(): Promise<void> {
   if (!ready) {
     const meta = import.meta as ImportMeta & { env?: { BASE_URL?: string } };
     const base = meta.env?.BASE_URL ?? '/';
-    ready = initDryWeb(`${base}pkg/dry_wasm.js`);
+    const attempt = initDryWeb(`${base}pkg/dry_wasm.js`);
+    ready = attempt.catch((error: unknown) => {
+      ready = undefined;
+      throw error;
+    });
   }
   return ready;
 }

@@ -1,4 +1,5 @@
 import { test, expect, vi } from 'vitest';
+import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import { setWasmBinding, type DryWasm } from '@sdk/engine';
 import LiveExample from './LiveExample.vue';
@@ -54,4 +55,21 @@ test('renders a direct Toolpath result in the IR pane', async () => {
   await new Promise((resolve) => setTimeout(resolve, 50));
   expect(wrapper.find('.live-out').text()).toContain('"segments"');
   expect(wrapper.find('.live-error').exists()).toBe(false);
+});
+
+test('clears output from the previous run when an edit fails', async () => {
+  const code = `import { Design } from '@dry/sdk';\nnew Design().geometry(0.6,0.2).extruder(true).point(0,0,0.2).point(10,0,0.2)`;
+  const wrapper = mountLiveExample({ code, outputs: ['gcode'] });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(wrapper.find('.live-out').text()).toContain('G1 X10 Y0');
+
+  const setupState = (wrapper.vm as unknown as {
+    $: { setupState: { source: string; runNow: () => void } };
+  }).$.setupState;
+  setupState.source = `throw new Error('edited failure')`;
+  setupState.runNow();
+  await nextTick();
+
+  expect(wrapper.find('.live-error').text()).toContain('edited failure');
+  expect(wrapper.find('.live-out').text()).toBe('');
 });

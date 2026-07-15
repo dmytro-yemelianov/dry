@@ -6,14 +6,51 @@ import { setWasmBinding, type DryWasm } from './engine';
 
 let initPromise: Promise<void> | undefined;
 
+type DryWasmGlue = Record<string, unknown> & {
+  default?: (wasmPath?: string | URL | Request) => Promise<unknown>;
+};
+
+async function importWasmFromPublic(glueUrl: string): Promise<DryWasmGlue> {
+  const response = await globalThis.fetch(glueUrl);
+  if (!response.ok) {
+    throw new Error(`failed to load dry_wasm glue module from ${glueUrl} (${response.status} ${response.statusText})`);
+  }
+
+  const glueSource = await response.text();
+  const blob = new Blob([glueSource], { type: 'application/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  try {
+    // Vite does not allow importing a /public file as a source module. Importing the fetched glue
+    // through a blob URL leaves the public asset at runtime and avoids Vite's `?import` rewrite.
+    return (await import(/* @vite-ignore */ blobUrl)) as DryWasmGlue;
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
 /** Load + initialise the web-target wasm exactly once and install it as the engine binding. */
 export function initDryWeb(wasmUrl: string): Promise<void> {
   if (!initPromise) {
-    initPromise = (async () => {
-      const glue: Record<string, unknown> = await import(/* @vite-ignore */ wasmUrl);
-      // wasm-bindgen --target web: default export is the async init; it fetches dry_wasm_bg.wasm
-      // relative to the glue's own URL.
-      await (glue.default as () => Promise<unknown>)();
+    const attempt = (async () => {
+      const useBlobLoader =
+        typeof globalThis.fetch === 'function' &&
+        typeof Blob !== 'undefined' &&
+        typeof URL !== 'undefined' &&
+        typeof URL.createObjectURL === 'function';
+      const glueUrl = new URL(wasmUrl, globalThis.location?.href ?? 'http://localhost/');
+      const glue = useBlobLoader
+        ? await importWasmFromPublic(glueUrl.toString())
+        : (await import(/* @vite-ignore */ wasmUrl)) as DryWasmGlue;
+
+      const init = glue.default;
+      if (typeof init !== 'function') {
+        throw new Error('failed to initialise dry_wasm: missing default export function');
+      }
+
+      // A blob module has no useful relative location, so provide the wasm binary URL explicitly.
+      const initArg = useBlobLoader ? new URL('dry_wasm_bg.wasm', glueUrl).toString() : undefined;
+      await init(initArg);
       const fn = (k: string) => glue[k] as DryWasm[keyof DryWasm];
       setWasmBinding({
         resolve_gcode: fn('resolve_gcode'),
@@ -27,6 +64,10 @@ export function initDryWeb(wasmUrl: string): Promise<void> {
         resolve_verify: fn('resolve_verify'),
       } as DryWasm);
     })();
+    initPromise = attempt.catch((error: unknown) => {
+      initPromise = undefined;
+      throw error;
+    });
   }
   return initPromise;
 }

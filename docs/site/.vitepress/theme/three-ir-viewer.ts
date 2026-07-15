@@ -62,6 +62,13 @@ export class ThreeIrViewer {
     this.paint();
   }
 
+  clear(): void {
+    this.currentIr = undefined;
+    this.currentOptions = {};
+    this.clearPath();
+    this.paint();
+  }
+
   setView(preset: CadViewPreset): void {
     const box = this.currentBox();
     const center = box.getCenter(new THREE.Vector3());
