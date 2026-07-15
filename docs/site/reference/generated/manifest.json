@@ -27,7 +27,7 @@
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "5b4aabf9fd55b6326d6d1ccc65f5cc47812e1875d78b31077a7e27675aaa769f"
+      "sha256": "01d49d4ed32b57f3c979b72ee688b6236d9577ce18ec2df0a6f304e991686e2f"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",

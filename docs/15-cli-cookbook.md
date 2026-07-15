@@ -212,7 +212,9 @@ itself stays gated. Use `--json` to emit the full envelope (`docs/11` §3.8) wit
 ### `upload` — verify gate then upload to Moonraker
 ```sh
 dry review-gcode examples/part.gcode --profile spec/examples/profiles/voron-abs-klipper.json
-dry upload examples/part.gcode --moonraker http://voron.local --api-key-env MOONRAKER_API_KEY
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --api-key-env MOONRAKER_API_KEY \
+  --profile spec/examples/profiles/voron-abs-klipper.json
 ```
 
 Dry runs its verify gate on the file before upload:
