@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 # Jobs run on the shared self-hosted Linux x64 runner (Hetzner; labels [self-hosted, X64]), the same
 # box that backs rapsody's CI. The toolchains are provisioned per-run (dtolnay/rust-toolchain,
 # setup-node, setup-python, `cargo install wasm-bindgen-cli`), so the image stays minimal.
@@ -17,14 +20,14 @@ jobs:
     name: core (fmt + clippy + test, native + wasm)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
       - name: fmt
@@ -61,13 +64,13 @@ jobs:
     name: python SDK (maturin build + pytest)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           components: rustfmt, clippy
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
       - name: rust check (the binding)
@@ -92,14 +95,14 @@ jobs:
     name: wasm binding (build + node reproduces the oracle)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
       # the binding is excluded from the core workspace, so it gets its own fmt + clippy (same
@@ -123,13 +126,13 @@ jobs:
     name: TypeScript SDK (build + reproduces the oracle)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
@@ -147,16 +150,14 @@ jobs:
   docs-site:
     name: docs site (typecheck + unit + smoke)
     runs-on: [self-hosted, X64]
-    permissions:
-      contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           targets: wasm32-unknown-unknown
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
@@ -197,10 +198,10 @@ jobs:
     name: spec vectors (independent python validator, no dry-core)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
       - name: install validator deps (jsonschema only; the codec is pure stdlib)
@@ -221,10 +222,10 @@ jobs:
     name: benches (compile gate)
     runs-on: [self-hosted, X64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       # Keep the criterion benchmarks compiling against the current API (docs/13-performance-and-scale.md).
       # The deterministic bounded-memory scale gate (tests/memory_scale.rs) runs in the `core` job's
       # `cargo test --all`; wall-clock benchmarks are local-profiling only, not a CI pass/fail.
