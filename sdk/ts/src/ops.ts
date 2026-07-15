@@ -2,6 +2,7 @@
 // and hands them to the wasm engine, which resolves / simulates / emits them. This is the same op
 // shape the Python SDK and the conformance oracle use.
 
+/** Authoring operation in Dry L1, before resolution into concrete toolpath segments. */
 export type Op =
   | { op: 'geometry'; width: number; height: number }
   | { op: 'extruder'; on: boolean }
@@ -31,21 +32,33 @@ export type Op =
 
 /** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
 export interface ResolveParams {
+  /** Default extrusion feedrate in mm/min. */
   print_speed: number;
+  /** Default travel feedrate in mm/min. */
   travel_speed: number;
+  /** Filament diameter in mm. */
   dia: number;
 }
 
 /** Simulation metrics returned by `simulate`. */
 export interface Metrics {
+  /** Total estimated time in seconds. */
   total_time_s: number;
+  /** Estimated extruding move time in seconds. */
   print_time_s: number;
+  /** Estimated travel move time in seconds. */
   travel_time_s: number;
+  /** Total extruding path length in mm. */
   extruding_distance: number;
+  /** Total non-extruding path length in mm. */
   travel_distance: number;
+  /** Deposited material volume in cubic mm. */
   extruded_volume: number;
+  /** Filament consumed in mm. */
   filament_length: number;
+  /** Number of resolved toolpath segments. */
   segment_count: number;
+  /** Maximum observed flow rate in cubic mm/s. */
   max_flow_rate: number;
 }
 
@@ -60,6 +73,7 @@ export type SegmentKind =
   | 'deposit'
   | 'manual_gcode';
 
+/** One resolved motion or process segment in the Dry L2 IR. */
 export interface Segment {
   start: (number | null)[];
   end: (number | null)[];
@@ -84,10 +98,15 @@ export interface Segment {
   control_points?: [number, number, number][];
 }
 
+/** Optional provenance and invariant metadata attached to a resolved toolpath. */
 export interface ToolpathMeta {
+  /** Name of the generator or pipeline that produced the toolpath. */
   generator?: string;
+  /** Coordinate and unit convention, normally millimeters. */
   units?: string;
+  /** Stable source hash when the toolpath was derived from an external artifact. */
   source_hash?: string;
+  /** Human-readable invariants the toolpath is expected to satisfy. */
   invariants?: string[];
 }
 
@@ -98,15 +117,22 @@ export interface Toolpath {
   segments: Segment[];
 }
 
+/** Severity level for a verification finding. */
 export type Severity = 'error' | 'warning';
 
+/** Single verification finding, optionally tied to a resolved segment index. */
 export interface Finding {
+  /** Stable rule identifier, such as `bounds` or `peak-acceleration`. */
   rule: string;
+  /** Whether the finding blocks the contract or is advisory. */
   severity: Severity;
+  /** Zero-based segment index, or null when the finding is global. */
   segment: number | null;
+  /** Human-readable finding details. */
   message: string;
 }
 
+/** Verification result containing all findings emitted by enabled rules. */
 export interface Report {
   findings: Finding[];
 }
@@ -116,4 +142,5 @@ export const PRINTERS: Record<string, ResolveParams> = {
   generic: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
 };
 
+/** Default resolver parameters for the generic built-in printer profile. */
 export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;

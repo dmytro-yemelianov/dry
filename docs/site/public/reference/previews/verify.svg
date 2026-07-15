@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 760 430">
+  <title id="title">Verify preview</title>
+  <desc id="desc">Rendered Dry toolpath preview for the verify example.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#101826" />
+      <stop offset="1" stop-color="#07101b" />
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#26384f" stroke-width="1" opacity="0.42" />
+    </pattern>
+    <style>
+      .title{font:700 24px ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;fill:#eff6ff}.meta{font:500 13px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#91a4bd}.print{fill:none;stroke:#38a0ff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.travel{fill:none;stroke:#8ca0b8;stroke-width:2;stroke-dasharray:7 7;stroke-linecap:round;opacity:.62}.dot-start{fill:#73e6a4}.dot-end{fill:#ffd166}.axis{stroke:#45617f;stroke-width:1.5;opacity:.7}
+    </style>
+  </defs>
+  <rect width="760" height="430" rx="24" fill="url(#bg)" />
+  <rect x="18" y="18" width="724" height="394" rx="18" fill="url(#grid)" opacity="0.95" />
+  <path class="axis" d="M52 378H132M52 378V298" />
+  <text class="title" x="34" y="52">Verify</text>
+  <text class="meta" x="34" y="76">2 segments · generated from Dry IR</text>
+  <g><path class="print" d="M54.00 213.00 L54.00 213.00" />
+    <path class="print" d="M54.00 213.00 L706.00 213.00" /></g>
+  <circle class="dot-start" cx="54.00" cy="213.00" r="5" />
+  <circle class="dot-end" cx="706.00" cy="213.00" r="5" />
+</svg>

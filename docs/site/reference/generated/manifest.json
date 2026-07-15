@@ -1,0 +1,51 @@
+{
+  "generator": "docs/site/scripts/gen-reference.mjs",
+  "sources": {
+    "tsIndex": {
+      "path": "sdk/ts/src/index.ts",
+      "sha256": "42d97f885f607c7be81e45ee5cba4673f4b06af9477f4cab1c33de4c99c05672"
+    },
+    "tsDesign": {
+      "path": "sdk/ts/src/design.ts",
+      "sha256": "5a113d36c8fcd52152d5a15b4fa6ccb70a1f6d3003e8b16a31b356c000564286"
+    },
+    "pythonSdk": {
+      "path": "py/python/dry/__init__.py",
+      "sha256": "bd89756f50890eb3fc7818eba859bd63f3d5b4f04f59069705c2b8406ff18870"
+    },
+    "examples": {
+      "path": "docs/site/reference/source/examples.json",
+      "sha256": "e694f54c492504512e6c3a13ef429ce40160c50569e7d3deb7a8243eb6566db5"
+    },
+    "pages": {
+      "path": "docs/site/reference/source/pages.json",
+      "sha256": "3bafc205dbbf67312ae26a9fc5f0933a5035038842842865502c7b8accbc7f18"
+    },
+    "cliMain": {
+      "path": "crates/cli/src/main.rs",
+      "sha256": "e2781325d7a7eec046311590cc3bd3aebffc6227082a1aaca4518344caeab922"
+    },
+    "cliCookbook": {
+      "path": "docs/15-cli-cookbook.md",
+      "sha256": "959bca67ec24b5b5508a6d9de870d5b9605cfcd94bc60c660918eaf84fe64fbc"
+    },
+    "irSpec": {
+      "path": "docs/10-dry-ir-v0-spec.md",
+      "sha256": "c2caae5f60b4518bf3ef1bcc2845bff782d8d987d714be8edec9f8eacf1e38ab"
+    },
+    "profilesReports": {
+      "path": "docs/11-profiles-and-reports.md",
+      "sha256": "fe2cf9766b53325e50ca4828f7b63b6482bc31d8794abbf763b4465f06cc5315"
+    },
+    "supportMatrix": {
+      "path": "docs/16-support-matrix.md",
+      "sha256": "390488c623443868c939ddb8b8233808e48f684541aa6044909b08a2cd6bf365"
+    }
+  },
+  "dynamic": {
+    "cliHelp": {
+      "command": "cargo run -q -p dry-cli -- --help",
+      "sha256": "f3051c58b280215d26e448402ddc829b58e0cf583d71d8287cec84b80207f2dc"
+    }
+  }
+}

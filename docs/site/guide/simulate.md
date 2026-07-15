@@ -1,0 +1,11 @@
+# 3. Simulate
+
+`.simulate()` runs the motion model and returns metrics: total/print/travel time, extruding and
+travel distance, extruded volume, filament length, and the peak volumetric flow rate.
+
+Reference: [TypeScript `Metrics`](../reference/generated/typescript-sdk#metrics),
+[Python `simulate`](../reference/generated/python-sdk#simulate).
+
+<LiveExample src="simulate" :outputs="['metrics', 'gcode']" />
+
+Try raising `.speed(...)` and watch `total_time_s` and `max_flow_rate` move.

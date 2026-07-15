@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "paths": { "@dry/sdk": ["../../sdk/ts/src/index.ts"], "@sdk/*": ["../../sdk/ts/src/*"] }
+  },
+  "include": ["examples", ".vitepress/theme"]
+}

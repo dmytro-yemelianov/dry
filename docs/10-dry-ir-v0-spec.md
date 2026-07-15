@@ -41,6 +41,7 @@ as raw little-endian `f64` bits in binary. The canonical length unit is the **mi
 There are no `NaN` or infinite values in a conforming toolpath. Implementations **MUST** preserve the
 exact `f64` bit pattern of every quantity through a round trip (§9).
 
+<!-- docs-gen:start ir-core-model -->
 ## 3. Data model
 
 ### 3.1 `Toolpath`
@@ -134,6 +135,7 @@ A minimal empty toolpath is exactly:
 {"version":0,"segments":[]}
 ```
 
+<!-- docs-gen:end ir-core-model -->
 ## 5. `DRY0` — columnar binary encoding
 
 `DRY0` is a compact, lossless, **struct-of-arrays** archive: a small plaintext header, then a

@@ -1,0 +1,74 @@
+[
+  {
+    "slug": "author",
+    "title": "Author a path",
+    "description": "Create a fluent L1 design and emit motion G-code.",
+    "concepts": ["Design", "geometry", "extruder", "point", "gcode"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/author.ts",
+      "python": "docs/site/examples/author.py"
+    },
+    "outputs": ["gcode"]
+  },
+  {
+    "slug": "lower",
+    "title": "Lower to the Dry IR",
+    "description": "Resolve an authored design into Dry's structured L2 toolpath IR.",
+    "concepts": ["Design", "ir", "segments", "toolpath"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/lower.ts",
+      "python": "docs/site/examples/lower.py"
+    },
+    "outputs": ["ir"]
+  },
+  {
+    "slug": "simulate",
+    "title": "Simulate",
+    "description": "Compute toolpath metrics such as time, distances, material, and peak flow.",
+    "concepts": ["Design", "simulate", "metrics"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/simulate.ts",
+      "python": "docs/site/examples/simulate.py"
+    },
+    "outputs": ["metrics"]
+  },
+  {
+    "slug": "verify",
+    "title": "Verify",
+    "description": "Check a resolved design against machine-safety contracts and inspect findings.",
+    "concepts": ["Design", "verify", "Report", "Finding", "Severity"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/verify.ts",
+      "python": "docs/site/examples/verify.py"
+    },
+    "outputs": ["report"]
+  },
+  {
+    "slug": "optimize",
+    "title": "Optimize",
+    "description": "Resolve through the optimization pipeline and inspect optimized IR.",
+    "concepts": ["Design", "optimizedIr", "balancedIr", "toolpath"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/optimize.ts",
+      "python": "docs/site/examples/optimize.py"
+    },
+    "outputs": ["ir"]
+  },
+  {
+    "slug": "generative",
+    "title": "Generative",
+    "description": "Generate TPMS-style infill paths from structured options.",
+    "concepts": ["TPMS", "tpms", "tpmsOps", "tpms_gcode"],
+    "languages": ["typescript", "python"],
+    "sources": {
+      "typescript": "docs/site/examples/generative.ts",
+      "python": "docs/site/examples/generative.py"
+    },
+    "outputs": ["gcode", "ir"]
+  }
+]

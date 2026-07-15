@@ -1,0 +1,37 @@
+{
+  "name": "@dry/docs-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "docs:check": "node scripts/check-reference-coverage.mjs",
+    "docs:gen": "node scripts/gen-example-previews.mjs && node scripts/gen-reference.mjs",
+    "build": "vitepress build",
+    "preview": "vitepress preview --port 4173",
+    "reference": "npm run docs:gen && npm run docs:check",
+    "wasm": "bash build.sh wasm-only",
+    "typecheck": "tsc -p tsconfig.examples.json --noEmit",
+    "test": "vitest run",
+    "smoke": "playwright test"
+  },
+  "devDependencies": {
+    "@codemirror/lang-javascript": "^6.2.2",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.1",
+    "@dry/sdk": "file:../../sdk/ts",
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.0.0",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.6",
+    "codemirror": "^6.0.1",
+    "jsdom": "^25.0.1",
+    "sucrase": "^3.35.0",
+    "three": "^0.185.0",
+    "typescript": "^5.6.0",
+    "vitepress": "^1.6.3",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13"
+  }
+}

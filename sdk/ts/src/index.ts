@@ -8,6 +8,8 @@
 //   console.log(d.gcode().join('\n'));   // motion g-code
 //   console.log(d.simulate());           // metrics
 
+import './engine.node'; // side effect: install the Node wasm binding on import (Node entry only)
+
 export { Design } from './design';
 export {
   resolveGcode,
@@ -21,7 +23,18 @@ export {
 } from './engine';
 export type { MachineKinematics } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
-export type { Op, ResolveParams, Metrics, Segment, SegmentKind, Toolpath } from './ops';
+export type {
+  Finding,
+  Metrics,
+  Op,
+  Report,
+  ResolveParams,
+  Segment,
+  SegmentKind,
+  Severity,
+  Toolpath,
+  ToolpathMeta,
+} from './ops';
 export {
   STAR_POLYGON_FAMILIES,
   normalizeStarPolygonAlpha,
