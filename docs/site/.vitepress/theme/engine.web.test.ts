@@ -19,13 +19,15 @@ function moduleUrl(source: string): string {
 beforeEach(() => {
   vi.resetModules();
   delete (globalThis as { dryWebInitCount?: number }).dryWebInitCount;
+  delete (globalThis as { dryWebInitHadArg?: boolean }).dryWebInitHadArg;
 });
 
 test('deduplicates concurrent web engine initialization', async () => {
   const { initDryWeb } = await import('@sdk/engine.web');
   const url = moduleUrl(`
-    export default async function init() {
+    export default async function init(arg) {
       globalThis.dryWebInitCount = (globalThis.dryWebInitCount || 0) + 1;
+      globalThis.dryWebInitHadArg = arg !== undefined;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     ${wasmExports}
@@ -37,6 +39,7 @@ test('deduplicates concurrent web engine initialization', async () => {
   expect(second).toBe(first);
   await first;
   expect((globalThis as { dryWebInitCount?: number }).dryWebInitCount).toBe(1);
+  expect((globalThis as { dryWebInitHadArg?: boolean }).dryWebInitHadArg).toBe(false);
 });
 
 test('allows a retry after initialization rejects', async () => {

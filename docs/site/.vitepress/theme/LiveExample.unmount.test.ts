@@ -4,14 +4,25 @@ import { nextTick } from 'vue';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  initDryEngine: vi.fn(() => Promise.resolve()),
   runSnippet: vi.fn(() => ({ ok: true, value: 42 })),
+  workerRun: vi.fn(() => Promise.resolve({
+    ok: true,
+    outputs: { ir: null as unknown, gcode: [], metrics: null, verify: null },
+  })),
+  workerDispose: vi.fn(),
   viewerDispose: vi.fn(),
+  viewerRender: vi.fn(),
 }));
 
 vi.mock('./dry-engine', () => ({
   getDry: () => ({}),
-  initDryEngine: mocks.initDryEngine,
+}));
+
+vi.mock('./snippet-worker-client', () => ({
+  SnippetWorkerClient: class {
+    run = mocks.workerRun;
+    dispose = mocks.workerDispose;
+  },
 }));
 
 vi.mock('./three-ir-viewer', () => ({
@@ -19,7 +30,7 @@ vi.mock('./three-ir-viewer', () => ({
     clear() {}
     dispose() { mocks.viewerDispose(); }
     fit() {}
-    render() {}
+    render(...args: unknown[]) { mocks.viewerRender(...args); }
     setView() {}
   },
 }));
@@ -27,9 +38,14 @@ vi.mock('./three-ir-viewer', () => ({
 vi.mock('./run-snippet', () => ({ runSnippet: mocks.runSnippet }));
 
 beforeEach(() => {
-  mocks.initDryEngine.mockReset().mockResolvedValue(undefined);
   mocks.runSnippet.mockReset().mockReturnValue({ ok: true, value: 42 });
+  mocks.workerRun.mockReset().mockResolvedValue({
+    ok: true,
+    outputs: { ir: null as unknown, gcode: [], metrics: null, verify: null },
+  });
+  mocks.workerDispose.mockReset();
   mocks.viewerDispose.mockReset();
+  mocks.viewerRender.mockReset();
 });
 
 afterEach(() => {
@@ -52,12 +68,23 @@ test('destroys editor and viewer resources when unmounted', async () => {
 
   expect(destroy).toHaveBeenCalledOnce();
   expect(mocks.viewerDispose).toHaveBeenCalledOnce();
+  expect(mocks.workerDispose).toHaveBeenCalledOnce();
 });
 
-test('does not run a late engine initialization after unmount', async () => {
+test('does not render a late worker result after unmount', async () => {
   vi.stubEnv('MODE', 'development');
   let finish!: () => void;
-  mocks.initDryEngine.mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve; }));
+  mocks.workerRun.mockReturnValueOnce(new Promise((resolve) => {
+    finish = () => resolve({
+      ok: true,
+      outputs: {
+        ir: { version: 1, segments: [] },
+        gcode: [],
+        metrics: null,
+        verify: null,
+      },
+    });
+  }));
   const { default: LiveExample } = await import('./LiveExample.vue');
   const wrapper = mount(LiveExample, {
     props: { code: '42', outputs: ['gcode'] },
@@ -70,5 +97,6 @@ test('does not run a late engine initialization after unmount', async () => {
   finish();
   await flushPromises();
 
-  expect(mocks.runSnippet).not.toHaveBeenCalled();
+  expect(mocks.viewerRender).not.toHaveBeenCalled();
+  expect(mocks.workerDispose).toHaveBeenCalledOnce();
 });

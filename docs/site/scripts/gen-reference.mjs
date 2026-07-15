@@ -360,14 +360,17 @@ print(json.dumps({"all": public_all(), "assignments": assignments, "classes": cl
 
   const pythonPath = repoPath(sourceFiles.pythonSdk);
   const bins = ['python3', 'python'];
+  let lastError;
   for (const bin of bins) {
     try {
       return JSON.parse(execFileSync(bin, ['-', pythonPath], { input: code, encoding: 'utf8' }));
-    } catch {
+    } catch (error) {
+      lastError = error;
       // Try the next Python binary.
     }
   }
-  throw new Error('Unable to run python3 or python for Python API extraction');
+  const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'unknown error');
+  throw new Error(`Unable to run python3 or python for Python API extraction: ${detail}`, { cause: lastError });
 }
 
 function extractHeadings(relativePath) {
@@ -852,20 +855,27 @@ function renderCliReference() {
   };
 }
 
-function escapeRegExp(text) {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function topLevelMarkdownSection(markdown, headingText) {
   const cleaned = sanitizeExtractedMarkdown(markdown);
-  const headingRe = new RegExp(`^##\\s+${escapeRegExp(headingText)}\\s*$`, 'm');
-  const match = headingRe.exec(cleaned);
-  if (!match || match.index == null) return '';
-  const start = match.index;
-  const rest = cleaned.slice(start + match[0].length);
-  const next = rest.search(/^##\s+/m);
-  if (next === -1) return cleaned.slice(start).trim();
-  return cleaned.slice(start, start + match[0].length + next).trim();
+  const headings = [];
+  let inFence = false;
+  let offset = 0;
+  const lines = cleaned.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (/^```/.test(line.trim())) {
+      inFence = !inFence;
+    } else if (!inFence) {
+      const match = /^##\s+(.+?)\s*$/.exec(line);
+      if (match) headings.push({ text: match[1], start: offset });
+    }
+    offset += line.length + (index < lines.length - 1 ? 1 : 0);
+  }
+
+  const index = headings.findIndex((heading) => heading.text === headingText);
+  if (index === -1) return '';
+  const end = headings[index + 1]?.start ?? cleaned.length;
+  return cleaned.slice(headings[index].start, end).trim();
 }
 
 function renderExtractedPage(title, sourcePath, content, missingMarker) {

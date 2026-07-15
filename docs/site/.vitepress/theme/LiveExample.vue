@@ -4,11 +4,14 @@ import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { Compartment, EditorState } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
-import { getDry, initDryEngine } from './dry-engine';
+import { getDry } from './dry-engine';
 import { runSnippet } from './run-snippet';
+import { resolveSnippetOutputs } from './snippet-output';
+import { SnippetWorkerClient } from './snippet-worker-client';
+import type { SnippetExecutionResult } from './snippet-worker-client';
 import { ThreeIrViewer } from './three-ir-viewer';
 import type { CadViewPreset } from './three-ir-viewer';
-import type { Metrics, Report, Toolpath } from '@sdk/ops';
+import type { Toolpath } from '@sdk/ops';
 
 const TS_EXAMPLES = import.meta.glob('../../examples/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const PY_EXAMPLES = import.meta.glob('../../examples/*.py', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -47,6 +50,7 @@ const viewportHost = ref<HTMLElement | null>(null);
 const editorHost = ref<HTMLElement | null>(null);
 const slotSourceHost = ref<HTMLElement | null>(null);
 const ready = ref(false);
+const running = ref(false);
 const view = shallowRef<EditorView | null>(null);
 const languageCompartment = new Compartment();
 const editableCompartment = new Compartment();
@@ -65,11 +69,12 @@ const playing = ref(false);
 let timer: ReturnType<typeof setTimeout> | undefined;
 let playTimer: ReturnType<typeof setInterval> | undefined;
 let unmounted = false;
+let runVersion = 0;
+let executionClient: SnippetWorkerClient | null = null;
 
 const tabs = computed(() => props.outputs);
 const segmentCount = computed(() => lastIr.value?.segments.length ?? 0);
 const visibleSegments = computed(() => playHead.value ?? segmentCount.value);
-const wants = (name: string) => props.outputs.includes(name);
 const isTestMode = (): boolean => {
   const meta = import.meta as ImportMeta & { env?: { MODE?: string } };
   return meta.env?.MODE === 'test';
@@ -102,18 +107,6 @@ function setCodeLanguage(lang: CodeLanguage): void {
 
 function toggleCodeCollapsed(): void {
   codeCollapsed.value = !codeCollapsed.value;
-}
-
-function isToolpath(value: unknown): value is Toolpath {
-  return !!value && typeof value === 'object' && Array.isArray((value as Toolpath).segments);
-}
-
-function isMetrics(value: unknown): value is Metrics {
-  return !!value && typeof value === 'object' && typeof (value as Metrics).total_time_s === 'number';
-}
-
-function isReport(value: unknown): value is Report {
-  return !!value && typeof value === 'object' && Array.isArray((value as Report).findings);
 }
 
 function drawCurrentIr(): void {
@@ -197,49 +190,48 @@ function togglePlayback(): void {
   }, 220);
 }
 
-function runNow(): void {
-  if (!ready.value || unmounted) return;
+async function executeSnippet(): Promise<SnippetExecutionResult> {
+  if (!isTestMode()) {
+    return executionClient?.run(source.value, [...props.outputs])
+      ?? { ok: false, error: 'snippet worker is not ready' };
+  }
+
   const result = runSnippet(source.value, getDry());
+  if (!result.ok) return result;
+  try {
+    return { ok: true, outputs: resolveSnippetOutputs(result.value, props.outputs, getDry()) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function runNow(): Promise<void> {
+  if (!ready.value || unmounted) return;
+  const version = ++runVersion;
+  clearResultState();
+  error.value = '';
+  running.value = true;
+  let result: SnippetExecutionResult;
+  try {
+    result = await executeSnippet();
+  } catch (e) {
+    result = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  if (unmounted || version !== runVersion) return;
+  running.value = false;
   if (!result.ok) {
-    clearResultState();
     error.value = result.error;
     return;
   }
 
-  error.value = '';
   try {
-    clearResultState();
-    const value = result.value as {
-      ir?: () => Toolpath;
-      gcode?: () => string[];
-      simulate?: () => Metrics;
-      verify?: (...args: unknown[]) => Report;
-    };
-
-    const ir = isToolpath(result.value) ? result.value : typeof value?.ir === 'function' ? value.ir() : undefined;
-    lastIr.value = ir ?? null;
+    const { ir, gcode: nextGcode, metrics, verify } = result.outputs;
+    lastIr.value = ir;
     drawCurrentIr();
     irText.value = ir ? JSON.stringify(ir, null, 2) : '';
-
-    if (Array.isArray(result.value) && result.value.every((line) => typeof line === 'string')) {
-      gcode.value = result.value;
-    } else {
-      gcode.value = typeof value?.gcode === 'function' ? value.gcode() : [];
-    }
-
-    metricsText.value = isMetrics(result.value)
-      ? JSON.stringify(result.value, null, 2)
-      : wants('metrics') && typeof value?.simulate === 'function'
-        ? JSON.stringify(value.simulate(), null, 2)
-        : ir && wants('metrics')
-          ? JSON.stringify(getDry().resolveMetricsIr(JSON.stringify(ir)), null, 2)
-          : '';
-
-    verifyText.value = isReport(result.value)
-      ? JSON.stringify(result.value, null, 2)
-      : wants('verify') && typeof value?.verify === 'function'
-        ? JSON.stringify(value.verify('generic', 0, 0, [[0, 250], [0, 210], [0, 220]]), null, 2)
-        : '';
+    gcode.value = nextGcode;
+    metricsText.value = metrics ? JSON.stringify(metrics, null, 2) : '';
+    verifyText.value = verify ? JSON.stringify(verify, null, 2) : '';
   } catch (e) {
     clearResultState();
     error.value = e instanceof Error ? e.message : String(e);
@@ -248,6 +240,7 @@ function runNow(): void {
 
 onMounted(async () => {
   await nextTick();
+  if (unmounted) return;
   const seeded = seed();
   source.value = seeded;
   const testing = isTestMode();
@@ -272,19 +265,14 @@ onMounted(async () => {
     });
   }
 
-  try {
-    if (!testing) await initDryEngine();
-    if (unmounted) return;
-    ready.value = true;
-    runNow();
-  } catch (e) {
-    if (unmounted) return;
-    error.value = `couldn't load the Dry engine (wasm): ${e instanceof Error ? e.message : String(e)}`;
-  }
+  if (!testing) executionClient = new SnippetWorkerClient();
+  ready.value = true;
+  void runNow();
 });
 
 onBeforeUnmount(() => {
   unmounted = true;
+  runVersion++;
   clearTimeout(timer);
   timer = undefined;
   stopPlayback();
@@ -292,6 +280,8 @@ onBeforeUnmount(() => {
   view.value = null;
   viewer.value?.dispose();
   viewer.value = null;
+  executionClient?.dispose();
+  executionClient = null;
 });
 
 function reset(): void {
@@ -377,7 +367,7 @@ function reset(): void {
         <pre v-else-if="tab === 'metrics'" class="live-out">{{ metricsText }}</pre>
         <pre v-else-if="tab === 'verify'" class="live-out">{{ verifyText }}</pre>
         <div v-if="error" class="live-error">Error: {{ error }}</div>
-        <div v-else-if="!ready" class="live-loading">loading engine...</div>
+        <div v-else-if="!ready || running" class="live-loading">running example...</div>
       </div>
     </div>
   </ClientOnly>

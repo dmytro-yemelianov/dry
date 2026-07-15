@@ -10,6 +10,14 @@ type DryWasmGlue = Record<string, unknown> & {
   default?: (wasmPath?: string | URL | Request) => Promise<unknown>;
 };
 
+function relativeWasmUrl(glueUrl: URL): string | undefined {
+  try {
+    return new URL('dry_wasm_bg.wasm', glueUrl).toString();
+  } catch {
+    return undefined;
+  }
+}
+
 async function importWasmFromPublic(glueUrl: string): Promise<DryWasmGlue> {
   const response = await globalThis.fetch(glueUrl);
   if (!response.ok) {
@@ -48,8 +56,10 @@ export function initDryWeb(wasmUrl: string): Promise<void> {
         throw new Error('failed to initialise dry_wasm: missing default export function');
       }
 
-      // A blob module has no useful relative location, so provide the wasm binary URL explicitly.
-      const initArg = useBlobLoader ? new URL('dry_wasm_bg.wasm', glueUrl).toString() : undefined;
+      // A blob module has no useful relative location. Pass the binary URL explicitly when the
+      // original glue URL is hierarchical; data/blob test modules fall back to wasm-bindgen's
+      // default initialization behavior.
+      const initArg = useBlobLoader ? relativeWasmUrl(glueUrl) : undefined;
       await init(initArg);
       const fn = (k: string) => glue[k] as DryWasm[keyof DryWasm];
       setWasmBinding({

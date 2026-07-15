@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Segment, Toolpath } from '@sdk/ops';
-// @ts-expect-error - shared plain-JS module, no types
-import { splinePoints } from '@webspline';
+import type { Toolpath } from '@sdk/ops';
+import { segmentPoints } from './segment-points';
 
 export type CadViewPreset = 'top' | 'front' | 'right' | 'iso';
 
@@ -56,9 +55,11 @@ export class ThreeIrViewer {
   }
 
   render(ir: Toolpath, options: ThreeIrRenderOptions = {}): void {
+    const geometryChanged = this.currentIr !== ir;
     this.currentIr = ir;
     this.currentOptions = options;
-    this.rebuildPath();
+    if (geometryChanged) this.rebuildPath();
+    this.updatePathAppearance();
     this.paint();
   }
 
@@ -101,6 +102,7 @@ export class ThreeIrViewer {
     const size = box.getSize(new THREE.Vector3());
     this.viewSize = Math.max(size.x, size.y, size.z, 20) * 1.35;
     this.controls.target.copy(center);
+    this.controls.update();
     this.refreshHelpers(Math.max(size.x, size.y, 20));
     this.resize();
     this.paint();
@@ -110,6 +112,7 @@ export class ThreeIrViewer {
     this.observer?.disconnect();
     this.controls.dispose();
     this.clearPath();
+    this.clearHelpers();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
@@ -118,17 +121,26 @@ export class ThreeIrViewer {
     this.clearPath();
     if (!this.currentIr) return;
     const segments = this.currentIr.segments;
-    const limit = Math.min(segments.length, Math.max(0, this.currentOptions.maxSegments ?? segments.length));
-    for (let index = 0; index < limit; index++) {
-      const pts = segmentPoints(segments[index]);
+    for (let index = 0; index < segments.length; index++) {
+      const pts = segmentPoints(segments[index]).map(vector);
       if (pts.length < 2) continue;
       const geometry = new THREE.BufferGeometry().setFromPoints(pts);
-      const material = index === this.currentOptions.activeSegment ? ACTIVE : segments[index].travel ? TRAVEL : PRINT;
+      const material = segments[index].travel ? TRAVEL : PRINT;
       const line = new THREE.Line(geometry, material);
       if (material instanceof THREE.LineDashedMaterial) line.computeLineDistances();
       this.pathGroup.add(line);
     }
     this.fit();
+  }
+
+  private updatePathAppearance(): void {
+    const segments = this.currentIr?.segments ?? [];
+    const limit = Math.min(segments.length, Math.max(0, this.currentOptions.maxSegments ?? segments.length));
+    for (let index = 0; index < this.pathGroup.children.length; index++) {
+      const line = this.pathGroup.children[index] as THREE.Line;
+      line.visible = index < limit;
+      line.material = index === this.currentOptions.activeSegment ? ACTIVE : segments[index]?.travel ? TRAVEL : PRINT;
+    }
   }
 
   private clearPath(): void {
@@ -145,14 +157,25 @@ export class ThreeIrViewer {
   }
 
   private refreshHelpers(size: number): void {
-    if (this.grid) this.scene.remove(this.grid);
-    if (this.axes) this.scene.remove(this.axes);
+    this.clearHelpers();
     const gridSize = Math.max(20, Math.ceil(size / 10) * 10);
     this.grid = new THREE.GridHelper(gridSize, 20, 0x263241, 0x1a2432);
     this.grid.rotation.x = Math.PI / 2;
     this.scene.add(this.grid);
     this.axes = new THREE.AxesHelper(gridSize * 0.18);
     this.scene.add(this.axes);
+  }
+
+  private clearHelpers(): void {
+    for (const helper of [this.grid, this.axes]) {
+      if (!helper) continue;
+      this.scene.remove(helper);
+      helper.geometry.dispose();
+      const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
+      for (const material of materials) material.dispose();
+    }
+    this.grid = undefined;
+    this.axes = undefined;
   }
 
   private resize(): void {
@@ -173,35 +196,6 @@ export class ThreeIrViewer {
   }
 }
 
-function segmentPoints(seg: Segment): THREE.Vector3[] {
-  if (seg.kind === 'spline') {
-    const sampled = (splinePoints(seg) as number[][] | null) ?? [seg.start as number[], seg.end as number[]];
-    return sampled.map(vector);
-  }
-  if (seg.kind === 'arc' && seg.centre) return arcPoints(seg);
-  return [vector(seg.start), vector(seg.end)];
-}
-
-function vector(p: (number | null)[]): THREE.Vector3 {
+function vector(p: readonly (number | null)[]): THREE.Vector3 {
   return new THREE.Vector3(p[0] ?? 0, p[1] ?? 0, p[2] ?? 0);
-}
-
-function arcPoints(seg: Segment): THREE.Vector3[] {
-  const start = vector(seg.start);
-  const end = vector(seg.end);
-  const cx = seg.centre?.[0] ?? 0;
-  const cy = seg.centre?.[1] ?? 0;
-  const radius = Math.hypot(start.x - cx, start.y - cy);
-  if (!Number.isFinite(radius) || radius <= 0) return [start, end];
-  const a0 = Math.atan2(start.y - cy, start.x - cx);
-  let a1 = Math.atan2(end.y - cy, end.x - cx);
-  if (seg.clockwise && a1 > a0) a1 -= Math.PI * 2;
-  if (!seg.clockwise && a1 < a0) a1 += Math.PI * 2;
-  const pts: THREE.Vector3[] = [];
-  for (let i = 0; i <= 32; i++) {
-    const t = i / 32;
-    const a = a0 + (a1 - a0) * t;
-    pts.push(new THREE.Vector3(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, start.z + (end.z - start.z) * t));
-  }
-  return pts;
 }

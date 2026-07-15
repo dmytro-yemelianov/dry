@@ -99,6 +99,6 @@ export default defineConfig({
   },
   vite: {
     resolve: { alias: { '@sdk': sdkSrc, '@webspline': webSpline } },
-    server: { fs: { allow: [repoRoot] } },
+    server: { fs: { allow: [sdkSrc, path.dirname(webSpline)] } },
   },
 });

@@ -64,12 +64,43 @@ test('clears output from the previous run when an edit fails', async () => {
   expect(wrapper.find('.live-out').text()).toContain('G1 X10 Y0');
 
   const setupState = (wrapper.vm as unknown as {
-    $: { setupState: { source: string; runNow: () => void } };
+    $: { setupState: { source: string; runNow: () => Promise<void> } };
   }).$.setupState;
   setupState.source = `throw new Error('edited failure')`;
-  setupState.runNow();
+  await setupState.runNow();
   await nextTick();
 
   expect(wrapper.find('.live-error').text()).toContain('edited failure');
   expect(wrapper.find('.live-out').text()).toBe('');
+});
+
+test('clears a previous toolpath when the next successful result has no toolpath', async () => {
+  const wrapper = mountLiveExample({
+    code: `({ version: 1, segments: [{ start: [0,0,0], end: [2,0,0], travel: false, kind: 'line' }] })`,
+    outputs: ['ir'],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(wrapper.find('.live-out').text()).toContain('"segments"');
+
+  const setupState = (wrapper.vm as unknown as {
+    $: { setupState: { source: string; runNow: () => Promise<void> } };
+  }).$.setupState;
+  setupState.source = '42';
+  await setupState.runNow();
+  await nextTick();
+
+  expect(wrapper.find('.live-out').text()).toBe('');
+  expect(wrapper.find('.live-error').exists()).toBe(false);
+});
+
+test('does not call gcode when that output was not requested', async () => {
+  const code = `({
+    ir() { return { version: 1, segments: [] } },
+    gcode() { throw new Error('gcode should not run') }
+  })`;
+  const wrapper = mountLiveExample({ code, outputs: ['ir'] });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  expect(wrapper.find('.live-out').text()).toContain('"segments"');
+  expect(wrapper.find('.live-error').exists()).toBe(false);
 });

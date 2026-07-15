@@ -26,7 +26,7 @@ for (const { name, url } of PAGES) {
 
     const src = fs.readFileSync(path.join(examplesDir, `${name}.ts`), 'utf8');
     const expected = oracleGcode(src);
-    if (expected.length === 0) return;
+    test.skip(expected.length === 0, `the '${name}' example does not produce g-code`);
     await root.getByRole('button', { name: 'gcode' }).click();
     const shown = (await root.locator('.live-out').first().innerText()).trim().split('\n');
     expect(shown).toEqual(expected);

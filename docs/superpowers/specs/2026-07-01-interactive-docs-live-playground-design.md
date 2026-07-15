@@ -126,11 +126,10 @@ component) or explicit `<LiveExample>` with the code as a slot / `src` to a file
      `.gcode()` → g-code tab, `.simulate()` → metrics, `.verify(…)` → verify tab). A small adapter renders
      a `Design`, or a plain `{segments}` IR, or a metrics/report object.
 - **Realtime + safety:** runs only client-side. The component renders an inert code block during SSR /
-  before the engine is ready, then hydrates and runs on mount (guard with VitePress `<ClientOnly>` and an
-  `onMounted` engine `await`). Eval errors and engine `JsError`s are caught and shown **inline in the demo
-  pane** (red banner with the message) — a broken edit never blanks the canvas or throws past the
-  component. A per-run guard (try/catch + a soft op-count ceiling on generated examples) keeps a pathological
-  edit from hanging the tab.
+  before the engine is ready, then hydrates and runs on mount (guard with VitePress `<ClientOnly>`). Editable
+  code executes in a dedicated module Worker. Each edit supersedes and terminates the previous Worker, and
+  a hard two-second deadline terminates non-responsive code, so an infinite loop cannot hang the page. Eval
+  errors and engine `JsError`s are caught and shown **inline in the demo pane** (red banner with the message).
 
 ## Renderer (`render-ir.ts`)
 
@@ -184,8 +183,8 @@ components reuse the singleton).
 - **Engine not ready / failed to load wasm:** demo pane shows a "loading engine…" then, on failure, a
   clear "couldn't load the Dry engine (wasm)" message (reuse the spirit of `web/wasm-load.js`). Page prose
   still renders.
-- **Snippet compile/eval error** (bad TS, ReferenceError): caught, message shown inline; last good render
-  left in place if present, else an empty-state hint.
+- **Snippet compile/eval error** (bad TS, ReferenceError): caught and shown inline; all output panes and the
+  viewport are cleared as soon as a new run begins so stale results are never presented as current output.
 - **Engine `JsError`** (e.g. unknown printer, malformed ops): caught from the resolve call; message shown
   inline. These are *expected* in a teaching context (e.g. an intentionally-invalid edit) and must read as
   data, not a crash.

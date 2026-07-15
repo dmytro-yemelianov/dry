@@ -139,8 +139,12 @@ jobs:
   docs-site:
     name: docs site (typecheck + unit + smoke)
     runs-on: [self-hosted, X64]
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown

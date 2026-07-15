@@ -17,38 +17,17 @@ const KEYS = [
 ] as const;
 
 export function compileSnippet(src: string): (dry: Dry) => unknown {
-  const aliases = importAliases(src);
-  const stripped = stripModuleSyntax(src);
-  const js = transform(stripped, { transforms: ['typescript'] }).code;
+  const js = transform(src, { transforms: ['typescript', 'imports'] }).code;
   const destructure = `const { ${KEYS.join(', ')} } = __dry;\n`;
-  const aliasLines = aliases
-    .map(({ imported, local }) => imported ? `const ${local} = __dry.${imported};` : `const ${local} = __dry;`)
-    .join('\n');
-  const body = `${destructure}${aliasLines ? `${aliasLines}\n` : ''}return (function(){\n${wrapReturn(js)}\n})();`;
+  const moduleScope = `
+const exports = {};
+const require = (specifier) => {
+  if (specifier !== '@dry/sdk') throw new Error(\`unsupported live-docs import: \${specifier}\`);
+  return __dry;
+};
+`;
+  const body = `${destructure}${moduleScope}return (function(){\n${wrapReturn(js)}\n})();`;
   return new Function('__dry', `'use strict';\n${body}`) as (dry: Dry) => unknown;
-}
-
-function importAliases(src: string): Array<{ imported: string; local: string }> {
-  const aliases: Array<{ imported: string; local: string }> = [];
-  const named = /\bimport\s+\{([^}]+)\}\s+from\s*=?\s*['"]@dry\/sdk['"];?/g;
-  for (const match of src.matchAll(named)) {
-    for (const item of match[1].split(',')) {
-      const [imported, local = imported] = item.trim().split(/\s+as\s+/);
-      if (imported && local && imported !== local) aliases.push({ imported: imported.trim(), local: local.trim() });
-    }
-  }
-  const namespace = /\bimport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s*=?\s*['"]@dry\/sdk['"];?/g;
-  for (const match of src.matchAll(namespace)) aliases.push({ imported: '', local: match[1] });
-  return aliases;
-}
-
-function stripModuleSyntax(src: string): string {
-  return src
-    .replace(/\bimport\s+\{[^}]+\}\s+from\s*=?\s*['"]@dry\/sdk['"];?/g, '')
-    .replace(/\bimport\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s*=?\s*['"]@dry\/sdk['"];?/g, '')
-    .replace(/^\s*export\s+\{[^}]+\};?\s*$/gm, '')
-    .replace(/\bexport\s+default\s+/g, '')
-    .replace(/\bexport\s+(?=(const|let|var|function|class)\b)/g, '');
 }
 
 function wrapReturn(js: string): string {
@@ -167,9 +146,11 @@ function continuesClause(code: string, start: number): boolean {
   return /^(else|catch|finally)\b/.test(code.slice(start));
 }
 
-export function runSnippet(src: string, dry: Dry):
+export type SnippetRunResult =
   | { ok: true; value: unknown }
-  | { ok: false; error: string } {
+  | { ok: false; error: string };
+
+export function runSnippet(src: string, dry: Dry): SnippetRunResult {
   try {
     return { ok: true, value: compileSnippet(src)(dry) };
   } catch (e) {
