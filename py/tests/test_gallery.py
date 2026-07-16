@@ -15,6 +15,26 @@ def get_gallery_fixtures():
     paths = glob.glob(os.path.join(CONF_DIR, "*.json"))
     return [os.path.basename(p).replace(".json", "") for p in sorted(paths)]
 
+
+def load_gallery_fixture(name):
+    with open(os.path.join(CONF_DIR, f"{name}.json")) as f:
+        return json.load(f)
+
+
+def test_gallery_fixture_inventory_is_complete():
+    names = set(get_gallery_fixtures())
+    assert len(names) == 28  # 27 registry designs plus the published Overhang Challenge Plus variant
+    assert {"gyroid_infill", "overhang_challenge", "overhang_challenge_plus"} <= names
+
+
+def test_overhang_challenge_variants_are_distinct():
+    base = load_gallery_fixture("overhang_challenge")
+    plus = load_gallery_fixture("overhang_challenge_plus")
+    assert base["l1"] != plus["l1"]
+    assert base["ir"] != plus["ir"]
+    assert base["expected_gcode"] != plus["expected_gcode"]
+
+
 def build_design_from_ops(ops):
     d = dry.Design()
     for op in ops:
@@ -55,8 +75,7 @@ def build_design_from_ops(ops):
 
 @pytest.mark.parametrize("name", get_gallery_fixtures())
 def test_gallery_design_reproduces_oracle(name):
-    with open(os.path.join(CONF_DIR, f"{name}.json")) as f:
-        fx = json.load(f)
+    fx = load_gallery_fixture(name)
     
     # Reconstruct via fluent builder
     d = build_design_from_ops(fx["l1"]["ops"])

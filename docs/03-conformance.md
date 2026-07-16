@@ -2,8 +2,8 @@
 
 The rewrite's survival depends on **not re-discovering the fork's hard-won correctness as bugs**. The
 strategy: turn the fork's accumulated correctness (~906 tests, golden g-code, ~695 device profiles,
-26 exported gallery fixtures from a 27-design registry, the soapdish/"half-the-gallery-was-off"
-lessons) into a **conformance suite** that
+28 Dry gallery fixtures covering all 27 registered designs plus the separately published Overhang
+Challenge Plus variant, and the soapdish/"half-the-gallery-was-off" lessons) into a **conformance suite** that
 gates every phase. The new engine is only "done" for a phase when it reproduces the fork on those
 fixtures.
 
@@ -13,13 +13,14 @@ fixtures.
    representative designs, numbers normalised to 3dp. → the new `emit` must reproduce them.
 2. **G-code byte-identity** (the fork's drift-guard / `test_gcode_rust.py` corpus): per-design
    byte-for-byte Marlin/Klipper/Duet output. → the strictest `emit` gate.
-3. **Gallery designs** (26 exported fixtures from the fork's 27 registered `examples/`): each authored design + its expected metrics, invariants, and
+3. **Gallery designs** (28 Dry fixtures: the fork's 27 registered `examples/` plus a distinct
+   `overhang_challenge_plus` site variant): each authored design + its expected metrics, invariants, and
    g-code. → the *authoring* gate (the SDK must reproduce them) and the regression net against the
    fidelity bugs we fixed (soapdish, etc.).
 
-   The missing registry export is `gyroid_infill`; Dry's independent TPMS tests are not oracle parity.
-   The separate fullcontrol.xyz Overhang Challenge Plus variant also lacks its own fixture. See the
-   [source audit](site/reference/fullcontrol-sources.md).
+   The fork's `_SMALL` matrix remains at 26 and omits `gyroid_infill`; the Dry exporter adds a compact
+   oracle-backed gyroid case and the site-only plus variant explicitly, and fails if any of those
+   inventories drift. See the [source audit](site/reference/fullcontrol-sources.md).
 4. **Device profiles** (`fullcontrol/devices/`, ~695): each profile's init data + start/end procedures.
    → `emit` must honour them; a sampled subset runs per-CI, the full set nightly.
 5. **Round-trip & simulate** (`test_gcode_roundtrip.py`, `test_*simulate*`): `emit(parse(g)) == g`, and

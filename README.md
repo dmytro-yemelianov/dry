@@ -71,8 +71,9 @@ Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy i
 
 Dry is a clean-slate re-layering, but not a blank page: it bootstraps from the **FullControl fork**
 (`dmytro-yemelianov/fullcontrol`) — its Rust kernel, hardened IR, optimisation passes, ~695 device
-profiles, ~906 tests and 26 exported gallery fixtures (from a 27-design registry) become Dry's
-reference implementation seeds and **conformance
+profiles and ~906 tests become Dry's reference implementation seeds. Dry's oracle-generated gallery
+corpus contains 28 fixtures: all 27 registered designs plus the separately published Overhang Challenge
+Plus variant. Together they form the **conformance
 corpora** (`docs/03-conformance.md`). Every phase is gated on reproducing the fork's output.
 
 ## Licence
