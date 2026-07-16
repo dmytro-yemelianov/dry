@@ -6,7 +6,9 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 
-bash "$ROOT/web/build.sh" web "$ROOT/web/pkg"
+if [ "${1:-}" != "docs-only" ]; then
+  bash "$ROOT/web/build.sh" web "$ROOT/web/pkg"
+fi
 mkdir -p "$HERE/public/pkg"
 cp "$ROOT/web/pkg/dry_wasm.js" "$ROOT/web/pkg/dry_wasm_bg.wasm" "$HERE/public/pkg/"
 echo "copied web wasm -> $HERE/public/pkg/"
