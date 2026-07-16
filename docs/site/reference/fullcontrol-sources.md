@@ -32,7 +32,7 @@ every website slider value is covered.
 | Ripple Texture Demo | [`4a0397`](https://fullcontrol.xyz/#/models/4a0397) | [`ripple_vase`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/ripple_vase.json) | Fixture-backed; renamed |
 | Tape-Reinforcement Research Demo | [`eac87f`](https://fullcontrol.xyz/#/models/eac87f) | [`tape_reinforcement`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/tape_reinforcement.json) | Fixture-backed |
 | Overhang Challenge | [`b70938`](https://fullcontrol.xyz/#/models/b70938) | [`overhang_challenge`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/overhang_challenge.json) | Base variant fixture-backed |
-| Overhang Challenge Plus | [`2d37a5`](https://fullcontrol.xyz/#/models/2d37a5) | `overhang_challenge(plus=True)` in the oracle fork | **Partial:** implementation exists, but no distinct Dry fixture |
+| Overhang Challenge Plus | [`2d37a5`](https://fullcontrol.xyz/#/models/2d37a5) | [`overhang_challenge_plus`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/overhang_challenge_plus.json) | Distinct `plus=True` fixture-backed variant |
 | 2000-Retractions Test | [`3bfcdb`](https://fullcontrol.xyz/#/models/3bfcdb) | [`retraction_test`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/retraction_test.json) | Fixture-backed; renamed |
 | Star-Polygon Lattice Research | [`1d3528`](https://fullcontrol.xyz/#/models/1d3528) | [`star_polygon_lattice`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/star_polygon_lattice.json) | Fixture-backed |
 | AnyAngle Phone Stand | [`4d0e78`](https://fullcontrol.xyz/#/models/4d0e78) | [`phone_stand`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/phone_stand.json) | Fixture-backed; renamed |
@@ -43,8 +43,8 @@ every website slider value is covered.
 | Nuts and Bolts | [`393a4c`](https://fullcontrol.xyz/#/models/393a4c) | [`nuts_and_bolts`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/nuts_and_bolts.json) | Fixture-backed |
 | Freeform Frosting Challenge | [`c5042e`](https://fullcontrol.xyz/#/models/c5042e) | [`freeform_frosting`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/freeform_frosting.json) | Fixture-backed; renamed |
 
-Result: 15 website models have distinct Dry fixtures. The sixteenth, Overhang Challenge Plus, shares a
-fork implementation with the base challenge but still needs its own exported fixture.
+Result: all 16 website models have distinct Dry fixtures. The two Overhang Challenge cards share one
+fork callable, but Dry exports and tests the base and `plus=True` outputs as separate cases.
 
 ## Upstream GitHub coverage
 
@@ -55,27 +55,65 @@ the website fixtures above. The upstream README also links the
 [lampshade gist](https://gist.github.com/fullcontrol-xyz/589c78de0093698a07ec724af6428f09),
 which maps to the `lampshade` fixture.
 
-The 14 upstream tutorial notebooks are not migrated one-for-one as runnable Dry tutorials. Dry covers
-their core author/IR/simulate/verify concepts, but notebook-level parity—especially plot controls,
-geometry helpers, STL/3MF lab output, and four/five-axis labs—must not be implied by the gallery count.
+### Tutorial notebook decisions
 
-Of the 13 public author gists, the AnyAngle multi-part and lampshade designs map to existing fixtures;
-the LLM prompt is documentation rather than a model. Ten additional design/technique gists (VOLCO,
-two ASTM D638 variants, sphere, custom start/end G-code, SVG, polar offset, offset path, electronic
-circuit, and lattice spool) are outside the current parity suite and require explicit triage before any
-migration claim.
+The 14 upstream top-level tutorial notebooks were reviewed at the pinned upstream commit. A decision of
+“covered” means the concept has runnable Dry evidence; it does not mean the FullControl notebook was
+ported or that its API is compatible.
+
+| Upstream notebook | Decision | Dry evidence or boundary |
+| --- | --- | --- |
+| [`contents`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/contents.ipynb) | Documentation index only; do not create a runnable sample | Dry uses the [documentation index](/) and [guide](/guide/) instead. |
+| [`design_tips`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/design_tips.ipynb) | Covered at workflow level; do not port FullControl convenience APIs | The clean-room [authoring pilot](https://github.com/dmytro-yemelianov/dry/blob/main/docs/pilots/authoring.md) is runnable in Python and TypeScript. |
+| [`fast_demo`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/fast_demo.ipynb) | Covered | [`examples/authoring.py`](https://github.com/dmytro-yemelianov/dry/blob/main/examples/authoring.py), [`examples/authoring.ts`](https://github.com/dmytro-yemelianov/dry/blob/main/examples/authoring.ts), and the live [Author a path](/guide/author) page provide the short runnable path-to-G-code flow. |
+| [`gcode_controls`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/gcode_controls.ipynb) | Covered by Dry-native controls; no notebook port | The authoring sample emits G-code, while [profiles](https://github.com/dmytro-yemelianov/dry/blob/main/docs/11-profiles-and-reports.md), the [CLI cookbook](https://github.com/dmytro-yemelianov/dry/blob/main/docs/15-cli-cookbook.md), and emit flags own printer and initialization choices. |
+| [`geometry_functions`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/geometry_functions.ipynb) | Deferred | Dry has path primitives and TPMS generation, but no promised midpoint/rectangle/ellipse/polar helper compatibility layer. Add clean-room helpers with L0 features, not copied notebook functions. |
+| [`lab_3mf_output`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/lab_3mf_output.ipynb) | Out of scope | 3MF/mesh output is explicitly [out of scope](https://github.com/dmytro-yemelianov/dry/blob/main/docs/16-support-matrix.md); no runnable Dry sample is planned. |
+| [`lab_five_axis_demo`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/lab_five_axis_demo.ipynb) | Deferred until machine-safe validation exists | Dry can author tool orientation and experimentally emit rotary axes, but [collision, singularity, and machine gating are missing](https://github.com/dmytro-yemelianov/dry/blob/main/docs/14-known-limitations.md). Tests are retained; a public machine tutorial would overstate support. |
+| [`lab_four_axis_demo`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/lab_four_axis_demo.ipynb) | Unsupported | Dry has no supported four-axis workflow, so there is no runnable sample or parity claim. |
+| [`lab_geometry`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/lab_geometry.ipynb) | Partially covered | Catmull–Rom spline authoring is runnable on [Author a path](/guide/author); Bezier, polar-sine, convex-fill, and solid-base helper parity is deferred with the geometry helper layer. |
+| [`lab_stl_output`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/lab_stl_output.ipynb) | Out of scope | STL/mesh output is explicitly [out of scope](https://github.com/dmytro-yemelianov/dry/blob/main/docs/16-support-matrix.md); no runnable Dry sample is planned. |
+| [`other_functions`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/other_functions.ipynb) | Do not port one-for-one | Host-language ranges replace `linspace`; `travel_to` and relative/polar conveniences remain candidates for the clean-room geometry helper layer. |
+| [`overview`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/overview.ipynb) | Covered | The [authoring pilot](https://github.com/dmytro-yemelianov/dry/blob/main/docs/pilots/authoring.md) and live guide cover author → lower → simulate → verify → emit. |
+| [`plot_controls`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/plot_controls.ipynb) | Documentation UI only; no SDK parity | Dry's live guide renders IR for inspection, but its canvas controls are not a stable plotting API and must not be presented as `PlotControls` compatibility. |
+| [`state_objects`](https://github.com/FullControlXYZ/fullcontrol/blob/9a90c40d62d88a32a5752c7f337af3174d7dfc13/tutorials/state_objects.ipynb) | Covered by Dry-native builders | The Python/TypeScript authoring samples and generated SDK reference cover points, extrusion geometry, extruder state, speed, temperature, fan, flow, tool, orientation, dwell, retraction, and manual G-code. |
+
+Result: five notebooks have runnable Dry workflow coverage, one is partially covered, three are
+documentation/no-port decisions, two are deferred, one is unsupported, and two mesh-output labs are
+out of scope. None of those counts is included in the gallery-fixture total.
+
+### Public gist decisions
+
+The public `fullcontrol-xyz` account exposes 13 gists. AnyAngle multi-part and the lampshade map to
+existing fixtures; the LLM prompt is documentation rather than a model. The remaining ten were
+reviewed individually:
+
+| Public gist | Decision | Dry coverage or boundary |
+| --- | --- | --- |
+| [VOLCO example](https://gist.github.com/fullcontrol-xyz/ba9cd3a81ba0adb3879e17a7f7a7f9fe) | Out of scope for a Dry sample | It couples to the separate VOLCO simulator and exports/visualizes an STL mesh; neither external simulation nor mesh output is a Dry parity surface. |
+| [ASTM D638 convex, simple](https://gist.github.com/fullcontrol-xyz/ba02234459d822e4910053e6cfee77e0) | Defer; consolidate with the full variant | A future clean-room coupon sample first needs variable-width convex/shape-fill helpers. No current fixture claim. |
+| [ASTM D638 convex, full](https://gist.github.com/fullcontrol-xyz/5a43440f26800e12d49cd32ad649e2d2) | Defer; one future coupon sample covers both techniques | It adds orientations and continuously varying extrusion width; porting the published design expression is forbidden. |
+| [Sphere](https://gist.github.com/fullcontrol-xyz/a4271e8aa048cec108e1e236ce3ddf8e) | Defer | Dry can emit an authored point path, but spherical-coordinate helpers and circular bead-area controls are not a stable public helper surface. |
+| [Custom start/end G-code](https://gist.github.com/fullcontrol-xyz/34bfa6fe7de016bcfc909ae9b526470f) | Technique covered; notebook not ported | Versioned Dry [profile examples](https://github.com/dmytro-yemelianov/dry/tree/main/spec/examples/profiles) carry start/end procedures, and builders support manual G-code. The gist's `manual_e_ratio` override has no Dry equivalent, so full parity is not claimed. |
+| [SVG demo](https://gist.github.com/fullcontrol-xyz/fe80b7ae8af1f80eb601c3c1f480d8fe) | Out of scope for core; possible future importer/plugin | It embeds a third-party SVG parser and converter. Dry currently accepts authored paths/IR, not SVG input. |
+| [Polar offset demo](https://gist.github.com/fullcontrol-xyz/5750164480a5dba1de1b73f86ecb0a30) | Defer with geometry helpers | A clean-room offset primitive should be specified and tested independently before any runnable sample. |
+| [Offset-path helper](https://gist.github.com/fullcontrol-xyz/cfab0b802df07d621d7b5f0494f06505) | Defer with the polar-offset case | Treat it only as evidence of a desired capability; do not copy the helper implementation. |
+| [Electronic-circuit demo](https://gist.github.com/fullcontrol-xyz/f46f4208a47c39b62e3948490f921e2e) | Generic technique covered; design not migrated | Dry builders expose stationary volume deposition as `deposit`, but the published circuit path is not a parity fixture. |
+| [Lattice spool](https://gist.github.com/fullcontrol-xyz/4efefe94becc6024ce537bce270929a8) | Defer as a clean-room design candidate | It combines polar helpers, lattice geometry, and threaded features. Existing lattice/thread fixtures do not imply parity with this model. |
+
+Result: two generic techniques are covered without copying their published designs, two integrations
+are out of scope, and six design/helper candidates are explicitly deferred. No additional gist is
+counted as fixture-backed.
 
 ## Count reconciliation and known gaps
 
 - The oracle fork registers **27** gallery designs.
-- Its `_SMALL` export/test matrix contains **26**; `gyroid_infill` is the omitted registry entry.
-- Dry therefore commits and tests **26** `conformance/gallery` fixtures.
-- Dry has independent gyroid/TPMS generator tests, but they are not byte/metric parity against the
-  fork's `gyroid_infill` example and do not close the missing fixture.
-- The website has **16** model cards but only **15** distinct Dry fixtures because Overhang Challenge
-  Plus is not exported separately.
+- Its `_SMALL` export/test matrix contains **26**; `gyroid_infill` is the omitted registry entry. The
+  exporter asserts that exact delta so an upstream inventory change fails loudly.
+- Dry commits and tests **28** `conformance/gallery` fixtures: every registry design, including a
+  compact oracle-backed `gyroid_infill`, plus the distinct `overhang_challenge_plus` website variant.
+- The website has **16** model cards and **16** distinct fixture mappings.
 
-Required follow-ups are: export an oracle-backed `gyroid_infill` fixture; export a separate
-`overhang_challenge_plus` case; and decide which of the 14 upstream tutorials and ten additional design
-gists should become runnable Dry samples rather than merely inspiration. Progress is tracked in
-[issue #149](https://github.com/dmytro-yemelianov/dry/issues/149).
+The fixture gaps and source-triage work tracked in
+[issue #149](https://github.com/dmytro-yemelianov/dry/issues/149) are complete. Deferred candidates are
+not parity commitments; each requires a separately scoped clean-room feature decision before work starts.

@@ -444,5 +444,9 @@ test('every gallery design reproduces oracle via fluent builder', () => {
     assert.ok(Math.abs(m.filament_length - want.filament_length) < 1e-9, `[${fx.design}] filament length mismatch: ${m.filament_length} vs ${want.filament_length}`);
     checked++;
   }
-  assert.ok(checked >= 1, 'no gallery fixtures');
+  assert.equal(
+    checked,
+    28,
+    'gallery inventory must contain all 27 registry designs plus Overhang Challenge Plus',
+  );
 });
