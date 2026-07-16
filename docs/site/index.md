@@ -8,6 +8,9 @@ hero:
     - theme: brand
       text: Start the tour
       link: /guide/
+    - theme: alt
+      text: Browse 28 FullControl samples
+      link: /gallery/?source=fullcontrol&design=nonplanar_spacer
 ---
 
 <LiveExample src="author" :outputs="['gcode', 'ir']" />

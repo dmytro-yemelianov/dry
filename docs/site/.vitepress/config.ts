@@ -40,6 +40,9 @@ function readReferenceSidebar(): SidebarItem[] {
 export default defineConfig({
   title: 'Dry',
   description: 'Interactive docs for the Dry toolpath compiler — editable code, live execution.',
+  // The allow-listed static gallery is staged after VitePress emits the docs. The post-build link
+  // checker still validates it, so only this synthetic pre-stage target is excluded here.
+  ignoreDeadLinks: ['/gallery/index'],
   themeConfig: {
     outline: {
       level: [2, 3],
@@ -48,7 +51,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/' },
       { text: 'Reference', link: '/reference/' },
-      { text: 'Gallery', link: 'https://github.com/dmytro-yemelianov/dry' },
+      { text: 'Gallery', link: '/gallery/' },
     ],
     sidebar: {
       '/guide/': [

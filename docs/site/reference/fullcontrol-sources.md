@@ -5,6 +5,10 @@ Dry remains a clean-room implementation under the
 [project clean-room rules](https://github.com/dmytro-yemelianov/dry/blob/main/docs/CLEANROOM.md);
 FullControl is used as a behavioural oracle and source of public design ideas only.
 
+The [FullControl sample gallery](/gallery/?source=fullcontrol&design=nonplanar_spacer) runs all 28
+committed reconstructions through Dry's browser engine. These are fixed default Dry L1 designs with
+source links, not copies of notebook code and not claims of compatibility with every website slider.
+
 ## Source baselines
 
 - **fullcontrol.xyz:** 16 published model cards in the live-site catalogue captured from the rendered
@@ -43,8 +47,9 @@ every website slider value is covered.
 | Nuts and Bolts | [`393a4c`](https://fullcontrol.xyz/#/models/393a4c) | [`nuts_and_bolts`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/nuts_and_bolts.json) | Fixture-backed |
 | Freeform Frosting Challenge | [`c5042e`](https://fullcontrol.xyz/#/models/c5042e) | [`freeform_frosting`](https://github.com/dmytro-yemelianov/dry/blob/main/conformance/gallery/freeform_frosting.json) | Fixture-backed; renamed |
 
-Result: all 16 website models have distinct Dry fixtures. The two Overhang Challenge cards share one
-fork callable, but Dry exports and tests the base and `plus=True` outputs as separate cases.
+Result: all 16 website models have distinct Dry fixtures and runnable gallery entries. The two Overhang
+Challenge cards share one fork callable, but Dry exports and tests the base and `plus=True` outputs as
+separate cases.
 
 ## Upstream GitHub coverage
 
@@ -54,6 +59,9 @@ The upstream `models/` directory contains `anyangle_phone_stand`, `blob_printing
 the website fixtures above. The upstream README also links the
 [lampshade gist](https://gist.github.com/fullcontrol-xyz/589c78de0093698a07ec724af6428f09),
 which maps to the `lampshade` fixture.
+
+All eight model notebooks, plus the linked lampshade gist, are surfaced with their original source links
+in the [runnable gallery](/gallery/?source=fullcontrol&design=nonplanar_spacer).
 
 ### Tutorial notebook decisions
 

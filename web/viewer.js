@@ -1380,15 +1380,21 @@ export function createViewer(cfg) {
       // resolve_verify takes native typed contracts: bounds/ranges cross as flat Float64Arrays
       // (undefined disables the check); scalar ceilings use 0 = unset; the 13th arg is the
       // machine motion-limits as a kinematics JSON object ('' disables the kinematic rules).
-      const flat = (csv) => {
-        const parts = String(csv ?? '').split(',').map((s) => Number(s.trim())).filter(Number.isFinite);
-        return parts.length ? new Float64Array(parts) : undefined;
+      const flat = (csv, label) => {
+        const value = String(csv ?? '').trim();
+        if (!value) return undefined;
+        const tokens = value.split(',').map((token) => token.trim());
+        const parts = tokens.map(Number);
+        if (tokens.some((token) => !token) || parts.some((part) => !Number.isFinite(part))) {
+          throw new Error(`${label} must contain only finite comma-separated numbers`);
+        }
+        return new Float64Array(parts);
       };
       report = measure(profile, 'resolveVerifyMs', () =>
         JSON.parse(wasm.resolve_verify(
-          opsJson, paramsJson, maxFlow, minTemp, flat(bounds), monotonicZ, flat(speedRange),
+          opsJson, paramsJson, maxFlow, minTemp, flat(bounds, 'bounds'), monotonicZ, flat(speedRange, 'speed range'),
           maxRetractDist, maxRetractSpeed, maxTravelNoRetract,
-          flat(firstLayerHeight), flat(firstLayerSpeed), kinematicsJson)));
+          flat(firstLayerHeight, 'first-layer height'), flat(firstLayerSpeed, 'first-layer speed'), kinematicsJson)));
       const findings = report.findings || [];
       verifyEl.replaceChildren();
       if (findings.length) {
