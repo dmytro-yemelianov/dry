@@ -12,5 +12,11 @@ cp "$ROOT/web/pkg/dry_wasm.js" "$ROOT/web/pkg/dry_wasm_bg.wasm" "$HERE/public/pk
 echo "copied web wasm -> $HERE/public/pkg/"
 
 [ "${1:-}" = "wasm-only" ] && exit 0
-npm --prefix "$HERE" run build
+
+(
+  cd "$HERE"
+  ./node_modules/.bin/vitepress build
+  node scripts/stage-gallery.mjs
+  node scripts/check-built-links.mjs
+)
 echo "built docs site -> $HERE/.vitepress/dist"

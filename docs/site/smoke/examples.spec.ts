@@ -51,6 +51,11 @@ test('FullControl notebook and website samples are public and executable', async
   await expect(page.locator('#sourceError')).toBeHidden();
   expect(await page.locator('#gcode .gline').count()).toBeGreaterThan(0);
 
+  await page.getByRole('textbox', { name: 'bounds' }).fill('0,not-a-number,10');
+  await expect(page.locator('#sourceError')).toContainText('bounds must contain only finite comma-separated numbers');
+  await page.getByRole('textbox', { name: 'bounds' }).fill('');
+  await expect(page.locator('#sourceError')).toBeHidden();
+
   await page.goto('/gallery/?source=fullcontrol&design=overhang_challenge_plus');
   await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
     timeout: 30_000,
