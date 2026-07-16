@@ -32,3 +32,31 @@ for (const { name, url } of PAGES) {
     expect(shown).toEqual(expected);
   });
 }
+
+test('FullControl notebook and website samples are public and executable', async ({ page }) => {
+  await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+
+  const inventory = await page.evaluate(() =>
+    (window as typeof window & { __galleryInventory?: { fullcontrol: string[] } }).__galleryInventory,
+  );
+  expect(inventory?.fullcontrol).toHaveLength(28);
+  expect(inventory?.fullcontrol).toContain('nonplanar_spacer');
+  expect(inventory?.fullcontrol).toContain('overhang_challenge_plus');
+  await expect(page.locator('#designTitle')).toHaveText('Nonplanar Spacer');
+  await expect(page.locator('#designLinks')).toContainText('Original notebook');
+  await expect(page.locator('#designLinks')).toContainText('fullcontrol.xyz');
+  await expect(page.locator('#sourceError')).toBeHidden();
+  expect(await page.locator('#gcode .gline').count()).toBeGreaterThan(0);
+
+  await page.goto('/gallery/?source=fullcontrol&design=overhang_challenge_plus');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+  await expect(page.locator('#designTitle')).toHaveText('Overhang Challenge Plus');
+  await expect(page.locator('#designLinks')).toContainText('fullcontrol.xyz');
+  await expect(page.locator('#sourceError')).toBeHidden();
+  expect(await page.locator('#gcode .gline').count()).toBeGreaterThan(0);
+});

@@ -707,6 +707,30 @@ button {
   line-height: 1.25;
 }
 
+.design-description {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.design-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  margin-top: 8px;
+}
+
+.design-links a {
+  color: var(--extrude);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.design-links a:hover {
+  text-decoration: underline;
+}
+
 .design-thumb {
   border-radius: 6px;
   background: var(--panel);

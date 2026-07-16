@@ -1381,7 +1381,11 @@ export function createViewer(cfg) {
       // (undefined disables the check); scalar ceilings use 0 = unset; the 13th arg is the
       // machine motion-limits as a kinematics JSON object ('' disables the kinematic rules).
       const flat = (csv) => {
-        const parts = String(csv ?? '').split(',').map((s) => Number(s.trim())).filter(Number.isFinite);
+        const parts = String(csv ?? '').split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map(Number)
+          .filter(Number.isFinite);
         return parts.length ? new Float64Array(parts) : undefined;
       };
       report = measure(profile, 'resolveVerifyMs', () =>

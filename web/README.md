@@ -23,8 +23,10 @@ Each line is also **explained** — hover (or the active line) shows the command
 and every parameter (`F` feedrate, `X`/`Y`/`Z` target, `E` extrusion, `I`/`J` arc-centre offset,
 `A`/`B`/`C` rotary) with its meaning, units and value.
 
-The left panel has a **thumbnail Source gallery**. `Gallery design` loads authored examples; `Printable
-star lattice` generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process
+The left panel has a **thumbnail Source gallery**. `Gallery design` loads authored examples;
+`FullControl samples` exposes all 28 committed Dry L1 reconstructions, grouped into upstream notebooks,
+fullcontrol.xyz-only examples, and the remaining oracle gallery, with provenance links on every design;
+`Printable star lattice` generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process
 controls using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field
 contour infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls.
 TPMS generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native
@@ -167,6 +169,7 @@ cd .. && python3 -m http.server
 | `tool-ui.css` | shared responsive UI shell for the active gallery and Blockly app pages |
 | `viewer.js`  | shared ES module: three.js scene, render-layer toggles, fast/bead/realistic toolpath geometry, simulated playback, synced/explained G-code panel and render profiling — imported by both pages |
 | `designs.js` | data-driven demo gallery definitions, each `{ label, group, tags, params, defaults, build, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
+| `fullcontrol-gallery.generated.js` | git-ignored browser-safe Dry L1 reconstructions for all 28 FullControl-backed fixtures; regenerated and inventory-validated by `generate-fullcontrol-gallery.mjs` during `build.sh` |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
 | `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, conservative G2/G3 arc fitting with G1 fallback, and a preflight resolution budget |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
