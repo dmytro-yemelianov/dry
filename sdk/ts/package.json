@@ -7,9 +7,17 @@
   "type": "commonjs",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "require": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    }
+  },
   "files": ["dist/src", "wasm"],
   "scripts": {
     "build": "bash build.sh",
+    "example:authoring": "npm run build && tsc -p tsconfig.example.json && node dist/examples/examples/authoring.js",
     "tsc": "tsc -p tsconfig.json",
     "test": "node --test dist/test/*.test.js"
   },

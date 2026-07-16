@@ -4,6 +4,8 @@
 
 Decode a `.dry` binary back to Dry IR JSON (lossless)
 
+<LiveExample src="lower" :outputs='["ir"]' />
+
 ## Help
 
 ```text

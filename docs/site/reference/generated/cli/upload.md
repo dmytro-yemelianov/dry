@@ -4,6 +4,8 @@
 
 Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate)
 
+<LiveExample src="verify" :outputs='["verify"]' />
+
 ## Help
 
 ```text

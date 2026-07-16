@@ -25,7 +25,7 @@ dry inspect conformance/gcode/square.json
 ### `simulate` — metrics (human or `--json`)
 ```sh
 dry simulate conformance/gcode/square.json --json
-# { "total_time_s": 2.4, "print_time_s": 2.4, … "segment_count": 5, "max_flow_rate": … }
+# { "total_time_s": 2.4, "print_time_s": 2.4, … "segment_count": 4, "max_flow_rate": … }
 ```
 
 ### `emit` — motion g-code
@@ -155,7 +155,8 @@ Comments, temperature and other non-motion lines are kept in place; only motion 
 ### `explain` — an offline LLM-explanation bundle
 ```sh
 dry explain examples/sliced-prusa-sample.gcode                      # Markdown briefing to stdout
-dry explain examples/part.gcode --profile profiles/voron.json       # gate verify with a profile
+dry explain examples/part.gcode \
+  --profile spec/examples/profiles/voron-abs-klipper.json               # gate verify with a profile
 dry explain examples/part.gcode --json --out bundle.json            # structured ExplainBundle
 ```
 `explain` runs `trace`, `forensics` and `verify` internally and assembles the facts plus a curated
@@ -168,7 +169,8 @@ guardrail that **any** suggested change is a hypothesis that must be re-checked 
 
 ### `explain --llm` — online closed loop
 ```sh
-ANTHROPIC_API_KEY=… dry explain examples/part.gcode --llm --model claude-sonnet-4-6 --profile profiles/voron.json
+ANTHROPIC_API_KEY=… dry explain examples/part.gcode --llm --model claude-sonnet-4-6 \
+  --profile spec/examples/profiles/voron-abs-klipper.json
 ```
 The online `--llm` path calls Claude directly: assembles the bundle, gets recommendations, classifies
 them (executable vs advisory), **applies** the executable ones to the imported g-code, re-traces and
@@ -186,8 +188,8 @@ drift-gated (model output is non-deterministic), unlike the deterministic offlin
 
 ### `compare` — forensic delta between two G-code files
 ```sh
-dry compare examples/part-a.gcode examples/part-b.gcode        # Markdown delta (A → B)
-dry compare examples/part-a.gcode examples/part-b.gcode --json # structured CompareDelta
+dry compare examples/sliced-sample.gcode examples/sliced-prusa-sample.gcode         # Markdown delta (A → B)
+dry compare examples/sliced-sample.gcode examples/sliced-prusa-sample.gcode --json  # structured CompareDelta
 ```
 `compare` runs `trace`, `forensics` and `verify` on both files and reports the side-by-side
 differences: time/flow metrics (with deltas and percent changes), slicer detection, declared and
@@ -198,7 +200,8 @@ reproducible and golden-tested (`conformance/reports/compare/`). Supports the sa
 
 Add `--llm --model <id>` to call Claude directly and get a narrative analysis:
 ```sh
-ANTHROPIC_API_KEY=… dry compare examples/part-a.gcode examples/part-b.gcode --llm --model claude-sonnet-4-6
+ANTHROPIC_API_KEY=… dry compare examples/sliced-sample.gcode examples/sliced-prusa-sample.gcode \
+  --llm --model claude-sonnet-4-6
 ```
 The online path assembles the offline delta, calls Claude for a narrative ("what changed, why it
 matters, which is better"), and reports token usage and cost estimate to stderr. Requires
@@ -208,8 +211,10 @@ itself stays gated. Use `--json` to emit the full envelope (`docs/11` §3.8) wit
 
 ### `upload` — verify gate then upload to Moonraker
 ```sh
-dry review-gcode examples/part.gcode --profile profiles/voron.json
-dry upload examples/part.gcode --moonraker http://voron.local --api-key-env MOONRAKER_API_KEY
+dry review-gcode examples/part.gcode --profile spec/examples/profiles/voron-abs-klipper.json
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --api-key-env MOONRAKER_API_KEY \
+  --profile spec/examples/profiles/voron-abs-klipper.json
 ```
 
 Dry runs its verify gate on the file before upload:
@@ -223,7 +228,8 @@ Upload requires a Moonraker host (`--moonraker <url>`), an optional API key (def
 
 ```sh
 # Review first, then upload under a profile
-dry upload examples/part.gcode --moonraker http://voron.local --profile profiles/voron.json
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --profile spec/examples/profiles/voron-abs-klipper.json
 
 # Rewrite (safe/balanced/max) the g-code before uploading
 dry upload examples/part.gcode --moonraker http://voron.local --rewrite balanced
@@ -235,7 +241,8 @@ dry upload examples/part.gcode --moonraker http://voron.local --print
 dry upload examples/part.gcode --moonraker http://voron.local --force
 
 # Rewrite + profile + print workflow
-dry upload examples/part.gcode --moonraker http://voron.local --profile profiles/voron.json \
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --profile spec/examples/profiles/voron-abs-klipper.json \
   --rewrite balanced --print
 ```
 
@@ -248,7 +255,7 @@ Gate severity and contract flags follow the profile and CLI overrides from `revi
 
 ```sh
 dry upload examples/part.gcode --moonraker http://voron.local \
-  --profile profiles/voron.json \
+  --profile spec/examples/profiles/voron-abs-klipper.json \
   --bounds 0,250,0,250,0,250 \
   --max-flow 15 \
   --monotonic-z \

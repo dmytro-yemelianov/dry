@@ -31,7 +31,8 @@ reproduces the fork's validation messages; CLI usable.
 ## Phase 2 — Authoring: L1 path dialect + lowering + the Python SDK (gallery parity)
 **Goal:** author designs in the new Python SDK; lower L0/L1 → L2; reach **gallery parity**.
 **Deliverables:** the L1 path dialect (Line/Arc/Spline + channels), `expand_features` + `resolve`
-lowering passes, the Python authoring SDK (FC-flavored), and the 27 gallery designs reimplemented (oracle-gated) as the
+lowering passes, the Python authoring SDK (FC-flavored), and the 27 fork gallery designs reimplemented
+(oracle-gated; 26 are exported today, with the remaining gap recorded in the source audit) as the
 authoring conformance suite.
 **Exit gate:** every gallery design, authored in the new Python SDK, lowers to L2 and emits g-code
 that matches the fork's output for that design (within the documented tolerance), and passes its declared

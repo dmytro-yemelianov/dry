@@ -79,7 +79,10 @@ function cleanComment(raw) {
 }
 
 function firstSentence(text) {
-  return (text || 'Declared in the public API.').split('\n').find(Boolean) || 'Declared in the public API.';
+  const fallback = 'Declared in the public API.';
+  const normalized = (text || fallback).replace(/\s+/g, ' ').trim();
+  const sentenceEnd = normalized.search(/[.!?](?=\s|$)/);
+  return sentenceEnd >= 0 ? normalized.slice(0, sentenceEnd + 1) : normalized || fallback;
 }
 
 function escapeMarkdownInline(text) {
@@ -481,20 +484,40 @@ const sampleByApiKey = new Map([
   ['Severity', 'verify'],
 ]);
 
+const cliOutputAliases = new Map([
+  ['gcode', 'gcode'],
+  ['ir', 'ir'],
+  ['metrics', 'metrics'],
+  ['report', 'verify'],
+]);
+
 const cliSampleByCommand = new Map([
   ['emit', 'author'],
-  ['ir', 'lower'],
+  ['inspect', 'simulate'],
   ['import-gcode', 'lower'],
+  ['import-printer-cfg', 'lower'],
+  ['forensics-gcode', 'verify'],
   ['pack', 'lower'],
+  ['unpack', 'lower'],
   ['simulate', 'simulate'],
   ['trace-gcode', 'simulate'],
-  ['verify', 'verify'],
   ['review-gcode', 'verify'],
+  ['verify', 'verify'],
   ['explain', 'verify'],
   ['compare', 'verify'],
   ['rewrite-gcode', 'optimize'],
   ['optimize', 'optimize'],
+  ['upload', 'verify'],
 ]);
+
+function normalizeExampleOutputs(slug) {
+  const example = exampleForSlug(slug);
+  if (!example?.outputs?.length) return [];
+  const outputs = example.outputs
+    .map((value) => cliOutputAliases.get(value) || value)
+    .filter((value) => ['gcode', 'ir', 'metrics', 'verify'].includes(value));
+  return [...new Set(outputs)];
+}
 
 function exampleForSlug(slug) {
   return examples.find((example) => example.slug === slug);
@@ -512,20 +535,10 @@ function sampleLinkForSlug(slug) {
 function renderInlineSample(slug) {
   const example = exampleForSlug(slug);
   if (!example) return '';
-  const sources = Object.entries(example.sources || {})
-    .map(([language, source]) => `${escapeHtml(language)}: <code>${escapeHtml(source)}</code>`)
-    .join(' · ');
+  const outputs = normalizeExampleOutputs(slug);
+  const outputAttr = outputs.length ? ` :outputs='${JSON.stringify(outputs)}'` : '';
   return [
-    '<figure class="reference-inline-sample">',
-    `  <a href="/guide/${example.slug}" aria-label="Open ${escapeHtml(example.title)} guide">`,
-    `    <img src="/reference/previews/${example.slug}.svg" alt="${escapeHtml(example.title)} rendered preview">`,
-    '  </a>',
-    '  <figcaption>',
-    `    <strong>Sample: <a href="/guide/${example.slug}">${escapeHtml(example.title)}</a></strong>`,
-    `    <span>${escapeHtml(example.description)}</span>`,
-    `    <small>${sources}</small>`,
-    '  </figcaption>',
-    '</figure>',
+    `<LiveExample src="${escapeHtml(example.slug)}"${outputAttr} />`,
     '',
   ].join('\n');
 }
@@ -981,6 +994,24 @@ function renderExamples(examples) {
       `| ${example.title} | [/${example.slug}](/guide/${example.slug}) | ${example.languages.join(', ')} | ${sources} | ${example.outputs.join(', ')} | ${example.concepts.map((item) => `\`${item}\``).join(', ')} |`,
     );
   }
+
+  lines.push(
+    '',
+    '## Interactive example runs',
+    '',
+    ...examples.flatMap((example) => {
+      const title = `<a id=\"${escapeHtml(example.slug)}\"></a>${escapeMarkdownInline(example.title)}: ${escapeMarkdownInline(example.description)}`;
+      const outputs = normalizeExampleOutputs(example.slug);
+      const outputAttr = outputs.length ? ` :outputs='${JSON.stringify(outputs)}'` : '';
+      return [
+        `### ${title}`,
+        `Run this example from [/guide/${example.slug}](/guide/${example.slug})`,
+        '',
+        `<LiveExample src=\"${escapeHtml(example.slug)}\"${outputAttr} />`,
+        '',
+      ];
+    }),
+  );
 
   return lines.join('\n');
 }

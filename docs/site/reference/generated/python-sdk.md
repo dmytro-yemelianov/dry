@@ -16,7 +16,7 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | Name | Kind | Docs | Sample | Summary |
 | --- | --- | --- | --- | --- |
 | `Bounds` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Union[Sequence[Sequence[Number]], str]` |
-| `Design` | class | [Design](/reference/generated/python-sdk/design) |  | An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use. |
+| `Design` | class | [Design](/reference/generated/python-sdk/design) |  | An L1 design: a chain of authoring ops. |
 | `Kinematics` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Mapping[str, Number]` |
 | `Metrics` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Dict[str, Any]` |
 | `Number` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Union[int, float]` |

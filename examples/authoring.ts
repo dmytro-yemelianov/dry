@@ -1,8 +1,8 @@
 // Authoring pilot: generate -> verify -> emit with the Dry TypeScript SDK.
 // Mirrors examples/authoring.py.
 //
-// Setup:  cd sdk/ts && npm ci && npm run build
-// Run:    node --loader ts-node/esm examples/authoring.ts   (or compile with tsc)
+// Run from the repository root:
+//   cd sdk/ts && npm ci && npm run example:authoring
 import { Design } from '@dry/sdk';
 
 // A small first-layer path: a line, a quarter arc (G3) about the origin, then a line.

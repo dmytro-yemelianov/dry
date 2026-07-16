@@ -45,7 +45,7 @@
       "typescript": "docs/site/examples/verify.ts",
       "python": "docs/site/examples/verify.py"
     },
-    "outputs": ["report"]
+    "outputs": ["verify"]
   },
   {
     "slug": "optimize",

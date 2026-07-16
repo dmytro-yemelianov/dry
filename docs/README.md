@@ -32,12 +32,15 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`16-support-matrix.md`](16-support-matrix.md) | What is Supported / Experimental / Out-of-scope across firmware flavors, file formats, targets, release platforms and workflows. |
 | [`17-provenance-and-licensing.md`](17-provenance-and-licensing.md) | The auditable corpus-provenance ledger (oracle-generated vs authored clean-room) and the runtime dependency-license audit (all permissive; the GPL oracle is dev/CI-only). |
 | [`18-cloudflare-publishing.md`](18-cloudflare-publishing.md) | Public Direct Upload of the built WebAssembly-backed docs site to Cloudflare Pages, including its boundary from private product artifacts. |
+| [`site/reference/fullcontrol-sources.md`](site/reference/fullcontrol-sources.md) | Source-to-fixture audit for fullcontrol.xyz, upstream model notebooks/tutorials, the oracle fork gallery, and author gists. |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine
 to *the product*, generalise it (toolframe, units-as-types, dialects, splines, streaming), grow Python /
 TypeScript / Rust front-ends onto the one IR, and gate every step on conformance generated from the FullControl oracle's
-~906 tests, golden g-code, ~695 device profiles and 27-design gallery — then cut the FC API last.
+~906 tests, golden g-code, ~695 device profiles and 26 exported gallery fixtures from a 27-design
+registry — then cut the FC API last. The missing registry fixture is tracked in the
+[FullControl source audit](site/reference/fullcontrol-sources.md).
 
 The core thesis was reached in conversation; the supporting argument (why not a blind rewrite, why the
 IR is the durable asset) lives in the FullControl fork's `docs/ir_prior_art.md` (standards survey) and `docs/ir_spec.md`

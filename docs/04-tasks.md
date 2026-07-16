@@ -33,7 +33,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 - `[x]` **P2.2** (L) `resolve: L1 -> L2` lowering (deposition math + state propagation: running toolframe, extruder e-ratio, channel propagation) as a **pure pass**. *Accept (met):* hand-written L1 designs resolve to L2 that simulate/emit to the gated output; checked resolve validates physical inputs at binding boundaries.
 - `[ ]` **P2.3** (M) `expand_features: L0 -> L1` (Repeat/Group/Feature@pose). *Dep: P2.1. Accept:* a feature graph expands to the same L1 as the hand-written equivalent.
 - `[x]` **P2.4** (L) **Python authoring SDK** (FC-flavored builders emitting L1). *Accept (met):* authoring square/arc/channel/spline designs lowers to gated g-code and tested metrics.
-- `[x]` **P2.5** (L) Reimplement (clean-room) the **27 gallery designs** to the new SDK as the authoring conformance suite (geometry-level comparison, not just metrics — per `03`). *Dep: P2.4, P0.4. Accept:* each design lowers+emits to match the fork within the documented tolerance and passes its declared invariants.
+- `[ ]` **P2.5** (L) Reimplement (clean-room) the **27 fork gallery designs** in the new SDK as the authoring conformance suite (geometry-level comparison, not just metrics — per `03`). **Current: 26 exported fixtures; `gyroid_infill` is missing, and the website's Overhang Challenge Plus still needs a distinct case.** *Dep: P2.4, P0.4. Accept:* each design lowers+emits to match the fork within the documented tolerance and passes its declared invariants.
 - **P2 exit gate:** every gallery design authored in the new Python SDK reproduces the fork's output + invariants.
 
 ## Phase 3 — Optimise, parse, reverse, web
