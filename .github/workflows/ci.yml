@@ -62,7 +62,7 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
-      - name: verify packaged legal notices
+      - name: verify legal notice sources
         run: |
           cmp NOTICE py/NOTICE
           cmp third_party/licenses/Apache-2.0.txt py/third_party/licenses/Apache-2.0.txt
@@ -81,6 +81,35 @@ jobs:
         env:
           VIRTUAL_ENV: ${{ github.workspace }}/.venv
         run: ../.venv/bin/maturin develop --locked
+      - name: verify built package legal notices
+        working-directory: py
+        run: |
+          ../.venv/bin/maturin build --release --locked --out ../dist-ci
+          ../.venv/bin/maturin sdist --out ../dist-ci
+          ../.venv/bin/python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          artifacts = Path("../dist-ci")
+          wheel = next(artifacts.glob("*.whl"))
+          sdist = next(artifacts.glob("*.tar.gz"))
+          required = (
+              "NOTICE",
+              "third_party/licenses/Apache-2.0.txt",
+              "third_party/licenses/MIT.txt",
+          )
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              missing = [name for name in required if not any(item.endswith(f".dist-info/licenses/{name}") for item in names)]
+              assert not missing, f"{wheel.name} is missing legal notices: {missing}"
+
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+              missing = [name for name in required if not any(item.endswith(f"/py/{name}") for item in names)]
+              assert not missing, f"{sdist.name} is missing legal notices: {missing}"
+          PY
       - name: pytest (the SDK reproduces the oracle, clean-room)
         working-directory: py
         run: ../.venv/bin/pytest tests/ -q

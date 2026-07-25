@@ -270,7 +270,7 @@ toolpath APIs, high-end production workflows.
 **Evidence:** Materialise Magics centers on data/build preparation and process automation. Dyndrite emphasizes a
 GPU-accelerated engine and manufacturing toolkit.
 
-**Dry differentiation:** proprietary, typed, embeddable, FFF/post-slicer review oriented, with an explicit
+**Dry differentiation:** proprietary, typed, embeddable, FFF/post-slicer review-oriented, with an explicit
 clean-room commercial licensing story. Dry is not trying to own high-end LPBF build prep first.
 
 **Competitive stance:** adjacent technical market; avoid direct head-on positioning until Dry has stronger

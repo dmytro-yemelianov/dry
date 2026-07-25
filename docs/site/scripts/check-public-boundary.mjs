@@ -35,6 +35,27 @@ const documentedPreviews = new Set([
   'reference/previews/simulate.svg',
   'reference/previews/verify.svg',
 ]);
+const allowedPublicSourceFiles = new Set([
+  '\0plugin-vue:export-helper',
+  'docs/site/.vitepress/theme/PublicExample.vue',
+  'docs/site/.vitepress/theme/index.ts',
+  'docs/site/.vitepress/theme/style.css',
+  'docs/site/examples/author.ts',
+  'docs/site/examples/generative.ts',
+  'docs/site/examples/lower.ts',
+  'docs/site/examples/optimize.ts',
+  'docs/site/examples/simulate.ts',
+  'docs/site/examples/verify.ts',
+  'docs/site/index.md',
+  'docs/site/licensing.md',
+  'public-url:/@siteData',
+  ...[...documentedPreviews].map((preview) => `public-url:/${preview}`),
+]);
+const allowedPublicContentPrefixes = [
+  'docs/site/guide/',
+  'docs/site/marketing/',
+  'docs/site/reference/',
+];
 const textExtensions = new Set(['', '.cjs', '.css', '.html', '.js', '.json', '.map', '.mjs', '.svg']);
 const failures = [];
 
@@ -84,11 +105,12 @@ if (!fs.existsSync(sourceManifestPath)) {
       if (forbiddenProductSources.some((source) => moduleId.startsWith(source))) {
         failures.push(`interactive product source included in public bundle: ${moduleId}`);
       }
+      const approvedDocumentationPage =
+        moduleId.endsWith('.md') &&
+        allowedPublicContentPrefixes.some((prefix) => moduleId.startsWith(prefix));
       const knownPublicSource =
-        moduleId.startsWith('\0') ||
-        moduleId.startsWith('virtual:') ||
-        moduleId.startsWith('public-url:') ||
-        moduleId.startsWith('docs/site/') ||
+        allowedPublicSourceFiles.has(moduleId) ||
+        approvedDocumentationPage ||
         moduleId.startsWith('node_modules/') ||
         moduleId.includes('/node_modules/');
       if (!knownPublicSource) failures.push(`source module is outside the public allowlist: ${moduleId}`);
