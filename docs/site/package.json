@@ -6,8 +6,9 @@
     "dev": "vitepress dev",
     "docs:check": "node scripts/check-reference-coverage.mjs && node ../../web/generate-fullcontrol-gallery.mjs --validate",
     "docs:gen": "node scripts/gen-example-previews.mjs && node scripts/gen-reference.mjs",
-    "build": "bash ../../web/build.sh && bash build.sh docs-only",
-    "deploy:cloudflare": "bash build.sh && npx --yes wrangler@4.111.0 pages deploy --branch main",
+    "build": "bash build.sh public",
+    "build:product": "bash build.sh product",
+    "deploy:cloudflare": "npm run build && npx --yes wrangler@4.111.0 pages deploy .vitepress/dist --project-name dry-docs --branch main",
     "preview": "vitepress preview --port 4173",
     "reference": "npm run docs:gen && npm run docs:check",
     "wasm": "bash build.sh wasm-only",
@@ -36,7 +37,7 @@
     "vue": "^3.5.13"
   },
   "overrides": {
-    "brace-expansion": "^2.1.2",
+    "brace-expansion": "5.0.8",
     "postcss": "^8.5.23",
     "vite": "^6.4.3"
   }

@@ -27,14 +27,15 @@ The fork proved the layering works but is held back by FC's legacy: pydantic ste
 `resolve` entangled with authoring, an XYZ-centric `Segment` that fights non-planar/5-axis, units as
 convention, and a Python-as-implementation core. A no-back-compat rewrite lets the **IR and the Rust
 engine become the product**, with Python demoted to one binding among several. We reach it by *a
-clean-room reimplementation against a behavioural oracle* (see `02-roadmap.md` + `CLEANROOM.md`) — independent and Apache-2.0, not a blank-page gamble.
+clean-room reimplementation against a behavioural oracle* (see `02-roadmap.md` + `CLEANROOM.md`) —
+independent and commercially licensable, not a blank-page gamble.
 
 ## In scope
 
 - **Dry IR** — a typed, units-aware, multi-level IR (design → path → motion → target dialects), with a
   general **toolframe** (position + orientation), per-point typed **channels** (extrusion / speed /
   temperature / flow / tool / width / height), **provenance** and declared **invariants**. JSON + a
-  compact binary/columnar encoding. A published, versioned **standard**.
+  compact binary/columnar encoding. A publicly documented, versioned **contract**.
 - **The engine** (Rust → native + wasm, one codebase): `lower`, `simulate`, `verify`, `optimise`,
   `emit`, `parse` (machine-code → IR), `reverse-engineer` (toolpath → parametric design).
 - **Authoring SDKs** (thin, logic-free, emit IR): Python, TypeScript, Rust-native.
@@ -61,14 +62,15 @@ clean-room reimplementation against a behavioural oracle* (see `02-roadmap.md` +
 2. **Multi-front-end.** ≥2 authoring SDKs (Python + TypeScript) producing identical IR for the same
    design, proven by conformance.
 3. **Runs everywhere.** One engine: native (CLI/server) and wasm (browser), bit-comparable.
-4. **The IR is a standard.** Versioned spec, JSON + binary, ≥1 external tool importing/exporting Dry IR.
+4. **The IR is a stable contract.** Public versioned spec, JSON + binary, and ≥1 licensed external tool
+   importing/exporting Dry IR.
 5. **Verifiable.** Designs declare contracts the compiler enforces; arbitrary machine code can be
    parsed, verified, optimised.
 
 ## Relationship to FullControl (inspiration + oracle, not code)
 
-Dry is **independent and Apache-2.0**; FullControl (and its fork) are GPLv3. Dry is therefore a
-**clean-room** implementation — FullControl is used only as a reference, never as code. See
+Dry is **independent and proprietary**; FullControl (and its fork) are GPLv3. Dry is therefore a
+**clean-room** implementation—FullControl is used only as a reference, never as code. See
 `CLEANROOM.md` for the full discipline.
 - **Inspiration:** the design ideas — the multi-level IR, passes, flavors, the gallery of demos. Ideas
   and architecture are not copyrightable; Dry reimplements them from this spec and first principles.
@@ -90,5 +92,6 @@ the correctness (profiles, flavor edge cases, byte-identity) yourself; it ships 
 build-up and has a far larger surface than FFF-3-axis. This is survivable because **the oracle makes
 clean-room cheap**: FullControl hands you the exact target output, so you implement until the diff is
 zero rather than flying blind, and every phase is gated on that conformance. It is worth it because the
-goal is the **open standard/platform** — for which Apache-2.0 + true independence are prerequisites. See
-`02-roadmap.md` for the risk register and the sequencing that de-risks it.
+goal is a **commercial platform with a public integration contract**. Independence preserves ownership,
+keeps GPL code out of customer artifacts, and supports private licensing. See `02-roadmap.md` for the
+risk register and sequencing.

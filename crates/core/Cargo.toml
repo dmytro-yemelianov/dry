@@ -4,8 +4,9 @@ description = "Dry IR + engine: the dependency-light core (no PyO3/numpy). LLVM/
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license-file.workspace = true
 repository.workspace = true
+publish = false
 
 # The core stays dependency-light and compiles to wasm32-unknown-unknown unmodified. serde/serde_json
 # (the JSON IR encoding) plus miniz_oxide (pure-Rust DEFLATE for the compact columnar binary encoding)

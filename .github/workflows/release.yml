@@ -17,9 +17,14 @@ env:
 
 jobs:
   guard:
-    name: guard (release provenance + versions)
+    name: guard (private repository + provenance + versions)
     runs-on: ubuntu-latest
     steps:
+      - name: require private repository
+        if: ${{ github.event.repository.private != true }}
+        run: |
+          echo "::error::Dry release artifacts may only be created from a private repository."
+          exit 1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
@@ -38,7 +43,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -85,7 +90,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           targets: ${{ matrix.target }}
       - name: build
         run: cargo build --release -p dry-cli --features moonraker --target ${{ matrix.target }} --locked
@@ -104,9 +109,10 @@ jobs:
           bin="dry"
           [ "${{ runner.os }}" = "Windows" ] && bin="dry.exe"
           stage="dry-${ver}-${{ matrix.target }}"
-          mkdir -p "dist/$stage"
+          mkdir -p "dist/$stage/third_party/licenses"
           cp "target/${{ matrix.target }}/release/$bin" "dist/$stage/"
-          cp README.md LICENSE "dist/$stage/"
+          cp README.md LICENSE NOTICE "dist/$stage/"
+          cp third_party/licenses/*.txt "dist/$stage/third_party/licenses/"
           tar -C dist -czf "dist/${stage}.tar.gz" "$stage"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -158,7 +164,7 @@ jobs:
         with:
           working-directory: py
           command: sdist
-          args: --locked --out ../dist-wheels
+          args: --out ../dist-wheels
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sdist
@@ -172,7 +178,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -218,48 +224,3 @@ jobs:
           files: dist/*
           generate_release_notes: true
           fail_on_unmatched_files: true
-
-  pypi:
-    name: publish to PyPI (gated on PYPI_API_TOKEN secret)
-    needs: [release]
-    runs-on: ubuntu-latest
-    env:
-      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: artifacts
-      - name: collect dists
-        run: |
-          mkdir -p dist
-          find artifacts -type f \( -name '*.whl' -o -name '*.tar.gz' \) -exec cp -n {} dist/ \;
-      - name: publish
-        if: ${{ env.PYPI_API_TOKEN != '' }}
-        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
-        with:
-          packages-dir: dist
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
-  npm:
-    name: publish to npm (gated on NPM_TOKEN secret)
-    needs: [release]
-    runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: npm
-          path: dist
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22.23.1"
-          registry-url: "https://registry.npmjs.org"
-      - name: publish
-        if: ${{ env.NPM_TOKEN != '' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish dist/*.tgz --access public --provenance

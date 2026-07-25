@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -57,11 +57,16 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           components: rustfmt, clippy
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
+      - name: verify legal notice sources
+        run: |
+          cmp NOTICE py/NOTICE
+          cmp third_party/licenses/Apache-2.0.txt py/third_party/licenses/Apache-2.0.txt
+          cmp third_party/licenses/MIT.txt py/third_party/licenses/MIT.txt
       - name: rust check (the binding)
         working-directory: py
         run: |
@@ -76,6 +81,35 @@ jobs:
         env:
           VIRTUAL_ENV: ${{ github.workspace }}/.venv
         run: ../.venv/bin/maturin develop --locked
+      - name: verify built package legal notices
+        working-directory: py
+        run: |
+          ../.venv/bin/maturin build --release --locked --out ../dist-ci
+          ../.venv/bin/maturin sdist --out ../dist-ci
+          ../.venv/bin/python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          artifacts = Path("../dist-ci")
+          wheel = next(artifacts.glob("*.whl"))
+          sdist = next(artifacts.glob("*.tar.gz"))
+          required = (
+              "NOTICE",
+              "third_party/licenses/Apache-2.0.txt",
+              "third_party/licenses/MIT.txt",
+          )
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              missing = [name for name in required if not any(item.endswith(f".dist-info/licenses/{name}") for item in names)]
+              assert not missing, f"{wheel.name} is missing legal notices: {missing}"
+
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+              missing = [name for name in required if not any(item.endswith(f"/py/{name}") for item in names)]
+              assert not missing, f"{sdist.name} is missing legal notices: {missing}"
+          PY
       - name: pytest (the SDK reproduces the oracle, clean-room)
         working-directory: py
         run: ../.venv/bin/pytest tests/ -q
@@ -87,7 +121,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -117,7 +151,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -142,7 +176,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -177,7 +211,10 @@ jobs:
       - name: build site
         working-directory: docs/site
         run: npm run build
-      - name: smoke (anti-drift)
+      - name: build authenticated product site for browser anti-drift
+        working-directory: docs/site
+        run: npm run build:product
+      - name: smoke authenticated product examples (anti-drift)
         working-directory: docs/site
         run: |
           npx playwright install chromium
@@ -212,7 +249,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
       # Keep the criterion benchmarks compiling against the current API (docs/13-performance-and-scale.md).
       # The deterministic bounded-memory scale gate (tests/memory_scale.rs) runs in the `core` job's
       # `cargo test --all`; wall-clock benchmarks are local-profiling only, not a CI pass/fail.
@@ -226,7 +263,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.87.0"
+          toolchain: "1.88.0"
       - name: Rust advisory database
         run: |
           cargo install cargo-audit --version 0.22.1 --locked

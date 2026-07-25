@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import type { Plugin } from 'vite';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -8,6 +9,14 @@ const repoRoot = path.resolve(here, '../../..'); // -> repo root
 const sdkSrc = path.resolve(repoRoot, 'sdk/ts/src');
 const webSpline = path.resolve(repoRoot, 'web/spline.js');
 const referencePagesFile = path.resolve(repoRoot, 'docs/site/reference/source/pages.json');
+const publicDocumentationBuild = process.env.DRY_DOCS_MODE === 'public';
+const publicDocumentationAssets = path.resolve(here, '../.public-docs');
+const publicSourceManifest = '.dry-public-source-manifest.json';
+const liveExampleComponent = path.resolve(
+  here,
+  'theme',
+  publicDocumentationBuild ? 'PublicExample.vue' : 'LiveExample.vue',
+);
 
 type SidebarItem = {
   text: string;
@@ -32,16 +41,52 @@ function readReferenceSidebar(): SidebarItem[] {
       return items as SidebarItem[];
     }
   } catch {
-    // Fall back to a minimal reference sidebar if metadata is unavailable.
+    // Fall back to an explicit minimal sidebar if metadata is missing.
   }
   return [{ text: 'Overview', link: '/reference/' }];
 }
 
+/** Normalize a Rollup module id into a stable, repository-relative provenance entry. */
+function normalizeModuleId(moduleId: string): string {
+  if (moduleId.startsWith('\0') || moduleId.startsWith('virtual:')) return moduleId;
+  const clean = moduleId.split('?', 1)[0];
+  if (clean.startsWith('/@') || clean.startsWith('/reference/previews/')) {
+    return `public-url:${clean}`;
+  }
+  if (!path.isAbsolute(clean)) return clean.split(path.sep).join('/');
+  return path.relative(repoRoot, clean).split(path.sep).join('/');
+}
+
+/** Emit the exact source-module set used by the public client bundle for the boundary audit. */
+function publicSourceManifestPlugin(): Plugin {
+  return {
+    name: 'dry-public-source-manifest',
+    apply: 'build',
+    generateBundle(outputOptions, bundle) {
+      if (!outputOptions.dir || path.resolve(outputOptions.dir) !== path.resolve(here, '../.vitepress/dist')) {
+        return;
+      }
+      const modules = new Set<string>();
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        for (const moduleId of Object.keys(output.modules)) modules.add(normalizeModuleId(moduleId));
+      }
+      this.emitFile({
+        type: 'asset',
+        fileName: publicSourceManifest,
+        source: `${JSON.stringify([...modules].sort(), null, 2)}\n`,
+      });
+    },
+  };
+}
+
 export default defineConfig({
   title: 'Dry',
-  description: 'Interactive docs for the Dry toolpath compiler — editable code, live execution.',
+  description: publicDocumentationBuild
+    ? 'Documentation for the Dry proprietary toolpath compiler.'
+    : 'Interactive product documentation for the Dry toolpath compiler.',
   // The allow-listed static gallery is staged after VitePress emits the docs. The post-build link
-  // checker still validates it, so only this synthetic pre-stage target is excluded here.
+  // checker validates it after staging, so only this synthetic pre-stage target is ignored here.
   ignoreDeadLinks: ['/gallery/index'],
   themeConfig: {
     outline: {
@@ -51,7 +96,9 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/' },
       { text: 'Reference', link: '/reference/' },
-      { text: 'Gallery', link: '/gallery/' },
+      { text: 'Market', link: '/marketing/' },
+      { text: 'Licensing', link: '/licensing' },
+      ...(!publicDocumentationBuild ? [{ text: 'Gallery', link: '/gallery/' }] : []),
     ],
     sidebar: {
       '/guide/': [
@@ -74,10 +121,39 @@ export default defineConfig({
           items: readReferenceSidebar(),
         },
       ],
+      '/marketing/': [
+        {
+          text: 'Market Research',
+          items: [
+            { text: 'Overview', link: '/marketing/' },
+            { text: 'ICP', link: '/marketing/#ideal-customer-profile' },
+            { text: 'Competition', link: '/marketing/#competitive-landscape' },
+            { text: 'Packages', link: '/marketing/#package-strategy' },
+            { text: 'Pilot Design', link: '/marketing/#pilot-design' },
+            {
+              text: 'Product Architecture',
+              items: [
+                { text: 'G-code Machine SaaS', link: '/marketing/gcode-machine-saas' },
+                { text: 'Printer Library', link: '/marketing/printer-capability-library' },
+                { text: 'Slicer Attack Map', link: '/marketing/slicer-attack-map' },
+                { text: 'CAD Embedding', link: '/marketing/cad-embedding' },
+              ],
+            },
+          ],
+        },
+      ],
     },
   },
   vite: {
-    resolve: { alias: { '@sdk': sdkSrc, '@webspline': webSpline } },
+    plugins: publicDocumentationBuild ? [publicSourceManifestPlugin()] : [],
+    resolve: {
+      alias: {
+        '@dry-live-example': liveExampleComponent,
+        '@sdk': sdkSrc,
+        '@webspline': webSpline,
+      },
+    },
+    ...(publicDocumentationBuild ? { publicDir: publicDocumentationAssets } : {}),
     server: { fs: { allow: [sdkSrc, path.dirname(webSpline)] } },
   },
 });

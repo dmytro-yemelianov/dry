@@ -5,7 +5,7 @@ Dry remains a clean-room implementation under the
 [project clean-room rules](https://github.com/dmytro-yemelianov/dry/blob/main/docs/CLEANROOM.md);
 FullControl is used as a behavioural oracle and source of public design ideas only.
 
-The [FullControl sample gallery](/gallery/?source=fullcontrol&design=nonplanar_spacer) runs all 28
+The authenticated product's FullControl sample gallery runs all 28
 committed reconstructions through Dry's browser engine. These are fixed default Dry L1 designs with
 source links, not copies of notebook code and not claims of compatibility with every website slider.
 
@@ -61,7 +61,7 @@ the website fixtures above. The upstream README also links the
 which maps to the `lampshade` fixture.
 
 All eight model notebooks, plus the linked lampshade gist, are surfaced with their original source links
-in the [runnable gallery](/gallery/?source=fullcontrol&design=nonplanar_spacer).
+in the authenticated product gallery.
 
 ### Tutorial notebook decisions
 

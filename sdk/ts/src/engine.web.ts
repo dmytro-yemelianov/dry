@@ -10,14 +10,6 @@ type DryWasmGlue = Record<string, unknown> & {
   default?: (wasmPath?: string | URL | Request) => Promise<unknown>;
 };
 
-function relativeWasmUrl(glueUrl: URL): string | undefined {
-  try {
-    return new URL('dry_wasm_bg.wasm', glueUrl).toString();
-  } catch {
-    return undefined;
-  }
-}
-
 async function importWasmFromPublic(glueUrl: string): Promise<DryWasmGlue> {
   const response = await globalThis.fetch(glueUrl);
   if (!response.ok) {
@@ -29,8 +21,8 @@ async function importWasmFromPublic(glueUrl: string): Promise<DryWasmGlue> {
   const blobUrl = URL.createObjectURL(blob);
 
   try {
-    // Vite does not allow importing a /public file as a source module. Importing the fetched glue
-    // through a blob URL leaves the public asset at runtime and avoids Vite's `?import` rewrite.
+    // NOTE: Vite cannot import files from /public via import(). Use a blob URL so Vite doesn't
+    // rewrite this to `?import`.
     return (await import(/* @vite-ignore */ blobUrl)) as DryWasmGlue;
   } finally {
     URL.revokeObjectURL(blobUrl);
@@ -41,25 +33,26 @@ async function importWasmFromPublic(glueUrl: string): Promise<DryWasmGlue> {
 export function initDryWeb(wasmUrl: string): Promise<void> {
   if (!initPromise) {
     const attempt = (async () => {
+      const glueUrl = new URL(wasmUrl, globalThis.location?.href ?? 'http://localhost/');
       const useBlobLoader =
+        glueUrl.protocol !== 'data:' &&
+        glueUrl.protocol !== 'blob:' &&
         typeof globalThis.fetch === 'function' &&
         typeof Blob !== 'undefined' &&
         typeof URL !== 'undefined' &&
         typeof URL.createObjectURL === 'function';
-      const glueUrl = new URL(wasmUrl, globalThis.location?.href ?? 'http://localhost/');
       const glue = useBlobLoader
         ? await importWasmFromPublic(glueUrl.toString())
         : (await import(/* @vite-ignore */ wasmUrl)) as DryWasmGlue;
 
+      // wasm-bindgen --target web: default export is the async init; if loaded through the blob path,
+      // pass an explicit URL so the init can find the .wasm binary.
       const init = glue.default;
       if (typeof init !== 'function') {
         throw new Error('failed to initialise dry_wasm: missing default export function');
       }
 
-      // A blob module has no useful relative location. Pass the binary URL explicitly when the
-      // original glue URL is hierarchical; data/blob test modules fall back to wasm-bindgen's
-      // default initialization behavior.
-      const initArg = useBlobLoader ? relativeWasmUrl(glueUrl) : undefined;
+      const initArg = useBlobLoader ? new URL('dry_wasm_bg.wasm', glueUrl).toString() : undefined;
       await init(initArg);
       const fn = (k: string) => glue[k] as DryWasm[keyof DryWasm];
       setWasmBinding({

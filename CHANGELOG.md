@@ -9,6 +9,13 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+- Re-license Dry-authored work prospectively as proprietary, keep source and installable artifacts on
+  authenticated private distribution surfaces, remove public PyPI/npm publishing, and require a private
+  repository at release time.
+- Keep product documentation public through a sanitized build that excludes SDK implementation code,
+  WebAssembly, interactive gallery assets, packages, and release downloads.
+- Raise the supported Rust toolchain to 1.88 so the pinned wasm-bindgen CLI can build in hosted CI.
+
 ### Added
 - **Production safety hardening:** binary decode resource budgets (`DecodeLimits`) reject hostile
   lengths before allocation/decompression; imported firmware commands outside Dry's semantic model

@@ -68,8 +68,7 @@ fn roundtrip_conformance_byte_for_byte() {
     }
     assert!(
         checked >= 12,
-        "expected at least 12 roundtrip fixtures, found {}",
-        checked
+        "expected at least 12 roundtrip fixtures, found {checked}"
     );
     println!("G-code round-trip conformance: {checked} fixtures passed");
 }

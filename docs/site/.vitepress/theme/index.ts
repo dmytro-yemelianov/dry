@@ -1,6 +1,6 @@
 import DefaultTheme from 'vitepress/theme';
 import type { Theme } from 'vitepress';
-import LiveExample from './LiveExample.vue';
+import LiveExample from '@dry-live-example';
 import './style.css';
 
 export default {

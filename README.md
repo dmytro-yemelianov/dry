@@ -17,7 +17,7 @@ back-ends.
 
 ## Why
 
-No released standard represents *algorithmic, arc-native, non-planar, variable-width* toolpaths with
+No established interface represents *algorithmic, arc-native, non-planar, variable-width* toolpaths with
 provenance, invariants and a multi-language story (the survey: `docs/` references the FullControl fork's
 prior-art study). g-code is the lossy target; slicer IRs are planar/polyline/internal; STEP-NC is
 subtractive; 3MF Toolpath is unreleased and linear-only. Dry fills that gap and interoperates with the
@@ -67,23 +67,28 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
 
-## Bootstrapped from FullControl
+## Clean-room relationship to FullControl
 
-Dry is a clean-slate re-layering, but not a blank page: it bootstraps from the **FullControl fork**
-(`dmytro-yemelianov/fullcontrol`) — its Rust kernel, hardened IR, optimisation passes, ~695 device
-profiles and ~906 tests become Dry's reference implementation seeds. Dry's oracle-generated gallery
-corpus contains 28 fixtures: all 27 registered designs plus the separately published Overhang Challenge
-Plus variant. Together they form the **conformance
-corpora** (`docs/03-conformance.md`). Every phase is gated on reproducing the fork's output.
+The **FullControl fork** (`dmytro-yemelianov/fullcontrol`) is a GPLv3 development oracle only. Dry's
+engine, IR, passes and tests are independently implemented from observed behaviour and first principles;
+no FullControl source is retained in Dry. Device profiles are regenerated from primary-source machine
+specifications. Output-only G-code, metrics and report corpora are retained as conformance evidence with
+their provenance recorded in [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md).
+The gallery contains 28 Dry-authored reconstructions covering the 27-design registry plus the separately
+published Overhang Challenge Plus variant. The GPL oracle is excluded from every customer artifact.
 
-## Licence
+## Licence and distribution
 
-**Apache-2.0** (see [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE)). Dry is an **independent, clean-room**
-implementation: FullControl (GPLv3) is used only as design *inspiration* and a dev/CI *behavioural
-oracle* — never copied into Dry's source, never shipped or linked into a release. That separation is
-what makes the permissive licence available and lets the **Dry IR be an open standard**. See
-[`docs/CLEANROOM.md`](docs/CLEANROOM.md). *(Not legal advice — confirm with counsel before a public
-release.)*
+**Proprietary — all rights reserved** (see [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE)). Source and
+installable artifacts stay private and customer use requires a written commercial agreement. The
+documentation and interface contracts are publicly readable, but the public build contains no engine,
+SDK implementation, WebAssembly, gallery, or package downloads.
+
+Dry remains an **independent, clean-room** implementation: FullControl (GPLv3) is used only as design
+*inspiration* and a dev/CI *behavioural oracle* — never copied into Dry's source, shipped, or linked
+into a release. See [`docs/CLEANROOM.md`](docs/CLEANROOM.md). Earlier copies distributed under
+Apache-2.0 retain their original terms; this change is prospective. *(Engineering policy, not legal
+advice—have counsel approve customer agreements.)*
 
 ## Quickstart
 

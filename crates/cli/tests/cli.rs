@@ -141,7 +141,7 @@ fn upload_print_exits_nonzero_when_moonraker_does_not_start_the_job() {
     assert_eq!(out.status.code(), Some(2));
     assert!(out.stdout.is_empty());
     assert!(String::from_utf8_lossy(&out.stderr)
-        .contains("Moonraker did not start printing expected.gcode"));
+        .contains("Moonraker rejected the request: print start response reported failure"));
 }
 
 #[test]

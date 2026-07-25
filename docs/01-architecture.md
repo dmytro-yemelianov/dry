@@ -134,7 +134,8 @@ L3 lowering is target-specific and pluggable:
 
 ## 10. Behavioural reference map (clean-room — inspiration & oracle, not code)
 
-Dry is **reimplemented from scratch** (Apache-2.0, independent of GPLv3 FullControl — see `CLEANROOM.md`).
+Dry is **reimplemented from scratch** (proprietary and independent of GPLv3 FullControl—see
+`CLEANROOM.md`).
 The table below is **not** a "copy this code" map; it names, per Dry component, the FullControl module
 whose *observed behaviour* Dry reproduces (the **oracle**, run at dev/CI to generate target outputs) and
 *ideas* Dry takes as inspiration. No FullControl source is copied; the FC column is a reference only.
