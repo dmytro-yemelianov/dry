@@ -9,7 +9,7 @@ for the strategy, the per-phase parity gates, and the float/determinism discipli
 conformance/
   golden/      full g-code + plot for representative designs (numbers normalised)   [from the fork]
   gcode/       per-design byte-identical Marlin/Klipper/Duet output                  [from the fork]
-  gallery/     the 27 gallery designs + expected metrics/invariants/g-code           [from the fork]
+  gallery/     28 fixtures: 27 registry designs + Overhang Plus metrics/g-code       [from the fork]
   profiles/    ~695 device profiles: init data + start/end procedures                [from the fork]
   roundtrip/   emit(parse(g)) == g fixtures + simulate-metric parity                 [from the fork]
   runner/      diffs Dry output vs each corpus; native + wasm matrix                 [P0.5]

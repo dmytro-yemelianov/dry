@@ -79,7 +79,10 @@ function cleanComment(raw) {
 }
 
 function firstSentence(text) {
-  return (text || 'Declared in the public API.').split('\n').find(Boolean) || 'Declared in the public API.';
+  const fallback = 'Declared in the public API.';
+  const normalized = (text || fallback).replace(/\s+/g, ' ').trim();
+  const sentenceEnd = normalized.search(/[.!?](?=\s|$)/);
+  return sentenceEnd >= 0 ? normalized.slice(0, sentenceEnd + 1) : normalized || fallback;
 }
 
 function escapeMarkdownInline(text) {
@@ -365,14 +368,17 @@ print(json.dumps({"all": public_all(), "assignments": assignments, "classes": cl
 
   const pythonPath = repoPath(sourceFiles.pythonSdk);
   const bins = ['python3', 'python'];
+  let lastError;
   for (const bin of bins) {
     try {
       return JSON.parse(execFileSync(bin, ['-', pythonPath], { input: code, encoding: 'utf8' }));
-    } catch {
+    } catch (error) {
+      lastError = error;
       // Try the next Python binary.
     }
   }
-  throw new Error('Unable to run python3 or python for Python API extraction');
+  const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'unknown error');
+  throw new Error(`Unable to run python3 or python for Python API extraction: ${detail}`, { cause: lastError });
 }
 
 function extractHeadings(relativePath) {
@@ -483,20 +489,40 @@ const sampleByApiKey = new Map([
   ['Severity', 'verify'],
 ]);
 
+const cliOutputAliases = new Map([
+  ['gcode', 'gcode'],
+  ['ir', 'ir'],
+  ['metrics', 'metrics'],
+  ['report', 'verify'],
+]);
+
 const cliSampleByCommand = new Map([
   ['emit', 'author'],
-  ['ir', 'lower'],
+  ['inspect', 'simulate'],
   ['import-gcode', 'lower'],
+  ['import-printer-cfg', 'lower'],
+  ['forensics-gcode', 'verify'],
   ['pack', 'lower'],
+  ['unpack', 'lower'],
   ['simulate', 'simulate'],
   ['trace-gcode', 'simulate'],
-  ['verify', 'verify'],
   ['review-gcode', 'verify'],
+  ['verify', 'verify'],
   ['explain', 'verify'],
   ['compare', 'verify'],
   ['rewrite-gcode', 'optimize'],
   ['optimize', 'optimize'],
+  ['upload', 'verify'],
 ]);
+
+function normalizeExampleOutputs(slug) {
+  const example = exampleForSlug(slug);
+  if (!example?.outputs?.length) return [];
+  const outputs = example.outputs
+    .map((value) => cliOutputAliases.get(value) || value)
+    .filter((value) => ['gcode', 'ir', 'metrics', 'verify'].includes(value));
+  return [...new Set(outputs)];
+}
 
 function exampleForSlug(slug) {
   return examples.find((example) => example.slug === slug);
@@ -514,20 +540,10 @@ function sampleLinkForSlug(slug) {
 function renderInlineSample(slug) {
   const example = exampleForSlug(slug);
   if (!example) return '';
-  const sources = Object.entries(example.sources || {})
-    .map(([language, source]) => `${escapeHtml(language)}: <code>${escapeHtml(source)}</code>`)
-    .join(' · ');
+  const outputs = normalizeExampleOutputs(slug);
+  const outputAttr = outputs.length ? ` :outputs='${JSON.stringify(outputs)}'` : '';
   return [
-    '<figure class="reference-inline-sample">',
-    `  <a href="/guide/${example.slug}" aria-label="Open ${escapeHtml(example.title)} guide">`,
-    `    <img src="/reference/previews/${example.slug}.svg" alt="${escapeHtml(example.title)} rendered preview">`,
-    '  </a>',
-    '  <figcaption>',
-    `    <strong>Sample: <a href="/guide/${example.slug}">${escapeHtml(example.title)}</a></strong>`,
-    `    <span>${escapeHtml(example.description)}</span>`,
-    `    <small>${sources}</small>`,
-    '  </figcaption>',
-    '</figure>',
+    `<LiveExample src="${escapeHtml(example.slug)}"${outputAttr} />`,
     '',
   ].join('\n');
 }
@@ -857,20 +873,27 @@ function renderCliReference() {
   };
 }
 
-function escapeRegExp(text) {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function topLevelMarkdownSection(markdown, headingText) {
   const cleaned = sanitizeExtractedMarkdown(markdown);
-  const headingRe = new RegExp(`^##\\s+${escapeRegExp(headingText)}\\s*$`, 'm');
-  const match = headingRe.exec(cleaned);
-  if (!match || match.index == null) return '';
-  const start = match.index;
-  const rest = cleaned.slice(start + match[0].length);
-  const next = rest.search(/^##\s+/m);
-  if (next === -1) return cleaned.slice(start).trim();
-  return cleaned.slice(start, start + match[0].length + next).trim();
+  const headings = [];
+  let inFence = false;
+  let offset = 0;
+  const lines = cleaned.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (/^```/.test(line.trim())) {
+      inFence = !inFence;
+    } else if (!inFence) {
+      const match = /^##\s+(.+?)\s*$/.exec(line);
+      if (match) headings.push({ text: match[1], start: offset });
+    }
+    offset += line.length + (index < lines.length - 1 ? 1 : 0);
+  }
+
+  const index = headings.findIndex((heading) => heading.text === headingText);
+  if (index === -1) return '';
+  const end = headings[index + 1]?.start ?? cleaned.length;
+  return cleaned.slice(headings[index].start, end).trim();
 }
 
 function renderExtractedPage(title, sourcePath, content, missingMarker) {
@@ -976,6 +999,24 @@ function renderExamples(examples) {
       `| ${example.title} | [/${example.slug}](/guide/${example.slug}) | ${example.languages.join(', ')} | ${sources} | ${example.outputs.join(', ')} | ${example.concepts.map((item) => `\`${item}\``).join(', ')} |`,
     );
   }
+
+  lines.push(
+    '',
+    '## Interactive example runs',
+    '',
+    ...examples.flatMap((example) => {
+      const title = `<a id=\"${escapeHtml(example.slug)}\"></a>${escapeMarkdownInline(example.title)}: ${escapeMarkdownInline(example.description)}`;
+      const outputs = normalizeExampleOutputs(example.slug);
+      const outputAttr = outputs.length ? ` :outputs='${JSON.stringify(outputs)}'` : '';
+      return [
+        `### ${title}`,
+        `Run this example from [/guide/${example.slug}](/guide/${example.slug})`,
+        '',
+        `<LiveExample src=\"${escapeHtml(example.slug)}\"${outputAttr} />`,
+        '',
+      ];
+    }),
+  );
 
   return lines.join('\n');
 }

@@ -1,6 +1,5 @@
 import type { Segment, Toolpath } from '@sdk/ops';
-// @ts-expect-error - shared plain-JS module.
-import { splinePoints } from '@webspline';
+import { segmentPoints } from './segment-points';
 
 export interface ViewBox {
   scale: number;
@@ -78,11 +77,7 @@ function projectOptions(view: ViewPreset, options: DrawIrOptions = {}): ProjectO
 }
 
 function points(seg: Segment, options: ProjectOptions): [number, number][] {
-  if (seg.kind === 'spline') {
-    const sampled = (splinePoints(seg) as number[][] | null) ?? [seg.start as number[], seg.end as number[]];
-    return sampled.map((p) => projectPoint(p, options));
-  }
-  return [projectPoint(seg.start, options), projectPoint(seg.end, options)];
+  return segmentPoints(seg).map((point) => projectPoint(point, options));
 }
 
 export function computeViewBox(

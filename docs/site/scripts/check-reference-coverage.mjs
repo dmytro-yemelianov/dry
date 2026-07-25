@@ -168,9 +168,44 @@ for (const example of examples) {
   const previewPath = `docs/site/public/reference/previews/${example.slug}.svg`;
   if (!fs.existsSync(repoPath(previewPath))) fail(`Example preview image is missing: ${previewPath}`);
   if (!examplesPage.includes(`/reference/previews/${example.slug}.svg`)) fail(`Example preview image is missing from generated reference: ${example.slug}`);
-  if (!inlineSamplePages.includes(`/reference/previews/${example.slug}.svg`)) fail(`Example preview image is missing from inline generated reference docs: ${example.slug}`);
+  if (!inlineSamplePages.includes(`src="${example.slug}"`) && !inlineSamplePages.includes(`src='${example.slug}'`)) {
+    fail(`Example inline execution is missing from generated reference docs: ${example.slug}`);
+  }
   for (const source of Object.values(example.sources)) {
     if (!examplesPage.includes(source)) fail(`Example source is missing from generated reference: ${source}`);
+  }
+}
+
+const pagesSource = read('docs/site/reference/source/pages.json');
+const pagesSpec = JSON.parse(pagesSource);
+const referencePages = pagesSpec.reference || [];
+const referenceLinks = new Set();
+
+function collectLinks(items) {
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    if (item?.link) referenceLinks.add(item.link);
+    if (item?.items) collectLinks(item.items);
+  }
+}
+
+collectLinks(referencePages);
+
+for (const link of referenceLinks) {
+  if (typeof link !== 'string') continue;
+  if (!link.startsWith('/reference')) continue;
+  if (link === '/reference/') {
+    if (!fs.existsSync(path.join(generatedPath('..'), 'index.md'))) {
+      fail(`pages.json reference root link is invalid: ${link}`);
+    }
+    continue;
+  }
+  if (link.startsWith('/reference/generated/')) {
+    const relative = link.replace(/^\/reference\/generated\//, '');
+    const target = path.join(generatedDir, `${relative}.md`);
+    if (!fs.existsSync(target)) {
+      fail(`pages.json contains a missing generated link: ${link}`);
+    }
   }
 }
 

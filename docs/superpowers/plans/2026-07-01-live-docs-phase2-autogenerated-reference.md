@@ -3,7 +3,7 @@
 ## Status
 
 - Phase: 2
-- Scope: plan only
+- Scope: implemented; retained as the implementation record
 - Branch: `feat/live-docs`
 - Depends on: Phase 1 live docs site and playground
 
@@ -238,7 +238,7 @@ Recommended scripts:
 
 Recommended build behavior:
 
-- Either run `docs:gen` before `docs:build`, or make CI run it explicitly before build.
+- Either run `docs:gen` before `build`, or make CI run it explicitly before build.
 - Prefer explicit CI steps so generated changes are visible in failures.
 
 Recommended CI check:
@@ -247,7 +247,7 @@ Recommended CI check:
 npm run docs:gen
 npm run docs:check
 git diff --exit-code docs/site/reference/generated
-npm run docs:build
+npm run build
 ```
 
 Acceptance:
@@ -324,8 +324,8 @@ cd docs/site
 npm run docs:gen
 npm run docs:check
 npm run typecheck
-npm run test:unit
-npm run docs:build
+npm run test
+npm run build
 git diff --exit-code docs/site/reference/generated
 ```
 

@@ -35,6 +35,115 @@ fn fixture(corpus: &str, name: &str) -> PathBuf {
         .join(format!("../../conformance/{corpus}/{name}.json"))
 }
 
+#[cfg(feature = "moonraker")]
+fn read_http_request(stream: &mut std::net::TcpStream) -> String {
+    use std::io::Read as _;
+
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .unwrap();
+    let mut request = Vec::new();
+    let mut buffer = [0_u8; 4096];
+    loop {
+        let read = stream.read(&mut buffer).unwrap();
+        if read == 0 {
+            break;
+        }
+        request.extend_from_slice(&buffer[..read]);
+        let Some(header_end) = request.windows(4).position(|window| window == b"\r\n\r\n") else {
+            continue;
+        };
+        let headers = String::from_utf8_lossy(&request[..header_end]);
+        let content_length = headers
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length")
+                    .then(|| value.trim().parse::<usize>().unwrap())
+            })
+            .unwrap_or(0);
+        if request.len() >= header_end + 4 + content_length {
+            break;
+        }
+    }
+    String::from_utf8(request).unwrap()
+}
+
+#[cfg(feature = "moonraker")]
+fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
+    use std::io::Write as _;
+
+    write!(
+        stream,
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+    .unwrap();
+}
+
+#[cfg(feature = "moonraker")]
+#[test]
+fn upload_print_exits_nonzero_when_moonraker_does_not_start_the_job() {
+    use std::io::ErrorKind;
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut served = 0;
+        while served < 2 && Instant::now() < deadline {
+            let (mut stream, _) = match listener.accept() {
+                Ok(connection) => connection,
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                Err(error) => panic!("mock Moonraker accept failed: {error}"),
+            };
+            let request = read_http_request(&mut stream);
+            match served {
+                0 => {
+                    assert!(request.starts_with("POST /server/files/upload "));
+                    write_json_response(&mut stream, r#"{"item":{"path":"expected.gcode"}}"#);
+                }
+                1 => {
+                    assert!(request.starts_with("POST /printer/print/start "));
+                    assert!(request.contains(r#"{"filename":"expected.gcode"}"#));
+                    write_json_response(&mut stream, r#"{"result":false}"#);
+                }
+                _ => unreachable!(),
+            }
+            served += 1;
+        }
+        assert_eq!(served, 2, "CLI did not make both Moonraker requests");
+    });
+
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../conformance/vectors/minimal_line/expected.gcode");
+    let out = Command::new(bin())
+        .args([
+            "upload",
+            path.to_str().unwrap(),
+            "--moonraker",
+            &format!("http://{address}"),
+            "--print",
+            "--force",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    server.join().unwrap();
+
+    assert_eq!(out.status.code(), Some(2));
+    assert!(out.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&out.stderr)
+        .contains("Moonraker did not start printing expected.gcode"));
+}
+
 #[test]
 fn emit_reproduces_the_fixture_gcode() {
     let path = fixture("gcode", "square");
@@ -733,6 +842,36 @@ fn verify_runs_and_reports_findings() {
     let text_speed = String::from_utf8(out_speed.stderr).unwrap()
         + &String::from_utf8(out_speed.stdout).unwrap();
     assert!(text_speed.contains("speed"));
+}
+
+#[test]
+fn verify_rejects_inverted_contract_ranges() {
+    let path = fixture("gcode", "square");
+
+    for (flag, value, expected) in [
+        (
+            "--bounds",
+            "100,0,0,100,0,50",
+            "bounds x lower bound must be <= upper bound",
+        ),
+        (
+            "--speed-range",
+            "9000,300",
+            "speed range lower bound must be <= upper bound",
+        ),
+    ] {
+        let output = Command::new(bin())
+            .args(["verify", path.to_str().unwrap(), flag, value])
+            .output()
+            .unwrap();
+        assert!(
+            !output.status.success(),
+            "{flag} accepted an inverted range"
+        );
+        let text =
+            String::from_utf8(output.stderr).unwrap() + &String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains(expected), "unexpected {flag} error: {text}");
+    }
 }
 
 #[test]

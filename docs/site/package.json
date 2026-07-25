@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
-    "docs:check": "node scripts/check-reference-coverage.mjs",
+    "docs:check": "node scripts/check-reference-coverage.mjs && node ../../web/generate-fullcontrol-gallery.mjs --validate",
     "docs:gen": "node scripts/gen-example-previews.mjs && node scripts/gen-reference.mjs",
-    "build": "vitepress build",
+    "build": "bash ../../web/build.sh && bash build.sh docs-only",
+    "deploy:cloudflare": "bash build.sh && npx --yes wrangler@4.111.0 pages deploy --branch main",
     "preview": "vitepress preview --port 4173",
     "reference": "npm run docs:gen && npm run docs:check",
     "wasm": "bash build.sh wasm-only",

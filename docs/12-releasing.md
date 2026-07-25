@@ -31,24 +31,29 @@ A release is produced entirely by CI from a `vX.Y.Z` tag — `.github/workflows/
    - **release** creates the GitHub Release, attaches every artifact plus a `SHA256SUMS` checksum file,
      and auto-generates notes.
 
-## Publishing to registries (optional)
+## Distribution boundary
 
-Artifacts are always attached to the GitHub Release. Registry publishing is **gated on secrets**, so it
-activates only once you add them:
+Artifacts are distributed only through this repository's **private GitHub Releases**. The workflow
+intentionally contains no npm or PyPI publishing jobs, credentials, or trusted-publisher setup because
+the release artifacts contain proprietary IP. Do not add public registry publishing without a separate
+security review and explicit authorization from the repository owner.
 
 - **PyPI** — add `PYPI_API_TOKEN`; the `pypi` job publishes the wheels + sdist only after the complete
   GitHub Release succeeds.
 - **npm** — add `NPM_TOKEN`; the `npm` job publishes `@dry/sdk` with provenance only after the complete
   GitHub Release succeeds.
 
-## Installing without building from source
+The hosted documentation is a separate, public distribution surface. Its built output is uploaded
+directly to Cloudflare Pages without granting Cloudflare repository access; see
+[`18-cloudflare-publishing.md`](18-cloudflare-publishing.md). It does not replace or publish the private
+installable artifacts described here.
 
-- **CLI** — download the `dry-<ver>-<target>.tar.gz` for your platform from the GitHub Release, verify it
+## Installing private release artifacts
+
+- **CLI** — download the `dry-<ver>-<target>.tar.gz` for your platform from the private GitHub Release, verify it
   against `SHA256SUMS`, extract, and run `./dry --help`.
-- **Python** — `pip install dry` (once published to PyPI), or `pip install <wheel>` from the release
-  assets.
-- **TypeScript** — `npm install @dry/sdk` (once published to npm), or `npm install <tarball>` from the
-  release assets.
+- **Python** — download the matching wheel from the private release and run `pip install <wheel>`.
+- **TypeScript** — download the npm tarball from the private release and run `npm install <tarball>`.
 
 ## Compatibility & migration
 

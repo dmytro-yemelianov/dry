@@ -24,19 +24,23 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`09-customer-readiness.md`](09-customer-readiness.md) | Customer readiness matrix: best-fit segments, pilot design, product packages and segment-specific gates. |
 | [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md) | Normative Dry IR v0 specification: the JSON wire form, the `DRY0` (columnar) and `DRY1` (chunked streaming) binary encodings, the three version axes, the SemVer/compatibility policy, and the semantic conformance model. Paired with [`../spec/dry-ir-v0.schema.json`](../spec/dry-ir-v0.schema.json) and the public, independently-validated [`../conformance/vectors/`](../conformance/vectors). |
 | [`11-profiles-and-reports.md`](11-profiles-and-reports.md) | The machine/material profile schema, the verification rule catalog (stable kebab-case ids + per-rule severities), and the verify/review/trace report schemas. Paired with [`../spec/dry-profile-v1.schema.json`](../spec/dry-profile-v1.schema.json), [`../spec/dry-reports-v1.schema.json`](../spec/dry-reports-v1.schema.json), the example profiles, and the drift-gated [`../conformance/reports/`](../conformance/reports). |
-| [`12-releasing.md`](12-releasing.md) | The tagged-release process (`.github/workflows/release.yml`): version/tag guard, CLI binaries + `SHA256SUMS`, Python wheels (maturin), npm package, gated PyPI/npm publishing, and install-without-source instructions. |
+| [`12-releasing.md`](12-releasing.md) | The tagged-release process (`.github/workflows/release.yml`): version/tag guard, CLI binaries + `SHA256SUMS`, Python wheels (maturin), npm package artifact, private GitHub Release distribution, and install-without-source instructions. |
 | [`13-performance-and-scale.md`](13-performance-and-scale.md) | The memory model (the `DRY1` streaming path is bounded-memory; JSON/`DRY0` materialize), the criterion benchmarks, and the deterministic bounded-memory scale gate (`tests/memory_scale.rs`). |
 | [`14-known-limitations.md`](14-known-limitations.md) | An honest account of current limitations: no slicing, FFF-only emission, experimental 5-axis, v0 IR, semantic (not byte) conformance, the `manualgcode` asymmetry, and the support boundary. |
 | [`15-cli-cookbook.md`](15-cli-cookbook.md) | Copy-pasteable, run-verified recipes for every CLI command (inspect/simulate/emit/optimize/verify/pack/unpack and import/review/trace/rewrite-gcode). |
 | [`pilots/`](pilots/) | Three pilot guides — [authoring](pilots/authoring.md) (generate→verify→emit), [post-slicer review](pilots/post-slicer-review.md) (review→trace→rewrite), [SDK integration](pilots/sdk-integration.md) (reproduce a vector) — backed by runnable [`../examples/`](../examples). |
 | [`16-support-matrix.md`](16-support-matrix.md) | What is Supported / Experimental / Out-of-scope across firmware flavors, file formats, targets, release platforms and workflows. |
 | [`17-provenance-and-licensing.md`](17-provenance-and-licensing.md) | The auditable corpus-provenance ledger (oracle-generated vs authored clean-room) and the runtime dependency-license audit (all permissive; the GPL oracle is dev/CI-only). |
+| [`18-cloudflare-publishing.md`](18-cloudflare-publishing.md) | Public Direct Upload of the built WebAssembly-backed docs site to Cloudflare Pages, including its boundary from private product artifacts. |
+| [`site/reference/fullcontrol-sources.md`](site/reference/fullcontrol-sources.md) | Source-to-fixture audit for fullcontrol.xyz, upstream model notebooks/tutorials, the oracle fork gallery, and author gists. |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance & licensing discipline (Apache-2.0; FullControl as inspiration + dev/CI oracle only, never code). |
 
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine
 to *the product*, generalise it (toolframe, units-as-types, dialects, splines, streaming), grow Python /
 TypeScript / Rust front-ends onto the one IR, and gate every step on conformance generated from the FullControl oracle's
-~906 tests, golden g-code, ~695 device profiles and 27-design gallery — then cut the FC API last.
+~906 tests, golden g-code and ~695 device profiles. The Dry gallery corpus contains 28 fixtures: all 27
+oracle-registry designs plus the separately published Overhang Challenge Plus variant. Tutorial and
+gist coverage decisions are recorded in the [FullControl source audit](site/reference/fullcontrol-sources.md).
 
 The core thesis was reached in conversation; the supporting argument (why not a blind rewrite, why the
 IR is the durable asset) lives in the FullControl fork's `docs/ir_prior_art.md` (standards survey) and `docs/ir_spec.md`

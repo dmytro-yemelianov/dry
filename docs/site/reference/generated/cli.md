@@ -41,19 +41,19 @@ Options:
 
 | Command | Sample | Summary |
 | --- | --- | --- |
-| [`inspect`](/reference/generated/cli/inspect) |  | Parse + simulate a Dry IR file and print a concise summary |
+| [`inspect`](/reference/generated/cli/inspect) | [Simulate](/guide/simulate) | Parse + simulate a Dry IR file and print a concise summary |
 | [`simulate`](/reference/generated/cli/simulate) | [Simulate](/guide/simulate) | Simulate a Dry IR file and print its metrics |
 | [`emit`](/reference/generated/cli/emit) | [Author a path](/guide/author) | Emit motion g-code for a Dry IR file |
 | [`pack`](/reference/generated/cli/pack) | [Lower to the Dry IR](/guide/lower) | Encode a Dry IR (JSON) file to the chunked streaming binary form |
-| [`unpack`](/reference/generated/cli/unpack) |  | Decode a `.dry` binary back to Dry IR JSON (lossless) |
-| [`import-printer-cfg`](/reference/generated/cli/import-printer-cfg) |  | Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume) |
+| [`unpack`](/reference/generated/cli/unpack) | [Lower to the Dry IR](/guide/lower) | Decode a `.dry` binary back to Dry IR JSON (lossless) |
+| [`import-printer-cfg`](/reference/generated/cli/import-printer-cfg) | [Lower to the Dry IR](/guide/lower) | Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume) |
 | [`import-gcode`](/reference/generated/cli/import-gcode) | [Lower to the Dry IR](/guide/lower) | Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation |
 | [`review-gcode`](/reference/generated/cli/review-gcode) | [Verify](/guide/verify) | Review slicer G-code directly, reporting metrics and contract findings with source line numbers |
 | [`trace-gcode`](/reference/generated/cli/trace-gcode) | [Simulate](/guide/simulate) | Summarize slicer G-code as fixed-window motion/time-series JSON |
-| [`forensics-gcode`](/reference/generated/cli/forensics-gcode) |  | Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags |
+| [`forensics-gcode`](/reference/generated/cli/forensics-gcode) | [Verify](/guide/verify) | Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags |
 | [`explain`](/reference/generated/cli/explain) | [Verify](/guide/verify) | Assemble an offline LLM-explanation bundle (trace + forensics + verify + a curated prompt) |
 | [`compare`](/reference/generated/cli/compare) | [Verify](/guide/verify) | Diff two analysed g-code files: settings, time/flow, and safety findings (A → B) |
 | [`rewrite-gcode`](/reference/generated/cli/rewrite-gcode) | [Optimize](/guide/optimize) | Re-emit imported motion while preserving non-motion source G-code lines in place |
 | [`optimize`](/reference/generated/cli/optimize) | [Optimize](/guide/optimize) | Optimise a Dry IR file (merge collinear, fit arcs) and report the before/after |
-| [`upload`](/reference/generated/cli/upload) |  | Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate) |
+| [`upload`](/reference/generated/cli/upload) | [Verify](/guide/verify) | Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate) |
 | [`verify`](/reference/generated/cli/verify) | [Verify](/guide/verify) | Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found. Flags: `--bounds`, `--max-flow`, `--speed-range`, `--monotonic-z`, `--min-temp`, `--max-retraction-distance`, `--max-retraction-speed`, `--max-travel-without-retract`, `--first-layer-height-range`, `--first-layer-speed-range`, `--max-accel`, `--junction-velocity`, `--json` |

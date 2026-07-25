@@ -4,16 +4,7 @@
 
 Encode a Dry IR (JSON) file to the chunked streaming binary form
 
-<figure class="reference-inline-sample">
-  <a href="/guide/lower" aria-label="Open Lower to the Dry IR guide">
-    <img src="/reference/previews/lower.svg" alt="Lower to the Dry IR rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/lower">Lower to the Dry IR</a></strong>
-    <span>Resolve an authored design into Dry's structured L2 toolpath IR.</span>
-    <small>typescript: <code>docs/site/examples/lower.ts</code> · python: <code>docs/site/examples/lower.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="lower" :outputs='["ir"]' />
 
 ## Help
 

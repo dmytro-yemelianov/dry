@@ -13,10 +13,9 @@ from a tag.
 
 ## Default decisions
 
-- **Build + attach, publish gated.** Every release always builds artifacts and attaches them to the
-  GitHub Release with sha256 checksums. Registry *publish* steps (PyPI, npm) are guarded by
-  `if: ${{ secrets.X != '' }}` so the pipeline works today without registry tokens and starts publishing
-  the moment secrets are added.
+- **Build + attach only.** Every release builds artifacts and attaches them to the private GitHub
+  Release with sha256 checksums. Public registry publishing and registry-token setup are intentionally
+  excluded.
 - **Hand-rolled workflow** using well-known actions (`softprops/action-gh-release`,
   `PyO3/maturin-action`, `actions/setup-node`), not a new umbrella tool — consistent with the repo's lean
   dependency posture.
@@ -35,11 +34,11 @@ from a tag.
 
 ## `release.yml` jobs
 
-1. **guard** — parse the tag, run `scripts/check-version.sh` (tag == Cargo workspace == pyproject == package.json). Fail fast on mismatch.
+1. **guard** — require a private repository, parse the tag, and run `scripts/check-version.sh` (tag == Cargo workspace == pyproject == package.json). Fail fast on either mismatch.
 2. **cli** — matrix: linux x86_64, macOS aarch64 + x86_64, windows x86_64. `cargo build --release -p dry-cli`, package as `.tar.gz`/`.zip`, emit `.sha256`.
 3. **wheels** — `PyO3/maturin-action` building wheels (manylinux + macOS + windows) and an sdist for `py/`.
-4. **ts** — `npm ci && npm run build` in `sdk/ts`, then `npm pack` to a tarball (and `npm publish` gated on `NODE_AUTH_TOKEN`).
-5. **release** — `softprops/action-gh-release`: create the GitHub Release for the tag, attach all binaries + checksums + wheels + sdist + npm tarball, and use `CHANGELOG.md` for the body. PyPI publish (`pypa/gh-action-pypi-publish`) gated on `PYPI_API_TOKEN`.
+4. **ts** — `npm ci && npm run build` in `sdk/ts`, then `npm pack` to a tarball artifact.
+5. **release** — create a private GitHub Release for the tag and attach all binaries + checksums + wheels + sdist + npm tarball. Public registry publishing is intentionally excluded.
 
 ## Local verifiability
 
@@ -47,7 +46,7 @@ from a tag.
 - `scripts/check-version.sh` unit-exercised locally (matching + mismatching tags).
 - `cargo build --release -p dry-cli` produces a runnable binary (smoke `dry --version`).
 - `py/pyproject.toml` / `sdk/ts/package.json` metadata validated.
-- **CI-only** (clearly noted): multi-platform binary/wheel builds and registry publishing.
+- **CI-only** (clearly noted): multi-platform binary/wheel builds and private GitHub Release assembly.
 
 ## Acceptance → 08·WS2 / 09 #2
 

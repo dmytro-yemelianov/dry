@@ -23,7 +23,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `fan` | `def fan(self, speed: Number) -&gt; 'Design'` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `def flow(self, ratio: Number) -&gt; 'Design'` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
 | `tool` | `def tool(self, index: int) -&gt; 'Design'` |  | Set the active tool channel. |
-| `orient` | `def orient(self, i: Number, j: Number, k: Number) -&gt; 'Design'` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z. |
+| `orient` | `def orient(self, i: Number, j: Number, k: Number) -&gt; 'Design'` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). |
 | `dwell` | `def dwell(self, seconds: Number) -&gt; 'Design'` |  | Pause in place for `seconds` (emits a G4 dwell). |
 | `manual_gcode` | `def manual_gcode(self, text: str) -&gt; 'Design'` |  | Inject verbatim custom G-code. |
 | `deposit` | `def deposit(self, volume: Number, speed: Number) -&gt; 'Design'` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
@@ -308,16 +308,7 @@ Prime filament back after a retraction.
 
 ### `gcode`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/author" aria-label="Open Author a path guide">
-    <img src="/reference/previews/author.svg" alt="Author a path rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/author">Author a path</a></strong>
-    <span>Create a fluent L1 design and emit motion G-code.</span>
-    <small>typescript: <code>docs/site/examples/author.ts</code> · python: <code>docs/site/examples/author.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="author" :outputs='["gcode"]' />
 
 ```py
 def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -> List[str]
@@ -346,16 +337,7 @@ provided (not ``None``) it takes precedence.
 
 ### `simulate`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/simulate" aria-label="Open Simulate guide">
-    <img src="/reference/previews/simulate.svg" alt="Simulate rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/simulate">Simulate</a></strong>
-    <span>Compute toolpath metrics such as time, distances, material, and peak flow.</span>
-    <small>typescript: <code>docs/site/examples/simulate.ts</code> · python: <code>docs/site/examples/simulate.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="simulate" :outputs='["metrics"]' />
 
 ```py
 def simulate(self, printer: str = 'generic') -> Metrics
@@ -373,16 +355,7 @@ Resolve + simulate; returns a metrics dict (time, distances, material, peak flow
 
 ### `ir`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/lower" aria-label="Open Lower to the Dry IR guide">
-    <img src="/reference/previews/lower.svg" alt="Lower to the Dry IR rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/lower">Lower to the Dry IR</a></strong>
-    <span>Resolve an authored design into Dry's structured L2 toolpath IR.</span>
-    <small>typescript: <code>docs/site/examples/lower.ts</code> · python: <code>docs/site/examples/lower.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="lower" :outputs='["ir"]' />
 
 ```py
 def ir(self, printer: str = 'generic') -> Toolpath
@@ -400,16 +373,7 @@ Resolve to the L2 Dry IR; returns a dict ({version, segments}).
 
 ### `optimized_ir`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/optimize" aria-label="Open Optimize guide">
-    <img src="/reference/previews/optimize.svg" alt="Optimize rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/optimize">Optimize</a></strong>
-    <span>Resolve through the optimization pipeline and inspect optimized IR.</span>
-    <small>typescript: <code>docs/site/examples/optimize.ts</code> · python: <code>docs/site/examples/optimize.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="optimize" :outputs='["ir"]' />
 
 ```py
 def optimized_ir(self, printer: str = 'generic') -> Toolpath
@@ -427,16 +391,7 @@ Resolve + optimize; returns a dict ({version, segments}).
 
 ### `balanced_ir`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/optimize" aria-label="Open Optimize guide">
-    <img src="/reference/previews/optimize.svg" alt="Optimize rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/optimize">Optimize</a></strong>
-    <span>Resolve through the optimization pipeline and inspect optimized IR.</span>
-    <small>typescript: <code>docs/site/examples/optimize.ts</code> · python: <code>docs/site/examples/optimize.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="optimize" :outputs='["ir"]' />
 
 ```py
 def balanced_ir(self, printer: str = 'generic', kinematics: Optional[Kinematics] = None) -> Toolpath
@@ -476,16 +431,7 @@ Resolve + encode to binary DRY1 format; returns a bytes object.
 
 ### `verify`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ```py
 def verify(self, printer: str = 'generic', max_flow: Optional[Number] = None, min_temp: Optional[Number] = None, bounds: Optional[Bounds] = None, monotonic_z: bool = False, speed_range: Optional[Range] = None, max_retraction_distance: Optional[Number] = None, max_retraction_speed: Optional[Number] = None, max_travel_without_retract: Optional[Number] = None, first_layer_height_range: Optional[Range] = None, first_layer_speed_range: Optional[Range] = None, kinematics: Optional[Kinematics] = None) -> Report

@@ -4,16 +4,7 @@
 
 Emit motion g-code for a Dry IR file
 
-<figure class="reference-inline-sample">
-  <a href="/guide/author" aria-label="Open Author a path guide">
-    <img src="/reference/previews/author.svg" alt="Author a path rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/author">Author a path</a></strong>
-    <span>Create a fluent L1 design and emit motion G-code.</span>
-    <small>typescript: <code>docs/site/examples/author.ts</code> · python: <code>docs/site/examples/author.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="author" :outputs='["gcode"]' />
 
 ## Help
 

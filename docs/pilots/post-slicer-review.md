@@ -22,7 +22,7 @@ Prefer a profile (reusable, named, with import defaults) — see the example pro
 [`spec/examples/profiles/`](../../spec/examples/profiles):
 
 ```sh
-dry review-gcode part.gcode --profile spec/examples/profiles/voron-abs-klipper.json --json
+dry review-gcode examples/part.gcode --profile spec/examples/profiles/voron-abs-klipper.json --json
 ```
 
 `--json` emits a structured `ReviewReport`: `metrics`, `error_count`, and `findings[]` where each finding
@@ -39,7 +39,7 @@ dry trace-gcode examples/part.gcode --window-s 5
 
 Each window carries its segment range and — because the file was imported — its **source-line range**,
 so you can map a flow/speed spike back to the exact g-code lines. Pipe to a file for dashboards:
-`dry trace-gcode part.gcode --window-s 5 > trace.json`.
+`dry trace-gcode examples/part.gcode --window-s 5 > trace.json`.
 
 ## 3. Rewrite — normalize or optimize, preserving the file
 

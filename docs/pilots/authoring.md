@@ -49,8 +49,12 @@ G1 Y20 E0.498902
 ## TypeScript
 
 ```sh
-cd sdk/ts && npm ci && npm run build
+cd sdk/ts
+npm ci
+npm run example:authoring
 ```
+
+The example script builds the SDK, verifies the design, simulates it, and prints the generated G-code.
 
 The same design, mirrored ([`examples/authoring.ts`](../../examples/authoring.ts)):
 

@@ -30,16 +30,7 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 
 ### `tpms_gcode`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/generative" aria-label="Open Generative guide">
-    <img src="/reference/previews/generative.svg" alt="Generative rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/generative">Generative</a></strong>
-    <span>Generate TPMS-style infill paths from structured options.</span>
-    <small>typescript: <code>docs/site/examples/generative.ts</code> · python: <code>docs/site/examples/generative.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="generative" :outputs='["gcode","ir"]' />
 
 ```py
 def tpms_gcode(options: Optional[TpmsOptions], printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -> List[str]

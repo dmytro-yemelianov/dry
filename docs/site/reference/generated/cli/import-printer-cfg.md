@@ -4,6 +4,8 @@
 
 Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume)
 
+<LiveExample src="lower" :outputs='["ir"]' />
+
 ## Help
 
 ```text

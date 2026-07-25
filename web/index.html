@@ -117,10 +117,10 @@
       <span>Rust toolpath compiler, live 3D playback, synced g-code, byte-identical oracle output.</span>
     </div>
     <nav aria-label="Dry web navigation">
-      <a href="../index.html">Overview</a>
-      <a href="architecture.html">Architecture audit</a>
-      <a href="opportunities.html">Product directions</a>
-      <a href="blocks.html">Author blocks</a>
+      <a href="/">Docs</a>
+      <a href="/guide/">Guide</a>
+      <a href="https://github.com/dmytro-yemelianov/dry">Source</a>
+      <a href="https://github.com/dmytro-yemelianov/dry/blob/main/docs/CLEANROOM.md">Clean room</a>
     </nav>
   </div>
 </header>
@@ -133,6 +133,7 @@
     <div id="sourceCards" class="source-cards" aria-label="Design source gallery"></div>
     <select id="source" class="source-select-fallback" aria-label="Design source" aria-hidden="true" tabindex="-1">
       <option value="gallery">Gallery design</option>
+      <option value="fullcontrol">FullControl samples</option>
       <option value="lattice">Printable star lattice</option>
       <option value="tpms">TPMS infill volume</option>
     </select>
@@ -224,6 +225,8 @@
       <div>
         <div id="designTitle" class="design-title"></div>
         <div class="tags" id="designTags"></div>
+        <div id="designDescription" class="design-description"></div>
+        <div id="designLinks" class="design-links"></div>
       </div>
     </div>
     <div id="sourceError" class="error" role="alert" hidden></div>
@@ -343,7 +346,7 @@
 <script type="module">
 import init, { resolve_gcode, resolve_metrics, resolve_ir,
                resolve_optimized_ir, resolve_balanced_ir, resolve_verify, metrics_ir } from './pkg/dry_wasm.js';
-import { DESIGNS, RESOLVE_PARAMS } from './designs.js';
+import { DESIGNS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
 import { STAR_POLYGON_FAMILIES, starPolygonLatticeOps } from './lattice-research.js';
 import { TPMS_SURFACES, tpmsOps } from './tpms.js';
 import { createViewer } from './viewer.js';
@@ -400,6 +403,13 @@ const SOURCE_DEFS = [
     description: 'Authored parametric examples from the design table.',
     tags: ['DESIGNS', 'controls'],
     ops: () => DESIGNS.star?.ops || [],
+  },
+  {
+    key: 'fullcontrol',
+    label: 'FullControl samples',
+    description: 'All 28 notebook, fullcontrol.xyz, and oracle-gallery defaults reconstructed as executable Dry L1 designs.',
+    tags: ['28 ports', 'notebooks', 'fullcontrol.xyz'],
+    ops: () => FULLCONTROL_DESIGNS.nonplanar_spacer?.ops || [],
   },
   {
     key: 'lattice',
@@ -462,16 +472,26 @@ const SOURCE_DEFS = [
     },
   });
 
-  // populate the picker grouped by `group` (one <optgroup> per group)
   const sel = $('design');
-  const groups = {};
-  for (const [k, d] of Object.entries(DESIGNS)) (groups[d.group || 'Other'] ||= []).push([k, d]);
-  for (const [group, items] of Object.entries(groups)) {
-    const og = document.createElement('optgroup'); og.label = group;
-    for (const [k, d] of items) {
-      const o = document.createElement('option'); o.value = k; o.textContent = d.label; og.appendChild(o);
+  const designLibrary = (source = $('source').value) => source === 'fullcontrol' ? FULLCONTROL_DESIGNS : DESIGNS;
+
+  function populateDesignSelect(preferred = '') {
+    const library = designLibrary();
+    sel.replaceChildren();
+    const groups = {};
+    for (const [key, design] of Object.entries(library)) (groups[design.group || 'Other'] ||= []).push([key, design]);
+    for (const [group, items] of Object.entries(groups)) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group;
+      for (const [key, design] of items) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = design.label;
+        optgroup.appendChild(option);
+      }
+      sel.appendChild(optgroup);
     }
-    sel.appendChild(og);
+    if (preferred && library[preferred]) sel.value = preferred;
   }
 
   for (const [family, spec] of Object.entries(STAR_POLYGON_FAMILIES)) {
@@ -903,7 +923,7 @@ const SOURCE_DEFS = [
     if (!container) return;
     container.replaceChildren();
     galleryParamControls.clear();
-    const design = DESIGNS[sel.value];
+    const design = designLibrary()[sel.value];
     const params = design?.params || [];
     container.hidden = params.length === 0;
     if (!params.length) return;
@@ -1004,7 +1024,7 @@ const SOURCE_DEFS = [
 
   function syncSourcePanels() {
     const source = $('source').value;
-    $('galleryPanel').hidden = source !== 'gallery';
+    $('galleryPanel').hidden = source !== 'gallery' && source !== 'fullcontrol';
     $('latticePanel').hidden = source !== 'lattice';
     $('tpmsPanel').hidden = source !== 'tpms';
   }
@@ -1060,8 +1080,8 @@ const SOURCE_DEFS = [
 
   function activeDesign() {
     const source = $('source').value;
-    if (source === 'gallery') {
-      const design = DESIGNS[sel.value];
+    if (source === 'gallery' || source === 'fullcontrol') {
+      const design = designLibrary(source)[sel.value];
       const values = galleryParamValues(design);
       return {
         ...design,
@@ -1155,6 +1175,17 @@ const SOURCE_DEFS = [
     if (container) setCardSelected(container, '.design-card', sel.value);
   }
 
+  function activateSource(source, preferredDesign = '') {
+    $('source').value = source;
+    if (source === 'gallery' || source === 'fullcontrol') {
+      populateDesignSelect(preferredDesign);
+      renderDesignCards();
+      renderGalleryParams();
+    }
+    renderSourceCardSelection();
+    go();
+  }
+
   function renderSourceCards() {
     const container = $('sourceCards');
     container.replaceChildren();
@@ -1180,9 +1211,7 @@ const SOURCE_DEFS = [
       body.append(title, desc);
       button.append(img, body);
       button.addEventListener('click', () => {
-        $('source').value = source.key;
-        renderSourceCardSelection();
-        go();
+        activateSource(source.key);
       });
       container.appendChild(button);
     }
@@ -1193,7 +1222,7 @@ const SOURCE_DEFS = [
     const container = $('designCards');
     container.replaceChildren();
     const groups = {};
-    for (const [key, design] of Object.entries(DESIGNS)) (groups[design.group || 'Other'] ||= []).push([key, design]);
+    for (const [key, design] of Object.entries(designLibrary())) (groups[design.group || 'Other'] ||= []).push([key, design]);
     let thumbDelay = 0;
     for (const [group, items] of Object.entries(groups)) {
       const groupLabel = document.createElement('div');
@@ -1212,7 +1241,7 @@ const SOURCE_DEFS = [
         img.height = 48;
         img.loading = 'lazy';
         fillCardThumbnail(img, design.ops, 64, thumbDelay);
-        thumbDelay += group === 'TPMS' ? 45 : 14;
+        thumbDelay += (group === 'TPMS' || $('source').value === 'fullcontrol') ? 45 : 14;
         const label = document.createElement('span');
         label.textContent = design.label;
         button.append(img, label);
@@ -1230,6 +1259,7 @@ const SOURCE_DEFS = [
 
   const renderMeta = (d) => {
     $('designTitle').textContent = d.label || 'Generated design';
+    $('designDescription').textContent = d.description || '';
     const tags = $('designTags');
     tags.replaceChildren();
     for (const t of d.tags || []) {
@@ -1237,6 +1267,16 @@ const SOURCE_DEFS = [
       chip.className = 'chip';
       chip.textContent = t;
       tags.appendChild(chip);
+    }
+    const links = $('designLinks');
+    links.replaceChildren();
+    for (const [label, href] of d.links || []) {
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.textContent = label;
+      anchor.target = '_blank';
+      anchor.rel = 'noreferrer';
+      links.appendChild(anchor);
     }
     $('designThumb').src = thumbnail(d.ops, thumbWasm, currentResolveParams(), 84);
   };
@@ -1472,11 +1512,26 @@ const SOURCE_DEFS = [
     $('sourceError').textContent = error.message || String(error);
     $('gcode').textContent = error.message || String(error);
     $('designTags').replaceChildren();
+    $('designDescription').textContent = '';
+    $('designLinks').replaceChildren();
     $('metrics').replaceChildren();
     $('optimize').replaceChildren();
     $('findings').replaceChildren();
     $('gcodeTools').replaceChildren();
     $('renderProfile').textContent = '';
+  }
+
+  function syncLocation() {
+    const source = $('source').value;
+    const url = new URL(window.location.href);
+    if (source === 'gallery' || source === 'fullcontrol') {
+      url.searchParams.set('source', source);
+      url.searchParams.set('design', sel.value);
+    } else {
+      url.searchParams.delete('source');
+      url.searchParams.delete('design');
+    }
+    window.history.replaceState(null, '', url);
   }
 
   const go = () => {
@@ -1492,6 +1547,7 @@ const SOURCE_DEFS = [
       LAST_EXPORT = { design: d, ops: d.ops, result, params: currentResolveParams(), relativeE: $('relE').checked };
       renderSourceCardSelection();
       renderDesignCardSelection();
+      syncLocation();
       updateExportStatus();
       updateDefaultResetState();
     } catch (error) {
@@ -1512,6 +1568,11 @@ const SOURCE_DEFS = [
     'maxAccel', 'junctionVel', 'optimizeMode',
   ]) {
     const el = $(id);
+    if (id === 'source') {
+      el.addEventListener('input', () => activateSource(el.value));
+      el.addEventListener('change', () => activateSource(el.value));
+      continue;
+    }
     if (id === 'design') {
       el.addEventListener('input', () => {
         renderGalleryParams();
@@ -1543,6 +1604,12 @@ const SOURCE_DEFS = [
 
   populatePrinterProfiles();
   applyPrinterProfile(false);
+  const requested = new URLSearchParams(window.location.search);
+  const requestedDesign = requested.get('design') || '';
+  const requestedSource = requested.get('source');
+  if (requestedSource === 'fullcontrol' || FULLCONTROL_DESIGNS[requestedDesign]) $('source').value = 'fullcontrol';
+  else if (requestedSource === 'gallery') $('source').value = 'gallery';
+  populateDesignSelect(requestedDesign);
   renderSourceCards();
   renderDesignCards();
   renderGalleryParams();
@@ -1550,6 +1617,10 @@ const SOURCE_DEFS = [
   setupDefaultResets();
   setupPanelLayout();
   go();
+  window.__galleryInventory = {
+    dry: Object.keys(DESIGNS),
+    fullcontrol: Object.keys(FULLCONTROL_DESIGNS),
+  };
   window.__dryReady = true;
 })();
 </script>

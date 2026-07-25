@@ -4,6 +4,8 @@
 
 Parse + simulate a Dry IR file and print a concise summary
 
+<LiveExample src="simulate" :outputs='["metrics"]' />
+
 ## Help
 
 ```text

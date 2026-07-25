@@ -4,16 +4,7 @@
 
 Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found. Flags: `--bounds`, `--max-flow`, `--speed-range`, `--monotonic-z`, `--min-temp`, `--max-retraction-distance`, `--max-retraction-speed`, `--max-travel-without-retract`, `--first-layer-height-range`, `--first-layer-speed-range`, `--max-accel`, `--junction-velocity`, `--json`
 
-<figure class="reference-inline-sample">
-  <a href="/guide/verify" aria-label="Open Verify guide">
-    <img src="/reference/previews/verify.svg" alt="Verify rendered preview">
-  </a>
-  <figcaption>
-    <strong>Sample: <a href="/guide/verify">Verify</a></strong>
-    <span>Check a resolved design against machine-safety contracts and inspect findings.</span>
-    <small>typescript: <code>docs/site/examples/verify.ts</code> · python: <code>docs/site/examples/verify.py</code></small>
-  </figcaption>
-</figure>
+<LiveExample src="verify" :outputs='["verify"]' />
 
 ## Help
 

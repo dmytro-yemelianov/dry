@@ -181,12 +181,113 @@ for name, steps in BASE_DESIGNS.items():
                    'expected': list(gcode)}, f, indent=2)
 
 
-# 3. Export Gallery Designs (the 27 examples)
+# 3. Export Gallery Designs. The fork registers 27 examples, but its small export matrix currently
+# contains 26. Keep the known gyroid gap explicit so a fork-side change cannot silently alter coverage.
 print("3. Exporting Gallery Designs...")
 from tests.unit.test_examples import _SMALL, _BUILD
+from examples import GALLERY
 
-for name in sorted(_SMALL):
-    func = _SMALL[name]
+_EXPECTED_GALLERY_NAMES = {
+    'arc_vase',
+    'bead_studs',
+    'blob_printing',
+    'brush_lettering',
+    'fractional_design_engine',
+    'freeform_frosting',
+    'gyroid_infill',
+    'helical_screw',
+    'hex_adapter',
+    'lampshade',
+    'mobius_band',
+    'nonplanar_spacer',
+    'nuts_and_bolts',
+    'overhang_challenge',
+    'phone_stand',
+    'pin_support_challenge',
+    'retraction_test',
+    'ripple_vase',
+    'snake_soapdish',
+    'spiral_vase',
+    'star_polygon_lattice',
+    'tape_reinforcement',
+    'textured_cone',
+    'towers_grid',
+    'trefoil_tube',
+    'twisted_polygon_vase',
+    'wave_bowl',
+}
+_gallery_names = set(GALLERY)
+if _gallery_names != _EXPECTED_GALLERY_NAMES:
+    raise RuntimeError(
+        'unexpected FullControl gallery registry: '
+        f'missing={sorted(_EXPECTED_GALLERY_NAMES - _gallery_names)}, '
+        f'extra={sorted(_gallery_names - _EXPECTED_GALLERY_NAMES)}'
+    )
+
+_missing_gallery_exports = _gallery_names - set(_SMALL)
+_extra_gallery_exports = set(_SMALL) - _gallery_names
+if _missing_gallery_exports != {'gyroid_infill'} or _extra_gallery_exports:
+    raise RuntimeError(
+        'unexpected FullControl gallery export matrix: '
+        f'missing={sorted(_missing_gallery_exports)}, '
+        f'extra={sorted(_extra_gallery_exports)}'
+    )
+
+_EXPORT_CASES = {
+    **_SMALL,
+    # The fork registry includes gyroid_infill but its small test/export matrix does not. Keep this
+    # oracle-only conformance case compact while retaining multiple layers and a complete unit cell.
+    'gyroid_infill': lambda: GALLERY['gyroid_infill'](
+        size_x=12,
+        size_y=12,
+        height=1.2,
+        cell_size=6,
+        layer_height=0.3,
+        resolution=12,
+    ),
+    # fullcontrol.xyz publishes the plus variant as a separate model card, so it needs a distinct
+    # fixture even though both variants share one callable in the oracle registry.
+    'overhang_challenge_plus': lambda: GALLERY['overhang_challenge'](
+        plus=True,
+        segments_per_layer=40,
+        base_rings=3,
+    ),
+}
+_EXPECTED_DRY_GALLERY_EXPORTS = _EXPECTED_GALLERY_NAMES | {'overhang_challenge_plus'}
+if set(_EXPORT_CASES) != _EXPECTED_DRY_GALLERY_EXPORTS:
+    raise RuntimeError(
+        'unexpected Dry gallery export inventory: '
+        f'missing={sorted(_EXPECTED_DRY_GALLERY_EXPORTS - set(_EXPORT_CASES))}, '
+        f'extra={sorted(set(_EXPORT_CASES) - _EXPECTED_DRY_GALLERY_EXPORTS)}'
+    )
+
+_EXPECTED_WEBSITE_FIXTURES = {
+    'blob_printing',
+    'fractional_design_engine',
+    'freeform_frosting',
+    'hex_adapter',
+    'lampshade',
+    'nonplanar_spacer',
+    'nuts_and_bolts',
+    'overhang_challenge',
+    'overhang_challenge_plus',
+    'phone_stand',
+    'pin_support_challenge',
+    'retraction_test',
+    'ripple_vase',
+    'snake_soapdish',
+    'star_polygon_lattice',
+    'tape_reinforcement',
+}
+if len(_EXPECTED_WEBSITE_FIXTURES) != 16 or not _EXPECTED_WEBSITE_FIXTURES <= set(_EXPORT_CASES):
+    raise RuntimeError(
+        'unexpected fullcontrol.xyz fixture coverage: '
+        f'count={len(_EXPECTED_WEBSITE_FIXTURES)}, '
+        f'missing={sorted(_EXPECTED_WEBSITE_FIXTURES - set(_EXPORT_CASES))}'
+    )
+
+for name in sorted(_EXPORT_CASES):
+    func = _EXPORT_CASES[name]
     steps = func()
     
     # Resolve
@@ -223,7 +324,10 @@ for name in sorted(_SMALL):
             'expected_metrics': metrics,
             'expected_gcode': list(gcode)
         }, f, indent=2)
-print(f"Exported {len(_SMALL)} gallery designs.")
+print(
+    f"Exported {len(_EXPORT_CASES)} Dry gallery fixtures "
+    f"from {len(_gallery_names)} registry designs and {len(_SMALL)} fork-small cases."
+)
 
 
 # 4. Export Device Profiles

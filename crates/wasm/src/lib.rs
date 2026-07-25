@@ -164,11 +164,19 @@ fn build_bounds(bounds: Option<Box<[f64]>>) -> Result<Option<[[f64; 2]; 3]>, JsE
     if values.iter().any(|v| !v.is_finite()) {
         return Err(JsError::new("bounds values must all be finite"));
     }
-    Ok(Some([
+    let bounds = [
         [values[0], values[1]],
         [values[2], values[3]],
         [values[4], values[5]],
-    ]))
+    ];
+    for (axis, [lo, hi]) in ["x", "y", "z"].into_iter().zip(bounds) {
+        if lo > hi {
+            return Err(JsError::new(&format!(
+                "bounds {axis} lower bound must be <= upper bound"
+            )));
+        }
+    }
+    Ok(Some(bounds))
 }
 
 /// Build a `[min, max]` range from the flat 2-value form the TS SDK passes, validating the shape and
@@ -184,6 +192,11 @@ fn build_range(name: &str, range: Option<Box<[f64]>>) -> Result<Option<[f64; 2]>
     }
     if values.iter().any(|v| !v.is_finite()) {
         return Err(JsError::new(&format!("{name} values must all be finite")));
+    }
+    if values[0] > values[1] {
+        return Err(JsError::new(&format!(
+            "{name} lower bound must be <= upper bound"
+        )));
     }
     Ok(Some([values[0], values[1]]))
 }

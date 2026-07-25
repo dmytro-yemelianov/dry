@@ -1,4 +1,5 @@
 import { test, expect, vi } from 'vitest';
+import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import { setWasmBinding, type DryWasm } from '@sdk/engine';
 import LiveExample from './LiveExample.vue';
@@ -52,6 +53,54 @@ test('accepts default slot text as inline source', async () => {
 test('renders a direct Toolpath result in the IR pane', async () => {
   const wrapper = mountLiveExample({ code: `({ version: 1, segments: [{ start: [0,0,0], end: [2,0,0], travel: false, kind: 'line' }] })`, outputs: ['ir'] });
   await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(wrapper.find('.live-out').text()).toContain('"segments"');
+  expect(wrapper.find('.live-error').exists()).toBe(false);
+});
+
+test('clears output from the previous run when an edit fails', async () => {
+  const code = `import { Design } from '@dry/sdk';\nnew Design().geometry(0.6,0.2).extruder(true).point(0,0,0.2).point(10,0,0.2)`;
+  const wrapper = mountLiveExample({ code, outputs: ['gcode'] });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(wrapper.find('.live-out').text()).toContain('G1 X10 Y0');
+
+  const setupState = (wrapper.vm as unknown as {
+    $: { setupState: { source: string; runNow: () => Promise<void> } };
+  }).$.setupState;
+  setupState.source = `throw new Error('edited failure')`;
+  await setupState.runNow();
+  await nextTick();
+
+  expect(wrapper.find('.live-error').text()).toContain('edited failure');
+  expect(wrapper.find('.live-out').text()).toBe('');
+});
+
+test('clears a previous toolpath when the next successful result has no toolpath', async () => {
+  const wrapper = mountLiveExample({
+    code: `({ version: 1, segments: [{ start: [0,0,0], end: [2,0,0], travel: false, kind: 'line' }] })`,
+    outputs: ['ir'],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(wrapper.find('.live-out').text()).toContain('"segments"');
+
+  const setupState = (wrapper.vm as unknown as {
+    $: { setupState: { source: string; runNow: () => Promise<void> } };
+  }).$.setupState;
+  setupState.source = '42';
+  await setupState.runNow();
+  await nextTick();
+
+  expect(wrapper.find('.live-out').text()).toBe('');
+  expect(wrapper.find('.live-error').exists()).toBe(false);
+});
+
+test('does not call gcode when that output was not requested', async () => {
+  const code = `({
+    ir() { return { version: 1, segments: [] } },
+    gcode() { throw new Error('gcode should not run') }
+  })`;
+  const wrapper = mountLiveExample({ code, outputs: ['ir'] });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
   expect(wrapper.find('.live-out').text()).toContain('"segments"');
   expect(wrapper.find('.live-error').exists()).toBe(false);
 });

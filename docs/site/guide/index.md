@@ -9,6 +9,10 @@ rerun against the same Rust/wasm engine the CLI and the Python/TypeScript SDKs u
 Reference pages: [TypeScript SDK](../reference/generated/typescript-sdk), [Python SDK](../reference/generated/python-sdk),
 [CLI](../reference/generated/cli), [IR](../reference/generated/ir), [examples matrix](../reference/generated/examples).
 
+Want the published designs rather than the workflow tour? Open the
+[FullControl sample gallery](/gallery/?source=fullcontrol&design=nonplanar_spacer) to run all 28
+notebook, fullcontrol.xyz, and oracle-gallery defaults through Dry in the browser.
+
 1. [Author a path](./author) - the fluent `Design` API
 2. [Lower to the Dry IR](./lower) - the typed L2 motion segments
 3. [Simulate](./simulate) - time, distance, material, peak flow

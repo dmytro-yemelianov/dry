@@ -151,6 +151,37 @@ def test_verify_accepts_structured_limits():
     assert d.verify(bounds=None)["findings"] == []
 
 
+@pytest.mark.parametrize("limits", [
+    {"bounds": [[100, 0], [0, 100], [0, 50]]},
+    {"bounds": "100,0,0,100,0,50"},
+    {"speed_range": [9000, 300]},
+    {"speed_range": "9000,300"},
+    {"first_layer_height_range": [0.5, 0.1]},
+    {"first_layer_speed_range": [3000, 1000]},
+])
+def test_verify_rejects_inverted_contract_ranges(limits):
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    with pytest.raises(ValueError, match="lower bound must be <= upper bound"):
+        d.verify(**limits)
+
+
+def test_verify_validates_contract_ranges_before_resolving_toolpath():
+    d = dry.Design().geometry(-0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    with pytest.raises(ValueError, match="bounds x lower bound must be <= upper bound"):
+        d.verify(bounds=[[100, 0], [0, 100], [0, 50]])
+
+
+def test_verify_allows_equal_contract_endpoints():
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10, 0, 0.2)
+    report = d.verify(
+        bounds=[[0, 0], [0, 0], [0.2, 0.2]],
+        speed_range=[600, 600],
+        first_layer_height_range=[0.2, 0.2],
+        first_layer_speed_range=[600, 600],
+    )
+    assert isinstance(report["findings"], list)
+
+
 def test_verify_csv_string_backward_compat():
     # Legacy CSV strings for bounds/speed_range must keep working now that the binding takes
     # native typed contracts: the Python layer parses the string into the structured form.

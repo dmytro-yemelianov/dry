@@ -8,6 +8,10 @@
 
 **Tech Stack:** TypeScript, VitePress 1 (Vue 3 + Vite), CodeMirror 6, sucrase, the existing wasm-bindgen `--target web` engine, Vitest + @vue/test-utils + jsdom (unit), Playwright (smoke).
 
+> **Implementation status:** complete. This document records the original task sequence; the checked-in
+> source and tests are canonical where the implementation evolved (notably Worker-isolated snippet
+> execution, teardown guards, parser-aware module transforms, and stale-output clearing).
+
 ## Global Constraints
 
 - **One engine, no fork.** The browser must run the genuine `@dry/sdk` `Design` API; no re-implemented browser `Design`, no parallel resolve logic. (Spec decision 4.)
@@ -184,7 +188,7 @@ let initPromise: Promise<void> | undefined;
 /** Load + initialise the web-target wasm exactly once and install it as the engine binding. */
 export function initDryWeb(wasmUrl: string): Promise<void> {
   if (!initPromise) {
-    initPromise = (async () => {
+    const attempt = (async () => {
       const glue: Record<string, unknown> = await import(/* @vite-ignore */ wasmUrl);
       // wasm-bindgen --target web: default export is the async init; it fetches dry_wasm_bg.wasm
       // relative to the glue's own URL.
@@ -202,6 +206,10 @@ export function initDryWeb(wasmUrl: string): Promise<void> {
         resolve_verify: fn('resolve_verify'),
       } as DryWasm);
     })();
+    initPromise = attempt.catch((error: unknown) => {
+      initPromise = undefined;
+      throw error;
+    });
   }
   return initPromise;
 }
@@ -615,30 +623,34 @@ const KEYS = [
 
 export function compileSnippet(src: string): (dry: Dry) => unknown {
   const js = transform(src, { transforms: ['typescript', 'imports'] }).code;
-  const preamble = `const { ${KEYS.join(', ')} } = __dry;\nlet __result;\n`;
+  const preamble = `const { ${KEYS.join(', ')} } = __dry;\n`;
+  const moduleScope = `const exports = {};\nconst require = (specifier) => {\n` +
+    `  if (specifier !== '@dry/sdk') throw new Error('unsupported live-docs import: ' + specifier);\n` +
+    `  return __dry;\n};\n`;
   // Capture the snippet's last top-level expression by assigning it; we wrap user code so a trailing
   // expression statement becomes the return value without requiring an explicit `return`.
-  const body = `${preamble}__result = (function(){\n${wrapReturn(js)}\n})();\nreturn __result;`;
+  const body = `${preamble}${moduleScope}return (function(){\n${wrapReturn(js)}\n})();`;
   const factory = new Function('__dry', `'use strict';\n${body}`) as (dry: Dry) => unknown;
   return factory;
 }
 
-// Re-emit the transpiled body so the final expression statement is returned. sucrase 'imports' emits
-// CommonJS-ish `const _sdk = require(...)` we don't want; we ran with the destructure preamble instead,
-// so strip any leftover require lines for our injected module and return the last expression.
+// Re-emit the transpiled body so the final expression statement is returned. Sucrase handles module
+// syntax without rewriting import-like text inside strings/comments; the injected require above resolves
+// only @dry/sdk. The final implementation uses a top-level scanner for semicolonless statements.
 function wrapReturn(js: string): string {
   const cleaned = js
     .split('\n')
-    .filter((l) => !/require\(['"]@dry\/sdk['"]\)/.test(l) && !/^\s*"use strict";\s*$/.test(l))
+    .filter((l) => !/^\s*"use strict";\s*$/.test(l))
     .join('\n')
     .trim();
   // If the author already returns, keep as-is; else turn the last statement into a return.
   if (/\breturn\b/.test(cleaned)) return cleaned;
-  const semi = cleaned.lastIndexOf(';');
-  if (semi === -1) return `return (${cleaned});`;
-  const head = cleaned.slice(0, semi + 1);
-  const tail = cleaned.slice(semi + 1).trim();
-  return tail ? `${head}\nreturn (${tail});` : `${head.replace(/;\s*$/, '')}\nreturn undefined;`;
+  const body = cleaned.replace(/;\s*$/, '');
+  const semi = body.lastIndexOf(';');
+  if (semi === -1) return `return (${body});`;
+  const head = body.slice(0, semi + 1);
+  const tail = body.slice(semi + 1).trim();
+  return tail ? `${head}\nreturn (${tail});` : `${head}\nreturn undefined;`;
 }
 
 export function runSnippet(src: string, dry: Dry):
@@ -819,6 +831,9 @@ import { mount } from '@vue/test-utils';
 import { setWasmBinding, type DryWasm } from '@sdk/engine';
 import LiveExample from './LiveExample.vue';
 
+// The canonical component detects Vitest mode and executes synchronously without loading browser wasm.
+// Lifecycle tests mock the Worker client and hold a deferred result to verify post-unmount guards.
+
 setWasmBinding({
   resolve_ir: () => JSON.stringify({ version: 1, segments: [
     { start: [0,0,0], end: [10,0,0], travel: false, kind: 'line', width: 0.4, height: 0.2, centre: null, clockwise: false }] }),
@@ -853,7 +868,7 @@ Expected: FAIL — `./LiveExample.vue` does not exist.
 
 ```vue
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, watch, computed } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorState } from '@codemirror/state';
@@ -887,10 +902,25 @@ const ready = ref(false);
 const view = shallowRef<EditorView | null>(null);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
-function schedule() { clearTimeout(timer); timer = setTimeout(runNow, 250); }
+let unmounted = false;
+function schedule() {
+  if (unmounted) return;
+  clearTimeout(timer);
+  timer = setTimeout(runNow, 250);
+}
+
+function clearResultState() {
+  gcode.value = [];
+  irText.value = '';
+  metricsText.value = '';
+  verifyText.value = '';
+  const ctx = canvas.value?.getContext('2d');
+  if (ctx && canvas.value) ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+}
 
 function runNow() {
-  if (!ready.value) return;
+  if (!ready.value || unmounted) return;
+  clearResultState();
   const r = runSnippet(source.value, getDry());
   if (!r.ok) { error.value = r.error; return; }
   error.value = '';
@@ -919,8 +949,15 @@ onMounted(async () => {
       })],
     }),
   });
-  try { await initDryEngine(); ready.value = true; runNow(); }
+  try { await initDryEngine(); if (unmounted) return; ready.value = true; runNow(); }
   catch (e) { error.value = `couldn't load the Dry engine (wasm): ${e instanceof Error ? e.message : String(e)}`; }
+});
+
+onBeforeUnmount(() => {
+  unmounted = true;
+  clearTimeout(timer);
+  view.value?.destroy();
+  view.value = null;
 });
 
 watch(source, schedule);

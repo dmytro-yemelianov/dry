@@ -28,17 +28,34 @@ diff <(dry emit conformance/vectors/minimal_line/input.json) \
 
 If your integration shells out to `dry`, this is your end-to-end check per vector.
 
-## Reproduce a vector — Python
+## Gate an authored design — Python
+
+The published vectors start at the resolved L2 IR, while the Python SDK currently starts at the L1
+`Design` API. Use the CLI recipe above when you need to ingest an existing L2 vector byte-for-byte. For a
+Python SDK integration, commit the expected output for the design you author and compare it directly:
 
 ```python
-import json, dry
+import dry
 
-ir = json.load(open("conformance/vectors/minimal_line/input.json"))
-# round-trip the IR through your stack, then emit via Dry and compare to the golden:
-got = dry.Design  # … your code produces/consumes IR; emit through the engine and diff vs expected.gcode
+design = (
+    dry.Design()
+    .geometry(width=0.4, height=0.2)
+    .speed(1500)
+    .extruder(on=True)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2)
+)
+
+expected = [
+    "G1 F1500 X0 Y0 Z0.2 E0",
+    "G1 X10 E0.332601",
+]
+got = design.gcode()
+assert got == expected, f"g-code drifted:\nexpected={expected!r}\ngot={got!r}"
+print("MATCH")
 ```
 
-The Python/TS SDKs author *designs* (L1) that resolve to this same L2 IR, so an integrator typically:
+The Python/TS SDKs author *designs* (L1) that resolve through the same engine to L2 IR, so an integrator typically:
 1. authors or ingests a design,
 2. resolves to IR (`design.ir()`),
 3. emits (`design.gcode()`),
@@ -58,6 +75,8 @@ python tools/validate_vectors.py conformance/vectors
 
 ## Acceptance
 
-Your integration is wired in correctly when it can **read and write at least one vector** and reproduce
+Your raw-IR integration is wired in correctly when it can **read and write at least one vector** and reproduce
 its expected output without depending on Dry's internals — exactly what `validate_vectors.py` demonstrates.
+An authoring-SDK integration is wired in correctly when a representative L1 design reproduces its committed
+G-code golden output, as in the Python check above.
 Version/compatibility rules for upgrading across releases are in [`10-dry-ir-v0-spec.md`](../10-dry-ir-v0-spec.md) §7–8.

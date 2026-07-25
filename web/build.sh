@@ -11,6 +11,10 @@ ROOT="$(cd "$HERE/.." && pwd)"
 TARGET="${1:-web}"          # web | nodejs
 OUT="${2:-$HERE/pkg}"
 
+# Materialize the browser-only module from the committed Dry L1 fixtures. The generated file is
+# ignored by git and staged into the public docs artifact by an explicit allow list.
+node "$HERE/generate-fullcontrol-gallery.mjs"
+
 # dry-wasm is excluded from the core workspace (kept binding-free), so it builds into its own
 # target dir under crates/wasm/.
 cargo build --release --manifest-path "$ROOT/crates/wasm/Cargo.toml" \
