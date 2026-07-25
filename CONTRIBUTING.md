@@ -1,7 +1,8 @@
 # Contributing to Dry
 
-Thanks for your interest. Dry is a clean-room, Apache-2.0 toolpath compiler. This guide covers the dev
-setup, the discipline CI enforces, and the one rule that protects the project's permissive licence.
+Dry is a proprietary, clean-room toolpath compiler. Contributions are accepted only from authorized
+contributors covered by a written employment, contractor, assignment, or contributor agreement. This
+guide covers the dev setup and the discipline CI enforces.
 
 ## The clean-room rule (read first)
 
@@ -10,8 +11,9 @@ Dry must never become a derivative work of **FullControl** (GPLv3). FullControl 
 See [`docs/CLEANROOM.md`](docs/CLEANROOM.md) for the full policy and
 [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) for the provenance ledger.
 
-By contributing you confirm your contribution is your own clean-room work (not ported from GPL sources)
-and is licensed under Apache-2.0.
+By contributing you confirm the work is your own clean-room work (not ported from GPL sources) and that
+you are authorized to submit it under the agreement governing your access. A pull request does not
+itself grant or change any licence.
 
 ## Dev setup
 

@@ -1,9 +1,9 @@
 # Clean-room provenance & licensing discipline
 
-Dry is **Apache-2.0** and **independent of FullControl's code**. FullControl (and its fork) are GPLv3;
-Dry must therefore never be a derivative work of them. This document is the discipline that keeps Dry's
-permissive licence defensible. *(This is engineering policy, not legal advice — confirm with counsel
-before a public release.)*
+Dry is **proprietary** and **independent of FullControl's code**. FullControl (and its fork) are GPLv3;
+Dry must therefore never be a derivative work of them. This document is the discipline that protects
+Dry's provenance, ownership, and commercial licensing boundary. *(This is engineering policy, not legal
+advice—confirm customer terms and provenance conclusions with counsel.)*
 
 ## The rule
 
@@ -41,9 +41,13 @@ spec predates the code, the code references the spec (not FullControl source), a
 quarantined to dev/CI. If contributors have read FullControl source, note it — ideas are fine, copying
 expression is not.
 
-## Why Apache-2.0 (not GPLv3)
+## Why proprietary (not GPLv3)
 
-Dry's mission is an **open standard / infrastructure** ("LLVM for machine motion"). Apache-2.0 (the
-licence of LLVM, Rust, and most standards-track infrastructure) maximises adoption: anyone, including
-commercial tools, can build on Dry and target the Dry IR. The clean-room discipline above is what makes
-this licence available despite FullControl being GPLv3.
+Dry is commercial infrastructure ("LLVM for machine motion") with a publicly documented integration
+contract and privately delivered implementations. Proprietary licensing preserves control over source,
+packages, and embedding rights while allowing customer-specific evaluation and production agreements.
+The clean-room discipline above is what makes independent commercial licensing defensible despite the
+FullControl oracle being GPLv3.
+
+Copies previously distributed under Apache-2.0 remain under those attached terms. The proprietary
+notice applies prospectively; it cannot revoke rights already granted for earlier copies.

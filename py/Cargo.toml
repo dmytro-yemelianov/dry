@@ -3,9 +3,10 @@ name = "dry-py"
 description = "PyO3 binding for Dry — the toolpath compiler engine, callable from Python."
 version = "0.4.0"
 edition = "2021"
-rust-version = "1.87"
-license = "Apache-2.0"
+rust-version = "1.88"
+license-file = "LICENSE"
 repository = "https://github.com/dmytro-yemelianov/dry"
+publish = false
 
 [lib]
 name = "_native"

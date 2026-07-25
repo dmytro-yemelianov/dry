@@ -2,15 +2,15 @@
 layout: home
 hero:
   name: Dry
-  text: Toolpath compiler — live docs
-  tagline: Edit the code, watch the engine run. The same Rust/wasm engine the CLI and SDKs use.
+  text: Proprietary toolpath compiler
+  tagline: Public architecture, workflow, API, and integration documentation. Executable engines ship only to licensed users.
   actions:
     - theme: brand
       text: Start the tour
       link: /guide/
     - theme: alt
-      text: Browse 28 FullControl samples
-      link: /gallery/?source=fullcontrol&design=nonplanar_spacer
+      text: Explore the API
+      link: /reference/
 ---
 
 <LiveExample src="author" :outputs="['gcode', 'ir']" />

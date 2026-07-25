@@ -23,7 +23,7 @@ yet enough for a broad production product that non-expert users can trust withou
 
 Dry should be considered production-ready only when these conditions are true:
 
-1. The public contract is stable.
+1. The customer-facing contract is stable.
    Dry IR has a published schema/spec, versioning rules, compatibility policy, and conformance vectors.
 
 2. Releases are repeatable.
@@ -173,7 +173,7 @@ Acceptance:
 > **Delivered (initial):** [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`SECURITY.md`](../SECURITY.md), a
 > [support matrix](16-support-matrix.md), and an auditable
 > [provenance & dependency-license ledger](17-provenance-and-licensing.md) (no GPL ships; the oracle is
-> dev/CI-only). Remaining: a formal license review by counsel before public commercial positioning.
+> dev/CI-only). Remaining: a formal license review by counsel before external commercial distribution.
 
 Deliverables:
 
@@ -181,7 +181,7 @@ Deliverables:
 - Contributor guide.
 - Security/contact policy.
 - Support matrix.
-- License review before public commercial positioning.
+- License review before external commercial distribution.
 
 Acceptance:
 
@@ -217,7 +217,7 @@ Required:
 - tagged releases;
 - Python/npm artifacts;
 - CLI binaries or documented build installers;
-- published IR schema draft;
+- versioned IR schema draft in the private product documentation;
 - profile schema reference;
 - large-file benchmark report;
 - pilot feedback incorporated.
@@ -235,7 +235,7 @@ Audience: customers relying on Dry in repeatable workflows.
 Required:
 
 - stable Dry IR v1 contract;
-- conformance vector publication;
+- versioned conformance-vector distribution;
 - release automation;
 - support matrix;
 - backwards-compatibility tests;

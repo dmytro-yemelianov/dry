@@ -21,7 +21,7 @@ A release is produced entirely by CI from a `vX.Y.Z` tag — `.github/workflows/
 5. CI runs `release.yml`:
    - **guard** fails fast unless the tag is reachable from `main`, matches every published manifest
      and lockfile version, and has a changelog release heading;
-   - **quality** reruns format/lint, all-feature Rust tests, public conformance validators and dependency
+   - **quality** reruns format/lint, all-feature Rust tests, conformance validators and dependency
      audits on the tagged commit, so publication does not depend on an earlier workflow run;
    - **cli** reproducibly builds locked binaries (including Moonraker upload) for Linux x86_64, macOS
      aarch64 + x86_64, and Windows x86_64, then smoke-tests runnable targets;
@@ -38,15 +38,13 @@ intentionally contains no npm or PyPI publishing jobs, credentials, or trusted-p
 the release artifacts contain proprietary IP. Do not add public registry publishing without a separate
 security review and explicit authorization from the repository owner.
 
-- **PyPI** — add `PYPI_API_TOKEN`; the `pypi` job publishes the wheels + sdist only after the complete
-  GitHub Release succeeds.
-- **npm** — add `NPM_TOKEN`; the `npm` job publishes `@dry/sdk` with provenance only after the complete
-  GitHub Release succeeds.
+Python wheels, the source distribution and the npm tarball are release assets, not public registry
+packages. Customers and internal users install them from an authenticated private release.
 
-The hosted documentation is a separate, public distribution surface. Its built output is uploaded
-directly to Cloudflare Pages without granting Cloudflare repository access; see
-[`18-cloudflare-publishing.md`](18-cloudflare-publishing.md). It does not replace or publish the private
-installable artifacts described here.
+Product documentation is a separate **public** distribution surface. Its public build substitutes
+non-executable examples and excludes the SDK, browser/WASM engine, gallery, packages, and release
+downloads. Never deploy the internal `build:product` output to public hosting. The build and verification
+requirements are in [`18-cloudflare-publishing.md`](18-cloudflare-publishing.md).
 
 ## Installing private release artifacts
 

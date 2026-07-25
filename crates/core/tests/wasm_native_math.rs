@@ -63,8 +63,7 @@ fn wasm_and_native_math_are_bit_identical() {
 
         // Wasm resolve (as raw binary via resolve_binary)
         let js_resolve_code = format!(
-            "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(Buffer.from(dry.resolve_binary(JSON.stringify({}), JSON.stringify({}))).toString('hex'));",
-            ops_json, resolve_params_json
+            "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(Buffer.from(dry.resolve_binary(JSON.stringify({ops_json}), JSON.stringify({resolve_params_json}))).toString('hex'));"
         );
         let node_resolve_output = Command::new("node")
             .arg("-e")
@@ -90,13 +89,8 @@ fn wasm_and_native_math_are_bit_identical() {
             dry_core::Kinematics::Ab { .. } => "ab",
         };
         let js_emit_code = format!(
-            "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(JSON.stringify(dry.resolve_gcode(JSON.stringify({}), JSON.stringify({}), {}, {}, {}, '{}')));",
-            ops_json,
-            resolve_params_json,
-            params.relative_e,
-            params.travel_g1_e0,
-            params.five_axis,
-            kinematics_str
+            "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(JSON.stringify(dry.resolve_gcode(JSON.stringify({ops_json}), JSON.stringify({resolve_params_json}), {}, {}, {}, '{kinematics_str}')));",
+            params.relative_e, params.travel_g1_e0, params.five_axis
         );
         let node_emit_output = Command::new("node")
             .arg("-e")
@@ -116,22 +110,17 @@ fn wasm_and_native_math_are_bit_identical() {
         // Compare native and wasm Toolpath (exact bit-identity comparison)
         assert_eq!(
             native_tp, wasm_tp,
-            "[{}] native and wasm resolved Toolpaths differ (not bit-identical)",
-            design
+            "[{design}] native and wasm resolved Toolpaths differ (not bit-identical)"
         );
 
         // Compare native and wasm G-code
         assert_eq!(
             native_gcode, wasm_gcode,
-            "[{}] native and wasm emitted G-code differ (not bit-identical)",
-            design
+            "[{design}] native and wasm emitted G-code differ (not bit-identical)"
         );
 
         checked += 1;
     }
-    assert!(checked >= 1, "no fixtures found in {:?}", dir);
-    println!(
-        "Verified bit-identical math backend behavior on {} conformance fixtures!",
-        checked
-    );
+    assert!(checked >= 1, "no fixtures found in {dir:?}");
+    println!("Verified bit-identical math backend behavior on {checked} conformance fixtures!");
 }

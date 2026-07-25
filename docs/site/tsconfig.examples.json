@@ -3,11 +3,16 @@
     "target": "ES2021",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
     "types": ["node"],
-    "paths": { "@dry/sdk": ["../../sdk/ts/src/index.ts"], "@sdk/*": ["../../sdk/ts/src/*"] }
+    "paths": {
+      "@dry-live-example": ["./.vitepress/theme/LiveExample.vue"],
+      "@dry/sdk": ["../../sdk/ts/src/index.ts"],
+      "@sdk/*": ["../../sdk/ts/src/*"]
+    }
   },
   "include": ["examples", ".vitepress/theme"]
 }

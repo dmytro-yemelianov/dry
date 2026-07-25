@@ -33,7 +33,7 @@ for (const { name, url } of PAGES) {
   });
 }
 
-test('FullControl notebook and website samples are public and executable', async ({ page }) => {
+test('licensed FullControl notebook and website samples are executable', async ({ page }) => {
   await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
   await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
     timeout: 30_000,

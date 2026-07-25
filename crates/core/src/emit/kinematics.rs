@@ -79,7 +79,7 @@ impl<'de> serde::Deserialize<'de> for Kinematics {
         match raw {
             RawKinematics::String(s) => match s.as_str() {
                 "ab" | "ac" | "bc" => Kinematics::named(&s).map_err(D::Error::custom),
-                other => Err(D::Error::custom(format!("unknown kinematics: {}", other))),
+                other => Err(D::Error::custom(format!("unknown kinematics: {other}"))),
             },
             RawKinematics::Struct(s) => match s.kind.as_str() {
                 "ab" => Ok(Kinematics::Ab {
@@ -95,8 +95,7 @@ impl<'de> serde::Deserialize<'de> for Kinematics {
                     rotary_offset: s.rotary_offset,
                 }),
                 other => Err(D::Error::custom(format!(
-                    "unknown kinematics type: {}",
-                    other
+                    "unknown kinematics type: {other}"
                 ))),
             },
         }

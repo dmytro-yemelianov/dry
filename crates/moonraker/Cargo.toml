@@ -4,8 +4,9 @@ description = "Dry's Moonraker (Klipper) upload client — network code, feature
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license-file.workspace = true
 repository.workspace = true
+publish = false
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

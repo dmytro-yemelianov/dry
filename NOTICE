@@ -1,7 +1,19 @@
 Dry — toolpath compiler infrastructure
-Copyright 2026 Dmytro Yemelianov and the Dry contributors
+Copyright 2026 Dmytro Yemelianov. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License"); see LICENSE.
+Dry-authored software is proprietary and is governed by LICENSE and any
+separate written commercial agreement.
+
+Third-party software remains under its own terms:
+
+- Three.js and OrbitControls, vendored under web/vendor/: MIT License.
+  Copyright 2010-2023 Three.js Authors.
+- Blockly, vendored under web/vendor/blockly/: Apache License 2.0.
+- Package-manager dependencies retain the licenses recorded by their authors.
+
+The standard MIT and Apache-2.0 texts are preserved in third_party/licenses/.
+Those licenses apply only to the corresponding third-party components, not to
+Dry-authored software.
 
 Provenance: Dry is an independent, clean-room implementation. FullControl
 (https://github.com/FullControlXYZ/fullcontrol, GPLv3) and its fork are used only as

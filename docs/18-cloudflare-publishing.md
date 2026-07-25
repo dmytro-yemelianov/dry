@@ -1,29 +1,32 @@
-# Public Cloudflare publishing
+# Public Cloudflare documentation
 
-Dry's hosted surface is the WebAssembly-backed VitePress site in `docs/site`. It is deployed to the
-`dry-docs` Cloudflare Pages project by Direct Upload. Cloudflare receives only the generated files in
-`docs/site/.vitepress/dist`; it is not connected to the private GitHub repository.
+Dry's product documentation in `docs/site` is public at the `dry-docs` Cloudflare Pages project.
+Cloudflare receives only the generated files in `docs/site/.vitepress/dist`; it is not connected to the
+private GitHub repository.
 
-This is separate from tagged product releases. CLI, Python and TypeScript artifacts remain available
-only from private GitHub Releases as described in [`12-releasing.md`](12-releasing.md). npm and PyPI
-publishing remain disabled.
+This is separate from product distribution. CLI, Python, TypeScript, Rust, and WebAssembly artifacts
+remain available only through authenticated private releases as described in
+[`12-releasing.md`](12-releasing.md).
 
 ## Distribution boundary
 
-The hosted documentation and browser WebAssembly bundle are intentionally public at
-`https://dry-docs.pages.dev`. They are not protected by Cloudflare Access. The site's `X-Robots-Tag`
-header asks search engines not to index the deployment, but it is not an access control and must not be
-treated as one.
+`npm run build` is the only build approved for public deployment. It:
 
-Use Direct Upload rather than Pages Git integration. This keeps repository access and build credentials
-out of Cloudflare and sends only the generated static site and browser WebAssembly bundle.
+- renders the guide, API reference, product positioning, and static SVG previews;
+- replaces every executable `LiveExample` with a non-executable licensed-product notice;
+- disables Vite's normal `public/` copy and stages only an explicit documentation asset allow-list;
+- omits `/pkg`, `/gallery`, SDK implementation modules, wasm binaries, and package archives;
+- runs an automated boundary check before reporting success.
+
+`npm run build:product` creates the internal interactive site and includes proprietary WebAssembly and
+gallery code. It must never be uploaded to public hosting.
 
 ## Build and deploy
 
 Prerequisites:
 
 - Wrangler is authenticated to the Cloudflare account that owns `dry-docs`.
-- The content in `docs/site/.vitepress/dist` is approved for public distribution.
+- The generated public output has passed review.
 
 From `docs/site`:
 
@@ -34,15 +37,15 @@ npm run test
 npm run deploy:cloudflare
 ```
 
-`deploy:cloudflare` rebuilds the web-target WASM package, builds VitePress, and uploads
-`.vitepress/dist` using the repository-pinned Wrangler version. The `main` branch is the Pages production
-branch.
+`deploy:cloudflare` always rebuilds the safe public artifact before using Direct Upload. The `main`
+branch is the Pages production branch.
 
 After deployment:
 
 1. Confirm an unauthenticated request to `https://dry-docs.pages.dev/` returns `200`.
-2. Load the guide, reference pages and a live example.
-3. Confirm `/pkg/dry_wasm.js` and `/pkg/dry_wasm_bg.wasm` load publicly.
+2. Load the guide, reference, and marketing pages.
+3. Confirm `/pkg/dry_wasm.js`, `/pkg/dry_wasm_bg.wasm`, and `/gallery/` return `404`.
+4. Confirm example panels state that interactive execution belongs to the authenticated product.
 
 List deployments without changing production:
 
@@ -52,7 +55,6 @@ npx --yes wrangler@4.111.0 pages deployment list --project-name dry-docs
 
 ## Automation boundary
 
-The repository does not contain a Cloudflare API token and does not grant Cloudflare access to GitHub.
-Automated deployments may be added later only with a narrowly scoped Pages token stored as a GitHub
-Actions secret and a workflow that uploads the built output. Until then, deployment is an explicit local
-release operation after the public-content preflight check.
+The repository contains no Cloudflare API token and grants Cloudflare no GitHub access. Automated
+deployment may be added later with a narrowly scoped Pages token stored as a GitHub Actions secret, but
+the workflow must run `npm run build` and the public-boundary check before upload.

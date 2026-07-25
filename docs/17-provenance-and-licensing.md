@@ -4,7 +4,22 @@ The operational companion to [`CLEANROOM.md`](CLEANROOM.md) (the policy). This p
 ledger**: where every committed corpus came from, and what licences ship in a release — so a release can
 be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 
-*(Engineering record, not legal advice — confirm with counsel before public commercial positioning.)*
+*(Engineering record, not legal advice — confirm with counsel before external commercial distribution.)*
+
+## 0. Private-product distribution policy
+
+Dry source, binaries, wheels, npm tarballs, browser/WASM engine, and executable gallery are proprietary
+product artifacts. Tagged builds are distributed through authenticated private GitHub Releases; public
+Cargo, npm, and PyPI publication is disabled by policy and release configuration.
+
+The hosted documentation is public, but its dedicated build contains no engine, SDK implementation,
+package, gallery, or release download. Public visibility grants only the limited documentation access
+described in `LICENSE`; it does not grant a software licence.
+
+Dry-authored work uses the custom SPDX expression `LicenseRef-Dry-Proprietary` where the ecosystem
+supports it, Cargo packages point to their proprietary `LICENSE`, and the unpublished npm package uses
+the standard `UNLICENSED` marker. Versions already distributed under Apache-2.0 retain that licence;
+the change is prospective. Customer evaluation and production use require a separate signed agreement.
 
 ## 1. Corpus provenance ledger
 
@@ -57,5 +72,7 @@ cargo install cargo-license && cargo license   # per-crate licences (optional)
 - [ ] No new runtime dependency introduces a copyleft licence (`cargo tree -e normal`).
 - [ ] The oracle (`conformance/oracle/`) is absent from the release artifacts (CLI archives, wheels, npm).
 - [ ] New corpora are recorded in the ledger above with their origin + regeneration command.
-- [ ] `NOTICE` / `LICENSE` are present in source archives.
+- [ ] `NOTICE` / proprietary `LICENSE` are present in every customer artifact.
+- [ ] Third-party MIT / Apache-2.0 notices remain attached to the corresponding vendored components.
+- [ ] The public docs build contains no `/pkg`, `/gallery`, wasm, package archive, or SDK implementation.
 - [ ] Changelog notes any licence-relevant change.
