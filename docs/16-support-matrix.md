@@ -16,6 +16,10 @@ present and usable, but not gated for production · **Out of scope** = not provi
 | Duet | ✅ | ✅ | Supported |
 | Other firmware | falls back to Marlin-style | best-effort | Experimental |
 
+“Supported” import means the documented motion/state subset is modeled and conformance-tested.
+Firmware commands outside that subset are preserved and surfaced as `unmodeled-gcode` warnings for
+manual review; they are not silently treated as motion.
+
 ## File formats
 
 | Format | Read | Write | Level |

@@ -95,7 +95,12 @@ function escapeHtml(text) {
 }
 
 function fenced(language, text) {
-  return ['```' + language, text.trimEnd(), '```'].join('\n');
+  const clean = text
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trimEnd();
+  return ['```' + language, clean, '```'].join('\n');
 }
 
 function banner() {

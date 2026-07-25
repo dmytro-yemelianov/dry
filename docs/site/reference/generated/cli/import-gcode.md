@@ -23,7 +23,7 @@ Import slicer G-code into Dry IR JSON for review, simulation, verification and o
 Usage: dry import-gcode [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>

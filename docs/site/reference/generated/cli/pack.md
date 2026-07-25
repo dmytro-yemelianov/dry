@@ -23,7 +23,7 @@ Encode a Dry IR (JSON) file to the chunked streaming binary form
 Usage: dry pack --out <OUT> <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
   -o, --out <OUT>  Output path for the `.dry` binary

@@ -81,9 +81,13 @@ class DecodeError(Exception):
 # ---------------------------------------------------------------------------
 def raw_inflate(data: bytes) -> bytes:
     try:
-        return zlib.decompress(data, -15)
+        decoder = zlib.decompressobj(-15)
+        output = decoder.decompress(data) + decoder.flush()
     except zlib.error as exc:  # truncated / corrupt stream
         raise DecodeError(f"inflate failed: {exc}") from exc
+    if not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+        raise DecodeError("inflate stream has trailing or unconsumed bytes")
+    return output
 
 
 def raw_deflate(data: bytes) -> bytes:
@@ -508,6 +512,8 @@ def decode_dry1(buf: bytes) -> dict:
         if r.at != len(body):
             raise DecodeError("trailing bytes in DRY1 block")
         remaining -= block_n
+    if h.at != len(buf):
+        raise DecodeError("trailing bytes after DRY1 blocks")
     return {"version": version, "meta": meta, "segments": segs}
 
 

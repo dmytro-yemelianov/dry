@@ -23,24 +23,24 @@ Diff two analysed g-code files: settings, time/flow, and safety findings (A → 
 Usage: dry compare [OPTIONS] <FILE_A> <FILE_B>
 
 Arguments:
-  <FILE_A>  
-  <FILE_B>  
+  <FILE_A>
+  <FILE_B>
 
 Options:
       --profile <PROFILE>
-          
+
       --filament-diameter <FILAMENT_DIAMETER>
-          
+
       --line-width <LINE_WIDTH>
-          
+
       --layer-height <LAYER_HEIGHT>
-          
+
       --window-s <WINDOW_S>
           [default: 5]
       --json
-          
+
       --out <OUT>
-          
+
       --llm
           Call the model directly: get a narrative over the forensic delta. Requires --model and ANTHROPIC_API_KEY
       --model <MODEL>

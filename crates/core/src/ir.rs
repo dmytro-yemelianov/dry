@@ -185,6 +185,14 @@ impl Toolpath<Vec<Segment>> {
     pub fn from_bytes(buf: &[u8]) -> Result<Self, crate::codec::CodecError> {
         crate::codec::decode(buf)
     }
+
+    /// Decode from either binary form with caller-supplied resource budgets.
+    pub fn from_bytes_with_limits(
+        buf: &[u8],
+        limits: &crate::codec::DecodeLimits,
+    ) -> Result<Self, crate::codec::CodecError> {
+        crate::codec::decode_with_limits(buf, limits)
+    }
 }
 
 impl<I> IntoIterator for Toolpath<I>

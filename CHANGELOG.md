@@ -10,6 +10,13 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Added
+- **Production safety hardening:** binary decode resource budgets (`DecodeLimits`) reject hostile
+  lengths before allocation/decompression; imported firmware commands outside Dry's semantic model
+  produce source-located `unmodeled-gcode` warnings; Moonraker auto-print requires a profile and a clean
+  gate unless explicitly forced, treats negative API responses as failures, validates multipart
+  filenames and enforces network timeouts. CI now runs untrusted PRs on isolated hosted runners, audits
+  dependencies, tests all feature combinations, and release publication is locked, smoke-tested and
+  sequenced behind a complete GitHub Release.
 - **Machine-model v2 (kinematics, end-to-end):** a `peak-acceleration` verifier rule (arc centripetal,
   Error) + `junction-velocity` rule (Δv, Warning) gated on a profile's `machine.kinematics`; a new
   `dry import-printer-cfg` that derives a profile from a Klipper printer.cfg; and `machine.kinematics`

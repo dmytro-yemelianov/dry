@@ -3,6 +3,7 @@ name = "dry-core"
 description = "Dry IR + engine: the dependency-light core (no PyO3/numpy). LLVM/MLIR for machine motion."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

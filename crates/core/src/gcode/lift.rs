@@ -73,6 +73,16 @@ pub struct ImportedGcode {
     pub source_lines: Vec<String>,
     pub segment_source_lines: Vec<usize>,
     pub source_line_segments: Vec<Option<usize>>,
+    /// Explicit G/M commands the importer preserves but does not model or verify.
+    pub unmodeled_commands: Vec<UnmodeledGcode>,
+}
+
+/// A source-located command that survives source-preserving output but is opaque to Dry's verifier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnmodeledGcode {
+    pub source_line: usize,
+    pub command: String,
+    pub raw: String,
 }
 
 /// A contiguous source block containing only imported motion records.
@@ -404,6 +414,7 @@ where
     let mut source_lines = Vec::new();
     let mut segment_source_lines = Vec::new();
     let mut source_line_segments = Vec::new();
+    let mut unmodeled_commands = Vec::new();
 
     for line in lines {
         source_lines.push(line.raw.clone());
@@ -423,6 +434,18 @@ where
             }
             GcodeRecord::State(StateCommand::SetPosition) => apply_g92(&line, &mut state)?,
             GcodeRecord::Process(command) => apply_process(*command, &mut state),
+            GcodeRecord::Other { letter, value } => {
+                let value = if value.fract() == 0.0 {
+                    format!("{value:.0}")
+                } else {
+                    value.to_string()
+                };
+                unmodeled_commands.push(UnmodeledGcode {
+                    source_line: line.source_line,
+                    command: format!("{letter}{value}"),
+                    raw: line.raw.clone(),
+                });
+            }
             _ => {}
         }
     }
@@ -441,6 +464,7 @@ where
         source_lines,
         segment_source_lines,
         source_line_segments,
+        unmodeled_commands,
     })
 }
 
@@ -822,6 +846,27 @@ mod tests {
         assert_eq!(imported.source_line_for_segment(1), Some(5));
         assert_eq!(imported.segment_for_source_line(5), Some(1));
         assert_eq!(imported.source_line_for_segment(2), None);
+    }
+
+    #[test]
+    fn mapped_import_tracks_commands_the_verifier_cannot_model() {
+        let imported = import_gcode_with_map("G1 X1\nG28 X Y\nM84\n", &Default::default()).unwrap();
+        assert_eq!(imported.toolpath.segments.len(), 1);
+        assert_eq!(
+            imported.unmodeled_commands,
+            vec![
+                UnmodeledGcode {
+                    source_line: 2,
+                    command: "G28".to_string(),
+                    raw: "G28 X Y".to_string(),
+                },
+                UnmodeledGcode {
+                    source_line: 3,
+                    command: "M84".to_string(),
+                    raw: "M84".to_string(),
+                },
+            ]
+        );
     }
 
     #[test]

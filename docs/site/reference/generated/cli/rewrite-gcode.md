@@ -23,7 +23,7 @@ Re-emit imported motion while preserving non-motion source G-code lines in place
 Usage: dry rewrite-gcode [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>

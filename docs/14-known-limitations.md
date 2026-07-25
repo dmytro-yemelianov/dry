@@ -30,7 +30,9 @@ Do not rely on Dry for any of these today:
 - **Only `DRY1` streaming is bounded-memory.** Reading JSON or `DRY0`, or calling the non-streaming
   `simulate`/`verify`/`emit` on a materialized `Toolpath`, is O(N) in segments. Bounded memory requires the
   `DRY1` archive read through the `*_stream` passes (`docs/13-performance-and-scale.md`). JSON
-  materialization must not be presented as streaming.
+  materialization must not be presented as streaming. Binary decoders enforce default resource limits
+  before allocation/decompression; applications with a different trusted-file budget can supply explicit
+  `DecodeLimits`.
 - **Cross-implementation byte-identity is not guaranteed.** Conformance is **semantic** (exact f64
   bit-equality, structural equality), not identical bytes — DEFLATE output and float formatting are
   implementation-defined (`docs/10-dry-ir-v0-spec.md` §9). The reference encoder is byte-stable against its
@@ -45,14 +47,17 @@ Do not rely on Dry for any of these today:
 - **Profiles are intentionally small.** The v1 profile schema (`docs/11`) carries the limits the verifier
   can enforce plus import defaults — not a full slicer/material database. `firmware.flavor` is recognized
   for `marlin` / `klipper` / `duet`; others fall back to Marlin-style behavior.
-- **Kinematic limits shape, they do not verify.** `machine.kinematics` (max acceleration / junction
-  velocity) feeds the `balanced` optimisation pass to keep cornering speed within a deterministic,
-  firmware-agnostic machine envelope — but there is **no verifier rule** that checks a toolpath against
-  these limits, so `verify` will not flag a corner that exceeds them. The model is also deliberately
-  simple: no pressure-advance, input-shaper or firmware-specific calibration (deferred).
+- **Kinematic verification is deliberately approximate.** `machine.kinematics` feeds the `balanced`
+  optimisation pass and the `peak-acceleration` / `junction-velocity` rules. These are deterministic,
+  firmware-neutral envelope checks, not a reproduction of firmware motion planning. There is no
+  pressure-advance, input-shaper or firmware-specific calibration model.
 - **Imported G-code recovers only what the text encodes.** Bead width/height, layer height and flow are
   recovered from import defaults/profile, not measured; reviewing G-code without those defaults yields
   `bead`/flow findings driven by the missing geometry, not the print.
+- **The importer does not semantically model every firmware command.** Unsupported `G`/`M`/`T` commands
+  are preserved byte-for-byte and reported as `unmodeled-gcode` warnings; they are never silently
+  reinterpreted as modal motion. Review those lines manually. Auto-print fails closed on these warnings
+  unless `--force` is explicit.
 
 ## Support boundary
 

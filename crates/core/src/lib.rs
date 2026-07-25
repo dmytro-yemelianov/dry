@@ -30,9 +30,10 @@ pub mod units;
 pub mod verify;
 
 pub use codec::{
-    decode_any_streaming, decode_chunked_streaming, decode_streaming, encode_chunked,
-    BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError, JsonSegmentsIterator,
-    SegmentStream, StreamingDecode,
+    decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
+    decode_chunked_streaming_with_limits, decode_streaming, decode_streaming_with_limits,
+    decode_with_limits, encode_chunked, BinarySegmentsIterator, ChunkedSegmentsIterator,
+    CodecError, DecodeLimits, JsonSegmentsIterator, SegmentStream, StreamingDecode,
 };
 pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,

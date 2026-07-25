@@ -1,5 +1,5 @@
-use super::util::{checked_u32_len, Reader};
-use super::{CodecError, ENC_VER, LEGACY_ENC_VER, MAGIC};
+use super::util::{checked_u32_len, decompress_exact, Reader};
+use super::{CodecError, DecodeLimits, ENC_VER, LEGACY_ENC_VER, MAGIC};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
 
@@ -266,6 +266,15 @@ impl Iterator for BinarySegmentsIterator {
 pub fn decode_streaming(
     buf: &[u8],
 ) -> Result<(u32, Option<Meta>, BinarySegmentsIterator), CodecError> {
+    decode_streaming_with_limits(buf, &DecodeLimits::default())
+}
+
+/// Decode a columnar toolpath using explicit resource budgets.
+pub fn decode_streaming_with_limits(
+    buf: &[u8],
+    limits: &DecodeLimits,
+) -> Result<(u32, Option<Meta>, BinarySegmentsIterator), CodecError> {
+    limits.ensure("input bytes", buf.len(), limits.max_input_bytes)?;
     let mut h = Reader::new(buf);
     if h.take(4)? != MAGIC {
         return Err(CodecError::BadMagic);
@@ -277,9 +286,32 @@ pub fn decode_streaming(
     let version = h.u32()?;
     let n = h.u32()? as usize;
     let body_len = h.u32()? as usize;
+    limits.ensure("segment count", n, limits.max_segments)?;
+    limits.ensure(
+        "columnar body bytes",
+        body_len,
+        limits.max_columnar_body_bytes,
+    )?;
 
-    let body = miniz_oxide::inflate::decompress_to_vec_with_limit(&buf[h.at..], body_len)
-        .map_err(|_| CodecError::BadCompression)?;
+    let bitmap_columns = if enc == LEGACY_ENC_VER { 19 } else { 20 };
+    let minimum_body_len = n
+        .checked_mul(176)
+        .and_then(|fixed| {
+            n.div_ceil(8)
+                .checked_mul(bitmap_columns)
+                .and_then(|bitmaps| fixed.checked_add(bitmaps))
+        })
+        .and_then(|size| size.checked_add(5))
+        .ok_or(CodecError::LimitExceeded {
+            field: "minimum columnar body bytes",
+            limit: limits.max_columnar_body_bytes,
+            actual: usize::MAX,
+        })?;
+    if body_len < minimum_body_len {
+        return Err(CodecError::Truncated);
+    }
+
+    let body = decompress_exact(&buf[h.at..], body_len)?;
     let mut r = Reader::new(&body);
 
     let travel = r.bits(n)?;
@@ -313,6 +345,11 @@ pub fn decode_streaming(
     for v in control_points_valid {
         if v {
             let len = r.u32()? as usize;
+            limits.ensure(
+                "control point count",
+                len,
+                limits.max_control_points_per_segment,
+            )?;
             let mut points = Vec::with_capacity(len);
             for _ in 0..len {
                 let pt = [
@@ -335,6 +372,7 @@ pub fn decode_streaming(
         for v in valid {
             if v {
                 let len = r.u32()? as usize;
+                limits.ensure("manual gcode bytes", len, limits.max_string_bytes)?;
                 let value = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
                 values.push(Some(value.to_string()));
             } else {
@@ -345,9 +383,11 @@ pub fn decode_streaming(
     };
 
     let dict_len = r.u32()? as usize;
+    limits.ensure("kind dictionary entries", dict_len, 32)?;
     let mut dict: Vec<SegmentKind> = Vec::with_capacity(dict_len);
     for _ in 0..dict_len {
         let len = r.u32()? as usize;
+        limits.ensure("kind string bytes", len, limits.max_string_bytes)?;
         let s = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
         let kind = SegmentKind::from_wire(s).ok_or_else(|| CodecError::BadKind(s.to_string()))?;
         dict.push(kind);
@@ -363,10 +403,16 @@ pub fn decode_streaming(
         0 => None,
         _ => {
             let len = r.u32()? as usize;
+            limits.ensure("metadata bytes", len, limits.max_metadata_bytes)?;
             let json = std::str::from_utf8(r.take(len)?).map_err(|_| CodecError::BadUtf8)?;
             Some(serde_json::from_str(json).map_err(|_| CodecError::BadMeta)?)
         }
     };
+    if r.at != body.len() {
+        return Err(CodecError::Other(
+            "trailing bytes in columnar Dry IR body".to_string(),
+        ));
+    }
 
     let iter = BinarySegmentsIterator {
         n,

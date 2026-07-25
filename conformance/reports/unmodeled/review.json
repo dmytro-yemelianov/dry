@@ -1,0 +1,26 @@
+{
+  "file": null,
+  "profile": null,
+  "segments": 1,
+  "metrics": {
+    "total_time_s": 0.0,
+    "print_time_s": 0.0,
+    "travel_time_s": 0.0,
+    "extruding_distance": 0.0,
+    "travel_distance": 0.0,
+    "extruded_volume": 0.0,
+    "filament_length": 0.0,
+    "segment_count": 0,
+    "max_flow_rate": 0.0
+  },
+  "findings": [
+    {
+      "rule": "unmodeled-gcode",
+      "severity": "warning",
+      "segment": 0,
+      "source_line": null,
+      "message": "verbatim manual G-code is emitted without semantic verification"
+    }
+  ],
+  "error_count": 0
+}

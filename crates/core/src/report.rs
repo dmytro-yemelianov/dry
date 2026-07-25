@@ -5,9 +5,10 @@
 //! under `conformance/reports/`) rather than an inline `json!` in the CLI.
 
 use crate::engine::{simulate, Metrics};
+use crate::gcode::ImportedGcode;
 use crate::ir::Toolpath;
 use crate::trace::TraceSummary;
-use crate::verify::{Finding, Report, Severity};
+use crate::verify::{Finding, Report, RuleId, Severity};
 use serde::{Deserialize, Serialize};
 
 /// A [`Finding`] resolved to its original source line (when the toolpath came from imported G-code).
@@ -78,6 +79,27 @@ impl ReviewReport {
             findings,
             error_count: report.error_count(),
         }
+    }
+
+    /// Add source-located warnings for commands preserved by the G-code importer but not modeled by
+    /// the verifier. These warnings are intentionally non-fatal for review, while machine-start
+    /// workflows can choose to fail closed on any warning.
+    pub fn add_unmodeled_gcode(&mut self, imported: &ImportedGcode) {
+        self.findings.extend(
+            imported
+                .unmodeled_commands
+                .iter()
+                .map(|command| LocatedFinding {
+                    rule: RuleId::UnmodeledGcode.as_str().to_string(),
+                    severity: RuleId::UnmodeledGcode.default_severity(),
+                    segment: None,
+                    source_line: Some(command.source_line),
+                    message: format!(
+                        "{} is preserved but not semantically verified: {}",
+                        command.command, command.raw
+                    ),
+                }),
+        );
     }
 }
 

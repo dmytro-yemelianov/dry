@@ -23,7 +23,7 @@ Summarize slicer G-code as fixed-window motion/time-series JSON
 Usage: dry trace-gcode [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>

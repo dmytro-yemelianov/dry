@@ -23,7 +23,7 @@ Optimise a Dry IR file (merge collinear, fit arcs) and report the before/after
 Usage: dry optimize [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --reorder-travel  Also reorder independent extrusion runs to reduce travel. Changes print order

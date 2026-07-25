@@ -12,7 +12,7 @@ Decode a `.dry` binary back to Dry IR JSON (lossless)
 Usage: dry unpack [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
   -o, --out <OUT>  Write JSON to a file instead of stdout

@@ -327,6 +327,28 @@ fn cases() -> Vec<Case> {
         full: true,
     };
 
+    // --- unmodeled: verbatim manual G-code is preserved but cannot be semantically verified. ---
+    let unmodeled = Case {
+        name: "unmodeled",
+        toolpath: tp(vec![Segment {
+            start: [None, None, None],
+            end: [None, None, None],
+            travel: true,
+            speed: Feedrate(0.0),
+            length: Length::ZERO,
+            volume: Volume::ZERO,
+            filament: Length::ZERO,
+            width: None,
+            height: None,
+            temperature: None,
+            kind: SegmentKind::ManualGcode,
+            manual_gcode: Some("M84".into()),
+            ..base()
+        }]),
+        contracts: Contracts::default(),
+        full: true,
+    };
+
     vec![
         non_finite,
         structural,
@@ -334,6 +356,7 @@ fn cases() -> Vec<Case> {
         retraction,
         first_layer,
         kinematics_case,
+        unmodeled,
     ]
 }
 

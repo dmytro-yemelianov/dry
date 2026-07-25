@@ -23,7 +23,7 @@ Review slicer G-code directly, reporting metrics and contract findings with sour
 Usage: dry review-gcode [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>

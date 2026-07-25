@@ -3,6 +3,11 @@
 //! and gets back structured recommendations the engine then gates. No async runtime.
 
 use serde::Deserialize;
+use std::io::Read;
+use std::time::Duration;
+
+const MAX_JSON_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_ERROR_SNIPPET_BYTES: u64 = 500;
 
 /// Connection + model parameters for one call.
 pub struct ClientConfig {
@@ -134,20 +139,44 @@ pub fn post_messages(
         return Err(LlmError::MissingKey);
     }
     match ureq::post("https://api.anthropic.com/v1/messages")
+        .timeout(Duration::from_secs(120))
         .set("x-api-key", &cfg.api_key)
         .set("anthropic-version", "2023-06-01")
         .set("content-type", "application/json")
         .send_json(body)
     {
-        Ok(r) => r
-            .into_json()
-            .map_err(|e| LlmError::Decode(format!("invalid JSON from API: {e}"))),
+        Ok(r) => {
+            let bytes = read_response_limited(r.into_reader(), MAX_JSON_RESPONSE_BYTES)?;
+            serde_json::from_slice(&bytes)
+                .map_err(|e| LlmError::Decode(format!("invalid JSON from API: {e}")))
+        }
         Err(ureq::Error::Status(code, r)) => {
-            let snippet = r.into_string().unwrap_or_default();
-            Err(LlmError::Http(code, snippet.chars().take(500).collect()))
+            let mut bytes = Vec::new();
+            r.into_reader()
+                .take(MAX_ERROR_SNIPPET_BYTES)
+                .read_to_end(&mut bytes)
+                .map_err(|error| LlmError::Transport(error.to_string()))?;
+            Err(LlmError::Http(
+                code,
+                String::from_utf8_lossy(&bytes).into_owned(),
+            ))
         }
         Err(ureq::Error::Transport(t)) => Err(LlmError::Transport(t.to_string())),
     }
+}
+
+fn read_response_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>, LlmError> {
+    let mut bytes = Vec::new();
+    reader
+        .take(limit.saturating_add(1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| LlmError::Transport(error.to_string()))?;
+    if bytes.len() > limit {
+        return Err(LlmError::Decode(format!(
+            "API response exceeds {limit} bytes"
+        )));
+    }
+    Ok(bytes)
 }
 
 /// Send the bundle to the Anthropic Messages API and decode the structured reply.
@@ -395,6 +424,15 @@ mod tests {
         assert!(matches!(
             post_messages(&cfg, serde_json::json!({})),
             Err(LlmError::MissingKey)
+        ));
+    }
+
+    #[test]
+    fn oversized_response_is_rejected() {
+        let bytes = vec![b'x'; 17];
+        assert!(matches!(
+            read_response_limited(std::io::Cursor::new(bytes), 16),
+            Err(LlmError::Decode(message)) if message.contains("exceeds 16 bytes")
         ));
     }
 

@@ -3,6 +3,7 @@ name = "dry-cli"
 description = "Dry CLI — inspect / simulate / emit a Dry IR toolpath."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
@@ -11,6 +12,7 @@ name = "dry"
 path = "src/main.rs"
 
 [features]
+default = ["moonraker"]
 llm = ["dep:dry-llm"]
 moonraker = ["dep:dry-moonraker"]
 

@@ -19,6 +19,12 @@
   },
   {
     "expect": "reject",
+    "file": "trailing.dry0",
+    "format": "binary",
+    "reason": "trailing bytes after DRY0 DEFLATE stream"
+  },
+  {
+    "expect": "reject",
     "file": "block_size_zero.dry1",
     "format": "binary",
     "reason": "DRY1 block_size == 0"
@@ -28,6 +34,12 @@
     "file": "truncated.dry1",
     "format": "binary",
     "reason": "truncated stream"
+  },
+  {
+    "expect": "reject",
+    "file": "trailing.dry1",
+    "format": "binary",
+    "reason": "trailing bytes after DRY1 blocks"
   },
   {
     "expect": "reject",

@@ -490,6 +490,10 @@ fn generate_negatives(dir: &std::path::Path) {
     bad_body_len[13..17].copy_from_slice(&1u32.to_le_bytes()); // inflate bound too small
     fs::write(ndir.join("bad_body_len.dry0"), &bad_body_len).unwrap();
 
+    let mut trailing_dry0 = dry0.clone();
+    trailing_dry0.push(0xff);
+    fs::write(ndir.join("trailing.dry0"), &trailing_dry0).unwrap();
+
     // DRY1 header: magic[0..4], enc_ver[4], ir_ver[5..9], n[9..13], block_size[13..17].
     let mut zero_block = dry1.clone();
     zero_block[13..17].copy_from_slice(&0u32.to_le_bytes());
@@ -497,6 +501,10 @@ fn generate_negatives(dir: &std::path::Path) {
 
     let truncated = &dry1[..dry1.len().min(10)];
     fs::write(ndir.join("truncated.dry1"), truncated).unwrap();
+
+    let mut trailing_dry1 = dry1.clone();
+    trailing_dry1.push(0xff);
+    fs::write(ndir.join("trailing.dry1"), &trailing_dry1).unwrap();
 
     fs::write(
         ndir.join("unknown_kind.json"),
@@ -515,8 +523,10 @@ fn generate_negatives(dir: &std::path::Path) {
         {"file": "bad_magic.dry0", "format": "binary", "expect": "reject", "reason": "wrong magic (spec section 11)"},
         {"file": "unsupported_enc_ver.dry0", "format": "binary", "expect": "reject", "reason": "unsupported enc_ver"},
         {"file": "bad_body_len.dry0", "format": "binary", "expect": "reject", "reason": "inflated length != declared body_len"},
+        {"file": "trailing.dry0", "format": "binary", "expect": "reject", "reason": "trailing bytes after DRY0 DEFLATE stream"},
         {"file": "block_size_zero.dry1", "format": "binary", "expect": "reject", "reason": "DRY1 block_size == 0"},
         {"file": "truncated.dry1", "format": "binary", "expect": "reject", "reason": "truncated stream"},
+        {"file": "trailing.dry1", "format": "binary", "expect": "reject", "reason": "trailing bytes after DRY1 blocks"},
         {"file": "unknown_kind.json", "format": "json", "expect": "reject", "reason": "unknown SegmentKind string"},
         {"file": "unknown_key_accepted.json", "format": "json", "expect": "accept", "reason": "unknown object keys are ignored (forward-compat)"}
     ]);

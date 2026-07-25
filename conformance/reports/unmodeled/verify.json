@@ -1,0 +1,10 @@
+{
+  "findings": [
+    {
+      "rule": "unmodeled-gcode",
+      "severity": "warning",
+      "segment": 0,
+      "message": "verbatim manual G-code is emitted without semantic verification"
+    }
+  ]
+}
