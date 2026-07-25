@@ -1,6 +1,9 @@
-use super::util::{checked_u32_len, read_array, read_u32, read_u8, read_vec, Reader};
+use super::util::{
+    checked_u32_len, decompress_exact, read_array, read_u32, read_u8, read_vec, Reader,
+};
 use super::{
-    CodecError, CHUNKED_ENC_VER, CHUNKED_MAGIC, DEFAULT_CHUNK_SIZE, LEGACY_CHUNKED_ENC_VER,
+    CodecError, DecodeLimits, CHUNKED_ENC_VER, CHUNKED_MAGIC, DEFAULT_CHUNK_SIZE,
+    LEGACY_CHUNKED_ENC_VER,
 };
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
@@ -271,18 +274,24 @@ fn opt_string_from_flag(
     r: &mut Reader<'_>,
     flags: u32,
     flag: u32,
+    limits: &DecodeLimits,
 ) -> Result<Option<String>, CodecError> {
     if flags & flag == 0 {
         Ok(None)
     } else {
         let len = r.u32()? as usize;
+        limits.ensure("manual gcode bytes", len, limits.max_string_bytes)?;
         let bytes = r.take(len)?;
         let value = std::str::from_utf8(bytes).map_err(|_| CodecError::BadUtf8)?;
         Ok(Some(value.to_string()))
     }
 }
 
-fn decode_segment_row(r: &mut Reader<'_>, enc: u8) -> Result<Segment, CodecError> {
+fn decode_segment_row(
+    r: &mut Reader<'_>,
+    enc: u8,
+    limits: &DecodeLimits,
+) -> Result<Segment, CodecError> {
     let flags = r.u32()?;
     let known_flags = if enc == LEGACY_CHUNKED_ENC_VER {
         LEGACY_KNOWN_SEGMENT_FLAGS
@@ -327,7 +336,7 @@ fn decode_segment_row(r: &mut Reader<'_>, enc: u8) -> Result<Segment, CodecError
     let manual_gcode = if enc == LEGACY_CHUNKED_ENC_VER {
         None
     } else {
-        opt_string_from_flag(r, flags, FLAG_MANUAL_GCODE)?
+        opt_string_from_flag(r, flags, FLAG_MANUAL_GCODE, limits)?
     };
     let tool = if flags & FLAG_TOOL == 0 {
         None
@@ -343,6 +352,11 @@ fn decode_segment_row(r: &mut Reader<'_>, enc: u8) -> Result<Segment, CodecError
         None
     } else {
         let len = r.u32()? as usize;
+        limits.ensure(
+            "control point count",
+            len,
+            limits.max_control_points_per_segment,
+        )?;
         let mut points = Vec::with_capacity(len);
         for _ in 0..len {
             points.push([
@@ -383,6 +397,10 @@ pub struct ChunkedSegmentsIterator<R: Read> {
     remaining: usize,
     block: std::vec::IntoIter<Segment>,
     enc: u8,
+    declared_block_size: usize,
+    declared_input_bytes: usize,
+    checked_eof: bool,
+    limits: DecodeLimits,
 }
 
 impl<R: Read> ChunkedSegmentsIterator<R> {
@@ -391,19 +409,41 @@ impl<R: Read> ChunkedSegmentsIterator<R> {
         if block_n == 0 || block_n > self.remaining {
             return Err(CodecError::Truncated);
         }
+        self.limits.ensure(
+            "chunk segment count",
+            block_n,
+            self.declared_block_size.min(self.limits.max_block_segments),
+        )?;
         let body_len = read_u32(&mut self.reader)? as usize;
         let compressed_len = read_u32(&mut self.reader)? as usize;
+        let declared_input_bytes = self
+            .declared_input_bytes
+            .checked_add(12)
+            .and_then(|bytes| bytes.checked_add(compressed_len))
+            .ok_or(CodecError::LimitExceeded {
+                field: "input bytes",
+                limit: self.limits.max_input_bytes,
+                actual: usize::MAX,
+            })?;
+        self.limits.ensure(
+            "input bytes",
+            declared_input_bytes,
+            self.limits.max_input_bytes,
+        )?;
+        self.limits
+            .ensure("chunk body bytes", body_len, self.limits.max_block_bytes)?;
+        self.limits.ensure(
+            "compressed chunk bytes",
+            compressed_len,
+            self.limits.max_block_bytes,
+        )?;
         let compressed = read_vec(&mut self.reader, compressed_len)?;
-        let body = miniz_oxide::inflate::decompress_to_vec_with_limit(&compressed, body_len)
-            .map_err(|_| CodecError::BadCompression)?;
-        if body.len() != body_len {
-            return Err(CodecError::BadCompression);
-        }
+        let body = decompress_exact(&compressed, body_len)?;
 
         let mut r = Reader::new(&body);
         let mut segments = Vec::with_capacity(block_n);
         for _ in 0..block_n {
-            segments.push(decode_segment_row(&mut r, self.enc)?);
+            segments.push(decode_segment_row(&mut r, self.enc, &self.limits)?);
         }
         if r.at != body.len() {
             return Err(CodecError::Other(
@@ -412,6 +452,7 @@ impl<R: Read> ChunkedSegmentsIterator<R> {
         }
 
         self.remaining -= block_n;
+        self.declared_input_bytes = declared_input_bytes;
         self.block = segments.into_iter();
         Ok(())
     }
@@ -425,7 +466,18 @@ impl<R: Read> Iterator for ChunkedSegmentsIterator<R> {
             return Some(Ok(segment));
         }
         if self.remaining == 0 {
-            return None;
+            if self.checked_eof {
+                return None;
+            }
+            self.checked_eof = true;
+            let mut trailing = [0u8; 1];
+            return match self.reader.read(&mut trailing) {
+                Ok(0) => None,
+                Ok(_) => Some(Err(CodecError::Other(
+                    "trailing bytes after chunked Dry IR blocks".into(),
+                ))),
+                Err(error) => Some(Err(super::util::read_error(error))),
+            };
         }
         match self.read_next_block() {
             Ok(()) => self.block.next().map(Ok),
@@ -441,6 +493,14 @@ impl<R: Read> Iterator for ChunkedSegmentsIterator<R> {
 pub fn decode_chunked_streaming<R: Read>(
     reader: R,
 ) -> Result<(u32, Option<Meta>, ChunkedSegmentsIterator<R>), CodecError> {
+    decode_chunked_streaming_with_limits(reader, &DecodeLimits::default())
+}
+
+/// Decode a chunked toolpath using explicit resource budgets.
+pub fn decode_chunked_streaming_with_limits<R: Read>(
+    reader: R,
+    limits: &DecodeLimits,
+) -> Result<(u32, Option<Meta>, ChunkedSegmentsIterator<R>), CodecError> {
     let mut reader = BufReader::new(reader);
     if read_array::<4, _>(&mut reader)? != CHUNKED_MAGIC {
         return Err(CodecError::BadMagic);
@@ -451,21 +511,39 @@ pub fn decode_chunked_streaming<R: Read>(
     }
     let version = read_u32(&mut reader)?;
     let n = read_u32(&mut reader)? as usize;
-    let block_size = read_u32(&mut reader)?;
+    limits.ensure("segment count", n, limits.max_segments)?;
+    let block_size = read_u32(&mut reader)? as usize;
     if block_size == 0 {
         return Err(CodecError::Other(
             "chunked Dry IR block size cannot be zero".to_string(),
         ));
     }
-    let meta = match read_u8(&mut reader)? {
-        0 => None,
+    limits.ensure(
+        "declared chunk segment count",
+        block_size,
+        limits.max_block_segments,
+    )?;
+    let (meta, declared_input_bytes) = match read_u8(&mut reader)? {
+        0 => (None, 18usize),
         _ => {
             let len = read_u32(&mut reader)? as usize;
+            limits.ensure("metadata bytes", len, limits.max_metadata_bytes)?;
+            let declared_input_bytes =
+                22usize.checked_add(len).ok_or(CodecError::LimitExceeded {
+                    field: "input bytes",
+                    limit: limits.max_input_bytes,
+                    actual: usize::MAX,
+                })?;
+            limits.ensure("input bytes", declared_input_bytes, limits.max_input_bytes)?;
             let bytes = read_vec(&mut reader, len)?;
             let json = std::str::from_utf8(&bytes).map_err(|_| CodecError::BadUtf8)?;
-            Some(serde_json::from_str(json).map_err(|_| CodecError::BadMeta)?)
+            (
+                Some(serde_json::from_str(json).map_err(|_| CodecError::BadMeta)?),
+                declared_input_bytes,
+            )
         }
     };
+    limits.ensure("input bytes", declared_input_bytes, limits.max_input_bytes)?;
 
     Ok((
         version,
@@ -475,6 +553,10 @@ pub fn decode_chunked_streaming<R: Read>(
             remaining: n,
             block: Vec::new().into_iter(),
             enc,
+            declared_block_size: block_size,
+            declared_input_bytes,
+            checked_eof: false,
+            limits: *limits,
         },
     ))
 }

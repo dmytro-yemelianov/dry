@@ -1,0 +1,38 @@
+{
+  "file": null,
+  "profile": null,
+  "trace": {
+    "window_s": 5.0,
+    "segment_count": 1,
+    "moving_segment_count": 0,
+    "total_time_s": 0.0,
+    "print_time_s": 0.0,
+    "travel_time_s": 0.0,
+    "dwell_time_s": 0.0,
+    "extruding_distance_mm": 0.0,
+    "travel_distance_mm": 0.0,
+    "extruded_volume_mm3": 0.0,
+    "filament_mm": 0.0,
+    "max_feedrate_mm_min": 0.0,
+    "max_flow_mm3_s": 0.0,
+    "windows": [
+      {
+        "index": 0,
+        "start_time_s": 0.0,
+        "end_time_s": 5.0,
+        "segment_start": 0,
+        "segment_end": 1,
+        "duration_s": 0.0,
+        "print_time_s": 0.0,
+        "travel_time_s": 0.0,
+        "dwell_time_s": 0.0,
+        "extruding_distance_mm": 0.0,
+        "travel_distance_mm": 0.0,
+        "extruded_volume_mm3": 0.0,
+        "filament_mm": 0.0,
+        "max_feedrate_mm_min": 0.0,
+        "max_flow_mm3_s": 0.0
+      }
+    ]
+  }
+}

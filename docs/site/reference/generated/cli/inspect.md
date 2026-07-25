@@ -14,7 +14,7 @@ Parse + simulate a Dry IR file and print a concise summary
 Usage: dry inspect <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
   -h, --help  Print help

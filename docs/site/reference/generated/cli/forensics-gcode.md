@@ -14,7 +14,7 @@ Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots
 Usage: dry forensics-gcode [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>

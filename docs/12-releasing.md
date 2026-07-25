@@ -19,10 +19,15 @@ A release is produced entirely by CI from a `vX.Y.Z` tag — `.github/workflows/
    git push origin vX.Y.Z
    ```
 5. CI runs `release.yml`:
-   - **guard** fails fast unless the repository is private and the tag matches every manifest version;
-   - **cli** builds binaries for Linux x86_64, macOS aarch64 + x86_64, and Windows x86_64;
-   - **wheels** / **sdist** build Python artifacts via maturin (manylinux + macOS + Windows);
-   - **ts** builds and packs the npm tarball;
+   - **guard** fails fast unless the tag is reachable from `main`, matches every published manifest
+     and lockfile version, and has a changelog release heading;
+   - **quality** reruns format/lint, all-feature Rust tests, public conformance validators and dependency
+     audits on the tagged commit, so publication does not depend on an earlier workflow run;
+   - **cli** reproducibly builds locked binaries (including Moonraker upload) for Linux x86_64, macOS
+     aarch64 + x86_64, and Windows x86_64, then smoke-tests runnable targets;
+   - **wheels** / **sdist** build locked Python artifacts via maturin (manylinux + macOS + Windows), and
+     each wheel is installed and imported before packaging succeeds;
+   - **ts** audits dependencies, builds, tests and packs the npm tarball;
    - **release** creates the GitHub Release, attaches every artifact plus a `SHA256SUMS` checksum file,
      and auto-generates notes.
 
@@ -33,8 +38,10 @@ intentionally contains no npm or PyPI publishing jobs, credentials, or trusted-p
 the release artifacts contain proprietary IP. Do not add public registry publishing without a separate
 security review and explicit authorization from the repository owner.
 
-The release guard also refuses to create artifacts when the repository is not private. This keeps a
-future visibility change from silently turning private release assets into public downloads.
+- **PyPI** — add `PYPI_API_TOKEN`; the `pypi` job publishes the wheels + sdist only after the complete
+  GitHub Release succeeds.
+- **npm** — add `NPM_TOKEN`; the `npm` job publishes `@dry/sdk` with provenance only after the complete
+  GitHub Release succeeds.
 
 The hosted documentation is a separate, public distribution surface. Its built output is uploaded
 directly to Cloudflare Pages without granting Cloudflare repository access; see

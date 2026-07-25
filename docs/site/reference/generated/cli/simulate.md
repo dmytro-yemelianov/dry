@@ -14,7 +14,7 @@ Simulate a Dry IR file and print its metrics
 Usage: dry simulate [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --json  Print metrics as JSON instead of human-readable text

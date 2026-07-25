@@ -169,6 +169,8 @@ pub enum RuleId {
     PeakAcceleration,
     /// A junction's velocity change exceeds the machine's square-corner velocity.
     JunctionVelocity,
+    /// Verbatim or imported G-code is preserved but not semantically verified.
+    UnmodeledGcode,
 }
 
 /// One rule's catalog entry.
@@ -181,7 +183,7 @@ pub struct Rule {
 
 impl RuleId {
     /// Every rule, in catalog order.
-    pub const ALL: [RuleId; 17] = [
+    pub const ALL: [RuleId; 18] = [
         RuleId::Finite,
         RuleId::TravelExtrudes,
         RuleId::Bead,
@@ -199,6 +201,7 @@ impl RuleId {
         RuleId::FirstLayerSpeed,
         RuleId::PeakAcceleration,
         RuleId::JunctionVelocity,
+        RuleId::UnmodeledGcode,
     ];
 
     /// The stable kebab-case wire id.
@@ -221,6 +224,7 @@ impl RuleId {
             RuleId::FirstLayerSpeed => "first-layer-speed",
             RuleId::PeakAcceleration => "peak-acceleration",
             RuleId::JunctionVelocity => "junction-velocity",
+            RuleId::UnmodeledGcode => "unmodeled-gcode",
         }
     }
 
@@ -235,7 +239,8 @@ impl RuleId {
             RuleId::TravelWithoutRetraction
             | RuleId::FirstLayerHeight
             | RuleId::FirstLayerSpeed
-            | RuleId::JunctionVelocity => Severity::Warning,
+            | RuleId::JunctionVelocity
+            | RuleId::UnmodeledGcode => Severity::Warning,
             _ => Severity::Error,
         }
     }
@@ -265,6 +270,9 @@ impl RuleId {
             }
             RuleId::JunctionVelocity => {
                 "a junction's velocity change exceeds the machine's square-corner velocity"
+            }
+            RuleId::UnmodeledGcode => {
+                "verbatim or imported G-code is preserved but not semantically verified"
             }
         }
     }
@@ -522,30 +530,23 @@ fn arc_radius_error(s: &Segment) -> Option<String> {
     }
 }
 
+fn push_finding(report: &mut Report, rule: RuleId, segment: Option<usize>, message: String) {
+    report.findings.push(Finding {
+        rule: rule.as_str().to_string(),
+        severity: rule.default_severity(),
+        segment,
+        message,
+    });
+}
+
 /// Verify a stream of segments against the contracts, returning all findings (structural + contract-driven).
 pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, crate::codec::CodecError>
 where
     I: IntoIterator<Item = Result<Segment, crate::codec::CodecError>>,
 {
     let mut r = Report::default();
-    let mut push = |rule: RuleId, segment, message: String| {
-        r.findings.push(Finding {
-            rule: rule.as_str().to_string(),
-            severity: rule.default_severity(),
-            segment,
-            message,
-        });
-    };
     let axis = ['X', 'Y', 'Z'];
-
-    let segments_vec: Vec<Segment> = segments.into_iter().collect::<Result<_, _>>()?;
-
-    let first_layer_z = segments_vec
-        .iter()
-        .filter(|s| !s.travel && s.volume.value() > 0.0)
-        .filter_map(|s| s.end[2].or(s.start[2]))
-        .map(|z| z.value())
-        .fold(f64::INFINITY, |a, b| if b < a { b } else { a });
+    let mut first_layer_z: Option<f64> = None;
 
     let mut travel_run_length = 0.0;
     let mut retracted = true;
@@ -555,18 +556,29 @@ where
     let mut prev_print_end: Option<[Option<Length>; 3]> = None;
     let mut prev_speed_mm_s: Option<f64> = None;
 
-    for (i, s) in segments_vec.into_iter().enumerate() {
+    for (i, segment) in segments.into_iter().enumerate() {
+        let s = segment?;
         // --- structural invariants (always on) ---
+        if s.kind == SegmentKind::ManualGcode {
+            push_finding(
+                &mut r,
+                RuleId::UnmodeledGcode,
+                Some(i),
+                "verbatim manual G-code is emitted without semantic verification".into(),
+            );
+        }
         let nums = segment_numbers(&s);
         if nums.iter().any(|v| !v.is_finite()) {
-            push(
+            push_finding(
+                &mut r,
                 RuleId::Finite,
                 Some(i),
                 "segment carries a non-finite value".into(),
             );
         }
         if s.travel && s.volume.value() > 0.0 {
-            push(
+            push_finding(
+                &mut r,
                 RuleId::TravelExtrudes,
                 Some(i),
                 format!(
@@ -579,7 +591,8 @@ where
             let w = s.width.map(|l| l.value()).unwrap_or(0.0);
             let h = s.height.map(|l| l.value()).unwrap_or(0.0);
             if w <= 0.0 || h <= 0.0 {
-                push(
+                push_finding(
+                    &mut r,
                     RuleId::Bead,
                     Some(i),
                     format!("extruding move has a non-positive bead (width {w}, height {h})"),
@@ -590,7 +603,8 @@ where
             // the toolframe orientation must be a unit direction vector.
             let mag = libm::sqrt(x * x + y * y + z * z);
             if (mag - 1.0).abs() > 1e-6 {
-                push(
+                push_finding(
+                    &mut r,
                     RuleId::OrientationNotUnit,
                     Some(i),
                     format!(
@@ -600,7 +614,7 @@ where
             }
         }
         if let Some(message) = arc_radius_error(&s) {
-            push(RuleId::ArcRadius, Some(i), message);
+            push_finding(&mut r, RuleId::ArcRadius, Some(i), message);
         }
 
         // --- contract-driven checks ---
@@ -610,7 +624,8 @@ where
                     if let Some(v) = coord {
                         let v = v.value();
                         if v < b[k][0] || v > b[k][1] {
-                            push(
+                            push_finding(
+                                &mut r,
                                 RuleId::Bounds,
                                 Some(i),
                                 format!(
@@ -626,7 +641,8 @@ where
         }
         if let (Some(max), Some(f)) = (c.max_flow, flow(&s)) {
             if f > max {
-                push(
+                push_finding(
+                    &mut r,
                     RuleId::MaxFlow,
                     Some(i),
                     format!("flow {f:.3} mm³/s exceeds the ceiling {max:.3}"),
@@ -637,7 +653,8 @@ where
             if !s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0 {
                 let v = s.speed.value();
                 if v < lo || v > hi {
-                    push(
+                    push_finding(
+                        &mut r,
                         RuleId::Speed,
                         Some(i),
                         format!("feedrate {v} is outside [{lo}, {hi}] mm/min"),
@@ -648,7 +665,8 @@ where
         if c.monotonic_z {
             if let (Some(z0), Some(z1)) = (s.start[2], s.end[2]) {
                 if z1 < z0 {
-                    push(
+                    push_finding(
+                        &mut r,
                         RuleId::MonotonicZ,
                         Some(i),
                         format!("Z decreases from {} to {}", z0.value(), z1.value()),
@@ -664,7 +682,8 @@ where
                     .temperature
                     .map(|t| format!("{t}"))
                     .unwrap_or_else(|| "unset".into());
-                push(
+                push_finding(
+                    &mut r,
                     RuleId::ColdExtrusion,
                     Some(i),
                     format!("extruding at nozzle temperature {got} (< {min} °C)"),
@@ -679,7 +698,8 @@ where
         if is_retract || is_unretract {
             if let Some(max_speed) = c.max_retraction_speed {
                 if s.speed.value() > max_speed {
-                    push(
+                    push_finding(
+                        &mut r,
                         RuleId::RetractionSpeed,
                         Some(i),
                         format!(
@@ -696,7 +716,8 @@ where
             let dist = -s.filament.value();
             if let Some(max_dist) = c.max_retraction_distance {
                 if dist > max_dist {
-                    push(
+                    push_finding(
+                        &mut r,
                         RuleId::RetractionDistance,
                         Some(i),
                         format!(
@@ -714,7 +735,8 @@ where
             travel_run_length += s.length.value();
             if let Some(max_travel) = c.max_travel_without_retract {
                 if travel_run_length > max_travel && !retracted && !flagged_travel {
-                    push(
+                    push_finding(
+                        &mut r,
                         RuleId::TravelWithoutRetraction,
                         Some(i),
                         format!(
@@ -728,11 +750,27 @@ where
 
         // --- first-layer checks ---
         if !s.travel && s.volume.value() > 0.0 {
-            let is_first_layer = if first_layer_z.is_finite() {
-                if let Some(z) = s.end[2].or(s.start[2]) {
-                    (z.value() - first_layer_z).abs() < 1e-4
-                } else {
-                    false
+            let z = s.end[2]
+                .or(s.start[2])
+                .map(Length::value)
+                .filter(|z| z.is_finite());
+            let is_first_layer = if let Some(z) = z {
+                match first_layer_z {
+                    None => {
+                        first_layer_z = Some(z);
+                        true
+                    }
+                    Some(current) if z < current - 1e-4 => {
+                        // A later, lower layer invalidates provisional findings from the earlier
+                        // minimum. Removing only those two rule ids keeps this pass streaming.
+                        r.findings.retain(|finding| {
+                            finding.rule != RuleId::FirstLayerHeight.as_str()
+                                && finding.rule != RuleId::FirstLayerSpeed.as_str()
+                        });
+                        first_layer_z = Some(z);
+                        true
+                    }
+                    Some(current) => (z - current).abs() < 1e-4,
                 }
             } else {
                 false
@@ -740,9 +778,14 @@ where
 
             if is_first_layer {
                 if let Some([min_h, max_h]) = c.first_layer_height_range {
-                    let h_val = s.height.map(|h| h.value()).unwrap_or(first_layer_z);
+                    let h_val = s
+                        .height
+                        .map(|height| height.value())
+                        .or(first_layer_z)
+                        .unwrap_or(0.0);
                     if h_val < min_h || h_val > max_h {
-                        push(
+                        push_finding(
+                            &mut r,
                             RuleId::FirstLayerHeight,
                             Some(i),
                             format!(
@@ -754,7 +797,8 @@ where
                 if let Some([min_s, max_s]) = c.first_layer_speed_range {
                     let speed_val = s.speed.value();
                     if speed_val < min_s || speed_val > max_s {
-                        push(
+                        push_finding(
+                            &mut r,
                             RuleId::FirstLayerSpeed,
                             Some(i),
                             format!(
@@ -774,11 +818,12 @@ where
             // a = v² / r  where v is in mm/s and r is the arc radius in mm.
             if let Some(max_a) = kin.max_acceleration_mm_s2 {
                 if s.kind == SegmentKind::Arc {
-                    if let Some(r) = arc_radius_mm(&s) {
+                    if let Some(radius) = arc_radius_mm(&s) {
                         let v = s.speed.value() / 60.0;
-                        let a = v * v / r;
+                        let a = v * v / radius;
                         if a > max_a {
-                            push(
+                            push_finding(
+                                &mut r,
                                 RuleId::PeakAcceleration,
                                 Some(i),
                                 format!(
@@ -799,7 +844,8 @@ where
                 if junction_contiguous(&prev_print_end, &s.start) {
                     let dv = (s.speed.value() / 60.0 - pv).abs();
                     if dv > max_jv {
-                        push(
+                        push_finding(
+                            &mut r,
                             RuleId::JunctionVelocity,
                             Some(i),
                             format!(
@@ -1048,6 +1094,42 @@ mod tests {
     }
 
     #[test]
+    fn manual_gcode_is_always_reported_as_unmodeled() {
+        let mut tp = two_segment_junction(600.0, 600.0);
+        tp.segments.truncate(1);
+        tp.segments[0].kind = SegmentKind::ManualGcode;
+        tp.segments[0].manual_gcode = Some("M84".to_string());
+        let report = verify(&tp, &Contracts::default());
+        assert!(report.findings.iter().any(|finding| {
+            finding.rule == "unmodeled-gcode" && finding.severity == Severity::Warning
+        }));
+    }
+
+    #[test]
+    fn later_lower_layer_replaces_provisional_first_layer_findings() {
+        let mut tp = two_segment_junction(600.0, 600.0);
+        tp.segments[0].start[2] = Some(Length::mm(0.3));
+        tp.segments[0].end[2] = Some(Length::mm(0.3));
+        tp.segments[0].height = Some(Length::mm(0.5));
+        tp.segments[1].start[2] = Some(Length::mm(0.2));
+        tp.segments[1].end[2] = Some(Length::mm(0.2));
+        tp.segments[1].height = Some(Length::mm(0.2));
+        let contracts = Contracts {
+            first_layer_height_range: Some([0.1, 0.3]),
+            ..Contracts::default()
+        };
+        let report = verify(&tp, &contracts);
+        assert!(
+            report
+                .findings
+                .iter()
+                .all(|finding| finding.rule != "first-layer-height"),
+            "only the true minimum-Z layer should be checked: {:?}",
+            report.findings
+        );
+    }
+
+    #[test]
     fn rule_catalog_is_consistent() {
         let cat = catalog();
         assert_eq!(cat.len(), RuleId::ALL.len());
@@ -1070,6 +1152,7 @@ mod tests {
                 "first-layer-height",
                 "first-layer-speed",
                 "junction-velocity",
+                "unmodeled-gcode",
             ]
         );
     }

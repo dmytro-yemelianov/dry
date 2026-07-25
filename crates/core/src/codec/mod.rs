@@ -62,9 +62,12 @@ use crate::ir::{Meta, Segment, Toolpath};
 use std::io::{BufReader, Cursor, Read};
 
 pub use self::chunked::{
-    decode_chunked_streaming, encode_chunked, try_encode_chunked, ChunkedSegmentsIterator,
+    decode_chunked_streaming, decode_chunked_streaming_with_limits, encode_chunked,
+    try_encode_chunked, ChunkedSegmentsIterator,
 };
-pub use self::columnar::{decode_streaming, encode, try_encode, BinarySegmentsIterator};
+pub use self::columnar::{
+    decode_streaming, decode_streaming_with_limits, encode, try_encode, BinarySegmentsIterator,
+};
 pub use self::error::CodecError;
 pub use self::json::JsonSegmentsIterator;
 
@@ -76,6 +79,54 @@ pub(super) const LEGACY_CHUNKED_ENC_VER: u8 = 1;
 pub(super) const CHUNKED_ENC_VER: u8 = 2;
 pub(super) const DEFAULT_CHUNK_SIZE: usize = 512;
 
+/// Resource budgets applied before binary decoding allocates or decompresses attacker-controlled
+/// lengths. Callers handling unusually large trusted archives can opt in to higher limits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecodeLimits {
+    pub max_input_bytes: usize,
+    pub max_segments: usize,
+    pub max_columnar_body_bytes: usize,
+    pub max_block_segments: usize,
+    pub max_block_bytes: usize,
+    pub max_metadata_bytes: usize,
+    pub max_string_bytes: usize,
+    pub max_control_points_per_segment: usize,
+}
+
+impl Default for DecodeLimits {
+    fn default() -> Self {
+        Self {
+            max_input_bytes: 512 * 1024 * 1024,
+            max_segments: 2_000_000,
+            max_columnar_body_bytes: 512 * 1024 * 1024,
+            max_block_segments: 65_536,
+            max_block_bytes: 64 * 1024 * 1024,
+            max_metadata_bytes: 1024 * 1024,
+            max_string_bytes: 1024 * 1024,
+            max_control_points_per_segment: 1_000_000,
+        }
+    }
+}
+
+impl DecodeLimits {
+    pub(super) fn ensure(
+        &self,
+        field: &'static str,
+        actual: usize,
+        limit: usize,
+    ) -> Result<(), CodecError> {
+        if actual > limit {
+            Err(CodecError::LimitExceeded {
+                field,
+                limit,
+                actual,
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
 pub type SegmentStream = Box<dyn Iterator<Item = Result<Segment, CodecError>>>;
 pub type StreamingDecode = (u32, Option<Meta>, SegmentStream);
 
@@ -84,19 +135,32 @@ pub type StreamingDecode = (u32, Option<Meta>, SegmentStream);
 /// `DRY1` is decoded chunk-by-chunk. `DRY0` is accepted for compatibility, but it must still inflate
 /// its full legacy columnar body before yielding segments.
 pub fn decode_any_streaming<R: Read + 'static>(reader: R) -> Result<StreamingDecode, CodecError> {
+    decode_any_streaming_with_limits(reader, &DecodeLimits::default())
+}
+
+/// Decode either Dry binary form using explicit resource budgets.
+pub fn decode_any_streaming_with_limits<R: Read + 'static>(
+    reader: R,
+    limits: &DecodeLimits,
+) -> Result<StreamingDecode, CodecError> {
     let mut reader = BufReader::new(reader);
     let magic = util::read_array::<4, _>(&mut reader)?;
     match magic {
         MAGIC => {
-            let mut chained = Cursor::new(magic).chain(reader);
+            let chained = Cursor::new(magic).chain(reader);
             let mut buf = Vec::new();
-            chained.read_to_end(&mut buf).map_err(util::read_error)?;
-            let (version, meta, iter) = decode_streaming(&buf)?;
+            let read_limit = limits.max_input_bytes.saturating_add(1) as u64;
+            chained
+                .take(read_limit)
+                .read_to_end(&mut buf)
+                .map_err(util::read_error)?;
+            limits.ensure("input bytes", buf.len(), limits.max_input_bytes)?;
+            let (version, meta, iter) = decode_streaming_with_limits(&buf, limits)?;
             Ok((version, meta, Box::new(iter)))
         }
         CHUNKED_MAGIC => {
             let chained = Cursor::new(magic).chain(reader);
-            let (version, meta, iter) = decode_chunked_streaming(chained)?;
+            let (version, meta, iter) = decode_chunked_streaming_with_limits(chained, limits)?;
             Ok((version, meta, Box::new(iter)))
         }
         _ => Err(CodecError::BadMagic),
@@ -105,8 +169,14 @@ pub fn decode_any_streaming<R: Read + 'static>(reader: R) -> Result<StreamingDec
 
 /// Decode a toolpath from either binary form.
 pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
+    decode_with_limits(buf, &DecodeLimits::default())
+}
+
+/// Decode a toolpath using explicit resource budgets.
+pub fn decode_with_limits(buf: &[u8], limits: &DecodeLimits) -> Result<Toolpath, CodecError> {
+    limits.ensure("input bytes", buf.len(), limits.max_input_bytes)?;
     if buf.starts_with(&CHUNKED_MAGIC) {
-        let (version, meta, iter) = decode_chunked_streaming(Cursor::new(buf))?;
+        let (version, meta, iter) = decode_chunked_streaming_with_limits(Cursor::new(buf), limits)?;
         let mut segments = Vec::new();
         for res in iter {
             segments.push(res?);
@@ -118,7 +188,7 @@ pub fn decode(buf: &[u8]) -> Result<Toolpath, CodecError> {
         });
     }
 
-    let (version, meta, iter) = decode_streaming(buf)?;
+    let (version, meta, iter) = decode_streaming_with_limits(buf, limits)?;
     let mut segments = Vec::with_capacity(iter.n);
     for res in iter {
         segments.push(res?);

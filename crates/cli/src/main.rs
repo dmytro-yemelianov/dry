@@ -356,35 +356,58 @@ enum Cmd {
     },
     /// Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate).
     Upload {
+        /// G-code file to review and upload.
         file: String,
+        /// Moonraker base URL, for example `http://voron.local`.
         #[arg(long)]
         moonraker: String,
+        /// Environment variable containing the optional Moonraker API key.
         #[arg(long, default_value = "MOONRAKER_API_KEY")]
         api_key_env: String,
+        /// End-to-end timeout for each Moonraker request, in seconds.
+        #[arg(
+            long,
+            default_value_t = 120,
+            value_parser = clap::value_parser!(u64).range(1..)
+        )]
+        timeout_s: u64,
+        /// Start printing after upload; requires a profile and a clean gate unless forced.
         #[arg(long)]
         print: bool,
+        /// Explicitly override error/warning/profile gates. Can start unsafe machine motion.
         #[arg(long)]
         force: bool,
+        /// Rewrite with the selected gated optimization mode before review and upload.
         #[arg(long, value_enum)]
         rewrite: Option<OptimizeModeArg>,
+        /// Machine/material profile JSON used for import defaults and safety contracts.
         #[arg(long)]
         profile: Option<String>,
+        /// Override the import filament diameter (mm).
         #[arg(long)]
         filament_diameter: Option<f64>,
+        /// Override the imported bead width (mm).
         #[arg(long)]
         line_width: Option<f64>,
+        /// Override the imported layer height (mm).
         #[arg(long)]
         layer_height: Option<f64>,
+        /// Override maximum volumetric flow (mm³/s).
         #[arg(long)]
         max_flow: Option<f64>,
+        /// Override build volume as `x0,x1,y0,y1,z0,z1` (mm).
         #[arg(long)]
         bounds: Option<String>,
+        /// Require Z to be non-decreasing.
         #[arg(long)]
         monotonic_z: bool,
+        /// Override minimum nozzle temperature required for extrusion (°C).
         #[arg(long)]
         min_temp: Option<f64>,
+        /// Override allowed extrusion feedrate range as `min,max` (mm/min).
         #[arg(long)]
         speed_range: Option<String>,
+        /// Emit the gate and upload outcome as JSON.
         #[arg(long)]
         json: bool,
     },
@@ -758,16 +781,17 @@ fn run(cli: Cli) -> ExitCode {
                 },
             );
             let report = verify(&imported.toolpath, &contracts);
+            let mut review = dry_core::ReviewReport::build(
+                Some(file.clone()),
+                profile_label(profile.as_ref()),
+                imported.toolpath.segments.len(),
+                metrics.clone(),
+                &report,
+                |segment| imported.source_line_for_segment(segment),
+            );
+            review.add_unmodeled_gcode(&imported);
 
             if json {
-                let review = dry_core::ReviewReport::build(
-                    Some(file.clone()),
-                    profile_label(profile.as_ref()),
-                    imported.toolpath.segments.len(),
-                    metrics.clone(),
-                    &report,
-                    |segment| imported.source_line_for_segment(segment),
-                );
                 println!("{}", serde_json::to_string_pretty(&review).unwrap());
             } else {
                 println!("review-gcode: {file}");
@@ -791,17 +815,16 @@ fn run(cli: Cli) -> ExitCode {
                     metrics.extruded_volume.value()
                 );
                 println!("  peak flow: {:.2}mm^3/s", metrics.max_flow_rate.value());
-                if report.findings.is_empty() {
+                if review.findings.is_empty() {
                     println!("  verify:    OK (no findings)");
                 } else {
-                    for finding in &report.findings {
+                    for finding in &review.findings {
                         let seg = finding
                             .segment
                             .map(|i| format!(" seg {i}"))
                             .unwrap_or_default();
                         let line = finding
-                            .segment
-                            .and_then(|segment| imported.source_line_for_segment(segment))
+                            .source_line
                             .map(|line| format!(" line {line}"))
                             .unwrap_or_default();
                         println!(
@@ -811,13 +834,13 @@ fn run(cli: Cli) -> ExitCode {
                     }
                     println!(
                         "  verify:    {} finding(s), {} error(s)",
-                        report.findings.len(),
-                        report.error_count()
+                        review.findings.len(),
+                        review.error_count
                     );
                 }
             }
 
-            if report.ok() {
+            if review.error_count == 0 {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::from(1)
@@ -1298,6 +1321,7 @@ fn run(cli: Cli) -> ExitCode {
             file,
             moonraker,
             api_key_env,
+            timeout_s,
             print,
             force,
             rewrite,
@@ -1315,6 +1339,7 @@ fn run(cli: Cli) -> ExitCode {
             file,
             moonraker,
             api_key_env,
+            timeout_s,
             print,
             force,
             rewrite,
@@ -1586,7 +1611,7 @@ fn assemble_explain(
     );
     let report = verify(&imported.toolpath, &contracts);
     let label = profile_label(profile.as_ref());
-    let review = dry_core::ReviewReport::build(
+    let mut review = dry_core::ReviewReport::build(
         Some(file.to_string()),
         label.clone(),
         imported.toolpath.segments.len(),
@@ -1594,6 +1619,7 @@ fn assemble_explain(
         &report,
         |segment| imported.source_line_for_segment(segment),
     );
+    review.add_unmodeled_gcode(&imported);
 
     // trace (carrying source-line ranges) + forensics.
     let source_lines: Vec<_> = imported
@@ -1839,6 +1865,7 @@ struct UploadArgs {
     file: String,
     moonraker: String,
     api_key_env: String,
+    timeout_s: u64,
     print: bool,
     force: bool,
     rewrite: Option<OptimizeModeArg>,
@@ -1866,6 +1893,7 @@ fn run_upload(_: UploadArgs) -> std::process::ExitCode {
 fn run_upload(args: UploadArgs) -> std::process::ExitCode {
     use std::io::Cursor;
     use std::path::Path;
+    use std::time::Duration;
 
     let api_key = std::env::var(&args.api_key_env).ok();
     let profile = load_profile(args.profile.as_deref());
@@ -1937,7 +1965,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
         .unwrap_or_else(|e| die(format!("cannot import g-code for verification: {e}")));
     let metrics = simulate(&gate.toolpath);
     let report = verify(&gate.toolpath, &contracts);
-    let review = dry_core::ReviewReport::build(
+    let mut review = dry_core::ReviewReport::build(
         Some(args.file.clone()),
         profile_label(profile.as_ref()),
         gate.toolpath.segments.len(),
@@ -1945,6 +1973,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
         &report,
         |segment| gate.source_line_for_segment(segment),
     );
+    review.add_unmodeled_gcode(&gate);
 
     let errors = review.error_count;
     let warnings = review
@@ -1965,36 +1994,56 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
         eprintln!("  [{tag}] {}{line}: {}", f.rule, f.message);
     }
 
-    if errors > 0 && !args.force {
-        eprintln!("error: upload blocked by {errors} error finding(s) (pass --force to override)");
-        return std::process::ExitCode::from(1);
-    }
-    let warn_mode = warnings > 0;
-
     let basename = Path::new(&args.file)
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("upload.gcode")
         .to_string();
+    let rewrite_note = rewrite_note.trim().to_string();
+    let print_gate_reason = if args.print && !args.force && profile.is_none() {
+        Some("auto-print requires --profile")
+    } else if args.print && !args.force && warnings > 0 {
+        Some("auto-print blocked because warning findings are present")
+    } else {
+        None
+    };
+    if !args.force && (errors > 0 || print_gate_reason.is_some()) {
+        if args.json {
+            let env = serde_json::json!({
+                "gate": "reject",
+                "uploaded": false,
+                "printed": false,
+                "error_count": errors,
+                "warning_count": warnings,
+                "moonraker_url": args.moonraker,
+                "filename": basename,
+                "rewrite": rewrite_note,
+                "reason": print_gate_reason,
+            });
+            println!("{}", serde_json::to_string_pretty(&env).unwrap());
+        } else {
+            let reason = print_gate_reason
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("upload blocked by {errors} error finding(s)"));
+            eprintln!("error: {reason} (pass --force to override)");
+        }
+        return std::process::ExitCode::from(1);
+    }
+    let warn_mode = warnings > 0;
+
     let cfg = dry_moonraker::MoonrakerConfig {
         base_url: args.moonraker.clone(),
         api_key,
+        timeout: Duration::from_secs(args.timeout_s),
     };
     let uploaded = dry_moonraker::upload_file(&cfg, &basename, &bytes_to_upload)
         .unwrap_or_else(|e| die(e.to_string()));
 
-    let may_print = args.print && (!warn_mode || args.force) && (errors == 0 || args.force);
     let mut printed = false;
-    if may_print {
+    if args.print {
         let response = dry_moonraker::start_print(&cfg, &uploaded.filename)
             .unwrap_or_else(|e| die(e.to_string()));
-        if !response.job_started {
-            die(format!(
-                "Moonraker did not start printing {}",
-                uploaded.filename
-            ));
-        }
-        printed = true;
+        printed = response.job_started;
     }
 
     if args.json {
@@ -2013,7 +2062,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
             "warning_count": warnings,
             "moonraker_url": args.moonraker,
             "filename": uploaded.filename,
-            "rewrite": rewrite_note.trim(),
+            "rewrite": rewrite_note,
         });
         println!("{}", serde_json::to_string_pretty(&env).unwrap());
     } else {
@@ -2023,9 +2072,6 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
             review.findings.len(),
             uploaded.filename
         );
-        if warn_mode && args.print && !args.force {
-            eprintln!("  print NOT auto-started (warnings present; pass --force to start)");
-        }
         if printed {
             eprintln!("  printing: started");
         }

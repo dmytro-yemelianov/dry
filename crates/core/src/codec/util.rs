@@ -1,4 +1,7 @@
 use super::CodecError;
+use miniz_oxide::inflate::core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF;
+use miniz_oxide::inflate::core::{decompress, DecompressorOxide};
+use miniz_oxide::inflate::TINFLStatus;
 use std::io::Read;
 
 pub(super) struct Reader<'a> {
@@ -75,6 +78,32 @@ pub(super) fn read_error(error: std::io::Error) -> CodecError {
 
 pub(super) fn checked_u32_len(value: usize, field: &'static str) -> Result<u32, CodecError> {
     u32::try_from(value).map_err(|_| CodecError::TooLarge { field, len: value })
+}
+
+pub(super) fn decompress_exact(
+    compressed: &[u8],
+    expected_len: usize,
+) -> Result<Vec<u8>, CodecError> {
+    let output_len = expected_len
+        .checked_add(1)
+        .ok_or(CodecError::BadCompression)?;
+    let mut output = vec![0; output_len];
+    let mut decompressor = DecompressorOxide::new();
+    let (status, input_consumed, output_written) = decompress(
+        &mut decompressor,
+        compressed,
+        &mut output,
+        0,
+        TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+    );
+    if status != TINFLStatus::Done
+        || input_consumed != compressed.len()
+        || output_written != expected_len
+    {
+        return Err(CodecError::BadCompression);
+    }
+    output.truncate(expected_len);
+    Ok(output)
 }
 
 pub(super) fn read_array<const N: usize, R: Read>(reader: &mut R) -> Result<[u8; N], CodecError> {

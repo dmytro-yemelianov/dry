@@ -297,6 +297,35 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
         let value_end = chars.get(i).map(|(idx, _)| *idx).unwrap_or(code.len());
         let value = code[value_start..value_end].trim();
         if value.is_empty() {
+            // Some unmodeled firmware commands use parameter letters as flags (`G28 X Y`).
+            // Preserve those commands for review without weakening validation of modeled motion
+            // such as the invalid `G1 X`.
+            let unmodeled_command = words.first().is_some_and(|command: &GcodeWord| {
+                !matches!(
+                    (command.letter, command.value),
+                    (
+                        'G',
+                        0.0 | 1.0 | 2.0 | 3.0 | 4.0 | 20.0 | 21.0 | 90.0 | 91.0 | 92.0
+                    ) | (
+                        'M',
+                        82.0 | 83.0
+                            | 104.0
+                            | 106.0
+                            | 107.0
+                            | 109.0
+                            | 140.0
+                            | 190.0
+                            | 204.0
+                            | 205.0
+                            | 220.0
+                            | 221.0
+                    ) | ('T', _)
+                )
+            });
+            if unmodeled_command {
+                words.push(GcodeWord { letter, value: 0.0 });
+                continue;
+            }
             return Err(GcodeParseError::new(
                 source_line,
                 format!("missing value for {letter} word"),
@@ -430,7 +459,10 @@ fn classify_record(
             .into_iter()
             .any(|letter| word_value(words, letter).is_some());
     let has_motion_words = has_axis_motion_words || has_dwell_words;
-    let modal_motion = if state_record.is_none() && has_motion_words {
+    // An explicit but unsupported G/M command owns the line. Do not reinterpret its axis-like
+    // arguments through the previous modal motion (for example, `G28 X Y` after `G1` is homing,
+    // not a linear move).
+    let modal_motion = if state_record.is_none() && other.is_none() && has_motion_words {
         state.motion
     } else {
         None
@@ -562,6 +594,19 @@ mod tests {
         assert_eq!(
             lines[3].record,
             GcodeRecord::Process(ProcessCommand::NozzleTemperature(215.0))
+        );
+    }
+
+    #[test]
+    fn unsupported_command_with_axes_is_not_reinterpreted_as_modal_motion() {
+        let lines = parse_gcode_lines("G1 X10 Y10\nG28 X Y\n").unwrap();
+        assert!(matches!(lines[0].record, GcodeRecord::Motion(_)));
+        assert_eq!(
+            lines[1].record,
+            GcodeRecord::Other {
+                letter: 'G',
+                value: 28.0
+            }
         );
     }
 

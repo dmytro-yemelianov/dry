@@ -17,6 +17,12 @@ pub enum CodecError {
     BadKind(String),
     /// The value cannot be represented in the fixed-width binary format.
     TooLarge { field: &'static str, len: usize },
+    /// A declared input size exceeds the configured decoder resource budget.
+    LimitExceeded {
+        field: &'static str,
+        limit: usize,
+        actual: usize,
+    },
     /// Generic or underlying I/O / JSON deserialization error.
     Other(String),
 }
@@ -34,6 +40,14 @@ impl std::fmt::Display for CodecError {
             CodecError::TooLarge { field, len } => {
                 write!(f, "{field} length/count {len} exceeds u32::MAX")
             }
+            CodecError::LimitExceeded {
+                field,
+                limit,
+                actual,
+            } => write!(
+                f,
+                "{field} length/count {actual} exceeds decoder limit {limit}"
+            ),
             CodecError::Other(s) => write!(f, "error: {s}"),
         }
     }

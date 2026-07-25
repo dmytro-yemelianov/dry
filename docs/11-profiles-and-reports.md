@@ -104,6 +104,7 @@ are warnings.
 | `first-layer-speed` | **warning** | the first-layer speed is outside the allowed range | `process.first_layer_speed_range` |
 | `peak-acceleration` | error | an arc's centripetal acceleration exceeds the machine's max acceleration | `machine.kinematics.max_acceleration_mm_s2` |
 | `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
+| `unmodeled-gcode` | **warning** | imported/manual G-code is preserved but is outside the verifier's semantic model | always active when present |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or

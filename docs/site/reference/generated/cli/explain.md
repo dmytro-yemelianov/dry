@@ -17,7 +17,7 @@ Usage: dry explain [OPTIONS] <FILE>
 
 Arguments:
   <FILE>
-          
+
 
 Options:
       --profile <PROFILE>
@@ -49,7 +49,7 @@ Options:
 
       --window-s <WINDOW_S>
           Fixed trace window duration in seconds
-          
+
           [default: 5]
 
       --json
@@ -66,7 +66,7 @@ Options:
 
       --max-applies <MAX_APPLIES>
           Cap on how many executable recommendations --llm actually applies (highest priority first)
-          
+
           [default: 4]
 
   -h, --help

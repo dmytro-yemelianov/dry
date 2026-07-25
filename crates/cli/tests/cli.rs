@@ -329,6 +329,74 @@ fn review_gcode_reports_findings_with_source_lines() {
 }
 
 #[test]
+fn review_gcode_reports_unmodeled_commands_in_json() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-unmodeled-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "G1 X1\nG28 X Y\nM84\n").unwrap();
+
+    let out = Command::new(bin())
+        .args(["review-gcode", input.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert!(
+        out.status.success(),
+        "warnings alone remain a successful review"
+    );
+    let report: Value = serde_json::from_slice(&out.stdout).expect("valid ReviewReport JSON");
+    let findings = report["findings"].as_array().unwrap();
+    assert!(findings.iter().any(|finding| {
+        finding["rule"] == "unmodeled-gcode"
+            && finding["source_line"] == 2
+            && finding["message"].as_str().unwrap().contains("G28")
+    }));
+    assert!(findings.iter().any(|finding| {
+        finding["rule"] == "unmodeled-gcode"
+            && finding["source_line"] == 3
+            && finding["message"].as_str().unwrap().contains("M84")
+    }));
+}
+
+#[test]
+#[cfg(feature = "moonraker")]
+fn upload_print_without_profile_is_blocked_before_network_io() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-upload-gate-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(&input, "G1 X1\n").unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "upload",
+            input.to_str().unwrap(),
+            "--moonraker",
+            "http://127.0.0.1:9",
+            "--print",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("auto-print requires --profile"), "{stderr}");
+    assert!(
+        !stderr.contains("network error reaching Moonraker"),
+        "gate must reject before network I/O: {stderr}"
+    );
+}
+
+#[test]
 fn review_gcode_uses_profile_contracts_and_import_defaults() {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

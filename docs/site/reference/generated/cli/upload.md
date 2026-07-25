@@ -14,23 +14,41 @@ Verify a g-code file and upload it to a Moonraker host (accept/warn/reject gate)
 Usage: dry upload [OPTIONS] --moonraker <MOONRAKER> <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>  G-code file to review and upload
 
 Options:
-      --moonraker <MOONRAKER>                  
-      --api-key-env <API_KEY_ENV>              [default: MOONRAKER_API_KEY]
-      --print                                  
-      --force                                  
-      --rewrite <REWRITE>                      [possible values: safe, balanced, max]
-      --profile <PROFILE>                      
-      --filament-diameter <FILAMENT_DIAMETER>  
-      --line-width <LINE_WIDTH>                
-      --layer-height <LAYER_HEIGHT>            
-      --max-flow <MAX_FLOW>                    
-      --bounds <BOUNDS>                        
-      --monotonic-z                            
-      --min-temp <MIN_TEMP>                    
-      --speed-range <SPEED_RANGE>              
-      --json                                   
-  -h, --help                                   Print help
+      --moonraker <MOONRAKER>
+          Moonraker base URL, for example `http://voron.local`
+      --api-key-env <API_KEY_ENV>
+          Environment variable containing the optional Moonraker API key [default: MOONRAKER_API_KEY]
+      --timeout-s <TIMEOUT_S>
+          End-to-end timeout for each Moonraker request, in seconds [default: 120]
+      --print
+          Start printing after upload; requires a profile and a clean gate unless forced
+      --force
+          Explicitly override error/warning/profile gates. Can start unsafe machine motion
+      --rewrite <REWRITE>
+          Rewrite with the selected gated optimization mode before review and upload [possible values: safe, balanced, max]
+      --profile <PROFILE>
+          Machine/material profile JSON used for import defaults and safety contracts
+      --filament-diameter <FILAMENT_DIAMETER>
+          Override the import filament diameter (mm)
+      --line-width <LINE_WIDTH>
+          Override the imported bead width (mm)
+      --layer-height <LAYER_HEIGHT>
+          Override the imported layer height (mm)
+      --max-flow <MAX_FLOW>
+          Override maximum volumetric flow (mm³/s)
+      --bounds <BOUNDS>
+          Override build volume as `x0,x1,y0,y1,z0,z1` (mm)
+      --monotonic-z
+          Require Z to be non-decreasing
+      --min-temp <MIN_TEMP>
+          Override minimum nozzle temperature required for extrusion (°C)
+      --speed-range <SPEED_RANGE>
+          Override allowed extrusion feedrate range as `min,max` (mm/min)
+      --json
+          Emit the gate and upload outcome as JSON
+  -h, --help
+          Print help
 ```

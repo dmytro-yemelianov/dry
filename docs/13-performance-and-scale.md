@@ -21,6 +21,13 @@ caller who needs bounded memory on a large print must read `DRY1` and use the st
 JSON or `DRY0`, or calling the non-streaming `simulate(&tp)` on a materialized toolpath, is O(N) by
 construction. This is intentional and is **not** to be presented as bounded-memory streaming.
 
+Both binary readers reject declared sizes before allocation or DEFLATE expansion. The default
+`DecodeLimits` cap total input and segment counts, the full `DRY0` body, each `DRY1` block, metadata,
+strings and per-segment control points. `decode_with_limits`, `decode_any_streaming_with_limits` and
+`Toolpath::from_bytes_with_limits` let an embedding application choose a smaller or larger explicit
+budget. The defaults are a denial-of-service boundary, not a claim that a materialized `DRY0` read uses
+constant memory.
+
 ### Proof (the scale gate)
 
 `crates/core/tests/memory_scale.rs` installs a counting global allocator and measures the peak heap

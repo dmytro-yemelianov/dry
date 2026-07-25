@@ -20,6 +20,144 @@ fn bad_magic_is_an_error() {
 }
 
 #[test]
+fn trailing_binary_bytes_are_rejected() {
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    let mut columnar = encode(&tp);
+    columnar.push(0xff);
+    assert_eq!(decode(&columnar), Err(CodecError::BadCompression));
+
+    let mut chunked = encode_chunked(&tp);
+    chunked.push(0xff);
+    assert!(
+        matches!(decode(&chunked), Err(CodecError::Other(message)) if message.contains("trailing bytes"))
+    );
+}
+
+#[test]
+fn columnar_decoder_rejects_untrusted_header_lengths_before_allocation() {
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    let encoded = encode(&tp);
+    let limits = DecodeLimits {
+        max_input_bytes: encoded.len(),
+        max_segments: 10,
+        max_columnar_body_bytes: 16,
+        ..DecodeLimits::default()
+    };
+
+    let mut too_many_segments = encoded.clone();
+    too_many_segments[9..13].copy_from_slice(&11u32.to_le_bytes());
+    assert_eq!(
+        decode_with_limits(&too_many_segments, &limits),
+        Err(CodecError::LimitExceeded {
+            field: "segment count",
+            limit: 10,
+            actual: 11,
+        })
+    );
+
+    let mut oversized_body = encoded;
+    oversized_body[13..17].copy_from_slice(&17u32.to_le_bytes());
+    assert_eq!(
+        decode_with_limits(&oversized_body, &limits),
+        Err(CodecError::LimitExceeded {
+            field: "columnar body bytes",
+            limit: 16,
+            actual: 17,
+        })
+    );
+}
+
+#[test]
+fn chunked_decoder_rejects_untrusted_block_lengths_before_reading_them() {
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    let mut encoded = encode_chunked(&tp);
+    encoded[9..13].copy_from_slice(&1u32.to_le_bytes());
+    encoded[13..17].copy_from_slice(&1u32.to_le_bytes());
+    encoded.extend_from_slice(&1u32.to_le_bytes());
+    encoded.extend_from_slice(&65u32.to_le_bytes());
+    encoded.extend_from_slice(&0u32.to_le_bytes());
+
+    let limits = DecodeLimits {
+        max_block_bytes: 64,
+        ..DecodeLimits::default()
+    };
+    let (_, _, mut iter) =
+        decode_chunked_streaming_with_limits(Cursor::new(encoded), &limits).unwrap();
+    assert_eq!(
+        iter.next(),
+        Some(Err(CodecError::LimitExceeded {
+            field: "chunk body bytes",
+            limit: 64,
+            actual: 65,
+        }))
+    );
+}
+
+#[test]
+fn chunked_streaming_decoder_caps_total_declared_input() {
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    let mut encoded = encode_chunked(&tp);
+    encoded[9..13].copy_from_slice(&1u32.to_le_bytes());
+    encoded[13..17].copy_from_slice(&1u32.to_le_bytes());
+    encoded.extend_from_slice(&1u32.to_le_bytes());
+    encoded.extend_from_slice(&0u32.to_le_bytes());
+    encoded.extend_from_slice(&0u32.to_le_bytes());
+
+    let limits = DecodeLimits {
+        max_input_bytes: 29,
+        ..DecodeLimits::default()
+    };
+    let (_, _, mut iter) =
+        decode_chunked_streaming_with_limits(Cursor::new(encoded), &limits).unwrap();
+    assert_eq!(
+        iter.next(),
+        Some(Err(CodecError::LimitExceeded {
+            field: "input bytes",
+            limit: 29,
+            actual: 30,
+        }))
+    );
+}
+
+#[test]
+fn decoder_rejects_oversized_input() {
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![],
+    };
+    let encoded = encode(&tp);
+    let limits = DecodeLimits {
+        max_input_bytes: encoded.len() - 1,
+        ..DecodeLimits::default()
+    };
+    assert_eq!(
+        decode_with_limits(&encoded, &limits),
+        Err(CodecError::LimitExceeded {
+            field: "input bytes",
+            limit: encoded.len() - 1,
+            actual: encoded.len(),
+        })
+    );
+}
+
+#[test]
 #[cfg(target_pointer_width = "64")]
 fn checked_u32_lengths_reject_oversize_values() {
     let too_large = u32::MAX as usize + 1;

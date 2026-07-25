@@ -14,10 +14,10 @@ Import a Klipper printer.cfg into a dry machine/material profile (kinematics, re
 Usage: dry import-printer-cfg [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
-      --out <OUT>    
-      --name <NAME>  
+      --out <OUT>
+      --name <NAME>
   -h, --help         Print help
 ```

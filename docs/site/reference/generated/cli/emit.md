@@ -14,7 +14,7 @@ Emit motion g-code for a Dry IR file
 Usage: dry emit [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --absolute-e                 Emit absolute extrusion (default is relative E)

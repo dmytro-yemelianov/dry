@@ -1,17 +1,17 @@
 //! Bounded-memory scale gate (`docs/13-performance-and-scale.md`).
 //!
 //! A counting global allocator records the peak heap *above a baseline* during a measured operation.
-//! Streaming a large `DRY1` archive through `simulate_stream` must keep that working set **bounded**
-//! (independent of segment count), whereas materializing the whole toolpath (`from_bytes` → `simulate`)
-//! grows linearly. Asserting the ratio across two sizes is deterministic and catches a regression that
-//! accidentally buffers a streaming path.
+//! Streaming a large `DRY1` archive through `simulate_stream` and `verify_stream` must keep that
+//! working set **bounded** (independent of segment count), whereas materializing the whole toolpath
+//! (`from_bytes` → `simulate`) grows linearly. Asserting the ratio across two sizes is deterministic
+//! and catches a regression that accidentally buffers a streaming path.
 //!
 //! All measurement happens in one `#[test]` so the process-wide allocator counters are not raced by
 //! parallel tests.
 
 use dry_core::{
-    decode_any_streaming, simulate, simulate_stream, Feedrate, Length, Segment, SegmentKind,
-    Toolpath, Volume,
+    decode_any_streaming, simulate, simulate_stream, verify_stream, Contracts, Feedrate, Length,
+    Segment, SegmentKind, Toolpath, Volume,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Cursor;
@@ -103,6 +103,16 @@ fn streaming_peak(dry1: &[u8]) -> usize {
     peak_delta()
 }
 
+/// Peak working set when streaming a DRY1 archive through `verify_stream` (input bytes are baseline).
+fn verify_streaming_peak(dry1: &[u8]) -> usize {
+    let cursor = Cursor::new(dry1.to_vec());
+    reset_peak();
+    let (_v, _m, iter) = decode_any_streaming(cursor).unwrap();
+    let report = verify_stream(iter, &Contracts::default()).unwrap();
+    assert!(report.ok());
+    peak_delta()
+}
+
 /// Peak working set when materializing the whole toolpath, then simulating.
 fn materialize_peak(dry1: &[u8]) -> usize {
     let bytes = dry1.to_vec();
@@ -120,17 +130,24 @@ fn dry1_streaming_is_bounded_memory() {
 
     let stream_n = streaming_peak(&dry1_n);
     let stream_2n = streaming_peak(&dry1_2n);
+    let verify_n = verify_streaming_peak(&dry1_n);
+    let verify_2n = verify_streaming_peak(&dry1_2n);
     let mat_n = materialize_peak(&dry1_n);
     let mat_2n = materialize_peak(&dry1_2n);
 
     eprintln!(
-        "stream: {stream_n} -> {stream_2n} bytes; materialize: {mat_n} -> {mat_2n} bytes (n={n})"
+        "simulate stream: {stream_n} -> {stream_2n} bytes; verify stream: {verify_n} -> \
+         {verify_2n} bytes; materialize: {mat_n} -> {mat_2n} bytes (n={n})"
     );
 
     // Streaming working set must not scale with N: doubling segments keeps it within 1.5x.
     assert!(
         stream_2n < stream_n * 3 / 2 + 64 * 1024,
         "DRY1 streaming peak grew with N ({stream_n} -> {stream_2n}); a streaming path is buffering"
+    );
+    assert!(
+        verify_2n < verify_n * 3 / 2 + 64 * 1024,
+        "DRY1 verify peak grew with N ({verify_n} -> {verify_2n}); verify_stream is buffering"
     );
 
     // Materializing must scale roughly linearly: doubling segments grows the peak by >=1.7x.

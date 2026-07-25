@@ -220,11 +220,13 @@ dry upload examples/part.gcode --moonraker http://voron.local \
 Dry runs its verify gate on the file before upload:
 
 - **Accept** (0 errors, 0 warnings) → upload the g-code, optionally start the print.
-- **Warn** (0 errors, ≥1 warning) → upload but do NOT auto-start unless `--force` overrides.
+- **Warn** (0 errors, ≥1 warning) → an upload-only request may proceed; an `--print` request is rejected
+  before upload unless `--force` overrides.
 - **Reject** (≥1 error) → no upload, exit 1, unless `--force` overrides.
 
 Upload requires a Moonraker host (`--moonraker <url>`), an optional API key (default env var
-`MOONRAKER_API_KEY`; may be empty for trusted-client setups), and optional post-upload actions:
+`MOONRAKER_API_KEY`; may be empty for trusted-client setups), and optional post-upload actions. Every
+request has a 120-second timeout by default; change it with `--timeout-s`.
 
 ```sh
 # Review first, then upload under a profile
@@ -234,8 +236,9 @@ dry upload examples/part.gcode --moonraker http://voron.local \
 # Rewrite (safe/balanced/max) the g-code before uploading
 dry upload examples/part.gcode --moonraker http://voron.local --rewrite balanced
 
-# Upload and start the print immediately (gate permitting)
-dry upload examples/part.gcode --moonraker http://voron.local --print
+# Upload and start the print immediately (a profile and a clean gate are required)
+dry upload examples/part.gcode --moonraker http://voron.local \
+  --profile profiles/voron.json --print
 
 # Override the gate (warn → upload, reject → upload)
 dry upload examples/part.gcode --moonraker http://voron.local --force
@@ -264,9 +267,10 @@ dry upload examples/part.gcode --moonraker http://voron.local \
 ```
 
 Use `--json` to emit a structured upload response (host status, file path, print start outcome if
-requested). Use `--print` without `--force` to auto-start only when the gate accepts (0 errors, 0
-warnings); use `--force --print` to start regardless. New feature-gated `dry-moonraker` crate is the
-only network code; `dry-core` stays pure.
+requested). Use `--print` without `--force` only with a profile and when the gate accepts (0 errors, 0
+warnings). The check happens before upload, so a rejected auto-print request does not leave an
+unreviewed file on the printer. `--force --print` is an explicit override. The `dry-moonraker` crate is
+the only printer-network code; `dry-core` stays pure.
 
 ## Working with the SDKs (Python, TypeScript, Wasm)
 

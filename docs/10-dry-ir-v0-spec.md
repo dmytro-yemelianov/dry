@@ -326,7 +326,9 @@ A conforming reader **MUST** reject the following, each exercised by a vector un
 | `DRY1` flag bit outside the known mask | unsupported-flags error |
 | Truncated body (inflate short, or a column/row runs past the buffer) | truncated error |
 | Inflated body length ≠ declared `body_len` | bad-compression error |
+| Bytes remain after the `DRY0` DEFLATE stream or final `DRY1` block | trailing-data error |
 | Non-UTF-8 string bytes | bad-utf8 error |
 | `DRY1` `block_size == 0`, or `block_n == 0`/`> remaining` | error |
+| A declared count/length exceeds the reader's documented resource budget | limit-exceeded error before allocation/decompression |
 
 The error *taxonomy* (names) is implementation-defined; the **requirement to reject** is normative.

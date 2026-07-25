@@ -3,6 +3,7 @@ name = "dry-llm"
 description = "Dry's Anthropic Messages client — the only network code in the workspace."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

@@ -14,7 +14,7 @@ Check a Dry IR file against machine-safety contracts; exits 1 if any errors are 
 Usage: dry verify [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  
+  <FILE>
 
 Options:
       --profile <PROFILE>
