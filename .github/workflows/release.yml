@@ -109,9 +109,10 @@ jobs:
           bin="dry"
           [ "${{ runner.os }}" = "Windows" ] && bin="dry.exe"
           stage="dry-${ver}-${{ matrix.target }}"
-          mkdir -p "dist/$stage"
+          mkdir -p "dist/$stage/third_party/licenses"
           cp "target/${{ matrix.target }}/release/$bin" "dist/$stage/"
-          cp README.md LICENSE "dist/$stage/"
+          cp README.md LICENSE NOTICE "dist/$stage/"
+          cp third_party/licenses/*.txt "dist/$stage/third_party/licenses/"
           tar -C dist -czf "dist/${stage}.tar.gz" "$stage"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

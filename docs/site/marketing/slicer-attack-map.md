@@ -189,4 +189,4 @@ For each job:
 - [PreForm](https://formlabs.com/software/preform/)
 - [VoxelDance Additive](https://www.voxeldance.com/additive)
 
-Full source map: [`docs/marketing/slicer-attack-map.md`](https://github.com/dmytro-yemelianov/dry/blob/main/docs/marketing/slicer-attack-map.md)
+The full implementation map is maintained with the private product source.

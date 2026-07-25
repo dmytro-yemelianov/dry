@@ -247,12 +247,12 @@ Trust levels:
 
 ## Product Packaging
 
-Open core:
+Proprietary product core:
 
 - pack schema;
 - local loader;
 - validation/proof runner;
-- importers where licensing permits.
+- commercially licensed importers where upstream terms permit.
 
 Paid team/enterprise:
 
@@ -263,4 +263,4 @@ Paid team/enterprise:
 - vendor-maintained pack library;
 - custom adapters and fleet migration support.
 
-Full source plan: [`docs/marketing/printer-capability-library-plan.md`](https://github.com/dmytro-yemelianov/dry/blob/main/docs/marketing/printer-capability-library-plan.md)
+The full implementation plan is maintained with the private product source.

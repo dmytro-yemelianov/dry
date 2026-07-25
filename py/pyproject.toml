@@ -8,7 +8,7 @@ version = "0.4.0"
 description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
 requires-python = ">=3.9"
 license = "LicenseRef-Dry-Proprietary"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE", "third_party/licenses/*.txt"]
 
 [tool.maturin]
 module-name = "dry._native"

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import type { Plugin } from 'vite';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -10,6 +11,7 @@ const webSpline = path.resolve(repoRoot, 'web/spline.js');
 const referencePagesFile = path.resolve(repoRoot, 'docs/site/reference/source/pages.json');
 const publicDocumentationBuild = process.env.DRY_DOCS_MODE === 'public';
 const publicDocumentationAssets = path.resolve(here, '../.public-docs');
+const publicSourceManifest = '.dry-public-source-manifest.json';
 const liveExampleComponent = path.resolve(
   here,
   'theme',
@@ -42,6 +44,40 @@ function readReferenceSidebar(): SidebarItem[] {
     // Fall back to an explicit minimal sidebar if metadata is missing.
   }
   return [{ text: 'Overview', link: '/reference/' }];
+}
+
+/** Normalize a Rollup module id into a stable, repository-relative provenance entry. */
+function normalizeModuleId(moduleId: string): string {
+  if (moduleId.startsWith('\0') || moduleId.startsWith('virtual:')) return moduleId;
+  const clean = moduleId.split('?', 1)[0];
+  if (clean.startsWith('/@') || clean.startsWith('/reference/previews/')) {
+    return `public-url:${clean}`;
+  }
+  if (!path.isAbsolute(clean)) return clean.split(path.sep).join('/');
+  return path.relative(repoRoot, clean).split(path.sep).join('/');
+}
+
+/** Emit the exact source-module set used by the public client bundle for the boundary audit. */
+function publicSourceManifestPlugin(): Plugin {
+  return {
+    name: 'dry-public-source-manifest',
+    apply: 'build',
+    generateBundle(outputOptions, bundle) {
+      if (!outputOptions.dir || path.resolve(outputOptions.dir) !== path.resolve(here, '../.vitepress/dist')) {
+        return;
+      }
+      const modules = new Set<string>();
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        for (const moduleId of Object.keys(output.modules)) modules.add(normalizeModuleId(moduleId));
+      }
+      this.emitFile({
+        type: 'asset',
+        fileName: publicSourceManifest,
+        source: `${JSON.stringify([...modules].sort(), null, 2)}\n`,
+      });
+    },
+  };
 }
 
 export default defineConfig({
@@ -109,6 +145,7 @@ export default defineConfig({
     },
   },
   vite: {
+    plugins: publicDocumentationBuild ? [publicSourceManifestPlugin()] : [],
     resolve: {
       alias: {
         '@dry-live-example': liveExampleComponent,

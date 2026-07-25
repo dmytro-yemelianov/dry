@@ -67,14 +67,15 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
 
-## Bootstrapped from FullControl
+## Clean-room relationship to FullControl
 
-Dry is a clean-slate re-layering, but not a blank page: it bootstraps from the **FullControl fork**
-(`dmytro-yemelianov/fullcontrol`) — its Rust kernel, hardened IR, optimisation passes, ~695 device
-profiles and ~906 tests become Dry's reference implementation seeds. Dry's oracle-generated gallery
-corpus contains 28 fixtures: all 27 registered designs plus the separately published Overhang Challenge
-Plus variant. Together they form the **conformance
-corpora** (`docs/03-conformance.md`). Every phase is gated on reproducing the fork's output.
+The **FullControl fork** (`dmytro-yemelianov/fullcontrol`) is a GPLv3 development oracle only. Dry's
+engine, IR, passes and tests are independently implemented from observed behaviour and first principles;
+no FullControl source is retained in Dry. Device profiles are regenerated from primary-source machine
+specifications. Output-only G-code, metrics and report corpora are retained as conformance evidence with
+their provenance recorded in [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md).
+The gallery contains 28 Dry-authored reconstructions covering the 27-design registry plus the separately
+published Overhang Challenge Plus variant. The GPL oracle is excluded from every customer artifact.
 
 ## Licence and distribution
 

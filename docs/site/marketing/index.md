@@ -264,4 +264,4 @@ Success criteria:
 - [Moonraker file API](https://moonraker.readthedocs.io/en/latest/external_api/file_manager/)
 - [Klipper configuration reference](https://www.klipper3d.org/Config_Reference.html)
 
-Full source report: [`docs/marketing/market-research-deep-dive.md`](https://github.com/dmytro-yemelianov/dry/blob/main/docs/marketing/market-research-deep-dive.md)
+The full implementation report is maintained with the private product source.

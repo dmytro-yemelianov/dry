@@ -136,6 +136,15 @@
   color: var(--vp-c-text-2);
 }
 
+.public-example img {
+  display: block;
+  width: 100%;
+  margin-top: 0.85rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg);
+}
+
 .public-example details {
   margin-top: 0.75rem;
 }

@@ -44,9 +44,9 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 **Read in order.** The one-paragraph summary: don't rewrite the library — promote the IR + Rust engine
 to *the product*, generalise it (toolframe, units-as-types, dialects, splines, streaming), grow Python /
 TypeScript / Rust front-ends onto the one IR, and gate every step on conformance generated from the FullControl oracle's
-~906 tests, golden g-code, ~695 device profiles and 26 exported gallery fixtures from a 27-design
-registry — then cut the FC API last. The missing registry fixture is tracked in the
-[FullControl source audit](site/reference/fullcontrol-sources.md).
+~906 tests, golden g-code, ~695 device profiles and 26 entries in the `_SMALL` export matrix. The
+committed Dry gallery has 28 fixtures covering the 27-design registry; the registry/export reconciliation
+is recorded in the [FullControl source audit](site/reference/fullcontrol-sources.md). Then cut the FC API last.
 
 The core thesis was reached in conversation; the supporting argument (why not a blind rewrite, why the
 IR is the durable asset) lives in the FullControl fork's `docs/ir_prior_art.md` (standards survey) and `docs/ir_spec.md`
