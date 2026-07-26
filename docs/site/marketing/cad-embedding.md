@@ -244,4 +244,4 @@ Deliverables:
 - [FreeCAD Python scripting tutorial](https://wiki.freecad.org/Python_scripting_tutorial)
 
 The implementation playbook is maintained in the public repository at
-`docs/marketing/cad-embedding-playbook.md`.
+[docs/marketing/cad-embedding-playbook.md](https://github.com/dmytro-yemelianov/dry/blob/6e0916271bd08d00cf9a58e31325f53cdacf9576/docs/marketing/cad-embedding-playbook.md).

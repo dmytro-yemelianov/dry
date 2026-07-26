@@ -57,7 +57,7 @@ Workflow:
 
 ```text
 Onshape document / cloud CAD data
-  -> public app/API integration
+  -> public-facing app/API integration (authenticated requests)
   -> Dry service compiles or reviews selected geometry/toolpaths
   -> report + artifact linked back to the document/workflow
 ```
@@ -65,6 +65,7 @@ Onshape document / cloud CAD data
 Why it is attractive:
 
 - maps to cloud-native CAD workflows;
+- preserves authentication and document-permission checks;
 - centralizes Dry versioning and profiles;
 - easier for teams that want a shared compliance/report layer.
 
