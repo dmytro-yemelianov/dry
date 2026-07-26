@@ -5,18 +5,20 @@ Copyright (c) 2026 Dmytro Yemelianov. All rights reserved.
 
 Dry, including its source code, executable code, packages, schemas, examples,
 generated artifacts, visual assets, and other software materials (the
-"Software"), is proprietary and confidential.
+"Software"), is source-available and proprietary.
 
 No copyright, patent, trademark, trade-secret, or other license is granted by
 this notice. You may not use, copy, modify, distribute, publish, sublicense,
 sell, disclose, reverse engineer, decompile, disassemble, or create derivative
-works of the Software except as expressly permitted by a separate written
-agreement signed by the copyright holder.
+works of the Software except as expressly permitted below or by a separate
+written agreement signed by the copyright holder.
 
-Publicly hosted Dry documentation may be accessed and viewed for evaluation
-and for use with an authorized copy of the Software. This limited permission
-does not grant any right to the Software, to redistribute the documentation,
-or to use Dry names or marks.
+Publicly hosted Dry documentation and demonstrations may be accessed, viewed,
+and interacted with for evaluation. Source code published in a public
+repository may be viewed and forked only as permitted by the hosting
+platform's terms. These limited permissions do not authorize local execution,
+compilation, modification, distribution, commercial use, or use of Dry names
+or marks.
 
 Authorized customers, evaluators, employees, and contractors may use the
 Software only within the scope and term of their applicable written agreement.
