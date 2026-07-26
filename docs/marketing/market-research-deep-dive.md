@@ -355,7 +355,7 @@ Buyer: platform/product engineering teams.
 
 Model:
 
-- commercial SDK license delivered through authenticated private artifacts;
+- commercial SDK licence applied to public GitHub Release artifacts;
 - paid support, compatibility assurances, and integration help;
 - optional OEM/white-label terms for product embedding.
 
@@ -374,7 +374,8 @@ Buyer: labs, consultancies, R&D groups.
 Model:
 
 - paid workshops, support, and project-specific implementation;
-- approved public case studies and limited examples to drive adoption without distributing the engine.
+- public case studies, executable examples, and the hosted engine to drive adoption while commercial
+  use remains licence-controlled.
 
 Initial pricing test:
 

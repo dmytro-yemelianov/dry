@@ -532,15 +532,15 @@ Exit:
 
 ## Product Packaging
 
-### Private Product Core
+### Proprietary Product Core
 
 - pack schema;
 - local loader;
 - validation/proof runner;
 - Klipper/Cura/Prusa importers where licensing permits.
 
-These components are delivered only as authenticated product artifacts or under an OEM agreement; they
-are not published as an open-source package.
+These components are publicly inspectable in the repository and distributed under the proprietary
+Dry licence or a negotiated OEM agreement; they are not published as an open-source package.
 
 ### Paid Team/Enterprise Layer
 

@@ -3,8 +3,9 @@
 Dry is a toolpath compiler: a design is a program that lowers through a typed IR
 (design to path to motion to target) which the engine simulates, verifies, optimizes, and emits.
 
-The public site documents each workflow without distributing the engine. Licensed product builds make
-the examples editable and execute them against the same Rust/WASM engine used by the CLI and SDKs.
+The public site documents each workflow and ships the browser gallery with the same Rust/WASM engine
+used by the CLI and SDKs. Open **Gallery** in the top navigation to edit examples, inspect the 3D
+toolpath, simulate playback, verify output, and export G-code or Dry IR.
 
 Reference pages: [TypeScript SDK](../reference/generated/typescript-sdk), [Python SDK](../reference/generated/python-sdk),
 [CLI](../reference/generated/cli), [IR](../reference/generated/ir), [examples matrix](../reference/generated/examples).

@@ -69,7 +69,7 @@ Acceptance:
 
 > **Delivered (initial):** a tag-triggered [`release.yml`](../.github/workflows/release.yml) builds CLI
 > binaries (macOS/Linux/Windows) with `SHA256SUMS`, Python wheels and a Python source distribution
-> (maturin), and an npm package, then attaches them to a private GitHub Release, with no public registry
+> (maturin), and an npm package, then attaches them to a public GitHub Release, with no registry
 > publishing or registry-token setup; a
 > version/tag guard (`scripts/check-version.sh`) keeps the manifests in lockstep. Process +
 > install-without-source:

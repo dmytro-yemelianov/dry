@@ -24,10 +24,11 @@ const documentedSource = computed(() => (props.src ? documentedExamples[props.sr
 
 <template>
   <aside class="public-example">
-    <strong>{{ src ? `Licensed product example: ${src}` : 'Licensed product example' }}</strong>
+    <strong>{{ src ? `Dry example: ${src}` : 'Dry example' }}</strong>
     <p>
-      Interactive execution is available in the authenticated Dry product.
-      The public documentation does not ship the SDK or WebAssembly engine.
+      This lightweight docs-only build shows a static preview.
+      Interactive execution is available in the public
+      <a href="https://dry-public-docs.pages.dev/gallery/">Dry gallery</a>.
     </p>
     <pre v-if="code"><code>{{ code }}</code></pre>
     <details v-else-if="$slots.default">

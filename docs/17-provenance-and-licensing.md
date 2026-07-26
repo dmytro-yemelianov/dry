@@ -6,15 +6,16 @@ be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 
 *(Engineering record, not legal advice — confirm with counsel before external commercial distribution.)*
 
-## 0. Private-product distribution policy
+## 0. Public-access proprietary distribution policy
 
 Dry source, binaries, wheels, npm tarballs, browser/WASM engine, and executable gallery are proprietary
-product artifacts. Tagged builds are distributed through authenticated private GitHub Releases; public
-Cargo, npm, and PyPI publication is disabled by policy and release configuration.
+product artifacts. Source, tagged GitHub Releases, and the hosted browser product are publicly
+accessible; Cargo, npm, and PyPI registry publication remains disabled by policy and release
+configuration.
 
-The hosted documentation is public, but its dedicated build contains no engine, SDK implementation,
-package, gallery, or release download. Public visibility grants only the limited documentation access
-described in `LICENSE`; it does not grant a software licence.
+Public visibility grants access to inspect and download the product but does not grant a software
+licence. Use, modification, redistribution, and production deployment remain subject to `LICENSE` and
+a separate written commercial agreement.
 
 Dry-authored work uses the custom SPDX expression `LicenseRef-Dry-Proprietary` where the ecosystem
 supports it, Cargo packages point to their proprietary `LICENSE`, and the unpublished npm package uses
@@ -74,5 +75,8 @@ cargo install cargo-license && cargo license   # per-crate licences (optional)
 - [ ] New corpora are recorded in the ledger above with their origin + regeneration command.
 - [ ] `NOTICE` / proprietary `LICENSE` are present in every customer artifact.
 - [ ] Third-party MIT / Apache-2.0 notices remain attached to the corresponding vendored components.
-- [ ] The public docs build contains no `/pkg`, `/gallery`, wasm, package archive, or SDK implementation.
+- [ ] The public product build serves the expected gallery and WASM files and contains no package
+      archives or unplanned build artifacts.
+- [ ] If the optional docs-only build is used, its boundary audit excludes `/pkg`, `/gallery`, wasm,
+      package archives, and SDK implementation.
 - [ ] Changelog notes any licence-relevant change.

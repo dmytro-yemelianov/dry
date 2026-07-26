@@ -208,13 +208,13 @@ jobs:
         run: |
           bash build.sh wasm-only
           npm run test
-      - name: build site
+      - name: build docs-only boundary
+        working-directory: docs/site
+        run: npm run build:docs-only
+      - name: build public interactive product site
         working-directory: docs/site
         run: npm run build
-      - name: build authenticated product site for browser anti-drift
-        working-directory: docs/site
-        run: npm run build:product
-      - name: smoke authenticated product examples (anti-drift)
+      - name: smoke public interactive product examples
         working-directory: docs/site
         run: |
           npx playwright install chromium

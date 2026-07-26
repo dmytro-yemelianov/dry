@@ -33,11 +33,22 @@ for (const { name, url } of PAGES) {
   });
 }
 
-test('licensed FullControl notebook and website samples are executable', async ({ page }) => {
-  await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+test('public WASM gallery renders licensed FullControl samples', async ({ page }) => {
+  const galleryResponse = await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+  expect(galleryResponse?.status()).toBe(200);
+
+  const wasmGlueResponse = await page.request.get('/gallery/pkg/dry_wasm.js');
+  expect(wasmGlueResponse.status()).toBe(200);
+  expect(wasmGlueResponse.headers()['content-type']).toContain('text/javascript');
+
+  const wasmBinaryResponse = await page.request.get('/gallery/pkg/dry_wasm_bg.wasm');
+  expect(wasmBinaryResponse.status()).toBe(200);
+  expect(wasmBinaryResponse.headers()['content-type']).toContain('application/wasm');
+
   await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
     timeout: 30_000,
   });
+  await expect(page.locator('#viewport canvas')).toHaveCount(1);
 
   const inventory = await page.evaluate(() =>
     (window as typeof window & { __galleryInventory?: { fullcontrol: string[] } }).__galleryInventory,

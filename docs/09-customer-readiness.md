@@ -16,7 +16,7 @@ pilot guide, not a promise that every segment is production-ready today.
 | Algorithmic toolpath researchers | High | Python/TS authoring, exact paths, arcs, channels, simulation, byte-stable emit. | Published examples, notebooks, packaging, clearer experimental flags. |
 | Advanced makers and print labs | Medium-high | Review, verify, trace, rewrite and optimize G-code with profile-aware checks. | Easier profiles, installer, visual report, safer defaults and documentation. |
 | Post-slicer QA / farm operators | Medium-high | Source-line findings, bounds/flow/temp checks, trace summaries, binary archives. | Batch workflow, report export, profile library, CI-style integration docs. |
-| SDK integrators | Medium | Rust core plus Python/TS/wasm adapters and deterministic conformance. | Formal IR spec, semver policy, authenticated private packages, integration examples. |
+| SDK integrators | Medium | Rust core plus Python/TS/wasm adapters and deterministic conformance. | Formal IR spec, semver policy, versioned release packages, integration examples. |
 | CAD/workbench plugin users | Medium | Strong compiler layer from authored paths to verified target code. | Host integration, UI workflow, CAD geometry adapters, installer story. |
 | Education and demos | Medium-high | Browser gallery, visual authoring, explainable IR pipeline, deterministic output. | Curated lessons, hosted demo, resettable examples, simpler terminology. |
 | Product teams building a SaaS/desktop tool | Medium-low | Engine and wasm are strong enough to embed. | Auth/storage/project UX, release artifacts, support model, product analytics. |
@@ -122,7 +122,7 @@ Core jobs:
 
 Production gaps:
 
-- verified v0.4 private release artifacts;
+- verified v0.4 public GitHub Release artifacts;
 - profile templates;
 - machine-readable report docs;
 - shell recipes;
@@ -141,7 +141,7 @@ Core jobs:
 
 Production gaps:
 
-- authenticated private package delivery;
+- versioned public GitHub Release delivery;
 - API stability policy;
 - Rust authoring SDK;
 - generated API docs;
@@ -163,7 +163,7 @@ Production gaps:
 - project persistence;
 - profile editor;
 - visual report pages;
-- authenticated hosted deployment;
+- hardened public hosted deployment;
 - clearer separation of stable and experimental controls.
 
 ### Dry Review Service
