@@ -57,7 +57,7 @@ Workflow:
 
 ```text
 Onshape document / cloud CAD data
-  -> authenticated app/API integration
+  -> public app/API integration
   -> Dry service compiles or reviews selected geometry/toolpaths
   -> report + artifact linked back to the document/workflow
 ```

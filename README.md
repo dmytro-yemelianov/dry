@@ -80,9 +80,10 @@ published Overhang Challenge Plus variant. The GPL oracle is excluded from every
 ## Licence and distribution
 
 **Proprietary — all rights reserved** (see [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE)). Source and
-installable artifacts stay private and customer use requires a written commercial agreement. The
-documentation and interface contracts are publicly readable, but the public build contains no engine,
-SDK implementation, WebAssembly, gallery, or package downloads.
+installable GitHub Release artifacts are publicly readable, as are the documentation, browser gallery,
+WebAssembly renderer, SDK implementations, and interface contracts. Public visibility does not grant a
+software licence: use, modification, redistribution, or production deployment still requires a written
+commercial agreement.
 
 Dry remains an **independent, clean-room** implementation: FullControl (GPLv3) is used only as design
 *inspiration* and a dev/CI *behavioural oracle* — never copied into Dry's source, shipped, or linked

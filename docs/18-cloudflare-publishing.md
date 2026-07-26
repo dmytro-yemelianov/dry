@@ -1,32 +1,38 @@
-# Public Cloudflare documentation
+# Public Cloudflare product site
 
-Dry's product documentation in `docs/site` is public at the `dry-docs` Cloudflare Pages project.
-Cloudflare receives only the generated files in `docs/site/.vitepress/dist`; it is not connected to the
-private GitHub repository.
+Dry's documentation and interactive browser product in `docs/site` are public at the
+`dry-public-docs` Cloudflare Pages project. Direct Upload receives only the generated files in
+`docs/site/.vitepress/dist`; no Cloudflare credential is committed to the repository.
 
-This is separate from product distribution. CLI, Python, TypeScript, Rust, and WebAssembly artifacts
-remain available only through authenticated private releases as described in
-[`12-releasing.md`](12-releasing.md).
+The production artifact includes:
 
-## Distribution boundary
+- the guide, generated API reference, market material, and licensing page;
+- executable guide examples backed by the TypeScript SDK;
+- the full `/gallery/` explorer, Three.js renderer, playback, verification, optimization, and export;
+- `dry_wasm.js` and `dry_wasm_bg.wasm`, built from the Rust engine;
+- the committed FullControl clean-room reconstructions, lattice generator, and TPMS generator.
 
-`npm run build` is the only build approved for public deployment. It:
+Source and downloadable release artifacts are public through GitHub as described in
+[`12-releasing.md`](12-releasing.md). They remain proprietary under `LICENSE`; public access does not
+grant permission to use, modify, or redistribute them.
 
-- renders the guide, API reference, product positioning, and static SVG previews;
-- replaces every executable `LiveExample` with a non-executable licensed-product notice;
-- disables Vite's normal `public/` copy and stages only an explicit documentation asset allow-list;
-- omits `/pkg`, `/gallery`, SDK implementation modules, wasm binaries, and package archives;
-- runs an automated boundary check before reporting success.
+## Build modes
 
-`npm run build:product` creates the internal interactive site and includes proprietary WebAssembly and
-gallery code. It must never be uploaded to public hosting.
+`npm run build` creates the production artifact and is the build deployed to Cloudflare.
+
+`npm run build:docs-only` retains the smaller documentation-only boundary. It omits `/pkg` and
+`/gallery`, substitutes static examples, and runs the source-provenance and artifact allow-list audit.
+Use it only when a lightweight docs-only deployment is specifically required.
+
+`npm run build:product` is an explicit alias for the full production build and remains useful in local
+development and CI.
 
 ## Build and deploy
 
 Prerequisites:
 
-- Wrangler is authenticated to the Cloudflare account that owns `dry-docs`.
-- The generated public output has passed review.
+- Wrangler is authenticated to the Cloudflare account that owns `dry-public-docs`.
+- The full generated output has passed tests and browser smoke checks.
 
 From `docs/site`:
 
@@ -37,24 +43,25 @@ npm run test
 npm run deploy:cloudflare
 ```
 
-`deploy:cloudflare` always rebuilds the safe public artifact before using Direct Upload. The `main`
-branch is the Pages production branch.
+`deploy:cloudflare` always rebuilds the full public product artifact before using Direct Upload. The
+`main` branch is the Pages production branch.
 
 After deployment:
 
-1. Confirm an unauthenticated request to `https://dry-docs.pages.dev/` returns `200`.
-2. Load the guide, reference, and marketing pages.
-3. Confirm `/pkg/dry_wasm.js`, `/pkg/dry_wasm_bg.wasm`, and `/gallery/` return `404`.
-4. Confirm example panels state that interactive execution belongs to the authenticated product.
+1. Confirm an unauthenticated request to `https://dry-public-docs.pages.dev/` returns `200`.
+2. Load the guide, reference, marketing, and licensing pages.
+3. Confirm `/gallery/`, `/gallery/pkg/dry_wasm.js`, and `/gallery/pkg/dry_wasm_bg.wasm` return `200`.
+4. Confirm the gallery initializes its Three.js canvas, resolves an example through WASM, and renders
+   generated G-code without browser errors.
 
 List deployments without changing production:
 
 ```sh
-npx --yes wrangler@4.111.0 pages deployment list --project-name dry-docs
+npx --yes wrangler@4.111.0 pages deployment list --project-name dry-public-docs
 ```
 
 ## Automation boundary
 
 The repository contains no Cloudflare API token and grants Cloudflare no GitHub access. Automated
-deployment may be added later with a narrowly scoped Pages token stored as a GitHub Actions secret, but
-the workflow must run `npm run build` and the public-boundary check before upload.
+deployment may be added later with a narrowly scoped Pages token stored as a GitHub Actions secret. The
+workflow must run the full CI suite and `npm run build` before upload.

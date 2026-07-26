@@ -263,4 +263,5 @@ Paid team/enterprise:
 - vendor-maintained pack library;
 - custom adapters and fleet migration support.
 
-The full implementation plan is maintained with the private product source.
+The full implementation plan is maintained in the public repository at
+`docs/marketing/printer-capability-library-plan.md`.

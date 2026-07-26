@@ -2,8 +2,8 @@ name: Release
 
 # Tag a release with `vX.Y.Z` (matching the workspace/py/ts versions — see docs/12-releasing.md).
 # This builds installable artifacts for every front-end, attaches them to the GitHub Release with
-# checksums, and keeps distribution inside this repository's private GitHub Releases. Public npm
-# and PyPI publishing is intentionally absent because the artifacts contain proprietary IP.
+# checksums, and keeps registry publishing separate. npm, PyPI, and crates.io publishing is
+# intentionally absent; release downloads are public through this repository.
 on:
   push:
     tags: ["v*"]
@@ -17,14 +17,9 @@ env:
 
 jobs:
   guard:
-    name: guard (private repository + provenance + versions)
+    name: guard (provenance + versions)
     runs-on: ubuntu-latest
     steps:
-      - name: require private repository
-        if: ${{ github.event.repository.private != true }}
-        run: |
-          echo "::error::Dry release artifacts may only be created from a private repository."
-          exit 1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0

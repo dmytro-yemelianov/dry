@@ -243,4 +243,5 @@ Deliverables:
 - [Blender add-on tutorial](https://docs.blender.org/manual/en/latest/advanced/scripting/addon_tutorial.html)
 - [FreeCAD Python scripting tutorial](https://wiki.freecad.org/Python_scripting_tutorial)
 
-The implementation playbook is maintained with the private product source.
+The implementation playbook is maintained in the public repository at
+`docs/marketing/cad-embedding-playbook.md`.
