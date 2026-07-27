@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/cli", "crates/llm", "crates/moonraker"]
+members = ["crates/core", "crates/cli", "crates/license", "crates/llm", "crates/moonraker"]
 default-members = ["crates/core", "crates/cli"]
 # `py/` (PyO3) and `crates/wasm` (wasm-bindgen) are bindings excluded from the core workspace so the
 # engine stays binding-free; each is built + tested by its own CI job. The TS SDK lands in P4.
