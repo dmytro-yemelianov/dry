@@ -9,6 +9,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-28
+
+Post-0.3.0 work — additive features plus the licensing/distribution change below.
+
+### Changed
 - Re-license Dry-authored work prospectively as proprietary, keep source and installable artifacts on
   authenticated private distribution surfaces, remove public PyPI/npm publishing, and require a private
   repository at release time.
@@ -72,12 +77,6 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 - `dry upload <file> --moonraker <url>`: verify gate (accept/warn/reject) then upload the (optionally
   `--rewrite`-cleaned) g-code to a Moonraker host, with optional `--print`; `--force` overrides the gate.
   New feature-gated `dry-moonraker` crate is the only network code; `dry-core` stays pure.
-
-## [0.4.0] - 2026-06-29
-
-Post-0.3.0 work — all additive (no behavioral changes from 0.3.0).
-
-### Added
 - **Product workflows & pilot guides** — a run-verified CLI cookbook (`docs/15`), three pilot guides
   (`docs/pilots/`: authoring, post-slicer review, SDK integration) and runnable `examples/`. IR commands
   handed raw g-code now fail with an actionable hint (use `import-gcode`/`review-gcode`).
