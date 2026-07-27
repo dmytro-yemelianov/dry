@@ -49,3 +49,4 @@ __pycache__/
 
 # Claude Code harness worktrees (per-agent, transient)
 .claude/worktrees/
+.superpowers/
