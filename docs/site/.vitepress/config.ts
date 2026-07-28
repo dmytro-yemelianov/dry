@@ -95,6 +95,7 @@ export default defineConfig({
     },
     nav: [
       { text: 'Guide', link: '/guide/' },
+      { text: 'Cloud', link: '/cloud/' },
       { text: 'Reference', link: '/reference/' },
       { text: 'Market', link: '/marketing/' },
       { text: 'Licensing', link: '/licensing' },
@@ -119,6 +120,17 @@ export default defineConfig({
         {
           text: 'Reference',
           items: readReferenceSidebar(),
+        },
+      ],
+      '/cloud/': [
+        {
+          text: 'Dry Cloud',
+          items: [
+            { text: 'Overview', link: '/cloud/' },
+            { text: 'CLI quickstart', link: '/cloud/quickstart-cli' },
+            { text: 'Integration quickstart', link: '/cloud/quickstart-integrations' },
+            { text: 'API reference', link: '/cloud/api' },
+          ],
         },
       ],
       '/marketing/': [
