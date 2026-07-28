@@ -13,6 +13,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 
 | Method | Signature | Sample | Summary |
 | --- | --- | --- | --- |
+| `from_ops` | `def from_ops(cls, ops: Sequence[Op]) -&gt; 'Design'` |  | Create an L1 design from an existing canonical op list. |
 | `geometry` | `def geometry(self, width: Number, height: Number) -&gt; 'Design'` |  | Set the extrusion bead cross-section (mm). |
 | `extruder` | `def extruder(self, on: bool) -&gt; 'Design'` |  | Turn the extruder on/off (off =&gt; subsequent moves are travels). |
 | `speed` | `def speed(self, print_speed: Number) -&gt; 'Design'` |  | Set the print feedrate (mm/min). |
@@ -36,6 +37,23 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `balanced_ir` | `def balanced_ir(self, printer: str = 'generic', kinematics: Optional[Kinematics] = None) -&gt; Toolpath` | [Optimize](/guide/optimize) | Resolve + balanced (kinematics-aware) optimize; returns a dict ({version, segments}). |
 | `binary` | `def binary(self, printer: str = 'generic') -&gt; bytes` |  | Resolve + encode to binary DRY1 format; returns a bytes object. |
 | `verify` | `def verify(self, printer: str = 'generic', max_flow: Optional[Number] = None, min_temp: Optional[Number] = None, bounds: Optional[Bounds] = None, monotonic_z: bool = False, speed_range: Optional[Range] = None, max_retraction_distance: Optional[Number] = None, max_retraction_speed: Optional[Number] = None, max_travel_without_retract: Optional[Number] = None, first_layer_height_range: Optional[Range] = None, first_layer_speed_range: Optional[Range] = None, kinematics: Optional[Kinematics] = None) -&gt; Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns a report dict with findings. |
+
+### `from_ops`
+
+```py
+def from_ops(cls, ops: Sequence[Op]) -> 'Design'
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `cls` | `any` |  | Yes |
+| `ops` | `Sequence[Op]` |  | Yes |
+
+Returns: `'Design'`
+
+Create an L1 design from an existing canonical op list.
 
 ### `geometry`
 

@@ -9,6 +9,8 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | Name | Kind | Value |
 | --- | --- | --- |
 | `Bounds` | type alias | `Union[Sequence[Sequence[Number]], str]` |
+| `FeatureNode` | type alias | `Dict[str, Any]` |
+| `FeaturePose` | type alias | `Mapping[str, Number]` |
 | `Kinematics` | type alias | `Mapping[str, Number]` |
 | `Metrics` | type alias | `Dict[str, Any]` |
 | `Number` | type alias | `Union[int, float]` |
@@ -26,7 +28,62 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 
 | Function | Signature | Sample | Summary |
 | --- | --- | --- | --- |
+| `feature` | `def feature(design: Union[Design, Sequence[Op]], pose: Optional[FeaturePose] = None, name: Optional[str] = None) -&gt; FeatureNode` |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
+| `group` | `def group(*children: FeatureNode) -&gt; FeatureNode` |  | Compose feature nodes in source order. |
+| `repeat` | `def repeat(child: FeatureNode, count: int, step: Optional[FeaturePose] = None) -&gt; FeatureNode` |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
 | `tpms_gcode` | `def tpms_gcode(options: Optional[TpmsOptions], printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -&gt; List[str]` | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
+
+### `feature`
+
+```py
+def feature(design: Union[Design, Sequence[Op]], pose: Optional[FeaturePose] = None, name: Optional[str] = None) -> FeatureNode
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `design` | `Union[Design, Sequence[Op]]` |  | Yes |
+| `pose` | `Optional[FeaturePose]` | `None` | No |
+| `name` | `Optional[str]` | `None` | No |
+
+Returns: `FeatureNode`
+
+Wrap a coordinate-local L1 design/op list as a feature at a planar pose.
+
+### `group`
+
+```py
+def group(*children: FeatureNode) -> FeatureNode
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `*children` | `FeatureNode` |  | Yes |
+
+Returns: `FeatureNode`
+
+Compose feature nodes in source order.
+
+### `repeat`
+
+```py
+def repeat(child: FeatureNode, count: int, step: Optional[FeaturePose] = None) -> FeatureNode
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `child` | `FeatureNode` |  | Yes |
+| `count` | `int` |  | Yes |
+| `step` | `Optional[FeaturePose]` | `None` | No |
+
+Returns: `FeatureNode`
+
+Repeat a child; instance zero is unchanged and later instances compose ``step``.
 
 ### `tpms_gcode`
 

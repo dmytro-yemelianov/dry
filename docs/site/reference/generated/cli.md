@@ -14,6 +14,9 @@ Dry — toolpath compiler CLI
 Usage: dry <COMMAND>
 
 Commands:
+  auth                Authenticate with Dry Cloud
+  cloud               Run opt-in Dry Cloud operations
+  printer             Query Dry's hosted printer capability graph
   inspect             Parse + simulate a Dry IR file and print a concise summary
   simulate            Simulate a Dry IR file and print its metrics
   emit                Emit motion g-code for a Dry IR file
@@ -41,6 +44,9 @@ Options:
 
 | Command | Sample | Summary |
 | --- | --- | --- |
+| [`auth`](/reference/generated/cli/auth) |  | Authenticate with Dry Cloud |
+| [`cloud`](/reference/generated/cli/cloud) |  | Run opt-in Dry Cloud operations |
+| [`printer`](/reference/generated/cli/printer) |  | Query Dry's hosted printer capability graph |
 | [`inspect`](/reference/generated/cli/inspect) | [Simulate](/guide/simulate) | Parse + simulate a Dry IR file and print a concise summary |
 | [`simulate`](/reference/generated/cli/simulate) | [Simulate](/guide/simulate) | Simulate a Dry IR file and print its metrics |
 | [`emit`](/reference/generated/cli/emit) | [Author a path](/guide/author) | Emit motion g-code for a Dry IR file |

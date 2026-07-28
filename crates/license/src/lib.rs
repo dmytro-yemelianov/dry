@@ -9,11 +9,19 @@ pub const GRACE_SECS: u64 = 14 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Tier { Solo, Team, Pilot }
+pub enum Tier {
+    Solo,
+    Team,
+    Pilot,
+}
 
 impl std::fmt::Display for Tier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self { Tier::Solo => "solo", Tier::Team => "team", Tier::Pilot => "pilot" })
+        f.write_str(match self {
+            Tier::Solo => "solo",
+            Tier::Team => "team",
+            Tier::Pilot => "pilot",
+        })
     }
 }
 
@@ -33,19 +41,32 @@ pub struct LicensePayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LicenseState { Valid, Grace { days_left: u64 }, Expired }
+pub enum LicenseState {
+    Valid,
+    Grace { days_left: u64 },
+    Expired,
+}
 
 #[derive(Debug, Clone)]
-pub struct VerifiedLicense { pub payload: LicensePayload, pub state: LicenseState }
+pub struct VerifiedLicense {
+    pub payload: LicensePayload,
+    pub state: LicenseState,
+}
 
 #[derive(Debug)]
-pub enum LicenseError { Malformed(String), UnknownKeyId(String), BadSignature }
+pub enum LicenseError {
+    Malformed(String),
+    UnknownKeyId(String),
+    BadSignature,
+}
 
 impl std::fmt::Display for LicenseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LicenseError::Malformed(m) => write!(f, "malformed license token: {m}"),
-            LicenseError::UnknownKeyId(k) => write!(f, "license signed with unknown key id '{k}' (upgrade dry?)"),
+            LicenseError::UnknownKeyId(k) => {
+                write!(f, "license signed with unknown key id '{k}' (upgrade dry?)")
+            }
             LicenseError::BadSignature => f.write_str("license signature verification failed"),
         }
     }
@@ -59,10 +80,16 @@ pub fn verify_token(
     let mut parts = token.trim().splitn(3, '.');
     let (prefix, payload_b64, sig_b64) = match (parts.next(), parts.next(), parts.next()) {
         (Some(p), Some(a), Some(b)) if !a.is_empty() && !b.is_empty() => (p, a, b),
-        _ => return Err(LicenseError::Malformed("expected three dot-separated parts".into())),
+        _ => {
+            return Err(LicenseError::Malformed(
+                "expected three dot-separated parts".into(),
+            ))
+        }
     };
     if prefix != TOKEN_PREFIX {
-        return Err(LicenseError::Malformed(format!("unknown prefix '{prefix}'")));
+        return Err(LicenseError::Malformed(format!(
+            "unknown prefix '{prefix}'"
+        )));
     }
     let payload_bytes = URL_SAFE_NO_PAD
         .decode(payload_b64)
@@ -117,7 +144,10 @@ mod tests {
         use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
         let p = URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
         let sig = sk.sign(p.as_bytes());
-        format!("DRY-LICENSE-V1.{p}.{}", URL_SAFE_NO_PAD.encode(sig.to_bytes()))
+        format!(
+            "DRY-LICENSE-V1.{p}.{}",
+            URL_SAFE_NO_PAD.encode(sig.to_bytes())
+        )
     }
 
     const NOW: u64 = 1_790_000_000;
@@ -157,7 +187,10 @@ mod tests {
         let forged = URL_SAFE_NO_PAD.encode(payload_json(NOW + 999_999_999, "k1").as_bytes());
         parts[1] = &forged;
         let forged_tok = parts.join(".");
-        assert!(matches!(verify_token(&forged_tok, &[("k1", vk)], NOW), Err(LicenseError::BadSignature)));
+        assert!(matches!(
+            verify_token(&forged_tok, &[("k1", vk)], NOW),
+            Err(LicenseError::BadSignature)
+        ));
     }
 
     #[test]
@@ -165,14 +198,20 @@ mod tests {
         let (sk, _) = keypair();
         let (_, other_vk) = keypair();
         let tok = make_token(&sk, &payload_json(NOW + 1000, "k1"));
-        assert!(matches!(verify_token(&tok, &[("k1", other_vk)], NOW), Err(LicenseError::BadSignature)));
+        assert!(matches!(
+            verify_token(&tok, &[("k1", other_vk)], NOW),
+            Err(LicenseError::BadSignature)
+        ));
     }
 
     #[test]
     fn unknown_key_id_is_reported() {
         let (sk, vk) = keypair();
         let tok = make_token(&sk, &payload_json(NOW + 1000, "nope"));
-        assert!(matches!(verify_token(&tok, &[("k1", vk)], NOW), Err(LicenseError::UnknownKeyId(_))));
+        assert!(matches!(
+            verify_token(&tok, &[("k1", vk)], NOW),
+            Err(LicenseError::UnknownKeyId(_))
+        ));
     }
 
     #[test]
@@ -187,10 +226,20 @@ mod tests {
     #[test]
     fn malformed_tokens_are_malformed_not_panic() {
         let (_, vk) = keypair();
-        for bad in ["", "DRY-LICENSE-V1.only-two", "WRONG-PREFIX.a.b",
-                    "DRY-LICENSE-V1.!!!.!!!", "DRY-LICENSE-V1.bm90anNvbg.c2ln"] {
-            assert!(matches!(verify_token(bad, &[("k1", vk)], NOW), Err(LicenseError::Malformed(_))),
-                    "expected Malformed for {bad:?}");
+        for bad in [
+            "",
+            "DRY-LICENSE-V1.only-two",
+            "WRONG-PREFIX.a.b",
+            "DRY-LICENSE-V1.!!!.!!!",
+            "DRY-LICENSE-V1.bm90anNvbg.c2ln",
+        ] {
+            assert!(
+                matches!(
+                    verify_token(bad, &[("k1", vk)], NOW),
+                    Err(LicenseError::Malformed(_))
+                ),
+                "expected Malformed for {bad:?}"
+            );
         }
     }
 }

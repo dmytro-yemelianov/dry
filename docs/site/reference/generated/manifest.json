@@ -3,15 +3,15 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "42d97f885f607c7be81e45ee5cba4673f4b06af9477f4cab1c33de4c99c05672"
+      "sha256": "109e81f8986d8a62faa1250fe0f59b97abe738e2680dd5f3c37354a00f135e06"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "5a113d36c8fcd52152d5a15b4fa6ccb70a1f6d3003e8b16a31b356c000564286"
+      "sha256": "2ac6bdbee1b79406c49f12897f1a1b7a1e7c228fde5ba484bef58e0e0a5987d4"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "bd89756f50890eb3fc7818eba859bd63f3d5b4f04f59069705c2b8406ff18870"
+      "sha256": "f1fe7f571ac9c9378680bd50024e4996c441c583fefe3ca52fa9c8f255be2132"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
@@ -23,11 +23,11 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "91e9ba6c6c06a399adaa63f756e70b751432dc19393296d40f2d38751db6f0d3"
+      "sha256": "6a1962dc54ef055fa63c442f456f1aa8f7ba6e9d524fff8d1eae63fd27bfeaa5"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "3c2f7303a51f09e41907b343e0170a2a260e19feaaa2d8cabf3deea86f2ce81e"
+      "sha256": "6cdc09181dc80ea64de520b8f02f0329c957bba0a4c6a78daae18e60c163a81f"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
@@ -45,7 +45,7 @@
   "dynamic": {
     "cliHelp": {
       "command": "cargo run -q -p dry-cli -- --help",
-      "sha256": "0a43bf95522395a674fcbe5b51f9a7dd6050092a271036b9d2c718d60c5148eb"
+      "sha256": "25398c9eeaa03faedbc6eb85b029530d8714c5c9ad90b1d67f84bc6558227ef2"
     }
   }
 }

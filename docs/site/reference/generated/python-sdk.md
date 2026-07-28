@@ -17,6 +17,9 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | --- | --- | --- | --- | --- |
 | `Bounds` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Union[Sequence[Sequence[Number]], str]` |
 | `Design` | class | [Design](/reference/generated/python-sdk/design) |  | An L1 design: a chain of authoring ops. |
+| `FeatureNode` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Dict[str, Any]` |
+| `FeaturePose` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Mapping[str, Number]` |
+| `FeatureProgram` | class | [Design](/reference/generated/python-sdk/design) |  | The bounded P2.3 L0 graph: Feature-at-pose, ordered Group and Repeat. |
 | `Kinematics` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Mapping[str, Number]` |
 | `Metrics` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Dict[str, Any]` |
 | `Number` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Union[int, float]` |
@@ -29,4 +32,7 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `Toolpath` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Dict[str, Any]` |
 | `TpmsOptions` | type alias | [Module API](/reference/generated/python-sdk/module) | [Generative](/guide/generative) | `Mapping[str, Any]` |
 | `TPMS_SURFACES` | constant | [Module API](/reference/generated/python-sdk/module) |  | `Tuple[str, ...]` |
+| `feature` | function | [Module API](/reference/generated/python-sdk/module) |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
+| `group` | function | [Module API](/reference/generated/python-sdk/module) |  | Compose feature nodes in source order. |
+| `repeat` | function | [Module API](/reference/generated/python-sdk/module) |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
 | `tpms_gcode` | function | [Module API](/reference/generated/python-sdk/module) | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
