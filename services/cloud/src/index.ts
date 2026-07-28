@@ -7,6 +7,7 @@ import { handleDeviceStart, handleToken, requireAuth } from "./auth";
 import { VerifyContainer } from "./container";
 import { handleGetJob, handlePostVerifyJob, handleQueueBatch, type QueueJobMessage } from "./jobs";
 import { generateApiKey, sha256Hex } from "./tokens";
+import { handleGetUsage, parseQuota, recordUsageEvent, type UsageRouteClass } from "./usage";
 
 // Re-exported so wrangler can find the Durable Object class this Worker declares
 // in wrangler.jsonc's `durable_objects`/`containers` config (the class must be
@@ -40,13 +41,36 @@ function jsonResponse(value: unknown, status = 200, extraHeaders?: HeadersInit):
   return Response.json(value, { status, headers });
 }
 
-function parseQuota(raw: string | undefined): number {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+/** R4: every request that passes bearer-token auth gets exactly one
+ * `usage_events` row, written BEFORE the wrapped handler runs -- so a request
+ * that authenticates but is then rejected downstream (404, quota-exceeded,
+ * too-large, ...) still counts as "an authed request" for this analytics
+ * trail (see src/usage.ts's module doc comment for why that's safe: job-quota
+ * enforcement itself is computed from the `jobs` table, never from this one).
+ * `routeClass` is fixed per call site below (job|keys|auth, matching the
+ * task brief); `bytes` is the request's declared Content-Length, 0 when
+ * absent/invalid (GET requests, malformed headers) -- this is what gives
+ * job submissions their byte-size accounting in `GET /v1/usage`. */
+async function authed(
+  request: Request,
+  env: Env,
+  routeClass: UsageRouteClass,
+  handler: (accountId: string) => Promise<Response>,
+): Promise<Response> {
+  const auth = await requireAuth(request, env);
+  if (!auth.ok) return auth.response;
+  await recordUsageEvent(env, auth.accountId, routeClass, requestByteSize(request));
+  return handler(auth.accountId);
+}
+
+function requestByteSize(request: Request): number {
+  const header = request.headers.get("content-length");
+  const parsed = header === null ? Number.NaN : Number.parseInt(header, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 async function handleCreateKey(request: Request, env: Env, accountId: string): Promise<Response> {
-  const quota = parseQuota(env.QUOTA_KEYS);
+  const quota = parseQuota(env.QUOTA_KEYS, 1);
   const countRow = await env.DB.prepare(
     "SELECT COUNT(*) AS count FROM tokens WHERE account_id = ? AND kind = 'key' AND revoked = 0",
   )
@@ -121,14 +145,10 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === "/v1/keys") {
     if (request.method === "POST") {
-      const auth = await requireAuth(request, env);
-      if (!auth.ok) return auth.response;
-      return handleCreateKey(request, env, auth.accountId);
+      return authed(request, env, "keys", (accountId) => handleCreateKey(request, env, accountId));
     }
     if (request.method === "GET") {
-      const auth = await requireAuth(request, env);
-      if (!auth.ok) return auth.response;
-      return handleListKeys(env, auth.accountId);
+      return authed(request, env, "keys", (accountId) => handleListKeys(env, accountId));
     }
     return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET, POST" });
   }
@@ -138,18 +158,16 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (request.method !== "DELETE") {
       return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "DELETE" });
     }
-    const auth = await requireAuth(request, env);
-    if (!auth.ok) return auth.response;
-    return handleDeleteKey(env, auth.accountId, decodeURIComponent(keyMatch[1]));
+    return authed(request, env, "keys", (accountId) =>
+      handleDeleteKey(env, accountId, decodeURIComponent(keyMatch[1])),
+    );
   }
 
   if (url.pathname === "/v1/jobs/verify") {
     if (request.method !== "POST") {
       return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "POST" });
     }
-    const auth = await requireAuth(request, env);
-    if (!auth.ok) return auth.response;
-    return handlePostVerifyJob(request, env, auth.accountId);
+    return authed(request, env, "job", (accountId) => handlePostVerifyJob(request, env, accountId));
   }
 
   // Checked AFTER the exact "/v1/jobs/verify" match above -- otherwise this
@@ -159,18 +177,23 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (request.method !== "GET") {
       return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
     }
-    const auth = await requireAuth(request, env);
-    if (!auth.ok) return auth.response;
-    return handleGetJob(env, auth.accountId, decodeURIComponent(jobMatch[1]));
+    return authed(request, env, "job", (accountId) =>
+      handleGetJob(env, accountId, decodeURIComponent(jobMatch[1])),
+    );
   }
 
   if (url.pathname === "/v1/me") {
     if (request.method !== "GET") {
       return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
     }
-    const auth = await requireAuth(request, env);
-    if (!auth.ok) return auth.response;
-    return handleMe(env, auth.accountId);
+    return authed(request, env, "auth", (accountId) => handleMe(env, accountId));
+  }
+
+  if (url.pathname === "/v1/usage") {
+    if (request.method !== "GET") {
+      return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
+    }
+    return authed(request, env, "auth", (accountId) => handleGetUsage(env, accountId));
   }
 
   return jsonResponse({ error: "not_found" }, 404);

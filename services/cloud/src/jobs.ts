@@ -9,6 +9,7 @@
 // in `handlePostVerifyJob` (R3 review Fix 2b).
 
 import { type ContainerStubLike, containerFetch as defaultContainerFetch, getContainerStub as defaultGetContainerStub } from "./container";
+import { countJobsThisMonth, parseQuota, quotaExceededResponse } from "./usage";
 
 /** Global Constraints: "Upload cap: 100 MB (container has 6 GiB; the Worker
  * enforces Content-Length)." Not a var (unlike the QUOTA_* knobs below) — the brief
@@ -28,11 +29,6 @@ function jsonResponse(value: unknown, status = 200, extraHeaders?: HeadersInit):
   const headers = new Headers(extraHeaders);
   headers.set("content-type", "application/json; charset=utf-8");
   return Response.json(value, { status, headers });
-}
-
-function parseQuota(raw: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 /** Outcome of `resolveDefaultProfileId` — deliberately NOT just `string | null`
@@ -152,14 +148,16 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
     return jsonResponse({ error: "too-large", max_bytes: MAX_UPLOAD_BYTES }, 413);
   }
 
+  // R4: canonical quota source is the `jobs` table (see src/usage.ts's module
+  // doc comment for the full jobs-vs-usage_events reconciliation), counted
+  // over the current UTC calendar month via `countJobsThisMonth`. A
+  // quota-exceeded submission now 429s with the shared `{error,
+  // usage_url}` + `Retry-After` shape (`quotaExceededResponse`) rather than
+  // the older ad hoc `403 {error, quota}` -- see that function's doc comment.
   const quota = parseQuota(env.QUOTA_JOBS_PER_MONTH, 20);
-  const countRow = await env.DB.prepare(
-    "SELECT COUNT(*) AS count FROM jobs WHERE account_id = ? AND created_at >= strftime('%Y-%m-01 00:00:00', 'now')",
-  )
-    .bind(accountId)
-    .first<{ count: number }>();
-  if ((countRow?.count ?? 0) >= quota) {
-    return jsonResponse({ error: "quota_exceeded", quota }, 403);
+  const jobCount = await countJobsThisMonth(env, accountId);
+  if (jobCount >= quota) {
+    return quotaExceededResponse();
   }
 
   if (!profileId) {
