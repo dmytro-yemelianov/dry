@@ -54,6 +54,13 @@ function rangeToFlat(name: string, range: string | [number, number]): Float64Arr
 export class Design {
   readonly ops: Op[] = [];
 
+  /** Create an L1 design from an existing canonical op list. */
+  static fromOps(ops: readonly Op[]): Design {
+    const design = new Design();
+    design.ops.push(...ops);
+    return design;
+  }
+
   /** Set the extrusion bead cross-section (mm). */
   geometry(width: number, height: number): this {
     this.ops.push({ op: 'geometry', width, height });

@@ -16,6 +16,7 @@ pub mod compare;
 pub mod emit;
 pub mod engine;
 pub mod explain;
+pub mod features;
 pub mod forensics;
 pub mod gcode;
 pub mod generate;
@@ -42,6 +43,11 @@ pub use compare::{
 pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
+pub use features::{
+    expand_features, expand_features_with_limits, ExpandError, ExpandLimits, FeatureNode,
+    FeaturePose, FeatureProgram, DEFAULT_MAX_EXPANDED_NODES, DEFAULT_MAX_EXPANDED_OPS,
+    DEFAULT_MAX_FEATURE_DEPTH,
+};
 pub use forensics::{
     analyze as forensics_analyze, Confidence, DeclaredSettings, Estimate, FeatureStat,
     ForensicsReport, Hotspot, LayerModel, SeamHint, TravelStat, TravelStrategy,

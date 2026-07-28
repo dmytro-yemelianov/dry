@@ -4,9 +4,10 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    balanced_pipeline, emit, optimize_pipeline, resolve_checked, safe_pipeline, simulate,
-    try_tpms_ops, verify, Contracts, Design, EmitParams, KinematicContracts, Kinematics,
-    MachineKinematics, Op, ResolveParams, TpmsOptions,
+    balanced_pipeline, emit, expand_features as expand_feature_program, optimize_pipeline,
+    resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
+    FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams,
+    TpmsOptions,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -20,6 +21,16 @@ fn parse_design(ops_json: &str) -> PyResult<Design> {
 fn parse_params(params_json: &str) -> PyResult<ResolveParams> {
     serde_json::from_str(params_json)
         .map_err(|e| PyValueError::new_err(format!("invalid params: {e}")))
+}
+
+/// Expand a bounded L0 feature graph into the canonical L1 op list.
+#[pyfunction]
+fn expand_features(program_json: &str) -> PyResult<String> {
+    let program: FeatureProgram = serde_json::from_str(program_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid feature program: {e}")))?;
+    let design = expand_feature_program(&program)
+        .map_err(|e| PyValueError::new_err(format!("invalid feature program: {e}")))?;
+    serde_json::to_string(&design.ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Parse the optional `kinematics_json` kwarg into [`MachineKinematics`]. `None` or empty string →
@@ -298,6 +309,7 @@ fn resolve_verify(
 
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(expand_features, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_tpms_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;

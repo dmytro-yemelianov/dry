@@ -31,7 +31,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 
 - `[~]` **P2.1** (M) **L1 path dialect + channel registry**. **Landed:** the typed process channels — `temperature`, `fan`, `flow` (scales deposited volume), `tool` — authored as L1 ops, defaulted + propagated through `resolve`, riding each L2 segment (serde-omitted when unset, so motion-only IR stays byte-identical); plus the `Dwell` op (`G4` emit + simulated time) and a `cold-extrusion` verify rule. The codec round-trips the channels; arcs already carry centre/clockwise. *Accept (met):* channels typed + defaulted; conformance byte-identity preserved; channel-bearing IR round-trips through the binary codec. The channels are exposed in all front-ends (Rust `Op`, Python `.temperature()/.fan()/.flow()/.tool()/.orient()/.dwell()`, TS the same). The **toolframe orientation** also landed: `Segment.orientation` (tool-direction unit vector, `None` ⇒ +Z), the `Orient` L1 op, codec round-trip, an `orientation-not-unit` verify rule, and `.orient(i,j,k)` in every SDK — so non-planar / 5-axis is now a first-class IR property. The **5-axis target lowering** also landed: `emit` with `five_axis` derives rotary `A`/`B` words (degrees) from the toolframe orientation by a documented AB-head convention (`B = atan2(i, k)`, `A = atan2(j, hypot(i, k))`), emitted only when they change; CLI `dry emit --five-axis`. Default emit stays 3-axis (orientation dropped → byte-identical). *Deferred to later P2.x:* `Spline`/`Clothoid`/`ToolChange` path nodes and alternate rotary kinematics (AC/BC, table-vs-head). (L2 optimisation: `merge_collinear` has landed — see P3.1.)
 - `[x]` **P2.2** (L) `resolve: L1 -> L2` lowering (deposition math + state propagation: running toolframe, extruder e-ratio, channel propagation) as a **pure pass**. *Accept (met):* hand-written L1 designs resolve to L2 that simulate/emit to the gated output; checked resolve validates physical inputs at binding boundaries.
-- `[ ]` **P2.3** (M) `expand_features: L0 -> L1` (Repeat/Group/Feature@pose). *Dep: P2.1. Accept:* a feature graph expands to the same L1 as the hand-written equivalent.
+- `[x]` **P2.3** (M) `expand_features: L0 -> L1` with bounded `Feature@pose`, ordered `Group` and compositional `Repeat`. **Landed:** the Rust pass accepts a coordinate-local L1 op list, XYZ translation and planar Z rotation; transforms moves/arcs/splines/tool orientation; inherits local axes deterministically; rejects undefined local positions and transformed manual G-code; and enforces node/depth/op limits. Process/channel state retains normal ordered L1 semantics. Python and TypeScript expose logic-free `FeatureProgram`/`feature`/`group`/`repeat` builders over the same Rust implementation. Full 3D named frames remain D1.3. *Dep: P2.1. Accept (met):* repeated/placed graphs expand to the same L1 and resolved L2 as hand-written equivalents across Rust/Python/TypeScript; nested transforms, failures, limits and wire round-trips are tested.
 - `[x]` **P2.4** (L) **Python authoring SDK** (FC-flavored builders emitting L1). *Accept (met):* authoring square/arc/channel/spline designs lowers to gated g-code and tested metrics.
 - `[x]` **P2.5** (L) Reimplement (clean-room) the **27 fork gallery designs** in the new SDK as the authoring conformance suite (geometry-level comparison, not just metrics — per `03`). **Landed:** 28 oracle-output fixtures cover all 27 registry designs plus a distinct `overhang_challenge_plus` website case; the exporter separately guards the fork's 26-case `_SMALL` matrix and its known gyroid omission. *Dep: P2.4, P0.4. Accept (met):* each design lowers+emits to match the fork within the documented tolerance and passes its declared invariants.
 - **P2 exit gate:** every gallery design authored in the new Python SDK reproduces the fork's output + invariants.
@@ -49,7 +49,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 
 - `[x]` **P4.1** (L) **TypeScript SDK** (oracle: `ts/`) emitting Dry IR. *Accept (met):* fixed TS designs match Python/core behavior through wasm and conformance tests.
 - `[ ]` **P4.2** (M) **Rust authoring SDK**. *Dep: P2.1. Accept:* same design == Python/TS Dry IR.
-- `[ ]` **P4.3** (M) Publish **Dry IR spec** (versioned, JSON+binary, semver) + conformance **test vectors**. *Dep: P0.3. Accept:* an external/second implementation round-trips the vectors.
+- `[x]` **P4.3** (M) Publish **Dry IR spec** (versioned, JSON+binary, semver) + conformance **test vectors**. **Landed:** the normative `10-dry-ir-v0-spec.md`, JSON Schema, positive/negative vector corpus with manifest hashes, Rust drift gates and the `dry-core`-free `tools/validate_vectors.py` reader/writer. *Dep: P0.3. Accept (met):* the independent Python implementation validates and semantically round-trips all 12 JSON/`DRY0`/`DRY1` vectors.
 - `[ ]` **P4.4** (M) **3MF Toolpath** import/export reference (oracle: `ir/threemf.py`); mesh-in (STL/3MF) importer stub. *Dep: P0.3. Accept:* extruding path round-trips within tolerance; documented lossiness.
 - **P4 exit gate:** Python/TS/Rust produce byte-equal Dry IR; a Dry IR vector round-trips in a second impl.
 
@@ -68,10 +68,38 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 - `[ ]` **P6.3** (S) Remove the FC Python implementation; Dry IR is the public contract. *Dep: full suite green. Accept:* repo builds without the FC API; the entire conformance suite passes.
 - **P6 exit gate:** entire conformance suite green; FC API removed with a migration guide.
 
+## Deferred initiative D1 — Dry IR language and ecosystem
+
+These tasks are deliberately **not scheduled** and do not belong in the immediate queue. Activate and
+re-estimate them only after the entry gate in `02-roadmap.md` is met. The activation record must name
+whether **P5.3 or P5.4** supplied the selected non-FFF workflow and pin its reference machine/controller.
+P5 target prototypes are inputs to this initiative, not evidence that the general language is already
+complete. Each D1 item below is an epic; estimate and execute its merge-sized work packets from
+[`20-dry-ir-ecosystem-implementation-plan.md`](20-dry-ir-ecosystem-implementation-plan.md), not the
+current roadmap's S/M/L scale.
+
+- `[ ]` **D1.1** (Epic) Freeze a reality-based dialect architecture and compatibility policy for L0 intent, non-modal L1 path, absolute L2 motion and target-specific L3. Document which current structures are promoted, migrated or retired and record the selected target evidence. *Dep: P2.3, P4.3, and at least one of P5.3/P5.4 at prototype acceptance. Accept:* an ADR and versioning/migration plan cover every public boundary; the activation record pins the selected non-FFF workflow and reference machine/controller; docs clearly distinguish implemented support from direction.
+- `[ ]` **D1.2** (Epic) Make public quantities dimension-safe across Rust, Python, TypeScript, profiles and interchange. Normalize accepted units into canonical internal units while preserving their declared dimensions and rejecting incompatible values. *Dep: D1.1. Accept:* cross-SDK fixtures mix valid input units and produce semantically identical IR; dimension mismatches fail before lowering.
+- `[ ]` **D1.3** (Epic) Add named coordinate frames and explicit transforms for design, workpiece, fixture, tool and machine spaces. Remove hidden prior-command dependence from the public L1 interchange form. *Dep: D1.1. Accept:* the same path placed in two work offsets lowers deterministically; undefined/cyclic transforms and ambiguous frames are rejected.
+- `[ ]` **D1.4** (Epic) Define the first useful L0 manufacturing-intent operations and lower them to L1. Start narrowly with evidence from one FFF workflow and the non-FFF workflow selected by D1.1 rather than designing a universal feature ontology. *Dep: D1.1, D1.2, D1.3, P2.3. Accept:* representative intent nodes use the public quantity/frame contracts and lower to hand-auditable L1 equivalents with provenance and preserved declared invariants.
+- `[ ]` **D1.5** (Epic) Replace fixed process fields with a versioned typed channel registry, including defaults, interpolation/propagation rules and unknown-channel compatibility behavior. *Dep: D1.1, D1.2. Accept:* an external channel can round-trip and be either supported, explicitly lowered or rejected by a target without changing the generic segment schema.
+- `[ ]` **D1.6** (Epic) Introduce declarative machine/process capability profiles: supported primitives, axes and kinematics, tools, process envelopes, controller features and lowering requirements. *Dep: D1.1, D1.2. Accept:* target selection fails closed with located diagnostics when a program requires an unsupported capability.
+- `[ ]` **D1.7** (Epic) Extend verification with target support checks, tool/fixture/envelope collision, reachability/singularity analysis and selected thermal/process models. Define the exact assurance boundary and quarantine opaque/manual machine code. *Dep: D1.3, D1.5, D1.6. Accept:* adversarial fixtures trigger each rule; a clean report lists which models and opaque regions were and were not checked.
+- `[ ]` **D1.8** (Epic) Stabilize a pluggable L3 backend contract and promote the selected P5 emitter plus the FFF emitters to production quality. Keep controller dialect quirks behind frame- and capability-aware lowering. *Dep: D1.3, D1.5, D1.6; selected target is the one pinned by D1.1. Accept:* one machine-independent L1 program emits verified programs for two controller dialects within the same process; FFF plus the selected non-FFF workflow is conformance-gated.
+- `[ ]` **D1.9** (Epic) Stabilize parsing/lifting contracts for FFF machine code and the selected non-FFF target. Define which target constructs recover L2 semantics, which lift only to opaque/manual nodes, which are lossy, and the numeric tolerances for semantic round trips. *Dep: D1.3, D1.5, D1.6, D1.8. Accept:* emit → parse/lift preserves every declared recoverable invariant on adversarial fixtures; losses and unsupported operations produce located diagnostics rather than fabricated intent.
+- `[ ]` **D1.10** (Epic) Publish the language ecosystem conformance kit for intent → path → motion → target → lift. Include schemas, vectors, expected diagnostics, compatibility metadata, reference profiles and runner tooling for independent implementations. *Dep: D1.2–D1.9. Accept:* a clean-room implementation consumes the published artifacts and round-trips the public contracts; reference workflows pass simulation, verification, emission and lift without depending on private Rust implementation details.
+- `[ ]` **D1.11** (Epic) Establish controlled reference-machine and hardware qualification gates for the FFF and selected non-FFF workflows. *Dep: D1.7–D1.10. Accept:* each run records the versioned machine/profile/controller, test program, tolerances, expected observations, safety owner, abort criteria, actual result and archived report/output hashes; rerunning the protocol produces a comparable pass/fail result.
+- **D1 exit gate:** the exit gate in `02-roadmap.md` is met; G-code is demonstrably a compatibility backend rather than the semantic source of truth.
+
+**Delivery sequence:** D1.1 freezes compatibility and the selected target; D1.2–D1.3 establish the
+quantity/frame foundations; D1.4–D1.6 build the public language and capability ecosystem; D1.7–D1.9
+close verification, emission and lift as one target-aware loop; D1.10 makes that loop independently
+implementable; D1.11 is the final controlled-hardware qualification gate.
+
 ## Immediate next 5 (if starting today)
 
-1. **P2.3** — Expand features pass (`expand_features: L0 -> L1`).
-2. **P3.3** — Reversing pass (`reverse(toolpath) -> design`).
-3. **P3.5** — Parquet/Arrow export and layer/raster linkage for trace summaries.
-4. **P4.2** — Rust authoring SDK.
-5. **P4.3** — Publish Dry IR spec & conformance vectors.
+1. **P3.3** — Reversing pass (`reverse(toolpath) -> design`).
+2. **P3.5** — Parquet/Arrow export and layer/raster linkage for trace summaries.
+3. **P4.2** — Rust authoring SDK.
+4. **P4.4** — 3MF Toolpath reference import/export with documented lossiness.
+5. **P5.1** — Finish non-planar authoring helpers around the landed orientation channel.

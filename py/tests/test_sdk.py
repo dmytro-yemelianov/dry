@@ -51,6 +51,34 @@ def test_ir_round_trips():
     assert ir["segments"][1]["end"] == [10.0, 0.0, 0.2]
 
 
+def test_feature_program_expands_repeat_and_pose_through_rust():
+    local = (dry.Design().geometry(0.6, 0.2).extruder(True)
+             .point(0, 0, 0.2).point(10, None, None))
+    expanded = (dry.FeatureProgram()
+                .add(dry.repeat(
+                    dry.feature(local, {"x": 5}, name="line"),
+                    count=2,
+                    step={"x": 20},
+                ))
+                .expand())
+    moves = [op for op in expanded.ops if op["op"] == "move"]
+    assert [op["x"] for op in moves] == [5.0, 15.0, 25.0, 35.0]
+    assert all(op["y"] == 0.0 and op["z"] == 0.2 for op in moves)
+
+    hand = (dry.Design().geometry(0.6, 0.2).extruder(True)
+            .point(5, 0, 0.2).point(15, 0, 0.2)
+            .geometry(0.6, 0.2).extruder(True)
+            .point(25, 0, 0.2).point(35, 0, 0.2))
+    assert expanded.ir() == hand.ir()
+
+
+def test_feature_program_rejects_transformed_manual_gcode():
+    local = dry.Design().manual_gcode("G28")
+    program = dry.FeatureProgram().add(dry.feature(local, {"x": 1}))
+    with pytest.raises(ValueError, match="cannot be transformed safely"):
+        program.expand()
+
+
 def test_channels_and_dwell_author_through_the_builder():
     d = (dry.Design().geometry(0.6, 0.2).temperature(210).fan(0.5).tool(1).extruder(True)
          .point(0, 0, 0.2).point(10, 0, 0.2).dwell(2.5))

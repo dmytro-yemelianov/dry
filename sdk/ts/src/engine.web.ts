@@ -56,6 +56,7 @@ export function initDryWeb(wasmUrl: string): Promise<void> {
       await init(initArg);
       const fn = (k: string) => glue[k] as DryWasm[keyof DryWasm];
       setWasmBinding({
+        expand_features: fn('expand_features'),
         resolve_gcode: fn('resolve_gcode'),
         tpms_ops_json: fn('tpms_ops_json'),
         resolve_metrics: fn('resolve_metrics'),

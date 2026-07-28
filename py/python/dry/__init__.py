@@ -21,6 +21,9 @@ from . import _native  # the Rust engine (PyO3)
 __all__ = [
     "Bounds",
     "Design",
+    "FeatureNode",
+    "FeaturePose",
+    "FeatureProgram",
     "Kinematics",
     "Metrics",
     "Number",
@@ -33,6 +36,9 @@ __all__ = [
     "Toolpath",
     "TpmsOptions",
     "TPMS_SURFACES",
+    "feature",
+    "group",
+    "repeat",
     "tpms_gcode",
 ]
 
@@ -43,6 +49,8 @@ Range = Union[Sequence[Number], str]
 Kinematics = Mapping[str, Number]
 ResolveParams = Mapping[str, Number]
 Op = Dict[str, Any]
+FeaturePose = Mapping[str, Number]
+FeatureNode = Dict[str, Any]
 Metrics = Dict[str, Any]
 Toolpath = Dict[str, Any]
 Report = Dict[str, Any]
@@ -66,6 +74,13 @@ class Design:
 
     def __init__(self) -> None:
         self.ops: List[Op] = []
+
+    @classmethod
+    def from_ops(cls, ops: Sequence[Op]) -> "Design":
+        "Create an L1 design from an existing canonical op list."
+        design = cls()
+        design.ops.extend(dict(op) for op in ops)
+        return design
 
     def geometry(self, width: Number, height: Number) -> "Design":
         "Set the extrusion bead cross-section (mm)."
@@ -292,6 +307,54 @@ class Design:
             _range_to_list(first_layer_speed_range),
             kin_json,
         ))
+
+
+def feature(
+    design: Union[Design, Sequence[Op]],
+    pose: Optional[FeaturePose] = None,
+    name: Optional[str] = None,
+) -> FeatureNode:
+    """Wrap a coordinate-local L1 design/op list as a feature at a planar pose."""
+    ops = design.ops if isinstance(design, Design) else design
+    node: FeatureNode = {"kind": "feature", "ops": [dict(op) for op in ops]}
+    if pose:
+        node["pose"] = dict(pose)
+    if name is not None:
+        node["name"] = name
+    return node
+
+
+def group(*children: FeatureNode) -> FeatureNode:
+    """Compose feature nodes in source order."""
+    return {"kind": "group", "children": list(children)}
+
+
+def repeat(
+    child: FeatureNode,
+    count: int,
+    step: Optional[FeaturePose] = None,
+) -> FeatureNode:
+    """Repeat a child; instance zero is unchanged and later instances compose ``step``."""
+    node: FeatureNode = {"kind": "repeat", "count": int(count), "child": child}
+    if step:
+        node["step"] = dict(step)
+    return node
+
+
+class FeatureProgram:
+    """The bounded P2.3 L0 graph: Feature-at-pose, ordered Group and Repeat."""
+
+    def __init__(self) -> None:
+        self.features: List[FeatureNode] = []
+
+    def add(self, *nodes: FeatureNode) -> "FeatureProgram":
+        self.features.extend(nodes)
+        return self
+
+    def expand(self) -> Design:
+        """Expand through the Rust engine and return the canonical L1 ``Design``."""
+        ops = json.loads(_native.expand_features(json.dumps({"features": self.features})))
+        return Design.from_ops(ops)
 
 
 def _bounds_to_list(bounds: Optional[Bounds]) -> Any:

@@ -4,9 +4,10 @@
 //! isolated from the core cargo workspace).
 
 use dry_core::{
-    balanced_pipeline, emit, optimize_pipeline, resolve_checked, safe_pipeline, simulate,
-    try_tpms_ops, verify, Contracts, Design, EmitParams, KinematicContracts, Kinematics,
-    MachineKinematics, Op, ResolveParams, Toolpath, TpmsOptions,
+    balanced_pipeline, emit, expand_features as expand_feature_program, optimize_pipeline,
+    resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
+    FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams, Toolpath,
+    TpmsOptions,
 };
 use wasm_bindgen::prelude::*;
 
@@ -16,6 +17,15 @@ fn parse(ops_json: &str, params_json: &str) -> Result<(Design, ResolveParams), J
     let params: ResolveParams =
         serde_json::from_str(params_json).map_err(|e| JsError::new(&format!("params: {e}")))?;
     Ok((Design { ops }, params))
+}
+
+/// Expand a bounded L0 feature graph into the canonical L1 op list.
+#[wasm_bindgen]
+pub fn expand_features(program_json: &str) -> Result<String, JsError> {
+    let program: FeatureProgram = serde_json::from_str(program_json)
+        .map_err(|e| JsError::new(&format!("feature program: {e}")))?;
+    let design = expand_feature_program(&program).map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&design.ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Resolve a design and emit motion g-code (returned as a JS array of strings).

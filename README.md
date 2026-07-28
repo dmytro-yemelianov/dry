@@ -65,6 +65,7 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) | auditable corpus-provenance ledger + dependency-license audit (no GPL ships) |
 | [`docs/18-cloudflare-publishing.md`](docs/18-cloudflare-publishing.md) | public Cloudflare Pages product deployment and its static artifact boundary |
 | [`docs/19-printer-registry-api.md`](docs/19-printer-registry-api.md) | Cloudflare Worker GraphQL API for printer, firmware, hardware, filament, macro, process, calibration, proof and provenance data |
+| [`docs/20-dry-ir-ecosystem-implementation-plan.md`](docs/20-dry-ir-ecosystem-implementation-plan.md) | deferred Dry IR language/ecosystem implementation plan: compatibility, work packets, dependencies, conformance and qualification |
 | [`docs/site/reference/fullcontrol-sources.md`](docs/site/reference/fullcontrol-sources.md) | audited mapping from the live FullControl catalogue, upstream notebooks and gists to Dry fixtures |
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
@@ -137,6 +138,21 @@ d = (dry.Design()
 print("\n".join(d.gcode()))   # -> G1 ... / G3 X0 Y10 I-10 J0 E0.783673 / G1 ...
 print(d.simulate())           # -> {time, distances, material, peak flow, ...}
 ```
+
+Reusable planar features expand in the same Rust engine:
+
+```python
+line = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10)
+d = (dry.FeatureProgram()
+     .add(dry.repeat(dry.feature(line, {"x": 5}), count=3, step={"x": 20}))
+     .expand())
+print(d.ir())
+```
+
+Each feature must define its local coordinates before inheriting them; process/channel state still
+follows normal ordered L1 semantics. P2.3 poses support XYZ translation and rotation about Z; full 3D
+named coordinate frames remain planned under D1.3.
+
 Build the module: `cd py && maturin develop` (in a venv).
 
 Browser / wasm — the *same* Rust engine, compiled to wasm, resolving a design client-side:
@@ -154,6 +170,9 @@ const d = new Design().geometry(0.6, 0.2).extruder(true)
   .point(10, 0, 0.2).arc({ cx: 0, cy: 0, x: 0, y: 10 }).point(0, 20, 0.2);   // a line, a G3 arc, a line
 console.log(d.gcode().join('\n'));   // byte-identical to the CLI / Python / wasm
 ```
+
+`FeatureProgram`, `feature`, `group` and `repeat` provide the equivalent L0 feature surface.
+
 Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](sdk/ts/README.md)).
 
 ## Repository layout
@@ -161,7 +180,7 @@ Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](
 ```
 docs/            the specification, roadmap, conformance plan, task backlog
 crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: ir/resolve/simulate/emit/codec/verify/optimize/import/profile/trace; unit-typed]
+  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: features/ir/resolve/simulate/emit/codec/verify/optimize/import/profile/trace; unit-typed]
   cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/import-gcode/review-gcode/rewrite-gcode/optimize/pack/unpack/verify)  [done]
   wasm/          the wasm-bindgen binding                              [done]
 web/             the browser demo (build.sh, index.html, node smoke)   [done]

@@ -1,5 +1,14 @@
 # Dry — architecture
 
+> **Implementation status.** This document describes Dry's target multi-level architecture as well as
+> implemented pieces. The normative public contract today is the resolved L2 Dry IR v0 in
+> [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md). L0/L1 public interchange, named coordinate frames,
+> general capabilities, production non-FFF targets and bidirectional target lifting remain planned
+> work. Their evidence-gated evolution is tracked under the deferred
+> [Dry IR language and ecosystem initiative](02-roadmap.md) and its
+> [D1 backlog](04-tasks.md); the concrete migration and delivery design is in the
+> [D1 implementation plan](20-dry-ir-ecosystem-implementation-plan.md).
+
 The system is a **multi-level IR with a Rust engine and thin multi-language front-ends**. Data flows
 through dialects that lower into each other; passes transform within and between levels; the engine is
 one Rust codebase compiling to native and wasm.
@@ -35,28 +44,43 @@ Not one flat structure: **dialects**, each a typed node set, with explicit lower
 Each dialect has a **verifier** (well-formedness + declared invariants). Lowering L(n)→L(n+1) is a pass
 that must preserve the level's invariants.
 
+**Current L0 boundary:** P2.3 implements a bounded, versionless planar feature graph:
+`Feature@pose` (XYZ translation plus rotation about Z), ordered `Group` and compositional `Repeat`.
+It expands through Rust to the current L1 op list and is exposed in Python and TypeScript. This is a
+useful FFF authoring layer, not yet the versioned manufacturing-intent interchange dialect planned for
+D1.4.
+
 ## 2. The toolframe (not XYZ)
 
-Every motion carries a **toolframe**: `position: Point3<Length>` + `orientation: Rotation` (unit
-quaternion; or an axis tuple for machine-native B/C). Planar 3-axis FFF is the **constraint**
+**Target model:** every motion carries a **toolframe**: `position: Point3<Length>` +
+`orientation: Rotation` (unit quaternion; or an axis tuple for machine-native B/C). Planar 3-axis FFF is
+the **constraint**
 `orientation == identity ∧ tool ∥ +Z`, not a special case. Consequences:
 - **Non-planar** (z varies within a move) and **5-axis / robotic** (tilting toolframe) are *native*, not
   `lab/`-experimental.
 - L3 lowering projects the toolframe to the machine's kinematics (3-axis: drop orientation; 5-axis:
   inverse-kinematics to B/C; robot: to joints).
 
+**Current implementation:** L2 v0 carries an optional tool-direction unit vector, and the experimental
+AB-head emitter derives rotary words from it. It does not yet carry full roll, named frames or a
+reference-machine kinematic model.
+
 ## 3. Typed quantities & channels
 
-**Units are types, not convention.** `Length` (mm), `Speed` (mm/s internally; emit converts to mm/min),
-`Volume` (mm³), `Flow` (mm³/s), `Temperature` (°C), `Angle` (rad). Mixed-unit arithmetic is a *compile
-error* in the Rust core and a typed wrapper in the SDKs. (Contrast: FC carried units as comments and a v2
-header bolted on after the fact.)
+**Target model:** units are types, not convention. `Length`, `Feedrate`, `Volume`, `Flow`,
+`Temperature`, `Angle` and other dimensions normalize to declared canonical units. Mixed-dimensional
+arithmetic is a compile error in the Rust core and rejected at SDK/schema boundaries.
 
 **Channels** are the typed, *extensible* per-point/per-segment state a move carries, beyond geometry:
 `extrusion` (deposited volume / filament), `speed`, `width`, `height`, `temperature`, `fan`, `flow`,
 `tool`, `color`. Channels are a registry (new processes add channels without changing the core), each
 with a type and a default-propagation rule. Variable-everything (width, flow, temp along a path) is the
 *normal case*, not special-cased as FC's per-segment `ExtrusionGeometry` hacks were.
+
+**Current implementation:** Rust L2 uses dimensional wrappers for core motion physics, with canonical
+millimetres, mm/min, mm³ and seconds on the v0 wire. Public authoring/profile inputs and several process
+channels remain bare numbers, and the channel set is fixed on `Segment`; D1.2 and D1.5 close those gaps
+without changing the meaning of L2 v0.
 
 ## 4. Pure functional core & the pass framework
 
