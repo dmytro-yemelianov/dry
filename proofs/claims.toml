@@ -1,0 +1,63 @@
+schema_version = 1
+
+[[claim]]
+id = "FM1.TRANSFORM.COMPOSE_ACTION"
+title = "Planar pose composition acts on points by nested application"
+theorem = "Dry.Geometry.PlanarTransform.apply_compose"
+spec_version = "feature-v0"
+source_dialect = "L0"
+target_dialect = "L1"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Real"
+assumptions = [
+  "Transform coefficients use the planar complex-product representation.",
+  "Composition applies the local transform before the outer transform."
+]
+exclusions = [
+  "IEEE-754 rounding and libm sin/cos refinement.",
+  "Distance preservation, which additionally requires unit rotation coefficients.",
+  "Full SE(3) poses and named frame graphs."
+]
+lean_source = "formal/Dry/Geometry/PlanarTransform.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "pending"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.ORDERED_FOLD.DETERMINISTIC"
+title = "Ordered state-fold execution has a unique final state"
+theorem = "Dry.Semantics.OrderedFold.Exec.deterministic"
+spec_version = "resolve-v0"
+source_dialect = "L1"
+target_dialect = "L2"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Integer"
+assumptions = [
+  "Each individual operation denotes a total deterministic state transition.",
+  "Operations execute in source-list order."
+]
+exclusions = [
+  "The current Rust resolver's floating-point formulas.",
+  "The concrete meaning of individual geometry and process operations.",
+  "Implementation panic freedom and resource exhaustion."
+]
+lean_source = "formal/Dry/Semantics/OrderedFold.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"

@@ -177,10 +177,13 @@ tools/
 - Lean source location;
 - Rust implementation location;
 - refinement fixture/property-test location;
-- status: `specified`, `proved-abstract`, `bounded-float`, `refinement-checked` or `retired`.
+- abstract status: `specified`, `proved` or `not-applicable`;
+- numeric status: `pending`, `bounded`, `empirical` or `not-applicable`;
+- refinement status: `pending`, `checked` or `not-applicable`.
 
-Only `bounded-float` plus `refinement-checked` supports a public claim about floating-point Rust
-behavior. `proved-abstract` alone supports only the corresponding abstract theorem.
+An implementation-scoped claim requires abstract status `proved`, numeric status `bounded` or
+`not-applicable`, and refinement status `checked`. An abstract proof with pending numeric/refinement
+status supports only the corresponding abstract theorem.
 
 ## 5. Semantic model decisions
 

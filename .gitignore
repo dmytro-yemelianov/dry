@@ -26,6 +26,7 @@ dist/
 *.tsbuildinfo
 .wrangler/
 *.cpuprofile
+.lake/
 
 # wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)
 web/pkg/
