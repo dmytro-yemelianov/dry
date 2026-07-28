@@ -1,0 +1,105 @@
+//! Task 0 feasibility spike — proves (or disproves) that `dry-core`'s gcode import+verify path can
+//! run inside a Cloudflare Worker (workers-rs). This crate is NOT product code: it is the minimal
+//! scaffold needed to measure wall time under `wrangler dev` and to compile-check a queue consumer
+//! stub. See `docs/superpowers/specs/2026-07-28-cloud-spike-findings.md` for the findings this
+//! scaffold produced — that doc, not this file, is the binding interface for later tasks.
+//!
+//! `POST /spike/verify` reads the request body as raw gcode text, runs the *same* dry-core entry
+//! points `crates/cli/src/main.rs`'s `review-gcode` arm uses (`import_gcode_reader_with_map` →
+//! `simulate` → `verify` → `ReviewReport::build`), and returns timing JSON:
+//! `{bytes, parse_ms, verify_ms, total_ms, segments, findings}`.
+//!
+//! Contract simplification vs the CLI: the spike has no `--profile` support, so it always imports
+//! with the review defaults (`line_width = 0.45mm`, `layer_height = 0.2mm`, see
+//! `gcode_review_params` in `crates/cli/src/main.rs`) and verifies against `Contracts::default()`
+//! (all contract-driven checks disabled; only the always-on structural checks run). That is enough
+//! to measure engine throughput, which is the spike's only goal — profile plumbing is Task 2/6.
+
+use dry_core::{import_gcode_reader_with_map, simulate, verify, Contracts, GcodeImportParams};
+use worker::{event, Context, Date, Env, Request, Response, Result, Router};
+
+/// Review-mode import defaults — mirrors `gcode_review_params(None, None, None, None)` in the CLI
+/// (no `--profile`, no overrides): `filament_diameter` stays at the `GcodeImportParams` default
+/// (1.75mm) and only `line_width`/`layer_height` are set, exactly as the CLI does when no profile is
+/// supplied.
+fn review_import_params() -> GcodeImportParams {
+    GcodeImportParams {
+        line_width: Some(0.45),
+        layer_height: Some(0.2),
+        ..GcodeImportParams::default()
+    }
+}
+
+#[event(fetch)]
+async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+    Router::new()
+        .post_async("/spike/verify", spike_verify)
+        .run(req, env)
+        .await
+}
+
+async fn spike_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Result<Response> {
+    let t_request_start = Date::now().as_millis();
+
+    let body: Vec<u8> = req.bytes().await?;
+    let bytes = body.len();
+
+    let t_parse_start = Date::now().as_millis();
+    let params = review_import_params();
+    let imported = match import_gcode_reader_with_map(body.as_slice(), &params) {
+        Ok(imported) => imported,
+        Err(e) => {
+            return Response::error(format!("import failed: {e}"), 422);
+        }
+    };
+    let t_parse_end = Date::now().as_millis();
+
+    let metrics = simulate(&imported.toolpath);
+    let contracts = Contracts::default();
+    let report = verify(&imported.toolpath, &contracts);
+    let t_verify_end = Date::now().as_millis();
+
+    let body = serde_json::json!({
+        "bytes": bytes,
+        "segments": imported.toolpath.segments.len(),
+        "findings": report.findings.len(),
+        "errors": report.findings.iter().filter(|f| f.severity == dry_core::Severity::Error).count(),
+        "print_time_s": metrics.total_time_s.value(),
+        // Worker-side Date() deltas. Workers freeze Date() within a request except across true I/O
+        // (the `req.bytes().await` above is the one await point before this handler's CPU-bound work
+        // starts) — see FINDINGS for the cross-check against curl wall-clock, which is the
+        // authoritative number.
+        "parse_ms": t_parse_end.saturating_sub(t_parse_start),
+        "verify_ms": t_verify_end.saturating_sub(t_parse_end),
+        "total_ms": t_verify_end.saturating_sub(t_request_start),
+    });
+
+    Response::from_json(&body)
+}
+
+/// Compile-check only: proves a `#[event(queue)]` consumer + `dry-core` verify link together and
+/// build for wasm32 in this crate. Never wired to a real queue in the spike (no `wrangler.toml`
+/// producer/consumer binding is deployed) — Task 6 replaces this with the real job pipeline
+/// (load from R2, resolve pack/profile, write report, ack/retry).
+#[derive(serde::Deserialize)]
+struct SpikeQueueMessage {
+    gcode: String,
+}
+
+#[event(queue)]
+async fn queue(
+    message_batch: worker::MessageBatch<SpikeQueueMessage>,
+    _env: Env,
+    _ctx: Context,
+) -> Result<()> {
+    for message in message_batch.messages()? {
+        let params = review_import_params();
+        let body = message.body();
+        if let Ok(imported) = import_gcode_reader_with_map(body.gcode.as_bytes(), &params) {
+            let _metrics = simulate(&imported.toolpath);
+            let _report = verify(&imported.toolpath, &Contracts::default());
+        }
+    }
+    message_batch.ack_all();
+    Ok(())
+}

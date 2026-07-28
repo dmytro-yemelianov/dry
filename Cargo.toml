@@ -2,9 +2,11 @@
 resolver = "2"
 members = ["crates/core", "crates/cli", "crates/license", "crates/llm", "crates/moonraker"]
 default-members = ["crates/core", "crates/cli"]
-# `py/` (PyO3) and `crates/wasm` (wasm-bindgen) are bindings excluded from the core workspace so the
-# engine stays binding-free; each is built + tested by its own CI job. The TS SDK lands in P4.
-exclude = ["py", "crates/wasm"]
+# `py/` (PyO3), `crates/wasm` (wasm-bindgen), and `crates/cloud` (workers-rs) are bindings excluded
+# from the core workspace so the engine stays binding-free; each is built + tested by its own CI job.
+# `crates/cloud` targets wasm32 via workers-rs with its own lock/profile, same reason as `crates/wasm`.
+# The TS SDK lands in P4.
+exclude = ["py", "crates/wasm", "crates/cloud"]
 
 [workspace.package]
 version = "0.4.0"

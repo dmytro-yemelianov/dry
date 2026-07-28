@@ -1,0 +1,30 @@
+# Standalone workspace root: same pattern as `../wasm` — the engine workspace (../../Cargo.toml)
+# excludes this binding crate because it targets wasm32 via workers-rs with its own lock/profile, but
+# cargo still walks parent directories looking for an owning workspace. An empty `[workspace]` table
+# marks dry-cloud as its own root.
+[workspace]
+
+[package]
+name = "dry-cloud"
+description = "Feasibility spike: dry-core gcode import+verify inside a Cloudflare Worker (workers-rs)."
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "../../LICENSE"
+repository = "https://github.com/dmytro-yemelianov/dry"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+dry-core = { path = "../core" }
+worker = { version = "0.8", features = ["queue"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+opt-level = "z"

@@ -1,0 +1,34 @@
+# Task 0 feasibility-spike config — LOCAL ONLY. Never `wrangler deploy`d; the account_id, routes and
+# queue/D1/R2 bindings a real deployment needs are deliberately absent. See
+# docs/superpowers/specs/2026-07-28-cloud-spike-findings.md for what this scaffold measured.
+#
+# `main`/`[build]` match the actual `cloudflare/workers-rs` project template (verified against
+# github.com/cloudflare/workers-rs `templates/hello-world/wrangler.toml` on 2026-07-28), NOT the
+# plan's assumption of `build/worker/shim.mjs` — worker-build 0.8.x emits `build/index.js`.
+name = "dry-cloud-spike"
+main = "build/index.js"
+# Pinned below today's date: the installed wrangler 4.112.0 bundles a workerd binary whose newest
+# supported compatibility_date is 2026-07-21 ("This Worker requires compatibility date ...
+# newest date supported by this server binary is 2026-07-21" from `wrangler dev`); a real deploy
+# should use `wrangler --version` current-as-of-then.
+compatibility_date = "2026-07-21"
+
+# `--no-panic-recovery` works around a build failure on this toolchain (worker 0.8.5 / worker-build
+# 0.8.5 / wasm-bindgen-cli 0.2.126): the default module-target path fails wasm-bindgen with
+# "error: failed to generate catch wrappers / externref table required for catch wrappers" (worker-build
+# passes `--experimental-reset-state-function --force-enable-abort-handler` to wasm-bindgen on that
+# path; see `worker-build` src/main.rs). `--no-panic-recovery` takes the legacy bundler-target path
+# instead, which builds cleanly and produces an equivalent `build/index.js` entrypoint. Documented as a
+# spike blocker + workaround in docs/superpowers/specs/2026-07-28-cloud-spike-findings.md.
+command = "worker-build --release --no-panic-recovery"
+
+# `wrangler dev --local` does not enforce CPU time — the `limits.cpu_ms` config below only matters for
+# a real deployment (Workers Paid default 30s, max 300000ms/5min per
+# https://developers.cloudflare.com/workers/platform/limits/#cpu-time). Set here so a future deploy
+# inherits the ceiling this spike's findings were measured against; commented out because this file is
+# never deployed.
+# [limits]
+# cpu_ms = 300000
+
+# No queue producer/consumer binding is declared: the `#[event(queue)]` handler in src/lib.rs is a
+# compile-check stub only (Step 2 of the Task 0 brief), never invoked by a real queue in this spike.
