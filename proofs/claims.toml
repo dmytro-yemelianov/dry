@@ -61,3 +61,95 @@ refinement_evidence = []
 abstract = "proved"
 numeric = "not-applicable"
 refinement = "pending"
+
+[[claim]]
+id = "FM1.DIMENSION.COMMUTATIVE"
+title = "Dimension composition is commutative"
+theorem = "Dry.Numeric.Dimension.compose_commutative"
+spec_version = "quantity-model-v0"
+source_dialect = "Common"
+target_dialect = "Common"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Integer exponent vectors"
+assumptions = [
+  "Dimensions are finite maps from frozen base dimensions to integer exponents."
+]
+exclusions = [
+  "Unit parsing and SDK representations.",
+  "Numeric value conversion and IEEE-754 behavior."
+]
+lean_source = "formal/Dry/Numeric/Quantity.lean"
+rust_sources = [
+  "crates/core/src/units.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.DIMENSION.DEPOSITION"
+title = "The deposition volume equation is dimensionally valid"
+theorem = "Dry.Numeric.Dimension.deposition_dimension"
+spec_version = "quantity-model-v0"
+source_dialect = "L1"
+target_dialect = "L2"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Integer exponent vectors"
+assumptions = [
+  "Width, height and path length have length dimension.",
+  "Flow ratio is dimensionless."
+]
+exclusions = [
+  "The numeric value or physical accuracy of the rectangular bead model.",
+  "Binary64 multiplication and overflow behavior."
+]
+lean_source = "formal/Dry/Numeric/Quantity.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs",
+  "crates/core/src/units.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.UNIT.NORMALIZE_CONVERT"
+title = "Converting units and then normalizing preserves canonical value"
+theorem = "Dry.Numeric.Unit.normalize_convert"
+spec_version = "quantity-model-v0"
+source_dialect = "Common"
+target_dialect = "Common"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Rational"
+assumptions = [
+  "Source and target units have the same dimension.",
+  "Every unit scale is positive.",
+  "Unit scales and input values are exact rationals."
+]
+exclusions = [
+  "Unit string parsing and alias lookup.",
+  "Affine units requiring an offset.",
+  "IEEE-754 rounding in public SDK or Rust representations."
+]
+lean_source = "formal/Dry/Numeric/Quantity.lean"
+rust_sources = [
+  "crates/core/src/units.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"

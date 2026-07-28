@@ -28,6 +28,8 @@ The initial checked claims are:
 
 - exact-real planar transform composition;
 - uniqueness of the final state for an ordered deterministic operation fold.
+- commutative dimension composition and the deposition-equation dimension;
+- coherent canonical normalization across same-dimension rational unit conversions.
 
 Numeric error bounds and Rust refinement for the transform remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).
