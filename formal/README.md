@@ -30,13 +30,19 @@ The initial checked claims are:
 - uniqueness of the final state for an ordered deterministic operation fold;
 - commutative dimension composition and the deposition-equation dimension;
 - coherent canonical normalization across same-dimension rational unit conversions;
-- Dry IR v0 L2 validation succeeds exactly for the selected serializer-neutral well-formed subset.
+- Dry IR v0 L2 validation succeeds exactly for the selected serializer-neutral well-formed subset;
+- normalized L2 logical equivalence is exactly structural equality.
 
-The executable positive/negative L2 boundary fixtures are checked against their committed snapshot:
+The executable positive/negative L2 boundary fixtures are checked against committed TSV and
+schema-validated JSON snapshots:
 
 ```sh
 python3 tools/check_proof_fixtures.py
 ```
+
+The JSON fixture encodes finite logical values as normalized numerator/denominator strings and uses an
+explicit `non-finite` token. It is intended for future independent Rust differential consumers; it is
+not itself Rust-refinement evidence.
 
 Numeric error bounds and Rust refinement for the transform remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).

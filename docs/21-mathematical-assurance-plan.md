@@ -147,6 +147,7 @@ formal/
       L3.lean
       Trace.lean
       WellFormed.lean
+      LogicalEquality.lean
     Semantics/
       ExpandFeatures.lean
       Resolve.lean

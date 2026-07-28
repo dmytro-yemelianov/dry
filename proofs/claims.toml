@@ -97,6 +97,39 @@ numeric = "not-applicable"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.L2.LOGICAL_EQUALITY.STRUCTURAL"
+title = "Normalized L2 logical equivalence is structural equality"
+theorem = "Dry.Language.L2.LogicalEquality.equivalent_iff_eq"
+spec_version = "dry-ir-v0"
+source_dialect = "L2"
+target_dialect = "L2"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Normalized exact logical values"
+assumptions = [
+  "Wire defaults and field omission have already been normalized into explicit logical syntax.",
+  "Segment order is observable and metadata is compared structurally.",
+  "Finite numeric values are exact rationals at this abstract boundary."
+]
+exclusions = [
+  "IEEE-754 signed-zero, NaN payload and binary bit equality.",
+  "JSON key order, number spelling, DRY0/DRY1 layout and compression.",
+  "Codec inverse theorems and refinement to the Rust implementation."
+]
+lean_source = "formal/Dry/Language/LogicalEquality.lean"
+rust_sources = [
+  "crates/core/src/ir.rs",
+  "crates/core/src/codec/mod.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
 id = "FM1.DIMENSION.COMMUTATIVE"
 title = "Dimension composition is commutative"
 theorem = "Dry.Numeric.Dimension.compose_commutative"

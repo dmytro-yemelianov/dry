@@ -1,4 +1,5 @@
 import Dry.Language.WellFormed
+import Lean.Data.Json
 
 /-!
 # Executable L2 well-formedness boundary fixtures
@@ -145,7 +146,120 @@ def render : String :=
   String.intercalate "\n"
     ("id\tdialect\toutcome\tcode\tlocation" :: fixtures.map renderFixture)
 
+open Lean
+
+def optionalJson (encode : α → Json) : Option α → Json
+  | none => .null
+  | some value => encode value
+
+def listJson (encode : α → Json) (values : List α) : Json :=
+  .arr (values.toArray.map encode)
+
+def numberJson : Number → Json
+  | .finite value =>
+      Json.mkObj [
+        ("kind", .str "finite"),
+        ("numerator", .str value.num.repr),
+        ("denominator", .str value.den.repr)
+      ]
+  | .nonFinite =>
+      Json.mkObj [("kind", .str "non-finite")]
+
+def partialVec3Json (vector : PartialVec3) : Json :=
+  .arr #[
+    optionalJson numberJson vector.x,
+    optionalJson numberJson vector.y,
+    optionalJson numberJson vector.z
+  ]
+
+def vec2Json (vector : Vec2) : Json :=
+  .arr #[numberJson vector.x, numberJson vector.y]
+
+def vec3Json (vector : Vec3) : Json :=
+  .arr #[numberJson vector.x, numberJson vector.y, numberJson vector.z]
+
+def segmentKindLabel : SegmentKind → String
+  | .line => "line"
+  | .arc => "arc"
+  | .spline => "spline"
+  | .dwell => "dwell"
+  | .retract => "retract"
+  | .unretract => "unretract"
+  | .deposit => "deposit"
+  | .manualGcode => "manualgcode"
+
+def metadataJson (metadata : Meta) : Json :=
+  Json.mkObj [
+    ("generator", optionalJson Json.str metadata.generator),
+    ("units", optionalJson Json.str metadata.units),
+    ("source_hash", optionalJson Json.str metadata.sourceHash),
+    ("invariants", listJson Json.str metadata.invariants)
+  ]
+
+def segmentJson (segment : Segment) : Json :=
+  Json.mkObj [
+    ("start", partialVec3Json segment.start),
+    ("end", partialVec3Json segment.finish),
+    ("travel", .bool segment.travel),
+    ("speed", numberJson segment.speed),
+    ("length", numberJson segment.length),
+    ("volume", numberJson segment.volume),
+    ("filament", numberJson segment.filament),
+    ("width", optionalJson numberJson segment.width),
+    ("height", optionalJson numberJson segment.height),
+    ("kind", .str (segmentKindLabel segment.kind)),
+    ("centre", optionalJson vec2Json segment.centre),
+    ("clockwise", .bool segment.clockwise),
+    ("temperature", optionalJson numberJson segment.temperature),
+    ("fan", optionalJson numberJson segment.fan),
+    ("flow", optionalJson numberJson segment.flow),
+    ("tool", optionalJson (fun value => .num value) segment.tool),
+    ("dwell_s", optionalJson numberJson segment.dwellSeconds),
+    ("manual_gcode", optionalJson Json.str segment.manualGcode),
+    ("orientation", optionalJson vec3Json segment.orientation),
+    ("control_points", optionalJson (listJson vec3Json) segment.controlPoints)
+  ]
+
+def toolpathJson (toolpath : Toolpath) : Json :=
+  Json.mkObj [
+    ("version", .num toolpath.version),
+    ("meta", optionalJson metadataJson toolpath.metadata),
+    ("segments", listJson segmentJson toolpath.segments)
+  ]
+
+def expectedJson : Except Failure Unit → Json
+  | .ok () =>
+      Json.mkObj [("outcome", .str "valid")]
+  | .error failure =>
+      Json.mkObj [
+        ("outcome", .str "invalid"),
+        ("code", .str (failureCodeLabel failure.code)),
+        ("segment_index", optionalJson (fun value => .num value) failure.segmentIndex),
+        ("field", .str failure.field)
+      ]
+
+def fixtureJson (fixture : Fixture) : Json :=
+  Json.mkObj [
+    ("id", .str fixture.id),
+    ("dialect", .str "L2"),
+    ("toolpath", toolpathJson fixture.toolpath),
+    ("expected", expectedJson fixture.expected)
+  ]
+
+def fixtureDocument : Json :=
+  Json.mkObj [
+    ("schema_version", .num 1),
+    ("model", .str "dry-ir-v0-l2-logical"),
+    ("cases", listJson fixtureJson fixtures)
+  ]
+
+def renderJson : String :=
+  Json.pretty fixtureDocument 100
+
 end Dry.Tests.WellFormedFixtures
 
-def main : IO Unit :=
-  IO.println Dry.Tests.WellFormedFixtures.render
+def main (arguments : List String) : IO Unit := do
+  if arguments.contains "--json" then
+    IO.println Dry.Tests.WellFormedFixtures.renderJson
+  else
+    IO.println Dry.Tests.WellFormedFixtures.render

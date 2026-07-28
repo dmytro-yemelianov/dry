@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/proof-fixtures/l2-logical-v1.schema.json",
+  "title": "Dry L2 logical proof fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "model": {"const": "dry-ir-v0-l2-logical"},
+    "cases": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "finiteNumber": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "numerator", "denominator"],
+      "properties": {
+        "kind": {"const": "finite"},
+        "numerator": {"type": "string", "pattern": "^-?[0-9]+$"},
+        "denominator": {"type": "string", "pattern": "^[1-9][0-9]*$"}
+      }
+    },
+    "nonFiniteNumber": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"const": "non-finite"}
+      }
+    },
+    "number": {
+      "oneOf": [
+        {"$ref": "#/$defs/finiteNumber"},
+        {"$ref": "#/$defs/nonFiniteNumber"}
+      ]
+    },
+    "optionalNumber": {
+      "oneOf": [
+        {"$ref": "#/$defs/number"},
+        {"type": "null"}
+      ]
+    },
+    "partialVec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/optionalNumber"}
+    },
+    "vec2": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/number"}
+    },
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/number"}
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "units", "source_hash", "invariants"],
+      "properties": {
+        "generator": {"type": ["string", "null"]},
+        "units": {"type": ["string", "null"]},
+        "source_hash": {"type": ["string", "null"]},
+        "invariants": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "travel",
+        "speed",
+        "length",
+        "volume",
+        "filament",
+        "width",
+        "height",
+        "kind",
+        "centre",
+        "clockwise",
+        "temperature",
+        "fan",
+        "flow",
+        "tool",
+        "dwell_s",
+        "manual_gcode",
+        "orientation",
+        "control_points"
+      ],
+      "properties": {
+        "start": {"$ref": "#/$defs/partialVec3"},
+        "end": {"$ref": "#/$defs/partialVec3"},
+        "travel": {"type": "boolean"},
+        "speed": {"$ref": "#/$defs/number"},
+        "length": {"$ref": "#/$defs/number"},
+        "volume": {"$ref": "#/$defs/number"},
+        "filament": {"$ref": "#/$defs/number"},
+        "width": {"$ref": "#/$defs/optionalNumber"},
+        "height": {"$ref": "#/$defs/optionalNumber"},
+        "kind": {
+          "enum": [
+            "line",
+            "arc",
+            "spline",
+            "dwell",
+            "retract",
+            "unretract",
+            "deposit",
+            "manualgcode"
+          ]
+        },
+        "centre": {
+          "oneOf": [
+            {"$ref": "#/$defs/vec2"},
+            {"type": "null"}
+          ]
+        },
+        "clockwise": {"type": "boolean"},
+        "temperature": {"$ref": "#/$defs/optionalNumber"},
+        "fan": {"$ref": "#/$defs/optionalNumber"},
+        "flow": {"$ref": "#/$defs/optionalNumber"},
+        "tool": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "dwell_s": {"$ref": "#/$defs/optionalNumber"},
+        "manual_gcode": {"type": ["string", "null"]},
+        "orientation": {
+          "oneOf": [
+            {"$ref": "#/$defs/vec3"},
+            {"type": "null"}
+          ]
+        },
+        "control_points": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {"$ref": "#/$defs/vec3"}
+            },
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "toolpath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "meta", "segments"],
+      "properties": {
+        "version": {"type": "integer", "minimum": 0},
+        "meta": {
+          "oneOf": [
+            {"$ref": "#/$defs/metadata"},
+            {"type": "null"}
+          ]
+        },
+        "segments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/segment"}
+        }
+      }
+    },
+    "validExpected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome"],
+      "properties": {
+        "outcome": {"const": "valid"}
+      }
+    },
+    "invalidExpected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "code", "segment_index", "field"],
+      "properties": {
+        "outcome": {"const": "invalid"},
+        "code": {
+          "enum": [
+            "unsupported-version",
+            "non-finite",
+            "non-positive",
+            "negative",
+            "out-of-range",
+            "non-unit-orientation",
+            "inconsistent-kind-fields"
+          ]
+        },
+        "segment_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "field": {"type": "string", "minLength": 1}
+      }
+    },
+    "expected": {
+      "oneOf": [
+        {"$ref": "#/$defs/validExpected"},
+        {"$ref": "#/$defs/invalidExpected"}
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dialect", "toolpath", "expected"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "dialect": {"const": "L2"},
+        "toolpath": {"$ref": "#/$defs/toolpath"},
+        "expected": {"$ref": "#/$defs/expected"}
+      }
+    }
+  }
+}
