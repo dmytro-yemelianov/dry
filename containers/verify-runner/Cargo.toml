@@ -1,0 +1,39 @@
+# Standalone workspace root: same pattern as `../../crates/wasm` and `../../crates/cloud` — the
+# engine workspace (../../Cargo.toml) excludes this container crate (own Cargo.lock, own build:
+# `docker build` invokes `cargo build --release` inside this directory, not via the workspace), but
+# cargo still walks parent directories looking for an owning workspace. An empty `[workspace]` table
+# marks dry-verify-runner as its own root so it builds standalone and in Docker.
+[workspace]
+
+[package]
+name = "dry-verify-runner"
+description = "Native dry-core verify shim: the compute engine cloud verify jobs dispatch to (Task R3 Worker -> this container). Same import+verify call sequence as the CLI's `review-gcode` path; responds with the byte-identical `dry verify --json` report shape."
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "../../LICENSE"
+repository = "https://github.com/dmytro-yemelianov/dry"
+publish = false
+
+[[bin]]
+name = "dry-verify-runner"
+path = "src/main.rs"
+
+[lib]
+name = "verify_runner"
+path = "src/lib.rs"
+
+[dependencies]
+dry-core = { path = "../../crates/core" }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "net", "signal"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+# rustls only (no openssl/native-tls) per the task's Global Constraints.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }

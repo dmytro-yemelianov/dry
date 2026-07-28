@@ -5,8 +5,11 @@ default-members = ["crates/core", "crates/cli"]
 # `py/` (PyO3), `crates/wasm` (wasm-bindgen), and `crates/cloud` (workers-rs) are bindings excluded
 # from the core workspace so the engine stays binding-free; each is built + tested by its own CI job.
 # `crates/cloud` targets wasm32 via workers-rs with its own lock/profile, same reason as `crates/wasm`.
+# `containers/verify-runner` (the cloud verify compute engine, native axum binary) is excluded for
+# the same reason: it has its own Cargo.lock and builds standalone or in Docker, not via this
+# workspace's lock.
 # The TS SDK lands in P4.
-exclude = ["py", "crates/wasm", "crates/cloud"]
+exclude = ["py", "crates/wasm", "crates/cloud", "containers/verify-runner"]
 
 [workspace.package]
 version = "0.4.0"
