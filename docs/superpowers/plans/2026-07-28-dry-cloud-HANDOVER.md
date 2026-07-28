@@ -1,7 +1,7 @@
 # Dry Cloud — Project Handover (RESUMED 2026-07-28)
 
-Owner paused the project after Task R3, then resumed it from this document. Task R4
-is now complete; this remains the resume point for Task R5. Read it with:
+Owner paused the project after Task R3, then resumed it from this document. Tasks R4
+and R5 are now complete; this remains the resume point for Task R6. Read it with:
 - Spec: `docs/superpowers/specs/2026-07-28-dry-cloud-registry-design.md` (**Revision 2 section is authoritative**)
 - Plan: `docs/superpowers/plans/2026-07-28-dry-cloud-mvp.md` (Revision 2 — tasks R1–R8)
 - Spike findings: `docs/superpowers/specs/2026-07-28-cloud-spike-findings.md`
@@ -26,18 +26,20 @@ public repo `dmytro-yemelianov/dry-printer-registry` (built by a Codex agent, li
 | `containers/verify-runner` | `e546960`,`23e6a2c`,`6c96119` | Rust axum shim over dry-core; **byte-identity proven against the real CLI binary** (incl. stripped-defaults fixture); SSRF allowlist (`ALLOWED_REGISTRY_HOST`, fail-closed, https-only + localhost escape); non-root (uid 10001); body-limit 413→422 envelope; 12 tests. Docker: build from REPO ROOT: `docker build -f containers/verify-runner/Dockerfile .` |
 | Jobs API + queue + container dispatch | `c511836`,`5273c84`,`e944b79` | POST /v1/jobs/verify (cap→quota→strict-version-resolve→R2→D1→queue order), queue consumer with redelivery idempotency, partial-failure handling (`queue-send-failed` stage, orphan-R2 delete), owner-scoped GET with inlined report, DLQ config, itest with docker-baseline cleanup. 43 tests total in services/cloud |
 | Usage metering + quotas | `f0209f5` | Every authenticated cloud request records a `usage_events` row (`job\|keys\|auth`); the `jobs` table is the single canonical monthly job-quota source; quota failures return the specified 429 + UTC-month `Retry-After`; `GET /v1/usage` reports monthly jobs/bytes and quotas. 62 tests total in services/cloud; `npm run check` green. |
+| CLI auth + cloud verify | `dababbb` | `dry auth login\|status\|logout`; XDG-first 0600 token storage; `DRY_TOKEN` and `DRY_CLOUD_URL` precedence; RFC 8628 polling including `slow_down`; `dry cloud verify` upload + 1→5 s polling + 10-minute cap, JSON/human reports, and local-verify exit parity. Omitted pack versions resolve the registry default; explicit versions remain exact-match only. 8 localhost-only cloud CLI tests, all 36 CLI tests green, full Rust workspace green, and 63 cloud tests green. |
 | Old licensing product | `8a11be2` (`crates/license`) | SUPERSEDED spec; crate parked for future pack-signing. Do not delete |
 
 Also relevant, ALREADY SHIPPED (not on hold): **v0.4.0 released** (tag + 10-asset GitHub
 Release, 2026-07-28); the portfolio site (yemelianov.dev) is live — separate repo.
 
-## Next task at resume: R5 (CLI `dry auth` + `dry cloud verify`)
+## Next task at resume: R6 (docs)
 
-Plan section `### Task R5`. Add `dry auth login|status|logout` and
-`dry cloud verify` with mock-server integration tests; mirror
-`crates/cli/src/printer_registry.rs` networking idioms and the Moonraker
-`TcpListener` test-server pattern. Then R6 (docs), R7 (deploy — see below), and
-R8 (v0.5.0 release).
+Plan section `### Task R6`. Create the cloud docs landing page, API reference, CLI
+quickstart, and integrations quickstart; wire the docs nav/sidebar and boundary
+allowlist; keep pricing language honest (free quotas now, usage billing later);
+lift request/response examples from the tested interfaces; link the public registry
+docs rather than duplicating them; and disclose the MVP email-asserted-not-verified
+limitation. Then R7 (deploy — see below) and R8 (v0.5.0 release).
 
 ## Deferred debts that MUST close before/at deploy (R7)
 
