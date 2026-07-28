@@ -66,6 +66,7 @@ echo "work dir:   $WORK_DIR"
 
 WRANGLER_PID=""
 REGISTRY_PID=""
+WRANGLER_PORT=8787
 
 # Baseline of already-running container IDs, captured BEFORE `wrangler dev`
 # (below) can spawn anything -- cleanup() diffs against this so it stops ONLY
@@ -97,15 +98,11 @@ cleanup() {
   # Belt-and-suspenders: a `wrangler dev`/workerd process (and whatever it was
   # still in the middle of orchestrating) can be left running if the `kill`
   # above raced wrangler's own startup/shutdown handling -- this isn't a
-  # container, so the Docker-baseline diff above can't catch it. Prefer
-  # scoping the kill to THIS script's cloud dir (so an unrelated `wrangler
-  # dev` a developer has running elsewhere is left alone); only fall back to
-  # an unscoped (but still literal-string-specific) `pkill -f "wrangler dev"`
-  # if a scoped match finds nothing and one is still alive.
-  pkill -f "wrangler dev.*${CLOUD_DIR}" >/dev/null 2>&1 || true
-  if pgrep -f "wrangler dev" >/dev/null 2>&1; then
-    pkill -f "wrangler dev" >/dev/null 2>&1 || true
-  fi
+  # container, so the Docker-baseline diff above can't catch it. Scope the kill
+  # to this script's dedicated port (WRANGLER_PORT) so any unrelated `wrangler
+  # dev` a developer has running elsewhere is left alone; the docker baseline
+  # diff above handles containers spawned during this run.
+  pkill -f "wrangler dev.*--port ${WRANGLER_PORT}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
