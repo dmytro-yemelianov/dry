@@ -4,7 +4,14 @@
 
 import { handleActivateGet, handleActivateSubmit } from "./activate";
 import { handleDeviceStart, handleToken, requireAuth } from "./auth";
+import { VerifyContainer } from "./container";
+import { handleGetJob, handlePostVerifyJob, handleQueueBatch, type QueueJobMessage } from "./jobs";
 import { generateApiKey, sha256Hex } from "./tokens";
+
+// Re-exported so wrangler can find the Durable Object class this Worker declares
+// in wrangler.jsonc's `durable_objects`/`containers` config (the class must be
+// exported from the `main` module) -- see src/container.ts.
+export { VerifyContainer };
 
 /** Applied to every response this Worker returns. */
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = Object.freeze({
@@ -136,6 +143,27 @@ async function route(request: Request, env: Env): Promise<Response> {
     return handleDeleteKey(env, auth.accountId, decodeURIComponent(keyMatch[1]));
   }
 
+  if (url.pathname === "/v1/jobs/verify") {
+    if (request.method !== "POST") {
+      return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "POST" });
+    }
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+    return handlePostVerifyJob(request, env, auth.accountId);
+  }
+
+  // Checked AFTER the exact "/v1/jobs/verify" match above -- otherwise this
+  // pattern would swallow it (`verify` looks like a job id to this regex).
+  const jobMatch = /^\/v1\/jobs\/([^/]+)$/.exec(url.pathname);
+  if (jobMatch) {
+    if (request.method !== "GET") {
+      return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
+    }
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+    return handleGetJob(env, auth.accountId, decodeURIComponent(jobMatch[1]));
+  }
+
   if (url.pathname === "/v1/me") {
     if (request.method !== "GET") {
       return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
@@ -157,4 +185,7 @@ export default {
       return withSecurityHeaders(jsonResponse({ error: "internal_error" }, 500));
     }
   },
-} satisfies ExportedHandler<Env>;
+  async queue(batch, env): Promise<void> {
+    await handleQueueBatch(batch, env);
+  },
+} satisfies ExportedHandler<Env, QueueJobMessage>;
