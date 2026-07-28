@@ -63,6 +63,40 @@ numeric = "not-applicable"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.L2.WELL_FORMED.REJECTION"
+title = "L2 v0 validation succeeds exactly for well-formed logical toolpaths"
+theorem = "Dry.Language.L2.Validation.validate_success_iff"
+spec_version = "dry-ir-v0"
+source_dialect = "L2"
+target_dialect = "L2"
+relation = "rejection"
+scope = "abstract"
+numeric_domain = "Exact rationals plus an explicit rejected non-finite token"
+assumptions = [
+  "The syntax is the serializer-neutral logical content of the normative Dry IR v0 L2 contract.",
+  "The selected well-formed subset requires schema version zero, finite domain-valid quantities, exact abstract unit orientations and consistent kind-specific fields.",
+  "Validation returns the first structured failure under the model's documented field order."
+]
+exclusions = [
+  "L0/L1 authoring syntax, which is not frozen by the Dry IR v0 specification.",
+  "JSON, DRY0 and DRY1 parsing, omission/default and resource-limit behavior.",
+  "IEEE-754 rounding, concrete NaN payloads and refinement to Rust validation.",
+  "Arc-radius consistency, cross-segment continuity and target or physical safety."
+]
+lean_source = "formal/Dry/Language/WellFormed.lean"
+rust_sources = [
+  "crates/core/src/ir.rs",
+  "crates/core/src/resolve.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
 id = "FM1.DIMENSION.COMMUTATIVE"
 title = "Dimension composition is commutative"
 theorem = "Dry.Numeric.Dimension.compose_commutative"

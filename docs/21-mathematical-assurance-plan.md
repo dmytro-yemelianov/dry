@@ -410,7 +410,7 @@ Work packets:
 
 1. dimension algebra and canonical-unit normalization;
 2. common finite syntax/container definitions;
-3. L1/L2 v0 syntax and well-formedness;
+3. published L2 v0 syntax and well-formedness; add L1 only after its public contract is frozen;
 4. diagnostics/result semantics;
 5. serializer-neutral logical equality;
 6. valid/invalid fixture exporter.

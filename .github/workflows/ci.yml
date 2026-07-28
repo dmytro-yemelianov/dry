@@ -266,6 +266,8 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: true
+      - name: check executable Lean proof fixtures
+        run: python tools/check_proof_fixtures.py
 
   bench:
     name: benches (compile gate)

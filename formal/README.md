@@ -27,9 +27,16 @@ python3 tools/validate_proof_claims.py
 The initial checked claims are:
 
 - exact-real planar transform composition;
-- uniqueness of the final state for an ordered deterministic operation fold.
+- uniqueness of the final state for an ordered deterministic operation fold;
 - commutative dimension composition and the deposition-equation dimension;
-- coherent canonical normalization across same-dimension rational unit conversions.
+- coherent canonical normalization across same-dimension rational unit conversions;
+- Dry IR v0 L2 validation succeeds exactly for the selected serializer-neutral well-formed subset.
+
+The executable positive/negative L2 boundary fixtures are checked against their committed snapshot:
+
+```sh
+python3 tools/check_proof_fixtures.py
+```
 
 Numeric error bounds and Rust refinement for the transform remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).
