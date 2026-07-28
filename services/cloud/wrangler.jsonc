@@ -9,11 +9,14 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  // Production vars. Deliberately NO Turnstile dev-bypass and NO dummy
+  // Turnstile keys here — the real TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY
+  // are provisioned as encrypted secrets via `wrangler secret put`, never
+  // committed as plaintext vars. See src/activate.ts's fail-closed guard,
+  // which refuses to start if TURNSTILE_DEV_BYPASS is ever set while
+  // ENVIRONMENT is "production".
   "vars": {
-    "ENVIRONMENT": "development",
-    "TURNSTILE_DEV_BYPASS": "1",
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
-    "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
+    "ENVIRONMENT": "production",
     "QUOTA_KEYS": "1"
   },
   "d1_databases": [
@@ -28,5 +31,38 @@
       "binding": "CODES",
       "id": "0000000000000000000000000000000"
     }
-  ]
+  ],
+  "env": {
+    "dev": {
+      // Local/dev-only: dummy Turnstile keys (Cloudflare's published always-pass
+      // test keys) plus the bypass flag that skips Turnstile verification
+      // entirely. Bindings are repeated here because Wrangler does not
+      // inherit "vars", "d1_databases", or "kv_namespaces" into named
+      // environments.
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "TURNSTILE_DEV_BYPASS": "1",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+        "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
+        // Empty = hostname pinning disabled. When set (here or in production
+        // vars/secrets), verifyTurnstile() also requires the siteverify
+        // response's `hostname` to match exactly.
+        "TURNSTILE_HOSTNAME": "",
+        "QUOTA_KEYS": "1"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dry-cloud-dev",
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CODES",
+          "id": "0000000000000000000000000000000"
+        }
+      ]
+    }
+  }
 }

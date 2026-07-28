@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { approveDevice, resolveUserCode } from "../src/auth";
 
 type MutableEnv = Omit<Env, "TURNSTILE_DEV_BYPASS"> & { TURNSTILE_DEV_BYPASS: string };
 const testEnv = env as unknown as MutableEnv;
@@ -22,8 +23,8 @@ interface DeviceStartBody {
   interval: number;
 }
 
-async function startDeviceFlow(): Promise<DeviceStartBody> {
-  const response = await fetchWorker("/v1/auth/device", { method: "POST" });
+async function startDeviceFlow(extraHeaders: Record<string, string> = {}): Promise<DeviceStartBody> {
+  const response = await fetchWorker("/v1/auth/device", { method: "POST", headers: extraHeaders });
   expect(response.status).toBe(200);
   return response.json();
 }
@@ -32,10 +33,15 @@ function formBody(fields: Record<string, string>): string {
   return new URLSearchParams(fields).toString();
 }
 
-async function activate(userCode: string, email: string, extra: Record<string, string> = {}): Promise<Response> {
+async function activate(
+  userCode: string,
+  email: string,
+  extra: Record<string, string> = {},
+  extraHeaders: Record<string, string> = {},
+): Promise<Response> {
   return fetchWorker("/activate", {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", ...extraHeaders },
     body: formBody({ user_code: userCode, email, ...extra }),
   });
 }
@@ -345,5 +351,116 @@ describe("GET /activate", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     const html = await response.text();
     expect(html).toContain("ABCD-EFGH");
+  });
+});
+
+describe("Turnstile dev-bypass fails closed in production", () => {
+  const originalEnvironment = testEnv.ENVIRONMENT;
+  const originalBypass = testEnv.TURNSTILE_DEV_BYPASS;
+
+  beforeEach(() => {
+    testEnv.ENVIRONMENT = "production";
+    testEnv.TURNSTILE_DEV_BYPASS = "1";
+  });
+
+  afterEach(() => {
+    testEnv.ENVIRONMENT = originalEnvironment;
+    testEnv.TURNSTILE_DEV_BYPASS = originalBypass;
+  });
+
+  it("500s and does not approve the device when the bypass var is set under ENVIRONMENT=production", async () => {
+    // Dedicated IP: the rate limiter's KV counters are shared (not reset)
+    // across the whole test file, so this uses its own bucket rather than
+    // the "unknown" one other tests in this file also draw from.
+    const ip = { "cf-connecting-ip": "203.0.113.20" };
+    const start = await startDeviceFlow(ip);
+    const email = freshEmail();
+
+    const response = await activate(start.user_code, email, {}, ip);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass in production" });
+
+    // Not approved: the device is still pending, not granted.
+    const poll = await pollToken(start.device_code);
+    expect(poll.status).toBe(400);
+    expect(await poll.json()).toEqual({ error: "authorization_pending" });
+
+    // No account row was created for the email either.
+    const row = await testEnv.DB.prepare("SELECT id FROM accounts WHERE email = ?").bind(email).first();
+    expect(row).toBeNull();
+  });
+
+  it("500s GET /activate too, before rendering a form that would hide the misconfiguration", async () => {
+    const response = await fetchWorker("/activate");
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass in production" });
+  });
+});
+
+describe("device-code grant is atomically single-use", () => {
+  it("the D1 grants table gate rejects a second mint even if the KV record is re-approved before the first grant's delete", async () => {
+    // Dedicated IP: see the note in the previous describe block.
+    const ip = { "cf-connecting-ip": "203.0.113.21" };
+    const start = await startDeviceFlow(ip);
+    const email = freshEmail();
+
+    const approveResponse = await activate(start.user_code, email, {}, ip);
+    expect(approveResponse.status).toBe(200);
+
+    // Capture the approved record before the (only) legitimate grant call
+    // deletes it, so we can simulate a concurrent poller that read the KV
+    // entry before the winner's KV deletes landed.
+    const resolved = await resolveUserCode(env, start.user_code);
+    if (resolved === "not_found" || resolved === "expired") {
+      throw new Error("expected an approved device code");
+    }
+    const accountId = resolved.record.accountId;
+    if (!accountId) {
+      throw new Error("expected the approved record to carry an accountId");
+    }
+
+    const firstGrant = await pollToken(start.device_code);
+    expect(firstGrant.status).toBe(200);
+
+    // Re-seed the KV record exactly as it was right after approval -- as if
+    // a second concurrent request had read "approved" before the first
+    // grant's KV deletes ran. KV has no compare-and-swap, so without the D1
+    // gate this alone would be enough to mint a second token.
+    await approveDevice(env, resolved, accountId);
+
+    const secondGrant = await pollToken(start.device_code);
+    expect(secondGrant.status).toBe(400);
+    expect(await secondGrant.json()).toEqual({ error: "expired_token" });
+
+    const { results } = await testEnv.DB.prepare(
+      "SELECT hash FROM tokens WHERE account_id = ? AND kind = 'at'",
+    )
+      .bind(accountId)
+      .all<{ hash: string }>();
+    expect(results).toHaveLength(1);
+  });
+});
+
+describe("rate limiting on the anonymous endpoints", () => {
+  it("429s the 11th POST /v1/auth/device from the same IP within the window", async () => {
+    const headers = { "cf-connecting-ip": "203.0.113.10" };
+    let last: Response | undefined;
+    for (let i = 0; i < 11; i++) {
+      last = await fetchWorker("/v1/auth/device", { method: "POST", headers });
+    }
+    expect(last?.status).toBe(429);
+    expect(await last?.json()).toEqual({ error: "rate_limited" });
+    expect(last?.headers.get("retry-after")).toBe("600");
+  });
+
+  it("429s the 11th POST /activate from the same IP within the window", async () => {
+    const ip = "203.0.113.11";
+    let last: Response | undefined;
+    for (let i = 0; i < 11; i++) {
+      last = await activate("ZZZZ-ZZZZ", freshEmail(), {}, { "cf-connecting-ip": ip });
+    }
+    expect(last?.status).toBe(429);
+    expect(await last?.json()).toEqual({ error: "rate_limited" });
+    expect(last?.headers.get("retry-after")).toBe("600");
   });
 });

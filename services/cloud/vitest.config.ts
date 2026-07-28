@@ -21,6 +21,11 @@ export default defineConfig({
     cloudflareTest(async () => ({
       wrangler: {
         configPath: "./wrangler.jsonc",
+        // Tests exercise the Turnstile dev-bypass path, so they run against
+        // the "dev" named environment (dummy keys + TURNSTILE_DEV_BYPASS) —
+        // never the default/production environment, which intentionally has
+        // no bypass at all (see wrangler.jsonc and src/activate.ts).
+        environment: "dev",
       },
       miniflare: {
         bindings: {

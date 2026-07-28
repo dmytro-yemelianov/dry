@@ -32,13 +32,32 @@ export function generateDeviceCode(): string {
   return randomBase64Url(TOKEN_BYTE_LENGTH);
 }
 
+/**
+ * Cryptographically uniform index into an alphabet of `alphabetLength`
+ * characters, via rejection sampling on random bytes.
+ *
+ * `byte % alphabetLength` alone is biased whenever 256 isn't a multiple of
+ * `alphabetLength`: for USER_CODE_ALPHABET (28 chars), byte values 252-255
+ * would land on index 0-3 one extra time each per 256 draws. Discarding
+ * those four values (the "ceiling" below is 252) and redrawing removes the
+ * bias entirely.
+ */
+function uniformAlphabetIndex(alphabetLength: number): number {
+  const ceiling = 256 - (256 % alphabetLength);
+  const buf = new Uint8Array(1);
+  let byte: number;
+  do {
+    crypto.getRandomValues(buf);
+    byte = buf[0];
+  } while (byte >= ceiling);
+  return byte % alphabetLength;
+}
+
 /** Human-entered RFC 8628 `user_code`, formatted `XXXX-XXXX`. */
 export function generateUserCode(): string {
-  const bytes = new Uint8Array(USER_CODE_LENGTH);
-  crypto.getRandomValues(bytes);
   let code = "";
   for (let i = 0; i < USER_CODE_LENGTH; i++) {
-    code += USER_CODE_ALPHABET[bytes[i] % USER_CODE_ALPHABET.length];
+    code += USER_CODE_ALPHABET[uniformAlphabetIndex(USER_CODE_ALPHABET.length)];
   }
   return `${code.slice(0, 4)}-${code.slice(4)}`;
 }

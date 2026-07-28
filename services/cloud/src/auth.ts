@@ -1,6 +1,7 @@
 // RFC 8628 device authorization flow, plus the shared bearer-token auth
 // middleware used by every authenticated route.
 
+import { checkRateLimit, getClientIp } from "./ratelimit";
 import {
   generateAccessToken,
   generateDeviceCode,
@@ -53,6 +54,11 @@ function jsonResponse(value: unknown, status = 200, extraHeaders?: HeadersInit):
 export async function handleDeviceStart(request: Request, env: Env, origin: string): Promise<Response> {
   if (request.method !== "POST") {
     return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "POST" });
+  }
+
+  const ip = getClientIp(request);
+  if (await checkRateLimit(env, "device", ip, 10)) {
+    return jsonResponse({ error: "rate_limited" }, 429, { "retry-after": "600" });
   }
 
   const deviceCode = generateDeviceCode();
@@ -162,6 +168,23 @@ export async function handleToken(request: Request, env: Env): Promise<Response>
   }
 
   if (record.status === "approved" && record.accountId) {
+    // KV has no compare-and-swap, so it cannot be the atomic gate for
+    // single-use redemption by itself: two concurrent pollers can both
+    // observe `status === "approved"` before either one's KV deletes land.
+    // D1's PRIMARY KEY is the actual atomic gate here -- exactly one INSERT
+    // into `grants` can succeed for a given device_code, and only that
+    // caller is allowed to mint a token.
+    try {
+      const grant = await env.DB.prepare("INSERT INTO grants (device_code) VALUES (?)").bind(deviceCode).run();
+      if (!grant.meta.changes) {
+        return jsonResponse({ error: "expired_token" }, 400);
+      }
+    } catch {
+      // UNIQUE/PRIMARY KEY constraint violation: another request already won
+      // the race and is minting (or has minted) the token for this code.
+      return jsonResponse({ error: "expired_token" }, 400);
+    }
+
     // Single-use: both KV entries are deleted the moment a token is granted,
     // so a replayed poll with the same device_code sees `expired_token`.
     await env.CODES.delete(deviceKey(deviceCode));
