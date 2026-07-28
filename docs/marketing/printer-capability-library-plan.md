@@ -160,7 +160,7 @@ Draft `manifest.json`:
 import { PrinterRegistry } from "@dry/sdk/printers";
 
 const registry = await PrinterRegistry.open({
-  sources: ["./printer-packs", "https://registry.dry.dev"],
+  sources: ["./printer-packs", "https://api.dry.yemelianov.dev"],
 });
 
 const printer = await registry.get("voron-2.4-350-klipper");
@@ -188,7 +188,7 @@ if (!proof.ok) throw new Error(proof.summary);
 from dry.printers import PrinterRegistry
 
 registry = PrinterRegistry.open(
-    sources=["./printer-packs", "https://registry.dry.dev"]
+    sources=["./printer-packs", "https://api.dry.yemelianov.dev"]
 )
 
 printer = registry.get("voron-2.4-350-klipper")
@@ -224,7 +224,7 @@ Use a `dry printer ...` namespace.
 
 ```bash
 dry printer list --source ./printer-packs
-dry printer search voron --source https://registry.dry.dev
+dry printer search voron --source https://api.dry.yemelianov.dev
 dry printer inspect voron-2.4-350-klipper
 dry printer validate ./packs/voron-2.4-350-klipper
 dry printer pack ./packs/voron-2.4-350-klipper -o voron-2.4-350-klipper.drypack
@@ -458,11 +458,25 @@ Adapter work:
 
 ## MVP Implementation Plan
 
+Implementation status (2026-07-28):
+
+- Phase 0 schemas and the first example pack are maintained in the public Apache-2.0
+  `dmytro-yemelianov/dry-printer-registry` repository.
+- A hosted read-only GraphQL foundation is implemented in that repository, with D1
+  query indexes, R2 artifact delivery, local migrations, integration tests and a production Custom
+  Domain at `api.dry.yemelianov.dev`.
+- `dry printer search`, `dry printer inspect`, and `dry printer resolve` query the hosted graph;
+  resolution downloads and SHA-256-verifies a runtime profile.
+- Its standalone TypeScript client exposes typed search, inspect, profile resolution, and verified
+  downloads.
+- The Rust local pack loader/validator, Python client, reviewed publisher/signing flow and live
+  Moonraker/OctoPrint observations remain to be implemented.
+
 ### Phase 0: Spec-only foundation
 
-Deliverables:
+Deliverables (maintained in `dmytro-yemelianov/dry-printer-registry`):
 
-- `docs/marketing/printer-capability-library-plan.md`;
+- public API, schema, contribution, and deployment documentation;
 - draft pack examples under `spec/examples/printer-packs/`;
 - draft JSON schemas:
   - `spec/dry-printer-pack-v1.schema.json`;
@@ -563,8 +577,9 @@ Dry licence or a negotiated OEM agreement; they are not published as an open-sou
 
 ## Immediate Next Steps
 
-1. Add example pack schema and one `voron-2.4-350-klipper` skeleton.
-2. Add `dry printer validate` against manifest + existing Dry profile schema.
-3. Add `dry printer resolve` to emit `dry-profile-v1`.
-4. Convert current `import-printer-cfg` into a pack-producing path.
-5. Add a proof runner for sample G-code review reports.
+1. Add a Rust pack loader and `dry printer validate` using the committed schemas.
+2. Convert current `import-printer-cfg` into a pack-producing path.
+3. Add a reviewed publisher that validates, hashes, uploads to R2 and transactionally indexes D1.
+4. Add the Python client for the hosted GraphQL registry.
+5. Add `--printer` profile resolution to review, verify and upload.
+6. Add a proof runner for sample G-code review reports.

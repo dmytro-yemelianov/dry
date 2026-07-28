@@ -93,7 +93,7 @@ dry-printer-pack/
 
 ```bash
 dry printer list --source ./printer-packs
-dry printer search voron --source https://registry.dry.dev
+dry printer search voron --source https://api.dry.yemelianov.dev
 dry printer inspect voron-2.4-350-klipper
 dry printer validate ./packs/voron-2.4-350-klipper
 dry printer pack ./packs/voron-2.4-350-klipper -o voron-2.4-350-klipper.drypack
@@ -139,7 +139,7 @@ remains the explicit low-level option.
 import { PrinterRegistry } from "@dry/sdk/printers";
 
 const registry = await PrinterRegistry.open({
-  sources: ["./printer-packs", "https://registry.dry.dev"],
+  sources: ["./printer-packs", "https://api.dry.yemelianov.dev"],
 });
 
 const printer = await registry.get("voron-2.4-350-klipper");
@@ -160,7 +160,7 @@ const proof = await printer.runProofs();
 from dry.printers import PrinterRegistry
 
 registry = PrinterRegistry.open(
-    sources=["./printer-packs", "https://registry.dry.dev"]
+    sources=["./printer-packs", "https://api.dry.yemelianov.dev"]
 )
 
 printer = registry.get("voron-2.4-350-klipper")

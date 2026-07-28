@@ -35,7 +35,6 @@ fn fixture(corpus: &str, name: &str) -> PathBuf {
         .join(format!("../../conformance/{corpus}/{name}.json"))
 }
 
-#[cfg(feature = "moonraker")]
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     use std::io::Read as _;
 
@@ -69,7 +68,6 @@ fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     String::from_utf8(request).unwrap()
 }
 
-#[cfg(feature = "moonraker")]
 fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
     use std::io::Write as _;
 
@@ -79,6 +77,127 @@ fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
         body.len()
     )
     .unwrap();
+}
+
+#[test]
+fn printer_search_sends_typed_graph_filters() {
+    use std::net::TcpListener;
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut stream);
+        assert!(request.starts_with("POST /graphql "));
+        assert!(request.contains(r#""text":"voron""#));
+        assert!(request.contains(r#""firmware":["KLIPPER"]"#));
+        assert!(request.contains(r#""material":["ABS"]"#));
+        write_json_response(
+            &mut stream,
+            r#"{"data":{"printers":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"voron","name":"Voron","vendor":"Voron Design","model":"2.4","variant":null,"kind":"PRINTER_CLASS","versions":[]}]}}}"#,
+        );
+    });
+
+    let out = Command::new(bin())
+        .args([
+            "printer",
+            "search",
+            "voron",
+            "--firmware",
+            "klipper",
+            "--material",
+            "ABS",
+            "--source",
+            &format!("http://{address}"),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    server.join().unwrap();
+
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let result: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(result["totalCount"], 1);
+    assert_eq!(result["nodes"][0]["id"], "voron");
+}
+
+#[test]
+fn printer_resolve_downloads_and_hash_verifies_profile() {
+    use sha2::{Digest, Sha256};
+    use std::net::TcpListener;
+    use std::thread;
+
+    let profile = br#"{"version":1,"name":"ABS 0.4"}"#;
+    let sha256 = format!("{:x}", Sha256::digest(profile));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let profile_url = format!("http://{address}/profile");
+    let graph_body = serde_json::json!({
+        "data": {
+            "printer": {
+                "versions": [{
+                    "profiles": [{
+                        "id": "abs-0.4",
+                        "materialId": "dry:material/abs",
+                        "filamentId": null,
+                        "processPresetId": "abs",
+                        "nozzleDiameterMm": 0.4,
+                        "profileUrl": profile_url,
+                        "sha256": sha256,
+                    }]
+                }]
+            }
+        }
+    })
+    .to_string();
+    let server = thread::spawn(move || {
+        let (mut graph_stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut graph_stream);
+        assert!(request.starts_with("POST /graphql "));
+        assert!(request.contains(r#""version":"0.1.0""#));
+        assert!(request.contains(r#""materialId":"dry:material/abs""#));
+        write_json_response(&mut graph_stream, &graph_body);
+
+        let (mut profile_stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut profile_stream);
+        assert!(request.starts_with("GET /profile "));
+        use std::io::Write as _;
+        write!(
+            profile_stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            profile.len()
+        )
+        .unwrap();
+        profile_stream.write_all(profile).unwrap();
+    });
+
+    let out = Command::new(bin())
+        .args([
+            "printer",
+            "resolve",
+            "voron",
+            "--version",
+            "0.1.0",
+            "--material",
+            "dry:material/abs",
+            "--source",
+            &format!("http://{address}"),
+        ])
+        .output()
+        .unwrap();
+    server.join().unwrap();
+
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(out.stdout, b"{\"version\":1,\"name\":\"ABS 0.4\"}\n");
 }
 
 #[cfg(feature = "moonraker")]

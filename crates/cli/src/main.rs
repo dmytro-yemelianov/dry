@@ -1,6 +1,8 @@
 //! `dry` — the toolpath compiler CLI. Operates on a Dry IR file (`{version, segments}`, or a fixture
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
+mod printer_registry;
+
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     apply_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
@@ -69,7 +71,77 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum PrinterCmd {
+    /// Search printers by identity, firmware, motion, material, hardware, and macro capabilities.
+    Search {
+        /// Free-text printer, vendor, model, or variant query.
+        query: Option<String>,
+        #[arg(long)]
+        vendor: Vec<String>,
+        #[arg(long)]
+        firmware: Vec<String>,
+        #[arg(long)]
+        kinematics: Vec<String>,
+        #[arg(long)]
+        material: Vec<String>,
+        #[arg(long)]
+        nozzle: Option<f64>,
+        #[arg(long)]
+        build_x: Option<f64>,
+        #[arg(long)]
+        build_y: Option<f64>,
+        #[arg(long)]
+        build_z: Option<f64>,
+        /// Require a macro definition id, for example `dry:macro/print-start`.
+        #[arg(long = "macro")]
+        macro_ids: Vec<String>,
+        #[arg(long = "hardware-category")]
+        hardware_categories: Vec<String>,
+        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u16).range(1..=100))]
+        first: u16,
+        /// Emit the complete GraphQL result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect the versioned capabilities and artifacts for one printer.
+    Inspect {
+        id: String,
+        #[arg(long)]
+        version: Option<String>,
+        /// Emit the complete GraphQL result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Resolve, hash-verify, and download one runtime dry-profile-v1 artifact.
+    Resolve {
+        id: String,
+        #[arg(long)]
+        version: Option<String>,
+        #[arg(long)]
+        material: Option<String>,
+        #[arg(long)]
+        nozzle: Option<f64>,
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
+    /// Query Dry's hosted printer capability graph.
+    Printer {
+        #[command(subcommand)]
+        command: PrinterCmd,
+        /// Registry origin. Can also point at a local or private compatible registry.
+        #[arg(
+            long,
+            global = true,
+            default_value = printer_registry::DEFAULT_REGISTRY_URL
+        )]
+        source: String,
+    },
     /// Parse + simulate a Dry IR file and print a concise summary.
     Inspect { file: String },
     /// Simulate a Dry IR file and print its metrics.
@@ -570,6 +642,7 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.cmd {
+        Cmd::Printer { command, source } => run_printer(command, &source),
         Cmd::Inspect { file } => {
             let tp = load(&file);
             let m = simulate(&tp);
@@ -1415,6 +1488,268 @@ fn run(cli: Cli) -> ExitCode {
             }
         }
     }
+}
+
+fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
+    match command {
+        PrinterCmd::Search {
+            query,
+            vendor,
+            firmware,
+            kinematics,
+            material,
+            nozzle,
+            build_x,
+            build_y,
+            build_z,
+            macro_ids,
+            hardware_categories,
+            first,
+            json,
+        } => {
+            let connection = printer_registry::search(
+                source,
+                printer_registry::SearchFilter {
+                    text: query,
+                    vendor,
+                    firmware,
+                    kinematics,
+                    material,
+                    nozzle_diameter_mm: nozzle,
+                    build_x_mm: build_x,
+                    build_y_mm: build_y,
+                    build_z_mm: build_z,
+                    macro_ids,
+                    hardware_categories,
+                },
+                first.into(),
+            )
+            .unwrap_or_else(|error| die(format!("printer search failed: {error}")));
+            if json {
+                println!("{}", serde_json::to_string_pretty(&connection).unwrap());
+                return ExitCode::SUCCESS;
+            }
+            let total = connection
+                .get("totalCount")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            println!("{total} matching printer(s)");
+            for printer in connection
+                .get("nodes")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let id = printer
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                let name = printer
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(id);
+                let version = first_version(printer);
+                let version_label = version
+                    .and_then(|value| value.get("version"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                println!("{id}  {name}  v{version_label}");
+                if let Some(capabilities) = version.and_then(|value| value.get("capabilities")) {
+                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
+                    let machine = capabilities.get("machine");
+                    let kinematics = machine
+                        .and_then(|value| value.get("kinematics"))
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?");
+                    let volume = machine
+                        .and_then(|value| value.get("buildVolume"))
+                        .map(format_build_volume)
+                        .unwrap_or_else(|| "?×?×? mm".into());
+                    let materials = strings_at(capabilities, &["materials"], "family");
+                    println!(
+                        "  {} | {} | {} | {}",
+                        if firmware.is_empty() {
+                            "?".into()
+                        } else {
+                            firmware.join(", ")
+                        },
+                        kinematics,
+                        volume,
+                        if materials.is_empty() {
+                            "materials ?".into()
+                        } else {
+                            materials.join(", ")
+                        }
+                    );
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        PrinterCmd::Inspect { id, version, json } => {
+            let printer = printer_registry::inspect(source, &id, version.as_deref())
+                .unwrap_or_else(|error| die(format!("printer inspect failed: {error}")))
+                .unwrap_or_else(|| die(format!("printer not found: {id}")));
+            if json {
+                println!("{}", serde_json::to_string_pretty(&printer).unwrap());
+                return ExitCode::SUCCESS;
+            }
+            let name = printer
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(&id);
+            println!("{name} ({id})");
+            println!(
+                "  kind:      {}",
+                printer
+                    .get("kind")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?")
+            );
+            for version in printer
+                .get("versions")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                println!(
+                    "  version:   {} [{} / {}]",
+                    version
+                        .get("version")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                    version
+                        .get("trustLevel")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                    version
+                        .get("supportStatus")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                );
+                if let Some(capabilities) = version.get("capabilities") {
+                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
+                    let machine = capabilities.get("machine");
+                    println!(
+                        "  machine:   {} | {}",
+                        machine
+                            .and_then(|value| value.get("kinematics"))
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("?"),
+                        machine
+                            .and_then(|value| value.get("buildVolume"))
+                            .map(format_build_volume)
+                            .unwrap_or_else(|| "?×?×? mm".into())
+                    );
+                    println!("  firmware:  {}", firmware.join(", "));
+                    println!(
+                        "  graph:     {} hardware, {} materials, {} macros, {} profiles",
+                        array_len(capabilities, "hardware"),
+                        array_len(capabilities, "materials"),
+                        array_len(capabilities, "macroBindings"),
+                        array_len(version, "profiles"),
+                    );
+                }
+                if let Some(url) = version.get("packUrl").and_then(serde_json::Value::as_str) {
+                    println!("  pack:      {url}");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        PrinterCmd::Resolve {
+            id,
+            version,
+            material,
+            nozzle,
+            profile,
+            out,
+        } => {
+            let resolved = printer_registry::resolve_profile(
+                source,
+                &id,
+                &printer_registry::ProfileSelector {
+                    version,
+                    material_id: material,
+                    nozzle_diameter_mm: nozzle,
+                    profile_id: profile,
+                },
+            )
+            .unwrap_or_else(|error| die(format!("profile resolution failed: {error}")))
+            .unwrap_or_else(|| die(format!("no matching profile for printer {id}")));
+            let bytes = printer_registry::download_profile(
+                &resolved,
+                out.as_deref().map(std::path::Path::new),
+            )
+            .unwrap_or_else(|error| die(format!("profile download failed: {error}")));
+            if let Some(path) = out {
+                eprintln!(
+                    "resolved {} → {path} ({} bytes, SHA-256 verified)",
+                    resolved
+                        .get("id")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("profile"),
+                    bytes.len()
+                );
+            } else {
+                std::io::stdout()
+                    .write_all(&bytes)
+                    .unwrap_or_else(|error| die(format!("cannot write stdout: {error}")));
+                if !bytes.ends_with(b"\n") {
+                    println!();
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+fn first_version(printer: &serde_json::Value) -> Option<&serde_json::Value> {
+    printer
+        .get("versions")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|versions| versions.first())
+}
+
+fn array_len(value: &serde_json::Value, key: &str) -> usize {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0)
+}
+
+fn strings_at(value: &serde_json::Value, path: &[&str], field: &str) -> Vec<String> {
+    let mut current = value;
+    for key in path {
+        let Some(next) = current.get(key) else {
+            return Vec::new();
+        };
+        current = next;
+    }
+    current
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.get(field).and_then(serde_json::Value::as_str))
+        .map(str::to_owned)
+        .collect()
+}
+
+fn format_build_volume(volume: &serde_json::Value) -> String {
+    let axis = |name: &str| {
+        volume
+            .get(name)
+            .and_then(|value| value.get("sizeMm"))
+            .and_then(serde_json::Value::as_f64)
+            .map(|value| {
+                if value.fract() == 0.0 {
+                    format!("{value:.0}")
+                } else {
+                    value.to_string()
+                }
+            })
+            .unwrap_or_else(|| "?".into())
+    };
+    format!("{}×{}×{} mm", axis("x"), axis("y"), axis("z"))
 }
 
 fn load_profile(path: Option<&str>) -> Option<Profile> {

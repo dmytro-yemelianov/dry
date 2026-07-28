@@ -63,6 +63,8 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/pilots/`](docs/pilots/) | three pilot guides — [authoring](docs/pilots/authoring.md), [post-slicer review](docs/pilots/post-slicer-review.md), [SDK integration](docs/pilots/sdk-integration.md) — with runnable [`examples/`](examples/) |
 | [`docs/16-support-matrix.md`](docs/16-support-matrix.md) | what's Supported / Experimental / Out-of-scope across firmware, formats, targets, platforms and workflows |
 | [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) | auditable corpus-provenance ledger + dependency-license audit (no GPL ships) |
+| [`docs/18-cloudflare-publishing.md`](docs/18-cloudflare-publishing.md) | public Cloudflare Pages product deployment and its static artifact boundary |
+| [`docs/19-printer-registry-api.md`](docs/19-printer-registry-api.md) | Cloudflare Worker GraphQL API for printer, firmware, hardware, filament, macro, process, calibration, proof and provenance data |
 | [`docs/site/reference/fullcontrol-sources.md`](docs/site/reference/fullcontrol-sources.md) | audited mapping from the live FullControl catalogue, upstream notebooks and gists to Dry fixtures |
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
@@ -102,6 +104,9 @@ cargo run -p dry-cli --bin dry -- review-gcode examples/part.gcode --profile doc
 cargo run -p dry-cli --bin dry -- trace-gcode examples/part.gcode --window-s 5 > trace.json
 cargo run -p dry-cli --bin dry -- rewrite-gcode examples/part.gcode -o normalized.gcode
 cargo run -p dry-cli --bin dry -- rewrite-gcode examples/part.gcode --optimize -o optimized.gcode
+cargo run -p dry-cli --bin dry -- printer search voron --firmware klipper --material ABS
+cargo run -p dry-cli --bin dry -- printer inspect voron-2.4-350-klipper
+cargo run -p dry-cli --bin dry -- printer resolve voron-2.4-350-klipper --material dry:material/abs --nozzle 0.4 -o profile.json
 ```
 
 Profile-aware review/verify accepts a versioned machine/material/process JSON:

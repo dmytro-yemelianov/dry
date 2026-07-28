@@ -38,6 +38,7 @@ GPLv3 FullControl) with FullControl used only as design inspiration and a dev/CI
 | [`16-support-matrix.md`](16-support-matrix.md) | What is Supported / Experimental / Out-of-scope across firmware flavors, file formats, targets, release platforms and workflows. |
 | [`17-provenance-and-licensing.md`](17-provenance-and-licensing.md) | The auditable corpus-provenance ledger (oracle-generated vs authored clean-room) and the runtime dependency-license audit (all permissive; the GPL oracle is dev/CI-only). |
 | [`18-cloudflare-publishing.md`](18-cloudflare-publishing.md) | Public product deployment: documentation, executable examples, gallery, Three.js renderer, and Rust/WASM engine, plus the retained docs-only boundary build. |
+| [`19-printer-registry-api.md`](19-printer-registry-api.md) | Hosted read-only GraphQL registry for versioned printer capability packs, backed by Cloudflare D1 and R2. |
 | [`site/reference/fullcontrol-sources.md`](site/reference/fullcontrol-sources.md) | Source-to-fixture audit for fullcontrol.xyz, upstream model notebooks/tutorials, the oracle fork gallery, and author gists. |
 | [`CLEANROOM.md`](CLEANROOM.md) | The clean-room provenance and proprietary licensing discipline (FullControl as inspiration + dev/CI oracle only, never code). |
 

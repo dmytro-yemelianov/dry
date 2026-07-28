@@ -24,6 +24,8 @@ target
 node_modules/
 dist/
 *.tsbuildinfo
+.wrangler/
+*.cpuprofile
 
 # wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)
 web/pkg/

@@ -336,6 +336,8 @@ dependencies = [
  "dry-llm",
  "dry-moonraker",
  "serde_json",
+ "sha2",
+ "ureq",
 ]
 
 [[package]]
