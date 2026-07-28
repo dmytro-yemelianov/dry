@@ -32,6 +32,163 @@ numeric = "pending"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.FEATURE.GROUP.ORDER"
+title = "Feature groups preserve source-list expansion order"
+theorem = "Dry.Semantics.ExpandFeatures.expand_group_append"
+spec_version = "feature-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "trace-exact"
+scope = "abstract"
+numeric_domain = "Parametric"
+assumptions = [
+  "Group children are represented by an ordered list.",
+  "Operation-list concatenation is observable."
+]
+exclusions = [
+  "Rust iterator behavior and allocation failure.",
+  "Source locations, diagnostics and serialization.",
+  "Concurrent or unordered feature execution."
+]
+lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.FEATURE.REPEAT.COUNT"
+title = "Repeat expansion emits exactly count times the child operation count"
+theorem = "Dry.Semantics.ExpandFeatures.repeat_op_count"
+spec_version = "feature-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Natural-number resource counts"
+assumptions = [
+  "Repeat count is a natural number.",
+  "Every child instance expands under the same structural syntax with a composed instance transform."
+]
+exclusions = [
+  "Machine-integer overflow and memory exhaustion.",
+  "Early rejection by concrete Rust resource limits.",
+  "Partial expansion results on failure."
+]
+lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.FEATURE.BUDGETS"
+title = "Accepted abstract feature trees respect operation, node and depth budgets"
+theorem = "Dry.Semantics.ExpandFeatures.expansion_respects_budgets"
+spec_version = "feature-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "invariant-preservation"
+scope = "abstract"
+numeric_domain = "Natural-number resource counts"
+assumptions = [
+  "The tree satisfies the abstract WithinLimits predicate before expansion.",
+  "Node count includes dynamically repeated child visits.",
+  "Depth counts expanded group and nonzero-repeat edges."
+]
+exclusions = [
+  "Equivalence between precomputed abstract limits and Rust's short-circuit error ordering.",
+  "Heap, stack, wall-clock and serialized-output limits.",
+  "Overflow in finite-width implementation counters."
+]
+lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.FEATURE.EXPANSION.DETERMINISTIC"
+title = "Abstract feature expansion has a unique operation trace"
+theorem = "Dry.Semantics.ExpandFeatures.Evaluates.deterministic"
+spec_version = "feature-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "trace-exact"
+scope = "abstract"
+numeric_domain = "Parametric"
+assumptions = [
+  "Transform composition and operation action are total functions.",
+  "Features, groups and repeats use the deterministic expansion definition."
+]
+exclusions = [
+  "Rust panics, allocation failures and external nondeterminism.",
+  "Failure traces for rejected manual code or missing inherited coordinates.",
+  "Parallel execution semantics."
+]
+lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.FEATURE.COMPOSE_ACTION"
+title = "A feature pose acts locally before its outer planar transform"
+theorem = "Dry.Semantics.ExpandFeatures.Geometry.feature_composition_action"
+spec_version = "feature-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Real"
+assumptions = [
+  "Planar transforms use the exact-real complex-product representation.",
+  "Operations are abstract points, vectors or transform-invariant tags."
+]
+exclusions = [
+  "IEEE-754 rounding and libm sin/cos refinement.",
+  "Partial-axis inheritance and local-position validation.",
+  "Arc, spline and orientation field-by-field refinement.",
+  "Manual-code rejection and full SE(3) frame graphs."
+]
+lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "pending"
+refinement = "pending"
+
+[[claim]]
 id = "FM1.ORDERED_FOLD.DETERMINISTIC"
 title = "Ordered state-fold execution has a unique final state"
 theorem = "Dry.Semantics.OrderedFold.Exec.deterministic"

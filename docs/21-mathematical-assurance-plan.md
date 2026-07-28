@@ -434,6 +434,13 @@ Work packets:
 Exit gate: every theorem listed in §5.2 and §6.1 is checked for its landed scope; current Rust expansion
 passes generated refinement cases.
 
+Current bounded landing: the abstract planar `Feature`/ordered `Group`/`Repeat` model now proves
+source-order concatenation, repeat decomposition and exact operation counts, operation/node/depth
+budget preservation, deterministic expansion and exact-real pose action for points, vectors and
+invariant operations. Computable natural-number fixtures snapshot these laws. Concrete Rust operation
+validation/error traces, binary64 bounds, differential refinement, `SE(3)` and named frame graphs
+remain open, so no implementation-level claim is made yet.
+
 ### FM1.4 — numeric and curve error budgets
 
 Dependencies: FM1.2–FM1.3.

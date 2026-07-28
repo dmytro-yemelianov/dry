@@ -1,0 +1,5 @@
+id	outcome	expanded	op_count	node_count	max_depth
+group-source-order	valid	10,20	2	3	1
+repeat-zero	valid		0	1	0
+repeat-instances	valid	1,11,21	3	4	1
+nested-repeat-order	valid	1,2,11,12	4	7	2
