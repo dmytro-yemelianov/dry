@@ -48,6 +48,12 @@
       "bucket_name": "dry-cloud-storage"
     }
   ],
+  // `dead_letter_queue` names a queue Wrangler does NOT auto-create --
+  // R7 (deploy) MUST run `wrangler queues create verify-jobs-dlq` (and
+  // `verify-jobs-dlq-dev` for `env.dev`, see below) BEFORE `wrangler deploy`,
+  // or messages that exhaust `max_retries` have nowhere to land. `wrangler
+  // deploy --dry-run` does not hit the Cloudflare API to check this, so a
+  // green dry-run here is NOT proof the DLQs already exist.
   "queues": {
     "producers": [
       {
@@ -59,7 +65,8 @@
       {
         "queue": "verify-jobs",
         "max_batch_size": 5,
-        "max_retries": 2
+        "max_retries": 2,
+        "dead_letter_queue": "verify-jobs-dlq"
       }
     ]
   },
@@ -142,6 +149,9 @@
           "bucket_name": "dry-cloud-storage-dev"
         }
       ],
+      // Same `dead_letter_queue` provisioning note as the top-level `queues`
+      // block above -- R7 must `wrangler queues create verify-jobs-dlq-dev`
+      // for THIS env too, before `wrangler deploy --env dev`.
       "queues": {
         "producers": [
           {
@@ -153,7 +163,8 @@
           {
             "queue": "verify-jobs-dev",
             "max_batch_size": 5,
-            "max_retries": 2
+            "max_retries": 2,
+            "dead_letter_queue": "verify-jobs-dlq-dev"
           }
         ]
       },

@@ -4,7 +4,9 @@
 //
 // Interfaces and failure taxonomy per the R3 task brief and its Global Constraints;
 // see also containers/verify-runner's README for the runner's own `{error, stage}`
-// contract this consumer maps onto.
+// contract this consumer maps onto. One stage, `queue-send-failed`, is
+// Worker-only (never returned by the runner) — see `markJobError`'s call site
+// in `handlePostVerifyJob` (R3 review Fix 2b).
 
 import { type ContainerStubLike, containerFetch as defaultContainerFetch, getContainerStub as defaultGetContainerStub } from "./container";
 
@@ -12,6 +14,15 @@ import { type ContainerStubLike, containerFetch as defaultContainerFetch, getCon
  * enforces Content-Length)." Not a var (unlike the QUOTA_* knobs below) — the brief
  * states it as a fixed product invariant, not an operator-tunable setting. */
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+
+/** Every `jobs.stage` value this Worker can ever write. The runner's own
+ * `{error, stage}` contract (containers/verify-runner) only ever produces the
+ * first three (mapped in `stageForStatus` below); `queue-send-failed` is
+ * Worker-only, written directly by `handlePostVerifyJob` when the job never
+ * even reaches the queue (see Fix 2b). Centralized here (rather than as an
+ * inline literal union on `stageForStatus`'s return type) so every writer of
+ * `jobs.stage` is typed against the SAME set. */
+export type JobStage = "profile-unavailable" | "input-invalid" | "engine-error" | "queue-send-failed";
 
 function jsonResponse(value: unknown, status = 200, extraHeaders?: HeadersInit): Response {
   const headers = new Headers(extraHeaders);
@@ -24,23 +35,38 @@ function parseQuota(raw: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/** Outcome of `resolveDefaultProfileId` — deliberately NOT just `string | null`
+ * (as an earlier revision had it) so the caller can distinguish two different
+ * failure shapes with different HTTP responses (R3 review Fix 3):
+ * `version_not_found` (the registry answered fine, but has no entry for the
+ * EXACT requested `version` — a client input error, `404`) vs. `unavailable`
+ * (a network/parse/GraphQL-level failure, or a matching version with no
+ * profiles at all — the registry itself is the problem, `502`). */
+export type ResolveProfileOutcome =
+  | { ok: true; profileId: string }
+  | { ok: false; reason: "version_not_found" }
+  | { ok: false; reason: "unavailable" };
+
 /**
  * MVP default-profile rule (documented per the R3 task brief's explicit request):
  * when `POST /v1/jobs/verify` omits `profile=`, resolve it via the registry's
  * GraphQL API (docs/19-printer-registry-api.md; query shape mirrors
  * `resolve_profile` in crates/cli/src/printer_registry.rs) and pick the FIRST
- * profile listed for the pack version that matches the requested `version` (or the
- * first version entry the registry returns, if none matches exactly) — i.e. "first
- * listed profile of the pack manifest," the deterministic rule the task brief
- * explicitly sanctions as acceptable for MVP. No material/nozzle filtering is
- * applied; a pack that needs a specific profile for correct results should pass
- * `profile=` explicitly rather than rely on this default.
+ * profile listed for the pack version — i.e. "first listed profile of the pack
+ * manifest," the deterministic rule the task brief explicitly sanctions as
+ * acceptable for MVP. No material/nozzle filtering is applied; a pack that
+ * needs a specific profile for correct results should pass `profile=`
+ * explicitly rather than rely on this default.
  *
- * Returns `null` on any failure (network error, non-2xx, GraphQL errors, no
- * profiles) — the caller turns that into a `502 profile-unavailable` response
- * without ever writing a job row or touching R2.
+ * **R3 review Fix 3: exact `version` match ONLY.** An earlier revision fell
+ * back to the registry's first-listed version entry when the requested
+ * `version` had no exact match — silently resolving a profile for a DIFFERENT
+ * pack version than the caller asked for. That fallback is removed: no exact
+ * match now fails fast (`{ ok: false, reason: "version_not_found" }`), which
+ * `handlePostVerifyJob` turns into a `404 "pack version not found"` BEFORE any
+ * R2 write or D1 row — see that function's ordering comment.
  */
-export async function resolveDefaultProfileId(env: Env, pack: string, version: string): Promise<string | null> {
+export async function resolveDefaultProfileId(env: Env, pack: string, version: string): Promise<ResolveProfileOutcome> {
   const query = `
     query ResolveDefaultProfile($id: ID!, $version: String) {
       printer(id: $id, version: $version) {
@@ -62,36 +88,49 @@ export async function resolveDefaultProfileId(env: Env, pack: string, version: s
       body: JSON.stringify({ query, variables: { id: pack, version } }),
     });
   } catch {
-    return null;
+    return { ok: false, reason: "unavailable" };
   }
-  if (!response.ok) return null;
+  if (!response.ok) return { ok: false, reason: "unavailable" };
 
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    return null;
+    return { ok: false, reason: "unavailable" };
   }
 
   const data = payload as { data?: { printer?: { versions?: unknown } }; errors?: unknown[] };
-  if (Array.isArray(data.errors) && data.errors.length > 0) return null;
+  if (Array.isArray(data.errors) && data.errors.length > 0) return { ok: false, reason: "unavailable" };
 
   const versions = data.data?.printer?.versions;
-  if (!Array.isArray(versions) || versions.length === 0) return null;
+  if (!Array.isArray(versions) || versions.length === 0) return { ok: false, reason: "version_not_found" };
 
-  const versionEntry =
-    (versions as Array<{ version?: unknown; profiles?: unknown }>).find((entry) => entry?.version === version) ??
-    versions[0];
-  const profiles = (versionEntry as { profiles?: unknown } | undefined)?.profiles;
-  if (!Array.isArray(profiles) || profiles.length === 0) return null;
+  // Exact match ONLY -- no `?? versions[0]` fallback (see the Fix 3 doc above).
+  const versionEntry = (versions as Array<{ version?: unknown; profiles?: unknown }>).find(
+    (entry) => entry?.version === version,
+  );
+  if (!versionEntry) return { ok: false, reason: "version_not_found" };
+
+  const profiles = versionEntry.profiles;
+  if (!Array.isArray(profiles) || profiles.length === 0) return { ok: false, reason: "unavailable" };
 
   const id = (profiles[0] as { id?: unknown } | undefined)?.id;
-  return typeof id === "string" && id.length > 0 ? id : null;
+  if (typeof id !== "string" || id.length === 0) return { ok: false, reason: "unavailable" };
+
+  return { ok: true, profileId: id };
 }
 
 /** `POST /v1/jobs/verify?pack=<id>&version=<ver>[&profile=<profileId>]` (Bearer,
  * raw g-code body). `accountId` is already-authenticated (see index.ts's
- * `requireAuth` call before this is reached). */
+ * `requireAuth` call before this is reached).
+ *
+ * **Ordering invariant (R3 review Fix 3 — verified, kept, documented here):**
+ * Content-Length cap -> quota check -> default-profile RESOLUTION -> R2 write
+ * -> D1 insert -> queue send. Every check runs, in that order, before the
+ * first state-changing operation (the R2 write) — a rejection at any earlier
+ * stage (400/411/413/403/404/502) therefore NEVER leaves behind an orphaned R2
+ * object or D1 row. Keep new checks above the R2 write unless a check
+ * genuinely needs the uploaded bytes to decide (none currently do). */
 export async function handlePostVerifyJob(request: Request, env: Env, accountId: string): Promise<Response> {
   const url = new URL(request.url);
   const pack = url.searchParams.get("pack");
@@ -124,10 +163,19 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
   }
 
   if (!profileId) {
-    profileId = await resolveDefaultProfileId(env, pack, version);
-    if (!profileId) {
+    const resolved = await resolveDefaultProfileId(env, pack, version);
+    if (!resolved.ok) {
+      // Fix 3: a `version_not_found` outcome means the registry itself
+      // answered fine but has no exact match for the requested `version` — a
+      // client input error (404), fundamentally different from `unavailable`
+      // (a registry-side failure, 502). Both happen strictly before the R2
+      // write below, so neither ever leaves an orphaned upload or job row.
+      if (resolved.reason === "version_not_found") {
+        return jsonResponse({ error: "pack version not found" }, 404);
+      }
       return jsonResponse({ error: "profile_unavailable", stage: "profile-unavailable" }, 502);
     }
+    profileId = resolved.profileId;
   }
 
   if (!request.body) {
@@ -140,13 +188,40 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
     httpMetadata: { contentType: "text/plain" },
   });
 
-  await env.DB.prepare(
-    "INSERT INTO jobs (id, account_id, status, pack_id, pack_version, profile_id, input_r2) VALUES (?, ?, 'queued', ?, ?, ?, ?)",
-  )
-    .bind(jobId, accountId, pack, version, profileId, inputKey)
-    .run();
+  try {
+    await env.DB.prepare(
+      "INSERT INTO jobs (id, account_id, status, pack_id, pack_version, profile_id, input_r2) VALUES (?, ?, 'queued', ?, ?, ?, ?)",
+    )
+      .bind(jobId, accountId, pack, version, profileId, inputKey)
+      .run();
+  } catch (error) {
+    // Fix 2a: the R2 object was already written above -- if the D1 insert
+    // that's supposed to record it then fails, clean up the now-orphaned
+    // upload (best-effort: a failed cleanup is logged, not thrown, so the
+    // REAL error -- the D1 failure -- is what surfaces) and rethrow, so
+    // index.ts's generic top-level try/catch turns this into a plain 500
+    // rather than a false 202.
+    try {
+      await env.STORAGE.delete(inputKey);
+    } catch (cleanupError) {
+      console.error("dry-cloud: failed to clean up orphaned R2 upload after a D1 insert failure", inputKey, cleanupError);
+    }
+    throw error;
+  }
 
-  await env.VERIFY_JOBS.send({ id: jobId });
+  try {
+    await env.VERIFY_JOBS.send({ id: jobId });
+  } catch (error) {
+    // Fix 2b: the D1 row already exists (`queued`) but the message never
+    // reached the queue, so the job would otherwise sit `queued` forever with
+    // no consumer ever picking it up. Mark it terminal (`error` +
+    // `queue-send-failed`) so `GET /v1/jobs/{id}` reports the real state, and
+    // respond 500 (NOT 202 — a 202 promises a status_url that will never
+    // progress).
+    const message = "job could not be enqueued";
+    await markJobError(env, jobId, "queue-send-failed", message);
+    return jsonResponse({ error: message }, 500);
+  }
 
   return jsonResponse({ id: jobId, status_url: `/v1/jobs/${jobId}` }, 202);
 }
@@ -241,7 +316,7 @@ function buildVerifyUrl(registryUrl: string, pack: string, version: string, prof
  * stages. Deliberately keyed off status code (the runner's *documented HTTP
  * contract*), not the response body's own `stage` field, so a malformed or missing
  * body from a buggy/compromised runner can't spoof an unexpected stage. */
-function stageForStatus(status: number): "profile-unavailable" | "input-invalid" | "engine-error" {
+function stageForStatus(status: number): Exclude<JobStage, "queue-send-failed"> {
   if (status === 422) return "input-invalid";
   if (status === 502) return "profile-unavailable";
   return "engine-error";
@@ -257,13 +332,14 @@ async function readRunnerErrorMessage(response: Response): Promise<string> {
   return `verify-runner returned HTTP ${response.status}`;
 }
 
-async function markJobError(env: Env, jobId: string, stage: string, message: string): Promise<void> {
+async function markJobError(env: Env, jobId: string, stage: JobStage, message: string): Promise<void> {
   await env.DB.prepare("UPDATE jobs SET status = 'error', error = ?, stage = ?, finished_at = datetime('now') WHERE id = ?")
     .bind(message, stage, jobId)
     .run();
 }
 
 interface QueueJobRow {
+  status: string;
   pack_id: string;
   pack_version: string;
   profile_id: string;
@@ -280,12 +356,28 @@ async function processJob(
   getStub: QueueDeps["getContainerStub"],
   callContainer: QueueDeps["containerFetch"],
 ): Promise<void> {
-  const row = await env.DB.prepare("SELECT pack_id, pack_version, profile_id, input_r2 FROM jobs WHERE id = ?")
+  const row = await env.DB.prepare("SELECT status, pack_id, pack_version, profile_id, input_r2 FROM jobs WHERE id = ?")
     .bind(jobId)
     .first<QueueJobRow>();
   if (!row) {
     // The job row is gone (shouldn't normally happen -- nothing else deletes jobs
     // rows). Nothing to process; treat the message as handled.
+    return;
+  }
+
+  // Fix 1 (redelivery idempotency): Cloudflare Queues' at-least-once delivery
+  // means a message can be redelivered for a job that ALREADY reached a
+  // terminal state (e.g. `ack()` succeeded on the consumer side but the
+  // platform re-delivers anyway, or a retry lands after a prior attempt's
+  // error was already persisted). Re-running the container call for an
+  // already-`done`/`error` job would be wasted work at best (spins up a fresh
+  // container for nothing) and DATA LOSS at worst (a redelivered success could
+  // overwrite a `done` job's `report_r2` with a different report, or a
+  // redelivered failure could clobber a `done` job's status with `error`).
+  // Detect it before touching the container or R2/D1 state at all, log it,
+  // and treat the message as handled (ack, no retry, report untouched).
+  if (row.status === "done" || row.status === "error") {
+    console.warn("dry-cloud: skipping redelivered terminal job", jobId);
     return;
   }
 

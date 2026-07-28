@@ -1,7 +1,7 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 import type { ContainerStubLike } from "../src/container";
-import { handleQueueBatch, type QueueJobMessage } from "../src/jobs";
+import { handlePostVerifyJob, handleQueueBatch, type QueueJobMessage } from "../src/jobs";
 
 const ORIGIN = "http://example.com";
 
@@ -86,6 +86,21 @@ interface JobRow {
 
 async function loadJobRow(id: string): Promise<JobRow | null> {
   return env.DB.prepare("SELECT * FROM jobs WHERE id = ?").bind(id).first<JobRow>();
+}
+
+/** Builds a raw `Request` for `handlePostVerifyJob`'s direct-call test path
+ * (Fix 2a/2b below) -- these bypass `requireAuth`/the router entirely (the
+ * function takes an already-authenticated `accountId`, same as production
+ * code reaches it) so the test can pass a wrapped `Env` whose `DB`/
+ * `VERIFY_JOBS` bindings throw, mirroring the container-seam DI pattern the
+ * queue consumer tests already use (`fakeStub`/`throwingStub` above) instead
+ * of mocking the real global `env` bindings in place. */
+function verifyRequest(gcode: string, query = "pack=demo-printer&version=0.1.0&profile=demo-profile"): Request {
+  return new Request(url(`/v1/jobs/verify?${query}`), {
+    method: "POST",
+    headers: { "content-length": String(new TextEncoder().encode(gcode).length) },
+    body: gcode,
+  });
 }
 
 // --- Fakes for the queue consumer's DI seam (see src/container.ts's module doc
@@ -215,6 +230,69 @@ describe("POST /v1/jobs/verify", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("404s 'pack version not found' (and writes nothing to R2 or D1) when the registry has no EXACT match for the requested version -- no cross-version fallback (R3 review Fix 3)", async () => {
+    const token = await grantAccessToken();
+    const dbCountBefore = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs").first<{ count: number }>();
+    const r2CountBefore = await env.STORAGE.list({ prefix: "uploads/" });
+
+    // The registry answers just fine and even lists a DIFFERENT version for
+    // this same pack with real profiles -- an earlier revision would have
+    // silently fallen back to THAT version's first profile. Fix 3 removes
+    // that fallback: no entry for the exact requested `version` (9.9.9) means
+    // the submission fails fast with 404, never resolving a profile for a
+    // version the caller didn't ask for.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          data: {
+            printer: {
+              versions: [{ version: "2.0.0", profiles: [{ id: "wrong-version-profile" }] }],
+            },
+          },
+        }),
+      ),
+    );
+
+    try {
+      const response = await submitJob(token, "G1 X1\n", "pack=demo-printer&version=9.9.9");
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: "pack version not found" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    const dbCountAfter = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs").first<{ count: number }>();
+    expect(dbCountAfter?.count).toBe(dbCountBefore?.count);
+    const r2CountAfter = await env.STORAGE.list({ prefix: "uploads/" });
+    expect(r2CountAfter.objects.length).toBe(r2CountBefore.objects.length);
+  });
+
+  it("411s length_required when Content-Length is missing (R3 review Fix 5a)", async () => {
+    const token = await grantAccessToken();
+    // A streaming body (rather than a plain string) is required to actually
+    // exercise the MISSING-header path in this runtime: a string/Blob body
+    // gets its Content-Length auto-computed by the Fetch implementation even
+    // when the caller never sets the header explicitly, silently sidestepping
+    // this exact check. A `ReadableStream` body has no known length up front,
+    // so no Content-Length is ever synthesized -- reproducing a real client
+    // that streams a request body without knowing/declaring its size.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("G1 X1\n"));
+        controller.close();
+      },
+    });
+    const response = await fetchWorker("/v1/jobs/verify?pack=demo-printer&version=0.1.0&profile=demo-profile", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    expect(response.status).toBe(411);
+    expect(await response.json()).toEqual({ error: "length_required" });
   });
 
   it("413s too-large (Content-Length over the cap) and writes nothing to R2 or D1 -- checked before any R2 write", async () => {
@@ -369,5 +447,164 @@ describe("queue consumer: container-start failures", () => {
     expect(row?.status).toBe("error");
     expect(row?.stage).toBe("engine-error");
     expect(row?.error).toContain("container failed to start");
+  });
+});
+
+describe("queue consumer: redelivery idempotency (R3 review Fix 1)", () => {
+  it("skips a redelivered `done` job without touching the container or the stored report", async () => {
+    const token = await grantAccessToken();
+    const submitResponse = await submitJob(token, "G1 X1\n");
+    const { id } = (await submitResponse.json()) as { id: string };
+
+    const reportKey = `reports/${id}.json`;
+    const report = { findings: [] };
+    await env.STORAGE.put(reportKey, JSON.stringify(report), { httpMetadata: { contentType: "application/json" } });
+    await env.DB.prepare("UPDATE jobs SET status = 'done', report_r2 = ?, finished_at = datetime('now') WHERE id = ?")
+      .bind(reportKey, id)
+      .run();
+
+    // If the redelivery guard didn't fire, this stub's `fetch` would run and
+    // fail the test loudly (rather than silently succeeding with a bogus
+    // report) -- a stronger assertion than just "was it called".
+    const stub = fakeStub(() => {
+      throw new Error("container fetch seam must not be called for a redelivered terminal job");
+    });
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let message: Message<QueueJobMessage>;
+    try {
+      message = await runConsumerOnce(id, stub);
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    expect(message.ack).toHaveBeenCalledTimes(1);
+    expect(message.retry).not.toHaveBeenCalled();
+    expect(stub.startAndWaitForPorts).not.toHaveBeenCalled();
+    expect(stub.fetch).not.toHaveBeenCalled();
+
+    const row = await loadJobRow(id);
+    expect(row?.status).toBe("done");
+    expect(row?.report_r2).toBe(reportKey);
+
+    const reportObject = await env.STORAGE.get(reportKey);
+    expect(reportObject).not.toBeNull();
+    expect(JSON.parse(await reportObject!.text())).toEqual(report);
+  });
+
+  it("skips a redelivered `error` job without touching the container or clobbering the persisted error/stage", async () => {
+    const token = await grantAccessToken();
+    const submitResponse = await submitJob(token, "G1 X1\n");
+    const { id } = (await submitResponse.json()) as { id: string };
+
+    await env.DB.prepare(
+      "UPDATE jobs SET status = 'error', error = 'original error', stage = 'input-invalid', finished_at = datetime('now') WHERE id = ?",
+    )
+      .bind(id)
+      .run();
+
+    const stub = fakeStub(() => {
+      throw new Error("container fetch seam must not be called for a redelivered terminal job");
+    });
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let message: Message<QueueJobMessage>;
+    try {
+      message = await runConsumerOnce(id, stub);
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    expect(message.ack).toHaveBeenCalledTimes(1);
+    expect(message.retry).not.toHaveBeenCalled();
+    expect(stub.fetch).not.toHaveBeenCalled();
+
+    const row = await loadJobRow(id);
+    expect(row?.status).toBe("error");
+    expect(row?.error).toBe("original error");
+    expect(row?.stage).toBe("input-invalid");
+  });
+});
+
+describe("POST /v1/jobs/verify: partial-failure handling (R3 review Fix 2)", () => {
+  it("cleans up the orphaned R2 upload and rethrows (-> generic 500) when the D1 insert fails after the R2 write", async () => {
+    const accountId = `fix2a-account-${crypto.randomUUID()}`;
+
+    // Wraps the REAL `env.DB` (so the quota-check SELECT that runs earlier in
+    // `handlePostVerifyJob` still works normally) and throws ONLY for the
+    // specific INSERT this fix targets -- mirroring the container-seam DI
+    // pattern above (`fakeStub`/`throwingStub`), just for the D1 binding
+    // instead of the container stub.
+    const throwingDb = {
+      prepare(sql: string) {
+        if (sql.includes("INSERT INTO jobs")) {
+          throw new Error("simulated D1 insert failure");
+        }
+        return env.DB.prepare(sql);
+      },
+    } as unknown as Env["DB"];
+
+    const putSpy = vi.spyOn(env.STORAGE, "put");
+    const deleteSpy = vi.spyOn(env.STORAGE, "delete");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    let caught: unknown;
+    try {
+      await handlePostVerifyJob(verifyRequest("G1 X1\n"), { ...env, DB: throwingDb }, accountId);
+    } catch (error) {
+      caught = error;
+    } finally {
+      errorSpy.mockRestore();
+    }
+
+    // Rethrows rather than swallowing the error into a Response -- it's
+    // index.ts's OWN top-level try/catch (already covered by other
+    // suites/routes) that turns this into the generic 500, not this handler.
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe("simulated D1 insert failure");
+
+    // The R2 object written before the failing insert was cleaned up, not
+    // left orphaned: exactly one `uploads/...` key was ever put, and that
+    // SAME key was passed to `delete`.
+    expect(putSpy).toHaveBeenCalledTimes(1);
+    const inputKey = putSpy.mock.calls[0][0] as string;
+    expect(inputKey).toMatch(/^uploads\//);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    expect(deleteSpy).toHaveBeenCalledWith(inputKey);
+    putSpy.mockRestore();
+    deleteSpy.mockRestore();
+
+    expect(await env.STORAGE.get(inputKey)).toBeNull();
+
+    const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs WHERE account_id = ?")
+      .bind(accountId)
+      .first<{ count: number }>();
+    expect(row?.count).toBe(0);
+  });
+
+  it("marks the job 'error'/'queue-send-failed' and 500s (NOT 202) when VERIFY_JOBS.send() throws after the D1 insert", async () => {
+    const accountId = `fix2b-account-${crypto.randomUUID()}`;
+
+    const throwingQueue = {
+      send: vi.fn(async () => {
+        throw new Error("simulated queue send failure");
+      }),
+    } as unknown as Env["VERIFY_JOBS"];
+
+    const response = await handlePostVerifyJob(verifyRequest("G1 X1\n"), { ...env, VERIFY_JOBS: throwingQueue }, accountId);
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "job could not be enqueued" });
+    expect(throwingQueue.send).toHaveBeenCalledTimes(1);
+
+    // The D1 row DOES exist (the insert, before the queue send, succeeded) --
+    // but it's marked terminal, not left sitting `queued` forever with no
+    // consumer ever able to reach it.
+    const row = await env.DB.prepare("SELECT * FROM jobs WHERE account_id = ?")
+      .bind(accountId)
+      .first<JobRow>();
+    expect(row?.status).toBe("error");
+    expect(row?.stage).toBe("queue-send-failed");
+    expect(row?.error).toBe("job could not be enqueued");
   });
 });

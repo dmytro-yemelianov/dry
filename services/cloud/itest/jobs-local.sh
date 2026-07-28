@@ -39,10 +39,13 @@
 # intact through the direct Worker->container stream for all three sizes --
 # a truncated/hung/oversized transfer would surface as a different failure
 # mode (a body-read error, a timeout, or no response at all), not a clean,
-# equally-fast failure at the *subsequent* step regardless of size. This
-# script recognizes exactly that signature and reports it as TRANSFER PATH
-# CONFIRMED (direct-stream), while still surfacing that the full round trip
-# (and therefore the report byte-identity diff) could not complete locally.
+# equally-fast failure at the *subsequent* step regardless of size. This is
+# still indirect evidence, not a direct measurement of the transfer itself --
+# so (R3 review Fix 5c) this script reports it as "TRANSFER PATH: no
+# truncation/hang observed (circumstantial)" rather than the earlier, more
+# confident-sounding "TRANSFER PATH CONFIRMED", while still surfacing that the
+# full round trip (and therefore the report byte-identity diff) could not
+# complete locally.
 #
 # If containers-in-wrangler-dev genuinely cannot run at all here (no Docker,
 # or a container-specific startup failure unrelated to the above), this
@@ -63,10 +66,46 @@ echo "work dir:   $WORK_DIR"
 
 WRANGLER_PID=""
 REGISTRY_PID=""
+
+# Baseline of already-running container IDs, captured BEFORE `wrangler dev`
+# (below) can spawn anything -- cleanup() diffs against this so it stops ONLY
+# containers THIS run spawned. WHY this is needed at all: `wrangler dev`'s
+# local Containers runtime spawns the VerifyContainer instance PLUS a
+# `cloudflare/proxy-everything` sidecar per instance (see the KNOWN LOCAL-DEV
+# LIMITATION note above) -- neither is a child process of $WRANGLER_PID, so
+# `kill "$WRANGLER_PID"` alone (this script's only cleanup before this fix)
+# never stops them; they were found still running, un-managed, well after a
+# prior run of this exact script had already exited.
+BASELINE_CONTAINERS="$(docker ps -q 2>/dev/null || true)"
+
 cleanup() {
   [[ -n "$WRANGLER_PID" ]] && kill "$WRANGLER_PID" >/dev/null 2>&1
   [[ -n "$REGISTRY_PID" ]] && kill "$REGISTRY_PID" >/dev/null 2>&1
   wait >/dev/null 2>&1
+
+  # Stop every container running now that WASN'T in the baseline above --
+  # i.e. everything this run's `wrangler dev` spawned (the VerifyContainer
+  # instance and its proxy-everything sidecar), regardless of whether either
+  # is still tracked by a live parent process.
+  local spawned
+  spawned="$(docker ps -q 2>/dev/null | grep -vxF -f <(echo "$BASELINE_CONTAINERS") 2>/dev/null || true)"
+  if [[ -n "$spawned" ]]; then
+    echo "-- cleanup: stopping containers spawned during this run --"
+    echo "$spawned" | xargs docker stop >/dev/null 2>&1 || true
+  fi
+
+  # Belt-and-suspenders: a `wrangler dev`/workerd process (and whatever it was
+  # still in the middle of orchestrating) can be left running if the `kill`
+  # above raced wrangler's own startup/shutdown handling -- this isn't a
+  # container, so the Docker-baseline diff above can't catch it. Prefer
+  # scoping the kill to THIS script's cloud dir (so an unrelated `wrangler
+  # dev` a developer has running elsewhere is left alone); only fall back to
+  # an unscoped (but still literal-string-specific) `pkill -f "wrangler dev"`
+  # if a scoped match finds nothing and one is still alive.
+  pkill -f "wrangler dev.*${CLOUD_DIR}" >/dev/null 2>&1 || true
+  if pgrep -f "wrangler dev" >/dev/null 2>&1; then
+    pkill -f "wrangler dev" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
@@ -295,7 +334,7 @@ sys.exit(0 if a == b else 1)
   # call afterwards can't reach the host from inside the container's network
   # namespace here.
   if [[ "$job_status" == "error" ]] && echo "$job_body" | grep -q '"stage":"profile-unavailable"' && echo "$job_body" | grep -qi "127.0.0.1"; then
-    RESULTS+=("${mb}MB: TRANSFER PATH CONFIRMED (direct-stream) in ${elapsed}s -- body transferred intact (runner reached its post-body-write registry-fetch step and failed only there); full round trip blocked by the KNOWN LOCAL-DEV LIMITATION documented at the top of this script, not by the transfer itself")
+    RESULTS+=("${mb}MB: TRANSFER PATH: no truncation/hang observed (circumstantial) -- direct-stream, in ${elapsed}s -- body transferred intact (runner reached its post-body-write registry-fetch step and failed only there); full round trip blocked by the KNOWN LOCAL-DEV LIMITATION documented at the top of this script, not by the transfer itself")
     return
   fi
 
@@ -318,7 +357,7 @@ echo ""
 echo "logs kept at: $WORK_DIR"
 
 if [[ "$overall_ok" -eq 1 ]]; then
-  echo "ALL SIZES: transfer path confirmed (see above for which reached a full round trip vs the known local-dev SSRF/network limitation)"
+  echo "ALL SIZES: TRANSFER PATH: no truncation/hang observed (circumstantial) (see above for which reached a full round trip vs the known local-dev SSRF/network limitation)"
   exit 0
 else
   exit 1
