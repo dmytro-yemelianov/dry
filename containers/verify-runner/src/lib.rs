@@ -4,15 +4,22 @@
 //!
 //! # Byte-identity invariant
 //!
-//! A cloud verify report must be byte-identical to local `dry verify --json` for the same
-//! profile+input. This crate does not implement its own verification logic — it mirrors the
-//! *exact* `dry-core` call sequence the CLI's `review-gcode` path uses (see
-//! `crates/cli/src/main.rs`'s `Cmd::ReviewGcode` arm and `crates/cloud/src/lib.rs`'s spike, which
-//! documents the same sequence): `import_gcode_reader_with_map` with review-mode import defaults,
-//! then the raw `verify()` call, then `serde_json::to_string_pretty(&report) + "\n"` — the same
-//! bytes `Cmd::Verify` in `crates/cli/src/main.rs` prints for `--json`. No logic is duplicated from
-//! `crates/cli` or `crates/core`; both are used as published dependencies (`dry-core` is a path
-//! dependency; nothing in `crates/cli` or `crates/core` was modified for this task).
+//! A cloud verify report must be byte-identical to local `dry import-gcode <file> --profile <p> -o
+//! <ir>` followed by `dry verify <ir> --profile <p> --json` for the same profile+input — i.e. the
+//! **plain** import path (`gcode_import_params` in `crates/cli/src/main.rs:1779-1798`), NOT the
+//! `review-gcode` path (`gcode_review_params`, `crates/cli/src/main.rs:1800-1810`), which forces
+//! `line_width`/`layer_height` to `0.45`/`0.2` when the profile omits them. This crate does not
+//! implement its own verification logic — it mirrors the *exact* `dry-core` call sequence
+//! `Cmd::ImportGcode` + `Cmd::Verify` use in composition: `import_gcode_reader_with_map` with
+//! plain, unforced import defaults, then the raw `verify()` call, then
+//! `serde_json::to_string_pretty(&report) + "\n"` — the same bytes `Cmd::Verify` in
+//! `crates/cli/src/main.rs` prints for `--json`. No logic is duplicated from `crates/cli` or
+//! `crates/core`; both are used as published dependencies (`dry-core` is a path dependency;
+//! nothing in `crates/cli` or `crates/core` was modified for this task). `tests/handler.rs`
+//! enforces this by shelling out to the real, compiled `dry` binary and byte-comparing its stdout
+//! against this crate's HTTP response for the same profile+gcode — see
+//! `verify_report_is_byte_identical_to_the_real_cli` and its "profile omits process defaults"
+//! sibling test, which pins exactly the divergence point the old forced-defaults code masked.
 //!
 //! # Profile-selection decision
 //!
@@ -29,7 +36,7 @@
 //! unchanged.
 
 use axum::{
-    extract::{DefaultBodyLimit, Query, Request, State},
+    extract::{Query, Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -44,13 +51,30 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_util::io::StreamReader;
+use tower_http::limit::RequestBodyLimitLayer;
 
 /// Worker enforces a 100MB `Content-Length` cap upstream; this is deliberate headroom, not the
 /// product limit (see the task's Global Constraints).
 pub const MAX_BODY_BYTES: usize = 200 * 1024 * 1024;
 
+/// The env var that overrides [`MAX_BODY_BYTES`], read once at router-build time (see [`app`]).
+/// Lets a test install a tiny cap and assert the over-limit behaviour without recompiling.
+const MAX_BODY_BYTES_ENV: &str = "MAX_BODY_BYTES";
+
+/// Effective body-size cap: [`MAX_BODY_BYTES_ENV`] if set and parseable, else [`MAX_BODY_BYTES`].
+fn effective_max_body_bytes() -> usize {
+    std::env::var(MAX_BODY_BYTES_ENV)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(MAX_BODY_BYTES)
+}
+
 /// Timeout for the profile fetch against the registry.
 const PROFILE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The only registry host the runner will fetch a profile from — fail closed when unset (see
+/// [`fetch_profile`]).
+const ALLOWED_REGISTRY_HOST_ENV: &str = "ALLOWED_REGISTRY_HOST";
 
 /// Shared server state: just the reqwest client (connection-pooled, reused across requests).
 #[derive(Clone)]
@@ -80,7 +104,10 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/verify", post(verify_handler))
-        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
+        // NOT `axum::extract::DefaultBodyLimit`: that only caps `Bytes`-based extractors, and
+        // `verify_handler` reads the raw body itself (see step 1 below). `RequestBodyLimitLayer`
+        // wraps the body unconditionally, so the cap applies no matter how it's consumed.
+        .layer(RequestBodyLimitLayer::new(effective_max_body_bytes()))
         .with_state(Arc::new(state))
 }
 
@@ -165,8 +192,12 @@ async fn verify_handler(
         .map_err(io::Error::other);
     let mut reader = StreamReader::new(data_stream);
     if let Err(e) = tokio::io::copy(&mut reader, &mut sink).await {
+        // Covers both a genuinely malformed/truncated stream AND `RequestBodyLimitLayer` rejecting
+        // an over-cap body (surfaced here as a stream read error, not a separate rejection type) —
+        // both are `input-invalid`, so both get the same 422 every other `Stage::InputInvalid`
+        // response uses (see the status-code match in `verify_handler`'s outcome handling below).
         return error_response(
-            StatusCode::BAD_REQUEST,
+            StatusCode::UNPROCESSABLE_ENTITY,
             Stage::InputInvalid,
             format!("failed reading request body: {e}"),
         );
@@ -218,7 +249,44 @@ async fn verify_handler(
     }
 }
 
+/// SSRF guard: the runner will only ever fetch a profile from a single operator-configured
+/// registry host. `ALLOWED_REGISTRY_HOST` is required — unset means refuse every fetch (fail
+/// closed), not "allow anything". The registry base URL must be `https://` and its host must equal
+/// `ALLOWED_REGISTRY_HOST` exactly, EXCEPT `http://` is additionally allowed when the host is
+/// `127.0.0.1` or `localhost` — a deliberate dev/test escape hatch so a local stub registry (which
+/// doesn't terminate TLS) can still be exercised without weakening the production rule (any other
+/// host must be `https`).
+fn validate_registry_url(url: &str) -> Result<(), String> {
+    let allowed_host = std::env::var(ALLOWED_REGISTRY_HOST_ENV).map_err(|_| {
+        format!(
+            "{ALLOWED_REGISTRY_HOST_ENV} is not configured; refusing all registry fetches \
+             (fail closed)"
+        )
+    })?;
+
+    let parsed =
+        reqwest::Url::parse(url).map_err(|e| format!("invalid registry URL {url}: {e}"))?;
+    let host = parsed.host_str().unwrap_or("");
+    if host != allowed_host {
+        return Err(format!(
+            "registry host {host:?} is not the allowed registry host {allowed_host:?}"
+        ));
+    }
+
+    let is_loopback_host = host == "127.0.0.1" || host == "localhost";
+    match parsed.scheme() {
+        "https" => Ok(()),
+        "http" if is_loopback_host => Ok(()),
+        scheme => Err(format!(
+            "registry URL scheme {scheme:?} is not allowed for host {host:?} (https is required; \
+             http is only permitted for 127.0.0.1/localhost)"
+        )),
+    }
+}
+
 async fn fetch_profile(client: &reqwest::Client, url: &str) -> Result<Profile, String> {
+    validate_registry_url(url)?;
+
     let response = client
         .get(url)
         .send()
@@ -231,6 +299,9 @@ async fn fetch_profile(client: &reqwest::Client, url: &str) -> Result<Profile, S
         .text()
         .await
         .map_err(|e| format!("reading profile response body: {e}"))?;
+    // TODO(deferred): sha256 verification per docs/19 — the registry's artifact route documents a
+    // sha256 alongside each resolved profile; this runner does not yet fetch or check it (see
+    // `.superpowers/sdd/task-R2-report.md`'s "Concerns" section).
     Profile::from_json(&text).map_err(|e| format!("invalid profile from {url}: {e}"))
 }
 
@@ -238,10 +309,14 @@ async fn fetch_profile(client: &reqwest::Client, url: &str) -> Result<Profile, S
 /// bytes `dry verify --json` would print for the resulting report:
 /// `serde_json::to_string_pretty(&report) + "\n"`.
 ///
-/// Mirrors `crates/cli/src/main.rs`'s `gcode_review_params` + `Cmd::ReviewGcode`'s
-/// `import_gcode_reader_with_map` + `verify()` call sequence exactly (also documented and exercised
-/// identically by the `crates/cloud` spike's `review_import_params`), except the profile is always
-/// present here (the registry resolves it), so there are no CLI-flag overrides to apply.
+/// Mirrors the **plain** `dry import-gcode --profile <p> -o <ir>` then `dry verify <ir> --profile
+/// <p> --json` composition exactly: `gcode_import_params` in `crates/cli/src/main.rs:1779-1798`
+/// (== `profile.gcode_import_params()` with no CLI-flag overrides — there are none to apply here,
+/// since the registry always resolves a profile), NOT `gcode_review_params`
+/// (`crates/cli/src/main.rs:1800-1810`), which forces `line_width`/`layer_height` to `0.45`/`0.2`
+/// when the profile omits them. Absent profile process fields (`process.line_width`,
+/// `process.layer_height`) are left `None` here exactly as they are in that CLI composition — no
+/// forced defaults.
 fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)> {
     let file = std::fs::File::open(path).map_err(|e| {
         (
@@ -250,12 +325,7 @@ fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)
         )
     })?;
 
-    let mut params = profile.gcode_import_params();
-    // `gcode_review_params` in crates/cli/src/main.rs: the review path forces these defaults when
-    // the profile doesn't already specify them (raw g-code has no way to carry line width/layer
-    // height itself).
-    params.line_width = params.line_width.or(Some(0.45));
-    params.layer_height = params.layer_height.or(Some(0.2));
+    let params = profile.gcode_import_params();
 
     let imported = import_gcode_reader_with_map(file, &params)
         .map_err(|e| (Stage::InputInvalid, e.to_string()))?;
@@ -267,12 +337,4 @@ fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)
     let json = serde_json::to_string_pretty(&report)
         .map_err(|e| (Stage::EngineError, format!("cannot serialize report: {e}")))?;
     Ok(format!("{json}\n").into_bytes())
-}
-
-/// Exposed for the byte-identity test: runs the same import+verify sequence `verify_handler` runs,
-/// directly against a file path (no HTTP, no tempfile relay) — "the same verify via dry-core
-/// directly the way the CLI does."
-#[doc(hidden)]
-pub fn run_verify_for_test(path: &Path, profile: &Profile) -> Result<Vec<u8>, String> {
-    run_verify(path, profile).map_err(|(stage, message)| format!("{}: {message}", stage.as_str()))
 }

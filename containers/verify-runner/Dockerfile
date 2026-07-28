@@ -24,9 +24,16 @@ RUN cargo build --release --locked
 FROM debian:bookworm-slim AS runtime
 
 # reqwest is built with rustls-tls (no openssl), so no ca-certificates/libssl runtime package is
-# required for the registry HTTPS fetch. `/tmp` ships writable in the base image; the runner streams
-# request bodies there.
+# required for the registry HTTPS fetch. `/tmp` ships writable (world-writable + sticky bit) in the
+# base image for ALL users, not just root, so the non-root user below can still stream request
+# bodies there — no extra chmod needed.
+#
+# Run as a fixed-uid, non-root, non-login system user (defense in depth: a dry-core panic or an
+# engine bug in the request path shouldn't hand an attacker root inside the container).
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin runner
+
 COPY --from=build /src/containers/verify-runner/target/release/dry-verify-runner /usr/local/bin/dry-verify-runner
 
+USER runner
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/dry-verify-runner"]
