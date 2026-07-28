@@ -132,6 +132,35 @@ reference machines; emitted programs lift back to their declared semantic bounda
 losses; controlled hardware runs pass a versioned protocol with archived evidence; and an independent
 implementation round-trips the public contracts.
 
+## Mathematical assurance workstream
+
+**Status:** planned as FM1 in
+[`21-mathematical-assurance-plan.md`](21-mathematical-assurance-plan.md). The v0 quantities, L2 logical
+model, planar feature expansion and codec semantics can start before D1. Proofs for full frames,
+capabilities and targets follow the corresponding D1 contract freezes.
+
+**Goal:** give the language a machine-checked semantic foundation and connect it to the Rust compiler
+without confusing exact real-number theorems, bounded floating-point behavior, conformance tests or
+hardware evidence.
+
+**Scope:** typed quantity algebra; transforms and frames; L0/L1/L2 lowering; trace and observation
+relations; simulation/verifier predicates; per-pass optimization contracts; codec/version round trips;
+capability matching; target lowering and semantic lift; floating-point error budgets; and an executable
+Rust refinement bridge.
+
+**Non-goals:** proving firmware or hardware correct, treating sampled curves as analytically exact,
+claiming static verification certifies a process, or labeling the whole compiler “formally verified”
+when only a subset has met the published proof/refinement gates.
+
+**Entry gate:** the published L2 v0 specification is sufficient for the FM1.1 tooling/claim constitution
+and the v0 portion of FM1.2/FM1.7. Each later proof packet additionally requires its public language
+contract to be frozen. D1-dependent proof work does not set D1 semantics.
+
+**Exit gate:** every supported assurance claim maps to a checked theorem, explicit assumptions and
+numeric domain; floating-point claims include checked bounds or remain marked empirical; Rust passes
+independent refinement checks; FFF and the selected non-FFF workflow satisfy the bounded conditional
+compiler theorem; and an independent reviewer reproduces the proof build and claim registry.
+
 ## Risk register
 
 | Risk | Likelihood | Impact | Mitigation |

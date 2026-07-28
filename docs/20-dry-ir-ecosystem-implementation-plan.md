@@ -85,6 +85,15 @@ These constraints apply to every D1 work packet.
 - Hardware qualification proves only the pinned workflow and configuration. It is not product
   certification and does not generalize to an untested machine.
 
+### 3.4 Proof-aware semantics
+
+The FM1 workstream in
+[`21-mathematical-assurance-plan.md`](21-mathematical-assurance-plan.md) formalizes stable language
+contracts. Every D1 work packet that adds or changes public semantics must classify its proof impact and
+state whether its contract expects exact equality, trace equivalence, tolerance-bounded approximation,
+capability refinement or deliberate loss. D1 does not wait for all FM1 proofs to land, but it must not
+publish stronger assurance wording than the current proof/numeric/refinement status supports.
+
 ## 4. Current seams and planned evolution
 
 The implementation should use the codebase's existing seams:
@@ -629,7 +638,8 @@ A work packet is done only when:
 5. Rust, Python, TypeScript and wasm impact is either implemented or explicitly marked inapplicable;
 6. compatibility with supported old artifacts is demonstrated;
 7. provenance, tolerance and loss behavior are explicit;
-8. the support/limitations pages are updated if the user-visible boundary changed.
+8. proof impact and intended semantic relation are recorded for FM1;
+9. the support/limitations pages are updated if the user-visible boundary changed.
 
 Code completion alone is not acceptance.
 

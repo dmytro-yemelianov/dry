@@ -96,6 +96,25 @@ quantity/frame foundations; D1.4–D1.6 build the public language and capability
 close verification, emission and lift as one target-aware loop; D1.10 makes that loop independently
 implementable; D1.11 is the final controlled-hardware qualification gate.
 
+## Mathematical assurance workstream FM1
+
+FM1 is specified in
+[`21-mathematical-assurance-plan.md`](21-mathematical-assurance-plan.md). It has an independently useful
+v0 lane and a D1-dependent future-language lane. A checked abstract theorem is not enough for a claim
+about Rust `f64` behavior: the relevant task must also land its numeric bound and implementation
+refinement evidence.
+
+- `[ ]` **FM1.1** Assurance constitution and Lean tooling spike: claim registry, exact relation vocabulary, representative proofs, pinned reproducible toolchain and independent clean-checkout build. *Dep: P4.3 (met). Accept:* planar transform composition and deterministic fold proofs build in CI; every registered claim names assumptions, relation, semantic version and implementation link.
+- `[ ]` **FM1.2** Quantity, syntax and well-formedness kernel: dimension algebra, canonical normalization, logical L1/L2 syntax, structured failures and decidable validity. *Dep: FM1.1; future quantities also depend on D1.2. Accept:* normalization/coherence/dimension theorems and validity decision equivalence are checked.
+- `[ ]` **FM1.3** Transform, feature and frame proofs: current planar feature expansion first, then `SE(3)` poses and named frame graphs after D1.3. *Dep: FM1.2, P2.3; full scope D1.3. Accept:* transform action, repeat, ordering, budget, determinism and frame-resolution/rejection theorems pass with Rust refinement fixtures.
+- `[ ]` **FM1.4** Floating-point and curve error budgets: classify every semantic `f64` boundary; establish checked or imported bounds for transforms, arcs, orientation and sampled splines; keep unresolved claims empirical. *Dep: FM1.2–FM1.3. Accept:* no Rust geometry claim inherits an exact-real theorem without a checked bound.
+- `[ ]` **FM1.5** Resolve, simulate and verifier proofs: fold/state semantics, continuity, deposition equations, metric reductions, per-rule soundness/coverage and streaming equivalence. *Dep: FM1.2–FM1.4. Accept:* the supported resolver subset produces well-formed L2; every claimed verifier predicate is coverage-aware and refinement-tested.
+- `[ ]` **FM1.6** Optimization contracts: prove each pass against its actual observation relation—exact, tolerance-bounded or intentionally changing—and prove legal pipeline composition/gating. *Dep: FM1.3–FM1.5. Accept:* no pass uses an unqualified “semantics-preserving” claim.
+- `[ ]` **FM1.7** Codec and compatibility proofs: logical JSON/`DRY0`/`DRY1` inverse, row/column equivalence, chunk independence, legacy mapping, malformed-input rejection and modeled resource bounds. *Dep: FM1.2. Accept:* checked logical theorems plus Rust and independent-reader refinement over frozen/generated vectors.
+- `[ ]` **FM1.8** Capability, backend and lift refinement: fail-closed matching, L2→L3 trace refinement, source-map coverage, recoverable observations and opaque/loss barriers for FFF plus the selected non-FFF workflow. *Dep: FM1.2–FM1.5, D1.6, D1.8, D1.9. Accept:* both bounded target subsets satisfy the conditional compiler theorem.
+- `[ ]` **FM1.9** Publication and maintenance: public proof sources, assumption/coverage reports, spec-to-theorem links, semantic-change proof-impact gate, reproducible release build and external review. *Dep: incremental FM1.1–FM1.8. Accept:* an independent reviewer can trace and reproduce every supported assurance claim.
+- **FM1 exit gate:** the exit gate in `02-roadmap.md` is met; public wording states the proved subset and does not generalize beyond the formal model, numeric bounds, refinement evidence or pinned target assumptions.
+
 ## Immediate next 5 (if starting today)
 
 1. **P3.3** — Reversing pass (`reverse(toolpath) -> design`).

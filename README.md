@@ -66,6 +66,7 @@ Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
 | [`docs/18-cloudflare-publishing.md`](docs/18-cloudflare-publishing.md) | public Cloudflare Pages product deployment and its static artifact boundary |
 | [`docs/19-printer-registry-api.md`](docs/19-printer-registry-api.md) | Cloudflare Worker GraphQL API for printer, firmware, hardware, filament, macro, process, calibration, proof and provenance data |
 | [`docs/20-dry-ir-ecosystem-implementation-plan.md`](docs/20-dry-ir-ecosystem-implementation-plan.md) | deferred Dry IR language/ecosystem implementation plan: compatibility, work packets, dependencies, conformance and qualification |
+| [`docs/21-mathematical-assurance-plan.md`](docs/21-mathematical-assurance-plan.md) | formal-methods roadmap for language semantics, numeric error bounds, compiler-pass proofs and Rust refinement |
 | [`docs/site/reference/fullcontrol-sources.md`](docs/site/reference/fullcontrol-sources.md) | audited mapping from the live FullControl catalogue, upstream notebooks and gists to Dry fixtures |
 
 Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
