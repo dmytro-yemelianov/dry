@@ -39,7 +39,7 @@ function jsonResponse(value: unknown, status = 200, extraHeaders?: HeadersInit):
  * (a network/parse/GraphQL-level failure, or a matching version with no
  * profiles at all — the registry itself is the problem, `502`). */
 export type ResolveProfileOutcome =
-  | { ok: true; profileId: string }
+  | { ok: true; profileId: string; version: string }
   | { ok: false; reason: "version_not_found" }
   | { ok: false; reason: "unavailable" };
 
@@ -54,15 +54,21 @@ export type ResolveProfileOutcome =
  * needs a specific profile for correct results should pass `profile=`
  * explicitly rather than rely on this default.
  *
- * **R3 review Fix 3: exact `version` match ONLY.** An earlier revision fell
+ * **R3 review Fix 3: explicit `version` match ONLY.** An earlier revision fell
  * back to the registry's first-listed version entry when the requested
  * `version` had no exact match — silently resolving a profile for a DIFFERENT
  * pack version than the caller asked for. That fallback is removed: no exact
  * match now fails fast (`{ ok: false, reason: "version_not_found" }`), which
  * `handlePostVerifyJob` turns into a `404 "pack version not found"` BEFORE any
- * R2 write or D1 row — see that function's ordering comment.
+ * R2 write or D1 row — see that function's ordering comment. R5 makes the
+ * CLI's `--pack-version` optional; when no version is requested, the
+ * registry's first/default version is selected and persisted on the job.
  */
-export async function resolveDefaultProfileId(env: Env, pack: string, version: string): Promise<ResolveProfileOutcome> {
+export async function resolveDefaultProfileId(
+  env: Env,
+  pack: string,
+  version: string | null,
+): Promise<ResolveProfileOutcome> {
   const query = `
     query ResolveDefaultProfile($id: ID!, $version: String) {
       printer(id: $id, version: $version) {
@@ -101,22 +107,26 @@ export async function resolveDefaultProfileId(env: Env, pack: string, version: s
   const versions = data.data?.printer?.versions;
   if (!Array.isArray(versions) || versions.length === 0) return { ok: false, reason: "version_not_found" };
 
-  // Exact match ONLY -- no `?? versions[0]` fallback (see the Fix 3 doc above).
-  const versionEntry = (versions as Array<{ version?: unknown; profiles?: unknown }>).find(
-    (entry) => entry?.version === version,
-  );
+  const entries = versions as Array<{ version?: unknown; profiles?: unknown }>;
+  // Explicit versions never fall back. Only an omitted version selects the
+  // registry's first/default version for the interactive R5 CLI flow.
+  const versionEntry = version === null ? entries[0] : entries.find((entry) => entry?.version === version);
   if (!versionEntry) return { ok: false, reason: "version_not_found" };
 
+  const resolvedVersion = versionEntry.version;
+  if (typeof resolvedVersion !== "string" || resolvedVersion.length === 0) {
+    return { ok: false, reason: "unavailable" };
+  }
   const profiles = versionEntry.profiles;
   if (!Array.isArray(profiles) || profiles.length === 0) return { ok: false, reason: "unavailable" };
 
   const id = (profiles[0] as { id?: unknown } | undefined)?.id;
   if (typeof id !== "string" || id.length === 0) return { ok: false, reason: "unavailable" };
 
-  return { ok: true, profileId: id };
+  return { ok: true, profileId: id, version: resolvedVersion };
 }
 
-/** `POST /v1/jobs/verify?pack=<id>&version=<ver>[&profile=<profileId>]` (Bearer,
+/** `POST /v1/jobs/verify?pack=<id>[&version=<ver>][&profile=<profileId>]` (Bearer,
  * raw g-code body). `accountId` is already-authenticated (see index.ts's
  * `requireAuth` call before this is reached).
  *
@@ -124,17 +134,17 @@ export async function resolveDefaultProfileId(env: Env, pack: string, version: s
  * Content-Length cap -> quota check -> default-profile RESOLUTION -> R2 write
  * -> D1 insert -> queue send. Every check runs, in that order, before the
  * first state-changing operation (the R2 write) — a rejection at any earlier
- * stage (400/411/413/403/404/502) therefore NEVER leaves behind an orphaned R2
+ * stage (400/411/413/429/404/502) therefore NEVER leaves behind an orphaned R2
  * object or D1 row. Keep new checks above the R2 write unless a check
  * genuinely needs the uploaded bytes to decide (none currently do). */
 export async function handlePostVerifyJob(request: Request, env: Env, accountId: string): Promise<Response> {
   const url = new URL(request.url);
   const pack = url.searchParams.get("pack");
-  const version = url.searchParams.get("version");
-  let profileId = url.searchParams.get("profile");
+  let version = url.searchParams.get("version") || null;
+  let profileId = url.searchParams.get("profile") || null;
 
-  if (!pack || !version) {
-    return jsonResponse({ error: "invalid_request", detail: "pack and version query params are required" }, 400);
+  if (!pack) {
+    return jsonResponse({ error: "invalid_request", detail: "pack query param is required" }, 400);
   }
 
   // Content-Length cap, enforced BEFORE any R2 write or D1 row — per the Global
@@ -160,7 +170,7 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
     return quotaExceededResponse();
   }
 
-  if (!profileId) {
+  if (!profileId || !version) {
     const resolved = await resolveDefaultProfileId(env, pack, version);
     if (!resolved.ok) {
       // Fix 3: a `version_not_found` outcome means the registry itself
@@ -173,7 +183,8 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
       }
       return jsonResponse({ error: "profile_unavailable", stage: "profile-unavailable" }, 502);
     }
-    profileId = resolved.profileId;
+    profileId ??= resolved.profileId;
+    version ??= resolved.version;
   }
 
   if (!request.body) {

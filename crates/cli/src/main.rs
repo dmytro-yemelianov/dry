@@ -1,6 +1,7 @@
 //! `dry` — the toolpath compiler CLI. Operates on a Dry IR file (`{version, segments}`, or a fixture
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
+mod cloud;
 mod printer_registry;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -129,7 +130,51 @@ enum PrinterCmd {
 }
 
 #[derive(Subcommand)]
+enum AuthCmd {
+    /// Sign in with Dry Cloud's device authorization flow.
+    Login,
+    /// Show the current account and monthly usage.
+    Status,
+    /// Remove the locally stored Dry Cloud token.
+    Logout,
+}
+
+#[derive(Subcommand)]
+enum CloudCmd {
+    /// Submit G-code for verification by Dry Cloud and wait for the report.
+    Verify {
+        /// G-code file to upload.
+        file: String,
+        /// Printer pack id in the public Dry printer registry.
+        #[arg(long)]
+        printer: String,
+        /// Immutable printer-pack version. When omitted, the cloud resolves the registry default.
+        #[arg(long)]
+        pack_version: Option<String>,
+        /// Print the complete verification report as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
+    /// Authenticate with Dry Cloud.
+    Auth {
+        #[command(subcommand)]
+        command: AuthCmd,
+        /// Dry Cloud origin. `DRY_CLOUD_URL` takes precedence over the hosted default.
+        #[arg(long, global = true)]
+        cloud_url: Option<String>,
+    },
+    /// Run opt-in Dry Cloud operations.
+    Cloud {
+        #[command(subcommand)]
+        command: CloudCmd,
+        /// Dry Cloud origin. `DRY_CLOUD_URL` takes precedence over the hosted default.
+        #[arg(long, global = true)]
+        cloud_url: Option<String>,
+    },
     /// Query Dry's hosted printer capability graph.
     Printer {
         #[command(subcommand)]
@@ -642,6 +687,31 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.cmd {
+        Cmd::Auth { command, cloud_url } => {
+            let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
+            match command {
+                AuthCmd::Login => {
+                    cloud::login(&cloud_url).unwrap_or_else(|error| die(error.to_string()))
+                }
+                AuthCmd::Status => {
+                    cloud::status(&cloud_url).unwrap_or_else(|error| die(error.to_string()))
+                }
+                AuthCmd::Logout => cloud::logout().unwrap_or_else(|error| die(error.to_string())),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Cloud { command, cloud_url } => {
+            let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
+            match command {
+                CloudCmd::Verify {
+                    file,
+                    printer,
+                    pack_version,
+                    json,
+                } => cloud::verify(&cloud_url, &file, &printer, pack_version.as_deref(), json)
+                    .unwrap_or_else(|error| die(error.to_string())),
+            }
+        }
         Cmd::Printer { command, source } => run_printer(command, &source),
         Cmd::Inspect { file } => {
             let tp = load(&file);

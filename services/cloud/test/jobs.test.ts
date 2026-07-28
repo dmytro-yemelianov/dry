@@ -216,6 +216,39 @@ describe("POST /v1/jobs/verify", () => {
     }
   });
 
+  it("resolves and stores the registry's default version when `version` is omitted", async () => {
+    const token = await grantAccessToken();
+    const sendSpy = vi.spyOn(env.VERIFY_JOBS, "send").mockResolvedValue({} as QueueSendResponse);
+    const graphqlSpy = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body)) as { variables: { id: string; version: string | null } };
+      expect(request.variables).toEqual({ id: "demo-printer", version: null });
+      return Response.json({
+        data: {
+          printer: {
+            versions: [
+              { version: "2.1.0", profiles: [{ id: "default-profile" }] },
+              { version: "2.0.0", profiles: [{ id: "older-profile" }] },
+            ],
+          },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", graphqlSpy);
+
+    try {
+      const response = await submitJob(token, "G1 X1\n", "pack=demo-printer");
+      expect(response.status).toBe(202);
+      const body = (await response.json()) as { id: string };
+      const row = await loadJobRow(body.id);
+      expect(row?.pack_version).toBe("2.1.0");
+      expect(row?.profile_id).toBe("default-profile");
+      expect(graphqlSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      sendSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("502s profile_unavailable (and writes nothing) when default-profile resolution fails", async () => {
     const token = await grantAccessToken();
     vi.stubGlobal(
