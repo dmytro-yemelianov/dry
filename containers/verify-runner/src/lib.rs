@@ -108,7 +108,32 @@ pub fn app(state: AppState) -> Router {
         // `verify_handler` reads the raw body itself (see step 1 below). `RequestBodyLimitLayer`
         // wraps the body unconditionally, so the cap applies no matter how it's consumed.
         .layer(RequestBodyLimitLayer::new(effective_max_body_bytes()))
+        // Fix round 2: `RequestBodyLimitLayer` itself short-circuits BEFORE `verify_handler` ever
+        // runs whenever the request already carries a `Content-Length` header over the cap (it
+        // reads that header directly — see `RequestBodyLimit::call` in tower-http's
+        // `limit/service.rs`) and returns a bare `413 Payload Too Large` / plain-text "length limit
+        // exceeded" body, bypassing our `{error, stage}` envelope entirely. This layer is added
+        // AFTER (so it wraps, i.e. sits OUTSIDE) `RequestBodyLimitLayer` — it observes that 413 on
+        // the way back out and rewrites it into the same 422 `input-invalid` envelope the
+        // streaming-overrun path already uses (the `tokio::io::copy` error arm in `verify_handler`).
+        // Any other status passes through unchanged.
+        .layer(axum::middleware::map_response(map_body_limit_response))
         .with_state(Arc::new(state))
+}
+
+/// Rewrites a bare `413 Payload Too Large` from `RequestBodyLimitLayer` (upstream in the layer
+/// stack — see [`app`]) into the contract's `422 {"error", "stage": "input-invalid"}` envelope.
+/// Every other status is returned unchanged: nothing else in this router's stack ever produces a
+/// 413 on its own, so this only ever fires for the body-limit layer's upfront rejection.
+async fn map_body_limit_response(response: Response) -> Response {
+    if response.status() != StatusCode::PAYLOAD_TOO_LARGE {
+        return response;
+    }
+    error_response(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Stage::InputInvalid,
+        "request body exceeds the configured limit",
+    )
 }
 
 async fn healthz() -> impl IntoResponse {

@@ -484,6 +484,40 @@ async fn verify_body_over_configured_limit_returns_422_input_invalid() {
     assert!(json["error"].is_string());
 }
 
+/// Fix round 2: `tower_http::limit::RequestBodyLimitLayer` short-circuits BEFORE `verify_handler`
+/// ever runs whenever the request already carries a `Content-Length` header exceeding the cap — it
+/// reads that header directly (`RequestBodyLimit::call` in tower-http's `limit/service.rs`) and
+/// returns a bare `413 Payload Too Large` with a plain-text `"length limit exceeded"` body,
+/// bypassing our `{error, stage}` envelope entirely. `verify_body_over_configured_limit_returns_422_input_invalid`
+/// above only covers the STREAMING path (no `Content-Length` header — the oversized body is instead
+/// caught incrementally by the `Limited<Body>` wrapper, surfacing to `verify_handler` as a read
+/// error on its own `tokio::io::copy`, which already maps to 422). This test sends an explicit
+/// `Content-Length` header over the tiny cap so the upfront, pre-handler 413 path is what actually
+/// fires; asserts it comes back as the same 422 `input-invalid` envelope.
+#[tokio::test]
+async fn verify_content_length_over_limit_returns_422_envelope() {
+    // Only `MAX_BODY_BYTES` needs setting — same reasoning as
+    // `verify_body_over_configured_limit_returns_422_input_invalid` above: the body-limit layer
+    // rejects before the profile fetch, so `ALLOWED_REGISTRY_HOST` is never consulted here.
+    let _cap = EnvVarGuard::set("MAX_BODY_BYTES", "8");
+
+    let body = vec![b'G'; 4096];
+    let request = Request::builder()
+        .method("POST")
+        .uri("/verify?pack=marlin-pla-i3&version=0.1.0&profile=marlin-pla-i3&registry=http://127.0.0.1:1")
+        .header("content-length", body.len().to_string())
+        .body(Body::from(body))
+        .unwrap();
+
+    let response = app(AppState::new()).oneshot(request).await.unwrap();
+    let status = response.status();
+    let json = response_json(response).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(json["stage"], "input-invalid");
+    assert_eq!(json["error"], "request body exceeds the configured limit");
+}
+
 /// Fix 3 (SSRF allowlist): a registry host that isn't `ALLOWED_REGISTRY_HOST` is refused before any
 /// network call is attempted. `example.invalid` is an RFC 2606 reserved, guaranteed-unresolvable
 /// hostname — if the runner ever tried to actually connect, this test would hang/timeout instead of
