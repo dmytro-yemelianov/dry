@@ -1,219 +1,173 @@
-# Dry Cloud MVP Implementation Plan
+# Dry Cloud MVP Implementation Plan — REVISION 2
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the Dry Cloud MVP per `docs/superpowers/specs/2026-07-28-dry-cloud-registry-design.md`: a workers-rs API (capability-pack registry + one async verify endpoint running dry-core as wasm), device-flow auth with API keys, usage metering with free quotas, signed packs verified offline by the CLI, seeded content, and API docs.
+**Revision note:** Revision 1's Tasks 0–11 were re-planned after (a) the Task 0 spike
+verdict (in-Worker verify memory-capped at ~1 MB → owner chose **Cloudflare Containers**
+for verify compute) and (b) discovery that the **printer registry already exists and is
+live** (`dmytro-yemelianov/dry-printer-registry` → `api.dry.yemelianov.dev`; CLI
+`dry printer search|inspect|resolve` landed in `c426149`). See the spec's **Revision 2**
+section — it is authoritative. Old Tasks 1–3/5 (signing, pack schema/types, seeds,
+registry APIs) are deferred/covered and removed from this plan.
 
-**Architecture:** New crates: `crates/pack` (Pack v1 types/validation/profile-resolution), `crates/signing` (renamed from `crates/license`, generalized to detached signatures), `crates/cloud` (the workers-rs API: fetch router + queue consumer, D1/R2/KV). CLI gains `auth`, `printer`, `cloud verify` commands behind a default-on `cloud` feature (ureq, mirroring `dry-llm`'s HTTP pattern). Seeds derive from the committed golden profiles.
+**Goal:** Ship the Dry Cloud authenticated compute layer: device-flow accounts + API
+keys, an async verify-job API running dry-core NATIVELY in a Cloudflare Container,
+usage metering with free quotas, `dry auth` + `dry cloud verify` CLI commands, and docs.
 
-**Tech Stack:** workers-rs (`worker` crate), D1, R2, Queues, KV, Turnstile; Rust end-to-end; wrangler for dev/deploy; JSON Schema + the existing Python validator for pack goldens.
+**Architecture:** `services/cloud/` — a TypeScript Worker (Hono-less plain router or
+itty; match the registry service's conventions where sane) with D1 (accounts, tokens,
+jobs, usage), KV (device codes), R2 (uploads + reports), a Queue, and a Durable-Object-
+backed Container (`@cloudflare/containers`) running `containers/verify-runner/` — a
+small Rust axum HTTP shim over the same dry-core import+verify path the CLI uses.
+Profiles resolve through the PUBLIC registry REST (no duplicated resolution logic).
 
-**Task 0 is a feasibility spike.** Its FINDINGS doc (`docs/superpowers/specs/2026-07-28-cloud-spike-findings.md`) is a binding interface for Tasks 5–7: worker crate version pin, measured verify throughput, the MVP upload cap, and any workers-rs API deviations from this plan's code sketches. Where a later task's code conflicts with FINDINGS, FINDINGS wins — note the adaptation in the task report.
+**Tech Stack:** TS Worker + `@cloudflare/vitest-pool-workers` (the `cloudflareTest()`
+plugin API — NOT `defineWorkersConfig`, removed in 0.18.x), `@cloudflare/containers`,
+D1/KV/R2/Queues/Turnstile, Rust (axum) container, wrangler 4.
 
 ## Global Constraints
 
-- The engine stays pure: `dry-core` gets NO new deps, NO network, NO cloud awareness. Packs resolve to `dry-profile-v1` and enter the engine through existing interfaces only.
-- The CLI without login keeps every existing offline capability; cloud commands fail with clear errors when unauthenticated (exit 2, `die()` convention at `crates/cli/src/main.rs:466-469`).
-- Auth: RFC 8628 device flow; access tokens are opaque `dry_at_<43 chars base64url>`, API keys `dry_key_<43 chars>`; ONLY SHA-256 hashes stored (D1), timing-safe comparison; device/user codes live in KV with 600s TTL; user_code format `XXXX-XXXX` from the unambiguous alphabet `BCDFGHJKLMNPQRSTVWXZ23456789`.
-- Every authenticated request writes a `usage_events` row; quota exhaustion = 429 + `Retry-After` + JSON pointing at `/v1/usage`. Free quotas (config vars, not code): 500 registry reads/day, 20 verify jobs/month, 1 API key.
-- Pack signing: registry Ed25519 key (`SIGNING_KEY_PKCS8_B64` secret, `KEY_ID` var — the Task-2-committed TEST keypair for dev/tests; production key via ceremony in Task 10). Signature is detached over the exact pack JSON bytes as served; CLI verifies BEFORE parsing.
-- No live network in automated tests. Worker integration tests run against `wrangler dev` spawned locally; CLI cloud tests point `DRY_CLOUD_URL` at it.
-- MVP upload cap: 50 MB unless Task 0's FINDINGS lowers it.
-- Versioning: this work targets **v0.5.0**; do not bump manifests until the release-prep task.
-- Branch: `feat/dry-cloud` (rename/continue from `feat/commercial-license` which already carries the crates/license commit). Commit after every task. gh pushes need the account dance (`gh auth switch -u dmytro-yemelianov` → push → `gh auth switch -u miwaniza`).
-- workers-rs conventions (verified against current docs): `#[event(fetch)]` + `Router`, `#[event(queue)]` + `MessageBatch<T>`, `ctx.env.d1("DB")`, `env.queue("...")`, `ctx.kv("...")`, `ctx.secret("...")`/`ctx.var("...")`; wrangler build via `worker-build --release`.
+- Everything from the spec's Revision 2 division of labor: registry concerns belong to
+  the public repo — this plan builds ONLY accounts/keys/jobs/metering/CLI-cloud/docs.
+- Registry consumption is via `https://api.dry.yemelianov.dev` REST/GraphQL; base URL
+  configurable everywhere (`REGISTRY_URL` var in the Worker; runner receives it).
+- Auth invariants (unchanged from Rev 1): RFC 8628 device flow; tokens
+  `dry_at_<43·b64url>`, keys `dry_key_<43·b64url>`; SHA-256 hashes only in D1;
+  timing-safe compare; KV codes TTL 600 s; user_code `XXXX-XXXX` from alphabet
+  `BCDFGHJKLMNPQRSTVWXZ23456789`; Turnstile on `/activate`
+  (`TURNSTILE_DEV_BYPASS=1` honored only in dev).
+- **Byte-identity invariant:** a cloud verify report must be byte-identical to local
+  `dry verify --json` with the same profile+input — asserted by an automated test.
+- Verify-runner contract: `POST /verify?pack=<id>&version=<ver>` with raw G-code body;
+  the runner fetches the resolved profile from the registry, runs dry-core, returns
+  `200 {report}` or `4xx/5xx {error, stage}` with stages
+  `profile-unavailable | input-invalid | engine-error`.
+- Upload cap: 100 MB (container has 6 GiB; the Worker enforces `Content-Length`).
+  Worker→container transfer for large bodies is a KNOWN RISK (open CF issue on
+  >10–15 MB transfers): Task R3 must test 1/10/50 MB locally and, if large bodies
+  fail, switch to the documented fallback (runner pulls the object via a short-lived
+  signed Worker URL) — record which path shipped.
+- Quotas (vars): `QUOTA_JOBS_PER_MONTH=20`, `QUOTA_KEYS=1`. Public registry reads are
+  NOT metered here (registry service owns reads).
+- No live network in automated tests EXCEPT localhost (wrangler dev, docker). Registry
+  calls in tests hit a stubbed local registry fixture server, never production.
+- CLI: cloud commands mirror `crates/cli/src/printer_registry.rs` idioms (ureq,
+  `--source`-style URL override → `DRY_CLOUD_URL`); `DRY_TOKEN` env precedence; config
+  dir `$XDG_CONFIG_HOME/dry/` XDG-first. `die()`/exit-code conventions
+  (`crates/cli/src/main.rs:466-469`). Offline commands must never touch the network.
+- Branch `feat/dry-cloud`; commit per task; **do not modify** registry-owned files
+  (`crates/cli/src/printer_registry.rs` may be EXTENDED only where a task says so);
+  gh account dance for pushes.
+- Versioning: v0.5.0 at the release task only.
 
 ---
 
-### Task 0: Feasibility spike — dry-core verify inside a Worker
+### Task R1: `services/cloud` scaffold + device-flow auth + API keys
 
 **Files:**
-- Create: `crates/cloud/Cargo.toml`, `crates/cloud/src/lib.rs` (minimal), `crates/cloud/wrangler.toml`, `docs/superpowers/specs/2026-07-28-cloud-spike-findings.md`
-- Modify: root `Cargo.toml` (`exclude` crates/cloud from the workspace, like `crates/wasm` — it targets wasm32 with its own lock profile; confirm the same exclusion pattern)
+- Create: `services/cloud/{package.json,wrangler.jsonc,tsconfig.json,schema.sql,vitest.config.ts}`, `services/cloud/src/{index.ts,auth.ts,tokens.ts,activate.ts}`, `services/cloud/test/auth.test.ts`
 
-**Interfaces:**
-- Produces: FINDINGS doc with (a) pinned `worker` crate version + worker-build version; (b) measured wall time of `dry-core` gcode import+verify at 1/10/50 MB inputs under `wrangler dev` (and whether the paid-plan CPU ceiling from current Cloudflare docs accommodates it in a queue consumer); (c) the confirmed MVP upload cap; (d) any deviations from this plan's workers-rs API sketches; (e) R2 multipart/body-size notes; (f) go/no-go on queue-consumer verify vs the Container fallback.
-
-- [ ] **Step 1:** Scaffold `crates/cloud` with `worker = "<current>"`, `dry-core = { path = "../core" }`, a fetch handler exposing `POST /spike/verify` that reads the body, runs the same import+verify path the CLI's `review-gcode` uses (find the exact `dry_core` entry points by reading how `crates/cli/src/main.rs` review path calls core), and returns timing JSON `{bytes, parse_ms, verify_ms}` via `Date::now()` deltas.
-- [ ] **Step 2:** `wrangler dev` it; POST the three sizes (generate synthetic gcode by repeating a golden fixture; exact commands in the findings doc); record timings. Also compile-check an `#[event(queue)]` consumer stub in the same crate.
-- [ ] **Step 3:** WebFetch the current Cloudflare limits page for Workers CPU time (fetch + queue consumers, paid plan) and R2/request body limits; reconcile with measurements.
-- [ ] **Step 4:** Write FINDINGS with the (a)–(f) verdicts. If no-go for queue-consumer verify: STOP — controller escalates to the owner with the Container fallback sizing before any further task runs.
-- [ ] **Step 5:** Commit: `spike(cloud): dry-core verify on workers-rs — findings`
-
----
-
-### Task 1: `crates/signing` — rename + generalize to detached signatures (TDD)
-
-**Files:**
-- Rename: `crates/license` → `crates/signing` (git mv; crate name `dry-signing`; update root `Cargo.toml` members)
-- Modify: `crates/signing/src/lib.rs`
-- Test: extend the existing 8 tests + cross_stack fixture paths
-
-**Interfaces:**
-- Produces (consumed by pack + CLI + cloud):
-  - Everything existing (`verify_token` etc.) stays — delete nothing (token verification may return for future products; it's 150 lines).
-  - NEW: `pub fn verify_detached(payload: &[u8], sig_b64url: &str, key_id: &str, keys: &[(&str, [u8; 32])]) -> Result<(), LicenseError>` — Ed25519 over the raw payload bytes.
-  - NEW: `impl std::error::Error for LicenseError {}` and rename the error type to `SigningError` (type alias `LicenseError` kept for the existing tests).
-  - The Task-2 (licensing plan) fixtures move with the crate: `crates/signing/tests/fixtures/` — **the test keypair `test-1` and `keygen.mjs`/`sign.mjs` under `tools/license-issuer/scripts/` move to `tools/cloud/scripts/`**.
-- TDD: new tests first — detached verify happy path (JS-signed fixture over an arbitrary JSON doc), tampered payload, wrong key id.
-
-- [ ] Steps: failing tests → `cargo test -p dry-signing` RED → implement → GREEN → `cargo clippy` + `cargo fmt` clean → workspace green → commit `refactor(signing): generalize license crate to detached pack signing`.
-
-*(Note: Task 2 of the superseded licensing plan was never executed — `keygen.mjs`/`sign.mjs`/fixtures described there are CREATED here, following that plan's Step 1-2 code verbatim, at the new `tools/cloud/scripts/` path.)*
-
----
-
-### Task 2: Capability Pack v1 — schema, types, profile resolution (TDD)
-
-**Files:**
-- Create: `crates/pack/Cargo.toml`, `crates/pack/src/lib.rs`, `spec/dry-pack-v1.schema.json`
-- Modify: root `Cargo.toml` members; `tools/validate_reports.py` (or a sibling `tools/validate_packs.py` — follow the existing validator's structure)
-- Test: `crates/pack/src/lib.rs` unit tests + `crates/pack/tests/goldens.rs`
-
-**Interfaces:**
-- `pub struct Pack` with the eight sections as typed sub-structs: `identity: Identity`, `toolhead: Toolhead`, `filaments: Vec<Filament>`, `macros: Vec<MacroDecl>`, `presets: Vec<Preset>`, `compatibility: Vec<CompatClaim>`, `observations: Vec<Observation>`, `provenance: Provenance` — field lists in the schema file are the source of truth; keep them MINIMAL (only what the seed content can honestly populate; every section's Vec may be empty).
-- `Provenance` includes `trust: TrustLevel` (`draft|imported|dry-verified|hardware-observed|maintained`), `sources: Vec<String>`, `resolved_profile: serde_json::Value` (a full dry-profile-v1 document), `key_id: Option<String>` (signature travels OUTSIDE the pack bytes — detached).
-- `pub fn resolve_profile(pack: &Pack) -> Result<serde_json::Value, PackError>` — returns `provenance.resolved_profile` after validating it parses as a profile via `dry_core`'s existing profile loader (find the exact loader fn used by `--profile` in the CLI).
-- `pub fn validate(pack_json: &[u8]) -> Result<Pack, PackError>` — serde + semantic checks (semver id format `make/model@x.y.z`, trust-level/evidence consistency: `dry-verified`+ requires ≥1 source).
-- Schema mirrors the structs (`additionalProperties: false` discipline, like the report schemas).
-- TDD: golden round-trip test against ONE hand-written example pack committed at `conformance/packs/example/voron-2.4-350.json` (realistic content, sections 4/6/7 sparse).
-
-- [ ] Steps: schema + failing tests → implement types/validate/resolve → GREEN → validator script extended and passing on the golden → workspace green → commit `feat(pack): capability pack v1 schema, types, profile resolution`.
-
----
-
-### Task 3: Seed packs from golden profiles
-
-**Files:**
-- Create: `tools/cloud/seed-packs.rs` — a small binary (workspace `[[bin]]` in a `tools/cloud/Cargo.toml` member or a `crates/pack` example) converting `conformance/profile-matrix/*.json` (6 profiles) into packs; `conformance/packs/seed/*.json` (6+ packs)
-- Test: extend `crates/pack/tests/goldens.rs` to validate every seed pack (drift-gated: regenerating must be byte-identical)
-
-Requirements: identity from the profile's printer/firmware fields; `provenance.trust = "imported"`, `sources` pointing at the in-repo profile path; `resolved_profile` = the profile verbatim; filaments section populated from the profile's material data (the matrix is Marlin/Klipper/Duet × PLA/PETG/ABS — so 6 packs each with 1 filament, or 3 printers × 3 filaments if the matrix structure supports merging: decide from the actual files and justify in the report).
-
-- [ ] Steps: read the actual profile-matrix files → converter → seeds generated + committed → validator green over all → commit `feat(pack): seed packs from the golden profile matrix`.
-
----
-
-### Task 4: Cloud worker — auth (device flow + API keys)
-
-**Files:**
-- Modify: `crates/cloud/` (from the spike scaffold): `src/lib.rs` (router), new `src/auth.rs`, `src/db.rs`; `crates/cloud/schema.sql`; `crates/cloud/wrangler.toml` (D1 `DB`, KV `CODES`, vars, secrets docs)
-- Test: `crates/cloud/tests/` native unit tests for pure logic (token generation/hashing, user-code alphabet, RFC 8628 state machine as a pure function) + `tools/cloud/itest/auth.sh` integration script against `wrangler dev`
-
-**Interfaces (HTTP, consumed by Task 7 CLI):**
-- `POST /v1/auth/device` (no auth) → `{device_code, user_code, verification_uri, verification_uri_complete, expires_in: 600, interval: 5}`; state in KV key `dev:<device_code>` TTL 600 (`{user_code, status: "pending"}`), reverse `usr:<user_code>`.
-- `GET /activate` + `POST /activate` (HTML, Turnstile-protected): user enters code + email → email row upserted in `accounts`, KV state → `{status:"approved", account_id}`.
-  - MVP identity note: entering a deliverable email is asserted, not verified, at activation — verification email lands in Phase 2; record this in the API docs as a known limitation.
-- `POST /v1/auth/token` (RFC 8628 polling): pending → `{"error":"authorization_pending"}`; approved → `{access_token: "dry_at_…", token_type: "Bearer"}` (hash → `tokens` row, KV entries deleted); expired → `{"error":"expired_token"}`; poll faster than `interval` → `{"error":"slow_down"}`.
-- `POST /v1/keys` (Bearer auth) → `{key: "dry_key_…", id}` shown ONCE; `GET /v1/keys`; `DELETE /v1/keys/{id}`. Free tier: 1 active key (enforced).
+**Interfaces (HTTP — consumed by Task R5 CLI):**
+- `POST /v1/auth/device` → `{device_code, user_code, verification_uri, verification_uri_complete, expires_in: 600, interval: 5}`; KV `dev:<device_code>` + `usr:<user_code>` TTL 600.
+- `GET|POST /activate` — HTML form (code + email), Turnstile-verified server-side; approve → accounts upsert + KV state `approved`.
+- `POST /v1/auth/token` — RFC 8628 grant `urn:ietf:params:oauth:grant-type:device_code`: `authorization_pending` / `slow_down` (poll < interval) / `expired_token` / success `{access_token, token_type:"Bearer"}`; single-use (KV deleted on grant).
+- `POST /v1/keys` (Bearer) → `{id, key}` shown once; `GET /v1/keys` (ids/labels/created only); `DELETE /v1/keys/{id}`. `QUOTA_KEYS` enforced.
 - `GET /v1/me` → `{account_id, email, created_at}`.
-- Auth middleware: `Authorization: Bearer dry_at_…|dry_key_…` → SHA-256 → D1 lookup → attach account to request data; timing-safe compare per Workers best practices.
+- Shared middleware `requireAuth(req, env)` → account row via SHA-256 lookup over `tokens`; `crypto.subtle.timingSafeEqual` on hash compare; SECURITY_HEADERS on every response (mirror the yemelianov-dev pattern: mirror-in-code + drift test not needed here since no `_headers` file — just a constants module).
 
 `schema.sql`:
 ```sql
 CREATE TABLE accounts (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, created_at TEXT DEFAULT (datetime('now')));
 CREATE TABLE tokens (hash TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id), kind TEXT NOT NULL CHECK (kind IN ('at','key')), label TEXT, created_at TEXT DEFAULT (datetime('now')), revoked INTEGER DEFAULT 0);
-CREATE TABLE packs (id TEXT PRIMARY KEY, version TEXT NOT NULL, title TEXT NOT NULL, trust TEXT NOT NULL, r2_key TEXT NOT NULL, sig TEXT NOT NULL, key_id TEXT NOT NULL, published_at TEXT DEFAULT (datetime('now')), yanked INTEGER DEFAULT 0);
-CREATE TABLE jobs (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, status TEXT NOT NULL, pack_id TEXT, input_r2 TEXT, report_r2 TEXT, error TEXT, created_at TEXT DEFAULT (datetime('now')), finished_at TEXT);
+CREATE TABLE jobs (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, status TEXT NOT NULL, pack_id TEXT, pack_version TEXT, input_r2 TEXT, report_r2 TEXT, error TEXT, stage TEXT, created_at TEXT DEFAULT (datetime('now')), finished_at TEXT);
 CREATE TABLE usage_events (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id TEXT NOT NULL, route TEXT NOT NULL, bytes INTEGER DEFAULT 0, at TEXT DEFAULT (datetime('now')));
 CREATE INDEX usage_by_account_day ON usage_events (account_id, at);
 ```
 
-- [ ] Steps: schema + pure-logic unit tests (RED→GREEN native `cargo test -p dry-cloud --lib`) → router endpoints → `tools/cloud/itest/auth.sh` (spawn `wrangler dev --local`, curl the full device flow with a scripted activation POST — Turnstile bypassed via a `TURNSTILE_DEV_BYPASS=1` var honored ONLY when set, documented as dev-only) → commit `feat(cloud): device-flow auth, bearer tokens, API keys`.
+- [ ] TDD via `vitest-pool-workers`: failing tests for the full device-flow state machine (pending→approve→grant→single-use), slow_down timing, expired codes, key lifecycle + quota, timing-safe auth middleware (bad token 401, revoked 401), Turnstile bypass only when var set. → implement → green → `npm run check` (tsc) → commit `feat(cloud): device-flow auth, bearer tokens, API keys (services/cloud)`.
 
 ---
 
-### Task 5: Cloud worker — registry APIs + signed publish
+### Task R2: `containers/verify-runner` — native dry-core verify shim
 
 **Files:**
-- Modify: `crates/cloud/src/lib.rs`, new `src/registry.rs`; wrangler.toml (R2 `PACKS` bucket binding)
-- Test: native unit tests for search/meta logic; extend `tools/cloud/itest/` with `registry.sh`
+- Create: `containers/verify-runner/{Cargo.toml,src/main.rs,Dockerfile,README.md}` (workspace-EXCLUDED member, like crates/wasm — it builds in Docker, not in the workspace lock)
 
 **Interfaces:**
-- `POST /v1/packs` (owner: requires var `OWNER_ACCOUNT_ID` match — community publishing is out of MVP): body = pack JSON → `dry_pack::validate` (compiled into the worker) → sign detached (WebCrypto via worker's crypto or `dry-signing` with the secret key — use `dry-signing` + ed25519-dalek `SigningKey` from the `SIGNING_KEY_PKCS8_B64` secret decoded; add a `signing` feature to `dry-signing` exposing sign, compiled ONLY into the cloud crate) → R2 put (`packs/<id>/<version>.json`) → D1 meta row with `sig`, `key_id`.
-- `GET /v1/packs?q=` → D1 LIKE search over id/title (MVP; FTS later) → `[{id, version, title, trust}]`.
-- `GET /v1/packs/{id}` → `{meta, sig, key_id, pack: <full JSON from R2>}`.
-- `GET /v1/packs/{id}/profile` → the resolved profile JSON (server resolves via `dry_pack::resolve_profile`).
-- All reads require auth (metering) — the generous free quota is the "public" tier; a `PUBLIC_READS=1` var can drop auth on GETs later without code restructure (route the check through one policy fn).
+- `POST /verify?pack=<id>&version=<ver>&registry=<base-url>` — body: raw G-code (streamed to disk under `/tmp`, NOT buffered fully in memory where avoidable); fetches `GET <registry>/v1/profiles/...` resolved profile (exact REST path per `docs/19-printer-registry-api.md` — read it); runs the same dry-core import+verify calls as the CLI review path; responds `200` with the EXACT `serde_json::to_string_pretty(&report) + "\n"` bytes the CLI writes, or `{error, stage}` per the Global Constraints stages.
+- `GET /healthz` → `{ok:true}`.
+- Dockerfile: multi-stage (rust:1.88 build → debian-slim runtime), binds `0.0.0.0:8080`.
 
-- [ ] Steps: unit tests → endpoints → itest publishing one seed pack then reading it back with signature verification in the test script (use `sign.mjs`-created dev key as the worker secret) → commit `feat(cloud): pack registry with signed publish`.
+- [ ] TDD: Rust unit tests for the handler logic with a stubbed profile server (spawn `std::net` mock like `crates/cli/tests/cli.rs:86-92` does for Moonraker) + a conformance fixture gcode; the byte-identity test: run the runner handler fn and `dry-cli`'s verify on the same inputs, assert identical bytes. → implement → `docker build` + `docker run` + curl smoke (1 MB and 50 MB synthetic files from the spike's generator) → commit `feat(cloud): native verify-runner container`.
 
 ---
 
-### Task 6: Cloud worker — async verify jobs (queue + wasm engine)
+### Task R3: jobs API + queue + container dispatch
 
 **Files:**
-- Modify: `crates/cloud/`: new `src/jobs.rs`, queue consumer in `src/lib.rs`; wrangler.toml (queue producer+consumer `VERIFY_JOBS`, R2 `UPLOADS`, `REPORTS` prefixes on the PACKS bucket or a second bucket — per FINDINGS)
-- Test: itest `jobs.sh` — small fixture gcode from `conformance/`, full lifecycle
+- Modify: `services/cloud/` — `src/jobs.ts`, `src/container.ts` (`VerifyContainer extends Container` from `@cloudflare/containers`, `sleepAfter` short), wrangler.jsonc (queue producer/consumer `verify-jobs`, R2 `STORAGE`, container config with the runner image, DO binding + migration)
+- Test: `services/cloud/test/jobs.test.ts` + `services/cloud/itest/jobs-local.sh`
 
 **Interfaces:**
-- `POST /v1/jobs/verify?pack=<id>` (Bearer; body = raw gcode, cap per FINDINGS; `Content-Length` enforced) → R2 put → D1 job row (`queued`) → queue send `{job_id}` → `202 {id, status_url}`.
-- Queue consumer: load input from R2 → resolve pack → profile → run the same core import+verify path as the spike → `Report` JSON → R2 → D1 `done` (or the failure states from the spec: `upload-invalid|too-large|engine-error|timeout`) → `message.ack()`; engine panics caught (`std::panic::catch_unwind` around the pure-core call) → `engine-error`, ack (no infinite retry).
-- `GET /v1/jobs/{id}` → `{id, status, pack_id, created_at, finished_at, report?: <inline JSON when done>, error?}`. Report must be byte-identical to what a local `dry verify --json` with the same profile produces (THE product claim — assert it in the itest by running the local CLI against the same fixture+profile and diffing).
+- `POST /v1/jobs/verify?pack=<id>&version=<ver>` (Bearer; raw body ≤100 MB) → R2 `uploads/<job_id>` → jobs row `queued` → queue send → `202 {id, status_url}`.
+- Queue consumer: job → container stub (`getByName(job_id)` for isolation) → stream input from R2 into `POST /verify` → persist report to R2 `reports/<job_id>.json` + `done`, or error+stage; `message.ack()` always after a terminal state (retry only on container-start failures, max 2).
+- `GET /v1/jobs/{id}` (Bearer, owner-only) → `{id, status, pack_id, created_at, finished_at, report?, error?, stage?}` — report inlined when done.
+- Failure taxonomy from the Global Constraints; `too-large` rejected at POST time via Content-Length.
 
-- [ ] Steps: unit-test the job state machine natively → endpoints + consumer → itest lifecycle incl. the byte-identity diff → commit `feat(cloud): async verify jobs running dry-core in the worker`.
-
----
-
-### Task 7: Usage metering + quotas
-
-**Files:**
-- Modify: `crates/cloud/src/lib.rs` (middleware), new `src/usage.rs`; wrangler.toml (vars `QUOTA_READS_PER_DAY=500`, `QUOTA_JOBS_PER_MONTH=20`, `QUOTA_KEYS=1`)
-
-**Interfaces:**
-- Every authed request: `usage_events` insert (route class: `read|job|auth|keys`).
-- Quota check BEFORE the work; exceeded → `429` + `Retry-After` + `{"error":"quota_exceeded","usage_url":"/v1/usage"}`.
-- `GET /v1/usage` → `{today: {reads}, month: {jobs}, quotas: {…}}` (two D1 aggregate queries).
-
-- [ ] Steps: unit tests for the quota window math (day/month boundaries, UTC) → middleware → itest: exhaust a low test quota (`QUOTA_READS_PER_DAY=3` in dev vars) and assert the 429 shape → commit `feat(cloud): usage metering and free quotas`.
+- [ ] Steps: vitest tests with a FAKE container binding (inject a fetch-stub for the DO/container path — unit-level) → implement → **local integration** `itest/jobs-local.sh`: `wrangler dev` with containers enabled (requires local Docker; document `docker info` precheck) + the stub registry fixture; run 1 MB, 10 MB, 50 MB — record which Worker→container transfer path worked (direct stream vs signed-URL fallback per Global Constraints) → byte-identity assertion vs local CLI → commit `feat(cloud): async verify jobs on containers`.
+- [ ] If local containers-in-wrangler-dev cannot run in this environment after genuine attempts: mark the itest `SKIPPED-LOCAL` with exact blocker, keep unit tests green, and flag DONE_WITH_CONCERNS — the E2E then happens at deploy (Task R7) before launch.
 
 ---
 
-### Task 8: CLI cloud commands
+### Task R4: usage metering + quotas
+
+- Modify: `services/cloud/src/{usage.ts,index.ts}`; tests.
+- Every authed request → `usage_events` row (route class `job|keys|auth`); `QUOTA_JOBS_PER_MONTH` checked BEFORE job creation (UTC month window) → `429 {"error":"quota_exceeded","usage_url":"/v1/usage"}` + `Retry-After`; `GET /v1/usage` → `{month:{jobs, bytes}, quotas}`.
+- [ ] TDD (window math incl. month boundaries; 429 shape; usage endpoint) → implement → commit `feat(cloud): usage metering and job quotas`.
+
+---
+
+### Task R5: CLI — `dry auth` + `dry cloud verify`
 
 **Files:**
-- Modify: `crates/cli/Cargo.toml` (feature `cloud = ["dep:ureq", "dep:dry-pack", "dep:dry-signing"]`, default on — mirrors `moonraker`), `crates/cli/src/main.rs` (+~200 lines: `Auth`, `Printer`, `CloudVerify` commands — helpers in a new `crates/cli/src/cloud.rs` module to respect the main.rs size), `dirs` dep (token storage `$XDG_CONFIG_HOME/dry/cloud-token`, same XDG-first helper as the licensing plan's Task 3 sketch)
-- Test: `crates/cli/tests/cloud.rs` — spawns `wrangler dev` (skip with a clear message when wrangler is absent: `#[ignore]`-gated + a CI env opt-in, following how moonraker tests handle their mock server)
+- Modify: `crates/cli/src/main.rs` (new `Auth`, `Cloud` subcommands; helpers in new `crates/cli/src/cloud.rs`), `crates/cli/Cargo.toml` (reuse the ureq dep added by the registry work; add `dirs = "5"`)
+- Test: `crates/cli/tests/cloud.rs`
 
 **Interfaces (user-visible):**
-- `dry auth login` (device flow: print `verification_uri_complete` + code, poll per `interval`, store token), `dry auth status`, `dry auth logout`. `DRY_TOKEN` env overrides the file; `DRY_CLOUD_URL` overrides the API base (default the production URL; tests point it at wrangler dev).
-- `dry printer search <q>`, `dry printer show <id>` (meta + trust + sections summary), `dry printer add <id>`: GET pack → `dry_signing::verify_detached` against the embedded registry key set (same `PRODUCTION_KEYS`-style const + test-key escape hatch pattern from the licensing plan Task 3: `DRY_CLOUD_ALLOW_TEST_KEY=1`) → write pack + resolved profile under `$XDG_CONFIG_HOME/dry/printers/<id>/` → print the `--profile` path to use.
-- `dry cloud verify <file> --printer <id>` → submit, poll, print human summary + report path/link; `--json` dumps the report.
-- Offline guarantee: none of this executes unless the subcommand is explicitly one of these.
+- `dry auth login [--cloud-url <u>]` — device flow: print code + `verification_uri_complete`, poll per `interval` honoring `slow_down`; store token at `$XDG_CONFIG_HOME/dry/cloud-token` (0600). `dry auth status` (whoami via `/v1/me` + usage one-liner), `dry auth logout` (delete file). `DRY_TOKEN` env > file; `DRY_CLOUD_URL` > default.
+- `dry cloud verify <file> --printer <pack-id> [--pack-version <v>] [--json]` — POST body, poll `GET /v1/jobs/{id}` (1 s→5 s backoff, 10 min cap), human summary (findings count, verdict) or full `--json` report; nonzero exit mirrors local verify semantics (exit 1 on error-severity findings — match how `run_upload` tallies at `main.rs:1978-1983`).
+- Unauthenticated → `die("not logged in — run `dry auth login`")` (exit 2). No other command touches the network.
 
-- [ ] Steps: failing integration tests (login flow against dev worker with `TURNSTILE_DEV_BYPASS`, printer add + signature verify, cloud verify round trip) → implement → GREEN → full workspace green → commit `feat(cli): cloud auth, printer packs, cloud verify`.
-
----
-
-### Task 9: Docs — API reference + quickstarts
-
-**Files:**
-- Create: `docs/site/cloud/index.md` (what/why + pricing model honesty: free quotas now, usage billing later), `docs/site/cloud/api.md` (every endpoint: method, auth, request/response examples — from the itest scripts so they're real), `docs/site/cloud/quickstart-cli.md` (login → printer add → cloud verify), `docs/site/cloud/quickstart-integrations.md` (curl: create key, submit job, poll — the slicer/farm integration path)
-- Modify: `.vitepress/config.ts` nav/sidebar; `scripts/check-public-boundary.mjs` `allowedPublicContentPrefixes` += `docs/site/cloud/`
-
-- [ ] Steps: write pages (examples copied from actual itest transcripts) → `DRY_DOCS_MODE=public bash build.sh` green → commit `docs(site): Dry Cloud API reference and quickstarts`.
+- [ ] TDD: integration tests against a MOCK cloud server (std TcpListener mock like the Moonraker tests — no wrangler dependency): device-flow happy path + slow_down, token precedence, verify submit/poll/exit-code, offline-guarantee (assert `dry verify` runs with `DRY_CLOUD_URL` pointing at a dead port). → implement → workspace green → commit `feat(cli): dry auth and dry cloud verify`.
 
 ---
 
-### Task 10: USER checklist — infra ceremony + deploy (controller-assisted)
+### Task R6: docs
 
-1. Create production resources: `wrangler d1 create dry-cloud` + apply schema; `wrangler queues create verify-jobs`; R2 bucket `dry-cloud`; KV namespace `codes`; fill IDs into wrangler.toml.
-2. Turnstile site for the `/activate` page → site/secret keys.
-3. **Key ceremony:** `node tools/cloud/scripts/keygen.mjs prod-1` → `SIGNING_KEY_PKCS8_B64` Worker secret + offline backup; verifying key bytes → the CLI's embedded registry key const (commit).
-4. Decide the API hostname (suggest `api.dry.yemelianov.dev` or wait for a product domain) + route/custom domain on the worker.
-5. `wrangler deploy` from `crates/cloud`; smoke: device flow from a real terminal, seed-pack publish (owner token), one real verify job.
-6. Owner publishes the 6 seed packs via `POST /v1/packs`.
+- Create `docs/site/cloud/{index.md,api.md,quickstart-cli.md,quickstart-integrations.md}`; nav/sidebar; boundary allowlist prefix `docs/site/cloud/`. Content: honest pricing state (free quotas now, usage billing later), full endpoint reference with examples lifted from the test transcripts, CLI quickstart (login → printer resolve → cloud verify), curl quickstart for integrations (key create → job submit → poll). Link registry docs (public repo) rather than duplicating them. Note the email-asserted-not-verified MVP limitation.
+- [ ] Write → `DRY_DOCS_MODE=public bash docs/site/build.sh` green → commit `docs(site): Dry Cloud auth and verify-job API docs`.
 
-### Task 11: Release + launch line
+---
 
-- v0.5.0 prep: CHANGELOG (cloud commands, pack format, registry), version bumps across manifests, `scripts/check-version.sh v0.5.0` green; support-matrix row for cloud endpoints (best-effort, no SLA).
-- Full workspace + conformance + docs-public build green; tag `v0.5.0`, watch release.yml.
-- Launch = API live with seeds + docs published + quickstarts verified against production + usage visible. Billing intentionally absent (Phase 2) — the docs say so plainly.
+### Task R7: USER — infra + deploy (controller-assisted checklist)
+
+1. `wrangler d1 create dry-cloud` + schema; KV namespace; `wrangler queues create verify-jobs`; R2 bucket `dry-cloud`; fill IDs into wrangler.jsonc.
+2. Turnstile site (activate page) → keys as secrets.
+3. Container: `wrangler deploy` builds/pushes the runner image (containers config in wrangler.jsonc); confirm instance type `standard-2`.
+4. Hostname: `cloud.dry.yemelianov.dev` custom domain on the Worker (zone exists).
+5. Vars: `REGISTRY_URL=https://api.dry.yemelianov.dev`, quotas.
+6. Prod smoke: real device-flow login from a terminal, one real verify job (a Benchy-scale file) — confirm the report matches a local run byte-for-byte; check `/v1/usage` incremented; verify container scale-to-zero after `sleepAfter`.
+
+### Task R8: v0.5.0 release + launch
+
+- CHANGELOG (cloud commands, auth, verify jobs; registry integration credit already in c426149's wording), version bumps (`scripts/check-version.sh v0.5.0`), support-matrix row (cloud: best-effort, no SLA).
+- Full gates: `cargo test --workspace`, services/cloud tests, docs public build.
+- Tag + release.yml watch; docs live; announce line: registry (free, public) + cloud verify (free quota, usage-priced later).
 
 ---
 
 ## Self-review notes
 
-- Spec coverage: 8-section pack schema ✓ (T2), resolved-profile bridge ✓ (T2/T5), signing/trust ladder ✓ (T1/T5), device flow + API keys + Turnstile ✓ (T4), registry reads ✓ (T5), ONE verify endpoint incl. byte-identity claim ✓ (T6), metering/quotas/429/usage ✓ (T7), CLI commands + offline guarantee ✓ (T8), docs/quickstarts ✓ (T9), seeds ✓ (T3/T10), spike-first sequencing + Container fallback stop-rule ✓ (T0), no-live-network tests ✓ (constraints; itests run local wrangler dev), ceremony + deploy ✓ (T10), v0.5.0 ✓ (T11).
-- Deliberate deviations from the writing-plans "complete code" bar: workers-rs handler bodies are specified as contracts + schema/SQL rather than full listings, because Task 0's FINDINGS is the designated authority on exact API shapes — each affected task says so explicitly. Stable parts (SQL, HTTP contracts, token formats, quota semantics, CLI surface) are fully specified.
-- Type/name consistency: `dry-signing`/`verify_detached` used identically in T1/T5/T8; pack type names in T2/T3/T5/T6; env names (`DRY_TOKEN`, `DRY_CLOUD_URL`, `DRY_CLOUD_ALLOW_TEST_KEY`, `TURNSTILE_DEV_BYPASS`) consistent across T4/T8.
+- Spec Rev-2 coverage: TS worker ✓ (R1), container runner + byte-identity ✓ (R2/R3), registry-resolved profiles ✓ (R2), transfer-size risk + fallback ✓ (R3), metering scoped to jobs ✓ (R4), CLI auth/verify + offline guarantee ✓ (R5), docs ✓ (R6), deploy/hostname/smoke ✓ (R7), release ✓ (R8). Deferred items (signing, pack loader, seeds, read metering) recorded in the spec — deliberately absent here.
+- Consistency: stage taxonomy identical R2/R3; token/key formats identical R1/R5; quota var names R1/R4/R7; `DRY_CLOUD_URL`/`DRY_TOKEN` R5 only.
+- Judgment left to implementers: exact registry REST profile path (read docs/19 + the live /schema.graphql); which Worker→container transfer path survives the R3 size test; matching the registry service's TS conventions where they exist.
