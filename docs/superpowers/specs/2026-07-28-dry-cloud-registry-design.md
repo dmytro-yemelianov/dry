@@ -171,3 +171,56 @@ CLI / slicer plugin / farm software
 Billing/checkout, orgs/private registries, community publishing moderation, compare/
 rewrite/explain endpoints, web dashboard, slicer plugin implementations (we ship curl
 examples + API docs; plugins are partner/Phase-2 work), CNC verticals, SLAs.
+
+---
+
+## Revision 2 (2026-07-28, post-spike + Codex-registry reconciliation)
+
+Two facts changed the architecture after Task 0:
+
+1. **Spike verdict:** dry-core's import peaks at ~43–50× input size; the 128 MB Worker
+   isolate caps in-Worker verify at ~1 MB. Owner decision: **verify runs in Cloudflare
+   Containers** (GA 2026-04; DO-mediated; `standard-2` 6 GiB covers ≤100 MB inputs;
+   ≈$0 incremental at MVP volume; Worker-streamed input due to open CF issue #137 on
+   large R2→container transfers). See `2026-07-28-cloud-spike-findings.md`.
+2. **The registry already exists.** A Codex agent shipped it in parallel:
+   public repo `dmytro-yemelianov/dry-printer-registry` (schemas covering all eight
+   pack sections, example pack, TS client, Worker service with GraphQL + immutable
+   REST on D1/R2, CI) — **live at `api.dry.yemelianov.dev`** — plus
+   `dry printer search|inspect|resolve` CLI commands committed on this branch
+   (`c426149`, GraphQL client with SHA-256 download verification).
+
+### Revised division of labor
+
+| Concern | Owner |
+|---|---|
+| Pack/capability schemas, registry hosting, read API, TS client, seed data | **dry-printer-registry** (Codex/public repo) |
+| Accounts (device flow), API keys, usage metering, async verify jobs, CLI auth + cloud-verify | **Dry Cloud** (this spec, dry repo) |
+
+### Revised architecture
+
+- **`services/cloud/` — a TypeScript Worker** (not workers-rs): device-flow auth,
+  API keys, `POST /v1/jobs/verify`, queue consumer dispatching to the container,
+  `GET /v1/jobs/{id}`, `/v1/usage`, metering middleware. Rationale: with the engine
+  in a native container, nothing requires Rust in the Worker; TS matches the
+  registry service and gets `vitest-pool-workers` + the `Container` helper class.
+  `crates/cloud` is retired as a spike artifact (kept in history).
+- **`containers/verify-runner/` — Rust**: slim HTTP shim over dry-core (native
+  build): receives profile JSON + G-code stream, runs the same import+verify path
+  as the CLI, returns the deterministic report. Cloud reports must remain
+  byte-identical to local `dry verify --json` — asserted in tests.
+- Profile resolution: the job API takes `--printer <pack id>` and resolves the
+  profile via the PUBLIC registry REST — no duplicate resolution logic.
+- Hostname: `cloud.dry.yemelianov.dev` (the registry keeps `api.dry.…`); final
+  naming at the deploy task.
+
+### Deferred out of MVP (recorded, not dropped)
+
+- **Ed25519 pack signing** — the public registry uses SHA-256 content hashes +
+  trust levels today; a signed-publish flow is listed as remaining work in the
+  capability-library plan and belongs to the registry's publish pipeline
+  (coordinate with Codex). `crates/license` stays parked on this branch for it.
+- **Rust pack loader/validator crate** and **seed-pack contributions** — public-repo
+  workstreams, not Dry Cloud MVP.
+- Free-quota metering of public registry READS — reads stay unmetered on the
+  registry service; metering applies to authenticated Dry Cloud surfaces (jobs).
