@@ -51,9 +51,10 @@ Plain “preserves semantics” is not precise enough.
 Each theorem record must also identify its numeric domain, assumptions, covered syntax, excluded syntax
 and implementation-refinement status.
 
-## 3. Three assurance layers
+## 3. Four assurance layers
 
-Dry must not conflate abstract mathematics, floating-point execution and physical machines.
+Dry must not conflate abstract mathematics, floating-point execution, implementation behavior and
+physical machines.
 
 ### 3.1 Layer A — abstract language semantics
 
@@ -98,6 +99,16 @@ Layer C checks that Rust implements the modeled function:
 
 Python, TypeScript and wasm remain thin surfaces. Their obligation is schema/API refinement to the Rust
 engine plus cross-SDK semantic equivalence, not a duplicate proof of the compiler.
+
+### 3.4 Layer D — physical evidence
+
+Layer D qualifies a pinned controller, machine and process setup through versioned, reproducible
+protocols. Evidence records the exact machine/profile/controller, test program, tolerances, expected
+observations, safety owner, abort criteria, results and artifact hashes.
+
+Physical evidence may validate named assumptions for that setup, but it is not inherited by the
+abstract, numeric or implementation layers and does not turn a bounded compiler theorem into a
+universal manufacturing-safety or process-success theorem.
 
 ## 4. Proof technology and repository layout
 
@@ -370,9 +381,9 @@ After D1.6–D1.9 freeze these contracts, prove:
 - declared losses and opaque commands prevent an exact round-trip claim;
 - `lift(lower(x)) ≡obs(O) x` for the target's published recoverable observation set `O`.
 
-Controller firmware and physical actuation are assumptions outside the compiler theorem. Hardware
-qualification may validate those assumptions for a pinned setup but cannot turn them into universal
-theorems.
+Controller firmware and physical actuation are assumptions outside the compiler theorem. Layer D
+hardware qualification may validate those assumptions for a pinned setup but cannot turn them into
+universal theorems.
 
 ## 7. Work breakdown
 
