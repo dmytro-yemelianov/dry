@@ -56,6 +56,8 @@ EXPECTED_LIMITS = {
     f"{EXPECTED_PROFILE_ID}.LIMIT.ARC_CENTER_MM",
     f"{EXPECTED_PROFILE_ID}.LIMIT.ORIENTATION_COMPONENT",
     f"{EXPECTED_PROFILE_ID}.LIMIT.TRANSFORM_COMPOSITIONS",
+    f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+    f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
 }
 EXPECTED_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.COORDINATE_INHERIT_BIT_ERROR",
@@ -68,6 +70,23 @@ EXPECTED_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR",
     f"{EXPECTED_PROFILE_ID}.BUDGET.MANUAL_IDENTITY_COMPONENT_THRESHOLD",
     f"{EXPECTED_PROFILE_ID}.BUDGET.PASSTHROUGH_BIT_ERROR",
+}
+EXPECTED_BINARY64_LIMITS = {
+    f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT": (
+        -(2**20),
+        2**20,
+    ),
+    f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT": (
+        -(2**22),
+        2**22,
+    ),
+}
+EXPECTED_BINARY64_BUDGETS = {
+    f"{EXPECTED_PROFILE_ID}.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR": 2**-29,
+    f"{EXPECTED_PROFILE_ID}.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM": 2**-28,
+    f"{EXPECTED_PROFILE_ID}.BUDGET.POINT_COMPONENT_ABS_ERROR_MM": 2**-28,
+    f"{EXPECTED_PROFILE_ID}.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM": 2**-28,
+    f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR": 2**-29,
 }
 STATUS_BY_CLASSIFICATION = {
     "exact-in-range": {"bounded", "pending"},
@@ -634,6 +653,31 @@ def validate_profile_implementation_values(
                 "manual-identity policy ceiling does not match "
                 f"Transform::is_identity EPS: "
                 f"{manual_budget.get('ceiling')!r} != {implementation_epsilon!r}"
+            )
+
+    for limit_id, (expected_lower, expected_upper) in EXPECTED_BINARY64_LIMITS.items():
+        limit = limits.get(limit_id)
+        if limit is None:
+            continue
+        if (
+            limit.get("lower") != expected_lower
+            or limit.get("upper") != expected_upper
+        ):
+            errors.append(
+                f"{limit_id}: binary64 proof limits must remain "
+                f"[{expected_lower}, {expected_upper}]"
+            )
+
+    for budget_id, expected_ceiling in EXPECTED_BINARY64_BUDGETS.items():
+        budget = budgets.get(budget_id)
+        if budget is None:
+            continue
+        if budget.get("status") != "bounded":
+            errors.append(f"{budget_id}: checked binary64 budget must be bounded")
+        if budget.get("ceiling") != expected_ceiling:
+            errors.append(
+                f"{budget_id}: binary64 proof ceiling must remain "
+                f"{expected_ceiling!r}"
             )
 
 

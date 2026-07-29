@@ -491,13 +491,21 @@ status discipline, evidence paths, Rust/libm pins, and equality with the impleme
 and identity epsilon.
 
 `formal/Dry/Numeric/RoundModel.lean` adds the first checked error-composition kernel without promoting
-the provisional profile. It represents rounded add/subtract/multiply as a parametric contract and
+the complete feature boundaries. It represents rounded add/subtract/multiply as a parametric contract and
 proves, against the exact-real operation graph, that vector/rotation XY components have local error
 `addError + 2*mulError`, point/translation XY components have
 `2*addError + 2*mulError`, and point/translation Z has `addError`. The same theorems cover Arc-centre
-XY arithmetic and orientation-vector rotation. Three registry claims expose these derivations with
-`abstract = proved` but `numeric = pending`: they do not instantiate IEEE-754 local errors, account for
-input or `libm` coefficient error, prove finiteness, or compose the bound across repeated transforms.
+XY arithmetic and orientation-vector rotation.
+
+`formal/Dry/Numeric/Binary64.lean` now instantiates that graph under a scoped IEEE-754 binary64
+round-to-nearest/ties-to-even contract. Two additional profile limits bound exact multiplication
+results by `2^20` and exact addition/subtraction results by `2^22`; the checked gradual-underflow-aware
+derivation gives conservative primitive ceilings `2^-32` and `2^-30`. Direct binary64 operation graphs
+are proved equal to the total profiled model whenever every intermediate satisfies those limits. The
+three local-operation claims are therefore numerically bounded at `2^-29` for vector/rotation XY,
+`2^-28` for point/translation XY and `2^-30` for point/translation Z. This is not yet a complete Rust
+geometry interval: refinement from Rust `f64` to the rounding premise, input and `libm` coefficient
+error, output finiteness and repeated-transform accumulation remain pending.
 
 ### FM1.5 — resolver, simulation and verifier
 

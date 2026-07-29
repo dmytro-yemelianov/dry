@@ -3,6 +3,7 @@ import Dry.Language.Common
 import Dry.Language.L2
 import Dry.Language.WellFormed
 import Dry.Language.LogicalEquality
+import Dry.Numeric.Binary64
 import Dry.Numeric.Quantity
 import Dry.Numeric.RoundModel
 import Dry.Semantics.CheckedExpansion

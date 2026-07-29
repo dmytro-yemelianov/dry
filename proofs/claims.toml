@@ -230,29 +230,33 @@ refinement = "pending"
 
 [[claim]]
 id = "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
-title = "Rounded planar transform composition has a componentwise local-operation error bound"
-theorem = "Dry.Numeric.RoundModel.compose_error"
+title = "Profiled binary64 planar transform composition has a concrete componentwise local-operation error bound"
+theorem = "Dry.Numeric.Binary64.binary64Compose_error"
 spec_version = "feature-planar-binary64-v0"
 source_dialect = "Exact-real planar transform expression"
-target_dialect = "Parametric rounded add/subtract/multiply operation graph"
+target_dialect = "Profile-gated IEEE-754 binary64 round-to-nearest operation graph"
 relation = "approximate"
 scope = "abstract"
-numeric_domain = "Real-valued abstract rounding contract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even"
 assumptions = [
-  "Rounded addition and subtraction have a uniform absolute local error addError.",
-  "Rounded multiplication has a uniform absolute local error mulError.",
+  "Each exact multiplication result is within the profile's symmetric 2^20 result envelope.",
+  "Each exact addition or subtraction result is within the profile's symmetric 2^22 result envelope.",
+  "Binary64 rounding satisfies the checked unit-roundoff plus gradual-underflow contract over that envelope.",
   "Input coefficients and translations are compared as the same real values on both sides."
 ]
 exclusions = [
-  "Instantiation of addError or mulError for IEEE-754 binary64.",
   "Input-representation, degree-conversion and libm trigonometric error.",
-  "Overflow, underflow, NaN, infinity, fused operations and accumulated repeated-composition error."
+  "Refinement from Rust f64 to the rounding premise, NaN, infinity, fused operations and accumulated repeated-composition error."
 ]
-lean_source = "formal/Dry/Numeric/RoundModel.lean"
+lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
   "crates/core/src/features.rs"
 ]
-numeric_evidence = []
+numeric_evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
 numeric_boundaries = [
   "FM1.F64.FEATURE.COMPOSE.ROTATION",
   "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
@@ -261,34 +265,38 @@ refinement_evidence = []
 
 [claim.status]
 abstract = "proved"
-numeric = "pending"
+numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
 id = "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
-title = "Rounded planar point application has a componentwise local-operation error bound"
-theorem = "Dry.Numeric.RoundModel.applyPoint_error"
+title = "Profiled binary64 planar point application has a concrete componentwise local-operation error bound"
+theorem = "Dry.Numeric.Binary64.binary64ApplyPoint_error"
 spec_version = "feature-planar-binary64-v0"
 source_dialect = "Exact-real planar point expression"
-target_dialect = "Parametric rounded add/subtract/multiply operation graph"
+target_dialect = "Profile-gated IEEE-754 binary64 round-to-nearest operation graph"
 relation = "approximate"
 scope = "abstract"
-numeric_domain = "Real-valued abstract rounding contract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even"
 assumptions = [
-  "Rounded addition and subtraction have a uniform absolute local error addError.",
-  "Rounded multiplication has a uniform absolute local error mulError.",
+  "Each exact multiplication result is within the profile's symmetric 2^20 result envelope.",
+  "Each exact addition or subtraction result is within the profile's symmetric 2^22 result envelope.",
+  "Binary64 rounding satisfies the checked unit-roundoff plus gradual-underflow contract over that envelope.",
   "Input point, coefficients and translation are compared as the same real values on both sides."
 ]
 exclusions = [
-  "Instantiation of addError or mulError for IEEE-754 binary64.",
   "Input-representation, transform-construction and libm trigonometric error.",
-  "Overflow, underflow, NaN, infinity and fused operations."
+  "Refinement from Rust f64 to the rounding premise, NaN, infinity and fused operations."
 ]
-lean_source = "formal/Dry/Numeric/RoundModel.lean"
+lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
   "crates/core/src/features.rs"
 ]
-numeric_evidence = []
+numeric_evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
 numeric_boundaries = [
   "FM1.F64.FEATURE.APPLY.POINT",
   "FM1.F64.FEATURE.APPLY.ARC.CENTER"
@@ -297,35 +305,39 @@ refinement_evidence = []
 
 [claim.status]
 abstract = "proved"
-numeric = "pending"
+numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
 id = "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR"
-title = "Rounded planar vector application has a componentwise local-operation error bound"
-theorem = "Dry.Numeric.RoundModel.applyVector_error"
+title = "Profiled binary64 planar vector application has a concrete componentwise local-operation error bound"
+theorem = "Dry.Numeric.Binary64.binary64ApplyVector_error"
 spec_version = "feature-planar-binary64-v0"
 source_dialect = "Exact-real planar vector expression"
-target_dialect = "Parametric rounded add/subtract/multiply operation graph"
+target_dialect = "Profile-gated IEEE-754 binary64 round-to-nearest operation graph"
 relation = "approximate"
 scope = "abstract"
-numeric_domain = "Real-valued abstract rounding contract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even"
 assumptions = [
-  "Rounded addition and subtraction have a uniform absolute local error addError.",
-  "Rounded multiplication has a uniform absolute local error mulError.",
+  "Each exact multiplication result is within the profile's symmetric 2^20 result envelope.",
+  "Each exact addition or subtraction result is within the profile's symmetric 2^22 result envelope.",
+  "Binary64 rounding satisfies the checked unit-roundoff plus gradual-underflow contract over that envelope.",
   "Input vector and coefficients are compared as the same real values on both sides."
 ]
 exclusions = [
-  "Instantiation of addError or mulError for IEEE-754 binary64.",
   "Input-representation, transform-construction and libm trigonometric error.",
   "Orientation finiteness, nonzero/unit validation, normalization and angular error.",
-  "Overflow, underflow, NaN, infinity and fused operations."
+  "Refinement from Rust f64 to the rounding premise, NaN, infinity and fused operations."
 ]
-lean_source = "formal/Dry/Numeric/RoundModel.lean"
+lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
   "crates/core/src/features.rs"
 ]
-numeric_evidence = []
+numeric_evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
 numeric_boundaries = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION"
 ]
@@ -333,7 +345,7 @@ refinement_evidence = []
 
 [claim.status]
 abstract = "proved"
-numeric = "pending"
+numeric = "bounded"
 refinement = "pending"
 
 [[claim]]

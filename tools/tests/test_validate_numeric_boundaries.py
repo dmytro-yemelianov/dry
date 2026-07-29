@@ -59,7 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
-        self.assertIn("profile 6 limits/10 budgets", result.stdout)
+        self.assertIn("profile 8 limits/10 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
@@ -138,6 +138,32 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
             "does not match Transform::is_identity EPS",
+            result.stderr,
+        )
+
+    def test_binary64_proof_ceiling_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 1.862645149230957e-9",
+            "ceiling = 2e-9",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_binary64_operation_limit_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "upper = 4194304.0",
+            "upper = 8388608.0",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof limits must remain",
             result.stderr,
         )
 

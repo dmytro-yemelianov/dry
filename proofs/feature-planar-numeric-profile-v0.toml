@@ -93,6 +93,38 @@ boundary_ids = [
   "FM1.F64.FEATURE.MANUAL.IDENTITY"
 ]
 
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT"
+quantity = "Absolute value of an exact-real multiplication result before one profiled binary64 rounding step"
+lower = -1048576.0
+upper = 1048576.0
+unit = "result-value"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 result envelope supports a conservative 2^-32 absolute binary64 multiplication-rounding ceiling, including gradual underflow."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT"
+quantity = "Absolute value of an exact-real addition or subtraction result before one profiled binary64 rounding step"
+lower = -4194304.0
+upper = 4194304.0
+unit = "result-value"
+enforcement = "assumption"
+rationale = "The symmetric 2^22 result envelope supports a conservative 2^-30 absolute binary64 addition/subtraction-rounding ceiling, including gradual underflow."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COORDINATE_INHERIT_BIT_ERROR"
 metric = "Binary64 bit-pattern difference after Option-based coordinate inheritance"
@@ -130,42 +162,58 @@ boundary_ids = ["FM1.F64.FEATURE.TRIG.LIBM"]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
-metric = "Maximum absolute error of either composed rotation coefficient"
+metric = "Local binary64 operation error of either composed rotation coefficient against the exact-real expression over the same represented inputs"
 unit = "dimensionless"
-status = "pending"
-rationale = "A checked symbolic one-step formula is available, but it has not been instantiated with binary64 local errors or composed across repeats."
-evidence = []
-next_obligation = "Instantiate addError/mulError, add coefficient-input error, and derive an accumulated bound up to the profiled composition ceiling."
+status = "bounded"
+ceiling = 1.862645149230957e-9
+rationale = "The checked one-step formula is at most 2^-29 when each multiplication result is within 2^20 and each addition/subtraction result is within 2^22 under the scoped binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Add coefficient-construction error and derive accumulated drift up to the profiled composition ceiling; keep the complete boundary pending until then."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
-metric = "Maximum absolute error of each composed translation component"
+metric = "Local binary64 operation error of each composed translation component against the exact-real expression over the same represented inputs"
 unit = "mm"
-status = "pending"
-rationale = "A checked symbolic local-operation formula is available; total translation error still depends on coefficient/input error, coordinate envelopes and composition count."
-evidence = []
-next_obligation = "Instantiate local errors and compose the symbolic result with coefficient/input error under all linked limits."
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "The checked one-step XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Compose this local-operation bound with input/coefficient error and repeated translation growth; keep the complete boundary pending until then."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
-metric = "Maximum absolute error of each transformed Move, Arc-end or Spline coordinate"
+metric = "Local binary64 operation error of each transformed Move, Arc-end or Spline component against the exact-real expression over the same represented inputs"
 unit = "mm"
-status = "pending"
-rationale = "The rounded operation graph has a checked symbolic formula; no concrete binary64 point-transform interval exists yet."
-evidence = []
-next_obligation = "Instantiate local errors and combine the symbolic formula with profiled input, coefficient and translation errors."
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "The checked XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Add transform coefficient/construction error and independently refine Rust native/wasm executions against exported intervals."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
-metric = "Maximum absolute error of each transformed Arc centre coordinate"
+metric = "Local binary64 operation error of each transformed Arc-centre component against the exact-real expression over the same represented inputs"
 unit = "mm"
-status = "pending"
-rationale = "The finite-input gate and generic point-operation formula are checked, but the concrete apply_xy interval remains open."
-evidence = []
-next_obligation = "Instantiate local errors and derive the apply_xy interval under the Arc-centre limit."
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "Arc-centre XY uses the checked point graph and is at most 2^-28 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Add transform coefficient/construction error and independently refine Rust native/wasm apply_xy results against exported intervals."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
   "FM1.F64.FEATURE.ARC.CENTER.FINITE"
@@ -173,12 +221,16 @@ boundary_ids = [
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
-metric = "Maximum absolute error of each transformed orientation-vector component"
+metric = "Local binary64 operation error of each transformed orientation-vector component against the exact-real expression over the same represented inputs"
 unit = "dimensionless"
-status = "pending"
-rationale = "The finite-input gate and rounded vector formula are checked; the nonzero/unit contract and concrete rotation interval remain open."
-evidence = []
-next_obligation = "Land nonzero/unit validation, instantiate local errors, and derive component plus angular error bounds."
+status = "bounded"
+ceiling = 1.862645149230957e-9
+rationale = "The checked XY vector formula is at most 2^-29 and Z is copied exactly under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Land nonzero/unit validation, add coefficient-construction error and derive an angular error bound."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
   "FM1.F64.FEATURE.ORIENTATION.FINITE"

@@ -138,14 +138,19 @@ numeric_status = "pending"
 assumptions = ["Inputs satisfy bounds established for the preceding libm boundary."]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "Bound one composition and accumulated coefficient drift for the maximum accepted repeat depth/count."
-evidence = []
+next_obligation = "Compose the bounded local-operation interval with libm coefficient error and accumulated coefficient drift for the maximum accepted repeat depth/count."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
 ]
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
 ]
@@ -163,14 +168,19 @@ numeric_status = "pending"
 assumptions = ["All operands are finite and within a future accepted coordinate envelope."]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "Formalize the exact integer envelope and a general interval bound for accepted translations and composition depth."
-evidence = []
+next_obligation = "Compose the bounded local-operation interval with coefficient/input error and translation growth across the accepted composition depth."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
 ]
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
@@ -189,13 +199,18 @@ numeric_status = "pending"
 assumptions = ["Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions."]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
-next_obligation = "Prove component intervals and output-finiteness under a named coordinate/pose profile; test Rust against exported interval fixtures."
-evidence = []
+next_obligation = "Add coefficient/input construction error, prove output finiteness and test Rust against exported intervals; the local operation-only interval is checked."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
 ]
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
@@ -214,13 +229,18 @@ numeric_status = "pending"
 assumptions = ["Arc-centre inputs passed the ordered finite-input gate.", "Transform coefficients and translation satisfy preceding bounds."]
 exclusions = ["Finite Arc centres outside the provisional magnitude profile and output non-finiteness caused by arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
-next_obligation = "Instantiate the local rounding contract and prove component intervals under an accepted geometry profile."
-evidence = []
+next_obligation = "Add coefficient/input construction error and native/wasm refinement for apply_xy; the local operation-only interval is checked."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
 ]
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
@@ -239,13 +259,19 @@ numeric_status = "pending"
 assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds."]
 exclusions = ["Nonzero/unit validation and normalization.", "Translation is intentionally excluded from vector action."]
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
-next_obligation = "Land a nonzero/unit normalization contract, instantiate local rounding, then prove angular or component error bounds."
-evidence = ["proofs/fixtures/feature-refinement-v0.json"]
+next_obligation = "Land a nonzero/unit normalization contract, add coefficient-construction error and prove an angular bound; the local component interval is checked."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/fixtures/feature-refinement-v0.json"
+]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR"
 ]
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
 ]
