@@ -1,7 +1,7 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
 source = "crates/core/src/features.rs"
-source_sha256 = "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302"
+source_sha256 = "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946"
 test = "crates/core/tests/feature_refinement.rs"
 
 [[mutation]]
@@ -319,3 +319,41 @@ new = '''
                     require_finite(*i, &format!("{op_path}.i"))?,
                 ]);
 '''
+
+[[mutation]]
+id = "angle-half-scale"
+witness = "native-angle-plus-90"
+test = "native-numeric"
+description = "Convert degrees with a denominator of 360 instead of 180."
+old = "    degrees * PI / 180.0"
+new = "    degrees * PI / 360.0"
+
+[[mutation]]
+id = "swap-pose-sine-cosine"
+witness = "native-trig-minus-90"
+test = "native-numeric"
+description = "Swap the sine and cosine calls used to construct a pose transform."
+old = '''
+            cos: libm::cos(angle),
+            sin: libm::sin(angle),
+'''
+new = '''
+            cos: libm::sin(angle),
+            sin: libm::cos(angle),
+'''
+
+[[mutation]]
+id = "compose-rotation-add-products"
+witness = "native-compose-rotation-products"
+test = "native-numeric"
+description = "Add both products when computing the composed cosine."
+old = "            cos: self.cos * local.cos - self.sin * local.sin,"
+new = "            cos: self.cos * local.cos + self.sin * local.sin,"
+
+[[mutation]]
+id = "compose-translation-skips-parent-rotation"
+witness = "native-compose-translation-rotation"
+test = "native-numeric"
+description = "Add local translation without first rotating it by the parent transform."
+old = "        let translated = self.apply_vector([lx, ly, lz]);"
+new = "        let translated = [lx, ly, lz];"

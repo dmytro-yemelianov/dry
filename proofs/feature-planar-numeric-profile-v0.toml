@@ -167,9 +167,12 @@ ceiling = 1.4210854715202004e-14
 rationale = "The checked operation-order proof uses Rust's exact binary64 PI rational, Mathlib's real-pi bounds and the scoped gradual-underflow-aware rounding contract to establish a conservative 2^-46 radian ceiling over [-360, 360] degrees."
 evidence = [
   "formal/Dry/Numeric/Angle.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Refine native/wasm Rust execution to the rounding premise and connect the checked interval to the imported libm contract."
+next_obligation = "Generalize the selected native cardinal-angle witnesses to exhaustive native/wasm execution refinement and connect every checked interval to the imported libm contract."
 boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
 
 [[budget]]
@@ -182,9 +185,12 @@ rationale = "Under the named imported libm 0.2.16 one-ULP MPFR contract, Lean de
 evidence = [
   "formal/Dry/Numeric/Trig.lean",
   "formal/Dry/Numeric/Angle.lean",
-  "proofs/libm-0.2.16-trig-contract.md"
+  "proofs/libm-0.2.16-trig-contract.md",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Replace the imported upstream accuracy assumption with exhaustive source-level verification, refine native/wasm calls to the contract and propagate the coefficient error through repeated composition."
+next_obligation = "Replace the imported upstream accuracy assumption with exhaustive source-level verification, generalize selected native calls to native/wasm refinement and propagate coefficient error through repeated composition."
 boundary_ids = [
   "FM1.F64.FEATURE.ANGLE.DEGREES",
   "FM1.F64.FEATURE.TRIG.LIBM"
@@ -199,9 +205,12 @@ ceiling = 1.862645149230957e-9
 rationale = "The checked one-step formula is at most 2^-29 when each multiplication result is within 2^20 and each addition/subtraction result is within 2^22 under the scoped binary64 rounding contract."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; refine Rust native/wasm execution and the graph-range premises before making an implementation claim."
+next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
 
 [[budget]]
@@ -213,9 +222,12 @@ ceiling = 3.725290298461914e-9
 rationale = "The checked one-step XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; refine Rust native/wasm execution and the graph-range premises before making an implementation claim."
+next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
 
 [[budget]]

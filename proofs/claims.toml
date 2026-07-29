@@ -395,6 +395,60 @@ numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+title = "Selected native cardinal-angle pose construction and one-step composition satisfy the profiled intervals"
+theorem = "Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks"
+spec_version = "native-feature-numeric-interval-v0"
+source_dialect = "Seven Lean-generated cardinal-angle FeaturePose and one-step composition cases"
+target_dialect = "Native Rust f64 Transform::from_pose and Transform::compose results"
+relation = "approximate"
+scope = "implementation"
+numeric_domain = "Exact real π reference intervals plus exact dyadic models of the observed finite binary64 inputs and local operation graph"
+assumptions = [
+  "Scope is exactly the four pose cases and three one-step composition cases in the committed generated fixture.",
+  "The native test target executes finite IEEE-754 binary64 basic operations with the source expression order.",
+  "Pinned libm sine and cosine are the implementation calls observed by the selected cardinal-angle cases.",
+  "Each exact local multiplication, addition and subtraction is checked against the linked provisional profile before its result is compared."
+]
+exclusions = [
+  "Universal refinement of arbitrary degree values, transform inputs, nested composition trees or downstream point/vector application.",
+  "An exhaustive source proof of libm, cross-target native/wasm equivalence, runtime enforcement of profile limits or a production tolerance guarantee.",
+  "A claim that fixture success discharges the conditional assumptions of the abstract angle, trig, local-compose or accumulation theorems."
+]
+lean_source = "formal/Dry/Tests/NativeNumericFixtures.lean"
+rust_sources = [
+  "crates/core/src/features.rs",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "formal/Dry/Numeric/Angle.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM",
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+]
+refinement_evidence = [
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "proofs/fixtures/native-feature-numeric-interval-fixtures.schema.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_proof_fixtures.py",
+  "tools/check_feature_mutations.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.NUMERIC.REPEAT.ACCUMULATION"
 title = "Profiled sequential repeat-transform accumulation has checked conditional coefficient and translation bounds"
 theorem = "Dry.Numeric.Accumulation.binary64Repeat_error"

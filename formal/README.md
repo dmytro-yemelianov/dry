@@ -56,7 +56,11 @@ before the Rust expander is called; they are not production wire syntax.
 the exact result against the generated expectation. A second Lean-generated two-case corpus uses an
 executable integer quarter-turn model to check parent-first Feature and nested Repeat composition
 against Rust within `1e-12`; this tolerance is structural evidence, not a general binary64 theorem.
-`tools/check_feature_mutations.py` then compiles 23 pinned source changes to
+Four pose and three one-step composition cases additionally export real-π reference intervals and
+exact power-of-two budgets. A native Rust test checks degree conversion and cardinal sine/cosine
+results, then reconstructs the compose operation graph with arbitrary-precision exact dyadics from
+the observed binary64 inputs before comparing each local result to its profiled interval.
+`tools/check_feature_mutations.py` then compiles 27 pinned source changes to
 `crates/core/src/features.rs` in isolated workspaces and requires each
 named fixture to kill its assigned mutant. The source hash and replacements are reviewed in
 `proofs/feature-refinement-mutations-v0.toml`; a non-compiling mutant does not count as killed.
@@ -67,7 +71,8 @@ Run that bounded mutation gate directly with:
 python3 tools/check_feature_mutations.py
 ```
 
-The checked refinement status is limited to that committed subset. Numeric error bounds, finite-width
-counter overflow, non-finite arc-centre/orientation behavior, mutation coverage outside the pinned
-feature-expansion changes, full frame graphs and wider Rust refinement remain explicitly pending in
+The checked refinement status is limited to those committed subsets. Universal native/wasm numeric
+refinement, finite-width counter overflow, nonzero/unit orientation behavior, mutation coverage
+outside the pinned feature-expansion changes, full frame graphs and wider Rust refinement remain
+explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).

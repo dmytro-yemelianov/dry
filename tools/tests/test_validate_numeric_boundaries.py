@@ -63,7 +63,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
-            "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302",
+            "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946",
             "0" * 64,
             1,
         )
@@ -85,7 +85,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
     def test_source_anchor_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
-            'source_anchor = "let angle = pose.rotate_z_deg * PI / 180.0;"',
+            'source_anchor = "degrees * PI / 180.0"',
             'source_anchor = "missing angle conversion"',
             1,
         )
@@ -97,7 +97,8 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         contents = self.repository_inventory().replace(
             'claim_ids = [\n  "FM1.TRANSFORM.COMPOSE_ACTION",\n'
             '  "FM1.FEATURE.COMPOSE_ACTION",\n'
-            '  "FM1.NUMERIC.TRIG.COEFFICIENTS"\n]',
+            '  "FM1.NUMERIC.TRIG.COEFFICIENTS",\n'
+            '  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"\n]',
             'claim_ids = ["FM1.DOES.NOT.EXIST"]',
             1,
         )

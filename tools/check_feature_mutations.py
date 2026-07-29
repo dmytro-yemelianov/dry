@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile bounded source mutations and require the named refinement fixture to kill each one."""
+"""Compile bounded source mutations and require the named proof fixture to kill each one."""
 
 from __future__ import annotations
 
@@ -26,14 +26,25 @@ FIXTURE = ROOT / "proofs" / "fixtures" / "feature-refinement-v0.json"
 COMPOSITION_SHAPE_FIXTURE = (
     ROOT / "proofs" / "fixtures" / "composition-shape-refinement-v0.json"
 )
+NATIVE_NUMERIC_FIXTURE = (
+    ROOT / "proofs" / "fixtures" / "native-feature-numeric-interval-v0.json"
+)
 EXPECTED_MODEL = "feature-refinement-source-mutations-v0"
-TEST_NAME = "rust_feature_expansion_refines_checked_lean_fixtures"
+FEATURE_TEST = "feature-refinement"
+NATIVE_NUMERIC_TEST = "native-numeric"
+TEST_NAMES = {
+    FEATURE_TEST: "rust_feature_expansion_refines_checked_lean_fixtures",
+    NATIVE_NUMERIC_TEST: (
+        "features::native_numeric_tests::native_f64_matches_lean_numeric_intervals"
+    ),
+}
 
 
 @dataclass(frozen=True)
 class Mutation:
     id: str
     witness: str
+    test: str
     description: str
     old: str
     new: str
@@ -117,10 +128,15 @@ def load_manifest() -> Manifest:
         mutation = Mutation(
             id=require_string(raw, "id", context),
             witness=require_string(raw, "witness", context),
+            test=raw.get("test", FEATURE_TEST),
             description=require_string(raw, "description", context),
             old=require_string(raw, "old", context),
             new=require_string(raw, "new", context),
         )
+        if not isinstance(mutation.test, str) or mutation.test not in TEST_NAMES:
+            raise ValueError(
+                f"{context}.test must be one of {', '.join(sorted(TEST_NAMES))}"
+            )
         if mutation.id in ids:
             raise ValueError(f"duplicate mutation id {mutation.id!r}")
         if mutation.witness in witnesses:
@@ -154,6 +170,15 @@ def load_manifest() -> Manifest:
             for case in fixture_document["cases"]
             if isinstance(case, dict)
         }
+        numeric_document = json.loads(
+            NATIVE_NUMERIC_FIXTURE.read_text(encoding="utf-8")
+        )
+        fixture_ids.update(
+            case["id"]
+            for collection in ("pose_cases", "compose_cases")
+            for case in numeric_document[collection]
+            if isinstance(case, dict)
+        )
     except (KeyError, OSError, TypeError, json.JSONDecodeError) as error:
         raise ValueError(f"cannot read refinement fixture ids: {error}") from error
     missing_witnesses = sorted(witnesses - fixture_ids)
@@ -186,6 +211,13 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
         / "fixtures"
         / "composition-shape-refinement-v0.json",
     )
+    shutil.copy2(
+        NATIVE_NUMERIC_FIXTURE,
+        destination
+        / "proofs"
+        / "fixtures"
+        / "native-feature-numeric-interval-v0.json",
+    )
 
     if not (destination / manifest.source).is_file():
         raise ValueError(f"minimal workspace omitted {manifest.source}")
@@ -193,8 +225,8 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
         raise ValueError(f"minimal workspace omitted {manifest.test}")
 
 
-def test_command(workspace: Path) -> list[str]:
-    return [
+def test_command(workspace: Path, test: str) -> list[str]:
+    command = [
         "cargo",
         "test",
         "--manifest-path",
@@ -202,26 +234,32 @@ def test_command(workspace: Path) -> list[str]:
         "-p",
         "dry-core",
         "--locked",
-        "--test",
-        "feature_refinement",
-        TEST_NAME,
-        "--",
-        "--exact",
     ]
+    if test == FEATURE_TEST:
+        command.extend(["--test", "feature_refinement", TEST_NAMES[test]])
+    else:
+        command.extend(["--lib", TEST_NAMES[test]])
+    command.extend(["--", "--exact"])
+    return command
 
 
 def run_test(
-    workspace: Path, witness: str | None, timeout_seconds: int = 180
+    workspace: Path,
+    witness: str | None,
+    test: str,
+    timeout_seconds: int = 180,
 ) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["CARGO_TERM_COLOR"] = "never"
     environment["CARGO_INCREMENTAL"] = "1"
-    if witness is None:
-        environment.pop("DRY_FEATURE_MUTATION_WITNESS", None)
-    else:
+    environment.pop("DRY_FEATURE_MUTATION_WITNESS", None)
+    environment.pop("DRY_NUMERIC_MUTATION_WITNESS", None)
+    if witness is not None and test == FEATURE_TEST:
         environment["DRY_FEATURE_MUTATION_WITNESS"] = witness
+    elif witness is not None:
+        environment["DRY_NUMERIC_MUTATION_WITNESS"] = witness
     return subprocess.run(
-        test_command(workspace),
+        test_command(workspace, test),
         cwd=workspace,
         env=environment,
         check=False,
@@ -261,7 +299,10 @@ def main() -> int:
 
     if args.list:
         for mutation in mutations:
-            print(f"{mutation.id}\t{mutation.witness}\t{mutation.description}")
+            print(
+                f"{mutation.id}\t{mutation.witness}\t"
+                f"{mutation.test}\t{mutation.description}"
+            )
         print(f"feature source mutations: {len(mutations)} declared")
         return 0
 
@@ -277,14 +318,15 @@ def main() -> int:
             mutated_source = workspace / manifest.source
             baseline_source = mutated_source.read_text(encoding="utf-8")
 
-            baseline = run_test(workspace, None)
-            if baseline.returncode:
-                print(
-                    "error: unmutated refinement test failed:\n"
-                    + failure_output(baseline),
-                    file=sys.stderr,
-                )
-                return 1
+            for test in dict.fromkeys(mutation.test for mutation in mutations):
+                baseline = run_test(workspace, None, test)
+                if baseline.returncode:
+                    print(
+                        f"error: unmutated {test} test failed:\n"
+                        + failure_output(baseline),
+                        file=sys.stderr,
+                    )
+                    return 1
 
             failures = []
             for mutation in mutations:
@@ -292,12 +334,12 @@ def main() -> int:
                     baseline_source.replace(mutation.old, mutation.new),
                     encoding="utf-8",
                 )
-                result = run_test(workspace, mutation.witness)
+                result = run_test(workspace, mutation.witness, mutation.test)
                 output = failure_output(result)
                 killed_by_test = (
                     result.returncode != 0
                     and mutation.witness in output
-                    and f"test {TEST_NAME} ... FAILED" in output
+                    and f"test {TEST_NAMES[mutation.test]} ... FAILED" in output
                 )
                 if killed_by_test:
                     print(f"KILLED\t{mutation.id}\t{mutation.witness}")
@@ -324,7 +366,7 @@ def main() -> int:
 
     print(
         f"feature source mutations: ok "
-        f"({len(mutations)}/{len(mutations)} killed by named Lean fixtures)"
+        f"({len(mutations)}/{len(mutations)} killed by named proof fixtures)"
     )
     return 0
 

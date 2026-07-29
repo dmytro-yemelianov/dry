@@ -127,7 +127,7 @@ impl Transform {
                 )));
             }
         }
-        let angle = pose.rotate_z_deg * PI / 180.0;
+        let angle = radians_from_degrees(pose.rotate_z_deg);
         Ok(Self {
             cos: libm::cos(angle),
             sin: libm::sin(angle),
@@ -180,6 +180,10 @@ impl Transform {
             && self.sin.abs() <= EPS
             && self.translation.iter().all(|value| value.abs() <= EPS)
     }
+}
+
+fn radians_from_degrees(degrees: f64) -> f64 {
+    degrees * PI / 180.0
 }
 
 struct ExpandState {
@@ -426,3 +430,7 @@ fn inherit_point(
     }
     Ok(out)
 }
+
+#[cfg(test)]
+#[path = "features/native_numeric_tests.rs"]
+mod native_numeric_tests;

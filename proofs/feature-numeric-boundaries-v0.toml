@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 path = "crates/core/src/features.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302"
+sha256 = "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946"
 
 [[source]]
 path = "crates/core/src/resolve.rs"
@@ -81,25 +81,30 @@ profile_entries = [
 [[boundary]]
 id = "FM1.F64.FEATURE.ANGLE.DEGREES"
 title = "Pose rotation converts binary64 degrees to radians"
-rust_symbol = "Transform::from_pose"
+rust_symbol = "radians_from_degrees"
 source_path = "crates/core/src/features.rs"
-source_anchor = "let angle = pose.rotate_z_deg * PI / 180.0;"
+source_anchor = "degrees * PI / 180.0"
 inputs = ["finite FeaturePose.rotate_z_deg", "std::f64::consts::PI", "binary64 literal 180.0"]
 operation = "Two rounded binary64 operations: rotate_z_deg * PI, then division by 180."
 classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = ["Rust uses IEEE-754 binary64 round-to-nearest, ties-to-even for finite basic operations on supported targets."]
 exclusions = ["The magnitude profile remains an assurance assumption rather than a runtime validity limit.", "Refinement from Rust f64 execution to the scoped rounding premise."]
-next_obligation = "Add native/wasm refinement to the scoped rounding premise and the checked radian interval."
+next_obligation = "Generalize the selected native cardinal-angle interval witnesses to exhaustive native/wasm refinement of the scoped rounding premise."
 evidence = [
   "formal/Dry/Numeric/Angle.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.ANGLE.RADIANS",
-  "FM1.NUMERIC.TRIG.COEFFICIENTS"
+  "FM1.NUMERIC.TRIG.COEFFICIENTS",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
@@ -121,16 +126,21 @@ classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = ["The pinned libm 0.2.16 implementation is part of the implementation boundary.", "The release's one-ULP MPFR sine/cosine policy holds universally over the profiled binary64 argument interval.", "Native/wasm parity tests are observations rather than proofs of that accuracy premise."]
 exclusions = ["Arguments outside the proved [-7, 7] envelope.", "Unconditional refinement of every native and wasm call to the imported accuracy contract."]
-next_obligation = "Replace the imported one-ULP premise with exhaustive source-level verification and propagate the coefficient error through the profiled composition count."
+next_obligation = "Replace the imported one-ULP premise with exhaustive source-level verification; selected native cardinal-angle calls are interval- and mutation-checked."
 evidence = [
   "formal/Dry/Numeric/Trig.lean",
   "proofs/libm-0.2.16-trig-contract.md",
-  "crates/core/tests/wasm_native_math.rs"
+  "crates/core/tests/wasm_native_math.rs",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.TRIG.COEFFICIENTS"
+  "FM1.NUMERIC.TRIG.COEFFICIENTS",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
@@ -154,14 +164,17 @@ assumptions = [
 ]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "The parent-first Feature/Repeat expression shape is theorem- and mutation-checked over the committed quarter-turn corpus; refine native f64 values to the profile, range, rounding and libm premises."
+next_obligation = "Selected native one-step compositions now refine exact dyadic operation graphs; generalize this to every profiled composition and native/wasm rounding/libm premise."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/Accumulation.lean",
   "formal/Dry/Numeric/CompositionTree.lean",
   "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -169,6 +182,7 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]
@@ -197,14 +211,17 @@ assumptions = [
 ]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "The parent-first Feature/Repeat expression shape is theorem- and mutation-checked over the committed quarter-turn corpus; tighten the non-production ceiling and refine native f64 values to profile/range premises."
+next_obligation = "Selected native one-step translations now refine exact dyadic operation graphs; tighten the non-production ceiling and generalize across the profiled composition tree."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/Accumulation.lean",
   "formal/Dry/Numeric/CompositionTree.lean",
   "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -212,6 +229,7 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]

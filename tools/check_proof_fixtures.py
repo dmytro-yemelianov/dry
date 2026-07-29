@@ -35,10 +35,20 @@ COMPOSITION_SHAPE_SCHEMA = (
     / "fixtures"
     / "composition-shape-refinement-fixtures.schema.json"
 )
+NATIVE_NUMERIC_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "native-feature-numeric-interval-v0.json"
+)
+NATIVE_NUMERIC_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "native-feature-numeric-interval-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
 COMPOSITION_SHAPE_LEAN_FIXTURE = "Dry/Tests/CompositionShapeFixtures.lean"
+NATIVE_NUMERIC_LEAN_FIXTURE = "Dry/Tests/NativeNumericFixtures.lean"
 
 
 def parse_args() -> argparse.Namespace:
@@ -172,6 +182,45 @@ def validate_composition_shape_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_native_numeric_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(NATIVE_NUMERIC_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read native numeric fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid native numeric fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid native numeric fixture JSON: " + "; ".join(messages)
+        )
+
+    case_ids = [
+        case["id"]
+        for collection in ("pose_cases", "compose_cases")
+        for case in document[collection]
+    ]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("native numeric fixture case ids must be globally unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -180,12 +229,16 @@ def main() -> int:
         feature_tsv_actual = evaluate(FEATURE_LEAN_FIXTURE)
         feature_refinement_actual = evaluate(FEATURE_REFINEMENT_LEAN_FIXTURE)
         composition_shape_actual = evaluate(COMPOSITION_SHAPE_LEAN_FIXTURE)
+        native_numeric_actual = evaluate(NATIVE_NUMERIC_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
         )
         composition_shape_document = validate_composition_shape_fixture(
             composition_shape_actual
+        )
+        native_numeric_document = validate_native_numeric_fixture(
+            native_numeric_actual
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
@@ -201,6 +254,7 @@ def main() -> int:
         FEATURE_TSV_SNAPSHOT: feature_tsv_actual,
         FEATURE_REFINEMENT_SNAPSHOT: feature_refinement_actual,
         COMPOSITION_SHAPE_SNAPSHOT: composition_shape_actual,
+        NATIVE_NUMERIC_SNAPSHOT: native_numeric_actual,
     }
 
     if args.write:
@@ -230,6 +284,8 @@ def main() -> int:
         f"{feature_case_count} feature-expansion cases, "
         f"{len(feature_refinement_document['cases'])} Rust-refinement cases, "
         f"{len(composition_shape_document['cases'])} composition-shape cases, "
+        f"{len(native_numeric_document['pose_cases'])} native-pose cases, "
+        f"{len(native_numeric_document['compose_cases'])} native-compose cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

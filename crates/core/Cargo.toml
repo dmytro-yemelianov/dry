@@ -20,6 +20,9 @@ libm = "0.2"
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Exact dyadic witnesses for the native f64 feature-operation graph.
+num-bigint = "0.4"
+num-traits = "0.2"
 # Used only by tests/spec_vectors.rs to hash the public conformance-vector artifacts into MANIFEST.json
 # (the same hashes the independent Python validator checks). Dev-only: never linked into the engine.
 sha2 = "0.10"

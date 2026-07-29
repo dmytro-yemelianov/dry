@@ -444,12 +444,14 @@ rejection and dynamic resource limits. Twenty-eight schema-valid Lean-generated 
 independently by the Rust expander through a fixture-only non-finite token adapter and check
 repeatable exact observations. A separate two-case Lean-generated quarter-turn corpus checks
 parent-first Feature and nested Repeat composition within `1e-12`, without treating that tolerance
-as a general trigonometric bound. A pinned manifest compiles 23 source changes against `features.rs`;
+as a general trigonometric bound. Four pose and three one-step composition fixtures also check
+selected native degree, trig and exact-dyadic local-operation intervals. A pinned manifest compiles
+27 source changes against `features.rs`;
 every viable mutant is killed by its assigned Lean-generated fixture in CI, including explicit
 feature-operand and repeat-operand reversals, while compilation failures are rejected as invalid evidence. The
 corresponding structural claims are refinement-checked only over that committed corpus and mutation
 manifest, not assigned a general mutation score. Finite-width counter overflow, nonzero/unit
-orientation semantics, mutation coverage outside the bounded surface, binary64 bounds, `SE(3)` and
+orientation semantics, mutation coverage outside the bounded surface, universal binary64 refinement, `SE(3)` and
 named frame graphs remain open.
 
 ### FM1.4 — numeric and curve error budgets
@@ -480,8 +482,10 @@ and profiled degree/coefficient construction are bounded; local transform operat
 and both the sequential same-pose accumulator and arbitrary parenthesized composition trees are bounded
 conditionally. The parent-first expression shape of nested Feature/Repeat paths is now proved and
 mutation-checked over the two quarter-turn witnesses. The two abstract composition boundaries are
-bounded while native `f64` refinement to profile/range/rounding premises and downstream point/vector
-application intervals remain pending. Non-finite
+bounded. A separate seven-case native implementation claim checks cardinal-angle construction and
+one-step composition against Lean-generated real-π and exact-dyadic intervals, with four dedicated
+mutations. General native/wasm refinement to profile/range/rounding premises and downstream
+point/vector application intervals remain pending. Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
@@ -557,7 +561,17 @@ exactly `i` pose and composition nodes, agrees with both existing exact and cond
 repeat evaluators, and transports the arbitrary-tree theorem without reassociation. Two independently
 generated integer quarter-turn fixtures exercise the corresponding Rust endpoints; pinned mutations
 that reverse either composition call are killed. This closes only structural parenthesization over
-the committed corpus. Native rounding/libm refinement, runtime profile enforcement and tighter
+the committed corpus.
+
+`formal/Dry/Tests/NativeNumericFixtures.lean` adds a deliberately bounded implementation bridge. It
+checks an integer quarter-turn reference model and Mathlib's 20-decimal real-π enclosure, then emits
+four cardinal pose cases, three one-step composition cases and the exact profile ceilings. The native
+consumer checks radians and trig outputs, reconstructs every selected composition operation over the
+actual finite binary64 inputs with arbitrary-precision dyadics, verifies the exact intermediate
+profile limits and compares the rounded Rust outputs with `2^-29` rotation and `2^-28` translation
+ceilings. Mutations independently break angle scaling, trig wiring, rotation composition and
+parent-frame translation. This is checked evidence for the committed native cases, not a universal
+rounding or `libm` proof. General native/wasm refinement, runtime profile enforcement and tighter
 production-scale translation intervals remain open.
 
 ### FM1.5 — resolver, simulation and verifier
