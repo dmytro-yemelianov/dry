@@ -254,10 +254,12 @@ jobs:
           python-version: "3.11"
       - name: install claim-validator dependencies
         run: pip install -r tools/requirements.txt
-      - name: validate proof claim registry
+      - name: validate proof claims and numeric-boundary inventory
         run: |
           python tools/validate_proof_claims.py
+          python tools/validate_numeric_boundaries.py
           python -m unittest discover -s tools/tests -p 'test_validate_proof_claims.py'
+          python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
       - name: build checked proofs with the pinned Lean/Mathlib toolchain
         uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1.5.0
         with:

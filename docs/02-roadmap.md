@@ -157,9 +157,11 @@ and the v0 portion of FM1.2/FM1.7. Each later proof packet additionally requires
 contract to be frozen. D1-dependent proof work does not set D1 semantics.
 
 **Exit gate:** every supported assurance claim maps to a checked theorem, explicit assumptions and
-numeric domain; floating-point claims include checked bounds or remain marked empirical; Rust passes
+numeric domain; every semantic floating-point boundary appears in a versioned, source-drift-checked
+inventory and its claims include checked bounds or remain marked empirical/pending; Rust passes
 independent refinement checks; FFF and the selected non-FFF workflow satisfy the bounded conditional
-compiler theorem; and an independent reviewer reproduces the proof build and claim registry.
+compiler theorem; and an independent reviewer reproduces the proof build, boundary inventory and claim
+registry.
 
 ## Risk register
 

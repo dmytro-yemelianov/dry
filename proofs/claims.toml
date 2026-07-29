@@ -24,6 +24,13 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
+numeric_boundaries = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM",
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+]
 refinement_evidence = []
 
 [claim.status]
@@ -201,6 +208,19 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
+numeric_boundaries = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.COORDINATE.INHERIT",
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM",
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION",
+  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED",
+  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+]
 refinement_evidence = []
 
 [claim.status]
@@ -236,6 +256,14 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
+numeric_boundaries = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.COORDINATE.INHERIT",
+  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED",
+  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED",
+  "FM1.F64.FEATURE.MANUAL.IDENTITY",
+  "FM1.F64.FEATURE.OP.PASSTHROUGH"
+]
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
   "crates/core/tests/feature_refinement.rs",

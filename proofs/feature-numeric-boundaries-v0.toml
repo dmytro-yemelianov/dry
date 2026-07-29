@@ -1,0 +1,284 @@
+schema_version = 1
+model = "feature-numeric-boundaries-v0"
+scope = "The binary64 boundary of crates/core/src/features.rs from FeaturePose and Op inputs through expand_features_with_limits output or ExpandError."
+
+[[source]]
+path = "crates/core/src/features.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc"
+
+[[source]]
+path = "crates/core/src/resolve.rs"
+role = "input-domain"
+hash_mode = "slice"
+anchor_start = "pub enum Op {"
+anchor_end = "\n\n/// Intermediate samples emitted per Catmull-Rom span"
+sha256 = "94b2d41616553450eff0a993815244b6e33f79458e0bed05a8737c959ba784e9"
+
+[[boundary]]
+id = "FM1.F64.FEATURE.POSE.FINITE"
+title = "Feature and repeat poses reject non-finite fields before transform construction"
+rust_symbol = "Transform::from_pose"
+source_path = "crates/core/src/features.rs"
+source_anchor = '''for (name, value) in [
+            ("x", pose.x),
+            ("y", pose.y),
+            ("z", pose.z),
+            ("rotate_z_deg", pose.rotate_z_deg),
+        ] {'''
+inputs = ["FeaturePose.x", "FeaturePose.y", "FeaturePose.z", "FeaturePose.rotate_z_deg"]
+operation = "Ordered is_finite checks; the first non-finite field returns ExpandError."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = ["Rust f64::is_finite classifies NaN and both infinities as non-finite."]
+exclusions = ["Finite magnitudes that later overflow during degree conversion or transform arithmetic."]
+next_obligation = "Keep the checked first-error theorem and Rust refinement fixtures synchronized with any pose-field change."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+claim_ids = [
+  "FM1.TRANSFORM.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.COORDINATE.INHERIT"
+title = "Move, arc-end and spline coordinates are inherited without arithmetic and then checked finite"
+rust_symbol = "inherit_point"
+source_path = "crates/core/src/features.rs"
+source_anchor = "let value = point[axis].or(position[axis]).ok_or_else(|| {"
+inputs = ["Op::Move.{x,y,z}", "Op::Arc.{x,y,z}", "Op::Spline.points[*][*]", "running local position"]
+operation = "Select the supplied coordinate or the prior local coordinate; reject missing and non-finite values."
+classification = "exact-in-range"
+numeric_status = "bounded"
+assumptions = ["Selection copies an existing finite f64 bit pattern and performs no floating-point arithmetic."]
+exclusions = ["The subsequent point transform and its rounding or overflow."]
+exact_envelope = ["Every finite binary64 input selected by Option::or is returned bit-for-bit."]
+next_obligation = "Extend the input rejection model if public coordinate syntax gains additional numeric representations."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ANGLE.DEGREES"
+title = "Pose rotation converts binary64 degrees to radians"
+rust_symbol = "Transform::from_pose"
+source_path = "crates/core/src/features.rs"
+source_anchor = "let angle = pose.rotate_z_deg * PI / 180.0;"
+inputs = ["finite FeaturePose.rotate_z_deg", "std::f64::consts::PI", "binary64 literal 180.0"]
+operation = "Two rounded binary64 operations: rotate_z_deg * PI, then division by 180."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["Rust uses IEEE-754 binary64 round-to-nearest, ties-to-even for finite basic operations on supported targets."]
+exclusions = ["No magnitude precondition currently prevents the multiplication from overflowing."]
+next_obligation = "Specify an accepted degree range and prove a checked interval enclosing the computed radians."
+evidence = []
+claim_ids = [
+  "FM1.TRANSFORM.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSE_ACTION"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.TRIG.LIBM"
+title = "Planar rotation coefficients use libm sine and cosine"
+rust_symbol = "Transform::from_pose"
+source_path = "crates/core/src/features.rs"
+source_anchor = '''cos: libm::cos(angle),
+            sin: libm::sin(angle),'''
+inputs = ["binary64 radian angle"]
+operation = "libm argument reduction followed by binary64 cosine and sine evaluation."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["The pinned libm implementation is part of the implementation boundary.", "Native/wasm parity tests are observations, not error bounds."]
+exclusions = ["A finite pose can produce an infinite radian intermediate, for which trigonometric output is NaN."]
+next_obligation = "Pin the supported libm contract and import or prove output intervals over the accepted angle range."
+evidence = ["crates/core/tests/wasm_native_math.rs"]
+claim_ids = [
+  "FM1.TRANSFORM.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSE_ACTION"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.COMPOSE.ROTATION"
+title = "Nested planar rotations compose with a rounded complex product"
+rust_symbol = "Transform::compose"
+source_path = "crates/core/src/features.rs"
+source_anchor = "cos: self.cos * local.cos - self.sin * local.sin,"
+inputs = ["parent Transform.{cos,sin}", "local Transform.{cos,sin}"]
+operation = "Four multiplications and two additions/subtractions compute the composed coefficients."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["Inputs satisfy bounds established for the preceding libm boundary."]
+exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
+exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
+next_obligation = "Bound one composition and accumulated coefficient drift for the maximum accepted repeat depth/count."
+evidence = []
+claim_ids = [
+  "FM1.TRANSFORM.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSE_ACTION"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+title = "Nested pose translations rotate locally and add to the parent translation"
+rust_symbol = "Transform::compose"
+source_path = "crates/core/src/features.rs"
+source_anchor = "translated[0] + self.translation[0],"
+inputs = ["parent Transform translation and coefficients", "local Transform translation"]
+operation = "Apply the parent rotation to the local translation, then add each parent translation component."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["All operands are finite and within a future accepted coordinate envelope."]
+exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
+exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
+next_obligation = "Formalize the exact integer envelope and a general interval bound for accepted translations and composition depth."
+evidence = []
+claim_ids = [
+  "FM1.TRANSFORM.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSE_ACTION"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.APPLY.POINT"
+title = "Moves, arc endpoints and spline controls receive a rounded planar point transform"
+rust_symbol = "Transform::apply_point"
+source_path = "crates/core/src/features.rs"
+source_anchor = "fn apply_point(self, point: [f64; 3]) -> [f64; 3] {"
+inputs = ["finite inherited Move point", "finite inherited Arc endpoint", "finite inherited Spline control point", "Transform coefficients and translation"]
+operation = "Apply a planar vector rotation and add XYZ translation."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions."]
+exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
+exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
+next_obligation = "Prove component intervals and output-finiteness under a named coordinate/pose profile; test Rust against exported interval fixtures."
+evidence = []
+claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+title = "Arc centres receive a rounded planar point transform"
+rust_symbol = "Transform::apply_xy"
+source_path = "crates/core/src/features.rs"
+source_anchor = "fn apply_xy(self, point: [f64; 2]) -> [f64; 2] {"
+inputs = ["Op::Arc.cx", "Op::Arc.cy", "Transform coefficients and XY translation"]
+operation = "Two planar multiply-add/subtract expressions rotate and translate the centre."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["Arc-centre inputs are finite under a future validation gate.", "Transform coefficients and translation satisfy preceding bounds."]
+exclusions = ["The current implementation does not validate arc-centre finiteness before arithmetic."]
+exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
+next_obligation = "Land finite arc-centre rejection, then prove component intervals under the accepted geometry profile."
+evidence = []
+claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.APPLY.ORIENTATION"
+title = "Tool orientation receives a rounded planar vector transform"
+rust_symbol = "Transform::apply_vector"
+source_path = "crates/core/src/features.rs"
+source_anchor = "fn apply_vector(self, vector: [f64; 3]) -> [f64; 3] {"
+inputs = ["Op::Orient.{i,j,k}", "Transform rotation coefficients"]
+operation = "Rotate XY using four multiplications and two additions/subtractions; copy Z unchanged."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = ["Orientation components are finite under a future validation gate.", "Rotation coefficients satisfy preceding bounds."]
+exclusions = ["The current implementation does not validate or normalize orientation components.", "Translation is intentionally excluded from vector action."]
+exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
+next_obligation = "Land finite orientation rejection and a nonzero/normalization contract, then prove angular or component error bounds."
+evidence = ["proofs/fixtures/feature-refinement-v0.json"]
+claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
+title = "Arc-centre fields currently cross feature expansion without an input-finiteness gate"
+rust_symbol = "expand_feature_ops"
+source_path = "crates/core/src/features.rs"
+source_anchor = "let centre = transform.apply_xy([*cx, *cy]);"
+inputs = ["Op::Arc.cx", "Op::Arc.cy"]
+operation = "Pass values directly into apply_xy; NaN and infinity can propagate to output."
+classification = "deterministic-but-unbounded"
+numeric_status = "empirical"
+assumptions = ["Current Rust/libm floating-point behavior determines propagation."]
+exclusions = ["The checked Lean subset explicitly excludes non-finite arc centres."]
+next_obligation = "Reject non-finite arc-centre fields in a documented order and add proof-generated Rust refinement fixtures."
+evidence = ["formal/Dry/Semantics/CheckedExpansion.lean"]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+title = "Orientation fields currently cross feature expansion without an input-finiteness gate"
+rust_symbol = "expand_feature_ops"
+source_path = "crates/core/src/features.rs"
+source_anchor = "let vector = transform.apply_vector([*i, *j, *k]);"
+inputs = ["Op::Orient.i", "Op::Orient.j", "Op::Orient.k"]
+operation = "Pass values directly into apply_vector; NaN and infinity can propagate to output."
+classification = "deterministic-but-unbounded"
+numeric_status = "empirical"
+assumptions = ["Current Rust floating-point behavior determines propagation."]
+exclusions = ["The checked Lean subset explicitly excludes non-finite orientation components."]
+next_obligation = "Reject non-finite orientation fields in a documented order and add proof-generated Rust refinement fixtures."
+evidence = ["formal/Dry/Semantics/CheckedExpansion.lean"]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.MANUAL.IDENTITY"
+title = "Manual G-code transform rejection uses a fixed epsilon identity predicate"
+rust_symbol = "Transform::is_identity"
+source_path = "crates/core/src/features.rs"
+source_anchor = "const EPS: f64 = 1e-12;"
+inputs = ["Transform.{cos,sin,translation}"]
+operation = "Subtract 1 from cosine, take absolute values, and compare every component with EPS."
+classification = "deterministic-but-unbounded"
+numeric_status = "empirical"
+assumptions = ["EPS is a policy threshold, not a proven transform-error budget."]
+exclusions = ["Passing this predicate does not establish mathematical identity or safe semantic transformation of manual code."]
+next_obligation = "Replace the implicit epsilon policy with a named numeric profile and prove that accepted transforms meet its declared observation bound."
+evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.OP.PASSTHROUGH"
+title = "Non-geometric operation payloads are cloned without numeric interpretation"
+rust_symbol = "expand_feature_ops"
+source_path = "crates/core/src/features.rs"
+source_anchor = "other => other.clone(),"
+inputs = [
+  "Op::Geometry.{width,height}",
+  "Op::Speed.print",
+  "Op::Temperature.nozzle",
+  "Op::Fan.speed",
+  "Op::Flow.ratio",
+  "Op::Dwell.seconds",
+  "Op::Retract.{distance,speed}",
+  "Op::Unretract.{distance,speed}",
+  "Op::Deposit.{volume,speed}"
+]
+operation = "Clone the Op value; feature expansion performs no floating-point arithmetic or validation."
+classification = "pass-through"
+numeric_status = "not-applicable"
+assumptions = ["The complete Op enum in crates/core/src/resolve.rs is pinned as an input-domain source."]
+exclusions = ["Validity, units, range checks and downstream resolver arithmetic for these payloads."]
+exact_envelope = ["Every cloned f64 payload preserves its binary64 bit pattern."]
+next_obligation = "Review and update this list whenever the pinned Op enum changes."
+evidence = []
+claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]

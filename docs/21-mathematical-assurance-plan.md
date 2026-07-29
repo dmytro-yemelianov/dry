@@ -466,6 +466,17 @@ Work packets:
 Exit gate: no public geometry theorem crosses from reals to Rust without a checked bound or an explicit
 `empirical` status.
 
+Current first landing: `proofs/feature-numeric-boundaries-v0.toml` inventories the 13 binary64
+boundaries of planar feature expansion and links them reciprocally to the affected exact-real and
+checked-result claims. It separates semantic classification (`exact-in-range`, rejected,
+interval-bound pending, deterministic but unbounded, or pass-through) from assurance status
+(`bounded`, `pending`, `empirical`, or not applicable). An independent validator checks the schema,
+complete required-id set, evidence paths, unique Rust source anchors and pinned hashes of both
+`features.rs` and the complete `Op` input domain in `resolve.rs`. The only bounded numeric item in this
+packet is bit-preserving finite coordinate inheritance; transform arithmetic remains pending, the
+unchecked arc-centre/orientation paths and epsilon identity policy remain empirical, and pass-through
+payloads make no numeric claim in this pass.
+
 ### FM1.5 — resolver, simulation and verifier
 
 Dependencies: FM1.2–FM1.4.

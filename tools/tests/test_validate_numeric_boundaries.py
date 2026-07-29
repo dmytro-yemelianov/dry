@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 and earlier
+    import tomli as tomllib
+
+
+ROOT = Path(__file__).resolve().parents[2]
+INVENTORY = ROOT / "proofs" / "feature-numeric-boundaries-v0.toml"
+VALIDATOR = ROOT / "tools" / "validate_numeric_boundaries.py"
+
+
+class NumericBoundaryValidatorTests(unittest.TestCase):
+    def run_inventory(self, contents: str) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = Path(directory) / "numeric-boundaries.toml"
+            inventory.write_text(contents, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(VALIDATOR), str(inventory)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+    def repository_inventory(self) -> str:
+        return INVENTORY.read_text(encoding="utf-8")
+
+    def test_repository_inventory_passes(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(VALIDATOR)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
+
+    def test_source_hash_drift_is_rejected(self) -> None:
+        contents = self.repository_inventory().replace(
+            "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc",
+            "0" * 64,
+            1,
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "changed without numeric-boundary review",
+            result.stderr,
+        )
+
+    def test_missing_boundary_is_rejected(self) -> None:
+        document = tomllib.loads(self.repository_inventory())
+        last_id = document["boundary"][-1]["id"]
+        marker = f'\n[[boundary]]\nid = "{last_id}"'
+        start = self.repository_inventory().index(marker)
+        result = self.run_inventory(self.repository_inventory()[:start])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing required boundaries", result.stderr)
+
+    def test_source_anchor_drift_is_rejected(self) -> None:
+        contents = self.repository_inventory().replace(
+            'source_anchor = "let angle = pose.rotate_z_deg * PI / 180.0;"',
+            'source_anchor = "missing angle conversion"',
+            1,
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source_anchor must occur exactly once", result.stderr)
+
+    def test_unlinked_claim_is_rejected(self) -> None:
+        contents = self.repository_inventory().replace(
+            'claim_ids = [\n  "FM1.TRANSFORM.COMPOSE_ACTION",\n'
+            '  "FM1.FEATURE.COMPOSE_ACTION"\n]',
+            'claim_ids = ["FM1.DOES.NOT.EXIST"]',
+            1,
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown claim id", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()
