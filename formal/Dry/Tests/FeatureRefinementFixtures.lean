@@ -89,6 +89,75 @@ def fixtures : List Fixture :=
       ]
     },
     {
+      id := "arc-requires-local-start-before-end"
+      limits := generous
+      program := program [
+        feature 0 [
+          .arc 0 0 (point (some 1) none (some 0)) false
+        ]
+      ]
+      expected := .error ⟨.undefinedStart,
+        "features[0].ops[0] requires a fully defined local start point"⟩
+    },
+    {
+      id := "arc-after-local-start"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 0) (some 0) (some 0)),
+          .arc 1 2 (point (some 2) (some 3) none) true
+        ]
+      ]
+      expected := .ok [
+        .move ⟨0, 0, 0⟩,
+        .arc 1 2 ⟨2, 3, 0⟩ true
+      ]
+    },
+    {
+      id := "spline-requires-local-start-before-points"
+      limits := generous
+      program := program [
+        feature 0 [
+          .spline [point (some 1) none (some 0)]
+        ]
+      ]
+      expected := .error ⟨.undefinedStart,
+        "features[0].ops[0] requires a fully defined local start point"⟩
+    },
+    {
+      id := "empty-spline-needs-no-start"
+      limits := generous
+      program := program [
+        feature 0 [.spline []]
+      ]
+      expected := .ok [.spline []]
+    },
+    {
+      id := "spline-points-inherit-locally"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 0) (some 1) (some 2)),
+          .spline [
+            point (some 1) none none,
+            point (some 2) (some 3) none
+          ]
+        ]
+      ]
+      expected := .ok [
+        .move ⟨0, 1, 2⟩,
+        .spline [⟨1, 1, 2⟩, ⟨2, 3, 2⟩]
+      ]
+    },
+    {
+      id := "orientation-ignores-translation"
+      limits := generous
+      program := program [
+        feature 10 [.orient 1 2 3]
+      ]
+      expected := .ok [.orient 1 2 3]
+    },
+    {
       id := "undefined-local-coordinate"
       limits := generous
       program := program [
@@ -138,7 +207,7 @@ def fixtures : List Fixture :=
     },
     {
       id := "depth-budget-before-node-visit"
-      limits := ⟨10, 100, 0⟩
+      limits := ⟨10, 1, 0⟩
       program := program [
         .group [feature 0 [.tool 1]]
       ]
@@ -182,6 +251,33 @@ def sourceOpJson : SourceOp → Json
         ("x", optionNatJson value.x),
         ("y", optionNatJson value.y),
         ("z", optionNatJson value.z)
+      ]
+  | .arc cx cy finish clockwise =>
+      Json.mkObj [
+        ("op", .str "arc"),
+        ("cx", .num cx),
+        ("cy", .num cy),
+        ("x", optionNatJson finish.x),
+        ("y", optionNatJson finish.y),
+        ("z", optionNatJson finish.z),
+        ("clockwise", .bool clockwise)
+      ]
+  | .spline points =>
+      Json.mkObj [
+        ("op", .str "spline"),
+        ("points", .arr (points.toArray.map fun value =>
+          .arr #[
+            optionNatJson value.x,
+            optionNatJson value.y,
+            optionNatJson value.z
+          ]))
+      ]
+  | .orient i j k =>
+      Json.mkObj [
+        ("op", .str "orient"),
+        ("i", .num i),
+        ("j", .num j),
+        ("k", .num k)
       ]
   | .manualGcode text =>
       Json.mkObj [
@@ -240,6 +336,29 @@ def outputOpJson : OutputOp → Json
         ("y", .num value.y),
         ("z", .num value.z)
       ]
+  | .arc cx cy finish clockwise =>
+      Json.mkObj [
+        ("op", .str "arc"),
+        ("cx", .num cx),
+        ("cy", .num cy),
+        ("x", .num finish.x),
+        ("y", .num finish.y),
+        ("z", .num finish.z),
+        ("clockwise", .bool clockwise)
+      ]
+  | .spline points =>
+      Json.mkObj [
+        ("op", .str "spline"),
+        ("points", .arr (points.toArray.map fun value =>
+          .arr #[.num value.x, .num value.y, .num value.z]))
+      ]
+  | .orient i j k =>
+      Json.mkObj [
+        ("op", .str "orient"),
+        ("i", .num i),
+        ("j", .num j),
+        ("k", .num k)
+      ]
   | .manualGcode text =>
       Json.mkObj [
         ("op", .str "manual_gcode"),
@@ -251,6 +370,7 @@ def failureCodeLabel : FailureCode → String
   | .maxNodes => "max-nodes"
   | .maxOps => "max-ops"
   | .undefinedCoordinate => "undefined-coordinate"
+  | .undefinedStart => "undefined-start"
   | .transformedManual => "transformed-manual"
 
 def expectedJson : Except Failure (List OutputOp) → Json

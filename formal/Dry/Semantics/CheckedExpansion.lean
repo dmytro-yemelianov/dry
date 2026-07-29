@@ -9,8 +9,8 @@ Rust feature expander. It models ordered groups and repeats, dynamic depth/node/
 locally self-contained moves, invariant tool operations and transformed manual-code rejection.
 
 Natural-number X translations keep the refinement fixtures exact and avoid claiming binary64 or
-trigonometric refinement. Pose finiteness, empty names, arcs, splines, orientations, counter overflow
-and epsilon-based transform identity remain separate obligations.
+trigonometric refinement. Pose/name validation, non-finite operation fields, counter overflow,
+rotations and epsilon-based transform identity remain separate obligations.
 -/
 
 namespace Dry.Semantics.CheckedExpansion
@@ -32,12 +32,18 @@ deriving BEq, Repr
 inductive SourceOp where
   | tool (index : Nat)
   | move (point : PartialPoint)
+  | arc (cx cy : Nat) (finish : PartialPoint) (clockwise : Bool)
+  | spline (points : List PartialPoint)
+  | orient (i j k : Nat)
   | manualGcode (text : String)
 deriving BEq, Repr
 
 inductive OutputOp where
   | tool (index : Nat)
   | move (point : Point)
+  | arc (cx cy : Nat) (finish : Point) (clockwise : Bool)
+  | spline (points : List Point)
+  | orient (i j k : Nat)
   | manualGcode (text : String)
 deriving BEq, Repr
 
@@ -46,6 +52,7 @@ inductive FailureCode where
   | maxNodes
   | maxOps
   | undefinedCoordinate
+  | undefinedStart
   | transformedManual
 deriving BEq, Repr
 
@@ -133,6 +140,9 @@ def undefinedFailure (path axis : String) : Failure :=
 def manualFailure (path : String) : Failure :=
   ⟨.transformedManual, s!"{path}.manual_gcode cannot be transformed safely"⟩
 
+def startFailure (path : String) : Failure :=
+  ⟨.undefinedStart, s!"{path} requires a fully defined local start point"⟩
+
 def inheritAxis
     (current previous : Option Nat)
     (path axis : String) : Except Failure Nat :=
@@ -161,6 +171,31 @@ def pushOp
   else
     .ok { state with ops := state.ops ++ [op] }
 
+def requireDefined
+    (position : PartialPoint)
+    (path : String) : Except Failure Unit :=
+  match position.x, position.y, position.z with
+  | some _, some _, some _ => .ok ()
+  | _, _, _ => .error (startFailure path)
+
+def fullPosition (point : Point) : PartialPoint :=
+  ⟨some point.x, some point.y, some point.z⟩
+
+def runSplinePoints
+    (transform : Nat)
+    (opPath : String) :
+    List PartialPoint → Nat → PartialPoint →
+      Except Failure (List Point × PartialPoint)
+  | [], _, position => .ok ([], position)
+  | partialPoint :: rest, index, position => do
+      let pointPath := s!"{opPath}.points[{index}]"
+      let localPoint ← inheritPoint partialPoint position pointPath
+      let transformed : Point :=
+        { localPoint with x := transform + localPoint.x }
+      let (tail, finalPosition) ←
+        runSplinePoints transform opPath rest (index + 1) (fullPosition localPoint)
+      pure (transformed :: tail, finalPosition)
+
 def runOps
     (limits : Limits)
     (transform : Nat)
@@ -178,9 +213,30 @@ def runOps
           let transformed : Point :=
             { localPoint with x := transform + localPoint.x }
           let next ← pushOp limits opPath (.move transformed) state
-          let localPosition : PartialPoint :=
-            ⟨some localPoint.x, some localPoint.y, some localPoint.z⟩
+          let localPosition := fullPosition localPoint
           runOps limits transform featurePath rest (index + 1) localPosition next
+      | .arc cx cy finish clockwise =>
+          let _ ← requireDefined position opPath
+          let localFinish ← inheritPoint finish position opPath
+          let transformedFinish : Point :=
+            { localFinish with x := transform + localFinish.x }
+          let next ← pushOp limits opPath
+            (.arc (transform + cx) cy transformedFinish clockwise) state
+          runOps limits transform featurePath rest (index + 1)
+            (fullPosition localFinish) next
+      | .spline points =>
+          if points.isEmpty then
+            let next ← pushOp limits opPath (.spline []) state
+            runOps limits transform featurePath rest (index + 1) position next
+          else
+            let _ ← requireDefined position opPath
+            let (transformedPoints, finalPosition) ←
+              runSplinePoints transform opPath points 0 position
+            let next ← pushOp limits opPath (.spline transformedPoints) state
+            runOps limits transform featurePath rest (index + 1) finalPosition next
+      | .orient i j k =>
+          let next ← pushOp limits opPath (.orient i j k) state
+          runOps limits transform featurePath rest (index + 1) position next
       | .manualGcode text =>
           if transform != 0 then
             .error (manualFailure opPath)
@@ -245,6 +301,13 @@ theorem pushOp_budget_failure
     pushOp limits path op state =
       .error (opFailure limits path) := by
   simp [pushOp, full]
+
+theorem requireDefined_failure
+    (path : String)
+    (y z : Option Nat) :
+    requireDefined ⟨none, y, z⟩ path =
+      .error (startFailure path) := by
+  cases y <;> cases z <;> rfl
 
 theorem inheritPoint_missing_y
     (path : String)

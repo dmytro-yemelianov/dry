@@ -185,7 +185,7 @@ assumptions = [
 exclusions = [
   "IEEE-754 rounding and libm sin/cos refinement.",
   "Partial-axis inheritance and local-position validation.",
-  "Arc, spline and orientation field-by-field refinement.",
+  "Rotated binary64 arc, spline and orientation field-by-field refinement.",
   "Manual-code rejection and full SE(3) frame graphs."
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
@@ -211,14 +211,14 @@ relation = "trace-exact"
 scope = "abstract"
 numeric_domain = "Natural-number translations and resource counters"
 assumptions = [
-  "The checked subset contains invariant tool operations, partial-coordinate moves and manual code.",
+  "The checked subset contains invariant tool operations, partial-coordinate moves, arcs, splines, orientations and manual code.",
   "Transforms are exact natural-number X translations, with zero as the identity.",
   "Depth is checked before node count, and operation count immediately before append."
 ]
 exclusions = [
   "Non-finite poses, empty feature names and finite-width counter overflow.",
-  "Arcs, splines, orientations and epsilon-based transform identity.",
-  "Binary64 rounding, rotations and libm trigonometry.",
+  "Non-finite operation fields and epsilon-based transform identity.",
+  "Binary64 rounding, rotations and libm trigonometry for geometry operations.",
   "Claims beyond the committed refinement fixture corpus."
 ]
 lean_source = "formal/Dry/Semantics/CheckedExpansion.lean"

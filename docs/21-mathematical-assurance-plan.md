@@ -438,11 +438,12 @@ Current bounded landing: the abstract planar `Feature`/ordered `Group`/`Repeat` 
 source-order concatenation, repeat decomposition and exact operation counts, operation/node/depth
 budget preservation, deterministic expansion and exact-real pose action for points, vectors and
 invariant operations. A second checked model fixes success/first-error order for invariant tool
-operations, locally inherited moves, transformed manual-code rejection and dynamic resource limits.
-Eleven schema-valid Lean-generated cases are consumed independently by the Rust expander and check
-repeatable exact observations; the corresponding structural claims are refinement-checked only over
-that committed corpus. Non-finite pose/name/counter-overflow behavior, arcs/splines/orientations,
-mutation coverage, binary64 bounds, `SE(3)` and named frame graphs remain open.
+operations, locally inherited moves, arcs, splines, orientations, transformed manual-code rejection
+and dynamic resource limits. Seventeen schema-valid Lean-generated cases are consumed independently
+by the Rust expander and check repeatable exact observations; 11 declared wrong semantics serve as
+bounded negative controls. The corresponding structural claims are refinement-checked only over that
+committed corpus. Non-finite pose/name/operation and counter-overflow behavior, broader source-level
+mutation scoring, binary64 bounds, `SE(3)` and named frame graphs remain open.
 
 ### FM1.4 — numeric and curve error budgets
 

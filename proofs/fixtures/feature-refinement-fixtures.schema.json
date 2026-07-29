@@ -26,6 +26,26 @@
         { "type": "null" }
       ]
     },
+    "partialPointArray": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/optionalNatural" },
+        { "$ref": "#/$defs/optionalNatural" },
+        { "$ref": "#/$defs/optionalNatural" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "pointArray": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/natural" },
+        { "$ref": "#/$defs/natural" },
+        { "$ref": "#/$defs/natural" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
     "pose": {
       "type": "object",
       "additionalProperties": false,
@@ -54,6 +74,43 @@
             "x": { "$ref": "#/$defs/optionalNatural" },
             "y": { "$ref": "#/$defs/optionalNatural" },
             "z": { "$ref": "#/$defs/optionalNatural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "cx", "cy", "x", "y", "z", "clockwise"],
+          "properties": {
+            "op": { "const": "arc" },
+            "cx": { "$ref": "#/$defs/natural" },
+            "cy": { "$ref": "#/$defs/natural" },
+            "x": { "$ref": "#/$defs/optionalNatural" },
+            "y": { "$ref": "#/$defs/optionalNatural" },
+            "z": { "$ref": "#/$defs/optionalNatural" },
+            "clockwise": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "points"],
+          "properties": {
+            "op": { "const": "spline" },
+            "points": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/partialPointArray" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "i", "j", "k"],
+          "properties": {
+            "op": { "const": "orient" },
+            "i": { "$ref": "#/$defs/natural" },
+            "j": { "$ref": "#/$defs/natural" },
+            "k": { "$ref": "#/$defs/natural" }
           }
         },
         {
@@ -142,6 +199,43 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "required": ["op", "cx", "cy", "x", "y", "z", "clockwise"],
+          "properties": {
+            "op": { "const": "arc" },
+            "cx": { "$ref": "#/$defs/natural" },
+            "cy": { "$ref": "#/$defs/natural" },
+            "x": { "$ref": "#/$defs/natural" },
+            "y": { "$ref": "#/$defs/natural" },
+            "z": { "$ref": "#/$defs/natural" },
+            "clockwise": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "points"],
+          "properties": {
+            "op": { "const": "spline" },
+            "points": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/pointArray" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "i", "j", "k"],
+          "properties": {
+            "op": { "const": "orient" },
+            "i": { "$ref": "#/$defs/natural" },
+            "j": { "$ref": "#/$defs/natural" },
+            "k": { "$ref": "#/$defs/natural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
           "required": ["op", "text"],
           "properties": {
             "op": { "const": "manual_gcode" },
@@ -176,6 +270,7 @@
                 "max-nodes",
                 "max-ops",
                 "undefined-coordinate",
+                "undefined-start",
                 "transformed-manual"
               ]
             },
