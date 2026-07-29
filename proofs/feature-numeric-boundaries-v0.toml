@@ -154,16 +154,20 @@ assumptions = [
 ]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "Refine nested Rust Feature/Repeat evaluation to the parenthesization-preserving tree and its profile/range premises; the abstract numeric boundary is bounded."
+next_obligation = "The parent-first Feature/Repeat expression shape is theorem- and mutation-checked over the committed quarter-turn corpus; refine native f64 values to the profile, range, rounding and libm premises."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/Accumulation.lean",
-  "formal/Dry/Numeric/CompositionTree.lean"
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
@@ -193,16 +197,20 @@ assumptions = [
 ]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "Tighten the non-production tree ceiling and refine nested Rust Feature/Repeat evaluation to the tree and profile/range premises; the abstract numeric boundary is bounded."
+next_obligation = "The parent-first Feature/Repeat expression shape is theorem- and mutation-checked over the committed quarter-turn corpus; tighten the non-production ceiling and refine native f64 values to profile/range premises."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/Accumulation.lean",
-  "formal/Dry/Numeric/CompositionTree.lean"
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"

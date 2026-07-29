@@ -1,0 +1,34 @@
+{"schema_version": 1,
+ "model_checks": true,
+ "model": "composition-shape-refinement-v0",
+ "cases":
+ [{"tolerance": 0.0000000001e-2,
+   "program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 90},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"pose": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
+       "ops": [{"z": 0, "y": 0, "x": 0, "op": "move"}],
+       "kind": "feature"}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "feature-compose-parent-first",
+   "expected_points": [[10, 0, 0], [0, 10, 0]]},
+  {"tolerance": 0.0000000001e-2,
+   "program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": 100, "rotate_z_deg": 0},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 90},
+       "kind": "repeat",
+       "count": 2,
+       "child":
+       {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+        "ops": [{"z": 0, "y": 0, "x": 10, "op": "move"}],
+        "kind": "feature"}}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "repeat-compose-parent-first",
+   "expected_points": [[10, 0, 0], [0, 10, 0], [110, 0, 0], [100, 10, 0]]}]}

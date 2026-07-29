@@ -47,14 +47,17 @@ python3 tools/check_proof_fixtures.py
 
 The L2 JSON fixture encodes finite logical values as normalized numerator/denominator strings and uses
 an explicit `non-finite` token. The feature fixture snapshots source ordering, zero and nonzero repeats,
-dynamic operation/node counts and maximum expansion depth. The refinement JSON assigns 24 expected
+dynamic operation/node counts and maximum expansion depth. The refinement JSON assigns 28 expected
 success or exact first-error cases for ordered groups/repeats, feature names and poses,
 local-coordinate inheritance, arcs, splines, orientations, manual code and resource limits. Its
 fixture-only `NaN`/`inf`/`-inf` strings are converted to IEEE-754 values by an independent adapter
 before the Rust expander is called; they are not production wire syntax.
 `crates/core/tests/feature_refinement.rs` repeats every observation to check determinism and confirms
-the exact result against the generated expectation. `tools/check_feature_mutations.py` then compiles
-17 pinned source changes to `crates/core/src/features.rs` in isolated workspaces and requires each
+the exact result against the generated expectation. A second Lean-generated two-case corpus uses an
+executable integer quarter-turn model to check parent-first Feature and nested Repeat composition
+against Rust within `1e-12`; this tolerance is structural evidence, not a general binary64 theorem.
+`tools/check_feature_mutations.py` then compiles 23 pinned source changes to
+`crates/core/src/features.rs` in isolated workspaces and requires each
 named fixture to kill its assigned mutant. The source hash and replacements are reviewed in
 `proofs/feature-refinement-mutations-v0.toml`; a non-compiling mutant does not count as killed.
 

@@ -69,7 +69,7 @@ class ProofClaimValidatorTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("proof claims: ok (20 claims", result.stdout)
+        self.assertIn("proof claims: ok (21 claims", result.stdout)
 
     def test_duplicate_claim_ids_are_rejected(self) -> None:
         registry = (

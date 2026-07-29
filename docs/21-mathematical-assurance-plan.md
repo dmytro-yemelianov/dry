@@ -440,11 +440,13 @@ budget preservation, deterministic expansion and exact-real pose action for poin
 invariant operations. A second checked model fixes success/first-error order for feature names,
 finite/non-finite pose fields, invariant tool operations, locally inherited moves, arcs with ordered
 finite-centre rejection, splines, ordered finite-orientation rejection, transformed manual-code
-rejection and dynamic resource limits. Twenty-eight
-schema-valid Lean-generated cases are consumed independently by the Rust expander through a
-fixture-only non-finite token adapter and check repeatable exact observations. A pinned manifest
-compiles 21 source changes against `features.rs`; every viable mutant is killed by its assigned
-Lean-generated fixture in CI, while compilation failures are rejected as invalid evidence. The
+rejection and dynamic resource limits. Twenty-eight schema-valid Lean-generated cases are consumed
+independently by the Rust expander through a fixture-only non-finite token adapter and check
+repeatable exact observations. A separate two-case Lean-generated quarter-turn corpus checks
+parent-first Feature and nested Repeat composition within `1e-12`, without treating that tolerance
+as a general trigonometric bound. A pinned manifest compiles 23 source changes against `features.rs`;
+every viable mutant is killed by its assigned Lean-generated fixture in CI, including explicit
+feature-operand and repeat-operand reversals, while compilation failures are rejected as invalid evidence. The
 corresponding structural claims are refinement-checked only over that committed corpus and mutation
 manifest, not assigned a general mutation score. Finite-width counter overflow, nonzero/unit
 orientation semantics, mutation coverage outside the bounded surface, binary64 bounds, `SE(3)` and
@@ -476,8 +478,10 @@ complete required-id set, evidence paths, unique Rust source anchors and pinned 
 `features.rs` and the complete `Op` input domain in `resolve.rs`. Bit-preserving coordinate inheritance
 and profiled degree/coefficient construction are bounded; local transform operation budgets are checked
 and both the sequential same-pose accumulator and arbitrary parenthesized composition trees are bounded
-conditionally. The two abstract composition boundaries are now bounded while their Rust refinement and
-downstream point/vector application intervals remain pending. Non-finite
+conditionally. The parent-first expression shape of nested Feature/Repeat paths is now proved and
+mutation-checked over the two quarter-turn witnesses. The two abstract composition boundaries are
+bounded while native `f64` refinement to profile/range/rounding premises and downstream point/vector
+application intervals remain pending. Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
@@ -544,8 +548,16 @@ preserves the evaluator's parenthesization and lets both operands carry existing
 count theorem converts the profile's 100,000-composition ceiling into at most 200,001 charged pose or
 composition steps. An exponential coefficient potential stays below `2^-10`; a quadratic translation
 invariant stays below `2^30` mm in XY; and Z remains below `2^-13` mm. Every local composition still
-requires the checked operation-result range predicate. These are abstract conditional bounds, not a
-Rust claim: refinement of nested `Feature`/`Repeat` evaluation, runtime profile enforcement and tighter
+requires the checked operation-result range predicate.
+
+`formal/Dry/Semantics/CompositionTreeRefinement.lean` now maps a selected nested Feature/Repeat path
+to that syntax: groups preserve the parent, features append `parent.compose(local)`, and repeat
+instance `i` appends the left-associated `instance.compose(step)` tree. It proves the repeat tree has
+exactly `i` pose and composition nodes, agrees with both existing exact and conditional-binary64
+repeat evaluators, and transports the arbitrary-tree theorem without reassociation. Two independently
+generated integer quarter-turn fixtures exercise the corresponding Rust endpoints; pinned mutations
+that reverse either composition call are killed. This closes only structural parenthesization over
+the committed corpus. Native rounding/libm refinement, runtime profile enforcement and tighter
 production-scale translation intervals remain open.
 
 ### FM1.5 — resolver, simulation and verifier

@@ -26,6 +26,20 @@ old = "for index in 0..*count {"
 new = "for index in 0..(*count).max(1) {"
 
 [[mutation]]
+id = "feature-compose-local-first"
+witness = "feature-compose-parent-first"
+description = "Compose a feature pose before its accumulated parent transform."
+old = "expand_feature_ops(ops, parent.compose(local), path, state)"
+new = "expand_feature_ops(ops, local.compose(parent), path, state)"
+
+[[mutation]]
+id = "repeat-compose-instance-first"
+witness = "repeat-compose-parent-first"
+description = "Compose a repeat instance before its accumulated parent transform."
+old = "                    parent.compose(instance),"
+new = "                    instance.compose(parent),"
+
+[[mutation]]
 id = "move-resets-local-position"
 witness = "move-inherits-local-position"
 description = "Discard the local position established by a move."

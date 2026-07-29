@@ -23,6 +23,9 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "proofs" / "feature-refinement-mutations-v0.toml"
 FIXTURE = ROOT / "proofs" / "fixtures" / "feature-refinement-v0.json"
+COMPOSITION_SHAPE_FIXTURE = (
+    ROOT / "proofs" / "fixtures" / "composition-shape-refinement-v0.json"
+)
 EXPECTED_MODEL = "feature-refinement-source-mutations-v0"
 TEST_NAME = "rust_feature_expansion_refines_checked_lean_fixtures"
 
@@ -141,9 +144,15 @@ def load_manifest() -> Manifest:
         )
 
     try:
-        fixture_document = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        fixture_documents = [
+            json.loads(FIXTURE.read_text(encoding="utf-8")),
+            json.loads(COMPOSITION_SHAPE_FIXTURE.read_text(encoding="utf-8")),
+        ]
         fixture_ids = {
-            case["id"] for case in fixture_document["cases"] if isinstance(case, dict)
+            case["id"]
+            for fixture_document in fixture_documents
+            for case in fixture_document["cases"]
+            if isinstance(case, dict)
         }
     except (KeyError, OSError, TypeError, json.JSONDecodeError) as error:
         raise ValueError(f"cannot read refinement fixture ids: {error}") from error
@@ -170,6 +179,13 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
     )
     fixture_destination.parent.mkdir(parents=True)
     shutil.copy2(FIXTURE, fixture_destination)
+    shutil.copy2(
+        COMPOSITION_SHAPE_FIXTURE,
+        destination
+        / "proofs"
+        / "fixtures"
+        / "composition-shape-refinement-v0.json",
+    )
 
     if not (destination / manifest.source).is_file():
         raise ValueError(f"minimal workspace omitted {manifest.source}")

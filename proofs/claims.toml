@@ -229,6 +229,49 @@ numeric = "pending"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.FEATURE.COMPOSITION_TREE.SHAPE"
+title = "Selected nested Feature and Repeat paths preserve parent-first transform-tree parenthesization"
+theorem = "Dry.Semantics.CompositionTreeRefinement.expandNode_tree_parenthesization"
+spec_version = "feature-v0"
+source_dialect = "One selected path through planar Feature, ordered Group and Repeat nodes"
+target_dialect = "Identity/pose/binary-compose TransformTree syntax"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Parametric composition-expression shape"
+assumptions = [
+  "A feature appends its local pose with parent.compose(local).",
+  "Repeat instance i appends the left-associated accumulator produced by i evaluations of instance.compose(step).",
+  "Ordered groups preserve the current parent transform."
+]
+exclusions = [
+  "Native binary64 rounding, libm accuracy, profile membership and operation-result range premises.",
+  "A universal source-level refinement proof for every Rust feature program; executable evidence is bounded to the committed quarter-turn corpus and pinned mutations.",
+  "Downstream point/vector error intervals, full SE(3) transforms and named frame graphs."
+]
+lean_source = "formal/Dry/Semantics/CompositionTreeRefinement.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+numeric_boundaries = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+]
+refinement_evidence = [
+  "formal/Dry/Tests/CompositionShapeFixtures.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/fixtures/composition-shape-refinement-fixtures.schema.json",
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.NUMERIC.ANGLE.RADIANS"
 title = "Profiled binary64 degree-to-radian conversion has a checked absolute error bound"
 theorem = "Dry.Numeric.Angle.binary64Radians_error"
@@ -413,7 +456,7 @@ assumptions = [
   "The binary tree preserves the evaluator's parenthesization; no binary64 associativity premise is used."
 ]
 exclusions = [
-  "Refinement from nested Rust Feature/Repeat evaluation to the abstract tree, profile predicates and range premises.",
+  "General numeric refinement from nested Rust Feature/Repeat values to profile predicates, operation-result range premises, native rounding and libm contracts; only the structural parenthesization bridge is checked separately.",
   "Runtime enforcement of the provisional assurance profile.",
   "Transform application to downstream points or vectors and any resulting output-finiteness interval.",
   "Exhaustive source-level proof of the imported libm accuracy premise.",
@@ -434,7 +477,14 @@ numeric_boundaries = [
   "FM1.F64.FEATURE.COMPOSE.ROTATION",
   "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
 ]
-refinement_evidence = []
+refinement_evidence = [
+  "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "formal/Dry/Tests/CompositionShapeFixtures.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
+]
 
 [claim.status]
 abstract = "proved"

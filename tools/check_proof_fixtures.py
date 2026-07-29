@@ -26,9 +26,19 @@ FEATURE_REFINEMENT_SNAPSHOT = (
 FEATURE_REFINEMENT_SCHEMA = (
     ROOT / "proofs" / "fixtures" / "feature-refinement-fixtures.schema.json"
 )
+COMPOSITION_SHAPE_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "composition-shape-refinement-v0.json"
+)
+COMPOSITION_SHAPE_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "composition-shape-refinement-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
+COMPOSITION_SHAPE_LEAN_FIXTURE = "Dry/Tests/CompositionShapeFixtures.lean"
 
 
 def parse_args() -> argparse.Namespace:
@@ -126,6 +136,42 @@ def validate_feature_refinement_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_composition_shape_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(COMPOSITION_SHAPE_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read composition-shape fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid composition-shape fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid composition-shape fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("composition-shape fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -133,9 +179,13 @@ def main() -> int:
         json_actual = evaluate(WELL_FORMED_LEAN_FIXTURE, "--json")
         feature_tsv_actual = evaluate(FEATURE_LEAN_FIXTURE)
         feature_refinement_actual = evaluate(FEATURE_REFINEMENT_LEAN_FIXTURE)
+        composition_shape_actual = evaluate(COMPOSITION_SHAPE_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
+        )
+        composition_shape_document = validate_composition_shape_fixture(
+            composition_shape_actual
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
@@ -150,6 +200,7 @@ def main() -> int:
         JSON_SNAPSHOT: json_actual,
         FEATURE_TSV_SNAPSHOT: feature_tsv_actual,
         FEATURE_REFINEMENT_SNAPSHOT: feature_refinement_actual,
+        COMPOSITION_SHAPE_SNAPSHOT: composition_shape_actual,
     }
 
     if args.write:
@@ -178,6 +229,7 @@ def main() -> int:
         f"proof fixtures: ok ({len(json_document['cases'])} L2 validity cases, "
         f"{feature_case_count} feature-expansion cases, "
         f"{len(feature_refinement_document['cases'])} Rust-refinement cases, "
+        f"{len(composition_shape_document['cases'])} composition-shape cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

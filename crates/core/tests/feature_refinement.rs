@@ -4,6 +4,8 @@ use dry_core::{
 use serde::Deserialize;
 
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/feature-refinement-v0.json");
+const COMPOSITION_SHAPE_FIXTURES: &str =
+    include_str!("../../../proofs/fixtures/composition-shape-refinement-v0.json");
 
 #[derive(Debug, Deserialize)]
 struct FixtureDocument {
@@ -11,6 +13,23 @@ struct FixtureDocument {
     model: String,
     model_checks: bool,
     cases: Vec<Fixture>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompositionShapeDocument {
+    schema_version: u32,
+    model: String,
+    model_checks: bool,
+    cases: Vec<CompositionShapeFixture>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompositionShapeFixture {
+    id: String,
+    limits: FixtureLimits,
+    program: FixtureProgram,
+    expected_points: Vec<[f64; 3]>,
+    tolerance: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -357,6 +376,30 @@ fn observe(fixture: &Fixture) -> Observation {
     }
 }
 
+fn observe_composition_shape(fixture: &CompositionShapeFixture) -> Vec<[f64; 3]> {
+    let program = fixture
+        .program
+        .to_core()
+        .unwrap_or_else(|error| panic!("{} has invalid fixture syntax: {error}", fixture.id));
+    let design = expand_features_with_limits(&program, (&fixture.limits).into())
+        .unwrap_or_else(|error| panic!("{} failed to expand: {error}", fixture.id));
+    design
+        .ops
+        .iter()
+        .map(|op| match op {
+            Op::Move {
+                x: Some(x),
+                y: Some(y),
+                z: Some(z),
+            } => [*x, *y, *z],
+            other => panic!(
+                "{} emitted non-move operation in composition-shape fixture: {other:?}",
+                fixture.id
+            ),
+        })
+        .collect()
+}
+
 #[test]
 fn rust_feature_expansion_refines_checked_lean_fixtures() {
     let document: FixtureDocument =
@@ -365,6 +408,17 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
     assert_eq!(document.model, "feature-refinement-v0");
     assert!(document.model_checks);
     assert_eq!(document.cases.len(), 28);
+
+    let composition_document: CompositionShapeDocument =
+        serde_json::from_str(COMPOSITION_SHAPE_FIXTURES)
+            .expect("valid composition-shape fixture JSON");
+    assert_eq!(composition_document.schema_version, 1);
+    assert_eq!(
+        composition_document.model,
+        "composition-shape-refinement-v0"
+    );
+    assert!(composition_document.model_checks);
+    assert_eq!(composition_document.cases.len(), 2);
 
     let witness = std::env::var("DRY_FEATURE_MUTATION_WITNESS").ok();
     let selected: Vec<_> = document
@@ -376,9 +430,18 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
                 .is_none_or(|witness_id| fixture.id == *witness_id)
         })
         .collect();
+    let selected_composition_shapes: Vec<_> = composition_document
+        .cases
+        .iter()
+        .filter(|fixture| {
+            witness
+                .as_ref()
+                .is_none_or(|witness_id| fixture.id == *witness_id)
+        })
+        .collect();
     if let Some(witness_id) = &witness {
         assert_eq!(
-            selected.len(),
+            selected.len() + selected_composition_shapes.len(),
             1,
             "mutation witness {witness_id:?} must name exactly one fixture"
         );
@@ -415,6 +478,36 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
                 panic!(
                     "{} outcome mismatch: expected {expected:?}, observed {actual:?}",
                     fixture.id
+                );
+            }
+        }
+    }
+
+    for fixture in selected_composition_shapes {
+        let first = observe_composition_shape(fixture);
+        let second = observe_composition_shape(fixture);
+        assert_eq!(
+            first, second,
+            "{} produced a nondeterministic composition-shape observation",
+            fixture.id
+        );
+        assert_eq!(
+            first.len(),
+            fixture.expected_points.len(),
+            "{} endpoint count",
+            fixture.id
+        );
+        for (point_index, (actual, expected)) in
+            first.iter().zip(&fixture.expected_points).enumerate()
+        {
+            for axis in 0..3 {
+                assert!(
+                    (actual[axis] - expected[axis]).abs() <= fixture.tolerance,
+                    "{} endpoint {point_index} axis {axis}: expected {}, observed {}, tolerance {}",
+                    fixture.id,
+                    expected[axis],
+                    actual[axis],
+                    fixture.tolerance
                 );
             }
         }

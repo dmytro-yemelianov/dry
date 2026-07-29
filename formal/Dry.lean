@@ -11,5 +11,6 @@ import Dry.Numeric.Quantity
 import Dry.Numeric.RoundModel
 import Dry.Numeric.Trig
 import Dry.Semantics.CheckedExpansion
+import Dry.Semantics.CompositionTreeRefinement
 import Dry.Semantics.ExpandFeatures
 import Dry.Semantics.OrderedFold
