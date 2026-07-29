@@ -397,3 +397,24 @@ test = "native-numeric"
 description = "Negate an orientation vector's Z component instead of copying it."
 old = "            vector[2],"
 new = "            -vector[2],"
+
+[[mutation]]
+id = "nested-feature-compose-local-first"
+witness = "nested-application-point"
+description = "Reverse feature composition inside an end-to-end nested point application."
+old = "expand_feature_ops(ops, parent.compose(local), path, state)"
+new = "expand_feature_ops(ops, local.compose(parent), path, state)"
+
+[[mutation]]
+id = "nested-apply-xy-adds-x-products"
+witness = "nested-application-arc-center"
+description = "Corrupt Arc-centre X rotation inside an end-to-end nested application."
+old = "            self.cos * point[0] - self.sin * point[1] + self.translation[0],"
+new = "            self.cos * point[0] + self.sin * point[1] + self.translation[0],"
+
+[[mutation]]
+id = "nested-apply-vector-adds-x-products"
+witness = "nested-application-orientation"
+description = "Corrupt orientation X rotation inside an end-to-end nested application."
+old = "            self.cos * vector[0] - self.sin * vector[1],"
+new = "            self.cos * vector[0] + self.sin * vector[1],"

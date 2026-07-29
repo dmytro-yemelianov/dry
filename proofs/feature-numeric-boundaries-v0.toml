@@ -96,7 +96,9 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -104,7 +106,8 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.ANGLE.RADIANS",
   "FM1.NUMERIC.TRIG.COEFFICIENTS",
-  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
@@ -133,14 +136,17 @@ evidence = [
   "crates/core/tests/wasm_native_math.rs",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.TRIG.COEFFICIENTS",
-  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
@@ -164,7 +170,7 @@ assumptions = [
 ]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "Selected native one-step compositions now refine exact dyadic operation graphs; generalize this to every profiled composition and native/wasm rounding/libm premise."
+next_obligation = "Selected native one-step and nested cardinal programs now exercise the composition graph; generalize this to every profiled composition and native/wasm rounding/libm premise."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
@@ -174,7 +180,9 @@ evidence = [
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -183,6 +191,7 @@ claim_ids = [
   "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
   "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]
@@ -211,7 +220,7 @@ assumptions = [
 ]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "Selected native one-step translations now refine exact dyadic operation graphs; tighten the non-production ceiling and generalize across the profiled composition tree."
+next_obligation = "Selected native one-step and nested cardinal programs now exercise translated composition; tighten the non-production ceiling and generalize across every profiled composition tree."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
@@ -221,7 +230,9 @@ evidence = [
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -230,6 +241,7 @@ claim_ids = [
   "FM1.FEATURE.COMPOSITION_TREE.SHAPE",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
   "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION",
   "FM1.NUMERIC.REPEAT.ACCUMULATION",
   "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]
@@ -256,21 +268,25 @@ numeric_status = "bounded"
 assumptions = ["Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions."]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
-next_obligation = "Refine nested Rust Feature/Repeat values to the new conditional tree-application theorem, prove output finiteness and tighten its conservative 2^31 mm XY ceiling."
+next_obligation = "Generalize the selected nested cardinal corpus to every tree-application premise, prove output finiteness and tighten the conservative 2^31 mm XY ceiling."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR",
   "FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT",
-  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
@@ -294,21 +310,25 @@ numeric_status = "bounded"
 assumptions = ["Arc-centre inputs passed the ordered finite-input gate.", "Transform coefficients and translation satisfy preceding bounds."]
 exclusions = ["Finite Arc centres outside the provisional magnitude profile and output non-finiteness caused by arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
-next_obligation = "Refine nested Rust Feature/Repeat values to the new conditional tree-application theorem, prove output finiteness and tighten its conservative 2^31 mm XY ceiling."
+next_obligation = "Generalize the selected nested cardinal corpus to every tree-application premise, prove output finiteness and tighten the conservative 2^31 mm XY ceiling."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR",
   "FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT",
-  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
@@ -332,7 +352,7 @@ numeric_status = "bounded"
 assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds."]
 exclusions = ["Nonzero/unit validation and normalization.", "Translation is intentionally excluded from vector action."]
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
-next_obligation = "Land a nonzero/unit normalization contract, derive an angular bound, tighten the conservative 2^-8 component ceiling and refine nested Rust Feature/Repeat values to every theorem premise."
+next_obligation = "Land a nonzero/unit normalization contract, derive an angular bound, tighten the conservative 2^-8 component ceiling and generalize the selected nested cardinal corpus to every theorem premise."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
@@ -340,14 +360,18 @@ evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/src/features/native_numeric_tests.rs",
+  "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR",
   "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR",
-  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
+  "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",

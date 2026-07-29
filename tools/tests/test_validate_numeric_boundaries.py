@@ -95,11 +95,8 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
     def test_unlinked_claim_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
-            'claim_ids = [\n  "FM1.TRANSFORM.COMPOSE_ACTION",\n'
-            '  "FM1.FEATURE.COMPOSE_ACTION",\n'
-            '  "FM1.NUMERIC.TRIG.COEFFICIENTS",\n'
-            '  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"\n]',
-            'claim_ids = ["FM1.DOES.NOT.EXIST"]',
+            '"FM1.NUMERIC.ANGLE.RADIANS"',
+            '"FM1.DOES.NOT.EXIST"',
             1,
         )
         result = self.run_inventory(contents)

@@ -6,6 +6,13 @@ use serde::Deserialize;
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/feature-refinement-v0.json");
 const COMPOSITION_SHAPE_FIXTURES: &str =
     include_str!("../../../proofs/fixtures/composition-shape-refinement-v0.json");
+const NESTED_APPLICATION_FIXTURES: &str =
+    include_str!("../../../proofs/fixtures/nested-application-refinement-v0.json");
+
+const TREE_POINT_XY_BUDGET_ID: &str =
+    "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_POINT_COMPONENT_ABS_ERROR_MM";
+const TREE_ORIENTATION_XY_BUDGET_ID: &str =
+    "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR";
 
 #[derive(Debug, Deserialize)]
 struct FixtureDocument {
@@ -30,6 +37,50 @@ struct CompositionShapeFixture {
     program: FixtureProgram,
     expected_points: Vec<[f64; 3]>,
     tolerance: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct NestedApplicationDocument {
+    schema_version: u32,
+    model: String,
+    model_checks: bool,
+    profile_budgets: ApplicationBudgets,
+    derived_profile_ceilings: DerivedProfileCeilings,
+    observation_ceilings: ObservationCeilings,
+    cases: Vec<NestedApplicationFixture>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApplicationBudgets {
+    point_xy: Budget,
+    orientation_xy: Budget,
+}
+
+#[derive(Debug, Deserialize)]
+struct DerivedProfileCeilings {
+    point_z: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct Budget {
+    id: String,
+    ceiling: f64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+struct ObservationCeilings {
+    point_xy: f64,
+    point_z: f64,
+    orientation_xy: f64,
+    orientation_z: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct NestedApplicationFixture {
+    id: String,
+    limits: FixtureLimits,
+    program: FixtureProgram,
+    expected_ops: Vec<ObservedOp>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -400,6 +451,157 @@ fn observe_composition_shape(fixture: &CompositionShapeFixture) -> Vec<[f64; 3]>
         .collect()
 }
 
+fn assert_budget(budget: &Budget, expected_id: &str, expected_ceiling: f64) {
+    assert_eq!(budget.id, expected_id);
+    assert_eq!(
+        budget.ceiling.to_bits(),
+        expected_ceiling.to_bits(),
+        "{expected_id} ceiling drift"
+    );
+}
+
+fn assert_component(actual: f64, expected: f64, ceiling: f64, context: &str) {
+    assert!(
+        actual.is_finite() && (actual - expected).abs() <= ceiling,
+        "{context}: expected {expected}, observed {actual}, ceiling {ceiling}"
+    );
+}
+
+fn assert_nested_application_op(
+    actual: &ObservedOp,
+    expected: &ObservedOp,
+    ceilings: ObservationCeilings,
+    context: &str,
+) {
+    match (actual, expected) {
+        (
+            ObservedOp::Move {
+                x: actual_x,
+                y: actual_y,
+                z: actual_z,
+            },
+            ObservedOp::Move {
+                x: expected_x,
+                y: expected_y,
+                z: expected_z,
+            },
+        ) => {
+            assert_component(
+                *actual_x,
+                *expected_x,
+                ceilings.point_xy,
+                &format!("{context}.x"),
+            );
+            assert_component(
+                *actual_y,
+                *expected_y,
+                ceilings.point_xy,
+                &format!("{context}.y"),
+            );
+            assert_component(
+                *actual_z,
+                *expected_z,
+                ceilings.point_z,
+                &format!("{context}.z"),
+            );
+        }
+        (
+            ObservedOp::Arc {
+                cx: actual_cx,
+                cy: actual_cy,
+                x: actual_x,
+                y: actual_y,
+                z: actual_z,
+                clockwise: actual_clockwise,
+            },
+            ObservedOp::Arc {
+                cx: expected_cx,
+                cy: expected_cy,
+                x: expected_x,
+                y: expected_y,
+                z: expected_z,
+                clockwise: expected_clockwise,
+            },
+        ) => {
+            assert_eq!(actual_clockwise, expected_clockwise, "{context}.clockwise");
+            assert_component(
+                *actual_cx,
+                *expected_cx,
+                ceilings.point_xy,
+                &format!("{context}.cx"),
+            );
+            assert_component(
+                *actual_cy,
+                *expected_cy,
+                ceilings.point_xy,
+                &format!("{context}.cy"),
+            );
+            assert_component(
+                *actual_x,
+                *expected_x,
+                ceilings.point_xy,
+                &format!("{context}.x"),
+            );
+            assert_component(
+                *actual_y,
+                *expected_y,
+                ceilings.point_xy,
+                &format!("{context}.y"),
+            );
+            assert_component(
+                *actual_z,
+                *expected_z,
+                ceilings.point_z,
+                &format!("{context}.z"),
+            );
+        }
+        (
+            ObservedOp::Orient {
+                i: actual_i,
+                j: actual_j,
+                k: actual_k,
+            },
+            ObservedOp::Orient {
+                i: expected_i,
+                j: expected_j,
+                k: expected_k,
+            },
+        ) => {
+            assert_component(
+                *actual_i,
+                *expected_i,
+                ceilings.orientation_xy,
+                &format!("{context}.i"),
+            );
+            assert_component(
+                *actual_j,
+                *expected_j,
+                ceilings.orientation_xy,
+                &format!("{context}.j"),
+            );
+            assert_component(
+                *actual_k,
+                *expected_k,
+                ceilings.orientation_z,
+                &format!("{context}.k"),
+            );
+        }
+        _ => {
+            panic!("{context}: operation kind mismatch: expected {expected:?}, observed {actual:?}")
+        }
+    }
+}
+
+fn observe_nested_application(fixture: &NestedApplicationFixture) -> Vec<ObservedOp> {
+    let program = fixture
+        .program
+        .to_core()
+        .unwrap_or_else(|error| panic!("{} has invalid fixture syntax: {error}", fixture.id));
+    let design = expand_features_with_limits(&program, (&fixture.limits).into())
+        .unwrap_or_else(|error| panic!("{} failed to expand: {error}", fixture.id));
+    design.ops.iter().map(normalize_op).collect()
+}
+
 #[test]
 fn rust_feature_expansion_refines_checked_lean_fixtures() {
     let document: FixtureDocument =
@@ -420,6 +622,42 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
     assert!(composition_document.model_checks);
     assert_eq!(composition_document.cases.len(), 2);
 
+    let nested_document: NestedApplicationDocument =
+        serde_json::from_str(NESTED_APPLICATION_FIXTURES)
+            .expect("valid nested-application fixture JSON");
+    assert_eq!(nested_document.schema_version, 1);
+    assert_eq!(nested_document.model, "nested-application-refinement-v0");
+    assert!(nested_document.model_checks);
+    assert_eq!(nested_document.cases.len(), 3);
+    assert_budget(
+        &nested_document.profile_budgets.point_xy,
+        TREE_POINT_XY_BUDGET_ID,
+        2_f64.powi(31),
+    );
+    assert_eq!(
+        nested_document.derived_profile_ceilings.point_z.to_bits(),
+        2_f64.powi(-12).to_bits(),
+        "derived point-Z tree ceiling drift"
+    );
+    assert_budget(
+        &nested_document.profile_budgets.orientation_xy,
+        TREE_ORIENTATION_XY_BUDGET_ID,
+        2_f64.powi(-8),
+    );
+    assert!(
+        nested_document.observation_ceilings.point_xy
+            <= nested_document.profile_budgets.point_xy.ceiling
+    );
+    assert!(
+        nested_document.observation_ceilings.point_z
+            <= nested_document.derived_profile_ceilings.point_z
+    );
+    assert!(
+        nested_document.observation_ceilings.orientation_xy
+            <= nested_document.profile_budgets.orientation_xy.ceiling
+    );
+    assert_eq!(nested_document.observation_ceilings.orientation_z, 0.0);
+
     let witness = std::env::var("DRY_FEATURE_MUTATION_WITNESS").ok();
     let selected: Vec<_> = document
         .cases
@@ -439,9 +677,18 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
                 .is_none_or(|witness_id| fixture.id == *witness_id)
         })
         .collect();
+    let selected_nested_applications: Vec<_> = nested_document
+        .cases
+        .iter()
+        .filter(|fixture| {
+            witness
+                .as_ref()
+                .is_none_or(|witness_id| fixture.id == *witness_id)
+        })
+        .collect();
     if let Some(witness_id) = &witness {
         assert_eq!(
-            selected.len() + selected_composition_shapes.len(),
+            selected.len() + selected_composition_shapes.len() + selected_nested_applications.len(),
             1,
             "mutation witness {witness_id:?} must name exactly one fixture"
         );
@@ -510,6 +757,30 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
                     fixture.tolerance
                 );
             }
+        }
+    }
+
+    for fixture in selected_nested_applications {
+        let first = observe_nested_application(fixture);
+        let second = observe_nested_application(fixture);
+        assert_eq!(
+            first, second,
+            "{} produced a nondeterministic nested-application observation",
+            fixture.id
+        );
+        assert_eq!(
+            first.len(),
+            fixture.expected_ops.len(),
+            "{} operation count",
+            fixture.id
+        );
+        for (op_index, (actual, expected)) in first.iter().zip(&fixture.expected_ops).enumerate() {
+            assert_nested_application_op(
+                actual,
+                expected,
+                nested_document.observation_ceilings,
+                &format!("{} operation {op_index}", fixture.id),
+            );
         }
     }
 }

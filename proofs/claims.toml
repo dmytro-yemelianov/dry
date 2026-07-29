@@ -452,6 +452,63 @@ numeric = "bounded"
 refinement = "checked"
 
 [[claim]]
+id = "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
+title = "Selected nested Feature and Repeat programs satisfy checked point, Arc-centre and orientation application intervals"
+theorem = "Dry.Tests.NestedApplicationFixtures.nestedApplicationFixtureChecks"
+spec_version = "nested-application-refinement-v0"
+source_dialect = "Three Lean-generated nested Repeat-to-Repeat-to-Feature programs with point, Arc-centre and orientation operations"
+target_dialect = "Native Rust f64 feature expansion through pose construction, parenthesized composition and final operation application"
+relation = "approximate"
+scope = "implementation"
+numeric_domain = "Exact integer quarter-turn reference semantics observed through stricter power-of-two ceilings that imply the published tree-application budgets"
+assumptions = [
+  "Scope is exactly the three committed generated programs, four selected feature occurrences per program and their point, Arc-centre and orientation outputs.",
+  "Every fixture pose and local operand lies inside the linked provisional profile input envelopes.",
+  "The native test executes the production Feature/Repeat descent, Transform construction and composition, and apply_point, apply_xy or apply_vector graph.",
+  "Point and Arc XY, point Z and orientation XY are checked under 2^-28 mm, 2^-30 mm and 2^-29 observation ceilings respectively; orientation Z is exact.",
+  "Lean proves those observation ceilings imply the published 2^31 mm, 2^-12 mm and 2^-8 tree-application ceilings."
+]
+exclusions = [
+  "Universal refinement of arbitrary nested programs to the profile, range, rounding and libm premises of the abstract tree-application theorems.",
+  "Wasm execution, non-cardinal rotations, the full 100,000-composition envelope, spline applications or values outside the committed corpus.",
+  "A production tolerance guarantee, tightness claim, runtime profile enforcement or exhaustive source-level libm proof."
+]
+lean_source = "formal/Dry/Tests/NestedApplicationFixtures.lean"
+rust_sources = [
+  "crates/core/src/features.rs",
+  "crates/core/tests/feature_refinement.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml",
+  "proofs/fixtures/nested-application-refinement-v0.json"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM",
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+refinement_evidence = [
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_proof_fixtures.py",
+  "tools/check_feature_mutations.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.NUMERIC.REPEAT.ACCUMULATION"
 title = "Profiled sequential repeat-transform accumulation has checked conditional coefficient and translation bounds"
 theorem = "Dry.Numeric.Accumulation.binary64Repeat_error"
@@ -513,7 +570,7 @@ assumptions = [
   "The binary tree preserves the evaluator's parenthesization; no binary64 associativity premise is used."
 ]
 exclusions = [
-  "General numeric refinement from nested Rust Feature/Repeat values to profile predicates, operation-result range premises, native rounding and libm contracts; only the structural parenthesization bridge is checked separately.",
+  "General numeric refinement from arbitrary nested Rust Feature/Repeat values to profile predicates, operation-result range premises, native rounding and libm contracts; the structural bridge and one finite nested application corpus are checked separately.",
   "Runtime enforcement of the provisional assurance profile.",
   "This transform-only theorem does not itself state an output application bound; separate point and vector claims add input-envelope and final-operation range premises.",
   "Exhaustive source-level proof of the imported libm accuracy premise.",
@@ -538,6 +595,8 @@ refinement_evidence = [
   "formal/Dry/Semantics/CompositionTreeRefinement.lean",
   "formal/Dry/Tests/CompositionShapeFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
@@ -566,7 +625,7 @@ assumptions = [
   "The exact and binary64 applications receive the same represented input."
 ]
 exclusions = [
-  "General refinement from nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises.",
+  "General refinement from arbitrary nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises; three selected cardinal nested programs are checked separately.",
   "Runtime enforcement of the provisional assurance profile or an output-finiteness rejection gate.",
   "A production tolerance or tightness claim; the 2^31 mm XY ceiling is intentionally conservative, while point Z is separately below 2^-12 mm.",
   "Spline sampling/deviation and any accumulation after this single final application."
@@ -589,6 +648,9 @@ refinement_evidence = [
   "formal/Dry/Semantics/CompositionTreeRefinement.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
   "crates/core/tests/feature_refinement.rs",
   "crates/core/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"
@@ -617,7 +679,7 @@ assumptions = [
   "The exact and binary64 applications receive the same represented input."
 ]
 exclusions = [
-  "General refinement from nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises.",
+  "General refinement from arbitrary nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises; three selected cardinal nested programs are checked separately.",
   "Nonzero/unit validation, normalization and an angular-error guarantee.",
   "Runtime enforcement of the provisional assurance profile or an output-finiteness rejection gate.",
   "A production tolerance or tightness claim; the 2^-8 XY ceiling is conservative and Z is copied exactly."
@@ -639,6 +701,9 @@ refinement_evidence = [
   "formal/Dry/Semantics/CompositionTreeRefinement.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
   "crates/core/tests/feature_refinement.rs",
   "crates/core/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"

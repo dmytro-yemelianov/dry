@@ -44,11 +44,21 @@ NATIVE_NUMERIC_SCHEMA = (
     / "fixtures"
     / "native-feature-numeric-interval-fixtures.schema.json"
 )
+NESTED_APPLICATION_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "nested-application-refinement-v0.json"
+)
+NESTED_APPLICATION_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "nested-application-refinement-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
 COMPOSITION_SHAPE_LEAN_FIXTURE = "Dry/Tests/CompositionShapeFixtures.lean"
 NATIVE_NUMERIC_LEAN_FIXTURE = "Dry/Tests/NativeNumericFixtures.lean"
+NESTED_APPLICATION_LEAN_FIXTURE = "Dry/Tests/NestedApplicationFixtures.lean"
 
 
 def parse_args() -> argparse.Namespace:
@@ -227,6 +237,42 @@ def validate_native_numeric_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_nested_application_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(NESTED_APPLICATION_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read nested-application fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid nested-application fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid nested-application fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("nested-application fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -236,6 +282,7 @@ def main() -> int:
         feature_refinement_actual = evaluate(FEATURE_REFINEMENT_LEAN_FIXTURE)
         composition_shape_actual = evaluate(COMPOSITION_SHAPE_LEAN_FIXTURE)
         native_numeric_actual = evaluate(NATIVE_NUMERIC_LEAN_FIXTURE)
+        nested_application_actual = evaluate(NESTED_APPLICATION_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
@@ -245,6 +292,9 @@ def main() -> int:
         )
         native_numeric_document = validate_native_numeric_fixture(
             native_numeric_actual
+        )
+        nested_application_document = validate_nested_application_fixture(
+            nested_application_actual
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
@@ -261,6 +311,7 @@ def main() -> int:
         FEATURE_REFINEMENT_SNAPSHOT: feature_refinement_actual,
         COMPOSITION_SHAPE_SNAPSHOT: composition_shape_actual,
         NATIVE_NUMERIC_SNAPSHOT: native_numeric_actual,
+        NESTED_APPLICATION_SNAPSHOT: nested_application_actual,
     }
 
     if args.write:
@@ -298,6 +349,8 @@ def main() -> int:
         "native-XY-application cases, "
         f"{len(native_numeric_document['vector_application_cases'])} "
         "native-vector-application cases, "
+        f"{len(nested_application_document['cases'])} "
+        "nested-application cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

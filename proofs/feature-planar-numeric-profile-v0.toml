@@ -302,9 +302,12 @@ rationale = "Lean composes the tree's 2^-10 coefficient-norm and 2^30 mm transla
 evidence = [
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
   "formal/Dry/Numeric/CompositionTree.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
 ]
-next_obligation = "Tighten this non-production ceiling and refine nested Rust Feature/Repeat application to the tree, input-envelope and per-node range premises."
+next_obligation = "Tighten this non-production ceiling and generalize the selected nested native corpus to arbitrary profiled Feature/Repeat trees, input envelopes and per-node range premises."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.POINT",
   "FM1.F64.FEATURE.APPLY.ARC.CENTER"
@@ -320,9 +323,12 @@ rationale = "For local orientation components within [-1, 1], Lean bounds the XY
 evidence = [
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
   "formal/Dry/Numeric/CompositionTree.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
 ]
-next_obligation = "Land nonzero/unit orientation semantics, derive a useful angular bound and refine nested Rust Feature/Repeat application to every premise."
+next_obligation = "Land nonzero/unit orientation semantics, derive a useful angular bound and generalize the selected nested native corpus to every theorem premise."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
 
 [[budget]]

@@ -29,6 +29,9 @@ COMPOSITION_SHAPE_FIXTURE = (
 NATIVE_NUMERIC_FIXTURE = (
     ROOT / "proofs" / "fixtures" / "native-feature-numeric-interval-v0.json"
 )
+NESTED_APPLICATION_FIXTURE = (
+    ROOT / "proofs" / "fixtures" / "nested-application-refinement-v0.json"
+)
 EXPECTED_MODEL = "feature-refinement-source-mutations-v0"
 FEATURE_TEST = "feature-refinement"
 NATIVE_NUMERIC_TEST = "native-numeric"
@@ -163,6 +166,7 @@ def load_manifest() -> Manifest:
         fixture_documents = [
             json.loads(FIXTURE.read_text(encoding="utf-8")),
             json.loads(COMPOSITION_SHAPE_FIXTURE.read_text(encoding="utf-8")),
+            json.loads(NESTED_APPLICATION_FIXTURE.read_text(encoding="utf-8")),
         ]
         fixture_ids = {
             case["id"]
@@ -223,6 +227,13 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
         / "proofs"
         / "fixtures"
         / "native-feature-numeric-interval-v0.json",
+    )
+    shutil.copy2(
+        NESTED_APPLICATION_FIXTURE,
+        destination
+        / "proofs"
+        / "fixtures"
+        / "nested-application-refinement-v0.json",
     )
 
     if not (destination / manifest.source).is_file():

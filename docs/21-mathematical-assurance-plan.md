@@ -446,10 +446,14 @@ repeatable exact observations. A separate two-case Lean-generated quarter-turn c
 parent-first Feature and nested Repeat composition within `1e-12`, without treating that tolerance
 as a general trigonometric bound. Four pose, three one-step composition, two point, two Arc-centre and
 two orientation-vector fixtures also check selected native degree, trig and exact-dyadic
-local-operation intervals. A pinned manifest compiles 32 source changes against `features.rs`;
+local-operation intervals. Three further Lean-generated programs drive point, Arc-centre and
+orientation operations through nested `Repeat → Repeat → Feature` execution and compare the native
+outputs under ceilings stricter than the published tree-application budgets. A pinned manifest
+compiles 35 source changes against `features.rs`;
 every viable mutant is killed by its assigned Lean-generated fixture in CI, including explicit
-feature-operand and repeat-operand reversals, while compilation failures are rejected as invalid evidence. The
-corresponding structural claims are refinement-checked only over that committed corpus and mutation
+feature-operand and repeat-operand reversals plus three end-to-end nested application faults, while
+compilation failures are rejected as invalid evidence. The corresponding structural and numeric
+implementation claims are refinement-checked only over those committed corpora and mutation
 manifest, not assigned a general mutation score. Finite-width counter overflow, nonzero/unit
 orientation semantics, mutation coverage outside the bounded surface, universal binary64 refinement, `SE(3)` and
 named frame graphs remain open.
@@ -484,9 +488,12 @@ conditionally. The parent-first expression shape of nested Feature/Repeat paths 
 mutation-checked over the two quarter-turn witnesses. The two abstract composition boundaries are
 bounded. A separate 13-case native implementation claim checks cardinal-angle construction,
 one-step composition, point/Arc-centre application and orientation-vector rotation against
-Lean-generated real-π and exact-dyadic intervals, with nine dedicated mutations. General
-native/wasm refinement to profile/range/rounding premises and application inputs outside that selected
-corpus remain pending. Separate tree-application theorems now propagate the arbitrary-tree
+Lean-generated real-π and exact-dyadic intervals, with nine dedicated mutations. A second
+implementation claim checks three nested cardinal programs end to end through production
+Feature/Repeat expansion, including final point, Arc-centre and orientation applications, with three
+dedicated mutations. General native/wasm refinement to profile/range/rounding premises and
+application inputs outside those selected corpora remain pending. Separate tree-application
+theorems now propagate the arbitrary-tree
 coefficient and translation bounds through final point, Arc-centre and orientation operation graphs.
 Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
@@ -521,7 +528,8 @@ three local-operation claims are therefore numerically bounded at `2^-29` for ve
 `2^-28` for point/translation XY and `2^-30` for point/translation Z. The selected native application
 fixtures now refine those local graphs over exact dyadics, but this is not yet a complete Rust
 geometry interval: universal refinement from Rust `f64` to the rounding premise, input and `libm`
-coefficient error, output finiteness and nested application refinement remain pending.
+coefficient error, output finiteness and nested application refinement outside the selected cardinal
+corpus remain pending.
 
 `formal/Dry/Numeric/Angle.lean` models the exact Rust evaluation order
 `round(round(degrees * binary64Pi) / 180)`. It identifies the standard-library PI bit pattern with the
@@ -576,6 +584,17 @@ repeat evaluators, and transports the arbitrary-tree theorem without reassociati
 generated integer quarter-turn fixtures exercise the corresponding Rust endpoints; pinned mutations
 that reverse either composition call are killed. This closes only structural parenthesization over
 the committed corpus.
+
+`formal/Dry/Tests/NestedApplicationFixtures.lean` composes that structural path with final operation
+application for a finite implementation corpus. Its exact integer quarter-turn model generates three
+nested `Repeat → Repeat → Feature` programs and checks four selected feature occurrences for Move,
+Arc endpoint/centre and orientation results. The Rust consumer executes the production expander
+twice for determinism, compares XY point/Arc results under `2^-28` mm, point Z under `2^-30` mm,
+orientation XY under `2^-29`, and orientation Z exactly, and checks that these observation ceilings
+imply the published `2^31` mm, `2^-12` mm and `2^-8` tree-application budgets. Three named mutations
+independently reverse feature composition or corrupt nested Arc-centre/orientation application. This
+checks the committed native cardinal corpus only; it does not discharge the abstract theorems'
+universal profile, operation-range, rounding or `libm` premises.
 
 `formal/Dry/Tests/NativeNumericFixtures.lean` adds a deliberately bounded implementation bridge. It
 checks an integer quarter-turn reference model and Mathlib's 20-decimal real-π enclosure, then emits
