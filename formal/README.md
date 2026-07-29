@@ -34,10 +34,12 @@ The initial checked claims are:
 - normalized L2 logical equivalence is exactly structural equality;
 - ordered `Feature`/`Group`/`Repeat` expansion, exact repeat operation counts, resource-budget
   preservation and deterministic traces;
+- checked success/first-error determinism for a bounded operation-validation subset;
 - exact-real planar feature-pose action on abstract points, vectors and invariant operations.
 
-The executable positive/negative L2 boundary fixtures and natural-number feature-expansion fixtures
-are checked against committed TSV and schema-validated JSON snapshots:
+The executable positive/negative L2 boundary fixtures, natural-number feature-expansion fixtures and
+Lean-generated Rust-refinement fixtures are checked against committed TSV and schema-validated JSON
+snapshots:
 
 ```sh
 python3 tools/check_proof_fixtures.py
@@ -45,9 +47,11 @@ python3 tools/check_proof_fixtures.py
 
 The L2 JSON fixture encodes finite logical values as normalized numerator/denominator strings and uses
 an explicit `non-finite` token. The feature fixture snapshots source ordering, zero and nonzero repeats,
-dynamic operation/node counts and maximum expansion depth. They are intended for future independent
-Rust differential consumers; neither fixture is itself Rust-refinement evidence.
+dynamic operation/node counts and maximum expansion depth. The refinement JSON assigns 11 expected
+success or exact first-error cases for ordered groups/repeats, local-coordinate inheritance, manual
+code and resource limits; `crates/core/tests/feature_refinement.rs` consumes it independently against
+the Rust expander and repeats every observation to check determinism.
 
-Numeric error bounds, concrete operation-validation semantics, full frame graphs and Rust refinement
-remain explicitly pending in
+The checked refinement status is limited to that committed subset. Numeric error bounds, remaining
+operation validation, full frame graphs and wider Rust refinement remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).

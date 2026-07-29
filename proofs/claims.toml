@@ -55,12 +55,15 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
-refinement_evidence = []
+refinement_evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
 
 [claim.status]
 abstract = "proved"
 numeric = "not-applicable"
-refinement = "pending"
+refinement = "checked"
 
 [[claim]]
 id = "FM1.FEATURE.REPEAT.COUNT"
@@ -86,12 +89,15 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
-refinement_evidence = []
+refinement_evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
 
 [claim.status]
 abstract = "proved"
 numeric = "not-applicable"
-refinement = "pending"
+refinement = "checked"
 
 [[claim]]
 id = "FM1.FEATURE.BUDGETS"
@@ -118,12 +124,15 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
-refinement_evidence = []
+refinement_evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
 
 [claim.status]
 abstract = "proved"
 numeric = "not-applicable"
-refinement = "pending"
+refinement = "checked"
 
 [[claim]]
 id = "FM1.FEATURE.EXPANSION.DETERMINISTIC"
@@ -149,12 +158,15 @@ rust_sources = [
   "crates/core/src/features.rs"
 ]
 numeric_evidence = []
-refinement_evidence = []
+refinement_evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
 
 [claim.status]
 abstract = "proved"
 numeric = "not-applicable"
-refinement = "pending"
+refinement = "checked"
 
 [[claim]]
 id = "FM1.FEATURE.COMPOSE_ACTION"
@@ -187,6 +199,42 @@ refinement_evidence = []
 abstract = "proved"
 numeric = "pending"
 refinement = "pending"
+
+[[claim]]
+id = "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+title = "Checked feature expansion has a unique success or first-error result"
+theorem = "Dry.Semantics.CheckedExpansion.CheckedEvaluates.deterministic"
+spec_version = "feature-refinement-v0"
+source_dialect = "L1"
+target_dialect = "L1"
+relation = "trace-exact"
+scope = "abstract"
+numeric_domain = "Natural-number translations and resource counters"
+assumptions = [
+  "The checked subset contains invariant tool operations, partial-coordinate moves and manual code.",
+  "Transforms are exact natural-number X translations, with zero as the identity.",
+  "Depth is checked before node count, and operation count immediately before append."
+]
+exclusions = [
+  "Non-finite poses, empty feature names and finite-width counter overflow.",
+  "Arcs, splines, orientations and epsilon-based transform identity.",
+  "Binary64 rounding, rotations and libm trigonometry.",
+  "Claims beyond the committed refinement fixture corpus."
+]
+lean_source = "formal/Dry/Semantics/CheckedExpansion.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = []
+refinement_evidence = [
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
 
 [[claim]]
 id = "FM1.ORDERED_FOLD.DETERMINISTIC"

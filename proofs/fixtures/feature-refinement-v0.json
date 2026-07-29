@@ -1,0 +1,123 @@
+{"schema_version": 1,
+ "model_checks": true,
+ "model": "feature-refinement-v0",
+ "cases":
+ [{"program":
+   {"features":
+    [{"kind": "group",
+      "children":
+      [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 10}], "kind": "feature"},
+       {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 20}], "kind": "feature"}]}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "group-source-order",
+   "expected":
+   {"outcome": "ok", "ops": [{"op": "tool", "index": 10}, {"op": "tool", "index": 20}]}},
+  {"program":
+   {"features":
+    [{"step": {"x": 10},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"kind": "group",
+       "children":
+       [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"},
+        {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 2}], "kind": "feature"}]}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "repeat-count-and-order",
+   "expected":
+   {"outcome": "ok",
+    "ops":
+    [{"op": "tool", "index": 1},
+     {"op": "tool", "index": 2},
+     {"op": "tool", "index": 1},
+     {"op": "tool", "index": 2}]}},
+  {"program":
+   {"features":
+    [{"step": {"x": 10},
+      "kind": "repeat",
+      "count": 0,
+      "child":
+      {"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "repeat-zero-skips-invalid-child",
+   "expected": {"outcome": "ok", "ops": []}},
+  {"program":
+   {"features":
+    [{"pose": {"x": 0}, "ops": [{"text": "M400", "op": "manual_gcode"}], "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "identity-manual-gcode",
+   "expected": {"outcome": "ok", "ops": [{"text": "M400", "op": "manual_gcode"}]}},
+  {"program":
+   {"features":
+    [{"pose": {"x": 0},
+      "ops": [{"z": 3, "y": 2, "x": 1, "op": "move"}, {"z": null, "y": null, "x": 4, "op": "move"}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "move-inherits-local-position",
+   "expected":
+   {"outcome": "ok",
+    "ops": [{"z": 3, "y": 2, "x": 1, "op": "move"}, {"z": 3, "y": 2, "x": 4, "op": "move"}]}},
+  {"program":
+   {"features":
+    [{"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "undefined-local-coordinate",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].y is undefined; features must be locally self-contained",
+    "code": "undefined-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"x": 10}, "ops": [{"text": "G28", "op": "manual_gcode"}], "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "transformed-manual-gcode",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].manual_gcode cannot be transformed safely",
+    "code": "transformed-manual"}},
+  {"program":
+   {"features":
+    [{"kind": "group",
+      "children":
+      [{"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"},
+       {"pose": {"x": 10}, "ops": [{"text": "G28", "op": "manual_gcode"}], "kind": "feature"}]}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "source-order-first-error",
+   "expected":
+   {"outcome": "error",
+    "message":
+    "features[0].children[0].ops[0].y is undefined; features must be locally self-contained",
+    "code": "undefined-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"x": 0},
+      "ops": [{"op": "tool", "index": 1}, {"op": "tool", "index": 2}, {"op": "tool", "index": 3}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 2, "max_nodes": 100, "max_depth": 10},
+   "id": "operation-budget-first-excess",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[2] exceeds max expanded ops (2)",
+    "code": "max-ops"}},
+  {"program":
+   {"features":
+    [{"step": {"x": 0},
+      "kind": "repeat",
+      "count": 3,
+      "child": {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"}}]},
+   "limits": {"max_ops": 10, "max_nodes": 2, "max_depth": 10},
+   "id": "node-budget-first-excess",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].instances[1] exceeds max expanded nodes (2)",
+    "code": "max-nodes"}},
+  {"program":
+   {"features":
+    [{"kind": "group",
+      "children": [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"}]}]},
+   "limits": {"max_ops": 10, "max_nodes": 100, "max_depth": 0},
+   "id": "depth-budget-before-node-visit",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].children[0] exceeds max feature depth (0)",
+    "code": "max-depth"}}]}

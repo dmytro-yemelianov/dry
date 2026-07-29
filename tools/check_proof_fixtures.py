@@ -20,8 +20,15 @@ TSV_SNAPSHOT = ROOT / "proofs" / "fixtures" / "l2-well-formedness-v0.tsv"
 JSON_SNAPSHOT = ROOT / "proofs" / "fixtures" / "l2-logical-fixtures-v1.json"
 JSON_SCHEMA = ROOT / "proofs" / "fixtures" / "l2-logical-fixtures.schema.json"
 FEATURE_TSV_SNAPSHOT = ROOT / "proofs" / "fixtures" / "feature-expansion-v0.tsv"
+FEATURE_REFINEMENT_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "feature-refinement-v0.json"
+)
+FEATURE_REFINEMENT_SCHEMA = (
+    ROOT / "proofs" / "fixtures" / "feature-refinement-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
+FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,13 +90,53 @@ def validate_json_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_feature_refinement_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(FEATURE_REFINEMENT_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read feature-refinement fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid feature-refinement fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid feature-refinement fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("feature-refinement fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
         tsv_actual = evaluate(WELL_FORMED_LEAN_FIXTURE)
         json_actual = evaluate(WELL_FORMED_LEAN_FIXTURE, "--json")
         feature_tsv_actual = evaluate(FEATURE_LEAN_FIXTURE)
+        feature_refinement_actual = evaluate(FEATURE_REFINEMENT_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
+        feature_refinement_document = validate_feature_refinement_fixture(
+            feature_refinement_actual
+        )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
         return 1
@@ -102,6 +149,7 @@ def main() -> int:
         TSV_SNAPSHOT: tsv_actual,
         JSON_SNAPSHOT: json_actual,
         FEATURE_TSV_SNAPSHOT: feature_tsv_actual,
+        FEATURE_REFINEMENT_SNAPSHOT: feature_refinement_actual,
     }
 
     if args.write:
@@ -128,7 +176,9 @@ def main() -> int:
     feature_case_count = max(0, len(feature_tsv_actual.splitlines()) - 1)
     print(
         f"proof fixtures: ok ({len(json_document['cases'])} L2 validity cases, "
-        f"{feature_case_count} feature-expansion cases, TSV + schema-valid JSON)"
+        f"{feature_case_count} feature-expansion cases, "
+        f"{len(feature_refinement_document['cases'])} Rust-refinement cases, "
+        "TSV + schema-valid JSON)"
     )
     return 0
 

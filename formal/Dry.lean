@@ -4,5 +4,6 @@ import Dry.Language.L2
 import Dry.Language.WellFormed
 import Dry.Language.LogicalEquality
 import Dry.Numeric.Quantity
+import Dry.Semantics.CheckedExpansion
 import Dry.Semantics.ExpandFeatures
 import Dry.Semantics.OrderedFold

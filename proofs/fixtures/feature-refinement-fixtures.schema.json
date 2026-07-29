@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/feature-refinement-fixtures-v0.json",
+  "title": "Dry planar feature-refinement fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "model_checks", "cases"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "feature-refinement-v0" },
+    "model_checks": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "natural": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "optionalNatural": {
+      "oneOf": [
+        { "$ref": "#/$defs/natural" },
+        { "type": "null" }
+      ]
+    },
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x"],
+      "properties": {
+        "x": { "$ref": "#/$defs/natural" }
+      }
+    },
+    "sourceOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "index"],
+          "properties": {
+            "op": { "const": "tool" },
+            "index": { "$ref": "#/$defs/natural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "x", "y", "z"],
+          "properties": {
+            "op": { "const": "move" },
+            "x": { "$ref": "#/$defs/optionalNatural" },
+            "y": { "$ref": "#/$defs/optionalNatural" },
+            "z": { "$ref": "#/$defs/optionalNatural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "text"],
+          "properties": {
+            "op": { "const": "manual_gcode" },
+            "text": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "pose", "ops"],
+          "properties": {
+            "kind": { "const": "feature" },
+            "pose": { "$ref": "#/$defs/pose" },
+            "ops": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/sourceOp" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "children"],
+          "properties": {
+            "kind": { "const": "group" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/node" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "count", "step", "child"],
+          "properties": {
+            "kind": { "const": "repeat" },
+            "count": { "$ref": "#/$defs/natural" },
+            "step": { "$ref": "#/$defs/pose" },
+            "child": { "$ref": "#/$defs/node" }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_ops", "max_nodes", "max_depth"],
+      "properties": {
+        "max_ops": { "$ref": "#/$defs/natural" },
+        "max_nodes": { "$ref": "#/$defs/natural" },
+        "max_depth": { "$ref": "#/$defs/natural" }
+      }
+    },
+    "outputOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "index"],
+          "properties": {
+            "op": { "const": "tool" },
+            "index": { "$ref": "#/$defs/natural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "x", "y", "z"],
+          "properties": {
+            "op": { "const": "move" },
+            "x": { "$ref": "#/$defs/natural" },
+            "y": { "$ref": "#/$defs/natural" },
+            "z": { "$ref": "#/$defs/natural" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "text"],
+          "properties": {
+            "op": { "const": "manual_gcode" },
+            "text": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "expected": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "ops"],
+          "properties": {
+            "outcome": { "const": "ok" },
+            "ops": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/outputOp" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "code", "message"],
+          "properties": {
+            "outcome": { "const": "error" },
+            "code": {
+              "enum": [
+                "max-depth",
+                "max-nodes",
+                "max-ops",
+                "undefined-coordinate",
+                "transformed-manual"
+              ]
+            },
+            "message": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "limits", "program", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "limits": { "$ref": "#/$defs/limits" },
+        "program": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["features"],
+          "properties": {
+            "features": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/node" }
+            }
+          }
+        },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}
