@@ -161,6 +161,7 @@
           "enum": [
             "exact-in-range",
             "rejected",
+            "interval-bounded",
             "interval-bound-pending",
             "deterministic-but-unbounded",
             "pass-through"

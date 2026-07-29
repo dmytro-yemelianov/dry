@@ -125,6 +125,19 @@ boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION"
 ]
 
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.RADIAN_INTERMEDIATE"
+quantity = "Binary64 radian intermediate passed from FeaturePose conversion to libm"
+lower = -7.0
+upper = 7.0
+unit = "radian"
+enforcement = "assumption"
+rationale = "The checked degree-conversion theorem proves the intermediate lies strictly inside this envelope whenever rotate_z_deg is within the profiled signed-revolution limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COORDINATE_INHERIT_BIT_ERROR"
 metric = "Binary64 bit-pattern difference after Option-based coordinate inheritance"
@@ -144,10 +157,14 @@ boundary_ids = ["FM1.F64.FEATURE.COORDINATE.INHERIT"]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
 metric = "Absolute error between exact degrees*pi/180 and the binary64 radian intermediate"
 unit = "radian"
-status = "pending"
-rationale = "The accepted degree envelope is now explicit, but no checked two-operation rounding bound has landed."
-evidence = []
-next_obligation = "Prove a round-to-nearest interval for multiplication by the binary64 PI constant followed by division by 180."
+status = "bounded"
+ceiling = 1.4210854715202004e-14
+rationale = "The checked operation-order proof uses Rust's exact binary64 PI rational, Mathlib's real-pi bounds and the scoped gradual-underflow-aware rounding contract to establish a conservative 2^-46 radian ceiling over [-360, 360] degrees."
+evidence = [
+  "formal/Dry/Numeric/Angle.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Refine native/wasm Rust execution to the rounding premise and use the resulting [-7, 7] argument interval for the pinned libm bound."
 boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
 
 [[budget]]

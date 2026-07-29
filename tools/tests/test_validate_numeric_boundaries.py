@@ -59,7 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
-        self.assertIn("profile 8 limits/10 budgets", result.stdout)
+        self.assertIn("profile 9 limits/10 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
@@ -116,9 +116,9 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
     def test_pending_budget_cannot_publish_an_unchecked_ceiling(self) -> None:
         contents = self.repository_profile().replace(
-            'status = "pending"\nrationale = "The accepted degree envelope',
+            'status = "pending"\nrationale = "Native/wasm agreement',
             'status = "pending"\nceiling = 1e-12\n'
-            'rationale = "The accepted degree envelope',
+            'rationale = "Native/wasm agreement',
             1,
         )
         result = self.run_profile(contents)
@@ -145,6 +145,19 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         contents = self.repository_profile().replace(
             "ceiling = 1.862645149230957e-9",
             "ceiling = 2e-9",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_angle_proof_ceiling_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 1.4210854715202004e-14",
+            "ceiling = 2e-14",
             1,
         )
         result = self.run_profile(contents)

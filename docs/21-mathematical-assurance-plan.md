@@ -473,22 +473,23 @@ checked-result claims. It separates semantic classification (`exact-in-range`, r
 interval-bound pending, deterministic but unbounded, or pass-through) from assurance status
 (`bounded`, `pending`, `empirical`, or not applicable). An independent validator checks the schema,
 complete required-id set, evidence paths, unique Rust source anchors and pinned hashes of both
-`features.rs` and the complete `Op` input domain in `resolve.rs`. The only bounded numeric item in this
-packet is bit-preserving finite coordinate inheritance; transform arithmetic remains pending,
-non-finite Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity
-policy remains empirical, and pass-through payloads make no numeric claim in this pass.
+`features.rs` and the complete `Op` input domain in `resolve.rs`. Bit-preserving coordinate inheritance
+and profiled degree conversion are bounded; local transform operation budgets are checked while their
+complete boundaries remain pending on upstream coefficient and accumulation error. Non-finite
+Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
+remains empirical, and pass-through payloads make no numeric claim.
 
 The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisional FM1.4b profile. It
 pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes
-for local coordinates, pose translation/rotation, arc centres, orientation components and transform
-composition count; and names ten observation budgets. The profile is explicitly
+for local coordinates, pose translation/rotation, arc centres, orientation components, transform
+composition count, basic-operation results and the radian intermediate; and names ten observation
+budgets. The profile is explicitly
 `assurance-precondition-only`: the current language still accepts values outside those magnitude
-envelopes, so the profile restricts future bounded claims rather than changing runtime validity. Seven
-budgets remain pending with no published ceiling, coordinate inheritance and non-geometric clone
-boundaries have checked zero-error ceilings, and the existing `1e-12` manual-code identity threshold is
-recorded as policy. The validator checks reciprocal inventory links, finite ordered limits, budget
-status discipline, evidence paths, Rust/libm pins, and equality with the implementation's node ceiling
-and identity epsilon.
+envelopes, so the profile restricts bounded claims rather than changing runtime validity. Eight
+budgets are bounded, the `libm` coefficient budget remains pending, and the existing `1e-12`
+manual-code identity threshold is recorded as policy. The validator checks reciprocal inventory links,
+finite ordered limits, proof ceiling drift, budget status discipline, evidence paths, Rust/libm pins,
+and equality with the implementation's node ceiling and identity epsilon.
 
 `formal/Dry/Numeric/RoundModel.lean` adds the first checked error-composition kernel without promoting
 the complete feature boundaries. It represents rounded add/subtract/multiply as a parametric contract and
@@ -506,6 +507,14 @@ three local-operation claims are therefore numerically bounded at `2^-29` for ve
 `2^-28` for point/translation XY and `2^-30` for point/translation Z. This is not yet a complete Rust
 geometry interval: refinement from Rust `f64` to the rounding premise, input and `libm` coefficient
 error, output finiteness and repeated-transform accumulation remain pending.
+
+`formal/Dry/Numeric/Angle.lean` models the exact Rust evaluation order
+`round(round(degrees * binary64Pi) / 180)`. It identifies the standard-library PI bit pattern with the
+exact rational `884279719003555 / 281474976710656`, uses Mathlib's checked 20-decimal real-π bounds,
+and proves a conservative `2^-46` radian error ceiling over the profile's `[-360, 360]` degree range.
+The same packet proves that the resulting binary64 intermediate lies strictly inside `[-7, 7]`,
+providing the argument envelope for the remaining pinned-`libm` analysis. Native/wasm refinement to
+the rounding premise is still separate.
 
 ### FM1.5 — resolver, simulation and verifier
 

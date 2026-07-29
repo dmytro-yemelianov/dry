@@ -86,18 +86,23 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "let angle = pose.rotate_z_deg * PI / 180.0;"
 inputs = ["finite FeaturePose.rotate_z_deg", "std::f64::consts::PI", "binary64 literal 180.0"]
 operation = "Two rounded binary64 operations: rotate_z_deg * PI, then division by 180."
-classification = "interval-bound-pending"
-numeric_status = "pending"
+classification = "interval-bounded"
+numeric_status = "bounded"
 assumptions = ["Rust uses IEEE-754 binary64 round-to-nearest, ties-to-even for finite basic operations on supported targets."]
-exclusions = ["No magnitude precondition currently prevents the multiplication from overflowing."]
-next_obligation = "Specify an accepted degree range and prove a checked interval enclosing the computed radians."
-evidence = []
+exclusions = ["The magnitude profile remains an assurance assumption rather than a runtime validity limit.", "Refinement from Rust f64 execution to the scoped rounding premise.", "Accuracy of the subsequent libm sine and cosine calls."]
+next_obligation = "Add native/wasm interval refinement, then import or check the pinned libm contract over the proved radian envelope."
+evidence = [
+  "formal/Dry/Numeric/Angle.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
-  "FM1.FEATURE.COMPOSE_ACTION"
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.ANGLE.RADIANS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.RADIAN_INTERMEDIATE",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
 ]
 
@@ -122,6 +127,7 @@ claim_ids = [
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.RADIAN_INTERMEDIATE",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
 ]
 
