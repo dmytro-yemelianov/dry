@@ -515,7 +515,7 @@ assumptions = [
 exclusions = [
   "General numeric refinement from nested Rust Feature/Repeat values to profile predicates, operation-result range premises, native rounding and libm contracts; only the structural parenthesization bridge is checked separately.",
   "Runtime enforcement of the provisional assurance profile.",
-  "Transform application to downstream points or vectors and any resulting output-finiteness interval.",
+  "This transform-only theorem does not itself state an output application bound; separate point and vector claims add input-envelope and final-operation range premises.",
   "Exhaustive source-level proof of the imported libm accuracy premise.",
   "A production tolerance or tightness claim; the 2^30 mm XY translation ceiling is intentionally conservative."
 ]
@@ -541,6 +541,107 @@ refinement_evidence = [
   "crates/core/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT"
+title = "Profiled point and Arc-centre application after arbitrary transform-composition trees has a checked conditional bound"
+theorem = "Dry.Numeric.ApplicationAccumulation.binary64Tree_applyPoint_error"
+spec_version = "feature-planar-binary64-v0"
+source_dialect = "An exact-real point or Arc centre acted on by a bounded parenthesized transform tree"
+target_dialect = "Profile-gated binary64 transform tree followed by the direct binary64 planar point application graph"
+relation = "approximate"
+scope = "abstract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract"
+assumptions = [
+  "The transform tree satisfies the composition-tree profile, 100,000-node ceiling, parenthesization and per-node operation-result range premises.",
+  "The represented input point or Arc-centre X and Y components each have magnitude at most 2^20 mm.",
+  "The final binary64 point application satisfies its exact multiplication and addition/subtraction result-range predicate.",
+  "Binary64 rounding and libm sine/cosine satisfy the named conditional contracts used by the checked tree and local-application theorems.",
+  "The exact and binary64 applications receive the same represented input."
+]
+exclusions = [
+  "General refinement from nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises.",
+  "Runtime enforcement of the provisional assurance profile or an output-finiteness rejection gate.",
+  "A production tolerance or tightness claim; the 2^31 mm XY ceiling is intentionally conservative, while point Z is separately below 2^-12 mm.",
+  "Spline sampling/deviation and any accumulation after this single final application."
+]
+lean_source = "formal/Dry/Numeric/ApplicationAccumulation.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+]
+refinement_evidence = [
+  "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/tests/feature_refinement.rs",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR"
+title = "Profiled orientation application after arbitrary transform-composition trees has a checked conditional component bound"
+theorem = "Dry.Numeric.ApplicationAccumulation.binary64Tree_applyVector_error"
+spec_version = "feature-planar-binary64-v0"
+source_dialect = "An exact-real orientation vector acted on by a bounded parenthesized transform tree"
+target_dialect = "Profile-gated binary64 transform tree followed by the direct binary64 planar vector application graph"
+relation = "approximate"
+scope = "abstract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract"
+assumptions = [
+  "The transform tree satisfies the composition-tree profile, 100,000-node ceiling, parenthesization and per-node operation-result range premises.",
+  "The represented input orientation X and Y components each lie within [-1, 1].",
+  "The final binary64 vector application satisfies its exact multiplication and addition/subtraction result-range predicate.",
+  "Binary64 rounding and libm sine/cosine satisfy the named conditional contracts used by the checked tree and local-application theorems.",
+  "The exact and binary64 applications receive the same represented input."
+]
+exclusions = [
+  "General refinement from nested Rust Feature/Repeat expansion to the tree, input-envelope, application-range, native-rounding and libm premises.",
+  "Nonzero/unit validation, normalization and an angular-error guarantee.",
+  "Runtime enforcement of the provisional assurance profile or an output-finiteness rejection gate.",
+  "A production tolerance or tightness claim; the 2^-8 XY ceiling is conservative and Z is copied exactly."
+]
+lean_source = "formal/Dry/Numeric/ApplicationAccumulation.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+refinement_evidence = [
+  "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+  "proofs/fixtures/composition-shape-refinement-v0.json",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/tests/feature_refinement.rs",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 
 [claim.status]

@@ -486,17 +486,20 @@ bounded. A separate 13-case native implementation claim checks cardinal-angle co
 one-step composition, point/Arc-centre application and orientation-vector rotation against
 Lean-generated real-π and exact-dyadic intervals, with nine dedicated mutations. General
 native/wasm refinement to profile/range/rounding premises and application inputs outside that selected
-corpus remain pending. Non-finite
+corpus remain pending. Separate tree-application theorems now propagate the arbitrary-tree
+coefficient and translation bounds through final point, Arc-centre and orientation operation graphs.
+Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
 The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisional FM1.4b profile. It
 pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes
 for local coordinates, pose translation/rotation, arc centres, orientation components, transform
-composition count, basic-operation results and the radian intermediate; and names ten observation
-budgets plus two repeat-accumulation and two arbitrary-tree budgets. The profile is explicitly
+composition count, basic-operation results and the radian intermediate; and names ten local or
+observation budgets plus two repeat-accumulation, two arbitrary-tree transform and two tree-application
+budgets. The profile is explicitly
 `assurance-precondition-only`: the current language still accepts values outside those magnitude
-envelopes, so the profile restricts bounded claims rather than changing runtime validity. Thirteen
+envelopes, so the profile restricts bounded claims rather than changing runtime validity. Fifteen
 budgets are bounded and the existing `1e-12` manual-code identity threshold is recorded as policy;
 there are no unclassified budget entries. The validator checks reciprocal inventory links,
 finite ordered limits, proof ceiling drift, budget status discipline, evidence paths, Rust/libm pins,
@@ -518,7 +521,7 @@ three local-operation claims are therefore numerically bounded at `2^-29` for ve
 `2^-28` for point/translation XY and `2^-30` for point/translation Z. The selected native application
 fixtures now refine those local graphs over exact dyadics, but this is not yet a complete Rust
 geometry interval: universal refinement from Rust `f64` to the rounding premise, input and `libm`
-coefficient error, output finiteness and application accumulation remain pending.
+coefficient error, output finiteness and nested application refinement remain pending.
 
 `formal/Dry/Numeric/Angle.lean` models the exact Rust evaluation order
 `round(round(degrees * binary64Pi) / 180)`. It identifies the standard-library PI bit pattern with the
@@ -555,6 +558,15 @@ count theorem converts the profile's 100,000-composition ceiling into at most 20
 composition steps. An exponential coefficient potential stays below `2^-10`; a quadratic translation
 invariant stays below `2^30` mm in XY; and Z remains below `2^-13` mm. Every local composition still
 requires the checked operation-result range predicate.
+
+`formal/Dry/Numeric/ApplicationAccumulation.lean` carries those transform bounds through one final
+profiled application without hiding the local rounding graph. For point and Arc-centre XY inputs
+bounded componentwise by `2^20` mm, it composes the tree's `2^-10` coefficient and `2^30` mm
+translation norm ceilings with the local `2^-28` graph to obtain a deliberately conservative `2^31`
+mm component ceiling; point Z stays below `2^-12` mm. For orientation X/Y components in `[-1, 1]`,
+the corresponding ceiling is `2^-8`, while Z is copied exactly. Both theorems require the tree and
+final application operation graphs to satisfy their existing exact-result range predicates. They are
+abstract conditional bounds, not yet a universal refinement of nested Rust Feature/Repeat execution.
 
 `formal/Dry/Semantics/CompositionTreeRefinement.lean` now maps a selected nested Feature/Repeat path
 to that syntax: groups preserve the parent, features append `parent.compose(local)`, and repeat

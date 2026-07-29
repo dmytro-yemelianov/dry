@@ -4,6 +4,7 @@ import Dry.Language.L2
 import Dry.Language.WellFormed
 import Dry.Language.LogicalEquality
 import Dry.Numeric.Accumulation
+import Dry.Numeric.ApplicationAccumulation
 import Dry.Numeric.Angle
 import Dry.Numeric.Binary64
 import Dry.Numeric.CompositionTree

@@ -293,6 +293,39 @@ next_obligation = "Tighten this non-production tolerance and refine the Rust nes
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
 
 [[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_POINT_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each transformed point or Arc-centre component after an arbitrary parenthesized transform-composition tree"
+unit = "mm"
+status = "bounded"
+ceiling = 2147483648.0
+rationale = "Lean composes the tree's 2^-10 coefficient-norm and 2^30 mm translation-norm ceilings with a local XY input norm at most 2^21 mm and the 2^-28 local application graph, yielding a conservative 2^31 mm XY component ceiling. Point Z is separately proved below 2^-12 mm."
+evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Tighten this non-production ceiling and refine nested Rust Feature/Repeat application to the tree, input-envelope and per-node range premises."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of each transformed orientation XY component after an arbitrary parenthesized transform-composition tree"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 0.00390625
+rationale = "For local orientation components within [-1, 1], Lean bounds the XY input norm by 2 and composes the tree's 2^-10 coefficient-norm ceiling with the 2^-29 local vector graph, yielding a conservative 2^-8 component ceiling. Z remains bit-exact."
+evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Land nonzero/unit orientation semantics, derive a useful angular bound and refine nested Rust Feature/Repeat application to every premise."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
+
+[[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
 metric = "Local binary64 operation error of each transformed Move, Arc-end or Spline component against the exact-real expression over the same represented inputs"
 unit = "mm"

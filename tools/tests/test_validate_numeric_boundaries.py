@@ -59,7 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
-        self.assertIn("profile 9 limits/14 budgets", result.stdout)
+        self.assertIn("profile 9 limits/16 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
