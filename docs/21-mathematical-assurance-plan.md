@@ -489,6 +489,15 @@ recorded as policy. The validator checks reciprocal inventory links, finite orde
 status discipline, evidence paths, Rust/libm pins, and equality with the implementation's node ceiling
 and identity epsilon.
 
+`formal/Dry/Numeric/RoundModel.lean` adds the first checked error-composition kernel without promoting
+the provisional profile. It represents rounded add/subtract/multiply as a parametric contract and
+proves, against the exact-real operation graph, that vector/rotation XY components have local error
+`addError + 2*mulError`, point/translation XY components have
+`2*addError + 2*mulError`, and point/translation Z has `addError`. The same theorems cover Arc-centre
+XY arithmetic and orientation-vector rotation. Three registry claims expose these derivations with
+`abstract = proved` but `numeric = pending`: they do not instantiate IEEE-754 local errors, account for
+input or `libm` coefficient error, prove finiteness, or compose the bound across repeated transforms.
+
 ### FM1.5 — resolver, simulation and verifier
 
 Dependencies: FM1.2–FM1.4.

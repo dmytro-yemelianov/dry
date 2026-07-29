@@ -133,9 +133,9 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_AB
 metric = "Maximum absolute error of either composed rotation coefficient"
 unit = "dimensionless"
 status = "pending"
-rationale = "The bound must compose libm coefficient error with repeated complex-product rounding."
+rationale = "A checked symbolic one-step formula is available, but it has not been instantiated with binary64 local errors or composed across repeats."
 evidence = []
-next_obligation = "Prove a one-step coefficient interval and an accumulated bound up to the profiled composition ceiling."
+next_obligation = "Instantiate addError/mulError, add coefficient-input error, and derive an accumulated bound up to the profiled composition ceiling."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
 
 [[budget]]
@@ -143,9 +143,9 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT
 metric = "Maximum absolute error of each composed translation component"
 unit = "mm"
 status = "pending"
-rationale = "Translation error depends on coefficient error, coordinate envelopes and composition count."
+rationale = "A checked symbolic local-operation formula is available; total translation error still depends on coefficient/input error, coordinate envelopes and composition count."
 evidence = []
-next_obligation = "Compose vector-rotation and addition bounds under all linked limits."
+next_obligation = "Instantiate local errors and compose the symbolic result with coefficient/input error under all linked limits."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
 
 [[budget]]
@@ -153,9 +153,9 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
 metric = "Maximum absolute error of each transformed Move, Arc-end or Spline coordinate"
 unit = "mm"
 status = "pending"
-rationale = "No checked point-transform interval exists yet."
+rationale = "The rounded operation graph has a checked symbolic formula; no concrete binary64 point-transform interval exists yet."
 evidence = []
-next_obligation = "Derive the point bound from profiled coordinates plus bounded transform coefficients and translations."
+next_obligation = "Instantiate local errors and combine the symbolic formula with profiled input, coefficient and translation errors."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
 
 [[budget]]
@@ -163,9 +163,9 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERRO
 metric = "Maximum absolute error of each transformed Arc centre coordinate"
 unit = "mm"
 status = "pending"
-rationale = "The finite-input rejection gate and checked apply_xy interval both remain open."
+rationale = "The generic point-operation formula covers this arithmetic shape, but the finite-input rejection gate and concrete apply_xy interval remain open."
 evidence = []
-next_obligation = "Land finite Arc-centre rejection, then derive the apply_xy interval under the Arc-centre limit."
+next_obligation = "Land finite Arc-centre rejection, instantiate local errors, then derive the apply_xy interval under the Arc-centre limit."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
   "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
@@ -176,9 +176,9 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERR
 metric = "Maximum absolute error of each transformed orientation-vector component"
 unit = "dimensionless"
 status = "pending"
-rationale = "The finite/nonzero/unit contract and checked rotation interval remain open."
+rationale = "The rounded vector operation graph has a checked symbolic formula; the finite/nonzero/unit contract and concrete rotation interval remain open."
 evidence = []
-next_obligation = "Land orientation validation and derive component plus angular error bounds."
+next_obligation = "Land orientation validation, instantiate local errors, and derive component plus angular error bounds."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
   "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"

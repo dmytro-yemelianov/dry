@@ -142,7 +142,8 @@ next_obligation = "Bound one composition and accumulated coefficient drift for t
 evidence = []
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
-  "FM1.FEATURE.COMPOSE_ACTION"
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
@@ -166,7 +167,8 @@ next_obligation = "Formalize the exact integer envelope and a general interval b
 evidence = []
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
-  "FM1.FEATURE.COMPOSE_ACTION"
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
@@ -189,7 +191,10 @@ exclusions = ["No current output-finiteness check rejects overflow or NaN produc
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
 next_obligation = "Prove component intervals and output-finiteness under a named coordinate/pose profile; test Rust against exported interval fixtures."
 evidence = []
-claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
+]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
@@ -211,7 +216,10 @@ exclusions = ["The current implementation does not validate arc-centre finitenes
 exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
 next_obligation = "Land finite arc-centre rejection, then prove component intervals under the accepted geometry profile."
 evidence = []
-claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
+]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM",
@@ -233,7 +241,10 @@ exclusions = ["The current implementation does not validate or normalize orienta
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
 next_obligation = "Land finite orientation rejection and a nonzero/normalization contract, then prove angular or component error bounds."
 evidence = ["proofs/fixtures/feature-refinement-v0.json"]
-claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+claim_ids = [
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR"
+]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
