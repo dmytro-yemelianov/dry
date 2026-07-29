@@ -1,4 +1,6 @@
-use dry_core::{expand_features_with_limits, ExpandLimits, FeatureProgram, Op};
+use dry_core::{
+    expand_features_with_limits, ExpandLimits, FeatureNode, FeaturePose, FeatureProgram, Op,
+};
 use serde::Deserialize;
 
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/feature-refinement-v0.json");
@@ -15,7 +17,7 @@ struct FixtureDocument {
 struct Fixture {
     id: String,
     limits: FixtureLimits,
-    program: FeatureProgram,
+    program: FixtureProgram,
     expected: Expected,
 }
 
@@ -32,6 +34,187 @@ impl From<&FixtureLimits> for ExpandLimits {
             max_ops: value.max_ops,
             max_nodes: value.max_nodes,
             max_depth: value.max_depth,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct FixtureProgram {
+    features: Vec<FixtureNode>,
+}
+
+impl FixtureProgram {
+    fn to_core(&self) -> Result<FeatureProgram, String> {
+        Ok(FeatureProgram {
+            features: self
+                .features
+                .iter()
+                .map(FixtureNode::to_core)
+                .collect::<Result<_, _>>()?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum FixtureNode {
+    Feature {
+        #[serde(default)]
+        name: Option<String>,
+        pose: FixturePose,
+        ops: Vec<FixtureOp>,
+    },
+    Group {
+        children: Vec<FixtureNode>,
+    },
+    Repeat {
+        count: u32,
+        step: FixturePose,
+        child: Box<FixtureNode>,
+    },
+}
+
+impl FixtureNode {
+    fn to_core(&self) -> Result<FeatureNode, String> {
+        match self {
+            Self::Feature { name, pose, ops } => Ok(FeatureNode::Feature {
+                name: name.clone(),
+                pose: pose.to_core()?,
+                ops: ops
+                    .iter()
+                    .map(FixtureOp::to_core)
+                    .collect::<Result<_, _>>()?,
+            }),
+            Self::Group { children } => Ok(FeatureNode::Group {
+                children: children
+                    .iter()
+                    .map(FixtureNode::to_core)
+                    .collect::<Result<_, _>>()?,
+            }),
+            Self::Repeat { count, step, child } => Ok(FeatureNode::Repeat {
+                count: *count,
+                step: step.to_core()?,
+                child: Box::new(child.to_core()?),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct FixturePose {
+    x: FixtureScalar,
+    y: FixtureScalar,
+    z: FixtureScalar,
+    rotate_z_deg: FixtureScalar,
+}
+
+impl FixturePose {
+    fn to_core(&self) -> Result<FeaturePose, String> {
+        Ok(FeaturePose {
+            x: self.x.to_f64()?,
+            y: self.y.to_f64()?,
+            z: self.z.to_f64()?,
+            rotate_z_deg: self.rotate_z_deg.to_f64()?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum FixtureScalar {
+    Finite(f64),
+    Token(String),
+}
+
+impl FixtureScalar {
+    fn to_f64(&self) -> Result<f64, String> {
+        match self {
+            Self::Finite(value) => Ok(*value),
+            Self::Token(token) if token == "NaN" => Ok(f64::NAN),
+            Self::Token(token) if token == "inf" => Ok(f64::INFINITY),
+            Self::Token(token) if token == "-inf" => Ok(f64::NEG_INFINITY),
+            Self::Token(token) => Err(format!("unsupported fixture scalar token {token:?}")),
+        }
+    }
+}
+
+fn optional_scalar(value: &Option<FixtureScalar>) -> Result<Option<f64>, String> {
+    value.as_ref().map(FixtureScalar::to_f64).transpose()
+}
+
+fn partial_point(point: &[Option<FixtureScalar>; 3]) -> Result<[Option<f64>; 3], String> {
+    Ok([
+        optional_scalar(&point[0])?,
+        optional_scalar(&point[1])?,
+        optional_scalar(&point[2])?,
+    ])
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+enum FixtureOp {
+    Tool {
+        index: u32,
+    },
+    Move {
+        x: Option<FixtureScalar>,
+        y: Option<FixtureScalar>,
+        z: Option<FixtureScalar>,
+    },
+    Arc {
+        cx: f64,
+        cy: f64,
+        x: Option<FixtureScalar>,
+        y: Option<FixtureScalar>,
+        z: Option<FixtureScalar>,
+        clockwise: bool,
+    },
+    Spline {
+        points: Vec<[Option<FixtureScalar>; 3]>,
+    },
+    Orient {
+        i: f64,
+        j: f64,
+        k: f64,
+    },
+    ManualGcode {
+        text: String,
+    },
+}
+
+impl FixtureOp {
+    fn to_core(&self) -> Result<Op, String> {
+        match self {
+            Self::Tool { index } => Ok(Op::Tool { index: *index }),
+            Self::Move { x, y, z } => Ok(Op::Move {
+                x: optional_scalar(x)?,
+                y: optional_scalar(y)?,
+                z: optional_scalar(z)?,
+            }),
+            Self::Arc {
+                cx,
+                cy,
+                x,
+                y,
+                z,
+                clockwise,
+            } => Ok(Op::Arc {
+                cx: *cx,
+                cy: *cy,
+                x: optional_scalar(x)?,
+                y: optional_scalar(y)?,
+                z: optional_scalar(z)?,
+                clockwise: *clockwise,
+            }),
+            Self::Spline { points } => Ok(Op::Spline {
+                points: points.iter().map(partial_point).collect::<Result<_, _>>()?,
+            }),
+            Self::Orient { i, j, k } => Ok(Op::Orient {
+                i: *i,
+                j: *j,
+                k: *k,
+            }),
+            Self::ManualGcode { text } => Ok(Op::ManualGcode { text: text.clone() }),
         }
     }
 }
@@ -138,8 +321,16 @@ fn classify_failure(message: &str) -> &'static str {
         "max-nodes"
     } else if message.contains("max expanded ops") {
         "max-ops"
+    } else if message.contains(".name must not be empty") {
+        "empty-name"
+    } else if message.contains("must be finite")
+        && (message.contains(".pose.") || message.contains(".step."))
+    {
+        "non-finite-pose"
     } else if message.contains("is undefined; features must be locally self-contained") {
         "undefined-coordinate"
+    } else if message.contains("must be finite") {
+        "non-finite-coordinate"
     } else if message.contains("requires a fully defined local start point") {
         "undefined-start"
     } else if message.contains("manual_gcode cannot be transformed safely") {
@@ -150,7 +341,11 @@ fn classify_failure(message: &str) -> &'static str {
 }
 
 fn observe(fixture: &Fixture) -> Observation {
-    match expand_features_with_limits(&fixture.program, (&fixture.limits).into()) {
+    let program = fixture
+        .program
+        .to_core()
+        .unwrap_or_else(|error| panic!("{} has invalid fixture syntax: {error}", fixture.id));
+    match expand_features_with_limits(&program, (&fixture.limits).into()) {
         Ok(design) => Observation::Ok(design.ops.iter().map(normalize_op).collect()),
         Err(error) => {
             let message = error.to_string();
@@ -169,7 +364,7 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
     assert_eq!(document.schema_version, 1);
     assert_eq!(document.model, "feature-refinement-v0");
     assert!(document.model_checks);
-    assert_eq!(document.cases.len(), 17);
+    assert_eq!(document.cases.len(), 24);
 
     for fixture in &document.cases {
         let first = observe(fixture);
@@ -221,6 +416,12 @@ enum SemanticMutant {
     AllowOneExtraOp,
     AllowOneExtraNode,
     CountNodeBeforeDepth,
+    ValidatePoseBeforeName,
+    ReversePoseFieldOrder,
+    SkipZeroRepeatStepValidation,
+    CheckFiniteBeforeMissing,
+    AllowNonfiniteMove,
+    AllowNonfiniteSpline,
 }
 
 fn failure(code: &str, message: &str) -> Observation {
@@ -288,6 +489,34 @@ fn mutate_observation(mutant: SemanticMutant, baseline: &Observation) -> Observa
             "max-nodes",
             "features[0].children[0] exceeds max expanded nodes (1)",
         ),
+        SemanticMutant::ValidatePoseBeforeName => failure(
+            "non-finite-pose",
+            "features[0].pose.x must be finite, got NaN",
+        ),
+        SemanticMutant::ReversePoseFieldOrder => failure(
+            "non-finite-pose",
+            "features[0].pose.z must be finite, got NaN",
+        ),
+        SemanticMutant::SkipZeroRepeatStepValidation => Observation::Ok(Vec::new()),
+        SemanticMutant::CheckFiniteBeforeMissing => failure(
+            "non-finite-coordinate",
+            "features[0].ops[0].y must be finite, got NaN",
+        ),
+        SemanticMutant::AllowNonfiniteMove => Observation::Ok(vec![ObservedOp::Move {
+            x: 1.0,
+            y: f64::INFINITY,
+            z: f64::NAN,
+        }]),
+        SemanticMutant::AllowNonfiniteSpline => Observation::Ok(vec![
+            ObservedOp::Move {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            ObservedOp::Spline {
+                points: vec![[1.0, f64::INFINITY, 0.0]],
+            },
+        ]),
     }
 }
 
@@ -333,6 +562,27 @@ fn refinement_corpus_distinguishes_declared_semantic_mutants() {
         (
             SemanticMutant::CountNodeBeforeDepth,
             "depth-budget-before-node-visit",
+        ),
+        (
+            SemanticMutant::ValidatePoseBeforeName,
+            "empty-name-before-pose",
+        ),
+        (SemanticMutant::ReversePoseFieldOrder, "pose-field-order"),
+        (
+            SemanticMutant::SkipZeroRepeatStepValidation,
+            "repeat-step-validated-at-zero-count",
+        ),
+        (
+            SemanticMutant::CheckFiniteBeforeMissing,
+            "undefined-before-later-nonfinite-coordinate",
+        ),
+        (
+            SemanticMutant::AllowNonfiniteMove,
+            "nonfinite-move-coordinate",
+        ),
+        (
+            SemanticMutant::AllowNonfiniteSpline,
+            "nonfinite-spline-point",
         ),
     ];
 

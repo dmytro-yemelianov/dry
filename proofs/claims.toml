@@ -209,15 +209,17 @@ source_dialect = "L1"
 target_dialect = "L1"
 relation = "trace-exact"
 scope = "abstract"
-numeric_domain = "Natural-number translations and resource counters"
+numeric_domain = "Natural-number translations and resource counters plus rejected non-finite tokens"
 assumptions = [
-  "The checked subset contains invariant tool operations, partial-coordinate moves, arcs, splines, orientations and manual code.",
+  "The checked subset contains feature names and poses, invariant tool operations, partial-coordinate moves, arcs, splines, orientations and manual code.",
   "Transforms are exact natural-number X translations, with zero as the identity.",
-  "Depth is checked before node count, and operation count immediately before append."
+  "Depth is checked before node count, feature names before pose fields, pose fields in x/y/z/rotate_z_deg order, and operation count immediately before append.",
+  "Serializer-neutral NaN and infinity tokens denote rejected inputs; they are not values in successful geometry."
 ]
 exclusions = [
-  "Non-finite poses, empty feature names and finite-width counter overflow.",
-  "Non-finite operation fields and epsilon-based transform identity.",
+  "Finite-width counter overflow and allocation failure.",
+  "Non-finite arc-centre and orientation components, concrete NaN payloads, signed zero and production JSON encoding.",
+  "Epsilon-based transform identity.",
   "Binary64 rounding, rotations and libm trigonometry for geometry operations.",
   "Claims beyond the committed refinement fixture corpus."
 ]

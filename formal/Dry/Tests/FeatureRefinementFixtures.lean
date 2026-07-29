@@ -7,6 +7,9 @@ import Lean.Data.Json
 The cases below are manually assigned expected success or first-error results, evaluated by the
 checked Lean model and exported as a shared JSON corpus. The repository checker rejects the document
 unless every model result agrees with its assigned expectation.
+
+JSON strings `NaN`, `inf` and `-inf` are fixture-only tokens. The independent Rust adapter converts
+them to IEEE-754 values before invoking the production feature expander.
 -/
 
 namespace Dry.Tests.FeatureRefinementFixtures
@@ -17,19 +20,32 @@ open Dry.Semantics.CheckedExpansion
 def generous : Limits :=
   ⟨100, 100, 10⟩
 
-def point (x y z : Option Nat) : PartialPoint :=
+def point (x y z : Option Scalar) : PartialPoint :=
   ⟨x, y, z⟩
 
-def feature (pose : Nat) (ops : List SourceOp) : Node Nat SourceOp :=
-  .feature pose ops
+def pose
+    (x : Scalar := 0)
+    (y : Scalar := 0)
+    (z : Scalar := 0)
+    (rotateZDeg : Scalar := 0) : Pose :=
+  ⟨x, y, z, rotateZDeg⟩
 
-def program (features : List (Node Nat SourceOp)) : Program Nat SourceOp :=
+def feature (value : Pose) (ops : List SourceOp) : CheckedNode :=
+  .feature none value ops
+
+def namedFeature
+    (name : Option String)
+    (value : Pose)
+    (ops : List SourceOp) : CheckedNode :=
+  .feature name value ops
+
+def program (features : List CheckedNode) : CheckedProgram :=
   ⟨features⟩
 
 structure Fixture where
   id : String
   limits : Limits
-  program : Program Nat SourceOp
+  program : CheckedProgram
   expected : Except Failure (List OutputOp)
 
 def fixtures : List Fixture :=
@@ -213,6 +229,80 @@ def fixtures : List Fixture :=
       ]
       expected := .error ⟨.maxDepth,
         "features[0].children[0] exceeds max feature depth (0)"⟩
+    },
+    {
+      id := "empty-name-before-pose"
+      limits := generous
+      program := program [
+        namedFeature (some "") (pose (.nonFinite "NaN")) [.tool 1]
+      ]
+      expected := .error ⟨.emptyName,
+        "features[0].name must not be empty"⟩
+    },
+    {
+      id := "nonfinite-feature-pose-x"
+      limits := generous
+      program := program [
+        feature (pose (.nonFinite "NaN")) [.tool 1]
+      ]
+      expected := .error ⟨.nonFinitePose,
+        "features[0].pose.x must be finite, got NaN"⟩
+    },
+    {
+      id := "pose-field-order"
+      limits := generous
+      program := program [
+        feature (pose 0 (.nonFinite "inf") (.nonFinite "NaN")) [.tool 1]
+      ]
+      expected := .error ⟨.nonFinitePose,
+        "features[0].pose.y must be finite, got inf"⟩
+    },
+    {
+      id := "repeat-step-validated-at-zero-count"
+      limits := generous
+      program := program [
+        .repeat 0 (pose (.nonFinite "-inf"))
+          (feature 0 [.move (point (some 1) none (some 0))])
+      ]
+      expected := .error ⟨.nonFinitePose,
+        "features[0].step.x must be finite, got -inf"⟩
+    },
+    {
+      id := "nonfinite-move-coordinate"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 1) (some (.nonFinite "inf"))
+            (some (.nonFinite "NaN")))
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[0].y must be finite, got inf"⟩
+    },
+    {
+      id := "undefined-before-later-nonfinite-coordinate"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point none (some (.nonFinite "NaN")) (some 0))
+        ]
+      ]
+      expected := .error ⟨.undefinedCoordinate,
+        "features[0].ops[0].x is undefined; features must be locally self-contained"⟩
+    },
+    {
+      id := "nonfinite-spline-point"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 0) (some 0) (some 0)),
+          .spline [
+            point (some 1) (some (.nonFinite "inf")) none
+          ]
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[1].points[0].y must be finite, got inf"⟩
     }
   ]
 
@@ -235,9 +325,21 @@ open Lean
 def listJson (encode : α → Json) (values : List α) : Json :=
   .arr (values.toArray.map encode)
 
-def optionNatJson : Option Nat → Json
+def scalarJson : Scalar → Json
+  | .finite value => .num value
+  | .nonFinite rendered => .str rendered
+
+def optionScalarJson : Option Scalar → Json
   | none => .null
-  | some value => .num value
+  | some value => scalarJson value
+
+def poseJson (value : Pose) : Json :=
+  Json.mkObj [
+    ("x", scalarJson value.x),
+    ("y", scalarJson value.y),
+    ("z", scalarJson value.z),
+    ("rotate_z_deg", scalarJson value.rotateZDeg)
+  ]
 
 def sourceOpJson : SourceOp → Json
   | .tool index =>
@@ -248,18 +350,18 @@ def sourceOpJson : SourceOp → Json
   | .move value =>
       Json.mkObj [
         ("op", .str "move"),
-        ("x", optionNatJson value.x),
-        ("y", optionNatJson value.y),
-        ("z", optionNatJson value.z)
+        ("x", optionScalarJson value.x),
+        ("y", optionScalarJson value.y),
+        ("z", optionScalarJson value.z)
       ]
   | .arc cx cy finish clockwise =>
       Json.mkObj [
         ("op", .str "arc"),
         ("cx", .num cx),
         ("cy", .num cy),
-        ("x", optionNatJson finish.x),
-        ("y", optionNatJson finish.y),
-        ("z", optionNatJson finish.z),
+        ("x", optionScalarJson finish.x),
+        ("y", optionScalarJson finish.y),
+        ("z", optionScalarJson finish.z),
         ("clockwise", .bool clockwise)
       ]
   | .spline points =>
@@ -267,9 +369,9 @@ def sourceOpJson : SourceOp → Json
         ("op", .str "spline"),
         ("points", .arr (points.toArray.map fun value =>
           .arr #[
-            optionNatJson value.x,
-            optionNatJson value.y,
-            optionNatJson value.z
+            optionScalarJson value.x,
+            optionScalarJson value.y,
+            optionScalarJson value.z
           ]))
       ]
   | .orient i j k =>
@@ -287,13 +389,16 @@ def sourceOpJson : SourceOp → Json
 
 mutual
 
-  def nodeJson : Node Nat SourceOp → Json
-    | .feature pose ops =>
-        Json.mkObj [
+  def nodeJson : CheckedNode → Json
+    | .feature name value ops =>
+        Json.mkObj ([
           ("kind", .str "feature"),
-          ("pose", Json.mkObj [("x", .num pose)]),
+          ("pose", poseJson value),
           ("ops", listJson sourceOpJson ops)
-        ]
+        ] ++
+          match name with
+          | none => []
+          | some text => [("name", .str text)])
     | .group children =>
         Json.mkObj [
           ("kind", .str "group"),
@@ -303,17 +408,17 @@ mutual
         Json.mkObj [
           ("kind", .str "repeat"),
           ("count", .num count),
-          ("step", Json.mkObj [("x", .num step)]),
+          ("step", poseJson step),
           ("child", nodeJson child)
         ]
 
-  def nodesJson : List (Node Nat SourceOp) → List Json
+  def nodesJson : List CheckedNode → List Json
     | [] => []
     | node :: rest => nodeJson node :: nodesJson rest
 
 end
 
-def programJson (value : Program Nat SourceOp) : Json :=
+def programJson (value : CheckedProgram) : Json :=
   Json.mkObj [("features", .arr (nodesJson value.features).toArray)]
 
 def limitsJson (value : Limits) : Json :=
@@ -369,7 +474,10 @@ def failureCodeLabel : FailureCode → String
   | .maxDepth => "max-depth"
   | .maxNodes => "max-nodes"
   | .maxOps => "max-ops"
+  | .emptyName => "empty-name"
+  | .nonFinitePose => "non-finite-pose"
   | .undefinedCoordinate => "undefined-coordinate"
+  | .nonFiniteCoordinate => "non-finite-coordinate"
   | .undefinedStart => "undefined-start"
   | .transformedManual => "transformed-manual"
 

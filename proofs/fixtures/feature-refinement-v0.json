@@ -6,22 +6,30 @@
    {"features":
     [{"kind": "group",
       "children":
-      [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 10}], "kind": "feature"},
-       {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 20}], "kind": "feature"}]}]},
+      [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+        "ops": [{"op": "tool", "index": 10}],
+        "kind": "feature"},
+       {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+        "ops": [{"op": "tool", "index": 20}],
+        "kind": "feature"}]}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "group-source-order",
    "expected":
    {"outcome": "ok", "ops": [{"op": "tool", "index": 10}, {"op": "tool", "index": 20}]}},
   {"program":
    {"features":
-    [{"step": {"x": 10},
+    [{"step": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
       "kind": "repeat",
       "count": 2,
       "child":
       {"kind": "group",
        "children":
-       [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"},
-        {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 2}], "kind": "feature"}]}}]},
+       [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+         "ops": [{"op": "tool", "index": 1}],
+         "kind": "feature"},
+        {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+         "ops": [{"op": "tool", "index": 2}],
+         "kind": "feature"}]}}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "repeat-count-and-order",
    "expected":
@@ -33,23 +41,27 @@
      {"op": "tool", "index": 2}]}},
   {"program":
    {"features":
-    [{"step": {"x": 10},
+    [{"step": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
       "kind": "repeat",
       "count": 0,
       "child":
-      {"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"}}]},
+      {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+       "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}],
+       "kind": "feature"}}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "repeat-zero-skips-invalid-child",
    "expected": {"outcome": "ok", "ops": []}},
   {"program":
    {"features":
-    [{"pose": {"x": 0}, "ops": [{"text": "M400", "op": "manual_gcode"}], "kind": "feature"}]},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"text": "M400", "op": "manual_gcode"}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "identity-manual-gcode",
    "expected": {"outcome": "ok", "ops": [{"text": "M400", "op": "manual_gcode"}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 0},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "ops": [{"z": 3, "y": 2, "x": 1, "op": "move"}, {"z": null, "y": null, "x": 4, "op": "move"}],
       "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
@@ -59,7 +71,7 @@
     "ops": [{"z": 3, "y": 2, "x": 1, "op": "move"}, {"z": 3, "y": 2, "x": 4, "op": "move"}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 0},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "ops": [{"z": 0, "y": null, "x": 1, "op": "arc", "cy": 0, "cx": 0, "clockwise": false}],
       "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
@@ -70,7 +82,7 @@
     "code": "undefined-start"}},
   {"program":
    {"features":
-    [{"pose": {"x": 0},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "ops":
       [{"z": 0, "y": 0, "x": 0, "op": "move"},
        {"z": null, "y": 3, "x": 2, "op": "arc", "cy": 2, "cx": 1, "clockwise": true}],
@@ -84,7 +96,9 @@
      {"z": 0, "y": 3, "x": 2, "op": "arc", "cy": 2, "cx": 1, "clockwise": true}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 0}, "ops": [{"points": [[1, null, 0]], "op": "spline"}], "kind": "feature"}]},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"points": [[1, null, 0]], "op": "spline"}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "spline-requires-local-start-before-points",
    "expected":
@@ -92,13 +106,16 @@
     "message": "features[0].ops[0] requires a fully defined local start point",
     "code": "undefined-start"}},
   {"program":
-   {"features": [{"pose": {"x": 0}, "ops": [{"points": [], "op": "spline"}], "kind": "feature"}]},
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"points": [], "op": "spline"}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "empty-spline-needs-no-start",
    "expected": {"outcome": "ok", "ops": [{"points": [], "op": "spline"}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 0},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "ops":
       [{"z": 2, "y": 1, "x": 0, "op": "move"},
        {"points": [[1, null, null], [2, 3, null]], "op": "spline"}],
@@ -111,13 +128,17 @@
     [{"z": 2, "y": 1, "x": 0, "op": "move"}, {"points": [[1, 1, 2], [2, 3, 2]], "op": "spline"}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 10}, "ops": [{"op": "orient", "k": 3, "j": 2, "i": 1}], "kind": "feature"}]},
+    [{"pose": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
+      "ops": [{"op": "orient", "k": 3, "j": 2, "i": 1}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "orientation-ignores-translation",
    "expected": {"outcome": "ok", "ops": [{"op": "orient", "k": 3, "j": 2, "i": 1}]}},
   {"program":
    {"features":
-    [{"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"}]},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "undefined-local-coordinate",
    "expected":
@@ -126,7 +147,9 @@
     "code": "undefined-coordinate"}},
   {"program":
    {"features":
-    [{"pose": {"x": 10}, "ops": [{"text": "G28", "op": "manual_gcode"}], "kind": "feature"}]},
+    [{"pose": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
+      "ops": [{"text": "G28", "op": "manual_gcode"}],
+      "kind": "feature"}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "transformed-manual-gcode",
    "expected":
@@ -137,8 +160,12 @@
    {"features":
     [{"kind": "group",
       "children":
-      [{"pose": {"x": 0}, "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}], "kind": "feature"},
-       {"pose": {"x": 10}, "ops": [{"text": "G28", "op": "manual_gcode"}], "kind": "feature"}]}]},
+      [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+        "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}],
+        "kind": "feature"},
+       {"pose": {"z": 0, "y": 0, "x": 10, "rotate_z_deg": 0},
+        "ops": [{"text": "G28", "op": "manual_gcode"}],
+        "kind": "feature"}]}]},
    "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
    "id": "source-order-first-error",
    "expected":
@@ -148,7 +175,7 @@
     "code": "undefined-coordinate"}},
   {"program":
    {"features":
-    [{"pose": {"x": 0},
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "ops": [{"op": "tool", "index": 1}, {"op": "tool", "index": 2}, {"op": "tool", "index": 3}],
       "kind": "feature"}]},
    "limits": {"max_ops": 2, "max_nodes": 100, "max_depth": 10},
@@ -159,10 +186,13 @@
     "code": "max-ops"}},
   {"program":
    {"features":
-    [{"step": {"x": 0},
+    [{"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
       "kind": "repeat",
       "count": 3,
-      "child": {"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"}}]},
+      "child":
+      {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+       "ops": [{"op": "tool", "index": 1}],
+       "kind": "feature"}}]},
    "limits": {"max_ops": 10, "max_nodes": 2, "max_depth": 10},
    "id": "node-budget-first-excess",
    "expected":
@@ -172,10 +202,94 @@
   {"program":
    {"features":
     [{"kind": "group",
-      "children": [{"pose": {"x": 0}, "ops": [{"op": "tool", "index": 1}], "kind": "feature"}]}]},
+      "children":
+      [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+        "ops": [{"op": "tool", "index": 1}],
+        "kind": "feature"}]}]},
    "limits": {"max_ops": 10, "max_nodes": 1, "max_depth": 0},
    "id": "depth-budget-before-node-visit",
    "expected":
    {"outcome": "error",
     "message": "features[0].children[0] exceeds max feature depth (0)",
-    "code": "max-depth"}}]}
+    "code": "max-depth"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": "NaN", "rotate_z_deg": 0},
+      "ops": [{"op": "tool", "index": 1}],
+      "name": "",
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "empty-name-before-pose",
+   "expected":
+   {"outcome": "error", "message": "features[0].name must not be empty", "code": "empty-name"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": "NaN", "rotate_z_deg": 0},
+      "ops": [{"op": "tool", "index": 1}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nonfinite-feature-pose-x",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].pose.x must be finite, got NaN",
+    "code": "non-finite-pose"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": "NaN", "y": "inf", "x": 0, "rotate_z_deg": 0},
+      "ops": [{"op": "tool", "index": 1}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "pose-field-order",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].pose.y must be finite, got inf",
+    "code": "non-finite-pose"}},
+  {"program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": "-inf", "rotate_z_deg": 0},
+      "kind": "repeat",
+      "count": 0,
+      "child":
+      {"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+       "ops": [{"z": 0, "y": null, "x": 1, "op": "move"}],
+       "kind": "feature"}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "repeat-step-validated-at-zero-count",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].step.x must be finite, got -inf",
+    "code": "non-finite-pose"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"z": "NaN", "y": "inf", "x": 1, "op": "move"}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nonfinite-move-coordinate",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].y must be finite, got inf",
+    "code": "non-finite-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"z": 0, "y": "NaN", "x": null, "op": "move"}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "undefined-before-later-nonfinite-coordinate",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].x is undefined; features must be locally self-contained",
+    "code": "undefined-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops":
+      [{"z": 0, "y": 0, "x": 0, "op": "move"}, {"points": [[1, "inf", null]], "op": "spline"}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nonfinite-spline-point",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[1].points[0].y must be finite, got inf",
+    "code": "non-finite-coordinate"}}]}

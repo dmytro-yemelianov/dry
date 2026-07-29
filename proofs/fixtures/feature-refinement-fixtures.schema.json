@@ -20,18 +20,24 @@
       "type": "integer",
       "minimum": 0
     },
-    "optionalNatural": {
+    "fixtureScalar": {
       "oneOf": [
         { "$ref": "#/$defs/natural" },
+        { "enum": ["NaN", "inf", "-inf"] }
+      ]
+    },
+    "optionalFixtureScalar": {
+      "oneOf": [
+        { "$ref": "#/$defs/fixtureScalar" },
         { "type": "null" }
       ]
     },
     "partialPointArray": {
       "type": "array",
       "prefixItems": [
-        { "$ref": "#/$defs/optionalNatural" },
-        { "$ref": "#/$defs/optionalNatural" },
-        { "$ref": "#/$defs/optionalNatural" }
+        { "$ref": "#/$defs/optionalFixtureScalar" },
+        { "$ref": "#/$defs/optionalFixtureScalar" },
+        { "$ref": "#/$defs/optionalFixtureScalar" }
       ],
       "minItems": 3,
       "maxItems": 3
@@ -49,9 +55,12 @@
     "pose": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["x"],
+      "required": ["x", "y", "z", "rotate_z_deg"],
       "properties": {
-        "x": { "$ref": "#/$defs/natural" }
+        "x": { "$ref": "#/$defs/fixtureScalar" },
+        "y": { "$ref": "#/$defs/fixtureScalar" },
+        "z": { "$ref": "#/$defs/fixtureScalar" },
+        "rotate_z_deg": { "$ref": "#/$defs/fixtureScalar" }
       }
     },
     "sourceOp": {
@@ -71,9 +80,9 @@
           "required": ["op", "x", "y", "z"],
           "properties": {
             "op": { "const": "move" },
-            "x": { "$ref": "#/$defs/optionalNatural" },
-            "y": { "$ref": "#/$defs/optionalNatural" },
-            "z": { "$ref": "#/$defs/optionalNatural" }
+            "x": { "$ref": "#/$defs/optionalFixtureScalar" },
+            "y": { "$ref": "#/$defs/optionalFixtureScalar" },
+            "z": { "$ref": "#/$defs/optionalFixtureScalar" }
           }
         },
         {
@@ -84,9 +93,9 @@
             "op": { "const": "arc" },
             "cx": { "$ref": "#/$defs/natural" },
             "cy": { "$ref": "#/$defs/natural" },
-            "x": { "$ref": "#/$defs/optionalNatural" },
-            "y": { "$ref": "#/$defs/optionalNatural" },
-            "z": { "$ref": "#/$defs/optionalNatural" },
+            "x": { "$ref": "#/$defs/optionalFixtureScalar" },
+            "y": { "$ref": "#/$defs/optionalFixtureScalar" },
+            "z": { "$ref": "#/$defs/optionalFixtureScalar" },
             "clockwise": { "type": "boolean" }
           }
         },
@@ -132,6 +141,7 @@
           "required": ["kind", "pose", "ops"],
           "properties": {
             "kind": { "const": "feature" },
+            "name": { "type": "string" },
             "pose": { "$ref": "#/$defs/pose" },
             "ops": {
               "type": "array",
@@ -269,7 +279,10 @@
                 "max-depth",
                 "max-nodes",
                 "max-ops",
+                "empty-name",
+                "non-finite-pose",
                 "undefined-coordinate",
+                "non-finite-coordinate",
                 "undefined-start",
                 "transformed-manual"
               ]

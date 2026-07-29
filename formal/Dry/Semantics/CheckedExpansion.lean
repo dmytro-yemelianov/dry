@@ -4,23 +4,54 @@ import Mathlib.Tactic
 /-!
 # Checked planar feature expansion
 
-This module gives a computable error-trace semantics for a bounded refinement subset of the current
+This module gives a computable first-error semantics for a bounded refinement subset of the current
 Rust feature expander. It models ordered groups and repeats, dynamic depth/node/operation checks,
-locally self-contained moves, invariant tool operations and transformed manual-code rejection.
+feature-name and pose validation, locally self-contained moves, arcs and splines, invariant tool and
+orientation operations, and transformed manual-code rejection.
 
-Natural-number X translations keep the refinement fixtures exact and avoid claiming binary64 or
-trigonometric refinement. Pose/name validation, non-finite operation fields, counter overflow,
-rotations and epsilon-based transform identity remain separate obligations.
+`Scalar.nonFinite` is serializer-neutral syntax for rejected IEEE-754 inputs. Successful geometry is
+restricted to natural-number X translations so the refinement fixtures remain exact and do not claim
+binary64 or trigonometric refinement. Finite-width counter overflow, non-finite arc centres or
+orientation components, rotations and epsilon-based transform identity remain separate obligations.
 -/
 
 namespace Dry.Semantics.CheckedExpansion
 
 open Dry.Semantics.ExpandFeatures
 
+inductive Scalar where
+  | finite (value : Nat)
+  | nonFinite (rendered : String)
+deriving BEq, Repr
+
+instance (n : Nat) : OfNat Scalar n where
+  ofNat := .finite n
+
+namespace Scalar
+
+def value : Scalar → Nat
+  | .finite number => number
+  | .nonFinite _ => 0
+
+end Scalar
+
+structure Pose where
+  x : Scalar
+  y : Scalar
+  z : Scalar
+  rotateZDeg : Scalar
+deriving BEq, Repr
+
+def Pose.identity : Pose :=
+  ⟨.finite 0, .finite 0, .finite 0, .finite 0⟩
+
+instance (n : Nat) : OfNat Pose n where
+  ofNat := ⟨.finite n, .finite 0, .finite 0, .finite 0⟩
+
 structure PartialPoint where
-  x : Option Nat
-  y : Option Nat
-  z : Option Nat
+  x : Option Scalar
+  y : Option Scalar
+  z : Option Scalar
 deriving BEq, Repr
 
 structure Point where
@@ -47,11 +78,24 @@ inductive OutputOp where
   | manualGcode (text : String)
 deriving BEq, Repr
 
+inductive CheckedNode where
+  | feature (name : Option String) (pose : Pose) (ops : List SourceOp)
+  | group (children : List CheckedNode)
+  | repeat (count : Nat) (step : Pose) (child : CheckedNode)
+deriving BEq, Repr
+
+structure CheckedProgram where
+  features : List CheckedNode
+deriving BEq, Repr
+
 inductive FailureCode where
   | maxDepth
   | maxNodes
   | maxOps
+  | emptyName
+  | nonFinitePose
   | undefinedCoordinate
+  | nonFiniteCoordinate
   | undefinedStart
   | transformedManual
 deriving BEq, Repr
@@ -66,15 +110,10 @@ structure State where
   nodes : Nat := 0
 deriving BEq, Repr
 
-def structuralAlgebra : Dry.Semantics.ExpandFeatures.Algebra Nat SourceOp :=
-  {
-    identity := 0
-    compose := Nat.add
-    apply := fun _ op => op
-  }
-
 inductive Event where
   | enter (depth : Nat) (path : String)
+  | validateName (name : Option String) (path : String)
+  | validatePose (pose : Pose) (path : String)
   | feature (transform : Nat) (path : String) (ops : List SourceOp)
 deriving BEq, Repr
 
@@ -83,29 +122,32 @@ mutual
   def eventsNode
       (parent depth : Nat)
       (path : String) :
-      Node Nat SourceOp → List Event
-    | .feature pose ops =>
+      CheckedNode → List Event
+    | .feature name pose ops =>
         [
           .enter depth path,
-          .feature (parent + pose) path ops
+          .validateName name path,
+          .validatePose pose s!"{path}.pose",
+          .feature (parent + pose.x.value) path ops
         ]
     | .group children =>
         .enter depth path ::
           eventsChildren parent (depth + 1) path 0 children
     | .repeat count step child =>
         .enter depth path ::
-          (List.range count).flatMap fun index =>
-            eventsNode
-              (parent + power structuralAlgebra step index)
-              (depth + 1)
-              s!"{path}.instances[{index}]"
-              child
+          .validatePose step s!"{path}.step" ::
+            (List.range count).flatMap fun index =>
+              eventsNode
+                (parent + index * step.x.value)
+                (depth + 1)
+                s!"{path}.instances[{index}]"
+                child
 
   def eventsChildren
       (parent depth : Nat)
       (parentPath : String)
       (index : Nat) :
-      List (Node Nat SourceOp) → List Event
+      List CheckedNode → List Event
     | [] => []
     | child :: rest =>
         eventsNode
@@ -118,7 +160,7 @@ mutual
 end
 
 def eventsProgram :
-    List (Node Nat SourceOp) → Nat → List Event
+    List CheckedNode → Nat → List Event
   | [], _ => []
   | node :: rest, index =>
       eventsNode 0 0 s!"features[{index}]" node ++
@@ -133,9 +175,20 @@ def nodeFailure (limits : Limits) (path : String) : Failure :=
 def opFailure (limits : Limits) (path : String) : Failure :=
   ⟨.maxOps, s!"{path} exceeds max expanded ops ({limits.maxOps})"⟩
 
+def emptyNameFailure (path : String) : Failure :=
+  ⟨.emptyName, s!"{path}.name must not be empty"⟩
+
+def nonFinitePoseFailure
+    (path field rendered : String) : Failure :=
+  ⟨.nonFinitePose, s!"{path}.{field} must be finite, got {rendered}"⟩
+
 def undefinedFailure (path axis : String) : Failure :=
   ⟨.undefinedCoordinate,
     s!"{path}.{axis} is undefined; features must be locally self-contained"⟩
+
+def nonFiniteCoordinateFailure
+    (path axis rendered : String) : Failure :=
+  ⟨.nonFiniteCoordinate, s!"{path}.{axis} must be finite, got {rendered}"⟩
 
 def manualFailure (path : String) : Failure :=
   ⟨.transformedManual, s!"{path}.manual_gcode cannot be transformed safely"⟩
@@ -143,15 +196,33 @@ def manualFailure (path : String) : Failure :=
 def startFailure (path : String) : Failure :=
   ⟨.undefinedStart, s!"{path} requires a fully defined local start point"⟩
 
+def validateName (name : Option String) (path : String) : Except Failure Unit :=
+  match name with
+  | some "" => .error (emptyNameFailure path)
+  | _ => .ok ()
+
+def validatePoseScalar
+    (value : Scalar)
+    (path field : String) : Except Failure Unit :=
+  match value with
+  | .finite _ => .ok ()
+  | .nonFinite rendered =>
+      .error (nonFinitePoseFailure path field rendered)
+
+def validatePose (pose : Pose) (path : String) : Except Failure Unit := do
+  validatePoseScalar pose.x path "x"
+  validatePoseScalar pose.y path "y"
+  validatePoseScalar pose.z path "z"
+  validatePoseScalar pose.rotateZDeg path "rotate_z_deg"
+
 def inheritAxis
-    (current previous : Option Nat)
+    (current previous : Option Scalar)
     (path axis : String) : Except Failure Nat :=
-  match current with
-  | some value => .ok value
-  | none =>
-      match previous with
-      | some value => .ok value
-      | none => .error (undefinedFailure path axis)
+  match current.or previous with
+  | none => .error (undefinedFailure path axis)
+  | some (.finite value) => .ok value
+  | some (.nonFinite rendered) =>
+      .error (nonFiniteCoordinateFailure path axis rendered)
 
 def inheritPoint
     (point position : PartialPoint)
@@ -179,7 +250,7 @@ def requireDefined
   | _, _, _ => .error (startFailure path)
 
 def fullPosition (point : Point) : PartialPoint :=
-  ⟨some point.x, some point.y, some point.z⟩
+  ⟨some (.finite point.x), some (.finite point.y), some (.finite point.z)⟩
 
 def runSplinePoints
     (transform : Nat)
@@ -259,13 +330,19 @@ def runEvents
               .error (nodeFailure limits path)
             else
               runEvents limits rest { state with nodes := visited }
+      | .validateName name path => do
+          validateName name path
+          runEvents limits rest state
+      | .validatePose pose path => do
+          validatePose pose path
+          runEvents limits rest state
       | .feature transform path ops => do
           let next ← runOps limits transform path ops 0 ⟨none, none, none⟩ state
           runEvents limits rest next
 
 def evaluate
     (limits : Limits)
-    (program : Program Nat SourceOp) : Except Failure (List OutputOp) := do
+    (program : CheckedProgram) : Except Failure (List OutputOp) := do
   let state ← runEvents limits (eventsProgram program.features 0) {}
   pure state.ops
 
@@ -302,9 +379,24 @@ theorem pushOp_budget_failure
       .error (opFailure limits path) := by
   simp [pushOp, full]
 
+theorem validateName_empty_failure
+    (path : String) :
+    validateName (some "") path =
+      .error (emptyNameFailure path) := by
+  rfl
+
+theorem validatePose_first_nonfinite_y
+    (path rendered : String)
+    (z rotateZDeg : Scalar) :
+    validatePose
+        ⟨.finite 0, .nonFinite rendered, z, rotateZDeg⟩
+        path =
+      .error (nonFinitePoseFailure path "y" rendered) := by
+  rfl
+
 theorem requireDefined_failure
     (path : String)
-    (y z : Option Nat) :
+    (y z : Option Scalar) :
     requireDefined ⟨none, y, z⟩ path =
       .error (startFailure path) := by
   cases y <;> cases z <;> rfl
@@ -312,12 +404,23 @@ theorem requireDefined_failure
 theorem inheritPoint_missing_y
     (path : String)
     (x : Nat)
-    (pointZ previousX previousZ : Option Nat) :
+    (pointZ previousX previousZ : Option Scalar) :
     inheritPoint
-        ⟨some x, none, pointZ⟩
+        ⟨some (.finite x), none, pointZ⟩
         ⟨previousX, none, previousZ⟩
         path =
       .error (undefinedFailure path "y") := by
+  cases pointZ <;> cases previousZ <;> rfl
+
+theorem inheritPoint_nonfinite_y
+    (path rendered : String)
+    (x : Nat)
+    (pointZ previousX previousZ : Option Scalar) :
+    inheritPoint
+        ⟨some (.finite x), some (.nonFinite rendered), pointZ⟩
+        ⟨previousX, none, previousZ⟩
+        path =
+      .error (nonFiniteCoordinateFailure path "y" rendered) := by
   cases pointZ <;> cases previousZ <;> rfl
 
 theorem runOps_transformed_manual_failure
@@ -335,8 +438,8 @@ theorem runOps_transformed_manual_failure
   simp [runOps, transformed]
 
 inductive CheckedEvaluates :
-    Limits → Program Nat SourceOp → Except Failure (List OutputOp) → Prop where
-  | result (limits : Limits) (program : Program Nat SourceOp) :
+    Limits → CheckedProgram → Except Failure (List OutputOp) → Prop where
+  | result (limits : Limits) (program : CheckedProgram) :
       CheckedEvaluates limits program (evaluate limits program)
 
 namespace CheckedEvaluates

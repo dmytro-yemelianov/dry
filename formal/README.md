@@ -47,14 +47,15 @@ python3 tools/check_proof_fixtures.py
 
 The L2 JSON fixture encodes finite logical values as normalized numerator/denominator strings and uses
 an explicit `non-finite` token. The feature fixture snapshots source ordering, zero and nonzero repeats,
-dynamic operation/node counts and maximum expansion depth. The refinement JSON assigns 17 expected
-success or exact first-error cases for ordered groups/repeats, local-coordinate inheritance, arcs,
-splines, orientations, manual code and resource limits;
-`crates/core/tests/feature_refinement.rs` consumes it independently against the Rust expander, repeats
-every observation to check determinism and confirms that 11 declared wrong semantics are distinguished
-by the corpus.
+dynamic operation/node counts and maximum expansion depth. The refinement JSON assigns 24 expected
+success or exact first-error cases for ordered groups/repeats, feature names and poses,
+local-coordinate inheritance, arcs, splines, orientations, manual code and resource limits. Its
+fixture-only `NaN`/`inf`/`-inf` strings are converted to IEEE-754 values by an independent adapter
+before the Rust expander is called; they are not production wire syntax.
+`crates/core/tests/feature_refinement.rs` repeats every observation to check determinism and confirms
+that 17 declared wrong semantics are distinguished by the corpus.
 
-The checked refinement status is limited to that committed subset. Numeric error bounds, remaining
-operation validation, source-level mutation scoring, full frame graphs and wider Rust refinement
-remain explicitly pending in
+The checked refinement status is limited to that committed subset. Numeric error bounds, finite-width
+counter overflow, non-finite arc-centre/orientation behavior, source-level mutation scoring, full
+frame graphs and wider Rust refinement remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).
