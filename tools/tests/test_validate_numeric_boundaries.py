@@ -59,7 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
-        self.assertIn("profile 9 limits/16 budgets", result.stdout)
+        self.assertIn("profile 9 limits/17 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
@@ -250,6 +250,33 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         contents = self.repository_profile().replace(
             "ceiling = 1073741824.0",
             "ceiling = 1073741823.0",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_composition_tree_orientation_angular_ceiling_drift_is_rejected(
+        self,
+    ) -> None:
+        contents = self.repository_profile().replace(
+            'id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.'
+            'COMPOSITION_TREE_ORIENTATION_ANGULAR_ERROR_RAD"\n'
+            'metric = "Maximum unoriented angular error for a unit orientation '
+            'transformed by an arbitrary parenthesized transform-composition tree"\n'
+            'unit = "radian"\n'
+            'status = "bounded"\n'
+            "ceiling = 0.25",
+            'id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.'
+            'COMPOSITION_TREE_ORIENTATION_ANGULAR_ERROR_RAD"\n'
+            'metric = "Maximum unoriented angular error for a unit orientation '
+            'transformed by an arbitrary parenthesized transform-composition tree"\n'
+            'unit = "radian"\n'
+            'status = "bounded"\n'
+            "ceiling = 0.26",
             1,
         )
         result = self.run_profile(contents)

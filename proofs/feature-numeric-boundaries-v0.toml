@@ -349,14 +349,15 @@ inputs = ["Op::Orient.{i,j,k}", "Transform rotation coefficients"]
 operation = "Rotate XY using four multiplications and two additions/subtractions; copy Z unchanged."
 classification = "interval-bounded"
 numeric_status = "bounded"
-assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds."]
-exclusions = ["Nonzero/unit validation and normalization.", "Translation is intentionally excluded from vector action."]
+assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds.", "The angular theorem additionally assumes an exact unit input orientation and every composition/application profile premise."]
+exclusions = ["Normalization is not performed.", "Translation is intentionally excluded from vector action.", "The nonzero/unit runtime contract is checked separately on a finite generated corpus."]
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
-next_obligation = "Land a nonzero/unit normalization contract, derive an angular bound, tighten the conservative 2^-8 component ceiling and generalize the selected nested cardinal corpus to every theorem premise."
+next_obligation = "Tighten the conservative 2^-8 component and 1/4-radian directional ceilings, then generalize the selected native corpora to every theorem premise."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/Orientation.lean",
   "proofs/fixtures/feature-refinement-v0.json",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
@@ -370,6 +371,7 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR",
   "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR",
+  "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR.ANGULAR_ERROR",
   "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS",
   "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
 ]
@@ -378,7 +380,8 @@ profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_ANGULAR_ERROR_RAD"
 ]
 
 [[boundary]]

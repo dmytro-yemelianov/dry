@@ -454,9 +454,13 @@ every viable mutant is killed by its assigned Lean-generated fixture in CI, incl
 feature-operand and repeat-operand reversals plus three end-to-end nested application faults, while
 compilation failures are rejected as invalid evidence. The corresponding structural and numeric
 implementation claims are refinement-checked only over those committed corpora and mutation
-manifest, not assigned a general mutation score. Finite-width counter overflow, nonzero/unit
-orientation semantics, mutation coverage outside the bounded surface, universal binary64 refinement, `SE(3)` and
-named frame graphs remain open.
+manifest, not assigned a general mutation score. A further six-case exact-rational corpus distinguishes
+the native contracts: `resolve_checked` rejects the zero vector, while `verify` classifies accepted
+vectors with its `1e-6` unit-magnitude tolerance. It covers signed axis units, a 3-4-5 rational unit
+direction and two non-unit directions without claiming general equivalence between exact rational
+unit length and the binary64 tolerance. Finite-width counter overflow, arbitrary-input refinement of
+the native magnitude/tolerance calculations, normalization policy, mutation coverage outside the
+bounded surface, universal binary64 refinement, `SE(3)` and named frame graphs remain open.
 
 ### FM1.4 — numeric and curve error budgets
 
@@ -503,10 +507,10 @@ The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisio
 pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes
 for local coordinates, pose translation/rotation, arc centres, orientation components, transform
 composition count, basic-operation results and the radian intermediate; and names ten local or
-observation budgets plus two repeat-accumulation, two arbitrary-tree transform and two tree-application
-budgets. The profile is explicitly
+observation budgets plus two repeat-accumulation, two arbitrary-tree transform, two tree-application
+component budgets and one orientation angular-error budget. The profile is explicitly
 `assurance-precondition-only`: the current language still accepts values outside those magnitude
-envelopes, so the profile restricts bounded claims rather than changing runtime validity. Fifteen
+envelopes, so the profile restricts bounded claims rather than changing runtime validity. Sixteen
 budgets are bounded and the existing `1e-12` manual-code identity threshold is recorded as policy;
 there are no unclassified budget entries. The validator checks reciprocal inventory links,
 finite ordered limits, proof ceiling drift, budget status discipline, evidence paths, Rust/libm pins,
@@ -576,6 +580,14 @@ the corresponding ceiling is `2^-8`, while Z is copied exactly. Both theorems re
 final application operation graphs to satisfy their existing exact-result range predicates. They are
 abstract conditional bounds, not yet a universal refinement of nested Rust Feature/Repeat execution.
 
+`formal/Dry/Numeric/Orientation.lean` converts the componentwise orientation theorem into a
+directional guarantee. It models vectors in Euclidean three-space, proves that two XY errors of at
+most `2^-8` plus exact Z imply Euclidean distance at most `2^-7`, and proves exact planar transforms
+preserve unit length. From an exact unit result and that distance bound it derives a positive computed
+norm, direction cosine at least `127/129`, and an unoriented angular error at most `1/4` radian. The
+tree theorem inherits every profile, range, rounding and imported-`libm` premise of the componentwise
+application theorem; it is not an unconditional statement about arbitrary Rust inputs.
+
 `formal/Dry/Semantics/CompositionTreeRefinement.lean` now maps a selected nested Feature/Repeat path
 to that syntax: groups preserve the parent, features append `parent.compose(local)`, and repeat
 instance `i` appends the left-associated `instance.compose(step)` tree. It proves the repeat tree has
@@ -609,6 +621,13 @@ translation, Arc-centre rotation and orientation rotation/Z copying. This is che
 the committed native cases, not a universal rounding or `libm` proof. General native/wasm
 refinement, runtime profile enforcement, downstream accumulation and tighter production-scale
 translation intervals remain open.
+
+`formal/Dry/Tests/OrientationContractFixtures.lean` adds the separate language/runtime contract
+bridge. Lean classifies six exact rational vectors by nonzeroness and exact squared norm, exports the
+schema-valid corpus, and the Rust consumer runs the same values through production `resolve_checked`
+and `verify`. This checks zero rejection and unit/non-unit agreement for the selected finite values
+only. It does not prove the binary64 square-root tolerance equivalent to exact unit length near its
+boundary, nor does it discharge the angular theorem's profile and execution premises.
 
 ### FM1.5 — resolver, simulation and verifier
 

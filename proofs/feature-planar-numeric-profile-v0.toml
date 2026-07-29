@@ -328,7 +328,22 @@ evidence = [
   "proofs/fixtures/nested-application-refinement-v0.json",
   "crates/core/tests/feature_refinement.rs"
 ]
-next_obligation = "Land nonzero/unit orientation semantics, derive a useful angular bound and generalize the selected nested native corpus to every theorem premise."
+next_obligation = "Use the linked angular theorem where direction is the observation, tighten both conservative ceilings and generalize the selected nested native corpus to every theorem premise."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_ANGULAR_ERROR_RAD"
+metric = "Maximum unoriented angular error for a unit orientation transformed by an arbitrary parenthesized transform-composition tree"
+unit = "radian"
+status = "bounded"
+ceiling = 0.25
+rationale = "Lean converts the tree's 2^-8 bounds on each XY component and exact Z copy into Euclidean distance at most 2^-7. For an exact unit output this proves the computed vector is nonzero and its direction cosine is at least 127/129, which implies an angular error of at most 1/4 radian."
+evidence = [
+  "formal/Dry/Numeric/Orientation.lean",
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean"
+]
+next_obligation = "Tighten this conservative directional ceiling and refine arbitrary native/wasm Feature/Repeat executions to the theorem's profile, range, rounding, libm and unit-input premises."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
 
 [[budget]]
@@ -382,7 +397,7 @@ evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Land nonzero/unit validation, add coefficient-construction error, derive an angular error bound and generalize the selected native exact-dyadic witnesses."
+next_obligation = "Compose this local budget with coefficient construction where appropriate and generalize the selected native exact-dyadic and orientation-contract witnesses to arbitrary profiled native/wasm execution."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
   "FM1.F64.FEATURE.ORIENTATION.FINITE"

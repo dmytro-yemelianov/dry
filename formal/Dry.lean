@@ -5,6 +5,7 @@ import Dry.Language.WellFormed
 import Dry.Language.LogicalEquality
 import Dry.Numeric.Accumulation
 import Dry.Numeric.ApplicationAccumulation
+import Dry.Numeric.Orientation
 import Dry.Numeric.Angle
 import Dry.Numeric.Binary64
 import Dry.Numeric.CompositionTree

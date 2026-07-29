@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/orientation-contract-refinement-fixtures-v0.json",
+  "title": "Dry orientation contract refinement fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model",
+    "model_checks",
+    "unit_policy",
+    "native_unit_tolerance",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "orientation-contract-refinement-v0" },
+    "model_checks": { "const": true },
+    "unit_policy": { "const": "exact-rational-squared-norm-equals-one" },
+    "native_unit_tolerance": { "const": 0.000001 },
+    "cases": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "scalar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": -16, "maximum": 16 },
+        "denominator": { "type": "integer", "minimum": 1, "maximum": 16 }
+      }
+    },
+    "vector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["i", "j", "k"],
+      "properties": {
+        "i": { "$ref": "#/$defs/scalar" },
+        "j": { "$ref": "#/$defs/scalar" },
+        "k": { "$ref": "#/$defs/scalar" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolve_accepts", "finding"],
+      "properties": {
+        "resolve_accepts": { "type": "boolean" },
+        "finding": {
+          "enum": ["not_evaluated", "none", "orientation-not-unit"]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "vector", "expected"],
+      "properties": {
+        "id": {
+          "enum": [
+            "zero-rejected",
+            "positive-z-unit",
+            "negative-x-unit",
+            "rational-three-four-five-unit",
+            "scaled-z-non-unit",
+            "diagonal-non-unit"
+          ]
+        },
+        "vector": { "$ref": "#/$defs/vector" },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}

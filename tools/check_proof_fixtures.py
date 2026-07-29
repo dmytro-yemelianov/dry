@@ -53,12 +53,22 @@ NESTED_APPLICATION_SCHEMA = (
     / "fixtures"
     / "nested-application-refinement-fixtures.schema.json"
 )
+ORIENTATION_CONTRACT_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "orientation-contract-refinement-v0.json"
+)
+ORIENTATION_CONTRACT_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "orientation-contract-refinement-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
 COMPOSITION_SHAPE_LEAN_FIXTURE = "Dry/Tests/CompositionShapeFixtures.lean"
 NATIVE_NUMERIC_LEAN_FIXTURE = "Dry/Tests/NativeNumericFixtures.lean"
 NESTED_APPLICATION_LEAN_FIXTURE = "Dry/Tests/NestedApplicationFixtures.lean"
+ORIENTATION_CONTRACT_LEAN_FIXTURE = "Dry/Tests/OrientationContractFixtures.lean"
 
 
 def parse_args() -> argparse.Namespace:
@@ -273,6 +283,42 @@ def validate_nested_application_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_orientation_contract_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(ORIENTATION_CONTRACT_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read orientation-contract fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid orientation-contract fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid orientation-contract fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("orientation-contract fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -283,6 +329,7 @@ def main() -> int:
         composition_shape_actual = evaluate(COMPOSITION_SHAPE_LEAN_FIXTURE)
         native_numeric_actual = evaluate(NATIVE_NUMERIC_LEAN_FIXTURE)
         nested_application_actual = evaluate(NESTED_APPLICATION_LEAN_FIXTURE)
+        orientation_contract_actual = evaluate(ORIENTATION_CONTRACT_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
@@ -295,6 +342,9 @@ def main() -> int:
         )
         nested_application_document = validate_nested_application_fixture(
             nested_application_actual
+        )
+        orientation_contract_document = validate_orientation_contract_fixture(
+            orientation_contract_actual
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
@@ -312,6 +362,7 @@ def main() -> int:
         COMPOSITION_SHAPE_SNAPSHOT: composition_shape_actual,
         NATIVE_NUMERIC_SNAPSHOT: native_numeric_actual,
         NESTED_APPLICATION_SNAPSHOT: nested_application_actual,
+        ORIENTATION_CONTRACT_SNAPSHOT: orientation_contract_actual,
     }
 
     if args.write:
@@ -351,6 +402,8 @@ def main() -> int:
         "native-vector-application cases, "
         f"{len(nested_application_document['cases'])} "
         "nested-application cases, "
+        f"{len(orientation_contract_document['cases'])} "
+        "orientation-contract cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

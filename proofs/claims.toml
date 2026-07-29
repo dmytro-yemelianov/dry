@@ -715,6 +715,96 @@ numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR.ANGULAR_ERROR"
+title = "Profiled unit orientation application after arbitrary transform-composition trees has a checked nonzero and angular-error bound"
+theorem = "Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error"
+spec_version = "feature-planar-binary64-v0"
+source_dialect = "An exact unit orientation vector acted on by a bounded parenthesized transform tree"
+target_dialect = "A nonzero profile-gated binary64 orientation with bounded unoriented angular error"
+relation = "approximate"
+scope = "abstract"
+numeric_domain = "Euclidean three-space over the Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 contract"
+assumptions = [
+  "The input orientation is exactly unit length in Euclidean three-space.",
+  "The transform tree satisfies the composition-tree profile, 100,000-node ceiling, parenthesization and per-node operation-result range premises.",
+  "The input X and Y components each lie within [-1, 1], and the final vector application satisfies its exact operation-result range predicate.",
+  "Binary64 rounding and libm sine/cosine satisfy the named conditional contracts used by the componentwise tree-application theorem.",
+  "The exact planar transform coefficient has norm one, so exact vector application preserves unit length."
+]
+exclusions = [
+  "General refinement from arbitrary nested Rust Feature/Repeat expansion to the profile, range, rounding, libm and exact-unit premises.",
+  "Runtime normalization, full SE(3) orientation frames, signed angles and rotation about axes other than Z.",
+  "A production or tightness claim; 1/4 radian is a conservative consequence of the existing 2^-8 XY component ceiling and exact Z copy."
+]
+lean_source = "formal/Dry/Numeric/Orientation.lean"
+rust_sources = [
+  "crates/core/src/features.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/src/verify.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Numeric/Orientation.lean",
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+refinement_evidence = [
+  "formal/Dry/Tests/OrientationContractFixtures.lean",
+  "proofs/fixtures/orientation-contract-refinement-v0.json",
+  "crates/core/tests/orientation_refinement.rs"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.ORIENTATION.NATIVE.CONTRACT.CORPUS"
+title = "Selected native orientation inputs refine nonzero resolution and unit verification contracts"
+theorem = "Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks"
+spec_version = "orientation-contract-refinement-v0"
+source_dialect = "Six Lean-generated exact rational orientation vectors"
+target_dialect = "Native Rust resolve_checked acceptance followed by orientation-not-unit verification classification"
+relation = "observational"
+scope = "implementation"
+numeric_domain = "Exact rational source classification observed through selected finite binary64 values"
+assumptions = [
+  "Scope is exactly the six committed generated vectors, including zero, signed axes, a rational 3-4-5 unit vector and two non-unit vectors.",
+  "Every rational component is converted to binary64 by native numerator/denominator division before constructing the production L1 design.",
+  "Resolution accepts finite vectors exactly when their native magnitude is nonzero on this corpus.",
+  "For accepted corpus vectors, the production verifier's 1e-6 magnitude tolerance agrees with the exact rational unit classification."
+]
+exclusions = [
+  "Equivalence between exact rational unit length and the binary64 tolerance for arbitrary inputs, especially values close to the tolerance boundary.",
+  "NaN, infinity, overflow, underflow, signed-zero distinctions, normalization and cross-target native/wasm behavior.",
+  "The profile, range, rounding and libm premises required by the abstract angular-error theorem."
+]
+lean_source = "formal/Dry/Tests/OrientationContractFixtures.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs",
+  "crates/core/src/verify.rs",
+  "crates/core/tests/orientation_refinement.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = [
+  "formal/Dry/Tests/OrientationContractFixtures.lean",
+  "proofs/fixtures/orientation-contract-refinement-v0.json",
+  "proofs/fixtures/orientation-contract-refinement-fixtures.schema.json",
+  "crates/core/tests/orientation_refinement.rs",
+  "tools/check_proof_fixtures.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
 title = "Profiled binary64 planar point application has a concrete componentwise local-operation error bound"
 theorem = "Dry.Numeric.Binary64.binary64ApplyPoint_error"

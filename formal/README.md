@@ -59,8 +59,13 @@ against Rust within `1e-12`; this tolerance is structural evidence, not a genera
 Four pose and three one-step composition cases additionally export real-π reference intervals and
 exact power-of-two budgets. A native Rust test checks degree conversion and cardinal sine/cosine
 results, then reconstructs the compose operation graph with arbitrary-precision exact dyadics from
-the observed binary64 inputs before comparing each local result to its profiled interval.
-`tools/check_feature_mutations.py` then compiles 27 pinned source changes to
+the observed binary64 inputs before comparing each local result to its profiled interval. Three
+nested programs additionally exercise final point, Arc-centre and orientation application. A
+six-case exact-rational orientation corpus independently checks the native nonzero resolver gate and
+unit/non-unit verifier classification. The abstract orientation theorem converts the tree's
+componentwise result into nonzeroness and a conservative `1/4`-radian angular ceiling for exact unit
+inputs.
+`tools/check_feature_mutations.py` then compiles 35 pinned source changes to
 `crates/core/src/features.rs` in isolated workspaces and requires each
 named fixture to kill its assigned mutant. The source hash and replacements are reviewed in
 `proofs/feature-refinement-mutations-v0.toml`; a non-compiling mutant does not count as killed.
@@ -72,7 +77,7 @@ python3 tools/check_feature_mutations.py
 ```
 
 The checked refinement status is limited to those committed subsets. Universal native/wasm numeric
-refinement, finite-width counter overflow, nonzero/unit orientation behavior, mutation coverage
-outside the pinned feature-expansion changes, full frame graphs and wider Rust refinement remain
-explicitly pending in
+refinement, finite-width counter overflow, arbitrary-input refinement of the native orientation
+magnitude/tolerance calculations, normalization, mutation coverage outside the pinned
+feature-expansion changes, full frame graphs and wider Rust refinement remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).

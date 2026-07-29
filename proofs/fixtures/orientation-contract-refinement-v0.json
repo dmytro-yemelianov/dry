@@ -1,0 +1,42 @@
+{"unit_policy": "exact-rational-squared-norm-equals-one",
+ "schema_version": 1,
+ "native_unit_tolerance": 0.000001,
+ "model_checks": true,
+ "model": "orientation-contract-refinement-v0",
+ "cases":
+ [{"vector":
+   {"k": {"numerator": 0, "denominator": 1},
+    "j": {"numerator": 0, "denominator": 1},
+    "i": {"numerator": 0, "denominator": 1}},
+   "id": "zero-rejected",
+   "expected": {"resolve_accepts": false, "finding": "not_evaluated"}},
+  {"vector":
+   {"k": {"numerator": 1, "denominator": 1},
+    "j": {"numerator": 0, "denominator": 1},
+    "i": {"numerator": 0, "denominator": 1}},
+   "id": "positive-z-unit",
+   "expected": {"resolve_accepts": true, "finding": "none"}},
+  {"vector":
+   {"k": {"numerator": 0, "denominator": 1},
+    "j": {"numerator": 0, "denominator": 1},
+    "i": {"numerator": -1, "denominator": 1}},
+   "id": "negative-x-unit",
+   "expected": {"resolve_accepts": true, "finding": "none"}},
+  {"vector":
+   {"k": {"numerator": 4, "denominator": 5},
+    "j": {"numerator": 0, "denominator": 5},
+    "i": {"numerator": 3, "denominator": 5}},
+   "id": "rational-three-four-five-unit",
+   "expected": {"resolve_accepts": true, "finding": "none"}},
+  {"vector":
+   {"k": {"numerator": 2, "denominator": 1},
+    "j": {"numerator": 0, "denominator": 1},
+    "i": {"numerator": 0, "denominator": 1}},
+   "id": "scaled-z-non-unit",
+   "expected": {"resolve_accepts": true, "finding": "orientation-not-unit"}},
+  {"vector":
+   {"k": {"numerator": 0, "denominator": 1},
+    "j": {"numerator": 1, "denominator": 1},
+    "i": {"numerator": 1, "denominator": 1}},
+   "id": "diagonal-non-unit",
+   "expected": {"resolve_accepts": true, "finding": "orientation-not-unit"}}]}
