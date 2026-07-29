@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 path = "crates/core/src/features.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc"
+sha256 = "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302"
 
 [[source]]
 path = "crates/core/src/resolve.rs"
@@ -211,10 +211,10 @@ inputs = ["Op::Arc.cx", "Op::Arc.cy", "Transform coefficients and XY translation
 operation = "Two planar multiply-add/subtract expressions rotate and translate the centre."
 classification = "interval-bound-pending"
 numeric_status = "pending"
-assumptions = ["Arc-centre inputs are finite under a future validation gate.", "Transform coefficients and translation satisfy preceding bounds."]
-exclusions = ["The current implementation does not validate arc-centre finiteness before arithmetic."]
+assumptions = ["Arc-centre inputs passed the ordered finite-input gate.", "Transform coefficients and translation satisfy preceding bounds."]
+exclusions = ["Finite Arc centres outside the provisional magnitude profile and output non-finiteness caused by arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
-next_obligation = "Land finite arc-centre rejection, then prove component intervals under the accepted geometry profile."
+next_obligation = "Instantiate the local rounding contract and prove component intervals under an accepted geometry profile."
 evidence = []
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
@@ -236,10 +236,10 @@ inputs = ["Op::Orient.{i,j,k}", "Transform rotation coefficients"]
 operation = "Rotate XY using four multiplications and two additions/subtractions; copy Z unchanged."
 classification = "interval-bound-pending"
 numeric_status = "pending"
-assumptions = ["Orientation components are finite under a future validation gate.", "Rotation coefficients satisfy preceding bounds."]
-exclusions = ["The current implementation does not validate or normalize orientation components.", "Translation is intentionally excluded from vector action."]
+assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds."]
+exclusions = ["Nonzero/unit validation and normalization.", "Translation is intentionally excluded from vector action."]
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
-next_obligation = "Land finite orientation rejection and a nonzero/normalization contract, then prove angular or component error bounds."
+next_obligation = "Land a nonzero/unit normalization contract, instantiate local rounding, then prove angular or component error bounds."
 evidence = ["proofs/fixtures/feature-refinement-v0.json"]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
@@ -251,19 +251,25 @@ profile_entries = [
 ]
 
 [[boundary]]
-id = "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
-title = "Arc-centre fields currently cross feature expansion without an input-finiteness gate"
+id = "FM1.F64.FEATURE.ARC.CENTER.FINITE"
+title = "Arc-centre fields reject non-finite values before transform arithmetic"
 rust_symbol = "expand_feature_ops"
 source_path = "crates/core/src/features.rs"
-source_anchor = "let centre = transform.apply_xy([*cx, *cy]);"
+source_anchor = '''require_finite(*cx, &format!("{op_path}.cx"))?,
+                    require_finite(*cy, &format!("{op_path}.cy"))?,'''
 inputs = ["Op::Arc.cx", "Op::Arc.cy"]
-operation = "Pass values directly into apply_xy; NaN and infinity can propagate to output."
-classification = "deterministic-but-unbounded"
-numeric_status = "empirical"
-assumptions = ["Current Rust/libm floating-point behavior determines propagation."]
-exclusions = ["The checked Lean subset explicitly excludes non-finite arc centres."]
-next_obligation = "Reject non-finite arc-centre fields in a documented order and add proof-generated Rust refinement fixtures."
-evidence = ["formal/Dry/Semantics/CheckedExpansion.lean"]
+operation = "After local-start and endpoint validation, check cx then cy with is_finite; the first non-finite field returns ExpandError."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = ["Rust f64::is_finite classifies NaN and both infinities as non-finite."]
+exclusions = ["Finite Arc-centre magnitude, geometric validity and subsequent transform rounding."]
+next_obligation = "Keep endpoint-before-centre and cx-before-cy first-error order synchronized across Lean, Rust fixtures and mutations."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
+]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
@@ -274,19 +280,26 @@ profile_entries = [
 ]
 
 [[boundary]]
-id = "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
-title = "Orientation fields currently cross feature expansion without an input-finiteness gate"
+id = "FM1.F64.FEATURE.ORIENTATION.FINITE"
+title = "Orientation fields reject non-finite values before vector arithmetic"
 rust_symbol = "expand_feature_ops"
 source_path = "crates/core/src/features.rs"
-source_anchor = "let vector = transform.apply_vector([*i, *j, *k]);"
+source_anchor = '''require_finite(*i, &format!("{op_path}.i"))?,
+                    require_finite(*j, &format!("{op_path}.j"))?,
+                    require_finite(*k, &format!("{op_path}.k"))?,'''
 inputs = ["Op::Orient.i", "Op::Orient.j", "Op::Orient.k"]
-operation = "Pass values directly into apply_vector; NaN and infinity can propagate to output."
-classification = "deterministic-but-unbounded"
-numeric_status = "empirical"
-assumptions = ["Current Rust floating-point behavior determines propagation."]
-exclusions = ["The checked Lean subset explicitly excludes non-finite orientation components."]
-next_obligation = "Reject non-finite orientation fields in a documented order and add proof-generated Rust refinement fixtures."
-evidence = ["formal/Dry/Semantics/CheckedExpansion.lean"]
+operation = "Check i, j and k with is_finite in field order; the first non-finite component returns ExpandError."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = ["Rust f64::is_finite classifies NaN and both infinities as non-finite."]
+exclusions = ["Nonzero/unit validation, normalization and subsequent vector-transform rounding."]
+next_obligation = "Keep i/j/k first-error order synchronized across Lean, Rust fixtures and mutations."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
+]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"

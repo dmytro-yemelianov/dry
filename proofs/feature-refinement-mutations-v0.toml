@@ -1,7 +1,7 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
 source = "crates/core/src/features.rs"
-source_sha256 = "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc"
+source_sha256 = "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302"
 test = "crates/core/tests/feature_refinement.rs"
 
 [[mutation]]
@@ -75,8 +75,8 @@ new = '''
 id = "orientation-receives-translation"
 witness = "orientation-ignores-translation"
 description = "Transform an orientation as a point instead of a vector."
-old = "let vector = transform.apply_vector([*i, *j, *k]);"
-new = "let vector = transform.apply_point([*i, *j, *k]);"
+old = "let vector = transform.apply_vector(["
+new = "let vector = transform.apply_point(["
 
 [[mutation]]
 id = "allow-transformed-manual"
@@ -232,4 +232,76 @@ new = '''
                         position,
                         &format!("{op_path}.points[{point_index}]"),
                     )?;
+'''
+
+[[mutation]]
+id = "skip-arc-centre-finite-check"
+witness = "arc-centre-field-order"
+description = "Pass Arc centre components into arithmetic without checking finiteness."
+old = '''
+                let centre = transform.apply_xy([
+                    require_finite(*cx, &format!("{op_path}.cx"))?,
+                    require_finite(*cy, &format!("{op_path}.cy"))?,
+                ]);
+'''
+new = '''
+                let centre = transform.apply_xy([*cx, *cy]);
+'''
+
+[[mutation]]
+id = "reverse-arc-centre-field-order"
+witness = "arc-end-before-nonfinite-centre"
+description = "Check Arc centre fields before the inherited endpoint."
+old = '''
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = local.map(Some);
+                let end = transform.apply_point(local);
+                let centre = transform.apply_xy([
+                    require_finite(*cx, &format!("{op_path}.cx"))?,
+                    require_finite(*cy, &format!("{op_path}.cy"))?,
+                ]);
+'''
+new = '''
+                let local_cx = require_finite(*cx, &format!("{op_path}.cx"))?;
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = local.map(Some);
+                let end = transform.apply_point(local);
+                let centre = transform.apply_xy([
+                    local_cx,
+                    require_finite(*cy, &format!("{op_path}.cy"))?,
+                ]);
+'''
+
+[[mutation]]
+id = "skip-orientation-finite-check"
+witness = "nonfinite-orientation"
+description = "Pass orientation components into arithmetic without checking finiteness."
+old = '''
+                let vector = transform.apply_vector([
+                    require_finite(*i, &format!("{op_path}.i"))?,
+                    require_finite(*j, &format!("{op_path}.j"))?,
+                    require_finite(*k, &format!("{op_path}.k"))?,
+                ]);
+'''
+new = '''
+                let vector = transform.apply_vector([*i, *j, *k]);
+'''
+
+[[mutation]]
+id = "reverse-orientation-field-order"
+witness = "orientation-field-order"
+description = "Validate orientation components in reverse field order."
+old = '''
+                let vector = transform.apply_vector([
+                    require_finite(*i, &format!("{op_path}.i"))?,
+                    require_finite(*j, &format!("{op_path}.j"))?,
+                    require_finite(*k, &format!("{op_path}.k"))?,
+                ]);
+'''
+new = '''
+                let vector = transform.apply_vector([
+                    require_finite(*k, &format!("{op_path}.k"))?,
+                    require_finite(*j, &format!("{op_path}.j"))?,
+                    require_finite(*i, &format!("{op_path}.i"))?,
+                ]);
 '''

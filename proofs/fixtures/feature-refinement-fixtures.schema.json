@@ -91,8 +91,8 @@
           "required": ["op", "cx", "cy", "x", "y", "z", "clockwise"],
           "properties": {
             "op": { "const": "arc" },
-            "cx": { "$ref": "#/$defs/natural" },
-            "cy": { "$ref": "#/$defs/natural" },
+            "cx": { "$ref": "#/$defs/fixtureScalar" },
+            "cy": { "$ref": "#/$defs/fixtureScalar" },
             "x": { "$ref": "#/$defs/optionalFixtureScalar" },
             "y": { "$ref": "#/$defs/optionalFixtureScalar" },
             "z": { "$ref": "#/$defs/optionalFixtureScalar" },
@@ -117,9 +117,9 @@
           "required": ["op", "i", "j", "k"],
           "properties": {
             "op": { "const": "orient" },
-            "i": { "$ref": "#/$defs/natural" },
-            "j": { "$ref": "#/$defs/natural" },
-            "k": { "$ref": "#/$defs/natural" }
+            "i": { "$ref": "#/$defs/fixtureScalar" },
+            "j": { "$ref": "#/$defs/fixtureScalar" },
+            "k": { "$ref": "#/$defs/fixtureScalar" }
           }
         },
         {

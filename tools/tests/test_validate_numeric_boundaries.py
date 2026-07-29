@@ -63,7 +63,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
-            "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc",
+            "768cba9eebd1641eaad34dfb6a2030fcbdc484865822da68709df4d51c2e8302",
             "0" * 64,
             1,
         )

@@ -438,16 +438,17 @@ Current bounded landing: the abstract planar `Feature`/ordered `Group`/`Repeat` 
 source-order concatenation, repeat decomposition and exact operation counts, operation/node/depth
 budget preservation, deterministic expansion and exact-real pose action for points, vectors and
 invariant operations. A second checked model fixes success/first-error order for feature names,
-finite/non-finite pose fields, invariant tool operations, locally inherited moves, arcs, splines,
-orientations, transformed manual-code rejection and dynamic resource limits. Twenty-four
+finite/non-finite pose fields, invariant tool operations, locally inherited moves, arcs with ordered
+finite-centre rejection, splines, ordered finite-orientation rejection, transformed manual-code
+rejection and dynamic resource limits. Twenty-eight
 schema-valid Lean-generated cases are consumed independently by the Rust expander through a
 fixture-only non-finite token adapter and check repeatable exact observations. A pinned manifest
-compiles 17 source changes against `features.rs`; every viable mutant is killed by its assigned
+compiles 21 source changes against `features.rs`; every viable mutant is killed by its assigned
 Lean-generated fixture in CI, while compilation failures are rejected as invalid evidence. The
 corresponding structural claims are refinement-checked only over that committed corpus and mutation
-manifest, not assigned a general mutation score. Finite-width counter overflow, non-finite
-arc-centre/orientation behavior, mutation coverage outside the bounded surface, binary64 bounds,
-`SE(3)` and named frame graphs remain open.
+manifest, not assigned a general mutation score. Finite-width counter overflow, nonzero/unit
+orientation semantics, mutation coverage outside the bounded surface, binary64 bounds, `SE(3)` and
+named frame graphs remain open.
 
 ### FM1.4 — numeric and curve error budgets
 
@@ -473,9 +474,9 @@ interval-bound pending, deterministic but unbounded, or pass-through) from assur
 (`bounded`, `pending`, `empirical`, or not applicable). An independent validator checks the schema,
 complete required-id set, evidence paths, unique Rust source anchors and pinned hashes of both
 `features.rs` and the complete `Op` input domain in `resolve.rs`. The only bounded numeric item in this
-packet is bit-preserving finite coordinate inheritance; transform arithmetic remains pending, the
-unchecked arc-centre/orientation paths and epsilon identity policy remain empirical, and pass-through
-payloads make no numeric claim in this pass.
+packet is bit-preserving finite coordinate inheritance; transform arithmetic remains pending,
+non-finite Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity
+policy remains empirical, and pass-through payloads make no numeric claim in this pass.
 
 The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisional FM1.4b profile. It
 pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes

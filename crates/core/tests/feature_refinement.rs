@@ -162,8 +162,8 @@ enum FixtureOp {
         z: Option<FixtureScalar>,
     },
     Arc {
-        cx: f64,
-        cy: f64,
+        cx: FixtureScalar,
+        cy: FixtureScalar,
         x: Option<FixtureScalar>,
         y: Option<FixtureScalar>,
         z: Option<FixtureScalar>,
@@ -173,9 +173,9 @@ enum FixtureOp {
         points: Vec<[Option<FixtureScalar>; 3]>,
     },
     Orient {
-        i: f64,
-        j: f64,
-        k: f64,
+        i: FixtureScalar,
+        j: FixtureScalar,
+        k: FixtureScalar,
     },
     ManualGcode {
         text: String,
@@ -199,8 +199,8 @@ impl FixtureOp {
                 z,
                 clockwise,
             } => Ok(Op::Arc {
-                cx: *cx,
-                cy: *cy,
+                cx: cx.to_f64()?,
+                cy: cy.to_f64()?,
                 x: optional_scalar(x)?,
                 y: optional_scalar(y)?,
                 z: optional_scalar(z)?,
@@ -210,9 +210,9 @@ impl FixtureOp {
                 points: points.iter().map(partial_point).collect::<Result<_, _>>()?,
             }),
             Self::Orient { i, j, k } => Ok(Op::Orient {
-                i: *i,
-                j: *j,
-                k: *k,
+                i: i.to_f64()?,
+                j: j.to_f64()?,
+                k: k.to_f64()?,
             }),
             Self::ManualGcode { text } => Ok(Op::ManualGcode { text: text.clone() }),
         }
@@ -364,7 +364,7 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
     assert_eq!(document.schema_version, 1);
     assert_eq!(document.model, "feature-refinement-v0");
     assert!(document.model_checks);
-    assert_eq!(document.cases.len(), 24);
+    assert_eq!(document.cases.len(), 28);
 
     let witness = std::env::var("DRY_FEATURE_MUTATION_WITNESS").ok();
     let selected: Vec<_> = document

@@ -218,8 +218,8 @@ numeric_boundaries = [
   "FM1.F64.FEATURE.APPLY.POINT",
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
-  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED",
-  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE",
+  "FM1.F64.FEATURE.ORIENTATION.FINITE"
 ]
 refinement_evidence = []
 
@@ -347,14 +347,14 @@ relation = "trace-exact"
 scope = "abstract"
 numeric_domain = "Natural-number translations and resource counters plus rejected non-finite tokens"
 assumptions = [
-  "The checked subset contains feature names and poses, invariant tool operations, partial-coordinate moves, arcs, splines, orientations and manual code.",
+  "The checked subset contains feature names and poses, invariant tool operations, partial-coordinate moves, arcs with finite centres, splines, finite orientations and manual code.",
   "Transforms are exact natural-number X translations, with zero as the identity.",
-  "Depth is checked before node count, feature names before pose fields, pose fields in x/y/z/rotate_z_deg order, and operation count immediately before append.",
+  "Depth is checked before node count; feature names before pose fields; pose fields in x/y/z/rotate_z_deg order; Arc start and endpoint before cx/cy; orientation in i/j/k order; and operation count immediately before append.",
   "Serializer-neutral NaN and infinity tokens denote rejected inputs; they are not values in successful geometry."
 ]
 exclusions = [
   "Finite-width counter overflow and allocation failure.",
-  "Non-finite arc-centre and orientation components, concrete NaN payloads, signed zero and production JSON encoding.",
+  "Concrete NaN payloads, signed zero and production JSON encoding.",
   "Epsilon-based transform identity.",
   "Binary64 rounding, rotations and libm trigonometry for geometry operations.",
   "Claims beyond the committed refinement fixture corpus."
@@ -367,8 +367,8 @@ numeric_evidence = []
 numeric_boundaries = [
   "FM1.F64.FEATURE.POSE.FINITE",
   "FM1.F64.FEATURE.COORDINATE.INHERIT",
-  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED",
-  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED",
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE",
+  "FM1.F64.FEATURE.ORIENTATION.FINITE",
   "FM1.F64.FEATURE.MANUAL.IDENTITY",
   "FM1.F64.FEATURE.OP.PASSTHROUGH"
 ]

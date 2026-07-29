@@ -303,6 +303,54 @@ def fixtures : List Fixture :=
       ]
       expected := .error ⟨.nonFiniteCoordinate,
         "features[0].ops[1].points[0].y must be finite, got inf"⟩
+    },
+    {
+      id := "arc-end-before-nonfinite-centre"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 0) (some 0) (some 0)),
+          .arc (.nonFinite "NaN") 0
+            (point (some 1) (some (.nonFinite "inf")) none) false
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[1].y must be finite, got inf"⟩
+    },
+    {
+      id := "arc-centre-field-order"
+      limits := generous
+      program := program [
+        feature 0 [
+          .move (point (some 0) (some 0) (some 0)),
+          .arc (.nonFinite "inf") (.nonFinite "NaN")
+            (point (some 1) (some 2) none) false
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[1].cx must be finite, got inf"⟩
+    },
+    {
+      id := "nonfinite-orientation"
+      limits := generous
+      program := program [
+        feature 0 [
+          .orient (.nonFinite "NaN") 0 1
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[0].i must be finite, got NaN"⟩
+    },
+    {
+      id := "orientation-field-order"
+      limits := generous
+      program := program [
+        feature 0 [
+          .orient 1 (.nonFinite "inf") (.nonFinite "NaN")
+        ]
+      ]
+      expected := .error ⟨.nonFiniteCoordinate,
+        "features[0].ops[0].j must be finite, got inf"⟩
     }
   ]
 
@@ -357,8 +405,8 @@ def sourceOpJson : SourceOp → Json
   | .arc cx cy finish clockwise =>
       Json.mkObj [
         ("op", .str "arc"),
-        ("cx", .num cx),
-        ("cy", .num cy),
+        ("cx", scalarJson cx),
+        ("cy", scalarJson cy),
         ("x", optionScalarJson finish.x),
         ("y", optionScalarJson finish.y),
         ("z", optionScalarJson finish.z),
@@ -377,9 +425,9 @@ def sourceOpJson : SourceOp → Json
   | .orient i j k =>
       Json.mkObj [
         ("op", .str "orient"),
-        ("i", .num i),
-        ("j", .num j),
-        ("k", .num k)
+        ("i", scalarJson i),
+        ("j", scalarJson j),
+        ("k", scalarJson k)
       ]
   | .manualGcode text =>
       Json.mkObj [

@@ -6,13 +6,13 @@ import Mathlib.Tactic
 
 This module gives a computable first-error semantics for a bounded refinement subset of the current
 Rust feature expander. It models ordered groups and repeats, dynamic depth/node/operation checks,
-feature-name and pose validation, locally self-contained moves, arcs and splines, invariant tool and
-orientation operations, and transformed manual-code rejection.
+feature-name and pose validation, locally self-contained moves, arcs and splines, finite orientation
+operations, and transformed manual-code rejection.
 
 `Scalar.nonFinite` is serializer-neutral syntax for rejected IEEE-754 inputs. Successful geometry is
 restricted to natural-number X translations so the refinement fixtures remain exact and do not claim
-binary64 or trigonometric refinement. Finite-width counter overflow, non-finite arc centres or
-orientation components, rotations and epsilon-based transform identity remain separate obligations.
+binary64 or trigonometric refinement. Finite-width counter overflow, rotations and epsilon-based
+transform identity remain separate obligations.
 -/
 
 namespace Dry.Semantics.CheckedExpansion
@@ -63,9 +63,9 @@ deriving BEq, Repr
 inductive SourceOp where
   | tool (index : Nat)
   | move (point : PartialPoint)
-  | arc (cx cy : Nat) (finish : PartialPoint) (clockwise : Bool)
+  | arc (cx cy : Scalar) (finish : PartialPoint) (clockwise : Bool)
   | spline (points : List PartialPoint)
-  | orient (i j k : Nat)
+  | orient (i j k : Scalar)
   | manualGcode (text : String)
 deriving BEq, Repr
 
@@ -232,6 +232,14 @@ def inheritPoint
   let z ← inheritAxis point.z position.z path "z"
   pure ⟨x, y, z⟩
 
+def finiteCoordinate
+    (value : Scalar)
+    (path field : String) : Except Failure Nat :=
+  match value with
+  | .finite number => .ok number
+  | .nonFinite rendered =>
+      .error (nonFiniteCoordinateFailure path field rendered)
+
 def pushOp
     (limits : Limits)
     (path : String)
@@ -289,10 +297,12 @@ def runOps
       | .arc cx cy finish clockwise =>
           let _ ← requireDefined position opPath
           let localFinish ← inheritPoint finish position opPath
+          let localCx ← finiteCoordinate cx opPath "cx"
+          let localCy ← finiteCoordinate cy opPath "cy"
           let transformedFinish : Point :=
             { localFinish with x := transform + localFinish.x }
           let next ← pushOp limits opPath
-            (.arc (transform + cx) cy transformedFinish clockwise) state
+            (.arc (transform + localCx) localCy transformedFinish clockwise) state
           runOps limits transform featurePath rest (index + 1)
             (fullPosition localFinish) next
       | .spline points =>
@@ -306,7 +316,10 @@ def runOps
             let next ← pushOp limits opPath (.spline transformedPoints) state
             runOps limits transform featurePath rest (index + 1) finalPosition next
       | .orient i j k =>
-          let next ← pushOp limits opPath (.orient i j k) state
+          let localI ← finiteCoordinate i opPath "i"
+          let localJ ← finiteCoordinate j opPath "j"
+          let localK ← finiteCoordinate k opPath "k"
+          let next ← pushOp limits opPath (.orient localI localJ localK) state
           runOps limits transform featurePath rest (index + 1) position next
       | .manualGcode text =>
           if transform != 0 then

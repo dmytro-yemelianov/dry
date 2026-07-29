@@ -330,7 +330,10 @@ fn expand_feature_ops(
                 let local = inherit_point([*x, *y, *z], position, &op_path)?;
                 position = local.map(Some);
                 let end = transform.apply_point(local);
-                let centre = transform.apply_xy([*cx, *cy]);
+                let centre = transform.apply_xy([
+                    require_finite(*cx, &format!("{op_path}.cx"))?,
+                    require_finite(*cy, &format!("{op_path}.cy"))?,
+                ]);
                 Op::Arc {
                     cx: centre[0],
                     cy: centre[1],
@@ -359,7 +362,11 @@ fn expand_feature_ops(
                 }
             }
             Op::Orient { i, j, k } => {
-                let vector = transform.apply_vector([*i, *j, *k]);
+                let vector = transform.apply_vector([
+                    require_finite(*i, &format!("{op_path}.i"))?,
+                    require_finite(*j, &format!("{op_path}.j"))?,
+                    require_finite(*k, &format!("{op_path}.k"))?,
+                ]);
                 Op::Orient {
                     i: vector[0],
                     j: vector[1],
@@ -384,6 +391,16 @@ fn require_defined_position(position: [Option<f64>; 3], path: &str) -> Result<()
     } else {
         Err(ExpandError::new(format!(
             "{path} requires a fully defined local start point"
+        )))
+    }
+}
+
+fn require_finite(value: f64, path: &str) -> Result<f64, ExpandError> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(ExpandError::new(format!(
+            "{path} must be finite, got {value}"
         )))
     }
 }

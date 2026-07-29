@@ -292,4 +292,52 @@
    "expected":
    {"outcome": "error",
     "message": "features[0].ops[1].points[0].y must be finite, got inf",
+    "code": "non-finite-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops":
+      [{"z": 0, "y": 0, "x": 0, "op": "move"},
+       {"z": null, "y": "inf", "x": 1, "op": "arc", "cy": 0, "cx": "NaN", "clockwise": false}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "arc-end-before-nonfinite-centre",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[1].y must be finite, got inf",
+    "code": "non-finite-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops":
+      [{"z": 0, "y": 0, "x": 0, "op": "move"},
+       {"z": null, "y": 2, "x": 1, "op": "arc", "cy": "NaN", "cx": "inf", "clockwise": false}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "arc-centre-field-order",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[1].cx must be finite, got inf",
+    "code": "non-finite-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"op": "orient", "k": 1, "j": 0, "i": "NaN"}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nonfinite-orientation",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].i must be finite, got NaN",
+    "code": "non-finite-coordinate"}},
+  {"program":
+   {"features":
+    [{"pose": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 0},
+      "ops": [{"op": "orient", "k": "NaN", "j": "inf", "i": 1}],
+      "kind": "feature"}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "orientation-field-order",
+   "expected":
+   {"outcome": "error",
+    "message": "features[0].ops[0].j must be finite, got inf",
     "code": "non-finite-coordinate"}}]}

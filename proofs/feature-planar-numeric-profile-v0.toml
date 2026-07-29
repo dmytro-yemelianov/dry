@@ -60,10 +60,10 @@ lower = -1048576.0
 upper = 1048576.0
 unit = "mm"
 enforcement = "assumption"
-rationale = "Arc centres share the coordinate envelope, but the current expander has not yet landed its finite-input rejection gate."
+rationale = "Arc centres pass a runtime finiteness gate; this proof-only limit additionally bounds finite magnitude."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
-  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE"
 ]
 
 [[limit]]
@@ -73,10 +73,10 @@ lower = -1.0
 upper = 1.0
 unit = "dimensionless"
 enforcement = "assumption"
-rationale = "A unit orientation has components in [-1,1]; nonzero/unit validation and normalization remain separate semantic obligations."
+rationale = "Orientation components pass a runtime finiteness gate; nonzero/unit validation and normalization remain separate semantic obligations."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
-  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+  "FM1.F64.FEATURE.ORIENTATION.FINITE"
 ]
 
 [[limit]]
@@ -163,12 +163,12 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERRO
 metric = "Maximum absolute error of each transformed Arc centre coordinate"
 unit = "mm"
 status = "pending"
-rationale = "The generic point-operation formula covers this arithmetic shape, but the finite-input rejection gate and concrete apply_xy interval remain open."
+rationale = "The finite-input gate and generic point-operation formula are checked, but the concrete apply_xy interval remains open."
 evidence = []
-next_obligation = "Land finite Arc-centre rejection, instantiate local errors, then derive the apply_xy interval under the Arc-centre limit."
+next_obligation = "Instantiate local errors and derive the apply_xy interval under the Arc-centre limit."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
-  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE"
 ]
 
 [[budget]]
@@ -176,12 +176,12 @@ id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERR
 metric = "Maximum absolute error of each transformed orientation-vector component"
 unit = "dimensionless"
 status = "pending"
-rationale = "The rounded vector operation graph has a checked symbolic formula; the finite/nonzero/unit contract and concrete rotation interval remain open."
+rationale = "The finite-input gate and rounded vector formula are checked; the nonzero/unit contract and concrete rotation interval remain open."
 evidence = []
-next_obligation = "Land orientation validation, instantiate local errors, and derive component plus angular error bounds."
+next_obligation = "Land nonzero/unit validation, instantiate local errors, and derive component plus angular error bounds."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
-  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+  "FM1.F64.FEATURE.ORIENTATION.FINITE"
 ]
 
 [[budget]]
