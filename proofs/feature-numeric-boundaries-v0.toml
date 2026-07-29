@@ -146,29 +146,35 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "cos: self.cos * local.cos - self.sin * local.sin,"
 inputs = ["parent Transform.{cos,sin}", "local Transform.{cos,sin}"]
 operation = "Four multiplications and two additions/subtractions compute the composed coefficients."
-classification = "interval-bound-pending"
-numeric_status = "pending"
-assumptions = ["Inputs satisfy bounds established for the preceding libm boundary."]
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "Every pose leaf and local operation graph satisfies the linked provisional profile.",
+  "The parenthesized composition tree contains at most 100,000 composition nodes."
+]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "The sequential same-step repeat fold is bounded conditionally; extend the result to mixed-step arbitrary nested composition trees and refine the Rust loop/range premises before promoting this complete boundary."
+next_obligation = "Refine nested Rust Feature/Repeat evaluation to the parenthesization-preserving tree and its profile/range premises; the abstract numeric boundary is bounded."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
-  "formal/Dry/Numeric/Accumulation.lean"
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
-  "FM1.NUMERIC.REPEAT.ACCUMULATION"
+  "FM1.NUMERIC.REPEAT.ACCUMULATION",
+  "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_ROTATION_COMPONENT_ABS_ERROR"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_ROTATION_COMPONENT_ABS_ERROR",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ROTATION_COMPONENT_ABS_ERROR"
 ]
 
 [[boundary]]
@@ -179,22 +185,27 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "translated[0] + self.translation[0],"
 inputs = ["parent Transform translation and coefficients", "local Transform translation"]
 operation = "Apply the parent rotation to the local translation, then add each parent translation component."
-classification = "interval-bound-pending"
-numeric_status = "pending"
-assumptions = ["All operands are finite and within a future accepted coordinate envelope."]
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "Every pose leaf and local operation graph satisfies the linked provisional profile.",
+  "The parenthesized composition tree contains at most 100,000 composition nodes."
+]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "The sequential same-step repeat fold is bounded conditionally but conservatively; tighten it, extend it to mixed-step arbitrary nested trees and refine the Rust loop/range premises before promoting this complete boundary."
+next_obligation = "Tighten the non-production tree ceiling and refine nested Rust Feature/Repeat evaluation to the tree and profile/range premises; the abstract numeric boundary is bounded."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
-  "formal/Dry/Numeric/Accumulation.lean"
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
-  "FM1.NUMERIC.REPEAT.ACCUMULATION"
+  "FM1.NUMERIC.REPEAT.ACCUMULATION",
+  "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
@@ -202,7 +213,8 @@ profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_TRANSLATION_COMPONENT_ABS_ERROR_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
 ]
 
 [[boundary]]

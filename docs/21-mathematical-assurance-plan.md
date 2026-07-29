@@ -475,8 +475,9 @@ interval-bounded, interval-bound pending, deterministic but unbounded, or pass-t
 complete required-id set, evidence paths, unique Rust source anchors and pinned hashes of both
 `features.rs` and the complete `Op` input domain in `resolve.rs`. Bit-preserving coordinate inheritance
 and profiled degree/coefficient construction are bounded; local transform operation budgets are checked
-and the sequential same-pose repeat accumulator is bounded conditionally, while complete composition
-boundaries remain pending on mixed-step arbitrary-tree error. Non-finite
+and both the sequential same-pose accumulator and arbitrary parenthesized composition trees are bounded
+conditionally. The two abstract composition boundaries are now bounded while their Rust refinement and
+downstream point/vector application intervals remain pending. Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
@@ -484,9 +485,9 @@ The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisio
 pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes
 for local coordinates, pose translation/rotation, arc centres, orientation components, transform
 composition count, basic-operation results and the radian intermediate; and names ten observation
-budgets plus two repeat-accumulation budgets. The profile is explicitly
+budgets plus two repeat-accumulation and two arbitrary-tree budgets. The profile is explicitly
 `assurance-precondition-only`: the current language still accepts values outside those magnitude
-envelopes, so the profile restricts bounded claims rather than changing runtime validity. Eleven
+envelopes, so the profile restricts bounded claims rather than changing runtime validity. Thirteen
 budgets are bounded and the existing `1e-12` manual-code identity threshold is recorded as policy;
 there are no unclassified budget entries. The validator checks reciprocal inventory links,
 finite ordered limits, proof ceiling drift, budget status discipline, evidence paths, Rust/libm pins,
@@ -507,7 +508,7 @@ are proved equal to the total profiled model whenever every intermediate satisfi
 three local-operation claims are therefore numerically bounded at `2^-29` for vector/rotation XY,
 `2^-28` for point/translation XY and `2^-30` for point/translation Z. This is not yet a complete Rust
 geometry interval: refinement from Rust `f64` to the rounding premise, input and `libm` coefficient
-error, output finiteness and arbitrary nested-transform accumulation remain pending.
+error, output finiteness and downstream transform application remain pending.
 
 `formal/Dry/Numeric/Angle.lean` models the exact Rust evaluation order
 `round(round(degrees * binary64Pi) / 180)`. It identifies the standard-library PI bit pattern with the
@@ -534,8 +535,18 @@ every composition graph satisfying the existing operation-result range predicate
 degree, imported-libm and local-rounding results. It proves a complex rotation-coefficient norm bound
 of `2^-10`, an XY translation norm bound of `2^29` mm and a tighter Z error bound of `2^-13` mm.
 The translation ceiling is intentionally conservative and is not a production tolerance. The theorem
-does not cover arbitrary mixed-step nested transform trees; tightening/generalizing the result and
-refining the Rust loop to its premises are the next obligations.
+does not cover arbitrary mixed-step nested transform trees; the separate composition-tree theorem
+generalizes that shape, while tightening the same-step bound and refining the Rust loop remain open.
+
+`formal/Dry/Numeric/CompositionTree.lean` closes the abstract mixed-step gap without assuming
+binary64 associativity. It represents identity and profiled pose leaves plus binary composition nodes,
+preserves the evaluator's parenthesization and lets both operands carry existing error. A structural
+count theorem converts the profile's 100,000-composition ceiling into at most 200,001 charged pose or
+composition steps. An exponential coefficient potential stays below `2^-10`; a quadratic translation
+invariant stays below `2^30` mm in XY; and Z remains below `2^-13` mm. Every local composition still
+requires the checked operation-result range predicate. These are abstract conditional bounds, not a
+Rust claim: refinement of nested `Feature`/`Repeat` evaluation, runtime profile enforcement and tighter
+production-scale translation intervals remain open.
 
 ### FM1.5 — resolver, simulation and verifier
 

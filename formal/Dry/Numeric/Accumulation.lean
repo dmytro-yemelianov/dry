@@ -204,7 +204,7 @@ theorem exactPose_translationXY_norm_le
     _ = poseTranslationXYNormLimit := by
       norm_num [poseTranslationComponentLimit, poseTranslationXYNormLimit]
 
-private theorem binary64Compose_coefficient_local_error
+theorem binary64Compose_coefficient_local_error
     (contract : RoundContract)
     (outer inner : Transform)
     (hRange : ComposeGraphInRange contract outer inner) :
@@ -216,7 +216,7 @@ private theorem binary64Compose_coefficient_local_error
   exact hPair.trans_eq (by
     norm_num [compositionCoefficientNormError, vectorXYErrorCeiling])
 
-private theorem binary64Compose_translationXY_local_error
+theorem binary64Compose_translationXY_local_error
     (contract : RoundContract)
     (outer inner : Transform)
     (hRange : ComposeGraphInRange contract outer inner) :

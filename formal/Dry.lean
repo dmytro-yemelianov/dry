@@ -6,6 +6,7 @@ import Dry.Language.LogicalEquality
 import Dry.Numeric.Accumulation
 import Dry.Numeric.Angle
 import Dry.Numeric.Binary64
+import Dry.Numeric.CompositionTree
 import Dry.Numeric.Quantity
 import Dry.Numeric.RoundModel
 import Dry.Numeric.Trig
