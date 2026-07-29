@@ -352,6 +352,50 @@ numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.NUMERIC.REPEAT.ACCUMULATION"
+title = "Profiled sequential repeat-transform accumulation has checked conditional coefficient and translation bounds"
+theorem = "Dry.Numeric.Accumulation.binary64Repeat_error"
+spec_version = "feature-planar-binary64-v0"
+source_dialect = "One profiled FeaturePose and a bounded natural repeat count"
+target_dialect = "Profile-gated sequential binary64 repeat-transform accumulator"
+relation = "approximate"
+scope = "abstract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 composition plus the imported libm 0.2.16 one-ULP MPFR contract"
+assumptions = [
+  "The same pose step is accumulated from identity by instance = instance.compose(step), matching the repeat-loop recurrence.",
+  "The repeat count is at most the profile's 100,000-composition ceiling.",
+  "The pose rotation has absolute value at most 360 degrees and each XY translation component has absolute value at most 2^20 mm.",
+  "Every binary64 composition invocation satisfies the existing exact multiplication and addition/subtraction result-range predicates.",
+  "Binary64 rounding and libm sine/cosine satisfy the named conditional contracts used by the checked angle, trigonometric and local-composition theorems."
+]
+exclusions = [
+  "Arbitrary nested transform trees, mixed step transforms and transform application to downstream points or vectors.",
+  "Runtime enforcement of the provisional profile and refinement from the Rust repeat loop to the abstract recurrence and range premises.",
+  "Exhaustive source-level proof of the imported libm accuracy premise.",
+  "A production tolerance claim or tightness claim; the 2^29 mm translation ceiling is intentionally conservative."
+]
+lean_source = "formal/Dry/Numeric/Accumulation.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+]
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "pending"
+
+[[claim]]
 id = "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
 title = "Profiled binary64 planar point application has a concrete componentwise local-operation error bound"
 theorem = "Dry.Numeric.Binary64.binary64ApplyPoint_error"

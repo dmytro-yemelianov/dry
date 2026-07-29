@@ -151,21 +151,24 @@ numeric_status = "pending"
 assumptions = ["Inputs satisfy bounds established for the preceding libm boundary."]
 exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "Compose the bounded local-operation interval with libm coefficient error and accumulated coefficient drift for the maximum accepted repeat depth/count."
+next_obligation = "The sequential same-step repeat fold is bounded conditionally; extend the result to mixed-step arbitrary nested composition trees and refine the Rust loop/range premises before promoting this complete boundary."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Numeric/Accumulation.lean"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
+  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
+  "FM1.NUMERIC.REPEAT.ACCUMULATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_ROTATION_COMPONENT_ABS_ERROR"
 ]
 
 [[boundary]]
@@ -181,22 +184,25 @@ numeric_status = "pending"
 assumptions = ["All operands are finite and within a future accepted coordinate envelope."]
 exclusions = ["Finite pose fields alone do not prevent multiplication or addition overflow."]
 exact_envelope = ["With identity rotation, integer-valued operands and every exact mathematical intermediate within [-2^53, 2^53], the translation additions are exact."]
-next_obligation = "Compose the bounded local-operation interval with coefficient/input error and translation growth across the accepted composition depth."
+next_obligation = "The sequential same-step repeat fold is bounded conditionally but conservatively; tighten it, extend it to mixed-step arbitrary nested trees and refine the Rust loop/range premises before promoting this complete boundary."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Numeric/Accumulation.lean"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
+  "FM1.NUMERIC.COMPOSE.LOCAL_ERROR",
+  "FM1.NUMERIC.REPEAT.ACCUMULATION"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_TRANSLATION_COMPONENT_ABS_ERROR_MM"
 ]
 
 [[boundary]]

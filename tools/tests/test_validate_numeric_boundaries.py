@@ -59,7 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
-        self.assertIn("profile 9 limits/10 budgets", result.stdout)
+        self.assertIn("profile 9 limits/12 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
@@ -186,6 +186,32 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         contents = self.repository_profile().replace(
             "ceiling = 2.842170943040401e-14",
             "ceiling = 3e-14",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_repeat_rotation_proof_ceiling_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 0.0009765625",
+            "ceiling = 0.001",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_repeat_translation_proof_ceiling_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 536870912.0",
+            "ceiling = 536870911.0",
             1,
         )
         result = self.run_profile(contents)

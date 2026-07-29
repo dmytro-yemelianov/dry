@@ -201,7 +201,7 @@ evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean"
 ]
-next_obligation = "Add coefficient-construction error and derive accumulated drift up to the profiled composition ceiling; keep the complete boundary pending until then."
+next_obligation = "Use the separate repeat-accumulation budget for the sequential same-step fold; derive a mixed-step arbitrary-tree bound before promoting the complete composition boundary."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
 
 [[budget]]
@@ -215,7 +215,37 @@ evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean"
 ]
-next_obligation = "Compose this local-operation bound with input/coefficient error and repeated translation growth; keep the complete boundary pending until then."
+next_obligation = "Use the separate repeat-accumulation budget for the sequential same-step fold; derive a mixed-step arbitrary-tree bound before promoting the complete composition boundary."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_ROTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of either accumulated repeat-transform rotation coefficient against repeated exact-real composition"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 0.0009765625
+rationale = "For at most 100,000 sequential compositions of one profiled pose, Lean combines the conditional 2^-45 sine/cosine component bound with the checked local composition graph and proves a complex coefficient-norm ceiling of 2^-10; each component is therefore bounded by the same ceiling."
+evidence = [
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Refine the Rust repeat loop to the recurrence and its range premises, tighten the conservative ceiling, and separately bound arbitrary nested composition trees."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each accumulated repeat-transform translation component against repeated exact-real composition"
+unit = "mm"
+status = "bounded"
+ceiling = 536870912.0
+rationale = "For at most 100,000 sequential compositions of one profiled pose with each XY translation component at most 2^20, Lean proves an intentionally conservative XY complex-norm ceiling of 2^29 mm and a tighter Z ceiling of 2^-13 mm; every component is covered by the published 2^29 ceiling."
+evidence = [
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Tighten this non-production tolerance, refine the Rust repeat loop and range premises, and separately bound mixed-step nested composition trees."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
 
 [[budget]]
