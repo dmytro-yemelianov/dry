@@ -89,8 +89,8 @@ operation = "Two rounded binary64 operations: rotate_z_deg * PI, then division b
 classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = ["Rust uses IEEE-754 binary64 round-to-nearest, ties-to-even for finite basic operations on supported targets."]
-exclusions = ["The magnitude profile remains an assurance assumption rather than a runtime validity limit.", "Refinement from Rust f64 execution to the scoped rounding premise.", "Accuracy of the subsequent libm sine and cosine calls."]
-next_obligation = "Add native/wasm interval refinement, then import or check the pinned libm contract over the proved radian envelope."
+exclusions = ["The magnitude profile remains an assurance assumption rather than a runtime validity limit.", "Refinement from Rust f64 execution to the scoped rounding premise."]
+next_obligation = "Add native/wasm refinement to the scoped rounding premise and the checked radian interval."
 evidence = [
   "formal/Dry/Numeric/Angle.lean",
   "formal/Dry/Numeric/Binary64.lean"
@@ -98,12 +98,14 @@ evidence = [
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.ANGLE.RADIANS"
+  "FM1.NUMERIC.ANGLE.RADIANS",
+  "FM1.NUMERIC.TRIG.COEFFICIENTS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.RADIAN_INTERMEDIATE",
-  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
 ]
 
 [[boundary]]
@@ -115,15 +117,20 @@ source_anchor = '''cos: libm::cos(angle),
             sin: libm::sin(angle),'''
 inputs = ["binary64 radian angle"]
 operation = "libm argument reduction followed by binary64 cosine and sine evaluation."
-classification = "interval-bound-pending"
-numeric_status = "pending"
-assumptions = ["The pinned libm implementation is part of the implementation boundary.", "Native/wasm parity tests are observations, not error bounds."]
-exclusions = ["A finite pose can produce an infinite radian intermediate, for which trigonometric output is NaN."]
-next_obligation = "Pin the supported libm contract and import or prove output intervals over the accepted angle range."
-evidence = ["crates/core/tests/wasm_native_math.rs"]
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = ["The pinned libm 0.2.16 implementation is part of the implementation boundary.", "The release's one-ULP MPFR sine/cosine policy holds universally over the profiled binary64 argument interval.", "Native/wasm parity tests are observations rather than proofs of that accuracy premise."]
+exclusions = ["Arguments outside the proved [-7, 7] envelope.", "Unconditional refinement of every native and wasm call to the imported accuracy contract."]
+next_obligation = "Replace the imported one-ULP premise with exhaustive source-level verification and propagate the coefficient error through the profiled composition count."
+evidence = [
+  "formal/Dry/Numeric/Trig.lean",
+  "proofs/libm-0.2.16-trig-contract.md",
+  "crates/core/tests/wasm_native_math.rs"
+]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
-  "FM1.FEATURE.COMPOSE_ACTION"
+  "FM1.FEATURE.COMPOSE_ACTION",
+  "FM1.NUMERIC.TRIG.COEFFICIENTS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",

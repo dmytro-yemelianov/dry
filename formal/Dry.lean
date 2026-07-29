@@ -7,6 +7,7 @@ import Dry.Numeric.Angle
 import Dry.Numeric.Binary64
 import Dry.Numeric.Quantity
 import Dry.Numeric.RoundModel
+import Dry.Numeric.Trig
 import Dry.Semantics.CheckedExpansion
 import Dry.Semantics.ExpandFeatures
 import Dry.Semantics.OrderedFold

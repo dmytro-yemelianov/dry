@@ -93,7 +93,12 @@
       "required": [
         "crate",
         "version",
-        "checksum"
+        "checksum",
+        "source_tag",
+        "source_commit",
+        "trig_accuracy_basis",
+        "trig_max_ulp",
+        "trig_contract_status"
       ],
       "properties": {
         "crate": {
@@ -106,6 +111,23 @@
         "checksum": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_tag": {
+          "type": "string",
+          "pattern": "^libm-v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "trig_accuracy_basis": {
+          "const": "upstream-mpfr-test-policy"
+        },
+        "trig_max_ulp": {
+          "const": 1
+        },
+        "trig_contract_status": {
+          "const": "imported-assumption"
         }
       }
     },

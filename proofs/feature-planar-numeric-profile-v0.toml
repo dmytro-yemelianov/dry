@@ -10,6 +10,11 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 crate = "libm"
 version = "0.2.16"
 checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+source_tag = "libm-v0.2.16"
+source_commit = "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d"
+trig_accuracy_basis = "upstream-mpfr-test-policy"
+trig_max_ulp = 1
+trig_contract_status = "imported-assumption"
 
 [[limit]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM"
@@ -164,18 +169,26 @@ evidence = [
   "formal/Dry/Numeric/Angle.lean",
   "formal/Dry/Numeric/Binary64.lean"
 ]
-next_obligation = "Refine native/wasm Rust execution to the rounding premise and use the resulting [-7, 7] argument interval for the pinned libm bound."
+next_obligation = "Refine native/wasm Rust execution to the rounding premise and connect the checked interval to the imported libm contract."
 boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
-metric = "Maximum absolute error of libm sine or cosine against exact real trigonometry"
+metric = "Maximum absolute error of a constructed sine or cosine coefficient against exact real trigonometry of the profiled degree input"
 unit = "dimensionless"
-status = "pending"
-rationale = "Native/wasm agreement does not establish accuracy against real sine or cosine."
-evidence = []
-next_obligation = "Import or check a libm 0.2.16 error contract over the profiled radian interval."
-boundary_ids = ["FM1.F64.FEATURE.TRIG.LIBM"]
+status = "bounded"
+ceiling = 2.842170943040401e-14
+rationale = "Under the named imported libm 0.2.16 one-ULP MPFR contract, Lean derives a conservative 2^-51 same-input trigonometric error and composes it with the checked 2^-46 degree-conversion error through the one-Lipschitz sine/cosine bounds, yielding 2^-45 end to end."
+evidence = [
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Angle.lean",
+  "proofs/libm-0.2.16-trig-contract.md"
+]
+next_obligation = "Replace the imported upstream accuracy assumption with exhaustive source-level verification, refine native/wasm calls to the contract and propagate the coefficient error through repeated composition."
+boundary_ids = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
 
 [[budget]]
 id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"

@@ -470,12 +470,12 @@ Exit gate: no public geometry theorem crosses from reals to Rust without a check
 Current first landing: `proofs/feature-numeric-boundaries-v0.toml` inventories the 13 binary64
 boundaries of planar feature expansion and links them reciprocally to the affected exact-real and
 checked-result claims. It separates semantic classification (`exact-in-range`, rejected,
-interval-bound pending, deterministic but unbounded, or pass-through) from assurance status
+interval-bounded, interval-bound pending, deterministic but unbounded, or pass-through) from assurance status
 (`bounded`, `pending`, `empirical`, or not applicable). An independent validator checks the schema,
 complete required-id set, evidence paths, unique Rust source anchors and pinned hashes of both
 `features.rs` and the complete `Op` input domain in `resolve.rs`. Bit-preserving coordinate inheritance
-and profiled degree conversion are bounded; local transform operation budgets are checked while their
-complete boundaries remain pending on upstream coefficient and accumulation error. Non-finite
+and profiled degree/coefficient construction are bounded; local transform operation budgets are checked
+while their complete boundaries remain pending on accumulated error. Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
@@ -485,9 +485,9 @@ for local coordinates, pose translation/rotation, arc centres, orientation compo
 composition count, basic-operation results and the radian intermediate; and names ten observation
 budgets. The profile is explicitly
 `assurance-precondition-only`: the current language still accepts values outside those magnitude
-envelopes, so the profile restricts bounded claims rather than changing runtime validity. Eight
-budgets are bounded, the `libm` coefficient budget remains pending, and the existing `1e-12`
-manual-code identity threshold is recorded as policy. The validator checks reciprocal inventory links,
+envelopes, so the profile restricts bounded claims rather than changing runtime validity. Nine
+budgets are bounded and the existing `1e-12` manual-code identity threshold is recorded as policy;
+there are no unclassified budget entries. The validator checks reciprocal inventory links,
 finite ordered limits, proof ceiling drift, budget status discipline, evidence paths, Rust/libm pins,
 and equality with the implementation's node ceiling and identity epsilon.
 
@@ -513,8 +513,18 @@ error, output finiteness and repeated-transform accumulation remain pending.
 exact rational `884279719003555 / 281474976710656`, uses Mathlib's checked 20-decimal real-π bounds,
 and proves a conservative `2^-46` radian error ceiling over the profile's `[-360, 360]` degree range.
 The same packet proves that the resulting binary64 intermediate lies strictly inside `[-7, 7]`,
-providing the argument envelope for the remaining pinned-`libm` analysis. Native/wasm refinement to
+providing the argument envelope used by the pinned-`libm` contract. Native/wasm refinement to
 the rounding premise is still separate.
+
+`formal/Dry/Numeric/Trig.lean` makes the pinned-`libm` boundary conditional and explicit. The
+release's one-ULP sine/cosine MPFR policy is recorded in
+`proofs/libm-0.2.16-trig-contract.md` with its release commit and relevant source hashes; upstream
+sampling is not misrepresented as an exhaustive theorem. Under that imported contract, Lean proves a
+conservative `2^-51` same-input sine/cosine error over `[-7, 7]`, bounds coefficient magnitudes by
+`1 + 2^-51`, and composes the result with the degree-conversion theorem through Mathlib's
+one-Lipschitz sine/cosine bounds. The end-to-end coefficient ceiling is `2^-45` over ±360°. Replacing
+the imported premise with exhaustive source-level verification and refining native/wasm execution
+remain separate obligations.
 
 ### FM1.5 — resolver, simulation and verifier
 

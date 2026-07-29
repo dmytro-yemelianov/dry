@@ -269,6 +269,49 @@ numeric = "bounded"
 refinement = "pending"
 
 [[claim]]
+id = "FM1.NUMERIC.TRIG.COEFFICIENTS"
+title = "Profiled binary64 degree-to-sine/cosine coefficient construction has a checked conditional error bound"
+theorem = "Dry.Numeric.Trig.binary64Coefficients_error"
+spec_version = "feature-planar-binary64-v0"
+source_dialect = "Binary64 FeaturePose rotation in degrees"
+target_dialect = "Profile-gated libm 0.2.16 planar rotation coefficients"
+relation = "approximate"
+scope = "abstract"
+numeric_domain = "Real abstraction of scoped IEEE-754 binary64 conversion plus the imported libm 0.2.16 one-ULP MPFR contract"
+assumptions = [
+  "The binary64 degree input is interpreted as the same exact real and has absolute value at most 360.",
+  "Degree conversion satisfies the checked 2^-46 absolute radian error contract and produces an argument in [-7, 7].",
+  "For every profiled argument, pinned libm sine and cosine differ from their correctly rounded MPFR references by at most one binary64 ULP.",
+  "The absolute one-ULP step is at most 2^-52 over unit-range trigonometric outputs, and the reference differs from exact real trigonometry by at most 2^-53."
+]
+exclusions = [
+  "Runtime enforcement of the provisional degree and radian envelopes.",
+  "An exhaustive source-level proof that every libm 0.2.16 input satisfies the imported upstream accuracy policy.",
+  "Refinement from native or wasm Rust calls to the Lean libm contract.",
+  "Repeated-composition coefficient drift and downstream point/translation error."
+]
+lean_source = "formal/Dry/Numeric/Trig.lean"
+rust_sources = [
+  "crates/core/src/features.rs"
+]
+numeric_evidence = [
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Angle.lean",
+  "proofs/libm-0.2.16-trig-contract.md",
+  "proofs/feature-planar-numeric-profile-v0.toml"
+]
+numeric_boundaries = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "bounded"
+refinement = "pending"
+
+[[claim]]
 id = "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
 title = "Profiled binary64 planar transform composition has a concrete componentwise local-operation error bound"
 theorem = "Dry.Numeric.Binary64.binary64Compose_error"

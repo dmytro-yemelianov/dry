@@ -30,6 +30,13 @@ EXPECTED_TARGETS = {
     "x86_64-unknown-linux-gnu",
     "wasm32-unknown-unknown",
 }
+EXPECTED_LIBM_CONTRACT = {
+    "source_tag": "libm-v0.2.16",
+    "source_commit": "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d",
+    "trig_accuracy_basis": "upstream-mpfr-test-policy",
+    "trig_max_ulp": 1,
+    "trig_contract_status": "imported-assumption",
+}
 EXPECTED_SOURCES = {
     "crates/core/src/features.rs",
     "crates/core/src/resolve.rs",
@@ -85,6 +92,7 @@ EXPECTED_BINARY64_LIMITS = {
 }
 EXPECTED_BINARY64_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ANGLE_RAD_ABS_ERROR": 2**-46,
+    f"{EXPECTED_PROFILE_ID}.BUDGET.TRIG_COEFFICIENT_ABS_ERROR": 2**-45,
     f"{EXPECTED_PROFILE_ID}.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR": 2**-29,
     f"{EXPECTED_PROFILE_ID}.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM": 2**-28,
     f"{EXPECTED_PROFILE_ID}.BUDGET.POINT_COMPONENT_ABS_ERROR_MM": 2**-28,
@@ -460,6 +468,12 @@ def validate_toolchain(profile: dict[str, Any], errors: list[str]) -> None:
             errors.append(
                 f"numeric profile libm.{field} does not match Cargo.lock: "
                 f"{raw_libm.get(field)!r} != {locked.get(field)!r}"
+            )
+    for field, expected in EXPECTED_LIBM_CONTRACT.items():
+        if raw_libm.get(field) != expected:
+            errors.append(
+                f"numeric profile libm.{field} does not match the imported "
+                f"trigonometric contract: {raw_libm.get(field)!r} != {expected!r}"
             )
 
 

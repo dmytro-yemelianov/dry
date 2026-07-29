@@ -96,7 +96,8 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
     def test_unlinked_claim_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
             'claim_ids = [\n  "FM1.TRANSFORM.COMPOSE_ACTION",\n'
-            '  "FM1.FEATURE.COMPOSE_ACTION"\n]',
+            '  "FM1.FEATURE.COMPOSE_ACTION",\n'
+            '  "FM1.NUMERIC.TRIG.COEFFICIENTS"\n]',
             'claim_ids = ["FM1.DOES.NOT.EXIST"]',
             1,
         )
@@ -114,11 +115,25 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("does not match Cargo.lock", result.stderr)
 
+    def test_profile_libm_accuracy_contract_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            'trig_max_ulp = 1',
+            'trig_max_ulp = 2',
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "does not match the imported trigonometric contract",
+            result.stderr,
+        )
+
     def test_pending_budget_cannot_publish_an_unchecked_ceiling(self) -> None:
         contents = self.repository_profile().replace(
-            'status = "pending"\nrationale = "Native/wasm agreement',
-            'status = "pending"\nceiling = 1e-12\n'
-            'rationale = "Native/wasm agreement',
+            'status = "bounded"\nceiling = 2.842170943040401e-14\n'
+            'rationale = "Under the named imported',
+            'status = "pending"\nceiling = 2.842170943040401e-14\n'
+            'rationale = "Under the named imported',
             1,
         )
         result = self.run_profile(contents)
@@ -158,6 +173,19 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         contents = self.repository_profile().replace(
             "ceiling = 1.4210854715202004e-14",
             "ceiling = 2e-14",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "binary64 proof ceiling must remain",
+            result.stderr,
+        )
+
+    def test_trig_proof_ceiling_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 2.842170943040401e-14",
+            "ceiling = 3e-14",
             1,
         )
         result = self.run_profile(contents)
