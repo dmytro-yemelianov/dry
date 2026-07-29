@@ -1,6 +1,7 @@
 schema_version = 1
 model = "feature-numeric-boundaries-v0"
 scope = "The binary64 boundary of crates/core/src/features.rs from FeaturePose and Op inputs through expand_features_with_limits output or ExpandError."
+numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 
 [[source]]
 path = "crates/core/src/features.rs"
@@ -44,6 +45,10 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
 ]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.COORDINATE.INHERIT"
@@ -68,6 +73,10 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
 ]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COORDINATE_INHERIT_BIT_ERROR"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.ANGLE.DEGREES"
@@ -86,6 +95,10 @@ evidence = []
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION"
+]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
 ]
 
 [[boundary]]
@@ -107,6 +120,10 @@ claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION"
 ]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.COMPOSE.ROTATION"
@@ -126,6 +143,10 @@ evidence = []
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION"
+]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
 ]
 
 [[boundary]]
@@ -147,6 +168,11 @@ claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
   "FM1.FEATURE.COMPOSE_ACTION"
 ]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.APPLY.POINT"
@@ -164,6 +190,11 @@ exact_envelope = ["With identity rotation, integer-valued point/translation oper
 next_obligation = "Prove component intervals and output-finiteness under a named coordinate/pose profile; test Rust against exported interval fixtures."
 evidence = []
 claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.APPLY.ARC.CENTER"
@@ -181,6 +212,11 @@ exact_envelope = ["With identity rotation, integer-valued centre/translation ope
 next_obligation = "Land finite arc-centre rejection, then prove component intervals under the accepted geometry profile."
 evidence = []
 claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.APPLY.ORIENTATION"
@@ -198,6 +234,10 @@ exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector
 next_obligation = "Land finite orientation rejection and a nonzero/normalization contract, then prove angular or component error bounds."
 evidence = ["proofs/fixtures/feature-refinement-v0.json"]
 claim_ids = ["FM1.FEATURE.COMPOSE_ACTION"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
@@ -216,6 +256,10 @@ evidence = ["formal/Dry/Semantics/CheckedExpansion.lean"]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
 ]
 
 [[boundary]]
@@ -236,6 +280,10 @@ claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
   "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
 ]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.MANUAL.IDENTITY"
@@ -255,6 +303,10 @@ evidence = [
   "crates/core/tests/feature_refinement.rs"
 ]
 claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS",
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.MANUAL_IDENTITY_COMPONENT_THRESHOLD"
+]
 
 [[boundary]]
 id = "FM1.F64.FEATURE.OP.PASSTHROUGH"
@@ -282,3 +334,6 @@ exact_envelope = ["Every cloned f64 payload preserves its binary64 bit pattern."
 next_obligation = "Review and update this list whenever the pinned Op enum changes."
 evidence = []
 claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.PASSTHROUGH_BIT_ERROR"
+]

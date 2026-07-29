@@ -477,6 +477,18 @@ packet is bit-preserving finite coordinate inheritance; transform arithmetic rem
 unchecked arc-centre/orientation paths and epsilon identity policy remain empirical, and pass-through
 payloads make no numeric claim in this pass.
 
+The linked `proofs/feature-planar-numeric-profile-v0.toml` is the first provisional FM1.4b profile. It
+pins Rust 1.88.0, `libm` 0.2.16 and the Linux-native/wasm targets; defines proof-precondition envelopes
+for local coordinates, pose translation/rotation, arc centres, orientation components and transform
+composition count; and names ten observation budgets. The profile is explicitly
+`assurance-precondition-only`: the current language still accepts values outside those magnitude
+envelopes, so the profile restricts future bounded claims rather than changing runtime validity. Seven
+budgets remain pending with no published ceiling, coordinate inheritance and non-geometric clone
+boundaries have checked zero-error ceilings, and the existing `1e-12` manual-code identity threshold is
+recorded as policy. The validator checks reciprocal inventory links, finite ordered limits, budget
+status discipline, evidence paths, Rust/libm pins, and equality with the implementation's node ceiling
+and identity epsilon.
+
 ### FM1.5 — resolver, simulation and verifier
 
 Dependencies: FM1.2–FM1.4.

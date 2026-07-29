@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/numeric-profile-v1.schema.json",
+  "title": "Dry numeric assurance profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "model",
+    "status",
+    "contract",
+    "rust_toolchain",
+    "targets",
+    "libm",
+    "limit",
+    "budget"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+    },
+    "model": {
+      "const": "feature-planar-binary64-v0"
+    },
+    "status": {
+      "enum": [
+        "provisional",
+        "accepted"
+      ]
+    },
+    "contract": {
+      "enum": [
+        "assurance-precondition-only",
+        "runtime-enforced"
+      ]
+    },
+    "rust_toolchain": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "libm": {
+      "$ref": "#/$defs/libm"
+    },
+    "limit": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/limit"
+      }
+    },
+    "budget": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/budget"
+      }
+    }
+  },
+  "$defs": {
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "boundaryIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^FM1\\.F64\\.FEATURE\\.[A-Z0-9_.-]+$"
+      }
+    },
+    "libm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crate",
+        "version",
+        "checksum"
+      ],
+      "properties": {
+        "crate": {
+          "const": "libm"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "quantity",
+        "lower",
+        "upper",
+        "unit",
+        "enforcement",
+        "rationale",
+        "boundary_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.LIMIT\\.[A-Z0-9_.-]+$"
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lower": {
+          "type": "number"
+        },
+        "upper": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enforcement": {
+          "enum": [
+            "assumption",
+            "runtime"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_ids": {
+          "$ref": "#/$defs/boundaryIds"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "metric",
+        "unit",
+        "status",
+        "rationale",
+        "evidence",
+        "next_obligation",
+        "boundary_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.BUDGET\\.[A-Z0-9_.-]+$"
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "bounded",
+            "policy"
+          ]
+        },
+        "ceiling": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/paths"
+        },
+        "next_obligation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boundary_ids": {
+          "$ref": "#/$defs/boundaryIds"
+        }
+      }
+    }
+  }
+}

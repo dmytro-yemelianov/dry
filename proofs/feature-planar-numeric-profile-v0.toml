@@ -1,0 +1,207 @@
+schema_version = 1
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+model = "feature-planar-binary64-v0"
+status = "provisional"
+contract = "assurance-precondition-only"
+rust_toolchain = "1.88.0"
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+[libm]
+crate = "libm"
+version = "0.2.16"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM"
+quantity = "Absolute value of a local Move, Arc endpoint or Spline coordinate"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 mm envelope is exactly representable in binary64 and deliberately wider than practical machine travel; it is a proof precondition, not a language validity limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.COORDINATE.INHERIT",
+  "FM1.F64.FEATURE.APPLY.POINT"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM"
+quantity = "Absolute value of each FeaturePose translation component"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 mm envelope is proof-friendly and does not redefine the current finite-f64 acceptance contract."
+boundary_ids = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG"
+quantity = "FeaturePose.rotate_z_deg before degree-to-radian conversion"
+lower = -360.0
+upper = 360.0
+unit = "degree"
+enforcement = "assumption"
+rationale = "One signed revolution bounds libm argument reduction while preserving every planar orientation modulo a future normalization theorem."
+boundary_ids = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM"
+quantity = "Absolute value of each local Arc centre component"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "Arc centres share the coordinate envelope, but the current expander has not yet landed its finite-input rejection gate."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT"
+quantity = "Each local tool-orientation vector component"
+lower = -1.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "assumption"
+rationale = "A unit orientation has components in [-1,1]; nonzero/unit validation and normalization remain separate semantic obligations."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION",
+  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS"
+quantity = "Maximum transform compositions on one accepted default-limit expansion path"
+lower = 0
+upper = 100000
+unit = "count"
+enforcement = "assumption"
+rationale = "The ceiling matches DEFAULT_MAX_EXPANDED_NODES and safely covers used plus final unused repeat-step composition; custom ExpandLimits require a separately instantiated profile."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.MANUAL.IDENTITY"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COORDINATE_INHERIT_BIT_ERROR"
+metric = "Binary64 bit-pattern difference after Option-based coordinate inheritance"
+unit = "bit-difference"
+status = "bounded"
+ceiling = 0.0
+rationale = "inherit_point selects and copies a finite f64 without arithmetic."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+next_obligation = "Keep the zero-error result synchronized with any future coordinate representation."
+boundary_ids = ["FM1.F64.FEATURE.COORDINATE.INHERIT"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
+metric = "Absolute error between exact degrees*pi/180 and the binary64 radian intermediate"
+unit = "radian"
+status = "pending"
+rationale = "The accepted degree envelope is now explicit, but no checked two-operation rounding bound has landed."
+evidence = []
+next_obligation = "Prove a round-to-nearest interval for multiplication by the binary64 PI constant followed by division by 180."
+boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
+metric = "Maximum absolute error of libm sine or cosine against exact real trigonometry"
+unit = "dimensionless"
+status = "pending"
+rationale = "Native/wasm agreement does not establish accuracy against real sine or cosine."
+evidence = []
+next_obligation = "Import or check a libm 0.2.16 error contract over the profiled radian interval."
+boundary_ids = ["FM1.F64.FEATURE.TRIG.LIBM"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of either composed rotation coefficient"
+unit = "dimensionless"
+status = "pending"
+rationale = "The bound must compose libm coefficient error with repeated complex-product rounding."
+evidence = []
+next_obligation = "Prove a one-step coefficient interval and an accumulated bound up to the profiled composition ceiling."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each composed translation component"
+unit = "mm"
+status = "pending"
+rationale = "Translation error depends on coefficient error, coordinate envelopes and composition count."
+evidence = []
+next_obligation = "Compose vector-rotation and addition bounds under all linked limits."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each transformed Move, Arc-end or Spline coordinate"
+unit = "mm"
+status = "pending"
+rationale = "No checked point-transform interval exists yet."
+evidence = []
+next_obligation = "Derive the point bound from profiled coordinates plus bounded transform coefficients and translations."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each transformed Arc centre coordinate"
+unit = "mm"
+status = "pending"
+rationale = "The finite-input rejection gate and checked apply_xy interval both remain open."
+evidence = []
+next_obligation = "Land finite Arc-centre rejection, then derive the apply_xy interval under the Arc-centre limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.ARC.CENTER.UNCHECKED"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of each transformed orientation-vector component"
+unit = "dimensionless"
+status = "pending"
+rationale = "The finite/nonzero/unit contract and checked rotation interval remain open."
+evidence = []
+next_obligation = "Land orientation validation and derive component plus angular error bounds."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION",
+  "FM1.F64.FEATURE.ORIENTATION.UNCHECKED"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.MANUAL_IDENTITY_COMPONENT_THRESHOLD"
+metric = "Maximum absolute component deviation accepted by Transform::is_identity"
+unit = "component-value"
+status = "policy"
+ceiling = 1e-12
+rationale = "This records the existing code threshold without claiming it is a proved geometry error budget."
+evidence = ["crates/core/src/features.rs"]
+next_obligation = "Replace policy status with a proved observation bound or reject every non-bit-identity transform for manual code."
+boundary_ids = ["FM1.F64.FEATURE.MANUAL.IDENTITY"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.PASSTHROUGH_BIT_ERROR"
+metric = "Binary64 bit-pattern difference across cloned non-geometric Op payloads"
+unit = "bit-difference"
+status = "bounded"
+ceiling = 0.0
+rationale = "The feature pass clones these payloads and performs no numeric operation."
+evidence = ["crates/core/src/features.rs"]
+next_obligation = "Keep the zero-error pass-through classification synchronized with the pinned Op enum."
+boundary_ids = ["FM1.F64.FEATURE.OP.PASSTHROUGH"]

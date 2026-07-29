@@ -8,6 +8,7 @@
     "schema_version",
     "model",
     "scope",
+    "numeric_profile_id",
     "source",
     "boundary"
   ],
@@ -21,6 +22,9 @@
     "scope": {
       "type": "string",
       "minLength": 1
+    },
+    "numeric_profile_id": {
+      "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
     },
     "source": {
       "type": "array",
@@ -122,7 +126,8 @@
         "exclusions",
         "next_obligation",
         "evidence",
-        "claim_ids"
+        "claim_ids",
+        "profile_entries"
       ],
       "properties": {
         "id": {
@@ -191,6 +196,15 @@
           "items": {
             "type": "string",
             "pattern": "^FM1\\.[A-Z][A-Z0-9_.-]*$"
+          }
+        },
+        "profile_entries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.(?:LIMIT|BUDGET)\\.[A-Z0-9_.-]+$"
           }
         }
       }

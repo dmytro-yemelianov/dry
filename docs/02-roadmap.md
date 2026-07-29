@@ -158,10 +158,10 @@ contract to be frozen. D1-dependent proof work does not set D1 semantics.
 
 **Exit gate:** every supported assurance claim maps to a checked theorem, explicit assumptions and
 numeric domain; every semantic floating-point boundary appears in a versioned, source-drift-checked
-inventory and its claims include checked bounds or remain marked empirical/pending; Rust passes
-independent refinement checks; FFF and the selected non-FFF workflow satisfy the bounded conditional
-compiler theorem; and an independent reviewer reproduces the proof build, boundary inventory and claim
-registry.
+inventory, every bounded theorem names an accepted numeric profile, and unresolved claims remain
+marked empirical/pending; Rust passes independent refinement checks; FFF and the selected non-FFF
+workflow satisfy the bounded conditional compiler theorem; and an independent reviewer reproduces the
+proof build, numeric profiles, boundary inventory and claim registry.
 
 ## Risk register
 

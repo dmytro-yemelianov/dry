@@ -14,6 +14,7 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 
 ROOT = Path(__file__).resolve().parents[2]
 INVENTORY = ROOT / "proofs" / "feature-numeric-boundaries-v0.toml"
+PROFILE = ROOT / "proofs" / "feature-planar-numeric-profile-v0.toml"
 VALIDATOR = ROOT / "tools" / "validate_numeric_boundaries.py"
 
 
@@ -33,6 +34,21 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
     def repository_inventory(self) -> str:
         return INVENTORY.read_text(encoding="utf-8")
 
+    def run_profile(self, contents: str) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / "numeric-profile.toml"
+            profile.write_text(contents, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(VALIDATOR), "--profile", str(profile)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+    def repository_profile(self) -> str:
+        return PROFILE.read_text(encoding="utf-8")
+
     def test_repository_inventory_passes(self) -> None:
         result = subprocess.run(
             [sys.executable, str(VALIDATOR)],
@@ -43,6 +59,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("numeric boundaries: ok (13 boundaries", result.stdout)
+        self.assertIn("profile 6 limits/10 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
         contents = self.repository_inventory().replace(
@@ -86,6 +103,55 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         result = self.run_inventory(contents)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unknown claim id", result.stderr)
+
+    def test_profile_libm_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            'version = "0.2.16"',
+            'version = "0.2.15"',
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not match Cargo.lock", result.stderr)
+
+    def test_pending_budget_cannot_publish_an_unchecked_ceiling(self) -> None:
+        contents = self.repository_profile().replace(
+            'status = "pending"\nrationale = "The accepted degree envelope',
+            'status = "pending"\nceiling = 1e-12\n'
+            'rationale = "The accepted degree envelope',
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "pending budget must not publish a ceiling",
+            result.stderr,
+        )
+
+    def test_implementation_policy_value_drift_is_rejected(self) -> None:
+        contents = self.repository_profile().replace(
+            "ceiling = 1e-12",
+            "ceiling = 2e-12",
+            1,
+        )
+        result = self.run_profile(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "does not match Transform::is_identity EPS",
+            result.stderr,
+        )
+
+    def test_profile_links_must_be_reciprocal(self) -> None:
+        contents = self.repository_inventory().replace(
+            '"FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.'
+            'BUDGET.ANGLE_RAD_ABS_ERROR"',
+            '"FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.'
+            'BUDGET.TRIG_COEFFICIENT_ABS_ERROR"',
+            1,
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing reciprocal", result.stderr)
 
 
 if __name__ == "__main__":
