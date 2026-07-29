@@ -444,9 +444,9 @@ rejection and dynamic resource limits. Twenty-eight schema-valid Lean-generated 
 independently by the Rust expander through a fixture-only non-finite token adapter and check
 repeatable exact observations. A separate two-case Lean-generated quarter-turn corpus checks
 parent-first Feature and nested Repeat composition within `1e-12`, without treating that tolerance
-as a general trigonometric bound. Four pose and three one-step composition fixtures also check
-selected native degree, trig and exact-dyadic local-operation intervals. A pinned manifest compiles
-27 source changes against `features.rs`;
+as a general trigonometric bound. Four pose, three one-step composition, two point, two Arc-centre and
+two orientation-vector fixtures also check selected native degree, trig and exact-dyadic
+local-operation intervals. A pinned manifest compiles 32 source changes against `features.rs`;
 every viable mutant is killed by its assigned Lean-generated fixture in CI, including explicit
 feature-operand and repeat-operand reversals, while compilation failures are rejected as invalid evidence. The
 corresponding structural claims are refinement-checked only over that committed corpus and mutation
@@ -482,10 +482,11 @@ and profiled degree/coefficient construction are bounded; local transform operat
 and both the sequential same-pose accumulator and arbitrary parenthesized composition trees are bounded
 conditionally. The parent-first expression shape of nested Feature/Repeat paths is now proved and
 mutation-checked over the two quarter-turn witnesses. The two abstract composition boundaries are
-bounded. A separate seven-case native implementation claim checks cardinal-angle construction and
-one-step composition against Lean-generated real-π and exact-dyadic intervals, with four dedicated
-mutations. General native/wasm refinement to profile/range/rounding premises and downstream
-point/vector application intervals remain pending. Non-finite
+bounded. A separate 13-case native implementation claim checks cardinal-angle construction,
+one-step composition, point/Arc-centre application and orientation-vector rotation against
+Lean-generated real-π and exact-dyadic intervals, with nine dedicated mutations. General
+native/wasm refinement to profile/range/rounding premises and application inputs outside that selected
+corpus remain pending. Non-finite
 Arc-centre and orientation inputs are rejected in checked field order, the epsilon identity policy
 remains empirical, and pass-through payloads make no numeric claim.
 
@@ -514,9 +515,10 @@ results by `2^20` and exact addition/subtraction results by `2^22`; the checked 
 derivation gives conservative primitive ceilings `2^-32` and `2^-30`. Direct binary64 operation graphs
 are proved equal to the total profiled model whenever every intermediate satisfies those limits. The
 three local-operation claims are therefore numerically bounded at `2^-29` for vector/rotation XY,
-`2^-28` for point/translation XY and `2^-30` for point/translation Z. This is not yet a complete Rust
-geometry interval: refinement from Rust `f64` to the rounding premise, input and `libm` coefficient
-error, output finiteness and downstream transform application remain pending.
+`2^-28` for point/translation XY and `2^-30` for point/translation Z. The selected native application
+fixtures now refine those local graphs over exact dyadics, but this is not yet a complete Rust
+geometry interval: universal refinement from Rust `f64` to the rounding premise, input and `libm`
+coefficient error, output finiteness and application accumulation remain pending.
 
 `formal/Dry/Numeric/Angle.lean` models the exact Rust evaluation order
 `round(round(degrees * binary64Pi) / 180)`. It identifies the standard-library PI bit pattern with the
@@ -565,14 +567,17 @@ the committed corpus.
 
 `formal/Dry/Tests/NativeNumericFixtures.lean` adds a deliberately bounded implementation bridge. It
 checks an integer quarter-turn reference model and Mathlib's 20-decimal real-π enclosure, then emits
-four cardinal pose cases, three one-step composition cases and the exact profile ceilings. The native
-consumer checks radians and trig outputs, reconstructs every selected composition operation over the
-actual finite binary64 inputs with arbitrary-precision dyadics, verifies the exact intermediate
-profile limits and compares the rounded Rust outputs with `2^-29` rotation and `2^-28` translation
-ceilings. Mutations independently break angle scaling, trig wiring, rotation composition and
-parent-frame translation. This is checked evidence for the committed native cases, not a universal
-rounding or `libm` proof. General native/wasm refinement, runtime profile enforcement and tighter
-production-scale translation intervals remain open.
+four cardinal pose cases, three one-step composition cases, two transformed-point cases, two
+Arc-centre cases, two orientation-vector cases and the exact profile ceilings. The native consumer
+checks radians and trig outputs, reconstructs every selected composition and application operation
+over the actual finite binary64 inputs with arbitrary-precision dyadics, verifies the exact
+intermediate profile limits and compares the rounded Rust outputs with `2^-29` rotation/orientation
+and `2^-28` translation/point/Arc-centre ceilings; orientation Z is checked bit-for-bit. Nine
+mutations independently break angle scaling, trig wiring, rotation/translation composition, point
+translation, Arc-centre rotation and orientation rotation/Z copying. This is checked evidence for
+the committed native cases, not a universal rounding or `libm` proof. General native/wasm
+refinement, runtime profile enforcement, downstream accumulation and tighter production-scale
+translation intervals remain open.
 
 ### FM1.5 — resolver, simulation and verifier
 

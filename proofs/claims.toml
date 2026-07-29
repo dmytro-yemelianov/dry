@@ -396,24 +396,24 @@ refinement = "pending"
 
 [[claim]]
 id = "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
-title = "Selected native cardinal-angle pose construction and one-step composition satisfy the profiled intervals"
+title = "Selected native cardinal-angle pose construction, composition and application satisfy the profiled intervals"
 theorem = "Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks"
 spec_version = "native-feature-numeric-interval-v0"
-source_dialect = "Seven Lean-generated cardinal-angle FeaturePose and one-step composition cases"
-target_dialect = "Native Rust f64 Transform::from_pose and Transform::compose results"
+source_dialect = "Thirteen Lean-generated cardinal-angle FeaturePose, composition, point, Arc-centre and orientation cases"
+target_dialect = "Native Rust f64 Transform::from_pose, compose, apply_point, apply_xy and apply_vector results"
 relation = "approximate"
 scope = "implementation"
 numeric_domain = "Exact real π reference intervals plus exact dyadic models of the observed finite binary64 inputs and local operation graph"
 assumptions = [
-  "Scope is exactly the four pose cases and three one-step composition cases in the committed generated fixture.",
+  "Scope is exactly the four pose, three one-step composition, two point, two Arc-centre and two orientation-vector cases in the committed generated fixture.",
   "The native test target executes finite IEEE-754 binary64 basic operations with the source expression order.",
   "Pinned libm sine and cosine are the implementation calls observed by the selected cardinal-angle cases.",
   "Each exact local multiplication, addition and subtraction is checked against the linked provisional profile before its result is compared."
 ]
 exclusions = [
-  "Universal refinement of arbitrary degree values, transform inputs, nested composition trees or downstream point/vector application.",
+  "Universal refinement of arbitrary degree values, transform inputs, nested composition trees or downstream point/vector applications outside the committed corpus.",
   "An exhaustive source proof of libm, cross-target native/wasm equivalence, runtime enforcement of profile limits or a production tolerance guarantee.",
-  "A claim that fixture success discharges the conditional assumptions of the abstract angle, trig, local-compose or accumulation theorems."
+  "A claim that fixture success discharges the conditional assumptions of the abstract angle, trig, local-compose, local-application or accumulation theorems."
 ]
 lean_source = "formal/Dry/Tests/NativeNumericFixtures.lean"
 rust_sources = [
@@ -432,7 +432,10 @@ numeric_boundaries = [
   "FM1.F64.FEATURE.ANGLE.DEGREES",
   "FM1.F64.FEATURE.TRIG.LIBM",
   "FM1.F64.FEATURE.COMPOSE.ROTATION",
-  "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
 ]
 refinement_evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",

@@ -301,9 +301,12 @@ ceiling = 3.725290298461914e-9
 rationale = "The checked XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Add transform coefficient/construction error and independently refine Rust native/wasm executions against exported intervals."
+next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic witnesses to every profiled native/wasm execution."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
 
 [[budget]]
@@ -315,9 +318,12 @@ ceiling = 3.725290298461914e-9
 rationale = "Arc-centre XY uses the checked point graph and is at most 2^-28 under the scoped operation-result limits and binary64 rounding contract."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Add transform coefficient/construction error and independently refine Rust native/wasm apply_xy results against exported intervals."
+next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic apply_xy witnesses to every profiled native/wasm execution."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ARC.CENTER",
   "FM1.F64.FEATURE.ARC.CENTER.FINITE"
@@ -332,9 +338,12 @@ ceiling = 1.862645149230957e-9
 rationale = "The checked XY vector formula is at most 2^-29 and Z is copied exactly under the scoped operation-result limits and binary64 rounding contract."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
 ]
-next_obligation = "Land nonzero/unit validation, add coefficient-construction error and derive an angular error bound."
+next_obligation = "Land nonzero/unit validation, add coefficient-construction error, derive an angular error bound and generalize the selected native exact-dyadic witnesses."
 boundary_ids = [
   "FM1.F64.FEATURE.APPLY.ORIENTATION",
   "FM1.F64.FEATURE.ORIENTATION.FINITE"

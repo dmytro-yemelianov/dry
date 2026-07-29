@@ -13,6 +13,12 @@ const COMPOSE_ROTATION_BUDGET_ID: &str =
     "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR";
 const COMPOSE_TRANSLATION_BUDGET_ID: &str =
     "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM";
+const POINT_BUDGET_ID: &str =
+    "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM";
+const ARC_CENTER_BUDGET_ID: &str =
+    "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM";
+const ORIENTATION_BUDGET_ID: &str =
+    "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR";
 
 #[derive(Debug, Deserialize)]
 struct FixtureDocument {
@@ -23,6 +29,9 @@ struct FixtureDocument {
     limits: Limits,
     pose_cases: Vec<PoseCase>,
     compose_cases: Vec<ComposeCase>,
+    point_application_cases: Vec<PointApplicationCase>,
+    xy_application_cases: Vec<XYApplicationCase>,
+    vector_application_cases: Vec<VectorApplicationCase>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,6 +40,9 @@ struct Budgets {
     trig: Budget,
     compose_rotation: Budget,
     compose_translation: Budget,
+    point: Budget,
+    arc_center: Budget,
+    orientation: Budget,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,8 +53,11 @@ struct Budget {
 
 #[derive(Debug, Deserialize)]
 struct Limits {
+    local_coordinate_abs: f64,
     pose_translation_abs: f64,
     pose_rotation_abs_deg: f64,
+    arc_center_abs: f64,
+    orientation_component_abs: f64,
     multiply_exact_result_abs: f64,
     add_sub_exact_result_abs: f64,
     radian_intermediate_abs: f64,
@@ -63,6 +78,30 @@ struct ComposeCase {
     local: FixturePose,
     expected_coefficient: [f64; 2],
     expected_translation: [f64; 3],
+}
+
+#[derive(Debug, Deserialize)]
+struct PointApplicationCase {
+    id: String,
+    transform: FixturePose,
+    point: [f64; 3],
+    expected: [f64; 3],
+}
+
+#[derive(Debug, Deserialize)]
+struct XYApplicationCase {
+    id: String,
+    transform: FixturePose,
+    point: [f64; 2],
+    expected: [f64; 2],
+}
+
+#[derive(Debug, Deserialize)]
+struct VectorApplicationCase {
+    id: String,
+    transform: FixturePose,
+    vector: [f64; 3],
+    expected: [f64; 3],
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -221,6 +260,34 @@ fn transform_from_fixture(id: &str, pose: FixturePose) -> Result<Transform, Expa
     Transform::from_pose(pose.to_core(), id)
 }
 
+fn exact_rotated_xy(
+    transform: Transform,
+    point: [f64; 2],
+    limits: &Limits,
+    context: &str,
+) -> [Dyadic; 2] {
+    let cosine = Dyadic::from_f64(transform.cos);
+    let sine = Dyadic::from_f64(transform.sin);
+    let x = Dyadic::from_f64(point[0]);
+    let y = Dyadic::from_f64(point[1]);
+    let multiply_limit = limits.multiply_exact_result_abs;
+    let add_limit = limits.add_sub_exact_result_abs;
+    [
+        checked_sub(
+            &checked_mul(&cosine, &x, multiply_limit, &format!("{context}.x.0")),
+            &checked_mul(&sine, &y, multiply_limit, &format!("{context}.x.1")),
+            add_limit,
+            &format!("{context}.x"),
+        ),
+        checked_add(
+            &checked_mul(&sine, &x, multiply_limit, &format!("{context}.y.0")),
+            &checked_mul(&cosine, &y, multiply_limit, &format!("{context}.y.1")),
+            add_limit,
+            &format!("{context}.y"),
+        ),
+    ]
+}
+
 fn selected(id: &str, witness: &Option<String>) -> bool {
     witness.as_ref().is_none_or(|selected| selected == id)
 }
@@ -234,6 +301,9 @@ fn native_f64_matches_lean_numeric_intervals() {
     assert!(document.model_checks);
     assert_eq!(document.pose_cases.len(), 4);
     assert_eq!(document.compose_cases.len(), 3);
+    assert_eq!(document.point_application_cases.len(), 2);
+    assert_eq!(document.xy_application_cases.len(), 2);
+    assert_eq!(document.vector_application_cases.len(), 2);
 
     assert_budget(&document.budgets.angle, ANGLE_BUDGET_ID, 2.0_f64.powi(-46));
     assert_budget(&document.budgets.trig, TRIG_BUDGET_ID, 2.0_f64.powi(-45));
@@ -247,8 +317,22 @@ fn native_f64_matches_lean_numeric_intervals() {
         COMPOSE_TRANSLATION_BUDGET_ID,
         2.0_f64.powi(-28),
     );
+    assert_budget(&document.budgets.point, POINT_BUDGET_ID, 2.0_f64.powi(-28));
+    assert_budget(
+        &document.budgets.arc_center,
+        ARC_CENTER_BUDGET_ID,
+        2.0_f64.powi(-28),
+    );
+    assert_budget(
+        &document.budgets.orientation,
+        ORIENTATION_BUDGET_ID,
+        2.0_f64.powi(-29),
+    );
+    assert_eq!(document.limits.local_coordinate_abs, 2.0_f64.powi(20));
     assert_eq!(document.limits.pose_translation_abs, 2.0_f64.powi(20));
     assert_eq!(document.limits.pose_rotation_abs_deg, 360.0);
+    assert_eq!(document.limits.arc_center_abs, 2.0_f64.powi(20));
+    assert_eq!(document.limits.orientation_component_abs, 1.0);
     assert_eq!(document.limits.multiply_exact_result_abs, 2.0_f64.powi(20));
     assert_eq!(document.limits.add_sub_exact_result_abs, 2.0_f64.powi(22));
     assert_eq!(document.limits.radian_intermediate_abs, 7.0);
@@ -261,6 +345,21 @@ fn native_f64_matches_lean_numeric_intervals() {
         .count()
         + document
             .compose_cases
+            .iter()
+            .filter(|fixture| selected(&fixture.id, &witness))
+            .count()
+        + document
+            .point_application_cases
+            .iter()
+            .filter(|fixture| selected(&fixture.id, &witness))
+            .count()
+        + document
+            .xy_application_cases
+            .iter()
+            .filter(|fixture| selected(&fixture.id, &witness))
+            .count()
+        + document
+            .vector_application_cases
             .iter()
             .filter(|fixture| selected(&fixture.id, &witness))
             .count();
@@ -415,5 +514,148 @@ fn native_f64_matches_lean_numeric_intervals() {
                 &format!("{} selected end-to-end translation axis {axis}", fixture.id),
             );
         }
+    }
+
+    for fixture in document
+        .point_application_cases
+        .iter()
+        .filter(|fixture| selected(&fixture.id, &witness))
+    {
+        for value in fixture.point {
+            assert!(value.abs() <= document.limits.local_coordinate_abs);
+        }
+        let transform =
+            transform_from_fixture(&format!("{}.transform", fixture.id), fixture.transform)
+                .unwrap();
+        let actual = transform.apply_point(fixture.point);
+        let [rotated_x, rotated_y] = exact_rotated_xy(
+            transform,
+            [fixture.point[0], fixture.point[1]],
+            &document.limits,
+            &fixture.id,
+        );
+        let exact = [
+            checked_add(
+                &rotated_x,
+                &Dyadic::from_f64(transform.translation[0]),
+                document.limits.add_sub_exact_result_abs,
+                &format!("{}.translated.x", fixture.id),
+            ),
+            checked_add(
+                &rotated_y,
+                &Dyadic::from_f64(transform.translation[1]),
+                document.limits.add_sub_exact_result_abs,
+                &format!("{}.translated.y", fixture.id),
+            ),
+            checked_add(
+                &Dyadic::from_f64(fixture.point[2]),
+                &Dyadic::from_f64(transform.translation[2]),
+                document.limits.add_sub_exact_result_abs,
+                &format!("{}.translated.z", fixture.id),
+            ),
+        ];
+        for (axis, exact_axis) in exact.iter().enumerate() {
+            assert_dyadic_error(
+                actual[axis],
+                exact_axis,
+                document.budgets.point.ceiling,
+                &format!("{} applied point axis {axis}", fixture.id),
+            );
+            assert_approx(
+                actual[axis],
+                fixture.expected[axis],
+                2.0_f64.powi(-10),
+                &format!("{} selected end-to-end point axis {axis}", fixture.id),
+            );
+        }
+    }
+
+    for fixture in document
+        .xy_application_cases
+        .iter()
+        .filter(|fixture| selected(&fixture.id, &witness))
+    {
+        for value in fixture.point {
+            assert!(value.abs() <= document.limits.arc_center_abs);
+        }
+        let transform =
+            transform_from_fixture(&format!("{}.transform", fixture.id), fixture.transform)
+                .unwrap();
+        let actual = transform.apply_xy(fixture.point);
+        let rotated = exact_rotated_xy(transform, fixture.point, &document.limits, &fixture.id);
+        let exact = [
+            checked_add(
+                &rotated[0],
+                &Dyadic::from_f64(transform.translation[0]),
+                document.limits.add_sub_exact_result_abs,
+                &format!("{}.translated.x", fixture.id),
+            ),
+            checked_add(
+                &rotated[1],
+                &Dyadic::from_f64(transform.translation[1]),
+                document.limits.add_sub_exact_result_abs,
+                &format!("{}.translated.y", fixture.id),
+            ),
+        ];
+        for (axis, exact_axis) in exact.iter().enumerate() {
+            assert_dyadic_error(
+                actual[axis],
+                exact_axis,
+                document.budgets.arc_center.ceiling,
+                &format!("{} applied arc center axis {axis}", fixture.id),
+            );
+            assert_approx(
+                actual[axis],
+                fixture.expected[axis],
+                2.0_f64.powi(-10),
+                &format!("{} selected end-to-end arc center axis {axis}", fixture.id),
+            );
+        }
+    }
+
+    for fixture in document
+        .vector_application_cases
+        .iter()
+        .filter(|fixture| selected(&fixture.id, &witness))
+    {
+        for value in fixture.vector {
+            assert!(value.abs() <= document.limits.orientation_component_abs);
+        }
+        let transform =
+            transform_from_fixture(&format!("{}.transform", fixture.id), fixture.transform)
+                .unwrap();
+        let actual = transform.apply_vector(fixture.vector);
+        let exact = exact_rotated_xy(
+            transform,
+            [fixture.vector[0], fixture.vector[1]],
+            &document.limits,
+            &fixture.id,
+        );
+        for (axis, exact_axis) in exact.iter().enumerate() {
+            assert_dyadic_error(
+                actual[axis],
+                exact_axis,
+                document.budgets.orientation.ceiling,
+                &format!("{} applied orientation axis {axis}", fixture.id),
+            );
+            assert_approx(
+                actual[axis],
+                fixture.expected[axis],
+                2.0_f64.powi(-10),
+                &format!("{} selected end-to-end orientation axis {axis}", fixture.id),
+            );
+        }
+        assert_eq!(
+            actual[2].to_bits(),
+            fixture.vector[2].to_bits(),
+            "{} orientation Z must be copied bit-for-bit",
+            fixture.id
+        );
+        assert_eq!(
+            actual[2].to_bits(),
+            fixture.expected[2].to_bits(),
+            "{} selected end-to-end orientation Z",
+            fixture.id
+        );
     }
 }

@@ -213,7 +213,13 @@ def validate_native_numeric_fixture(contents: str) -> dict[str, object]:
 
     case_ids = [
         case["id"]
-        for collection in ("pose_cases", "compose_cases")
+        for collection in (
+            "pose_cases",
+            "compose_cases",
+            "point_application_cases",
+            "xy_application_cases",
+            "vector_application_cases",
+        )
         for case in document[collection]
     ]
     if len(case_ids) != len(set(case_ids)):
@@ -286,6 +292,12 @@ def main() -> int:
         f"{len(composition_shape_document['cases'])} composition-shape cases, "
         f"{len(native_numeric_document['pose_cases'])} native-pose cases, "
         f"{len(native_numeric_document['compose_cases'])} native-compose cases, "
+        f"{len(native_numeric_document['point_application_cases'])} "
+        "native-point-application cases, "
+        f"{len(native_numeric_document['xy_application_cases'])} "
+        "native-XY-application cases, "
+        f"{len(native_numeric_document['vector_application_cases'])} "
+        "native-vector-application cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

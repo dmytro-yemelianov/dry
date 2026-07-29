@@ -357,3 +357,43 @@ test = "native-numeric"
 description = "Add local translation without first rotating it by the parent transform."
 old = "        let translated = self.apply_vector([lx, ly, lz]);"
 new = "        let translated = [lx, ly, lz];"
+
+[[mutation]]
+id = "apply-point-skips-x-translation"
+witness = "native-apply-point-translation-rotation"
+test = "native-numeric"
+description = "Return a point's rotated X coordinate without the transform translation."
+old = "            rotated[0] + self.translation[0],"
+new = "            rotated[0],"
+
+[[mutation]]
+id = "apply-point-skips-z-translation"
+witness = "native-apply-point-profiled-limit"
+test = "native-numeric"
+description = "Return a point's local Z coordinate without the transform translation."
+old = "            rotated[2] + self.translation[2],"
+new = "            rotated[2],"
+
+[[mutation]]
+id = "apply-xy-adds-x-products"
+witness = "native-apply-arc-center-translation-rotation"
+test = "native-numeric"
+description = "Add both products when rotating an Arc centre's X coordinate."
+old = "            self.cos * point[0] - self.sin * point[1] + self.translation[0],"
+new = "            self.cos * point[0] + self.sin * point[1] + self.translation[0],"
+
+[[mutation]]
+id = "apply-vector-adds-x-products"
+witness = "native-apply-orientation-rotation"
+test = "native-numeric"
+description = "Add both products when rotating an orientation vector's X coordinate."
+old = "            self.cos * vector[0] - self.sin * vector[1],"
+new = "            self.cos * vector[0] + self.sin * vector[1],"
+
+[[mutation]]
+id = "apply-vector-negates-z"
+witness = "native-apply-orientation-z-copy"
+test = "native-numeric"
+description = "Negate an orientation vector's Z component instead of copying it."
+old = "            vector[2],"
+new = "            -vector[2],"

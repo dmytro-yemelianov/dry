@@ -251,19 +251,24 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "fn apply_point(self, point: [f64; 3]) -> [f64; 3] {"
 inputs = ["finite inherited Move point", "finite inherited Arc endpoint", "finite inherited Spline control point", "Transform coefficients and translation"]
 operation = "Apply a planar vector rotation and add XYZ translation."
-classification = "interval-bound-pending"
-numeric_status = "pending"
+classification = "interval-bounded"
+numeric_status = "bounded"
 assumptions = ["Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions."]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
-next_obligation = "Add coefficient/input construction error, prove output finiteness and test Rust against exported intervals; the local operation-only interval is checked."
+next_obligation = "Add coefficient/input construction error, prove output finiteness and generalize the selected native exact-dyadic witnesses to every profiled native/wasm application."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
+  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
@@ -281,19 +286,24 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "fn apply_xy(self, point: [f64; 2]) -> [f64; 2] {"
 inputs = ["Op::Arc.cx", "Op::Arc.cy", "Transform coefficients and XY translation"]
 operation = "Two planar multiply-add/subtract expressions rotate and translate the centre."
-classification = "interval-bound-pending"
-numeric_status = "pending"
+classification = "interval-bounded"
+numeric_status = "bounded"
 assumptions = ["Arc-centre inputs passed the ordered finite-input gate.", "Transform coefficients and translation satisfy preceding bounds."]
 exclusions = ["Finite Arc centres outside the provisional magnitude profile and output non-finiteness caused by arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued centre/translation operands and every sum within [-2^53, 2^53], output centre coordinates are exact."]
-next_obligation = "Add coefficient/input construction error and native/wasm refinement for apply_xy; the local operation-only interval is checked."
+next_obligation = "Add coefficient/input construction error and generalize the selected native exact-dyadic apply_xy witnesses to every profiled native/wasm application."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
-  "formal/Dry/Numeric/Binary64.lean"
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
+  "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",
@@ -311,20 +321,25 @@ source_path = "crates/core/src/features.rs"
 source_anchor = "fn apply_vector(self, vector: [f64; 3]) -> [f64; 3] {"
 inputs = ["Op::Orient.{i,j,k}", "Transform rotation coefficients"]
 operation = "Rotate XY using four multiplications and two additions/subtractions; copy Z unchanged."
-classification = "interval-bound-pending"
-numeric_status = "pending"
+classification = "interval-bounded"
+numeric_status = "bounded"
 assumptions = ["Orientation components passed the ordered finite-input gate.", "Rotation coefficients satisfy preceding bounds."]
 exclusions = ["Nonzero/unit validation and normalization.", "Translation is intentionally excluded from vector action."]
 exact_envelope = ["The Z component is copied bit-for-bit.", "The complete vector is exact under identity rotation."]
-next_obligation = "Land a nonzero/unit normalization contract, add coefficient-construction error and prove an angular bound; the local component interval is checked."
+next_obligation = "Land a nonzero/unit normalization contract, add coefficient-construction error, prove an angular bound and generalize the selected native exact-dyadic witnesses."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",
-  "proofs/fixtures/feature-refinement-v0.json"
+  "proofs/fixtures/feature-refinement-v0.json",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs",
+  "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
-  "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR"
+  "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR",
+  "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
 ]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT",

@@ -8,9 +8,9 @@ These cardinal-angle cases make selected native `f64` boundaries executable with
 universal implementation proof. Radian reference intervals use Mathlib's checked 20-decimal real-π
 bounds. Published binary64 ceilings are emitted exactly as terminating decimal powers of two.
 
-The compose cases also carry exact quarter-turn results. The Rust consumer checks the local compose
-operation graph against the exact dyadic values of the actual binary64 input transforms, rather than
-quietly comparing one rounded Rust expression with another.
+The compose and application cases also carry exact quarter-turn results. The Rust consumer checks
+each local operation graph against the exact dyadic values of the actual binary64 inputs, rather
+than quietly comparing one rounded Rust expression with another.
 -/
 
 namespace Dry.Tests.NativeNumericFixtures
@@ -65,6 +65,27 @@ structure ComposeCase where
   expected : Pose
 deriving BEq, Repr
 
+structure PointApplicationCase where
+  id : String
+  transform : Pose
+  point : Point
+  expected : Point
+deriving BEq, Repr
+
+structure XYApplicationCase where
+  id : String
+  transform : Pose
+  point : Int × Int
+  expected : Int × Int
+deriving BEq, Repr
+
+structure VectorApplicationCase where
+  id : String
+  transform : Pose
+  vector : Point
+  expected : Point
+deriving BEq, Repr
+
 def maximumTranslation : Int :=
   2 ^ 20
 
@@ -114,11 +135,68 @@ def composeCases : List ComposeCase :=
     }
   ]
 
+def pointApplicationCases : List PointApplicationCase :=
+  [
+    {
+      id := "native-apply-point-translation-rotation"
+      transform := ⟨⟨100, -50, 7⟩, 1⟩
+      point := ⟨10, 20, -3⟩
+      expected := ⟨80, -40, 4⟩
+    },
+    {
+      id := "native-apply-point-profiled-limit"
+      transform := ⟨⟨maximumTranslation, -maximumTranslation, 7⟩, 2⟩
+      point := ⟨maximumTranslation, maximumTranslation, -3⟩
+      expected := ⟨0, -(2 * maximumTranslation), 4⟩
+    }
+  ]
+
+def xyApplicationCases : List XYApplicationCase :=
+  [
+    {
+      id := "native-apply-arc-center-translation-rotation"
+      transform := ⟨⟨100, -50, 0⟩, 1⟩
+      point := (10, 20)
+      expected := (80, -40)
+    },
+    {
+      id := "native-apply-arc-center-profiled-limit"
+      transform := ⟨⟨-maximumTranslation, maximumTranslation, 0⟩, -1⟩
+      point := (maximumTranslation, -maximumTranslation)
+      expected := (-(2 * maximumTranslation), 0)
+    }
+  ]
+
+def vectorApplicationCases : List VectorApplicationCase :=
+  [
+    {
+      id := "native-apply-orientation-rotation"
+      transform := ⟨⟨100, -50, 7⟩, 1⟩
+      vector := ⟨1, -1, 1⟩
+      expected := ⟨1, 1, 1⟩
+    },
+    {
+      id := "native-apply-orientation-z-copy"
+      transform := ⟨⟨-maximumTranslation, maximumTranslation, 7⟩, -1⟩
+      vector := ⟨1, -1, -1⟩
+      expected := ⟨-1, -1, -1⟩
+    }
+  ]
+
 def modelChecks : Bool :=
   poseCases.all (fun fixture =>
       coefficient fixture.pose.quarterTurns == fixture.expectedCoefficient) &&
     composeCases.all (fun fixture =>
-      fixture.parent.compose fixture.inner == fixture.expected)
+      fixture.parent.compose fixture.inner == fixture.expected) &&
+    pointApplicationCases.all (fun fixture =>
+      (rotate fixture.transform.quarterTurns fixture.point).add
+          fixture.transform.translation == fixture.expected) &&
+    xyApplicationCases.all (fun fixture =>
+      let rotated := rotate fixture.transform.quarterTurns ⟨fixture.point.1, fixture.point.2, 0⟩
+      (rotated.x + fixture.transform.translation.x,
+          rotated.y + fixture.transform.translation.y) == fixture.expected) &&
+    vectorApplicationCases.all (fun fixture =>
+      rotate fixture.transform.quarterTurns fixture.vector == fixture.expected)
 
 theorem modelChecks_eq_true : modelChecks = true := by
   native_decide
@@ -146,6 +224,9 @@ def poseJson (pose : Pose) : Json :=
   ]
 
 def coefficientJson (value : Int × Int) : Json :=
+  .arr #[.num value.1, .num value.2]
+
+def xyJson (value : Int × Int) : Json :=
   .arr #[.num value.1, .num value.2]
 
 def piLowerMantissa : Int :=
@@ -187,6 +268,30 @@ def composeCaseJson (fixture : ComposeCase) : Json :=
     ("expected_translation", pointJson fixture.expected.translation)
   ]
 
+def pointApplicationCaseJson (fixture : PointApplicationCase) : Json :=
+  Json.mkObj [
+    ("id", .str fixture.id),
+    ("transform", poseJson fixture.transform),
+    ("point", pointJson fixture.point),
+    ("expected", pointJson fixture.expected)
+  ]
+
+def xyApplicationCaseJson (fixture : XYApplicationCase) : Json :=
+  Json.mkObj [
+    ("id", .str fixture.id),
+    ("transform", poseJson fixture.transform),
+    ("point", xyJson fixture.point),
+    ("expected", xyJson fixture.expected)
+  ]
+
+def vectorApplicationCaseJson (fixture : VectorApplicationCase) : Json :=
+  Json.mkObj [
+    ("id", .str fixture.id),
+    ("transform", poseJson fixture.transform),
+    ("vector", pointJson fixture.vector),
+    ("expected", pointJson fixture.expected)
+  ]
+
 def budgetJson (id : String) (exponent : Nat) : Json :=
   Json.mkObj [
     ("id", .str id),
@@ -206,17 +311,32 @@ def fixtureDocument : Json :=
       ("compose_rotation", budgetJson
         "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR" 29),
       ("compose_translation", budgetJson
-        "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM" 28)
+        "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM" 28),
+      ("point", budgetJson
+        "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM" 28),
+      ("arc_center", budgetJson
+        "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM" 28),
+      ("orientation", budgetJson
+        "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR" 29)
     ]),
     ("limits", Json.mkObj [
+      ("local_coordinate_abs", .num (2 ^ 20 : Nat)),
       ("pose_translation_abs", .num (2 ^ 20 : Nat)),
       ("pose_rotation_abs_deg", .num 360),
+      ("arc_center_abs", .num (2 ^ 20 : Nat)),
+      ("orientation_component_abs", .num 1),
       ("multiply_exact_result_abs", .num (2 ^ 20 : Nat)),
       ("add_sub_exact_result_abs", .num (2 ^ 22 : Nat)),
       ("radian_intermediate_abs", .num 7)
     ]),
     ("pose_cases", .arr (poseCases.toArray.map poseCaseJson)),
-    ("compose_cases", .arr (composeCases.toArray.map composeCaseJson))
+    ("compose_cases", .arr (composeCases.toArray.map composeCaseJson)),
+    ("point_application_cases",
+      .arr (pointApplicationCases.toArray.map pointApplicationCaseJson)),
+    ("xy_application_cases",
+      .arr (xyApplicationCases.toArray.map xyApplicationCaseJson)),
+    ("vector_application_cases",
+      .arr (vectorApplicationCases.toArray.map vectorApplicationCaseJson))
   ]
 
 def render : String :=

@@ -175,7 +175,13 @@ def load_manifest() -> Manifest:
         )
         fixture_ids.update(
             case["id"]
-            for collection in ("pose_cases", "compose_cases")
+            for collection in (
+                "pose_cases",
+                "compose_cases",
+                "point_application_cases",
+                "xy_application_cases",
+                "vector_application_cases",
+            )
             for case in numeric_document[collection]
             if isinstance(case, dict)
         )
