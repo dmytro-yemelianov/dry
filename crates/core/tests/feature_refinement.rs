@@ -366,7 +366,25 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
     assert!(document.model_checks);
     assert_eq!(document.cases.len(), 24);
 
-    for fixture in &document.cases {
+    let witness = std::env::var("DRY_FEATURE_MUTATION_WITNESS").ok();
+    let selected: Vec<_> = document
+        .cases
+        .iter()
+        .filter(|fixture| {
+            witness
+                .as_ref()
+                .is_none_or(|witness_id| fixture.id == *witness_id)
+        })
+        .collect();
+    if let Some(witness_id) = &witness {
+        assert_eq!(
+            selected.len(),
+            1,
+            "mutation witness {witness_id:?} must name exactly one fixture"
+        );
+    }
+
+    for fixture in selected {
         let first = observe(fixture);
         let second = observe(fixture);
         assert_eq!(
@@ -400,203 +418,5 @@ fn rust_feature_expansion_refines_checked_lean_fixtures() {
                 );
             }
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum SemanticMutant {
-    ReverseGroup,
-    RepeatOnlyOnce,
-    EvaluateZeroRepeatChild,
-    ResetLocalPosition,
-    CheckArcEndBeforeStart,
-    CheckSplinePointBeforeStart,
-    TranslateOrientation,
-    AllowTransformedManual,
-    AllowOneExtraOp,
-    AllowOneExtraNode,
-    CountNodeBeforeDepth,
-    ValidatePoseBeforeName,
-    ReversePoseFieldOrder,
-    SkipZeroRepeatStepValidation,
-    CheckFiniteBeforeMissing,
-    AllowNonfiniteMove,
-    AllowNonfiniteSpline,
-}
-
-fn failure(code: &str, message: &str) -> Observation {
-    Observation::Error(ObservedFailure {
-        code: code.to_owned(),
-        message: message.to_owned(),
-    })
-}
-
-fn mutate_observation(mutant: SemanticMutant, baseline: &Observation) -> Observation {
-    match mutant {
-        SemanticMutant::ReverseGroup => {
-            let Observation::Ok(ops) = baseline else {
-                panic!("reverse-group control requires a successful trace");
-            };
-            let mut reversed = ops.clone();
-            reversed.reverse();
-            Observation::Ok(reversed)
-        }
-        SemanticMutant::RepeatOnlyOnce => {
-            let Observation::Ok(ops) = baseline else {
-                panic!("repeat-once control requires a successful trace");
-            };
-            Observation::Ok(ops.iter().take(2).cloned().collect())
-        }
-        SemanticMutant::EvaluateZeroRepeatChild => failure(
-            "undefined-coordinate",
-            "features[0].instances[0].ops[0].y is undefined; features must be locally self-contained",
-        ),
-        SemanticMutant::ResetLocalPosition => failure(
-            "undefined-coordinate",
-            "features[0].ops[1].y is undefined; features must be locally self-contained",
-        ),
-        SemanticMutant::CheckArcEndBeforeStart => failure(
-            "undefined-coordinate",
-            "features[0].ops[0].y is undefined; features must be locally self-contained",
-        ),
-        SemanticMutant::CheckSplinePointBeforeStart => failure(
-            "undefined-coordinate",
-            "features[0].ops[0].points[0].y is undefined; features must be locally self-contained",
-        ),
-        SemanticMutant::TranslateOrientation => {
-            Observation::Ok(vec![ObservedOp::Orient {
-                i: 11.0,
-                j: 2.0,
-                k: 3.0,
-            }])
-        }
-        SemanticMutant::AllowTransformedManual => {
-            Observation::Ok(vec![ObservedOp::ManualGcode {
-                text: "G28".to_owned(),
-            }])
-        }
-        SemanticMutant::AllowOneExtraOp => Observation::Ok(vec![
-            ObservedOp::Tool { index: 1 },
-            ObservedOp::Tool { index: 2 },
-            ObservedOp::Tool { index: 3 },
-        ]),
-        SemanticMutant::AllowOneExtraNode => Observation::Ok(vec![
-            ObservedOp::Tool { index: 1 },
-            ObservedOp::Tool { index: 1 },
-            ObservedOp::Tool { index: 1 },
-        ]),
-        SemanticMutant::CountNodeBeforeDepth => failure(
-            "max-nodes",
-            "features[0].children[0] exceeds max expanded nodes (1)",
-        ),
-        SemanticMutant::ValidatePoseBeforeName => failure(
-            "non-finite-pose",
-            "features[0].pose.x must be finite, got NaN",
-        ),
-        SemanticMutant::ReversePoseFieldOrder => failure(
-            "non-finite-pose",
-            "features[0].pose.z must be finite, got NaN",
-        ),
-        SemanticMutant::SkipZeroRepeatStepValidation => Observation::Ok(Vec::new()),
-        SemanticMutant::CheckFiniteBeforeMissing => failure(
-            "non-finite-coordinate",
-            "features[0].ops[0].y must be finite, got NaN",
-        ),
-        SemanticMutant::AllowNonfiniteMove => Observation::Ok(vec![ObservedOp::Move {
-            x: 1.0,
-            y: f64::INFINITY,
-            z: f64::NAN,
-        }]),
-        SemanticMutant::AllowNonfiniteSpline => Observation::Ok(vec![
-            ObservedOp::Move {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            ObservedOp::Spline {
-                points: vec![[1.0, f64::INFINITY, 0.0]],
-            },
-        ]),
-    }
-}
-
-#[test]
-fn refinement_corpus_distinguishes_declared_semantic_mutants() {
-    let document: FixtureDocument =
-        serde_json::from_str(FIXTURES).expect("valid feature-refinement fixture JSON");
-    let controls = [
-        (SemanticMutant::ReverseGroup, "group-source-order"),
-        (SemanticMutant::RepeatOnlyOnce, "repeat-count-and-order"),
-        (
-            SemanticMutant::EvaluateZeroRepeatChild,
-            "repeat-zero-skips-invalid-child",
-        ),
-        (
-            SemanticMutant::ResetLocalPosition,
-            "move-inherits-local-position",
-        ),
-        (
-            SemanticMutant::CheckArcEndBeforeStart,
-            "arc-requires-local-start-before-end",
-        ),
-        (
-            SemanticMutant::CheckSplinePointBeforeStart,
-            "spline-requires-local-start-before-points",
-        ),
-        (
-            SemanticMutant::TranslateOrientation,
-            "orientation-ignores-translation",
-        ),
-        (
-            SemanticMutant::AllowTransformedManual,
-            "transformed-manual-gcode",
-        ),
-        (
-            SemanticMutant::AllowOneExtraOp,
-            "operation-budget-first-excess",
-        ),
-        (
-            SemanticMutant::AllowOneExtraNode,
-            "node-budget-first-excess",
-        ),
-        (
-            SemanticMutant::CountNodeBeforeDepth,
-            "depth-budget-before-node-visit",
-        ),
-        (
-            SemanticMutant::ValidatePoseBeforeName,
-            "empty-name-before-pose",
-        ),
-        (SemanticMutant::ReversePoseFieldOrder, "pose-field-order"),
-        (
-            SemanticMutant::SkipZeroRepeatStepValidation,
-            "repeat-step-validated-at-zero-count",
-        ),
-        (
-            SemanticMutant::CheckFiniteBeforeMissing,
-            "undefined-before-later-nonfinite-coordinate",
-        ),
-        (
-            SemanticMutant::AllowNonfiniteMove,
-            "nonfinite-move-coordinate",
-        ),
-        (
-            SemanticMutant::AllowNonfiniteSpline,
-            "nonfinite-spline-point",
-        ),
-    ];
-
-    for (mutant, fixture_id) in controls {
-        let fixture = document
-            .cases
-            .iter()
-            .find(|fixture| fixture.id == fixture_id)
-            .unwrap_or_else(|| panic!("missing fixture {fixture_id}"));
-        let baseline = observe(fixture);
-        let mutated = mutate_observation(mutant, &baseline);
-        assert_ne!(
-            baseline, mutated,
-            "{fixture_id} failed to distinguish {mutant:?}"
-        );
     }
 }

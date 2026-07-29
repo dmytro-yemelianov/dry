@@ -53,9 +53,18 @@ local-coordinate inheritance, arcs, splines, orientations, manual code and resou
 fixture-only `NaN`/`inf`/`-inf` strings are converted to IEEE-754 values by an independent adapter
 before the Rust expander is called; they are not production wire syntax.
 `crates/core/tests/feature_refinement.rs` repeats every observation to check determinism and confirms
-that 17 declared wrong semantics are distinguished by the corpus.
+the exact result against the generated expectation. `tools/check_feature_mutations.py` then compiles
+17 pinned source changes to `crates/core/src/features.rs` in isolated workspaces and requires each
+named fixture to kill its assigned mutant. The source hash and replacements are reviewed in
+`proofs/feature-refinement-mutations-v0.toml`; a non-compiling mutant does not count as killed.
+
+Run that bounded mutation gate directly with:
+
+```sh
+python3 tools/check_feature_mutations.py
+```
 
 The checked refinement status is limited to that committed subset. Numeric error bounds, finite-width
-counter overflow, non-finite arc-centre/orientation behavior, source-level mutation scoring, full
-frame graphs and wider Rust refinement remain explicitly pending in
+counter overflow, non-finite arc-centre/orientation behavior, mutation coverage outside the pinned
+feature-expansion changes, full frame graphs and wider Rust refinement remain explicitly pending in
 [`../proofs/claims.toml`](../proofs/claims.toml).

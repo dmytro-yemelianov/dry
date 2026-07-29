@@ -441,11 +441,13 @@ invariant operations. A second checked model fixes success/first-error order for
 finite/non-finite pose fields, invariant tool operations, locally inherited moves, arcs, splines,
 orientations, transformed manual-code rejection and dynamic resource limits. Twenty-four
 schema-valid Lean-generated cases are consumed independently by the Rust expander through a
-fixture-only non-finite token adapter and check repeatable exact observations; 17 declared wrong
-semantics serve as bounded negative controls. The corresponding structural claims are
-refinement-checked only over that committed corpus. Finite-width counter overflow, non-finite
-arc-centre/orientation behavior, broader source-level mutation scoring, binary64 bounds, `SE(3)` and
-named frame graphs remain open.
+fixture-only non-finite token adapter and check repeatable exact observations. A pinned manifest
+compiles 17 source changes against `features.rs`; every viable mutant is killed by its assigned
+Lean-generated fixture in CI, while compilation failures are rejected as invalid evidence. The
+corresponding structural claims are refinement-checked only over that committed corpus and mutation
+manifest, not assigned a general mutation score. Finite-width counter overflow, non-finite
+arc-centre/orientation behavior, mutation coverage outside the bounded surface, binary64 bounds,
+`SE(3)` and named frame graphs remain open.
 
 ### FM1.4 — numeric and curve error budgets
 

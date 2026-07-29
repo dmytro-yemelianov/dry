@@ -45,6 +45,8 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: test
         run: cargo test --workspace --all-features --locked
+      - name: kill bounded feature source mutations
+        run: python3 tools/check_feature_mutations.py
       - name: compile the minimal CLI feature set
         run: cargo check -p dry-cli --no-default-features --locked
       - name: build (wasm, dry-core)

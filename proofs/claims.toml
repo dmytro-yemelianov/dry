@@ -57,7 +57,9 @@ rust_sources = [
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
 ]
 
 [claim.status]
@@ -91,7 +93,9 @@ rust_sources = [
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
 ]
 
 [claim.status]
@@ -126,7 +130,9 @@ rust_sources = [
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
 ]
 
 [claim.status]
@@ -160,7 +166,9 @@ rust_sources = [
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
 ]
 
 [claim.status]
@@ -230,7 +238,9 @@ rust_sources = [
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/core/tests/feature_refinement.rs",
+  "proofs/feature-refinement-mutations-v0.toml",
+  "tools/check_feature_mutations.py"
 ]
 
 [claim.status]

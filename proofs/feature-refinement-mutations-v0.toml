@@ -1,0 +1,235 @@
+schema_version = 1
+model = "feature-refinement-source-mutations-v0"
+source = "crates/core/src/features.rs"
+source_sha256 = "a6f024c390947a14604bb55e10a3db1ced68d9b832dd5da22d6d54c853a3e0cc"
+test = "crates/core/tests/feature_refinement.rs"
+
+[[mutation]]
+id = "group-reverse-source-order"
+witness = "group-source-order"
+description = "Iterate group children in reverse source order."
+old = "for (index, child) in children.iter().enumerate() {"
+new = "for (index, child) in children.iter().rev().enumerate() {"
+
+[[mutation]]
+id = "repeat-at-most-once"
+witness = "repeat-count-and-order"
+description = "Expand at most one repeat instance."
+old = "for index in 0..*count {"
+new = "for index in 0..(*count).min(1) {"
+
+[[mutation]]
+id = "repeat-at-least-once"
+witness = "repeat-zero-skips-invalid-child"
+description = "Expand one repeat instance even when count is zero."
+old = "for index in 0..*count {"
+new = "for index in 0..(*count).max(1) {"
+
+[[mutation]]
+id = "move-resets-local-position"
+witness = "move-inherits-local-position"
+description = "Discard the local position established by a move."
+old = '''
+            Op::Move { x, y, z } => {
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = local.map(Some);
+                let point = transform.apply_point(local);
+'''
+new = '''
+            Op::Move { x, y, z } => {
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = [None; 3];
+                let point = transform.apply_point(local);
+'''
+
+[[mutation]]
+id = "arc-end-before-start"
+witness = "arc-requires-local-start-before-end"
+description = "Validate an arc endpoint before its required local start."
+old = '''
+                require_defined_position(position, &op_path)?;
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+'''
+new = '''
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                require_defined_position(position, &op_path)?;
+'''
+
+[[mutation]]
+id = "spline-point-before-start"
+witness = "spline-requires-local-start-before-points"
+description = "Skip the local-start precheck for a nonempty spline."
+old = '''
+            Op::Spline { points } => {
+                if !points.is_empty() {
+                    require_defined_position(position, &op_path)?;
+                }
+                let mut transformed = Vec::with_capacity(points.len());
+'''
+new = '''
+            Op::Spline { points } => {
+                let mut transformed = Vec::with_capacity(points.len());
+'''
+
+[[mutation]]
+id = "orientation-receives-translation"
+witness = "orientation-ignores-translation"
+description = "Transform an orientation as a point instead of a vector."
+old = "let vector = transform.apply_vector([*i, *j, *k]);"
+new = "let vector = transform.apply_point([*i, *j, *k]);"
+
+[[mutation]]
+id = "allow-transformed-manual"
+witness = "transformed-manual-gcode"
+description = "Reject manual code only for identity transforms."
+old = "Op::ManualGcode { .. } if !transform.is_identity() => {"
+new = "Op::ManualGcode { .. } if transform.is_identity() => {"
+
+[[mutation]]
+id = "operation-budget-off-by-one"
+witness = "operation-budget-first-excess"
+description = "Permit one operation beyond max_ops."
+old = "if self.ops.len() >= self.limits.max_ops {"
+new = "if self.ops.len() > self.limits.max_ops {"
+
+[[mutation]]
+id = "node-budget-off-by-one"
+witness = "node-budget-first-excess"
+description = "Permit one node beyond max_nodes."
+old = "if self.nodes > self.limits.max_nodes {"
+new = "if self.nodes > self.limits.max_nodes.saturating_add(1) {"
+
+[[mutation]]
+id = "node-before-depth"
+witness = "depth-budget-before-node-visit"
+description = "Visit and count a node before checking its depth."
+old = '''
+    if depth > state.limits.max_depth {
+        return Err(ExpandError::new(format!(
+            "{path} exceeds max feature depth ({})",
+            state.limits.max_depth
+        )));
+    }
+    state.visit_node(path)?;
+'''
+new = '''
+    state.visit_node(path)?;
+    if depth > state.limits.max_depth {
+        return Err(ExpandError::new(format!(
+            "{path} exceeds max feature depth ({})",
+            state.limits.max_depth
+        )));
+    }
+'''
+
+[[mutation]]
+id = "pose-before-name"
+witness = "empty-name-before-pose"
+description = "Validate a feature pose before rejecting its empty name."
+old = '''
+            if name.as_ref().is_some_and(|value| value.is_empty()) {
+                return Err(ExpandError::new(format!("{path}.name must not be empty")));
+            }
+            let local = Transform::from_pose(*pose, &format!("{path}.pose"))?;
+'''
+new = '''
+            let local = Transform::from_pose(*pose, &format!("{path}.pose"))?;
+            if name.as_ref().is_some_and(|value| value.is_empty()) {
+                return Err(ExpandError::new(format!("{path}.name must not be empty")));
+            }
+'''
+
+[[mutation]]
+id = "reverse-pose-field-order"
+witness = "pose-field-order"
+description = "Validate pose fields in reverse order."
+old = '''
+            ("x", pose.x),
+            ("y", pose.y),
+            ("z", pose.z),
+            ("rotate_z_deg", pose.rotate_z_deg),
+'''
+new = '''
+            ("rotate_z_deg", pose.rotate_z_deg),
+            ("z", pose.z),
+            ("y", pose.y),
+            ("x", pose.x),
+'''
+
+[[mutation]]
+id = "skip-zero-repeat-step-validation"
+witness = "repeat-step-validated-at-zero-count"
+description = "Skip repeat-step validation when count is zero."
+old = '''            let step = Transform::from_pose(*step, &format!("{path}.step"))?;'''
+new = '''
+            let step = if *count == 0 {
+                Transform::identity()
+            } else {
+                Transform::from_pose(*step, &format!("{path}.step"))?
+            };
+'''
+
+[[mutation]]
+id = "finite-before-missing-coordinate"
+witness = "undefined-before-later-nonfinite-coordinate"
+description = "Scan supplied coordinates for non-finite values before resolving missing axes."
+old = '''
+    let mut out = [0.0; 3];
+    for (axis, name) in ["x", "y", "z"].into_iter().enumerate() {
+'''
+new = '''
+    let mut out = [0.0; 3];
+    for (axis, name) in ["x", "y", "z"].into_iter().enumerate() {
+        if let Some(value) = point[axis] {
+            if !value.is_finite() {
+                return Err(ExpandError::new(format!(
+                    "{path}.{name} must be finite, got {value}"
+                )));
+            }
+        }
+    }
+    for (axis, name) in ["x", "y", "z"].into_iter().enumerate() {
+'''
+
+[[mutation]]
+id = "sanitize-nonfinite-move"
+witness = "nonfinite-move-coordinate"
+description = "Silently replace non-finite move coordinates with zero."
+old = '''
+            Op::Move { x, y, z } => {
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+'''
+new = '''
+            Op::Move { x, y, z } => {
+                let local = inherit_point(
+                    [
+                        x.map(|value| if value.is_finite() { value } else { 0.0 }),
+                        y.map(|value| if value.is_finite() { value } else { 0.0 }),
+                        z.map(|value| if value.is_finite() { value } else { 0.0 }),
+                    ],
+                    position,
+                    &op_path,
+                )?;
+'''
+
+[[mutation]]
+id = "sanitize-nonfinite-spline"
+witness = "nonfinite-spline-point"
+description = "Silently replace non-finite spline-point coordinates with zero."
+old = '''
+                    let local = inherit_point(
+                        *point,
+                        position,
+                        &format!("{op_path}.points[{point_index}]"),
+                    )?;
+'''
+new = '''
+                    let sanitized = (*point).map(|axis| {
+                        axis.map(|value| if value.is_finite() { value } else { 0.0 })
+                    });
+                    let local = inherit_point(
+                        sanitized,
+                        position,
+                        &format!("{op_path}.points[{point_index}]"),
+                    )?;
+'''
