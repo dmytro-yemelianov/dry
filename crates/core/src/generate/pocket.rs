@@ -173,6 +173,26 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
                     "tool_diameter ({d}) does not fit the radius-{radius} circle"
                 )));
             }
+            // Compute ring count: circle_radii pushes one radius per `step` from the
+            // wall-inset outer radius down to (but not including) zero.
+            let tool_r = d / 2.0;
+            let step = stepover * d;
+            let outer_r = radius - tool_r;
+            let ring_count_f = (outer_r / step).ceil().max(1.0);
+            if ring_count_f > MAX_TOTAL_PASSES as f64 {
+                return Err(PocketError::new(format!(
+                    "tool_diameter ({d}) too small relative to circle radius ({radius}): \
+                     would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
+                )));
+            }
+            let ring_count = ring_count_f as u32;
+            let total_passes = depth_passes.saturating_mul(ring_count);
+            if total_passes > MAX_TOTAL_PASSES {
+                return Err(PocketError::new(format!(
+                    "tool_diameter ({d}) too small relative to circle radius ({radius}): \
+                     would require {ring_count} rings × {depth_passes} depth passes = {total_passes} total passes (max {MAX_TOTAL_PASSES})"
+                )));
+            }
         }
     }
     Ok(Resolved {
@@ -334,6 +354,78 @@ fn rect_passes(cx: f64, cy: f64, rings: &[RectPass], r: &Resolved) -> Vec<Op> {
     ops
 }
 
+/// Contour-parallel circle cut radii, innermost first. `outer_r` is the wall-inset
+/// (by tool radius) outermost cut radius.
+fn circle_radii(outer_r: f64, step: f64) -> Vec<f64> {
+    let mut radii = Vec::new();
+    let mut r = outer_r;
+    while r > 0.0 {
+        radii.push(r);
+        r -= step;
+    }
+    radii.reverse();
+    radii
+}
+
+fn circle_passes(cx: f64, cy: f64, radii: &[f64], r: &Resolved) -> Vec<Op> {
+    let mut ops = Vec::new();
+    let entry = radii.first().map(|ri| (cx - ri, cy)).unwrap_or((cx, cy));
+    for &z in &depth_levels(r) {
+        ops.push(Op::Extruder { on: false });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(r.safe_z),
+        });
+        ops.push(Op::Move {
+            x: Some(entry.0),
+            y: Some(entry.1),
+            z: Some(r.safe_z),
+        });
+        ops.push(Op::Speed {
+            print: r.plunge_feed,
+        });
+        ops.push(Op::Extruder { on: true });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(z),
+        });
+        ops.push(Op::Speed { print: r.cut_feed });
+        for &ri in radii {
+            // stepover link to the ring start, then two half circles (G2/G3 exercised)
+            ops.push(Op::Move {
+                x: Some(cx - ri),
+                y: Some(cy),
+                z: None,
+            });
+            ops.push(Op::Arc {
+                cx,
+                cy,
+                x: Some(cx + ri),
+                y: Some(cy),
+                z: None,
+                clockwise: false,
+            });
+            ops.push(Op::Arc {
+                cx,
+                cy,
+                x: Some(cx - ri),
+                y: Some(cy),
+                z: None,
+                clockwise: false,
+            });
+        }
+        ops.push(Op::Extruder { on: false });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(r.safe_z),
+        });
+    }
+    ops
+}
+
 /// Generate the L1 ops. Structured failure on invalid options, never a panic.
 pub fn try_pocket_ops(o: &PocketOptions) -> Result<Vec<Op>, PocketError> {
     let r = validate(o)?;
@@ -350,7 +442,7 @@ pub fn try_pocket_ops(o: &PocketOptions) -> Result<Vec<Op>, PocketError> {
 }
 
 fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
-    match (&o.shape, o.mode) {
+    Ok(match (&o.shape, o.mode) {
         (
             PocketShape::Rect {
                 x,
@@ -362,10 +454,31 @@ fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
         ) => {
             let (cx, cy) = (x + width / 2.0, y + height / 2.0);
             let rings = rect_rings(width / 2.0 - r.tool_r, height / 2.0 - r.tool_r, r.step);
-            Ok(rect_passes(cx, cy, &rings, r))
+            rect_passes(cx, cy, &rings, r)
         }
-        _ => Ok(Vec::new()), // circle + profile modes land in Task 3
-    }
+        (
+            PocketShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            },
+            CutMode::Profile,
+        ) => {
+            let (cx, cy) = (x + width / 2.0, y + height / 2.0);
+            let ring = vec![RectPass::Ring {
+                hw: width / 2.0 - r.tool_r,
+                hh: height / 2.0 - r.tool_r,
+            }];
+            rect_passes(cx, cy, &ring, r)
+        }
+        (PocketShape::Circle { cx, cy, radius }, CutMode::Pocket) => {
+            circle_passes(*cx, *cy, &circle_radii(radius - r.tool_r, r.step), r)
+        }
+        (PocketShape::Circle { cx, cy, radius }, CutMode::Profile) => {
+            circle_passes(*cx, *cy, &[radius - r.tool_r], r)
+        }
+    })
 }
 
 /// Panicking convenience over [`try_pocket_ops`]; precondition: valid Dry pocket options.
@@ -404,6 +517,17 @@ mod tests {
             safe_z: None,
             cut_feed: None,
             plunge_feed: None,
+        }
+    }
+
+    fn circle_opts() -> PocketOptions {
+        PocketOptions {
+            shape: PocketShape::Circle {
+                cx: 10.0,
+                cy: 10.0,
+                radius: 15.0,
+            },
+            ..rect_opts()
         }
     }
 
@@ -579,5 +703,78 @@ mod tests {
                 assert!(near, "uncovered interior point ({px}, {py})");
             }
         }
+    }
+
+    #[test]
+    fn pathological_tiny_tool_diameter_circle_is_rejected() {
+        let mut o = circle_opts();
+        o.shape = PocketShape::Circle {
+            cx: 10.0,
+            cy: 10.0,
+            radius: 1000.0,
+        };
+        o.tool_diameter = 1e-9; // would generate billions of rings
+        let err = validate(&o).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("tool_diameter") && (msg.contains("ring") || msg.contains("pass")),
+            "error should mention tool_diameter and pass/ring count: {msg}"
+        );
+    }
+
+    #[test]
+    fn circle_radii_are_innermost_first() {
+        // outer cut radius 12 (15 - tool_r 3), step 3 → radii 12,9,6,3 innermost-first.
+        assert_eq!(circle_radii(12.0, 3.0), vec![3.0, 6.0, 9.0, 12.0]);
+    }
+
+    #[test]
+    fn circle_pocket_uses_arcs_and_resolves() {
+        let ops = try_pocket_ops(&circle_opts()).unwrap();
+        let arcs = ops.iter().filter(|op| matches!(op, Op::Arc { .. })).count();
+        // two half-circle arcs per ring per depth pass: 4 rings * 2 = 8 (single depth pass)
+        assert_eq!(arcs, 8);
+        let d = Design { ops };
+        let tp = crate::resolve::resolve(&d, &crate::resolve::ResolveParams::default());
+        assert!(tp
+            .segments
+            .iter()
+            .any(|s| s.kind == crate::ir::SegmentKind::Arc || s.centre.is_some()));
+    }
+
+    #[test]
+    fn profile_mode_is_a_single_contour_per_pass() {
+        let mut o = rect_opts();
+        o.mode = CutMode::Profile;
+        o.depth_per_pass = Some(2.5); // 2 passes
+        let ops = try_pocket_ops(&o).unwrap();
+        let moves = ops
+            .iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    Op::Move {
+                        x: Some(_),
+                        y: Some(_),
+                        z: None
+                    }
+                )
+            })
+            .count();
+        // Profile mode is a single Ring pass. Per depth level, rect_passes emits 5 XY-only
+        // (z: None) moves for one ring: start corner, +width, +height, -width (closing back
+        // to the start corner) — 4 corner-to-corner edges plus the closing move = 5 moves.
+        // The initial rapid entry to the same corner has z: Some(safe_z), so it does not
+        // match the z: None filter and is correctly excluded. 2 depth passes * 5 = 10.
+        assert_eq!(moves, 2 * 5);
+    }
+
+    #[test]
+    fn circle_profile_is_one_ring() {
+        let mut o = circle_opts();
+        o.mode = CutMode::Profile;
+        let ops = try_pocket_ops(&o).unwrap();
+        let arcs = ops.iter().filter(|op| matches!(op, Op::Arc { .. })).count();
+        assert_eq!(arcs, 2); // one ring = two half circles, single depth pass
     }
 }
