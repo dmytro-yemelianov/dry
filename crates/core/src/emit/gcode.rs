@@ -72,6 +72,34 @@ pub struct CncFrame {
     pub coolant: Option<bool>,
 }
 
+impl CncFrame {
+    /// Validate the frame the way [`crate::profile::Profile::validate`] validates the `machine.cnc`
+    /// fields it is built from.
+    ///
+    /// `EmitParams`/`CncFrame` are `pub` with `pub` fields and derive `Deserialize`, so a frame can
+    /// reach the emitter without ever passing through profile validation. An out-of-range `wcs`
+    /// renders as a bare `G0` where `G54` belongs — silently leaving the previous work offset
+    /// active, i.e. cutting at the wrong origin — and a zero `spindle_rpm` renders `S0 M3`
+    /// immediately before a cutting move.
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(wcs) = self.wcs {
+            if !(54..=59).contains(&wcs) {
+                return Err(format!(
+                    "cnc_frame.wcs must be 54..=59 (G54..G59), got {wcs}"
+                ));
+            }
+        }
+        if let Some(rpm) = self.spindle_rpm {
+            if !(rpm.is_finite() && rpm > 0.0) {
+                return Err(format!(
+                    "cnc_frame.spindle_rpm must be finite and > 0, got {rpm}"
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 fn default_true() -> bool {
     true
 }
@@ -98,6 +126,21 @@ pub(crate) fn num(v: f64) -> String {
     } else {
         s.to_string()
     }
+}
+
+/// Format a g-code word value, refusing anything the format cannot faithfully carry.
+///
+/// [`num`] is `format!("{v:.6}")` plus trimming, and Rust renders NaN as `NaN` and the infinities
+/// as `inf`/`-inf` — so a non-finite quantity leaves here as a syntactically well-formed word with
+/// a nonsense value (`G1 FNaN Xinf`). `emit` is the last gate before a machine (`dry emit` never
+/// runs the verifier), so the fallible emit path refuses the program rather than writing it.
+fn num_checked(v: f64, word: impl std::fmt::Display) -> Result<String, crate::codec::CodecError> {
+    if !v.is_finite() {
+        return Err(crate::codec::CodecError::Other(format!(
+            "cannot emit non-finite {word} value ({v})"
+        )));
+    }
+    Ok(num(v))
 }
 
 fn write_line<W: std::io::Write>(
@@ -141,7 +184,13 @@ where
         (FirmwareFlavor::Rs274, Some(f)) => Some(*f),
         _ => None,
     };
+    if p.five_axis {
+        p.kinematics
+            .validate()
+            .map_err(crate::codec::CodecError::Other)?;
+    }
     if let Some(f) = frame {
+        f.validate().map_err(crate::codec::CodecError::Other)?;
         write_line(writer, &mut first_line, "G21 G17 G90")?;
         write_line(
             writer,
@@ -152,7 +201,11 @@ where
             write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
         }
         if let Some(rpm) = f.spindle_rpm {
-            write_line(writer, &mut first_line, &format!("S{} M3", num(rpm)))?;
+            write_line(
+                writer,
+                &mut first_line,
+                &format!("S{} M3", num_checked(rpm, 'S')?),
+            )?;
         }
         if f.coolant == Some(true) {
             write_line(writer, &mut first_line, "M8")?;
@@ -174,16 +227,19 @@ where
         // does not touch the running position or feedrate).
         if s.kind == SegmentKind::Dwell {
             if let Some(secs) = s.dwell_s {
+                // reject up front: the Klipper branch casts, and `NaN as u64` saturates to 0 rather
+                // than carrying the non-finite value into the word check below.
+                let secs_text = num_checked(secs, "dwell")?;
                 let cmd = match p.flavor {
                     FirmwareFlavor::Klipper => {
                         let ms = (secs * 1000.0).round() as u64;
                         format!("G4 P{ms}")
                     }
                     FirmwareFlavor::Rs274 | FirmwareFlavor::Marlin | FirmwareFlavor::Duet => {
-                        format!("G4 S{}", num(secs))
+                        format!("G4 S{secs_text}")
                     }
-                    FirmwareFlavor::Grbl => format!("G4 P{}", num(secs)),
-                    FirmwareFlavor::RobotKrl => format!("WAIT {}", num(secs)),
+                    FirmwareFlavor::Grbl => format!("G4 P{secs_text}"),
+                    FirmwareFlavor::RobotKrl => format!("WAIT {secs_text}"),
                 };
                 write_line(writer, &mut first_line, &cmd)?;
             }
@@ -206,6 +262,17 @@ where
         prog_pos = end_prog;
 
         let is_arc = s.kind == SegmentKind::Arc && s.centre.is_some();
+        // An arc word list without an endpoint is not a no-op: RS-274 reads `G3 I-10 J0` as a full
+        // 360° circle. The X/Y words below are only forced when the endpoint is explicit, so refuse
+        // the segment here — the importer refuses the same construct (`gcode::lift::arc_geometry`),
+        // which is why round-trip coverage never sees it.
+        if is_arc && (s.end[0].is_none() || s.end[1].is_none()) {
+            return Err(crate::codec::CodecError::Other(
+                "arc segment needs an explicit end X and Y: emitting one without them is a full \
+                 360° circle, not a no-op"
+                    .to_string(),
+            ));
+        }
         let has_e_word = !s.travel || s.filament != Length::ZERO;
         let is_robot = p.flavor == FirmwareFlavor::RobotKrl;
         let cmd = if is_robot {
@@ -231,16 +298,18 @@ where
 
         if prev_speed != Some(s.speed) {
             if is_robot {
-                toks.push(format!("V{}", num(s.speed.value())));
+                toks.push(format!("V{}", num_checked(s.speed.value(), 'V')?));
             } else {
-                toks.push(format!("F{}", num(s.speed.value())));
+                toks.push(format!("F{}", num_checked(s.speed.value(), 'F')?));
             }
             prev_speed = Some(s.speed);
         }
 
         // Determine target linear axes (in machine joint coordinates if five_axis is true).
         let target_axes = if p.five_axis {
-            p.kinematics.machine_position(end_prog, s.orientation)
+            p.kinematics
+                .machine_position(end_prog, s.orientation)
+                .map_err(crate::codec::CodecError::Other)?
         } else {
             end_prog
         };
@@ -256,7 +325,7 @@ where
             };
 
             if emit_axis {
-                toks.push(format!("{letter}{}", num(target_axes[i])));
+                toks.push(format!("{letter}{}", num_checked(target_axes[i], letter)?));
                 pos[i] = Some(Length::mm(target_axes[i]));
             }
         }
@@ -264,11 +333,14 @@ where
         // 5-axis: emit the two rotary words (degrees) from the toolframe orientation under the chosen
         // kinematics, each only when it changes. In 3-axis mode the orientation is dropped entirely.
         if p.five_axis {
-            let rotaries = p.kinematics.rotary_words(s.orientation);
+            let rotaries = p
+                .kinematics
+                .rotary_words(s.orientation)
+                .map_err(crate::codec::CodecError::Other)?;
             let prev = prev_rotary.unwrap_or([f64::NAN, f64::NAN]);
             for (r, &pv) in rotaries.iter().zip(prev.iter()) {
                 if r.value != pv {
-                    toks.push(format!("{}{}", r.letter, num(r.value)));
+                    toks.push(format!("{}{}", r.letter, num_checked(r.value, r.letter)?));
                 }
             }
             prev_rotary = Some([rotaries[0].value, rotaries[1].value]);
@@ -281,10 +353,14 @@ where
             let (i_val, j_val) = if p.five_axis {
                 // I/J is an incremental start→centre offset, so both points must be transformed
                 // under the orientation the arc itself is executed at.
-                let start_mcs = p.kinematics.machine_position(start_prog, s.orientation);
+                let start_mcs = p
+                    .kinematics
+                    .machine_position(start_prog, s.orientation)
+                    .map_err(crate::codec::CodecError::Other)?;
                 let centre_mcs = p
                     .kinematics
-                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation);
+                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation)
+                    .map_err(crate::codec::CodecError::Other)?;
                 (centre_mcs[0] - start_mcs[0], centre_mcs[1] - start_mcs[1])
             } else {
                 (
@@ -293,11 +369,11 @@ where
                 )
             };
             if p.flavor == FirmwareFlavor::RobotKrl {
-                toks.push(format!("C{}", num(i_val)));
-                toks.push(format!("D{}", num(j_val)));
+                toks.push(format!("C{}", num_checked(i_val, 'C')?));
+                toks.push(format!("D{}", num_checked(j_val, 'D')?));
             } else {
-                toks.push(format!("I{}", num(i_val)));
-                toks.push(format!("J{}", num(j_val)));
+                toks.push(format!("I{}", num_checked(i_val, 'I')?));
+                toks.push(format!("J{}", num_checked(j_val, 'J')?));
             }
         }
 
@@ -305,14 +381,14 @@ where
             // CNC, laser and robot targets emit motion-only commands and have no filament axis.
         } else if p.relative_e {
             if has_e_word {
-                toks.push(format!("E{}", num(s.filament.value())));
+                toks.push(format!("E{}", num_checked(s.filament.value(), 'E')?));
             } else if p.travel_g1_e0 {
                 toks.push("E0".to_string());
             }
         } else {
             e_abs = e_abs + s.filament;
             if has_e_word || p.travel_g1_e0 {
-                toks.push(format!("E{}", num(e_abs.value())));
+                toks.push(format!("E{}", num_checked(e_abs.value(), 'E')?));
             }
         }
 
@@ -349,8 +425,27 @@ where
 }
 
 /// Emit motion g-code lines for a toolpath.
+///
+/// **Precondition: `tp` carries only finite quantities and `p` is a valid emit configuration**
+/// (unit toolframe orientations under a five-axis model, an in-range [`CncFrame`], an explicit
+/// endpoint on every arc). This entry point is infallible for API stability — the out-of-workspace
+/// bindings (`crates/wasm`, `py/`) call it directly — so it has no way to report the rejection that
+/// [`emit_stream`] and [`emit_stream_to_writer`] perform.
+///
+/// On a violated precondition it **refuses the program**: debug builds panic on the
+/// `debug_assert`, release builds return no lines at all. It never emits a partial or
+/// nonsense-valued program, because a syntactically well-formed word carrying `NaN`/`inf` or a
+/// wrong-origin `G0` is the one output that reaches metal unchallenged.
+///
+/// Callers handling untrusted IR must use [`emit_stream`] and surface the error.
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
-    emit_stream(tp.segments.iter().cloned().map(Ok), p).unwrap()
+    match emit_stream(tp.segments.iter().cloned().map(Ok), p) {
+        Ok(lines) => lines,
+        Err(e) => {
+            debug_assert!(false, "emit() precondition violated: {e}");
+            Vec::new()
+        }
+    }
 }
 
 #[cfg(test)]

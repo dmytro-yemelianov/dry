@@ -2,7 +2,7 @@ use super::{
     parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-use crate::emit::{emit, format_number, EmitParams};
+use crate::emit::{emit_stream, format_number, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use std::f64::consts::{PI, TAU};
@@ -270,13 +270,15 @@ impl ImportedGcode {
                 .flat_map(|toolpath| toolpath.segments.iter().cloned())
                 .collect(),
         };
-        let emitted = emit(&flat_toolpath, params);
+        // the fallible emit entry point: a refused program must surface as an import error here, not
+        // as an empty line vector that the accounting below would read as "0 lines, all consumed".
+        let emitted = emit_toolpath_lines(&flat_toolpath, params)?;
         let mut emitted_offset = 0usize;
         let mut absolute_e_start = Length::ZERO;
         let mut span_motion_lines = Vec::with_capacity(span_toolpaths.len());
 
         for span_toolpath in span_toolpaths {
-            let span_line_count = emit(span_toolpath, params).len();
+            let span_line_count = emit_toolpath_lines(span_toolpath, params)?.len();
             let end = emitted_offset + span_line_count;
             if end > emitted.len() {
                 return Err(GcodeImportError::new(
@@ -308,6 +310,14 @@ impl ImportedGcode {
 
         Ok(span_motion_lines)
     }
+}
+
+fn emit_toolpath_lines(
+    toolpath: &Toolpath,
+    params: &EmitParams,
+) -> Result<Vec<String>, GcodeImportError> {
+    emit_stream(toolpath.segments.iter().cloned().map(Ok), params)
+        .map_err(|error| GcodeImportError::new(0, format!("emit refused the rewrite: {error}")))
 }
 
 fn modal_rewrite_prologue(
