@@ -403,6 +403,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn emit_params_maps_rs274_flavors() {
+        let profile = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("rs274".to_string()),
+                ..FirmwareProfile::default()
+            },
+            ..Profile::default()
+        };
+        assert_eq!(profile.emit_params().flavor, FirmwareFlavor::Rs274);
+
+        let profile_linux = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("linuxcnc".to_string()),
+                ..FirmwareProfile::default()
+            },
+            ..profile
+        };
+        assert_eq!(profile_linux.emit_params().flavor, FirmwareFlavor::Rs274);
+    }
+
+    #[test]
     fn profile_maps_to_contracts() {
         let profile = Profile::from_json(
             r#"{
