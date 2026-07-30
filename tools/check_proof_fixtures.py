@@ -80,10 +80,17 @@ RESOLVE_CHANNELS_SCHEMA = (
     / "fixtures"
     / "resolve-channels-refinement-fixtures.schema.json"
 )
+SIMULATE_METRICS_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "simulate-metrics-refinement-fixtures.schema.json"
+)
 DEPOSITION_SNAPSHOT = ROOT / "proofs" / "fixtures" / "deposition-refinement-v0.json"
 DEPOSITION_SCHEMA = (
     ROOT / "proofs" / "fixtures" / "deposition-refinement-fixtures.schema.json"
 )
+SIMULATE_METRICS_SNAPSHOT = ROOT / "proofs" / "fixtures" / "simulate-metrics-refinement-v0.json"
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
@@ -94,6 +101,7 @@ ORIENTATION_CONTRACT_LEAN_FIXTURE = "Dry/Tests/OrientationContractFixtures.lean"
 RESOLVE_ORIENTATION_LEAN_FIXTURE = "Dry/Tests/ResolveOrientationFixtures.lean"
 RESOLVE_CHANNELS_LEAN_FIXTURE = "Dry/Tests/ResolveChannelsFixtures.lean"
 DEPOSITION_LEAN_FIXTURE = "Dry/Tests/DepositionFixtures.lean"
+SIMULATE_METRICS_LEAN_FIXTURE = "Dry/Tests/SimulateMetricsFixtures.lean"
 
 
 
@@ -447,6 +455,39 @@ def validate_deposition_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_simulate_metrics_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(SIMULATE_METRICS_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read simulate-metrics fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(f"invalid simulate-metrics fixture schema: {error.message}") from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid simulate-metrics fixture JSON: " + "; ".join(messages)
+        )
+
+    case_ids = [case["id"] for case in document["cases"]]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("simulate-metrics fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -461,6 +502,7 @@ def main() -> int:
         resolve_orientation_actual = evaluate(RESOLVE_ORIENTATION_LEAN_FIXTURE)
         resolve_channels_actual = evaluate(RESOLVE_CHANNELS_LEAN_FIXTURE)
         deposition_actual = evaluate(DEPOSITION_LEAN_FIXTURE)
+        simulate_metrics_actual = evaluate(SIMULATE_METRICS_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
@@ -484,6 +526,9 @@ def main() -> int:
             resolve_channels_actual
         )
         deposition_document = validate_deposition_fixture(deposition_actual)
+        simulate_metrics_document = validate_simulate_metrics_fixture(
+            simulate_metrics_actual
+        )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
         return 1
@@ -504,6 +549,7 @@ def main() -> int:
         RESOLVE_ORIENTATION_SNAPSHOT: resolve_orientation_actual,
         RESOLVE_CHANNELS_SNAPSHOT: resolve_channels_actual,
         DEPOSITION_SNAPSHOT: deposition_actual,
+        SIMULATE_METRICS_SNAPSHOT: simulate_metrics_actual,
     }
 
     if args.write:
@@ -550,6 +596,7 @@ def main() -> int:
         f"{len(resolve_channels_document['cases'])} "
         "resolve-channels cases, "
         f"{len(deposition_document['cases'])} deposition cases, "
+        f"{len(simulate_metrics_document['cases'])} simulate-metrics cases, "
         "TSV + schema-valid JSON)"
     )
     return 0

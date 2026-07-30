@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/simulate-metrics-refinement-fixtures-v0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "model_checks", "cases"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "simulate-metrics-refinement-v0" },
+    "model_checks": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "number": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": { "type": "integer" },
+            "denominator": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["travel", "length", "speed", "volume", "filament", "dwell_seconds"],
+      "properties": {
+        "travel": { "type": "boolean" },
+        "length": { "$ref": "#/$defs/number" },
+        "speed": { "$ref": "#/$defs/number" },
+        "volume": { "$ref": "#/$defs/number" },
+        "filament": { "$ref": "#/$defs/number" },
+        "dwell_seconds": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
+          ]
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_time", "print_time", "travel_time", "extruding_distance", "travel_distance", "extruded_volume", "filament_length", "segment_count", "max_flow_rate"],
+      "properties": {
+        "total_time": { "$ref": "#/$defs/number" },
+        "print_time": { "$ref": "#/$defs/number" },
+        "travel_time": { "$ref": "#/$defs/number" },
+        "extruding_distance": { "$ref": "#/$defs/number" },
+        "travel_distance": { "$ref": "#/$defs/number" },
+        "extruded_volume": { "$ref": "#/$defs/number" },
+        "filament_length": { "$ref": "#/$defs/number" },
+        "segment_count": { "type": "integer", "minimum": 0 },
+        "max_flow_rate": { "$ref": "#/$defs/number" }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "segments", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/segment" }
+        },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}

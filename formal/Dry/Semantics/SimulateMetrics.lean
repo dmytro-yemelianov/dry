@@ -5,7 +5,8 @@ import Mathlib.Tactic
 # Simulation Metric Fold Semantics (FM1.5d)
 
 This module models toolpath simulation metric aggregation over exact rationals:
-- Metrics: `printTime`, `travelTime`, `printDistance`, `travelDistance`, `materialVolume`, `peakVolumetricFlow`;
+- Metrics: `totalTime`, `printTime`, `travelTime`, `extrudingDistance`, `travelDistance`,
+`extrudedVolume`, `filamentLength`, `segmentCount`, and `peakFlowRate`.
 - `stepMetrics` updates metrics for a single segment;
 - `foldMetrics` aggregates metrics sequentially across a list of segments;
 - Proves metric fold step properties over segment lists.
@@ -18,46 +19,71 @@ structure Segment where
   length : ℚ
   speed : ℚ
   volume : ℚ
+  filament : ℚ
   dwellSeconds : Option ℚ
 deriving DecidableEq, Repr
 
 structure Metrics where
+  totalTime : ℚ
   printTime : ℚ
   travelTime : ℚ
-  printDistance : ℚ
+  extrudingDistance : ℚ
   travelDistance : ℚ
-  materialVolume : ℚ
-  peakVolumetricFlow : ℚ
+  extrudedVolume : ℚ
+  filamentLength : ℚ
+  segmentCount : Nat
+  peakFlowRate : ℚ
 deriving DecidableEq, Repr
 
 def zeroMetrics : Metrics :=
-  { printTime := 0,
+  { totalTime := 0,
+    printTime := 0,
     travelTime := 0,
-    printDistance := 0,
+    extrudingDistance := 0,
     travelDistance := 0,
-    materialVolume := 0,
-    peakVolumetricFlow := 0 }
+    extrudedVolume := 0,
+    filamentLength := 0,
+    segmentCount := 0,
+    peakFlowRate := 0 }
 
 def maxRat (a b : ℚ) : ℚ :=
   if a ≤ b then b else a
 
-def stepMetrics (m : Metrics) (seg : Segment) : Metrics :=
-  let duration : ℚ :=
-    if seg.speed = 0 then seg.dwellSeconds.getD 0
-    else seg.length / seg.speed
-  let flowRate : ℚ :=
-    if duration = 0 then 0
-    else seg.volume / duration
-  if seg.travel then
-    { m with
-      travelTime := m.travelTime + duration,
-      travelDistance := m.travelDistance + seg.length }
+def segmentMotionTime (seg : Segment) : Option ℚ :=
+  if seg.speed = 0 then none
+  else if seg.length > 0 then
+    some (seg.length / seg.speed * 60)
+  else if seg.filament ≠ 0 then
+    some (abs seg.filament / seg.speed * 60)
   else
+    none
+
+def stepMetrics (m : Metrics) (seg : Segment) : Metrics :=
+  let withMaterials : Metrics :=
     { m with
-      printTime := m.printTime + duration,
-      printDistance := m.printDistance + seg.length,
-      materialVolume := m.materialVolume + seg.volume,
-      peakVolumetricFlow := maxRat m.peakVolumetricFlow flowRate }
+      extrudedVolume := m.extrudedVolume + seg.volume,
+      filamentLength := m.filamentLength + seg.filament,
+      totalTime := m.totalTime + seg.dwellSeconds.getD 0 }
+  match segmentMotionTime seg with
+  | none => withMaterials
+  | some duration =>
+      let afterMove : Metrics :=
+        { withMaterials with
+          totalTime := withMaterials.totalTime + duration,
+          segmentCount := withMaterials.segmentCount + 1
+          }
+      let withDistance : Metrics :=
+        if seg.travel then
+          { afterMove with
+            travelTime := afterMove.travelTime + duration,
+            travelDistance := afterMove.travelDistance + seg.length }
+        else
+          { afterMove with
+            printTime := afterMove.printTime + duration,
+            extrudingDistance := afterMove.extrudingDistance + seg.length }
+      let flowRate : ℚ := seg.volume / duration
+      { withDistance with
+        peakFlowRate := maxRat withDistance.peakFlowRate flowRate }
 
 def foldMetrics (init : Metrics) : List Segment → Metrics
   | [] => init

@@ -1369,6 +1369,44 @@ numeric = "not-applicable"
 refinement = "not-applicable"
 
 [[claim]]
+id = "FM1.SIMULATE_METRICS.NATIVE.REFINE.CORPUS"
+title = "Native Rust simulate over exact-rational segment traces agrees with Lean simulate-metrics semantics across the generated refinement corpus"
+theorem = "Dry.Tests.SimulateMetricsFixtures.simulateMetricsFixtureChecks"
+spec_version = "simulate-metrics-refinement-v0"
+source_dialect = "Seven Lean-generated exact-rational simulate-metrics segment cases"
+target_dialect = "Native Rust simulate fold semantics over L2 segment traces"
+relation = "observational"
+scope = "implementation"
+numeric_domain = "Exact rational fixture inputs and segment counts observed through finite binary64 values"
+assumptions = [
+  "Scope is strictly the committed generated simulate-metrics fixture corpus.",
+  "Native simulation observes all material, dwell, and per-move fields exactly as emitted in fixture segments."
+]
+exclusions = [
+  "Arbitrary toolpaths outside the committed seven-case corpus.",
+  "Non-representable numeric edge cases (NaN/Inf) and rounding effects from unit conversion beyond fixture values."
+]
+lean_source = "formal/Dry/Tests/SimulateMetricsFixtures.lean"
+rust_sources = [
+  "crates/core/src/engine.rs",
+  "crates/core/tests/simulate_metrics_refinement.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = [
+  "formal/Dry/Tests/SimulateMetricsFixtures.lean",
+  "proofs/fixtures/simulate-metrics-refinement-v0.json",
+  "proofs/fixtures/simulate-metrics-refinement-fixtures.schema.json",
+  "crates/core/tests/simulate_metrics_refinement.rs",
+  "tools/check_proof_fixtures.py"
+]
+
+[claim.status]
+abstract = "not-applicable"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"
 title = "The abstract exact-rational core verifier predicates imply their modeled inequalities"
 theorem = "Dry.Semantics.VerifierSoundness.coreValidators_sound"
