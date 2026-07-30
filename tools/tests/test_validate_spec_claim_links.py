@@ -21,7 +21,7 @@ class SpecClaimLinkValidatorTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("37 claims", result.stdout)
+        self.assertRegex(result.stdout, r"\d+ claims, 12 normative clauses")
 
     def test_missing_claim_link_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

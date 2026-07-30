@@ -6,12 +6,12 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) a
 
 ## Registry summary
 
-- Registered claims: **37**.
-- Abstract status: `proved` 37.
-- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 23.
-- Implementation-refinement status: `checked` 11, `pending` 18, `not-applicable` 8.
-- Implementation-scoped claims meeting all registry gates: **5/5**.
-- Normative clause links: **37/37** claims across **12** stable clauses.
+- Registered claims: **38**.
+- Abstract status: `proved` 38.
+- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 24.
+- Implementation-refinement status: `checked` 12, `pending` 18, `not-applicable` 8.
+- Implementation-scoped claims meeting all registry gates: **6/6**.
+- Normative clause links: **38/38** claims across **12** stable clauses.
 
 The Lean release gate is reproducible with `lake build --wfail`. The job count printed by Lake is a build-system job count, not a theorem count, so this report does not present it as proof coverage. Rust tests and mutation manifests are linked only on claims that register them as refinement evidence.
 
@@ -47,6 +47,7 @@ The Lean release gate is reproducible with `lake build --wfail`. The job count p
 | `FM1.DIMENSION.DEPOSITION` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Dimension.deposition_dimension`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
 | `FM1.UNIT.NORMALIZE_CONVERT` | [`DRY.QUANTITY.DIMENSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Unit.normalize_convert`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
 | `FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS` | [`DRY.RESOLVE.ORIENTATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations`](../../formal/Dry/Semantics/ResolveOrientation.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.DEPOSITION.NATIVE.REFINE.CORPUS` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.DepositionFixtures.depositionFixtureChecks`](../../formal/Dry/Tests/DepositionFixtures.lean) | `deposition-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
 | `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS` | [`DRY.RESOLVE.ORIENTATION_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean) | `resolve-orientation-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
 | `FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ResolveChannels.resolve_append`](../../formal/Dry/Semantics/ResolveChannels.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean) | `resolve-channels-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
@@ -832,6 +833,32 @@ Orientation resolution is deterministically folded, defaults to Z-axis, propagat
 
 - Non-finite coordinates or zero-magnitude orientation vectors, which are rejected at validation.
 - Floating-point rounding error in physical geometry calculation.
+
+### `FM1.DEPOSITION.NATIVE.REFINE.CORPUS`
+
+Native Rust resolution refines the exact-rational deposition volume laws on the generated corpus
+
+- Scope/relation: `implementation` / `observational`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
+- Spec profile: `deposition-refinement-v0`; `Four Lean-generated exact rational deposition cases` → `Native Rust resolve_checked line deposition volume and filament observations`.
+- Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
+- Numeric domain: Exact rational fixture inputs observed through finite binary64 values.
+- Lean theorem: [`Dry.Tests.DepositionFixtures.depositionFixtureChecks`](../../formal/Dry/Tests/DepositionFixtures.lean).
+- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`deposition_refinement.rs`](../../crates/core/tests/deposition_refinement.rs).
+- Numeric evidence: —.
+- Refinement evidence: [`DepositionFixtures.lean`](../../formal/Dry/Tests/DepositionFixtures.lean), [`deposition-refinement-v0.json`](../../proofs/fixtures/deposition-refinement-v0.json), [`deposition-refinement-fixtures.schema.json`](../../proofs/fixtures/deposition-refinement-fixtures.schema.json), [`deposition_refinement.rs`](../../crates/core/tests/deposition_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
+
+**Assumptions**
+
+- Scope is strictly the committed generated four-case deposition fixture corpus.
+- The native test establishes an explicit origin before the measured move.
+- The comparison tolerance is 1e-12 relative to the expected volume and filament values.
+
+**Exclusions**
+
+- Arbitrary operation sequences outside the committed fixture corpus.
+- Arc, spline, stationary Deposit, retraction, and non-finite input deposition paths.
+- Universal binary64 refinement and cross-platform math parity beyond existing gates.
 
 ### `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS`
 

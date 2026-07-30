@@ -1155,6 +1155,46 @@ numeric = "not-applicable"
 refinement = "not-applicable"
 
 [[claim]]
+id = "FM1.DEPOSITION.NATIVE.REFINE.CORPUS"
+title = "Native Rust resolution refines the exact-rational deposition volume laws on the generated corpus"
+theorem = "Dry.Tests.DepositionFixtures.depositionFixtureChecks"
+spec_version = "deposition-refinement-v0"
+source_dialect = "Four Lean-generated exact rational deposition cases"
+target_dialect = "Native Rust resolve_checked line deposition volume and filament observations"
+relation = "observational"
+scope = "implementation"
+numeric_domain = "Exact rational fixture inputs observed through finite binary64 values"
+assumptions = [
+  "Scope is strictly the committed generated four-case deposition fixture corpus.",
+  "The native test establishes an explicit origin before the measured move.",
+  "The comparison tolerance is 1e-12 relative to the expected volume and filament values."
+]
+exclusions = [
+  "Arbitrary operation sequences outside the committed fixture corpus.",
+  "Arc, spline, stationary Deposit, retraction, and non-finite input deposition paths.",
+  "Universal binary64 refinement and cross-platform math parity beyond existing gates."
+]
+lean_source = "formal/Dry/Tests/DepositionFixtures.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs",
+  "crates/core/tests/deposition_refinement.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = [
+  "formal/Dry/Tests/DepositionFixtures.lean",
+  "proofs/fixtures/deposition-refinement-v0.json",
+  "proofs/fixtures/deposition-refinement-fixtures.schema.json",
+  "crates/core/tests/deposition_refinement.rs",
+  "tools/check_proof_fixtures.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
 id = "FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS"
 title = "Native Rust resolve_checked accurately refines Lean orientation resolution semantics across generated test corpus"
 theorem = "Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks"
