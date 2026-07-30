@@ -325,16 +325,19 @@ fn modal_rewrite_prologue(
     reset_flow: bool,
     absolute_e_start: Length,
 ) -> Vec<String> {
-    let mut lines = vec![
-        "G21".to_string(),
-        "G90".to_string(),
-        if params.relative_e { "M83" } else { "M82" }.to_string(),
-    ];
-    if !params.relative_e {
-        lines.push(format!("G92 E{}", format_number(absolute_e_start.value())));
-    }
-    if reset_flow {
-        lines.push("M221 S100".to_string());
+    // G21/G90 are universal; every other line here addresses a filament axis. CNC, laser and robot
+    // controllers have none, and an unknown M-code aborts the program on LinuxCNC/Fanuc — so the
+    // extruder modals are gated on the same predicate the emitter uses to decide whether to write
+    // `E` words at all.
+    let mut lines = vec!["G21".to_string(), "G90".to_string()];
+    if params.flavor.has_extruder() {
+        lines.push(if params.relative_e { "M83" } else { "M82" }.to_string());
+        if !params.relative_e {
+            lines.push(format!("G92 E{}", format_number(absolute_e_start.value())));
+        }
+        if reset_flow {
+            lines.push("M221 S100".to_string());
+        }
     }
     lines
 }
@@ -960,6 +963,10 @@ mod tests {
 
     /// The RS-274 frame belongs to the program, not to a span: a caller handing a cnc profile's
     /// `EmitParams` straight to the rewrite path must not get a preamble spliced into every span.
+    ///
+    /// The same applies to the *modal* prologue: `M83`/`M82`/`G92 E`/`M221` address a filament axis
+    /// that an RS-274 controller does not have, and an unknown M-code aborts the program on
+    /// LinuxCNC/Fanuc. Asserting only on the frame lines let that regression pass unseen.
     #[test]
     fn source_preserving_emit_never_splices_the_cnc_frame() {
         let imported = import_gcode_with_map(
@@ -986,6 +993,39 @@ mod tests {
                 "frame line {frame_line:?} spliced into a rewritten span: {lines:?}"
             );
         }
+        // no filament-axis modal reaches an RS-274 program either
+        for line in &lines {
+            assert!(
+                !(line == "M83"
+                    || line == "M82"
+                    || line == "M221 S100"
+                    || line.starts_with("G92 E")),
+                "extruder modal {line:?} spliced into an RS-274 span: {lines:?}"
+            );
+        }
+        // and no motion line carries an E word
+        assert!(
+            !lines.iter().any(|line| line
+                .split(' ')
+                .any(|word| word.starts_with('E') && word.len() > 1)),
+            "E word in an RS-274 rewrite: {lines:?}"
+        );
+        // the same rewrite under absolute E must not reintroduce `M82`/`G92 E`
+        let absolute = imported
+            .emit_source_preserving(
+                &imported.toolpath,
+                &EmitParams {
+                    relative_e: false,
+                    ..framed.clone()
+                },
+            )
+            .unwrap();
+        assert!(
+            !absolute
+                .iter()
+                .any(|line| line == "M82" || line.starts_with("G92 E")),
+            "absolute-E modal spliced into an RS-274 span: {absolute:?}"
+        );
         // and the rewrite still lines up with the unframed params
         assert_eq!(
             lines,
