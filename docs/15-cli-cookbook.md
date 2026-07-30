@@ -69,7 +69,10 @@ program. The program frame (units/plane/distance mode, WCS, tool change, spindle
 from the profile's `machine.cnc` block; without a profile carrying it, `emit --format rs274` emits bare
 motion that a real controller would reject.
 
-`cnc.json`:
+`cnc.json` (the minimum; the committed
+[`spec/examples/profiles/mill-3axis-rs274.json`](../spec/examples/profiles/mill-3axis-rs274.json) adds a
+build volume, a feedrate range and `coolant`, and the field table is in
+[`11-profiles-and-reports.md`](11-profiles-and-reports.md) §1):
 ```json
 {
   "version": 1,
