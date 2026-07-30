@@ -225,7 +225,7 @@ fn tool_plus_z_is_all_zeros() {
 
 #[test]
 fn default_emit_byte_identical_to_explicit_ab() {
-    // an oriented design emitted with the default EmitParams (AB) must equal the explicit-AB output.
+    // an oriented design emitted with default EmitParams (AB) must equal explicit-AB output.
     let tp = resolve(
         &design(
             r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},

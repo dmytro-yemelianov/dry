@@ -1,7 +1,7 @@
-//! P2.x — the 5-axis target emitter: when `five_axis` is set, the toolframe orientation drives rotary
-//! `A`/`B` words (degrees), derived from the tool-direction vector by a documented AB-head convention:
-//! `B = atan2(i, k)` (lead in X-Z), `A = atan2(j, hypot(i, k))` (tilt toward Y). The default emit is
-//! 3-axis (orientation dropped), so motion g-code is byte-identical to the oracle.
+//! P2.x — the 5-axis target emitter: when `five_axis` is set, the toolframe orientation drives
+//! rotary `A`/`B`/`C` words (degrees). With default `EmitParams` this maps using the AB model
+//! (`A = atan2(j, hypot(i, k))`, `B = atan2(i, k)`); the test remains valid for a single default
+//! AB-path check, while profile/flag overrides are validated elsewhere.
 
 use dry_core::{emit, resolve, Design, EmitParams, ResolveParams};
 
@@ -20,7 +20,7 @@ fn five_axis() -> EmitParams {
 
 #[test]
 fn orientation_drives_a_b_words() {
-    // tool tilted 36.87° toward +X: v = [0.6, 0, 0.8] → B = atan2(0.6, 0.8) = 36.869898°, A = 0.
+    // tool tilted 36.87° toward +X: v = [0.6, 0, 0.8] → A = 0°, B = acos(0.8) = 36.869898°.
     let tp = resolve(
         &design(
             r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
@@ -31,15 +31,15 @@ fn orientation_drives_a_b_words() {
     );
     let g = emit(&tp, &five_axis());
     assert!(
-        g.iter().any(|l| l.contains("B36.869898")),
-        "expected B angle: {g:?}"
+        g.iter().any(|l| l.contains("A0")),
+        "expected A angle: {g:?}"
     );
-    assert!(g.iter().any(|l| l.contains("A0")), "expected A0: {g:?}");
+    assert!(g.iter().any(|l| l.contains("B36.869898")), "expected B angle: {g:?}");
 }
 
 #[test]
 fn cardinal_tilts_map_to_90_degrees() {
-    // tool along +X → B90; tool along +Y → A90.
+    // tool along +X → A0 + B90; tool along +Y → A90.
     let bx = resolve(
         &design(
             r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
@@ -48,7 +48,9 @@ fn cardinal_tilts_map_to_90_degrees() {
         ),
         &ResolveParams::default(),
     );
-    assert!(emit(&bx, &five_axis()).iter().any(|l| l.contains("B90")));
+    let bx_out = emit(&bx, &five_axis());
+    assert!(bx_out.iter().any(|l| l.contains("A0")));
+    assert!(bx_out.iter().any(|l| l.contains("B90")));
 
     let ay = resolve(
         &design(
@@ -58,7 +60,9 @@ fn cardinal_tilts_map_to_90_degrees() {
         ),
         &ResolveParams::default(),
     );
-    assert!(emit(&ay, &five_axis()).iter().any(|l| l.contains("A90")));
+    let ay_out = emit(&ay, &five_axis());
+    assert!(ay_out.iter().any(|l| l.contains("A90")));
+    assert!(ay_out.iter().any(|l| l.contains("B0")));
 }
 
 #[test]

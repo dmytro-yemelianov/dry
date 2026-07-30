@@ -9,8 +9,9 @@ use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
-    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
-    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath,
+    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams,
+    Kinematics, REFERENCE_FIVE_AXIS_MACHINE, OptimizeMode, Profile, RewriteReport, RewriteSpanResult,
+    Toolpath,
 };
 use std::fs;
 use std::io::Write;
@@ -811,7 +812,7 @@ fn run(cli: Cli) -> ExitCode {
             let kinematics = rotary_axes
                 .map(Into::into)
                 .or_else(|| profile.as_ref().and_then(|p| p.machine.five_axis))
-                .unwrap_or_default();
+                .unwrap_or(REFERENCE_FIVE_AXIS_MACHINE);
             let mut flavor = profile
                 .as_ref()
                 .map(|p| p.emit_params().flavor)

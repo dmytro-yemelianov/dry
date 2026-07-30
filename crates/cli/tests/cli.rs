@@ -384,6 +384,81 @@ fn emit_five_axis_respects_profile_model_and_flag_override() {
 }
 
 #[test]
+fn emit_five_axis_defaults_to_reference_bc_when_no_kinematics_provided() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-five-axis-default-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [0.0, 0.0, 0.2],
+              "end": [10.0, 0.0, 0.2],
+              "travel": false,
+              "speed": 1000.0,
+              "length": 10.0,
+              "volume": 0.5,
+              "filament": 0.2,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [1.0, 0.0, 0.0]
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let implicit = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--five-axis"])
+        .output()
+        .unwrap();
+    assert!(
+        implicit.status.success(),
+        "dry emit --five-axis should default to reference machine kinematics"
+    );
+    let implicit = String::from_utf8(implicit.stdout).unwrap();
+
+    let explicit_bc = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        explicit_bc.status.success(),
+        "dry emit --five-axis --rotary-axes bc should succeed"
+    );
+    let explicit_bc = String::from_utf8(explicit_bc.stdout).unwrap();
+
+    assert_eq!(
+        implicit, explicit_bc,
+        "absent machine.five_axis and --rotary-axes should use the reference BC model"
+    );
+    assert!(
+        implicit.contains("B90"),
+        "reference BC model should emit B90 for +X orientation"
+    );
+    assert!(
+        implicit.contains("C0"),
+        "reference BC model should emit C0 for +X orientation"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn emit_profile_linuxcnc_flavor_is_implicit_rs274_with_step_nc() {
     let path = fixture("vectors/five_axis", "input");
     let profile_path = std::env::temp_dir().join(format!(

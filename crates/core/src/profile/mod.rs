@@ -3,7 +3,7 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
-use crate::emit::{EmitParams, FirmwareFlavor, Kinematics};
+use crate::emit::{EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
@@ -390,6 +390,7 @@ impl Profile {
         };
         let mut params = EmitParams {
             flavor,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
             ..EmitParams::default()
         };
 
@@ -451,6 +452,19 @@ mod tests {
         assert_eq!(
             profile_krl_alias.emit_params().flavor,
             FirmwareFlavor::RobotKrl
+        );
+    }
+
+    #[test]
+    fn emit_params_uses_reference_five_axis_machine_by_default() {
+        let base = Profile {
+            machine: MachineProfile::default(),
+            ..Profile::default()
+        };
+        assert_eq!(
+            base.emit_params().kinematics,
+            REFERENCE_FIVE_AXIS_MACHINE,
+            "when machine.five_axis is omitted, emit must default to reference BC machine model"
         );
     }
 
