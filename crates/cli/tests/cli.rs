@@ -2093,3 +2093,169 @@ fn import_printer_cfg_matches_golden() {
         3000.0
     ); // sanity vs the fixture's max_accel
 }
+
+#[test]
+fn generate_pocket_emits_a_framed_rs274_program() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let pid = std::process::id();
+    let ir = std::env::temp_dir().join(format!("dry-cli-generate-pocket-{pid}-{stamp}.json"));
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-generate-pocket-profile-{pid}-{stamp}.json"
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+        "version": 1,
+        "firmware": { "flavor": "rs274" },
+        "machine": { "cnc": { "tool": 1, "spindle_rpm": 10000 } }
+    }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "generate",
+            "pocket",
+            "--shape",
+            "rect",
+            "--x",
+            "0",
+            "--y",
+            "0",
+            "--width",
+            "60",
+            "--height",
+            "40",
+            "--tool-diameter",
+            "6",
+            "--depth",
+            "5",
+            "--depth-per-pass",
+            "2.5",
+            "-o",
+            ir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "generate pocket failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            ir.to_str().unwrap(),
+            "--format",
+            "rs274",
+            "--profile",
+            profile_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&ir);
+    let _ = std::fs::remove_file(&profile_path);
+    assert!(
+        out.status.success(),
+        "emit failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        gcode.starts_with("G21 G17 G90\nG54\nT1 M6\nS10000 M3\n"),
+        "got head: {}",
+        &gcode[..gcode.len().min(120)]
+    );
+    assert!(gcode.trim_end().ends_with("M30"));
+    assert!(!gcode.contains(" E"), "rs274 must carry no extruder words");
+    assert!(gcode.contains("G0"), "safe-Z rapids must emit as G0");
+}
+
+#[test]
+fn generate_pocket_circle_profile_mode() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let ring = std::env::temp_dir().join(format!(
+        "dry-cli-generate-pocket-ring-{}-{stamp}.json",
+        std::process::id()
+    ));
+
+    let out = Command::new(bin())
+        .args([
+            "generate",
+            "pocket",
+            "--shape",
+            "circle",
+            "--cx",
+            "0",
+            "--cy",
+            "0",
+            "--radius",
+            "15",
+            "--tool-diameter",
+            "6",
+            "--depth",
+            "3",
+            "--mode",
+            "profile",
+            "-o",
+            ring.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "generate pocket failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let out = Command::new(bin())
+        .args(["emit", ring.to_str().unwrap(), "--format", "rs274"])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&ring);
+    assert!(
+        out.status.success(),
+        "emit failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        gcode.contains("G3") || gcode.contains("G2"),
+        "circle profile must emit arcs"
+    );
+}
+
+#[test]
+fn generate_pocket_rejects_oversized_tool() {
+    let out = Command::new(bin())
+        .args([
+            "generate",
+            "pocket",
+            "--shape",
+            "rect",
+            "--x",
+            "0",
+            "--y",
+            "0",
+            "--width",
+            "10",
+            "--height",
+            "10",
+            "--tool-diameter",
+            "12",
+            "--depth",
+            "1",
+            "-o",
+            "/dev/null",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+}
