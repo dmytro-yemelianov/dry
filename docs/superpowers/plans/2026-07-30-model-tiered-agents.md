@@ -282,4 +282,4 @@ Expected: `kernel-engineer.md  reviewer.md  routine-dev.md  scout.md` and `# dry
 
 - [ ] **Step 2: Smoke delegation note**
 
-Agent definitions load at session start; the current session cannot see newly created ones. Verify in the NEXT session: the four agents should appear in the available-agents list, and a one-line delegation to `scout` (e.g. "where is EmitParams defined?") should return `file:line` references without attempting any write. If the agents do not appear, check frontmatter delimiters (`---` on lines 1 and N) for typos.
+Agent definitions may not be visible until a new session (older Claude Code versions do not hot-reload `.claude/agents/`). Verify in the NEXT session: the four agents should appear in the available-agents list, and a one-line delegation to `scout` (e.g. "where is EmitParams defined?") should return `file:line` references without attempting any write. If the agents do not appear, check frontmatter delimiters (`---` on lines 1 and N) for typos.
