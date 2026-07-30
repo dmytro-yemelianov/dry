@@ -266,6 +266,94 @@ fn test_step_nc_emitter_is_deterministic() {
 }
 
 #[test]
+fn test_step_nc_emitter_includes_five_axis_toolframe_intent() {
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![
+            Segment {
+                start: [None, None, None],
+                end: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                travel: true,
+                speed: Feedrate(1200.0),
+                length: Length::mm(10.0),
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::Line,
+                centre: None,
+                clockwise: false,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                manual_gcode: None,
+                orientation: Some([0.0, 0.0, 1.0]),
+                control_points: None,
+            },
+            Segment {
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.4)),
+                ],
+                travel: false,
+                speed: Feedrate(1200.0),
+                length: Length::mm(10.0),
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::Line,
+                centre: None,
+                clockwise: false,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                manual_gcode: None,
+                orientation: Some([1.0, 0.0, 0.0]),
+                control_points: None,
+            },
+        ],
+    };
+
+    let step_nc = emit_step_nc(
+        &tp,
+        &crate::emit::EmitParams {
+            ..crate::emit::EmitParams::default()
+        },
+    );
+
+    let toolframes: Vec<&str> = step_nc
+        .lines()
+        .filter(|line| line.trim_start().starts_with("<toolframe"))
+        .collect();
+    assert_eq!(toolframes.len(), 2);
+    assert!(toolframes[0].contains("i=\"0\""));
+    assert!(toolframes[0].contains("j=\"0\""));
+    assert!(toolframes[0].contains("k=\"1\""));
+    assert!(toolframes[1].contains("i=\"1\""));
+    assert!(toolframes[1].contains("j=\"0\""));
+    assert!(toolframes[1].contains("k=\"0\""));
+}
+
+#[test]
 fn test_rs274_output_is_parseable_and_importable() {
     use super::{emit, EmitParams, FirmwareFlavor};
     use crate::gcode::{import_gcode, parse_gcode_lines, GcodeImportParams};
