@@ -926,6 +926,9 @@ git commit -m "feat(emit): render the RS-274 program frame from CncFrame (P5.3, 
 
 - [ ] **Step 1: Write the failing CLI test** (follow the existing `assert_cmd`/process-spawn style used throughout `crates/cli/tests/cli.rs` — read two neighboring tests first and copy their harness idiom):
 
+> [Editorial note, added post-review] The `--mode` flag in the sketches below shipped as
+> `--cut-mode`, to keep it distinct from `--profile <machine.json>`. Plan text left as written.
+
 ```rust
 #[test]
 fn generate_pocket_emits_a_framed_rs274_program() {

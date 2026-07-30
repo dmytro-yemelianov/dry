@@ -18,7 +18,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   The frame is opt-in and RS-274-only: without `machine.cnc`, and for every other flavor, emitted
   g-code is byte-identical to before. Acceptance is `crates/core/tests/cnc_pocket_e2e.rs` with the
   drift-gated golden `conformance/reports/cnc/pocket-rect-rs274.ngc`; the program has not been run on
-  a physical controller.
+  a physical controller. Generator inputs are bounded at 100,000 total passes (depth passes × rings
+  for a pocket, depth passes for a profile), and degenerate fits — a tool filling the pocket in both
+  directions, or leaving a cutting region below emission resolution — are rejected instead of
+  emitting a program with no cutting moves; a tool filling exactly one direction is a slot and still
+  cuts.
 
 ## [0.4.0] - 2026-07-28
 

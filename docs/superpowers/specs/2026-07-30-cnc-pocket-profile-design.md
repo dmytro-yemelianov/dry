@@ -175,6 +175,10 @@ dry generate pocket --shape rect --x 0 --y 0 --width 60 --height 40 \
     [--profile cnc.json] -o pocket.json
 ```
 
+> [Editorial note, added post-review] `--mode` shipped as `--cut-mode`, to keep it distinct from
+> the `--profile <machine.json>` flag on the same subcommand. The design text above is left as
+> written.
+
 Outputs resolved Dry IR JSON (generator → `resolve_checked`, feeds every existing subcommand).
 The end-to-end recipe becomes:
 
@@ -208,7 +212,7 @@ generator's feeds.
 3. **Byte-drift guards:** a golden pocket program under `conformance/` (drift-gated like the
    compare/simulate corpora); existing rs274/GRBL fixtures unchanged when `cnc_frame` is absent.
 4. **CLI regression (`crates/cli/tests/cli.rs`):** the three-command recipe above runs green;
-   `--mode profile` emits a single contour per pass.
+   `--mode profile` emits a single contour per pass. [Editorial note: shipped as `--cut-mode`.]
 5. **Docs:** `15-cli-cookbook.md` recipe + regenerate `docs/site/reference/generated` (the drift
    gate that failed on 2026-07-30 — regeneration is part of the task, not an afterthought).
 6. **Manual (documented, not CI):** load the golden `.ngc` in LinuxCNC sim; note the result in the
