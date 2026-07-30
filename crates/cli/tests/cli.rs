@@ -1,5 +1,6 @@
 //! End-to-end CLI tests: run the `dry` binary on a conformance fixture and check its output.
 
+use dry_core::{import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -503,6 +504,140 @@ fn emit_rs274_flag_uses_rs274_output_mode() {
         String::from_utf8(default.stdout).unwrap(),
         "rs274 output should remain a conservative valid motion program"
     );
+}
+
+#[test]
+fn emit_rs274_output_is_parseable_and_step_nc_is_written() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [20.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 0.0, 0.0],
+              "end": [20.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 20.0, 0.0],
+              "end": [0.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 20.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 0.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": true,
+              "speed": 1200.0,
+              "length": 0.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "dwell",
+              "centre": null,
+              "clockwise": false,
+              "dwell_s": 0.5
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--format",
+            "rs274",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "emit --format rs274 --step-nc should succeed"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 5,
+        "RS-274 emit should produce one motion record per segment"
+    );
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<stepnc"));
+    assert!(sidecar.contains("workingstep id=\"ws-4\""));
+
+    let _ = std::fs::remove_file(path);
+    let _ = std::fs::remove_file(step_nc);
 }
 
 #[test]

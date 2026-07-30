@@ -264,3 +264,168 @@ fn test_step_nc_emitter_is_deterministic() {
     assert!(step_nc.contains("<workingstep id=\"ws-0\""));
     assert!(step_nc.contains("<motion kind=\"line\""));
 }
+
+#[test]
+fn test_rs274_output_is_parseable_and_importable() {
+    use super::{emit, EmitParams, FirmwareFlavor};
+    use crate::gcode::{import_gcode, parse_gcode_lines, GcodeImportParams};
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let mut segments = Vec::new();
+    let z = Some(Length::mm(0.0));
+    let speed = Feedrate(1200.0);
+    let length = Length::mm(20.0);
+
+    segments.push(Segment {
+        start: [None, None, None],
+        end: [Some(Length::mm(20.0)), Some(Length::mm(0.0)), z],
+        travel: false,
+        speed,
+        length,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    });
+
+    segments.push(Segment {
+        start: [Some(Length::mm(20.0)), Some(Length::mm(0.0)), z],
+        end: [Some(Length::mm(20.0)), Some(Length::mm(20.0)), z],
+        travel: false,
+        speed,
+        length,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    });
+
+    segments.push(Segment {
+        start: [Some(Length::mm(20.0)), Some(Length::mm(20.0)), z],
+        end: [Some(Length::mm(0.0)), Some(Length::mm(20.0)), z],
+        travel: false,
+        speed,
+        length,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    });
+
+    segments.push(Segment {
+        start: [Some(Length::mm(0.0)), Some(Length::mm(20.0)), z],
+        end: [Some(Length::mm(0.0)), Some(Length::mm(0.0)), z],
+        travel: false,
+        speed,
+        length,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    });
+
+    segments.push(Segment {
+        start: [Some(Length::mm(0.0)), Some(Length::mm(0.0)), z],
+        end: [Some(Length::mm(0.0)), Some(Length::mm(0.0)), z],
+        travel: true,
+        speed,
+        length: Length::ZERO,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Dwell,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: Some(0.5),
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    });
+
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments,
+    };
+
+    let gcode = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            relative_e: false,
+            ..EmitParams::default()
+        },
+    )
+    .join("\n");
+
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let parsed_motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, crate::gcode::GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        parsed_motion_count, 5,
+        "all emitted RS-274 lines should parse as motion records"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments[4].kind, SegmentKind::Dwell);
+}
