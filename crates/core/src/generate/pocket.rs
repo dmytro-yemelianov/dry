@@ -63,7 +63,6 @@ impl std::fmt::Display for PocketError {
 
 impl std::error::Error for PocketError {}
 
-#[allow(dead_code)]
 struct Resolved {
     tool_r: f64,
     step: f64,
@@ -152,6 +151,153 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
     })
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum RectPass {
+    Ring { hw: f64, hh: f64 },
+    Line { half_len: f64, along_x: bool },
+}
+
+fn depth_levels(r: &Resolved) -> Vec<f64> {
+    let mut levels = Vec::new();
+    let bottom = r.z_top - r.depth;
+    let mut z = r.z_top;
+    loop {
+        z -= r.depth_per_pass;
+        if z <= bottom + 1e-12 {
+            levels.push(bottom);
+            return levels;
+        }
+        levels.push(z);
+    }
+}
+
+/// Contour-parallel rectangle passes, innermost first. `hw`/`hh` are the OUTERMOST
+/// ring's half-extents (wall already inset by the tool radius).
+fn rect_rings(hw: f64, hh: f64, step: f64) -> Vec<RectPass> {
+    let mut out = Vec::new(); // built outermost-first, reversed at the end
+    let mut k = 0u32;
+    loop {
+        let (sw, sh) = (hw - k as f64 * step, hh - k as f64 * step);
+        if sw > 0.0 && sh > 0.0 {
+            out.push(RectPass::Ring { hw: sw, hh: sh });
+            k += 1;
+            continue;
+        }
+        // the smaller dimension collapsed: one center pass along the dominant axis
+        let half_len = sw.max(sh);
+        if half_len > 0.0 {
+            out.push(RectPass::Line {
+                half_len,
+                along_x: sw >= sh,
+            });
+        }
+        break;
+    }
+    out.reverse();
+    out
+}
+
+fn rect_passes(cx: f64, cy: f64, rings: &[RectPass], r: &Resolved) -> Vec<Op> {
+    let mut ops = Vec::new();
+    let entry_xy = match rings.first() {
+        Some(RectPass::Ring { hw, hh }) => (cx - hw, cy - hh),
+        Some(RectPass::Line {
+            half_len,
+            along_x: true,
+        }) => (cx - half_len, cy),
+        Some(RectPass::Line {
+            half_len,
+            along_x: false,
+        }) => (cx, cy - half_len),
+        None => (cx, cy),
+    };
+    for &z in &depth_levels(r) {
+        // rapid to entry above the work, then plunge
+        ops.push(Op::Extruder { on: false });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(r.safe_z),
+        });
+        ops.push(Op::Move {
+            x: Some(entry_xy.0),
+            y: Some(entry_xy.1),
+            z: Some(r.safe_z),
+        });
+        ops.push(Op::Speed {
+            print: r.plunge_feed,
+        });
+        ops.push(Op::Extruder { on: true });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(z),
+        });
+        ops.push(Op::Speed { print: r.cut_feed });
+        for pass in rings {
+            match *pass {
+                RectPass::Ring { hw, hh } => {
+                    // link into the ring's start corner (a cutting stepover move), then 4 sides
+                    ops.push(Op::Move {
+                        x: Some(cx - hw),
+                        y: Some(cy - hh),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(cx + hw),
+                        y: Some(cy - hh),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(cx + hw),
+                        y: Some(cy + hh),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(cx - hw),
+                        y: Some(cy + hh),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(cx - hw),
+                        y: Some(cy - hh),
+                        z: None,
+                    });
+                }
+                RectPass::Line { half_len, along_x } => {
+                    let (ax, ay, bx, by) = if along_x {
+                        (cx - half_len, cy, cx + half_len, cy)
+                    } else {
+                        (cx, cy - half_len, cx, cy + half_len)
+                    };
+                    ops.push(Op::Move {
+                        x: Some(ax),
+                        y: Some(ay),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(bx),
+                        y: Some(by),
+                        z: None,
+                    });
+                    ops.push(Op::Move {
+                        x: Some(ax),
+                        y: Some(ay),
+                        z: None,
+                    });
+                }
+            }
+        }
+        ops.push(Op::Extruder { on: false });
+        ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(r.safe_z),
+        });
+    }
+    ops
+}
+
 /// Generate the L1 ops. Structured failure on invalid options, never a panic.
 pub fn try_pocket_ops(o: &PocketOptions) -> Result<Vec<Op>, PocketError> {
     let r = validate(o)?;
@@ -167,9 +313,23 @@ pub fn try_pocket_ops(o: &PocketOptions) -> Result<Vec<Op>, PocketError> {
     Ok(ops)
 }
 
-// Filled in by the geometry tasks; keeping it separate keeps try_pocket_ops final.
-fn passes(_o: &PocketOptions, _r: &Resolved) -> Result<Vec<Op>, PocketError> {
-    Ok(Vec::new())
+fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
+    match (&o.shape, o.mode) {
+        (
+            PocketShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            },
+            CutMode::Pocket,
+        ) => {
+            let (cx, cy) = (x + width / 2.0, y + height / 2.0);
+            let rings = rect_rings(width / 2.0 - r.tool_r, height / 2.0 - r.tool_r, r.step);
+            Ok(rect_passes(cx, cy, &rings, r))
+        }
+        _ => Ok(Vec::new()), // circle + profile modes land in Task 3
+    }
 }
 
 /// Panicking convenience over [`try_pocket_ops`]; precondition: valid Dry pocket options.
@@ -208,6 +368,36 @@ mod tests {
             safe_z: None,
             cut_feed: None,
             plunge_feed: None,
+        }
+    }
+
+    fn dist_point_segment(px: f64, py: f64, s: &crate::ir::Segment) -> f64 {
+        let start_x = s.start[0].map(|l| l.value());
+        let start_y = s.start[1].map(|l| l.value());
+        let end_x = s.end[0].map(|l| l.value());
+        let end_y = s.end[1].map(|l| l.value());
+
+        match (start_x, start_y, end_x, end_y) {
+            (Some(sx), Some(sy), Some(ex), Some(ey)) => {
+                // Compute closest point on segment to (px, py)
+                let dx = ex - sx;
+                let dy = ey - sy;
+                let len_sq = dx * dx + dy * dy;
+
+                if len_sq == 0.0 {
+                    // Degenerate segment: point-to-point
+                    return ((px - sx).powi(2) + (py - sy).powi(2)).sqrt();
+                }
+
+                let t = ((px - sx) * dx + (py - sy) * dy) / len_sq;
+                let t = t.clamp(0.0, 1.0);
+
+                let closest_x = sx + t * dx;
+                let closest_y = sy + t * dy;
+
+                ((px - closest_x).powi(2) + (py - closest_y).powi(2)).sqrt()
+            }
+            _ => f64::INFINITY, // Undefined coordinates
         }
     }
 
@@ -260,5 +450,73 @@ mod tests {
         let mut o = rect_opts();
         o.safe_z = Some(-1.0);
         assert!(validate(&o).is_err());
+    }
+
+    #[test]
+    fn depth_levels_clamp_the_last_pass() {
+        let o = PocketOptions {
+            depth: 5.0,
+            depth_per_pass: Some(2.0),
+            ..rect_opts()
+        };
+        let r = validate(&o).unwrap();
+        assert_eq!(depth_levels(&r), vec![-2.0, -4.0, -5.0]);
+    }
+
+    #[test]
+    fn rect_rings_are_innermost_first_and_step_apart() {
+        // 60x40 pocket, tool d=6 → outermost ring half-extents (27, 17); step 3.
+        let rings = rect_rings(27.0, 17.0, 3.0);
+        // Innermost first; the smaller half-extent shrinks to <= 0 after 5 more steps
+        // (17 - 6*3 = -1) so ring count along hh is 6 rings (17,14,11,8,5,2) then a line pass.
+        match rings.first().unwrap() {
+            RectPass::Line { along_x, half_len } => {
+                assert!(*along_x); // width is the dominant axis
+                assert!((half_len - (27.0 - 6.0 * 3.0)).abs() < 1e-12); // 9.0
+            }
+            other => panic!("innermost pass should be the center line, got {other:?}"),
+        }
+        match rings.last().unwrap() {
+            RectPass::Ring { hw, hh } => {
+                assert_eq!((*hw, *hh), (27.0, 17.0)); // outermost = wall inset by tool_r
+            }
+            other => panic!("outermost pass should be the wall ring, got {other:?}"),
+        }
+        // consecutive rings differ by exactly `step`
+        let ring_hws: Vec<f64> = rings
+            .iter()
+            .filter_map(|p| match p {
+                RectPass::Ring { hw, .. } => Some(*hw),
+                _ => None,
+            })
+            .collect();
+        for w in ring_hws.windows(2) {
+            assert!((w[1] - w[0] - 3.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn rect_pocket_ops_resolve_and_cover() {
+        let ops = try_pocket_ops(&rect_opts()).unwrap();
+        let d = Design { ops };
+        let tp = crate::resolve::resolve(&d, &crate::resolve::ResolveParams::default());
+        assert!(tp.segments.len() > 10, "a 60x40 pocket needs many segments");
+        // Max XY gap between adjacent cut paths must be <= step: sample the pocket interior
+        // (inset by tool_r) on a 1mm grid and assert some cut segment passes within
+        // step/2 + tool_r of every sample.
+        let cut: Vec<_> = tp
+            .segments
+            .iter()
+            .filter(|s| s.filament.value() > 0.0)
+            .collect();
+        for gx in 0..=54 {
+            for gy in 0..=34 {
+                let (px, py) = (3.0 + gx as f64, 3.0 + gy as f64);
+                let near = cut.iter().any(|s| {
+                    dist_point_segment(px, py, s) <= 1.5 + 3.0 + 1e-9 // step/2 + tool_r
+                });
+                assert!(near, "uncovered interior point ({px}, {py})");
+            }
+        }
     }
 }
