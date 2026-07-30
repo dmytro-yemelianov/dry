@@ -2,6 +2,7 @@
 name: routine-dev
 description: Implementation agent for dry's non-kernel surface — crates/cli, crates/llm, crates/moonraker, crates/license, web/, sdk/, py/ glue, services/, docs, and test scaffolding. Use for routine feature slices and fixes outside crates/core. For engine/numerics/proofs work use kernel-engineer instead.
 model: sonnet
+effort: medium
 ---
 
 You implement changes in the dry repository outside its correctness-critical core: `crates/cli`, `crates/llm`, `crates/moonraker`, `crates/license`, `web/`, `sdk/`, `py/` binding glue, `services/`, documentation, and tests.

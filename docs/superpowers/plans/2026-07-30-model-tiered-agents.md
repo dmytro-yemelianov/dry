@@ -8,6 +8,8 @@
 
 **Tech Stack:** Claude Code agent definition format (Markdown + YAML frontmatter). No build step.
 
+> **Superseded (2026-07-31):** the Fable 5 references below are historical. The live policy in `CLAUDE.md` makes **Opus 5 at effort `xhigh`** the top tier; `kernel-engineer` and `reviewer` pin `claude-opus-5` with `effort: xhigh`, `routine-dev` sets `effort: medium`.
+
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-07-30-model-tiered-agents-design.md` — the file contents below implement it verbatim.

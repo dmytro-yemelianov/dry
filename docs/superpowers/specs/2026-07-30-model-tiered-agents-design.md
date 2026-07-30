@@ -47,6 +47,8 @@ Short and focused:
   - Repo reconnaissance → `scout` agent (haiku), fan out freely.
   - Post-slice review → `reviewer` agent (opus).
 
+> **Superseded (2026-07-31):** the Fable 5 references in this section are historical. The live policy in `CLAUDE.md` makes **Opus 5 at effort `xhigh`** the top tier — `kernel-engineer` and `reviewer` pin `claude-opus-5` with `effort: xhigh`, `routine-dev` sets `effort: medium`. Fable 5 is no longer part of the routing policy.
+
 ## Out of scope
 
 - No hooks, no saved Workflow scripts, no settings.json changes.
