@@ -62,6 +62,24 @@ ORIENTATION_CONTRACT_SCHEMA = (
     / "fixtures"
     / "orientation-contract-refinement-fixtures.schema.json"
 )
+RESOLVE_ORIENTATION_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "resolve-orientation-refinement-v0.json"
+)
+RESOLVE_ORIENTATION_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "resolve-orientation-refinement-fixtures.schema.json"
+)
+RESOLVE_CHANNELS_SNAPSHOT = (
+    ROOT / "proofs" / "fixtures" / "resolve-channels-refinement-v0.json"
+)
+RESOLVE_CHANNELS_SCHEMA = (
+    ROOT
+    / "proofs"
+    / "fixtures"
+    / "resolve-channels-refinement-fixtures.schema.json"
+)
 WELL_FORMED_LEAN_FIXTURE = "Dry/Tests/WellFormedFixtures.lean"
 FEATURE_LEAN_FIXTURE = "Dry/Tests/ExpandFeaturesFixtures.lean"
 FEATURE_REFINEMENT_LEAN_FIXTURE = "Dry/Tests/FeatureRefinementFixtures.lean"
@@ -69,6 +87,10 @@ COMPOSITION_SHAPE_LEAN_FIXTURE = "Dry/Tests/CompositionShapeFixtures.lean"
 NATIVE_NUMERIC_LEAN_FIXTURE = "Dry/Tests/NativeNumericFixtures.lean"
 NESTED_APPLICATION_LEAN_FIXTURE = "Dry/Tests/NestedApplicationFixtures.lean"
 ORIENTATION_CONTRACT_LEAN_FIXTURE = "Dry/Tests/OrientationContractFixtures.lean"
+RESOLVE_ORIENTATION_LEAN_FIXTURE = "Dry/Tests/ResolveOrientationFixtures.lean"
+RESOLVE_CHANNELS_LEAN_FIXTURE = "Dry/Tests/ResolveChannelsFixtures.lean"
+
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -319,6 +341,78 @@ def validate_orientation_contract_fixture(contents: str) -> dict[str, object]:
     return document
 
 
+def validate_resolve_orientation_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(RESOLVE_ORIENTATION_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read resolve-orientation fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid resolve-orientation fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid resolve-orientation fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("resolve-orientation fixture case ids must be unique")
+    return document
+
+
+def validate_resolve_channels_fixture(contents: str) -> dict[str, object]:
+    try:
+        document = json.loads(contents)
+        schema = json.loads(RESOLVE_CHANNELS_SCHEMA.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read resolve-channels fixture JSON or schema: {error}"
+        ) from error
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as error:
+        raise ValueError(
+            f"invalid resolve-channels fixture schema: {error.message}"
+        ) from error
+
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(document),
+        key=lambda item: ".".join(str(part) for part in item.absolute_path),
+    )
+    if errors:
+        messages = []
+        for error in errors:
+            location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+            messages.append(f"{location}: {error.message}")
+        raise ValueError(
+            "invalid resolve-channels fixture JSON: " + "; ".join(messages)
+        )
+
+    cases = document["cases"]
+    case_ids = [case["id"] for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("resolve-channels fixture case ids must be unique")
+    return document
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -330,6 +424,8 @@ def main() -> int:
         native_numeric_actual = evaluate(NATIVE_NUMERIC_LEAN_FIXTURE)
         nested_application_actual = evaluate(NESTED_APPLICATION_LEAN_FIXTURE)
         orientation_contract_actual = evaluate(ORIENTATION_CONTRACT_LEAN_FIXTURE)
+        resolve_orientation_actual = evaluate(RESOLVE_ORIENTATION_LEAN_FIXTURE)
+        resolve_channels_actual = evaluate(RESOLVE_CHANNELS_LEAN_FIXTURE)
         json_document = validate_json_fixture(json_actual)
         feature_refinement_document = validate_feature_refinement_fixture(
             feature_refinement_actual
@@ -345,6 +441,12 @@ def main() -> int:
         )
         orientation_contract_document = validate_orientation_contract_fixture(
             orientation_contract_actual
+        )
+        resolve_orientation_document = validate_resolve_orientation_fixture(
+            resolve_orientation_actual
+        )
+        resolve_channels_document = validate_resolve_channels_fixture(
+            resolve_channels_actual
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"error: cannot evaluate Lean proof fixtures: {error}", file=sys.stderr)
@@ -363,6 +465,8 @@ def main() -> int:
         NATIVE_NUMERIC_SNAPSHOT: native_numeric_actual,
         NESTED_APPLICATION_SNAPSHOT: nested_application_actual,
         ORIENTATION_CONTRACT_SNAPSHOT: orientation_contract_actual,
+        RESOLVE_ORIENTATION_SNAPSHOT: resolve_orientation_actual,
+        RESOLVE_CHANNELS_SNAPSHOT: resolve_channels_actual,
     }
 
     if args.write:
@@ -404,9 +508,15 @@ def main() -> int:
         "nested-application cases, "
         f"{len(orientation_contract_document['cases'])} "
         "orientation-contract cases, "
+        f"{len(resolve_orientation_document['cases'])} "
+        "resolve-orientation cases, "
+        f"{len(resolve_channels_document['cases'])} "
+        "resolve-channels cases, "
         "TSV + schema-valid JSON)"
     )
     return 0
+
+
 
 
 if __name__ == "__main__":

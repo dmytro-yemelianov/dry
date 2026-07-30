@@ -16,3 +16,11 @@ import Dry.Semantics.CheckedExpansion
 import Dry.Semantics.CompositionTreeRefinement
 import Dry.Semantics.ExpandFeatures
 import Dry.Semantics.OrderedFold
+import Dry.Semantics.ResolveOrientation
+import Dry.Semantics.ResolveChannels
+import Dry.Semantics.Deposition
+import Dry.Semantics.SimulateMetrics
+import Dry.Semantics.VerifierSoundness
+import Dry.Semantics.Optimization
+import Dry.Semantics.CodecInverse
+import Dry.Semantics.Capability

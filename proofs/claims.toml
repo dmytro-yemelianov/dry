@@ -1121,3 +1121,338 @@ refinement_evidence = []
 abstract = "proved"
 numeric = "not-applicable"
 refinement = "pending"
+
+[[claim]]
+id = "FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS"
+title = "Orientation resolution is deterministically folded, defaults to Z-axis, propagates until overwritten, and preserves unit orientation well-formedness"
+theorem = "Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over minimal resolution operations, L2 segments, and numeric validity predicates"
+target_dialect = "Lean proof model for orientation-aware L1 to L2 resolution"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational numbers and optional 3D vectors"
+assumptions = [
+  "Resolution processes input operations in left-to-right sequential order.",
+  "Motion operations inherit the orientation state active at emission time.",
+  "Unoriented motion segments carry orientation = none (interpreted as Z-axis orientation)."
+]
+exclusions = [
+  "Non-finite coordinates or zero-magnitude orientation vectors, which are rejected at validation.",
+  "Floating-point rounding error in physical geometry calculation."
+]
+lean_source = "formal/Dry/Semantics/ResolveOrientation.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS"
+title = "Native Rust resolve_checked accurately refines Lean orientation resolution semantics across generated test corpus"
+theorem = "Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks"
+spec_version = "resolve-orientation-refinement-v0"
+source_dialect = "Five Lean-generated exact rational operation sequence test cases"
+target_dialect = "Native Rust resolve_checked state tracking and segment orientation output verified by native verifier"
+relation = "observational"
+scope = "implementation"
+numeric_domain = "Exact rational operations and segments observed through finite binary64 floating-point values"
+assumptions = [
+  "Scope is strictly the committed generated resolve-orientation fixture corpus.",
+  "Native binary64 parsing accurately mirrors exact rational vector inputs.",
+  "Verifier unit orientation classification uses 1e-6 magnitude tolerance."
+]
+exclusions = [
+  "Arbitrary operation sequences outside the committed 5-case fixture corpus.",
+  "NaN, infinity, or unvalidated non-finite input streams."
+]
+lean_source = "formal/Dry/Tests/ResolveOrientationFixtures.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs",
+  "crates/core/src/verify.rs",
+  "crates/core/tests/resolve_orientation_refinement.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = [
+  "formal/Dry/Tests/ResolveOrientationFixtures.lean",
+  "proofs/fixtures/resolve-orientation-refinement-v0.json",
+  "proofs/fixtures/resolve-orientation-refinement-fixtures.schema.json",
+  "crates/core/tests/resolve_orientation_refinement.rs",
+  "proofs/resolve-orientation-mutations-v0.toml",
+  "tools/check_resolve_orientation_mutations.py",
+  "tools/check_proof_fixtures.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
+id = "FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS"
+title = "Process channels (temperature, fan, flow, tool) deterministically propagate forward, omit default 1.0 flow, and attach to motion and dwell segments"
+theorem = "Dry.Semantics.ResolveChannels.resolve_append"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over process channel operations and L2 segments"
+target_dialect = "Lean proof model for channel-aware L1 to L2 resolution"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational process values and optional quantities"
+assumptions = [
+  "Process channels operate independently and propagate forward across operations in sequential order.",
+  "Default flow ratio 1.0 is omitted from emitted L2 segment fields.",
+  "Dwell segments inherit active process channel state."
+]
+exclusions = [
+  "Invalid physical input bounds, which are checked by pre-resolution validation."
+]
+lean_source = "formal/Dry/Semantics/ResolveChannels.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS"
+title = "Native Rust resolve_checked accurately refines Lean process channel resolution semantics across generated test corpus"
+theorem = "Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem"
+spec_version = "resolve-channels-refinement-v0"
+
+source_dialect = "Six Lean-generated exact rational channel operation sequence test cases"
+target_dialect = "Native Rust resolve_checked channel state propagation and segment output"
+relation = "observational"
+scope = "implementation"
+numeric_domain = "Exact rational operations and segments observed through finite binary64 floating-point values"
+assumptions = [
+  "Scope is strictly the committed generated resolve-channels fixture corpus.",
+  "Native binary64 parsing accurately mirrors exact rational channel inputs."
+]
+exclusions = [
+  "Arbitrary operation sequences outside the committed 6-case fixture corpus."
+]
+lean_source = "formal/Dry/Tests/ResolveChannelsFixtures.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs",
+  "crates/core/tests/resolve_channels_refinement.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = [
+  "formal/Dry/Tests/ResolveChannelsFixtures.lean",
+  "proofs/fixtures/resolve-channels-refinement-v0.json",
+  "proofs/fixtures/resolve-channels-refinement-fixtures.schema.json",
+  "crates/core/tests/resolve_channels_refinement.rs",
+  "proofs/resolve-channels-mutations-v0.toml",
+  "tools/check_resolve_channels_mutations.py",
+  "tools/check_proof_fixtures.py"
+]
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "checked"
+
+[[claim]]
+id = "FM1.DEPOSITION.MODEL.SEMANTICS"
+title = "Extrusion volume and filament consumption math obey travel zero-extrusion and linear scaling laws"
+theorem = "Dry.Semantics.Deposition.length_scaling_scales_volume"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over exact rational segment dimensions and flow"
+target_dialect = "Lean proof model for segment volume and filament calculation"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational length, width, height, and flow values"
+assumptions = [
+  "Travel segments produce zero volume and zero filament extrusion.",
+  "Non-negative segment dimensions yield non-negative volume."
+]
+exclusions = []
+lean_source = "formal/Dry/Semantics/Deposition.lean"
+rust_sources = [
+  "crates/core/src/resolve.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.SIMULATE_METRICS.MODEL.SEMANTICS"
+title = "The abstract exact-rational metric fold composes over appended segment traces"
+theorem = "Dry.Semantics.SimulateMetrics.foldMetrics_append"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over toolpath metric fold aggregation"
+target_dialect = "Lean proof model for toolpath simulation summary metrics"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational metric counters and segment parameters"
+assumptions = [
+  "Toolpath simulation metrics accumulate additively across segment sequences.",
+  "Peak volumetric flow takes the maximum flow rate observed across printing segments."
+]
+exclusions = [
+  "Refinement against crates/core/src/engine.rs.",
+  "Binary64 rounding, invalid or zero speed behavior outside the modeled branch, and overflow/underflow.",
+  "Equivalence of materialized and streaming simulation.",
+  "Metric fields and segment kinds not represented by the abstract model."
+]
+lean_source = "formal/Dry/Semantics/SimulateMetrics.lean"
+rust_sources = [
+  "crates/core/src/engine.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"
+title = "The abstract exact-rational core verifier predicates imply their modeled inequalities"
+theorem = "Dry.Semantics.VerifierSoundness.coreValidators_sound"
+spec_version = "v0.4"
+source_dialect = "Executable Lean verifier predicate soundness semantics"
+target_dialect = "Lean proof model for verifier rule soundness"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational bounds, speeds, flows, and Z elevations"
+assumptions = [
+  "Verifier decision predicates return true if and only if underlying physical constraints are satisfied."
+]
+exclusions = [
+  "Refinement of these abstract predicates against crates/core/src/verify.rs.",
+  "Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.",
+  "Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation."
+]
+lean_source = "formal/Dry/Semantics/VerifierSoundness.lean"
+rust_sources = [
+  "crates/core/src/verify.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.OPTIMIZATION.MODEL.SEMANTICS"
+title = "The abstract merge constructor stores the sum of input lengths and volumes"
+theorem = "Dry.Semantics.Optimization.merge_length_additive"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over collinear segment merging"
+target_dialect = "Lean proof model for optimization pass semantics"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational segment lengths and volumes"
+assumptions = [
+  "Consecutive collinear segments with identical feedrate and travel flags merge additively."
+]
+exclusions = [
+  "Proof that the production merge precondition identifies geometrically collinear segments.",
+  "Binary64 rounding and refinement against crates/core/src/optimize/merge.rs.",
+  "Preservation of time, feedrate transitions, channels, orientations, source maps, or emitted target behavior.",
+  "Pipeline composition and gating."
+]
+lean_source = "formal/Dry/Semantics/Optimization.lean"
+rust_sources = [
+  "crates/core/src/optimize/merge.rs"
+]
+
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.CODEC_INVERSE.MODEL.SEMANTICS"
+title = "A serializer-neutral field-copy encoding model has an exact list round-trip inverse"
+theorem = "Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over a three-field abstract segment list"
+target_dialect = "Serializer-neutral field-copy encoding model"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational segment fields and lists"
+assumptions = [
+  "Logical codec encoding preserves every segment field without loss."
+]
+exclusions = [
+  "JSON syntax and number representation.",
+  "DRY0 column layout, validity bitmaps, compression, and headers.",
+  "DRY1 chunk and row layout, chunk independence, and streaming behavior.",
+  "Malformed-input rejection, legacy-version mapping, and resource bounds.",
+  "Refinement against the Rust codec or the independent vector reader."
+]
+lean_source = "formal/Dry/Semantics/CodecInverse.lean"
+rust_sources = [
+  "crates/core/src/codec/mod.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.CAPABILITY.MODEL.SEMANTICS"
+title = "An abstract three-bound capability predicate fails closed when any modeled bound is exceeded"
+theorem = "Dry.Semantics.Capability.checkCapability_fail_closed"
+spec_version = "v0.4"
+source_dialect = "Executable Lean semantics over machine capability matching"
+target_dialect = "Lean proof model for capability verification"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Exact rational machine limits and requirements"
+assumptions = [
+  "Requirements exceeding maximum feedrate, flow, or temperature trigger fail-closed rejection."
+]
+exclusions = [
+  "Refinement against the production profile/verifier implementation.",
+  "Supported primitives, axes, kinematics, tools, controller features, and lowering requirements.",
+  "L2-to-target lowering, source-map coverage, semantic lifting, opaque commands, and loss barriers.",
+  "FFF or non-FFF backend correctness and physical-machine qualification."
+]
+lean_source = "formal/Dry/Semantics/Capability.lean"
+rust_sources = [
+  "crates/core/src/verify.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"

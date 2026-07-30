@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/resolve-channels-refinement-fixtures-v0.json",
+  "title": "Dry resolve channels refinement fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model",
+    "model_checks",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "resolve-channels-refinement-v0" },
+    "model_checks": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "number": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": { "type": "integer" },
+            "denominator": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "$ref": "#/$defs/number" },
+        "y": { "$ref": "#/$defs/number" },
+        "z": { "$ref": "#/$defs/number" }
+      }
+    },
+    "op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["move", "dwell", "temperature", "fan", "flow", "tool"] },
+        "finish": { "$ref": "#/$defs/point" },
+        "speed": { "$ref": "#/$defs/number" },
+        "seconds": { "$ref": "#/$defs/number" },
+        "nozzle": { "$ref": "#/$defs/number" },
+        "ratio": { "$ref": "#/$defs/number" },
+        "index": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "temperature", "fan", "flow", "tool", "dwell_seconds"],
+      "properties": {
+        "kind": { "enum": ["line", "arc", "spline", "dwell", "retract", "unretract", "deposit", "manualGcode"] },
+        "temperature": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
+          ]
+        },
+        "fan": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
+          ]
+        },
+        "flow": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
+          ]
+        },
+        "tool": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 0 }
+          ]
+        },
+        "dwell_seconds": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
+          ]
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["emitted_count", "segments"],
+      "properties": {
+        "emitted_count": { "type": "integer", "minimum": 0 },
+        "segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/segment" }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ops", "expected"],
+      "properties": {
+        "id": {
+          "enum": [
+            "default-channels",
+            "temp-fan-tool-propagation",
+            "non-default-flow-propagation",
+            "default-flow-omitted",
+            "dwell-inherits-channels",
+            "channel-overwrite"
+          ]
+        },
+        "ops": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/op" }
+        },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}

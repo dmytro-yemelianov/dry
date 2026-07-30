@@ -7,6 +7,11 @@ import tempfile
 import textwrap
 import unittest
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "tools" / "validate_proof_claims.py"
@@ -61,6 +66,8 @@ class ProofClaimValidatorTests(unittest.TestCase):
             )
 
     def test_repository_registry_passes(self) -> None:
+        with (ROOT / "proofs" / "claims.toml").open("rb") as handle:
+            expected_claims = len(tomllib.load(handle)["claim"])
         result = subprocess.run(
             [sys.executable, str(VALIDATOR)],
             cwd=ROOT,
@@ -69,7 +76,9 @@ class ProofClaimValidatorTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("proof claims: ok (27 claims", result.stdout)
+        self.assertIn(
+            f"proof claims: ok ({expected_claims} claims", result.stdout
+        )
 
     def test_duplicate_claim_ids_are_rejected(self) -> None:
         registry = (

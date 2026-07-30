@@ -633,9 +633,22 @@ boundary, nor does it discharge the angular theorem's profile and execution prem
 
 Dependencies: FM1.2–FM1.4.
 
+**Landed subset (FM1.5a Orientation-Aware Resolution):**
+- Formal executable Lean semantics in `formal/Dry/Semantics/ResolveOrientation.lean`.
+- Lean-proved fold determinism and append law (`resolve_append`).
+- Default `none` orientation propagation (`default_moves_carry_none`).
+- Explicit orientation propagation and non-rewriting of past segments (`explicit_orientation_propagates`, `later_orient_does_not_rewrite_earlier`).
+- Pre-resolution validation rejection of zero and non-finite vectors (`zero_or_nonfinite_orient_rejects`).
+- Preservation of L2 orientation well-formedness for unit orientations (`unit_orientations_yield_well_formed_segment_orientations`).
+- Executable Lean fixture generator export `formal/Dry/Tests/ResolveOrientationFixtures.lean` emitting 5 schema-valid JSON test cases.
+- JSON fixture snapshot `proofs/fixtures/resolve-orientation-refinement-v0.json` and schema `proofs/fixtures/resolve-orientation-refinement-fixtures.schema.json`.
+- Native Rust refinement test `crates/core/tests/resolve_orientation_refinement.rs`.
+- Pinned source hash and 3 mutations in `crates/core/src/resolve.rs` (`proofs/resolve-orientation-mutations-v0.toml`), each killed by named proof fixtures in CI (`tools/check_resolve_orientation_mutations.py`).
+- Registered claim models `FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS` and `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS` in `proofs/claims.toml`.
+
 Work packets:
 
-1. fold semantics for state/channel propagation;
+1. fold semantics for state/channel propagation (FM1.5a orientation landed);
 2. line, arc, spline and zero-motion cases;
 3. volume/filament dimensional and value laws;
 4. simulation metric folds;
@@ -647,7 +660,12 @@ Work packets:
 Exit gate: the supported resolver subset produces well-formed L2; every claimed verifier rule has a
 coverage-aware theorem and refinement test.
 
+
 ### FM1.6 — optimization pass contracts
+
+Current status: **partial**. The checked Lean module currently proves only that an abstract merge
+constructor adds its two length and volume fields. Production mergeability, geometric observations,
+binary64/Rust refinement and pipeline composition remain open.
 
 Dependencies: FM1.3–FM1.5.
 
@@ -663,6 +681,10 @@ Work packets:
 Exit gate: no pass is labeled semantics-preserving without a named, checked observation relation.
 
 ### FM1.7 — codec and compatibility proofs
+
+Current status: **partial**. The checked Lean module is a serializer-neutral three-field copy model.
+It is not yet a model or refinement proof of JSON, DRY0, DRY1, compression, chunking, malformed input,
+versions or resource limits.
 
 Dependencies: FM1.2; can run in parallel with FM1.3–FM1.6.
 
@@ -681,6 +703,10 @@ reader pass every generated proof fixture.
 
 ### FM1.8 — capabilities, targets and lift
 
+Current status: **partial**. A checked exact-rational predicate fails closed for three scalar bounds.
+Requirement extraction, production refinement, target lowering, semantic lift, opaque/loss barriers,
+FFF/non-FFF backends and the conditional compiler theorem remain open.
+
 Dependencies: D1.6, D1.8, D1.9; FM1.2–FM1.5.
 
 Work packets:
@@ -698,6 +724,10 @@ Exit gate: FFF and the selected D1 non-FFF workflow satisfy the conditional comp
 published subsets.
 
 ### FM1.9 — publication, maintenance and release gates
+
+Current status: **partial**. The claim registry now generates a portable assumption/coverage report,
+and CI rejects report drift. Normative clause identifiers, proof-impact enforcement, clean release
+reproduction, unsupported-syntax publication and external review remain open.
 
 Dependencies: FM1.1–FM1.8 as claims mature.
 
