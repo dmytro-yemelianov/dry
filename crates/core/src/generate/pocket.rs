@@ -161,21 +161,39 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
                     "tool_diameter ({d}) does not fit the {width}x{height} rectangle"
                 )));
             }
-            // Compute ring count: count how many rings fit before both dimensions collapse.
             let tool_r = d / 2.0;
-            let step = rect_inset(stepover * d, tool_r);
             let hw = width / 2.0 - tool_r;
             let hh = height / 2.0 - tool_r;
-            let smaller = hw.min(hh);
-            // +2 for the final line pass and the possible extra innermost ring
-            let ring_count_f = (smaller / step).ceil() + 2.0;
-            if ring_count_f > MAX_TOTAL_PASSES as f64 {
+            // Both half-extents below the emission resolution means the whole cutting region
+            // rounds away: `rect_rings` yields no pass at all (or one that collapses to a point),
+            // so the program would plunge and retract without cutting. One axis at tool size is
+            // the legitimate slot case — the centre `Line` pass cuts it — so only reject when
+            // BOTH collapse.
+            if hw < MIN_CUT_RADIUS && hh < MIN_CUT_RADIUS {
                 return Err(PocketError::new(format!(
-                    "tool_diameter ({d}) too small relative to pocket dimensions ({width}x{height}): \
-                     would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
+                    "tool_diameter ({d}) leaves cut half-extents of {hw}x{hh} in the \
+                     {width}x{height} rectangle: both are below the {MIN_CUT_RADIUS} mm emission \
+                     resolution, so the program would contain no cutting moves"
                 )));
             }
-            let ring_count = ring_count_f as u32;
+            // Profile cuts one contour per depth level whatever the outline measures; only Pocket
+            // walks the ring series inward, so only Pocket needs the ring estimate.
+            let ring_count = match o.mode {
+                CutMode::Profile => 1,
+                CutMode::Pocket => {
+                    let step = rect_inset(stepover * d, tool_r);
+                    let smaller = hw.min(hh);
+                    // +2 for the final line pass and the possible extra innermost ring
+                    let ring_count_f = (smaller / step).ceil() + 2.0;
+                    if ring_count_f > MAX_TOTAL_PASSES as f64 {
+                        return Err(PocketError::new(format!(
+                            "tool_diameter ({d}) too small relative to pocket dimensions ({width}x{height}): \
+                             would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
+                        )));
+                    }
+                    ring_count_f as u32
+                }
+            };
             let total_passes = depth_passes.saturating_mul(ring_count);
             if total_passes > MAX_TOTAL_PASSES {
                 return Err(PocketError::new(format!(
@@ -193,11 +211,7 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
                     "tool_diameter ({d}) does not fit the radius-{radius} circle"
                 )));
             }
-            // Compute ring count: circle_radii pushes one radius per `step` from the
-            // wall-inset outer radius down to (but not including) zero, plus one centre-clearing
-            // ring when the innermost one does not reach the centre.
             let tool_r = d / 2.0;
-            let step = stepover * d;
             let outer_r = radius - tool_r;
             if outer_r < MIN_CUT_RADIUS {
                 return Err(PocketError::new(format!(
@@ -206,14 +220,24 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
                      emit as a zero-radius arc"
                 )));
             }
-            let ring_count_f = (outer_r / step).ceil().max(1.0) + 1.0;
-            if ring_count_f > MAX_TOTAL_PASSES as f64 {
-                return Err(PocketError::new(format!(
-                    "tool_diameter ({d}) too small relative to circle radius ({radius}): \
-                     would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
-                )));
-            }
-            let ring_count = ring_count_f as u32;
+            // As for the rectangle: Profile is one contour per depth level. In Pocket mode
+            // `circle_radii` pushes one radius per `step` from the wall-inset outer radius down to
+            // (but not including) zero, plus one centre-clearing ring when the innermost one does
+            // not reach the centre.
+            let ring_count = match o.mode {
+                CutMode::Profile => 1,
+                CutMode::Pocket => {
+                    let step = stepover * d;
+                    let ring_count_f = (outer_r / step).ceil().max(1.0) + 1.0;
+                    if ring_count_f > MAX_TOTAL_PASSES as f64 {
+                        return Err(PocketError::new(format!(
+                            "tool_diameter ({d}) too small relative to circle radius ({radius}): \
+                             would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
+                        )));
+                    }
+                    ring_count_f as u32
+                }
+            };
             let total_passes = depth_passes.saturating_mul(ring_count);
             if total_passes > MAX_TOTAL_PASSES {
                 return Err(PocketError::new(format!(
@@ -980,6 +1004,161 @@ mod tests {
         };
         let err = try_pocket_ops(&o).unwrap_err();
         assert!(err.to_string().contains("zero-radius arc"), "{err}");
+    }
+
+    #[test]
+    fn exact_tool_fit_rect_is_rejected_in_both_modes() {
+        // d == width == height: both half-extents collapse to zero, so `rect_rings` yields no
+        // passes at all and the program would be plunge/retract with no cutting move.
+        for mode in [CutMode::Pocket, CutMode::Profile] {
+            let o = PocketOptions {
+                shape: PocketShape::Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 6.0,
+                    height: 6.0,
+                },
+                mode,
+                ..rect_opts()
+            };
+            let err = try_pocket_ops(&o).unwrap_err();
+            assert!(
+                err.to_string().contains("no cutting moves"),
+                "{mode:?}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn sub_resolution_rect_half_extents_are_rejected() {
+        // Both half-extents 1e-9: above zero but below the emission grid, so the "rings" round
+        // away to a point.
+        for mode in [CutMode::Pocket, CutMode::Profile] {
+            let o = PocketOptions {
+                shape: PocketShape::Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 6.0 + 2e-9,
+                    height: 6.0 + 2e-9,
+                },
+                mode,
+                ..rect_opts()
+            };
+            let err = try_pocket_ops(&o).unwrap_err();
+            assert!(
+                err.to_string().contains("no cutting moves"),
+                "{mode:?}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn slot_at_exact_tool_width_still_cuts() {
+        // Exactly ONE axis at tool size: the cutting region is a zero-width slot down the centre,
+        // which the centre `Line` pass cuts. This must keep validating and emitting real moves.
+        let shape = PocketShape::Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 6.0,
+            height: 40.0,
+        };
+        for mode in [CutMode::Pocket, CutMode::Profile] {
+            let o = PocketOptions {
+                shape: shape.clone(),
+                mode,
+                ..rect_opts()
+            };
+            let ops = try_pocket_ops(&o).expect("slot must validate");
+            let d = Design { ops };
+            let tp = crate::resolve::resolve(&d, &crate::resolve::ResolveParams::default());
+            let cut: Vec<_> = tp
+                .segments
+                .iter()
+                .filter(|s| s.filament.value() > 0.0)
+                .collect();
+            assert!(!cut.is_empty(), "{mode:?}: slot emitted no cutting moves");
+            // coverage: every reachable floor point is within tool_r of a cut path
+            let tool_r = o.tool_diameter / 2.0;
+            for (px, py) in interior_samples(&shape, tool_r, 0.5) {
+                assert!(
+                    cut.iter()
+                        .any(|s| dist_point_path(px, py, s) <= tool_r + 1e-9),
+                    "{mode:?}: uncut island at ({px}, {py})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn huge_profile_outline_is_accepted_but_the_same_pocket_is_not() {
+        // 500x500 outline, 0.1 mm tool, depth 20 at 0.05/pass → 400 depth levels. Profile cuts one
+        // contour per level (400 total passes), while Pocket would walk ~5001 rings per level.
+        let base = PocketOptions {
+            shape: PocketShape::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 500.0,
+                height: 500.0,
+            },
+            mode: CutMode::Profile,
+            tool_diameter: 0.1,
+            depth: 20.0,
+            depth_per_pass: Some(0.05),
+            ..rect_opts()
+        };
+        validate(&base).expect("a 500x500 profile at 400 depth levels is a legitimate job");
+        let pocket = PocketOptions {
+            mode: CutMode::Pocket,
+            ..base
+        };
+        let err = validate(&pocket).unwrap_err();
+        assert!(
+            err.to_string().contains("rings"),
+            "pocket rejection should name the ring count: {err}"
+        );
+    }
+
+    #[test]
+    fn max_total_passes_boundary_is_exact() {
+        // rect_opts: 60x40, d=6, stepover 0.5 → step 3, smaller half-extent 17,
+        // ring_count = ceil(17/3) + 2 = 8. 8 × 12500 = 100000 = MAX_TOTAL_PASSES.
+        let at_limit = PocketOptions {
+            depth: 12_500.0,
+            depth_per_pass: Some(1.0),
+            ..rect_opts()
+        };
+        validate(&at_limit).expect("exactly MAX_TOTAL_PASSES total passes must validate");
+        let past_limit = PocketOptions {
+            depth: 12_501.0,
+            ..at_limit
+        };
+        let err = validate(&past_limit).unwrap_err();
+        assert!(
+            err.to_string().contains("100008") && err.to_string().contains("100000"),
+            "boundary rejection should report the exact totals: {err}"
+        );
+    }
+
+    #[test]
+    fn depth_pass_boundary_is_exact() {
+        // The depth-pass gate alone, isolated in Profile mode (one contour per level):
+        // ceil(depth / depth_per_pass) == MAX_TOTAL_PASSES validates, one more rejects.
+        let at_limit = PocketOptions {
+            mode: CutMode::Profile,
+            depth: MAX_TOTAL_PASSES as f64,
+            depth_per_pass: Some(1.0),
+            ..rect_opts()
+        };
+        validate(&at_limit).expect("exactly MAX_TOTAL_PASSES depth passes must validate");
+        let past_limit = PocketOptions {
+            depth: MAX_TOTAL_PASSES as f64 + 1.0,
+            ..at_limit
+        };
+        let err = validate(&past_limit).unwrap_err();
+        assert!(
+            err.to_string().contains("depth_per_pass") && err.to_string().contains("100001"),
+            "boundary rejection should name depth_per_pass and the exact count: {err}"
+        );
     }
 
     #[test]

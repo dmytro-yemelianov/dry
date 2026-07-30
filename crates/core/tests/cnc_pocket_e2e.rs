@@ -37,7 +37,9 @@ fn frame() -> CncFrame {
     }
 }
 
-/// Every word LinuxCNC's RS-274/NGC dialect documents for this program class.
+/// The closed set of G/M words this program class may use. Words carrying a numeric argument
+/// (coordinates, arc offsets, feed, spindle, tool) are checked by prefix only — see
+/// [`word_is_allowed`] — so this is a vocabulary check, not a full RS-274 parse.
 const ALLOWED_WORDS: &[&str] = &[
     "G0", "G1", "G2", "G3", "G4", "G17", "G21", "G54", "G55", "G56", "G57", "G58", "G59", "G90",
     "M3", "M5", "M6", "M8", "M9", "M30",
