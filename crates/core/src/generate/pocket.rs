@@ -6,6 +6,10 @@
 
 use crate::resolve::{Design, Op};
 
+/// Maximum total passes (depth × rings) before rejecting as pathological input.
+/// No legitimate job reaches this; it gates infinite loops on tiny step sizes.
+const MAX_TOTAL_PASSES: u32 = 100_000;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PocketShape {
     Rect {
@@ -63,6 +67,7 @@ impl std::fmt::Display for PocketError {
 
 impl std::error::Error for PocketError {}
 
+#[derive(Debug)]
 struct Resolved {
     tool_r: f64,
     step: f64,
@@ -111,6 +116,16 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
     }
     let cut_feed = positive("cut_feed", o.cut_feed.unwrap_or(300.0))?;
     let plunge_feed = positive("plunge_feed", o.plunge_feed.unwrap_or(cut_feed / 3.0))?;
+
+    // Compute depth pass count and reject if pathological.
+    let depth_passes = (depth / depth_per_pass).ceil() as u32;
+    if depth_passes > MAX_TOTAL_PASSES {
+        return Err(PocketError::new(format!(
+            "depth_per_pass ({depth_per_pass}) too small relative to depth ({depth}): \
+             would require {depth_passes} passes (max {MAX_TOTAL_PASSES})"
+        )));
+    }
+
     match o.shape {
         PocketShape::Rect {
             x,
@@ -125,6 +140,27 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
             if d > width || d > height {
                 return Err(PocketError::new(format!(
                     "tool_diameter ({d}) does not fit the {width}x{height} rectangle"
+                )));
+            }
+            // Compute ring count: count how many rings fit before both dimensions collapse.
+            let tool_r = d / 2.0;
+            let step = stepover * d;
+            let hw = width / 2.0 - tool_r;
+            let hh = height / 2.0 - tool_r;
+            let smaller = hw.min(hh);
+            let ring_count_f = (smaller / step).ceil() + 1.0; // +1 for final line pass
+            if ring_count_f > MAX_TOTAL_PASSES as f64 {
+                return Err(PocketError::new(format!(
+                    "tool_diameter ({d}) too small relative to pocket dimensions ({width}x{height}): \
+                     would require ~{ring_count_f:.0} rings (max {MAX_TOTAL_PASSES} total passes)"
+                )));
+            }
+            let ring_count = ring_count_f as u32;
+            let total_passes = depth_passes.saturating_mul(ring_count);
+            if total_passes > MAX_TOTAL_PASSES {
+                return Err(PocketError::new(format!(
+                    "tool_diameter ({d}) too small relative to pocket dimensions ({width}x{height}): \
+                     would require {ring_count} rings × {depth_passes} depth passes = {total_passes} total passes (max {MAX_TOTAL_PASSES})"
                 )));
             }
         }
@@ -450,6 +486,31 @@ mod tests {
         let mut o = rect_opts();
         o.safe_z = Some(-1.0);
         assert!(validate(&o).is_err());
+    }
+
+    #[test]
+    fn pathological_tiny_depth_per_pass_is_rejected() {
+        let mut o = rect_opts();
+        o.depth = 100.0;
+        o.depth_per_pass = Some(1e-9);
+        let err = validate(&o).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("depth_per_pass") && msg.contains("100"),
+            "error should mention depth_per_pass and approximate pass count: {msg}"
+        );
+    }
+
+    #[test]
+    fn pathological_tiny_tool_diameter_is_rejected() {
+        let mut o = rect_opts();
+        o.tool_diameter = 1e-9; // would generate millions of rings
+        let err = validate(&o).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("tool_diameter") && (msg.contains("ring") || msg.contains("pass")),
+            "error should mention tool_diameter and pass/ring count: {msg}"
+        );
     }
 
     #[test]
