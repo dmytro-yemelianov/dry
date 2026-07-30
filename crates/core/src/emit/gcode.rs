@@ -133,6 +133,28 @@ where
 
     let mut prog_pos = [0.0; 3];
 
+    let frame = match (p.flavor, &p.cnc_frame) {
+        (FirmwareFlavor::Rs274, Some(f)) => Some(*f),
+        _ => None,
+    };
+    if let Some(f) = frame {
+        write_line(writer, &mut first_line, "G21 G17 G90")?;
+        write_line(
+            writer,
+            &mut first_line,
+            &format!("G{}", f.wcs.unwrap_or(54)),
+        )?;
+        if let Some(tool) = f.tool {
+            write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
+        }
+        if let Some(rpm) = f.spindle_rpm {
+            write_line(writer, &mut first_line, &format!("S{} M3", num(rpm)))?;
+        }
+        if f.coolant == Some(true) {
+            write_line(writer, &mut first_line, "M8")?;
+        }
+    }
+
     for res in segments {
         let s = res?;
         if s.kind == SegmentKind::ManualGcode {
@@ -292,6 +314,17 @@ where
 
         write_line(writer, &mut first_line, &toks.join(" "))?;
     }
+
+    if let Some(f) = frame {
+        if f.coolant == Some(true) {
+            write_line(writer, &mut first_line, "M9")?;
+        }
+        if f.spindle_rpm.is_some() {
+            write_line(writer, &mut first_line, "M5")?;
+        }
+        write_line(writer, &mut first_line, "M30")?;
+    }
+
     Ok(())
 }
 
