@@ -16,10 +16,40 @@ Usage: dry emit [OPTIONS] <FILE>
 Arguments:
   <FILE>
 
+
 Options:
-      --absolute-e                 Emit absolute extrusion (default is relative E)
-      --five-axis                  Emit rotary words from the toolframe orientation (5-axis)
-      --rotary-axes <ROTARY_AXES>  Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.) [default: ab] [aliases: --kinematics] [possible values: ab, ac, bc]
-  -o, --out <OUT>                  Write to a file instead of stdout
-  -h, --help                       Print help
+      --absolute-e
+          Emit absolute extrusion (default is relative E)
+
+      --profile <PROFILE>
+          Machine/material profile JSON to supply defaults and rotary model
+
+      --five-axis
+          Emit rotary words from the toolframe orientation (5-axis)
+
+      --format <FORMAT>
+          Emit RS-274 / GRBL / KRL output instead of the default FFF G-code target
+
+          Possible values:
+          - gcode:     Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile)
+          - rs274:     Emit existing CNC/RS-274 output
+          - grbl:      Emit GRBL (laser) output
+          - robot-krl: Emit KRL-style robot output
+
+          [default: gcode]
+
+      --rotary-axes <ROTARY_AXES>
+          Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
+
+          [aliases: --kinematics]
+          [possible values: ab, ac, bc]
+
+      --step-nc <STEP_NC>
+          Also write a STEP-NC intent file with the same program to this path
+
+  -o, --out <OUT>
+          Write to a file instead of stdout
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```

@@ -1402,7 +1402,7 @@ refinement_evidence = [
 ]
 
 [claim.status]
-abstract = "not-applicable"
+abstract = "proved"
 numeric = "not-applicable"
 refinement = "checked"
 

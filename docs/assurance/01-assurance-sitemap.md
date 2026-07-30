@@ -6,12 +6,12 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) a
 
 ## Registry summary
 
-- Registered claims: **38**.
-- Abstract status: `proved` 38.
-- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 24.
-- Implementation-refinement status: `checked` 12, `pending` 18, `not-applicable` 8.
-- Implementation-scoped claims meeting all registry gates: **6/6**.
-- Normative clause links: **38/38** claims across **12** stable clauses.
+- Registered claims: **39**.
+- Abstract status: `proved` 39.
+- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 25.
+- Implementation-refinement status: `checked` 13, `pending` 18, `not-applicable` 8.
+- Implementation-scoped claims meeting all registry gates: **7/7**.
+- Normative clause links: **39/39** claims across **12** stable clauses.
 
 The Lean release gate is reproducible with `lake build --wfail`. The job count printed by Lake is a build-system job count, not a theorem count, so this report does not present it as proof coverage. Rust tests and mutation manifests are linked only on claims that register them as refinement evidence.
 
@@ -53,6 +53,7 @@ The Lean release gate is reproducible with `lake build --wfail`. The job count p
 | `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean) | `resolve-channels-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
 | `FM1.DEPOSITION.MODEL.SEMANTICS` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.SIMULATE_METRICS.MODEL.SEMANTICS` | [`DRY.REPORT.METRICS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.SIMULATE_METRICS.NATIVE.REFINE.CORPUS` | [`DRY.REPORT.METRICS_V1`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.SimulateMetricsFixtures.simulateMetricsFixtureChecks`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean) | `simulate-metrics-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
 | `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` | [`DRY.REPORT.VERIFIER_RULES_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.OPTIMIZATION.MODEL.SEMANTICS` | [`DRY.OPTIMIZATION.OBSERVATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.CODEC_INVERSE.MODEL.SEMANTICS` | [`DRY.IR.CODEC_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
@@ -980,6 +981,30 @@ The abstract exact-rational metric fold composes over appended segment traces
 - Binary64 rounding, invalid or zero speed behavior outside the modeled branch, and overflow/underflow.
 - Equivalence of materialized and streaming simulation.
 - Metric fields and segment kinds not represented by the abstract model.
+
+### `FM1.SIMULATE_METRICS.NATIVE.REFINE.CORPUS`
+
+Native Rust simulate over exact-rational segment traces agrees with Lean simulate-metrics semantics across the generated refinement corpus
+
+- Scope/relation: `implementation` / `observational`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
+- Spec profile: `simulate-metrics-refinement-v0`; `Seven Lean-generated exact-rational simulate-metrics segment cases` → `Native Rust simulate fold semantics over L2 segment traces`.
+- Normative clause: `DRY.REPORT.METRICS_V1` — Simulation and trace reports expose validated metric summaries.
+- Numeric domain: Exact rational fixture inputs and segment counts observed through finite binary64 values.
+- Lean theorem: [`Dry.Tests.SimulateMetricsFixtures.simulateMetricsFixtureChecks`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean).
+- Rust anchors: [`engine.rs`](../../crates/core/src/engine.rs), [`simulate_metrics_refinement.rs`](../../crates/core/tests/simulate_metrics_refinement.rs).
+- Numeric evidence: —.
+- Refinement evidence: [`SimulateMetricsFixtures.lean`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean), [`simulate-metrics-refinement-v0.json`](../../proofs/fixtures/simulate-metrics-refinement-v0.json), [`simulate-metrics-refinement-fixtures.schema.json`](../../proofs/fixtures/simulate-metrics-refinement-fixtures.schema.json), [`simulate_metrics_refinement.rs`](../../crates/core/tests/simulate_metrics_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
+
+**Assumptions**
+
+- Scope is strictly the committed generated simulate-metrics fixture corpus.
+- Native simulation observes all material, dwell, and per-move fields exactly as emitted in fixture segments.
+
+**Exclusions**
+
+- Arbitrary toolpaths outside the committed seven-case corpus.
+- Non-representable numeric edge cases (NaN/Inf) and rounding effects from unit conversion beyond fixture values.
 
 ### `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS`
 
