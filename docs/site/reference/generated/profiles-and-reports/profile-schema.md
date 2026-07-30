@@ -70,7 +70,8 @@ g-code is byte-identical to a profile that omits the block. When present, `emit 
 the program with a preamble (`G21 G17 G90`, then `G5x`, `T<n> M6`, `S<rpm> M3`, `M8`) and a postamble
 (`M9`, `M5`, `M30`); each optional word appears only when its key is set (see the field table above).
 All four keys are optional — an empty `"cnc": {}` still frames the program with `G21 G17 G90` / `G54` /
-`M30`, which is the minimum a controller will accept. Spindle *power* is not modeled as an IR channel in
+`M30`, the smallest frame Dry emits; it does not set tool-length offset (`G43`), cutter compensation
+(`G40`) or feed-rate mode (`G94`). Spindle *power* is not modeled as an IR channel in
 v1, so RPM is a per-program constant, not a per-operation value.
 
 **Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a

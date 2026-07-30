@@ -67,7 +67,8 @@ Contour-parallel clearing of a rectangular or circular pocket (`--mode pocket`),
 contour (`--mode profile`), written as resolved Dry IR — then verified and emitted as a framed RS-274
 program. The program frame (units/plane/distance mode, WCS, tool change, spindle, program end) comes
 from the profile's `machine.cnc` block; without a profile carrying it, `emit --format rs274` emits bare
-motion that a real controller would reject.
+motion, which a controller will happily run under whatever modal state it is already in — units, work
+offset, plane and spindle are then whatever the previous program left behind.
 
 `cnc.json` (the minimum; the committed
 [`spec/examples/profiles/mill-3axis-rs274.json`](../spec/examples/profiles/mill-3axis-rs274.json) adds a
@@ -103,7 +104,8 @@ dry emit pocket.json --format rs274 --profile cnc.json
 
 Flags: `--shape rect|circle` (with `--x/--y/--width/--height` or `--cx/--cy/--radius`), `--mode
 pocket|profile`, `--tool-diameter`, `--stepover` (fraction of the tool diameter in (0, 1], default
-`0.5`), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
+`0.5`; rectangular pockets clamp the resulting ring inset to ≈`0.854·d`, the largest inset that
+still clears the corners), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
 `--profile P.json`, `-o FILE`.
 
 That exact program is frozen as `conformance/reports/cnc/pocket-rect-rs274.ngc` and drift-gated by

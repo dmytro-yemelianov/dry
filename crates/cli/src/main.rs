@@ -197,7 +197,8 @@ enum GenerateCmd {
         mode: String,
         #[arg(long)]
         tool_diameter: f64,
-        /// Stepover as a fraction of tool diameter in (0, 1].
+        /// Stepover as a fraction of tool diameter in (0, 1]. Rectangular pockets clamp the
+        /// resulting inset to ~0.854 of the diameter, the largest value that still clears corners.
         #[arg(long)]
         stepover: Option<f64>,
         #[arg(long)]

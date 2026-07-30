@@ -95,11 +95,25 @@ cutting moves so they classify as work moves (RS-274/GRBL already suppress `E` w
 
 - *Rect pocket:* concentric rectangles. The outermost ring is the wall inset by `tool_diameter/2`;
   each inner ring insets by `stepover · tool_diameter` until the remaining half-extent
-  ≤ `stepover · tool_diameter` (then one final center pass — a line or point — if uncovered).
+  ≤ that inset (then one final center pass — a line or point — if uncovered). Two coverage
+  corrections apply (2026-07-30 review):
+  - The inset is clamped to `tool_r · (1 + 1/√2)` (≈ stepover 0.854). A ring's swath ends in a
+    *sharp* inner corner `tool_r` inside the ring, but the ring inward of it only reaches that
+    corner through a `tool_r` fillet, so a larger inset leaves an uncut cusp in the three corners
+    the ring-to-ring link does not cross. The clamp only ever reduces engagement; `stepover` stays
+    accepted over the whole documented `(0, 1]`.
+  - When the series ends on a ring whose smaller half-extent still exceeds `tool_r` (possible for
+    stepover > 0.5), one more ring is added, shrunk so that half-extent is exactly `tool_r`;
+    otherwise the ring's own interior is an uncut island.
   Rings are cut innermost→outermost (conventional roughing order: full-width first cuts happen at
-  the center), linked by straight feed moves (they lie in already-cleared material).
-- *Circle pocket:* concentric full circles of the same inset series, each authored as **two
-  half-circle `Arc` ops**. A single full-circle arc is not rejected — `resolve` and `verify` both
+  the center), linked by straight feed moves. Those links cut *outward into uncut stock* — a link
+  crosses the corner diagonal, so its engagement peaks near `step·√2`; that is the cost of the
+  innermost-first ordering, not a claim that the link runs through cleared material.
+- *Circle pocket:* concentric full circles of the same inset series (no corner clamp — concentric
+  annuli overlap for any inset ≤ the tool diameter — but the same centre-clearing rescue: an extra
+  ring at exactly `tool_r` when the innermost radius exceeds it, or the pocket keeps an uncut
+  centre post), each authored as **two half-circle `Arc` ops**. A single full-circle arc is not
+  rejected — `resolve` and `verify` both
   normalise a `start == end` arc to a full `TAU` sweep rather than treating it as degenerate — but
   it would emit as a zero-displacement `G2/G3`, which leans on each controller's full-circle
   convention; two half-circles are unambiguous in every dialect Dry emits and give each ring an
@@ -145,8 +159,10 @@ handover).
   present).
 - When `cnc_frame` is `None`, rs274 output is byte-identical to today (no drift on existing
   fixtures/goldens).
-- A profile's `start_gcode`/`end_gcode` procedures still compose around this the way they do for
-  FFF flavors — the frame is *inside* them.
+- A profile's `start_gcode`/`end_gcode` procedures do **not** compose with the frame in this slice:
+  they parse and validate, but nothing consumes them — no emit path reads either field (they exist
+  only as `Profile` struct fields plus a parse test), so the frame is neither inside nor outside
+  any such content. Wiring them into emission is separate work.
 
 ### 3.3 CLI — `dry generate pocket`
 
@@ -203,8 +219,9 @@ generator's feeds.
 - **Spindle as an IR channel now** — rejected for this slice: touches the frozen IR spec, codecs,
   vectors and three SDK surfaces; deferred to #181 where laser power needs the same mechanism.
 - **Frame via `start_gcode`/`end_gcode` templates only** — rejected: not validated, not
-  deterministic, and every user would hand-write the same ten lines; kept as an escape hatch that
-  composes around the structured frame.
+  deterministic, and every user would hand-write the same ten lines. (Those fields are also inert
+  today — parsed and validated, but read by no emit path — so they are not even an escape hatch
+  yet; see §3.2.)
 - **Full-circle single-arc rings** — rejected on emitted-program grounds, not validator grounds:
   `resolve`/`verify` normalise a `start == end` arc to a full `TAU` sweep, so one would resolve and
   verify fine, but it emits as a zero-displacement arc whose meaning depends on the controller's

@@ -23,11 +23,11 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "a3661674d75921973358a06c599ca78354ceeabb7cbc212e1fe17a41527881ab"
+      "sha256": "01b298c920f257aec386762b64cc443d0d701ec8aa152fd14f63d5eaaecf561b"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "c36d7be038f871bcbf61d866ed319699e6b586e1522ad5878fdaeb4a39f81748"
+      "sha256": "131652b6919dc6d2ed5f758d237400b25a4582d80a034b17e739e7ac5d8c4f20"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
@@ -35,7 +35,7 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "2a8211cc8d3b39537f950d2f67e0df3bbe09671b49a5359b65c47796f8c3ffd3"
+      "sha256": "0c6214d002ada6ba04e372b427e031840bbbf1758cf22ad9823a9fa43cc9a805"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
