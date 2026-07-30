@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// The rotary kinematics of the 5-axis machine: which two rotary axes carry the toolframe orientation,
 /// and how the tool-direction unit vector maps onto them. Supports mechanical TCP (Tool Center Point)
@@ -32,6 +32,35 @@ impl Default for Kinematics {
 }
 
 impl Kinematics {
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::Ab {
+                pivot_offset,
+                rotary_offset,
+            }
+            | Self::Ac {
+                pivot_offset,
+                rotary_offset,
+            }
+            | Self::Bc {
+                pivot_offset,
+                rotary_offset,
+            } => {
+                for (axis, value) in ["x", "y", "z"].iter().zip(*pivot_offset) {
+                    if !value.is_finite() {
+                        return Err(format!("pivot_offset[{axis}] must be finite"));
+                    }
+                }
+                for (axis, value) in ["0", "1"].iter().zip(*rotary_offset) {
+                    if !value.is_finite() {
+                        return Err(format!("rotary_offset[{axis}] must be finite"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn named(name: &str) -> Result<Self, String> {
         match name {
             "ab" => Ok(Kinematics::Ab {
@@ -98,6 +127,50 @@ impl<'de> serde::Deserialize<'de> for Kinematics {
                     "unknown kinematics type: {other}"
                 ))),
             },
+        }
+    }
+}
+
+impl Serialize for Kinematics {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Raw {
+            #[serde(rename = "type")]
+            kind: &'static str,
+            #[serde(default)]
+            pivot_offset: [f64; 3],
+            #[serde(default)]
+            rotary_offset: [f64; 2],
+        }
+
+        match self {
+            Self::Ab {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "ab",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
+            Self::Ac {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "ac",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
+            Self::Bc {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "bc",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
         }
     }
 }

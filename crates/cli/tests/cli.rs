@@ -285,6 +285,104 @@ fn emit_reproduces_the_fixture_gcode() {
 }
 
 #[test]
+fn emit_five_axis_respects_profile_model_and_flag_override() {
+    let path = fixture("gcode", "square");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "machine": {
+            "five_axis": {
+              "type": "bc",
+              "pivot_offset": [0.0, 0.0, 0.0],
+              "rotary_offset": [0.0, 0.0]
+            }
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let from_profile = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--five-axis", "--profile"])
+        .arg(profile_path.to_str().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        from_profile.status.success(),
+        "dry emit --profile ... --five-axis should succeed"
+    );
+    let profile_out = String::from_utf8(from_profile.stdout).unwrap();
+
+    let from_flag = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        from_flag.status.success(),
+        "dry emit --rotary-axes bc --five-axis should succeed"
+    );
+    assert_eq!(
+        profile_out,
+        String::from_utf8(from_flag.stdout).unwrap(),
+        "profile machine.five_axis should be used when --five-axis is set"
+    );
+
+    let explicit = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--rotary-axes",
+            "ac",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        explicit.status.success(),
+        "explicit rotary-axes must still be accepted"
+    );
+    let explicit = String::from_utf8(explicit.stdout).unwrap();
+
+    let ac_flag = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "ac",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        ac_flag.status.success(),
+        "dry emit --rotary-axes ac --five-axis should succeed"
+    );
+    assert_eq!(
+        explicit,
+        String::from_utf8(ac_flag.stdout).unwrap(),
+        "explicit --rotary-axes should override profile machine.five_axis"
+    );
+
+    let _ = std::fs::remove_file(profile_path);
+}
+
+#[test]
 fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
     // The rotary-axes selector was renamed `--kinematics` → `--rotary-axes`; the old name stays a
     // visible alias. Both must be accepted and produce byte-identical g-code for the same value.

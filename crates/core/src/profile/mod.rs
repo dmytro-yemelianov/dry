@@ -3,7 +3,7 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
-use crate::emit::{EmitParams, FirmwareFlavor};
+use crate::emit::{EmitParams, FirmwareFlavor, Kinematics};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
@@ -107,6 +107,11 @@ pub struct MachineProfile {
     /// optimisation pipeline. Optional and additive: absent leaves `balanced` at its built-in defaults.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kinematics: Option<MachineKinematics>,
+    /// Optional 5-axis machine model used when `EmitParams::five_axis` is enabled. The `kinematics`
+    /// string/object maps the toolframe orientation to rotary axes using the same enum as
+    /// [`EmitParams::kinematics`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub five_axis: Option<Kinematics>,
 }
 
 /// Deterministic kinematic limits used to shape cornering speed in `balanced` mode.
@@ -282,6 +287,11 @@ impl Profile {
                 kinematics.max_junction_velocity_mm_s,
             )?;
         }
+        if let Some(kinematics) = &self.machine.five_axis {
+            kinematics
+                .validate()
+                .map_err(|error| ProfileError::new(format!("machine.five_axis {error}")))?;
+        }
         validate_positive(
             "material.filament_diameter",
             self.material.filament_diameter,
@@ -375,10 +385,15 @@ impl Profile {
             Some("duet") => FirmwareFlavor::Duet,
             _ => FirmwareFlavor::Marlin, // default
         };
-        EmitParams {
+        let mut params = EmitParams {
             flavor,
             ..EmitParams::default()
+        };
+
+        if let Some(kinematics) = self.machine.five_axis {
+            params.kinematics = kinematics;
         }
+        params
     }
 }
 

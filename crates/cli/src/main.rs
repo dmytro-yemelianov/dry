@@ -202,13 +202,16 @@ enum Cmd {
         /// Emit absolute extrusion (default is relative E).
         #[arg(long)]
         absolute_e: bool,
+        /// Machine/material profile JSON to supply defaults and rotary model.
+        #[arg(long)]
+        profile: Option<String>,
         /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
         /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
-        #[arg(long, visible_alias = "kinematics", value_enum, default_value_t = RotaryAxesArg::Ab)]
-        rotary_axes: RotaryAxesArg,
+        #[arg(long, visible_alias = "kinematics", value_enum)]
+        rotary_axes: Option<RotaryAxesArg>,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -776,17 +779,27 @@ fn run(cli: Cli) -> ExitCode {
         Cmd::Emit {
             file,
             absolute_e,
+            profile,
             five_axis,
             rotary_axes,
             out,
         } => {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let kinematics = rotary_axes
+                .map(Into::into)
+                .or_else(|| profile.as_ref().and_then(|p| p.machine.five_axis))
+                .unwrap_or_default();
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
-                kinematics: rotary_axes.into(),
+                kinematics,
+                flavor: profile
+                    .as_ref()
+                    .map(|p| p.emit_params().flavor)
+                    .unwrap_or(FirmwareFlavor::Marlin),
                 ..EmitParams::default()
             };
             match out {
