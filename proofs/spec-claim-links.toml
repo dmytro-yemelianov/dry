@@ -1,0 +1,233 @@
+schema_version = 1
+
+[[clause]]
+id = "DRY.QUANTITY.DIMENSION_V0"
+title = "Quantities retain their declared dimensions and compatible-unit normalization"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.1 Quantities"
+normative_text = "Public quantities are dimension-safe and normalize accepted units into canonical internal units."
+
+[[clause]]
+id = "DRY.FEATURE.EXPANSION_V0"
+title = "Feature expansion is ordered, bounded, deterministic, and parent-first"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.2 Frames and poses; §7 Milestone C"
+normative_text = "Feature and repeat expansion preserves source order, explicit budgets, and local-before-parent pose composition."
+
+[[clause]]
+id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+title = "Planar binary64 boundaries carry explicit numeric profiles"
+source = "docs/21-mathematical-assurance-plan.md"
+section = "FM1.4 Floating-point and curve error budgets"
+normative_text = "Floating-point claims identify their domain, profiles, imported premises, and unresolved refinement obligations."
+
+[[clause]]
+id = "DRY.IR.L2_WELL_FORMED_V0"
+title = "L2 toolpaths obey the published segment and well-formedness rules"
+source = "docs/10-dry-ir-v0-spec.md"
+section = "§3 Data model; §9 Conformance model"
+normative_text = "L2 segments use the published structure and invalid logical toolpaths are rejected."
+
+[[clause]]
+id = "DRY.IR.CODEC_V0"
+title = "JSON, DRY0, and DRY1 are versioned interchange boundaries"
+source = "docs/10-dry-ir-v0-spec.md"
+section = "§4 JSON wire form; §5 DRY0; §6 DRY1; §7 Version semantics"
+normative_text = "Published interchange formats preserve versioned logical toolpath data with documented errors and compatibility rules."
+
+[[clause]]
+id = "DRY.RESOLVE.ORIENTATION_V0"
+title = "Orientation state is explicit, last-write-wins, and attached at emission"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.2 Frames and poses"
+normative_text = "Toolframe orientation is explicit L1 state; omitted orientation denotes the default tool direction."
+
+[[clause]]
+id = "DRY.RESOLVE.CHANNELS_V0"
+title = "Typed process channels propagate through ordered lowering"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.3 Channels"
+normative_text = "Process channels have declared defaults, propagation rules, and compatibility behavior."
+
+[[clause]]
+id = "DRY.DEPOSITION.MATH_V0"
+title = "Deposition math follows the declared bead and material equations"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.1 Quantities; §6.3 Channels"
+normative_text = "Deposition quantities use the typed physical dimensions and process channels defined by the language boundary."
+
+[[clause]]
+id = "DRY.REPORT.METRICS_V1"
+title = "Simulation and trace reports expose validated metric summaries"
+source = "docs/11-profiles-and-reports.md"
+section = "§3 Report outputs"
+normative_text = "Report schemas define the metric summaries and located evidence exposed to independent consumers."
+
+[[clause]]
+id = "DRY.REPORT.VERIFIER_RULES_V1"
+title = "Verifier rules are explicit, located, and coverage-aware"
+source = "docs/11-profiles-and-reports.md"
+section = "§2 Verification rule catalog; §3.1 VerifyReport"
+normative_text = "Verification reports identify the executed contracts and findings rather than implying unmodeled safety."
+
+[[clause]]
+id = "DRY.OPTIMIZATION.OBSERVATION_V0"
+title = "Optimization passes declare their observation relation"
+source = "docs/21-mathematical-assurance-plan.md"
+section = "FM1.6 Optimization pass contracts"
+normative_text = "An optimization claim names the exact, bounded, or intentionally changing observation it preserves."
+
+[[clause]]
+id = "DRY.CAPABILITY.MATCHING_V0"
+title = "Capability matching fails closed at the machine boundary"
+source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
+section = "§6.4 Capabilities and requirements; §7 Milestone D1.6"
+normative_text = "Target selection rejects requirements that exceed the selected machine and process capability profile."
+
+[[link]]
+claim_id = "FM1.TRANSFORM.COMPOSE_ACTION"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.GROUP.ORDER"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.REPEAT.COUNT"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.BUDGETS"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.EXPANSION.DETERMINISTIC"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.COMPOSE_ACTION"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.COMPOSITION_TREE.SHAPE"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.ANGLE.RADIANS"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.TRIG.COEFFICIENTS"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.COMPOSE.LOCAL_ERROR"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.NATIVE.NESTED_APPLICATION"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.REPEAT.ACCUMULATION"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR.ANGULAR_ERROR"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.ORIENTATION.NATIVE.CONTRACT.CORPUS"
+clause_id = "DRY.RESOLVE.ORIENTATION_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR"
+clause_id = "DRY.NUMERIC.PLANAR_BINARY64_V0"
+
+[[link]]
+claim_id = "FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"
+clause_id = "DRY.FEATURE.EXPANSION_V0"
+
+[[link]]
+claim_id = "FM1.ORDERED_FOLD.DETERMINISTIC"
+clause_id = "DRY.RESOLVE.CHANNELS_V0"
+
+[[link]]
+claim_id = "FM1.L2.WELL_FORMED.REJECTION"
+clause_id = "DRY.IR.L2_WELL_FORMED_V0"
+
+[[link]]
+claim_id = "FM1.L2.LOGICAL_EQUALITY.STRUCTURAL"
+clause_id = "DRY.IR.L2_WELL_FORMED_V0"
+
+[[link]]
+claim_id = "FM1.DIMENSION.COMMUTATIVE"
+clause_id = "DRY.QUANTITY.DIMENSION_V0"
+
+[[link]]
+claim_id = "FM1.DIMENSION.DEPOSITION"
+clause_id = "DRY.DEPOSITION.MATH_V0"
+
+[[link]]
+claim_id = "FM1.UNIT.NORMALIZE_CONVERT"
+clause_id = "DRY.QUANTITY.DIMENSION_V0"
+
+[[link]]
+claim_id = "FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS"
+clause_id = "DRY.RESOLVE.ORIENTATION_V0"
+
+[[link]]
+claim_id = "FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS"
+clause_id = "DRY.RESOLVE.ORIENTATION_V0"
+
+[[link]]
+claim_id = "FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS"
+clause_id = "DRY.RESOLVE.CHANNELS_V0"
+
+[[link]]
+claim_id = "FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS"
+clause_id = "DRY.RESOLVE.CHANNELS_V0"
+
+[[link]]
+claim_id = "FM1.DEPOSITION.MODEL.SEMANTICS"
+clause_id = "DRY.DEPOSITION.MATH_V0"
+
+[[link]]
+claim_id = "FM1.SIMULATE_METRICS.MODEL.SEMANTICS"
+clause_id = "DRY.REPORT.METRICS_V1"
+
+[[link]]
+claim_id = "FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"
+clause_id = "DRY.REPORT.VERIFIER_RULES_V1"
+
+[[link]]
+claim_id = "FM1.OPTIMIZATION.MODEL.SEMANTICS"
+clause_id = "DRY.OPTIMIZATION.OBSERVATION_V0"
+
+[[link]]
+claim_id = "FM1.CODEC_INVERSE.MODEL.SEMANTICS"
+clause_id = "DRY.IR.CODEC_V0"
+
+[[link]]
+claim_id = "FM1.CAPABILITY.MODEL.SEMANTICS"
+clause_id = "DRY.CAPABILITY.MATCHING_V0"

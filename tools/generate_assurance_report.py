@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPO_ROOT / "docs" / "assurance" / "01-assurance-sitemap.md"
+SPEC_LINKS = REPO_ROOT / "proofs" / "spec-claim-links.toml"
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,6 +45,21 @@ def load_claims() -> list[dict[str, Any]]:
     if not isinstance(claims, list):
         raise ValueError("proofs/claims.toml: claim must be an array of tables")
     return claims
+
+
+def load_spec_links() -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    with SPEC_LINKS.open("rb") as handle:
+        document = tomllib.load(handle)
+    clauses = {
+        clause["id"]: clause
+        for clause in document.get("clause", [])
+        if isinstance(clause, dict) and isinstance(clause.get("id"), str)
+    }
+    links = {}
+    for link in document.get("link", []):
+        if isinstance(link, dict) and isinstance(link.get("claim_id"), str):
+            links[link["claim_id"]] = clauses.get(link.get("clause_id", ""), {})
+    return links, clauses
 
 
 def repository_link(raw_path: str, *, label: str | None = None) -> str:
@@ -88,6 +104,7 @@ def bullet_items(values: list[str]) -> list[str]:
 def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
     if claims is None:
         claims = load_claims()
+    spec_links, clauses = load_spec_links()
 
     abstract = status_counts(claims, "abstract")
     numeric = status_counts(claims, "numeric")
@@ -112,8 +129,9 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         "",
         "# Dry formal assurance sitemap",
         "",
-        "This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml), "
-        "the authoritative claim registry. It deliberately reports the assurance layers "
+        "This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) and "
+        "[`proofs/spec-claim-links.toml`](../../proofs/spec-claim-links.toml), the authoritative "
+        "claim and clause registries. It deliberately reports the assurance layers "
         "independently: an abstract Lean theorem does **not** establish binary64 behavior, "
         "Rust refinement, target correctness, or physical-machine safety.",
         "",
@@ -125,6 +143,8 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         f"- Implementation-refinement status: {status_summary(refinement, ('checked', 'pending', 'not-applicable', 'missing'))}.",
         f"- Implementation-scoped claims meeting all registry gates: "
         f"**{len(checked_implementation_claims)}/{len(implementation_claims)}**.",
+        f"- Normative clause links: **{len(spec_links)}/{len(claims)}** claims across "
+        f"**{len(clauses)}** stable clauses.",
         "",
         "The Lean release gate is reproducible with `lake build --wfail`. The job count "
         "printed by Lake is a build-system job count, not a theorem count, so this report "
@@ -133,8 +153,8 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         "",
         "## Claim matrix",
         "",
-        "| Claim | Scope | Theorem | Spec profile | Relation | Abstract | Numeric | Rust refinement |",
-        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        "| Claim | Normative clause | Scope | Theorem | Spec profile | Relation | Abstract | Numeric | Rust refinement |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
 
     for claim in claims:
@@ -143,10 +163,20 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         theorem_link = repository_link(
             claim.get("lean_source", ""), label=theorem
         )
+        clause = spec_links.get(claim.get("id", ""), {})
+        clause_link = (
+            repository_link(
+                "docs/assurance/02-normative-clauses.md",
+                label=clause.get("id", ""),
+            )
+            if clause
+            else "—"
+        )
         lines.append(
-            "| `{id}` | `{scope}` | {theorem} | `{spec}` | `{relation}` | "
+            "| `{id}` | {clause} | `{scope}` | {theorem} | `{spec}` | `{relation}` | "
             "`{abstract}` | `{numeric}` | `{refinement}` |".format(
                 id=claim.get("id", ""),
+                clause=clause_link,
                 scope=claim.get("scope", ""),
                 theorem=theorem_link,
                 spec=claim.get("spec_version", ""),
@@ -190,6 +220,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
     lines.extend(["", "## Claim evidence and boundaries", ""])
     for claim in claims:
         status = claim.get("status", {})
+        clause = spec_links.get(claim.get("id", ""), {})
         lines.extend(
             [
                 f"### `{claim.get('id', '')}`",
@@ -204,6 +235,8 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
                 f"- Spec profile: `{claim.get('spec_version', '')}`; "
                 f"`{claim.get('source_dialect', '')}` → "
                 f"`{claim.get('target_dialect', '')}`.",
+                f"- Normative clause: `{clause.get('id', 'unlinked')}` — "
+                f"{clause.get('title', 'No registered clause link') }.",
                 f"- Numeric domain: {claim.get('numeric_domain', '')}.",
                 f"- Lean theorem: "
                 f"{repository_link(claim.get('lean_source', ''), label=claim.get('theorem', ''))}.",
@@ -227,6 +260,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
             "",
             "```bash",
             "python3 tools/validate_proof_claims.py",
+            "python3 tools/validate_spec_claim_links.py",
             "python3 tools/validate_numeric_boundaries.py",
             "python3 tools/check_proof_fixtures.py",
             "python3 tools/check_resolve_orientation_mutations.py",

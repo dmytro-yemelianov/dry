@@ -2,7 +2,7 @@
 
 # Dry formal assurance sitemap
 
-This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml), the authoritative claim registry. It deliberately reports the assurance layers independently: an abstract Lean theorem does **not** establish binary64 behavior, Rust refinement, target correctness, or physical-machine safety.
+This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) and [`proofs/spec-claim-links.toml`](../../proofs/spec-claim-links.toml), the authoritative claim and clause registries. It deliberately reports the assurance layers independently: an abstract Lean theorem does **not** establish binary64 behavior, Rust refinement, target correctness, or physical-machine safety.
 
 ## Registry summary
 
@@ -11,50 +11,51 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml), 
 - Numeric status: `bounded` 12, `pending` 2, `not-applicable` 23.
 - Implementation-refinement status: `checked` 11, `pending` 18, `not-applicable` 8.
 - Implementation-scoped claims meeting all registry gates: **5/5**.
+- Normative clause links: **37/37** claims across **12** stable clauses.
 
 The Lean release gate is reproducible with `lake build --wfail`. The job count printed by Lake is a build-system job count, not a theorem count, so this report does not present it as proof coverage. Rust tests and mutation manifests are linked only on claims that register them as refinement evidence.
 
 ## Claim matrix
 
-| Claim | Scope | Theorem | Spec profile | Relation | Abstract | Numeric | Rust refinement |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `FM1.TRANSFORM.COMPOSE_ACTION` | `abstract` | [`Dry.Geometry.PlanarTransform.apply_compose`](../../formal/Dry/Geometry/PlanarTransform.lean) | `feature-v0` | `exact` | `proved` | `pending` | `pending` |
-| `FM1.FEATURE.GROUP.ORDER` | `abstract` | [`Dry.Semantics.ExpandFeatures.expand_group_append`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
-| `FM1.FEATURE.REPEAT.COUNT` | `abstract` | [`Dry.Semantics.ExpandFeatures.repeat_op_count`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `exact` | `proved` | `not-applicable` | `checked` |
-| `FM1.FEATURE.BUDGETS` | `abstract` | [`Dry.Semantics.ExpandFeatures.expansion_respects_budgets`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `invariant-preservation` | `proved` | `not-applicable` | `checked` |
-| `FM1.FEATURE.EXPANSION.DETERMINISTIC` | `abstract` | [`Dry.Semantics.ExpandFeatures.Evaluates.deterministic`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
-| `FM1.FEATURE.COMPOSE_ACTION` | `abstract` | [`Dry.Semantics.ExpandFeatures.Geometry.feature_composition_action`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `exact` | `proved` | `pending` | `pending` |
-| `FM1.FEATURE.COMPOSITION_TREE.SHAPE` | `abstract` | [`Dry.Semantics.CompositionTreeRefinement.expandNode_tree_parenthesization`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean) | `feature-v0` | `exact` | `proved` | `not-applicable` | `checked` |
-| `FM1.NUMERIC.ANGLE.RADIANS` | `abstract` | [`Dry.Numeric.Angle.binary64Radians_error`](../../formal/Dry/Numeric/Angle.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.TRIG.COEFFICIENTS` | `abstract` | [`Dry.Numeric.Trig.binary64Coefficients_error`](../../formal/Dry/Numeric/Trig.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.COMPOSE.LOCAL_ERROR` | `abstract` | [`Dry.Numeric.Binary64.binary64Compose_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS` | `implementation` | [`Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks`](../../formal/Dry/Tests/NativeNumericFixtures.lean) | `native-feature-numeric-interval-v0` | `approximate` | `proved` | `bounded` | `checked` |
-| `FM1.NUMERIC.NATIVE.NESTED_APPLICATION` | `implementation` | [`Dry.Tests.NestedApplicationFixtures.nestedApplicationFixtureChecks`](../../formal/Dry/Tests/NestedApplicationFixtures.lean) | `nested-application-refinement-v0` | `approximate` | `proved` | `bounded` | `checked` |
-| `FM1.NUMERIC.REPEAT.ACCUMULATION` | `abstract` | [`Dry.Numeric.Accumulation.binary64Repeat_error`](../../formal/Dry/Numeric/Accumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION` | `abstract` | [`Dry.Numeric.CompositionTree.binary64Tree_error`](../../formal/Dry/Numeric/CompositionTree.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT` | `abstract` | [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyPoint_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR` | `abstract` | [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyVector_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR.ANGULAR_ERROR` | `abstract` | [`Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error`](../../formal/Dry/Numeric/Orientation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.ORIENTATION.NATIVE.CONTRACT.CORPUS` | `implementation` | [`Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks`](../../formal/Dry/Tests/OrientationContractFixtures.lean) | `orientation-contract-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
-| `FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR` | `abstract` | [`Dry.Numeric.Binary64.binary64ApplyPoint_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR` | `abstract` | [`Dry.Numeric.Binary64.binary64ApplyVector_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
-| `FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC` | `abstract` | [`Dry.Semantics.CheckedExpansion.CheckedEvaluates.deterministic`](../../formal/Dry/Semantics/CheckedExpansion.lean) | `feature-refinement-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
-| `FM1.ORDERED_FOLD.DETERMINISTIC` | `abstract` | [`Dry.Semantics.OrderedFold.Exec.deterministic`](../../formal/Dry/Semantics/OrderedFold.lean) | `resolve-v0` | `exact` | `proved` | `not-applicable` | `pending` |
-| `FM1.L2.WELL_FORMED.REJECTION` | `abstract` | [`Dry.Language.L2.Validation.validate_success_iff`](../../formal/Dry/Language/WellFormed.lean) | `dry-ir-v0` | `rejection` | `proved` | `not-applicable` | `pending` |
-| `FM1.L2.LOGICAL_EQUALITY.STRUCTURAL` | `abstract` | [`Dry.Language.L2.LogicalEquality.equivalent_iff_eq`](../../formal/Dry/Language/LogicalEquality.lean) | `dry-ir-v0` | `exact` | `proved` | `not-applicable` | `pending` |
-| `FM1.DIMENSION.COMMUTATIVE` | `abstract` | [`Dry.Numeric.Dimension.compose_commutative`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
-| `FM1.DIMENSION.DEPOSITION` | `abstract` | [`Dry.Numeric.Dimension.deposition_dimension`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
-| `FM1.UNIT.NORMALIZE_CONVERT` | `abstract` | [`Dry.Numeric.Unit.normalize_convert`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
-| `FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations`](../../formal/Dry/Semantics/ResolveOrientation.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS` | `implementation` | [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean) | `resolve-orientation-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
-| `FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.ResolveChannels.resolve_append`](../../formal/Dry/Semantics/ResolveChannels.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS` | `implementation` | [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean) | `resolve-channels-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
-| `FM1.DEPOSITION.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.SIMULATE_METRICS.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.OPTIMIZATION.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.CODEC_INVERSE.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.CAPABILITY.MODEL.SEMANTICS` | `abstract` | [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| Claim | Normative clause | Scope | Theorem | Spec profile | Relation | Abstract | Numeric | Rust refinement |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `FM1.TRANSFORM.COMPOSE_ACTION` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.PlanarTransform.apply_compose`](../../formal/Dry/Geometry/PlanarTransform.lean) | `feature-v0` | `exact` | `proved` | `pending` | `pending` |
+| `FM1.FEATURE.GROUP.ORDER` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ExpandFeatures.expand_group_append`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
+| `FM1.FEATURE.REPEAT.COUNT` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ExpandFeatures.repeat_op_count`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `exact` | `proved` | `not-applicable` | `checked` |
+| `FM1.FEATURE.BUDGETS` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ExpandFeatures.expansion_respects_budgets`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `invariant-preservation` | `proved` | `not-applicable` | `checked` |
+| `FM1.FEATURE.EXPANSION.DETERMINISTIC` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ExpandFeatures.Evaluates.deterministic`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
+| `FM1.FEATURE.COMPOSE_ACTION` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ExpandFeatures.Geometry.feature_composition_action`](../../formal/Dry/Semantics/ExpandFeatures.lean) | `feature-v0` | `exact` | `proved` | `pending` | `pending` |
+| `FM1.FEATURE.COMPOSITION_TREE.SHAPE` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CompositionTreeRefinement.expandNode_tree_parenthesization`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean) | `feature-v0` | `exact` | `proved` | `not-applicable` | `checked` |
+| `FM1.NUMERIC.ANGLE.RADIANS` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Angle.binary64Radians_error`](../../formal/Dry/Numeric/Angle.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.TRIG.COEFFICIENTS` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Trig.binary64Coefficients_error`](../../formal/Dry/Numeric/Trig.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.COMPOSE.LOCAL_ERROR` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Binary64.binary64Compose_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.NATIVE.CARDINAL_INTERVALS` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks`](../../formal/Dry/Tests/NativeNumericFixtures.lean) | `native-feature-numeric-interval-v0` | `approximate` | `proved` | `bounded` | `checked` |
+| `FM1.NUMERIC.NATIVE.NESTED_APPLICATION` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.NestedApplicationFixtures.nestedApplicationFixtureChecks`](../../formal/Dry/Tests/NestedApplicationFixtures.lean) | `nested-application-refinement-v0` | `approximate` | `proved` | `bounded` | `checked` |
+| `FM1.NUMERIC.REPEAT.ACCUMULATION` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Accumulation.binary64Repeat_error`](../../formal/Dry/Numeric/Accumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.COMPOSITION_TREE.ACCUMULATION` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.CompositionTree.binary64Tree_error`](../../formal/Dry/Numeric/CompositionTree.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_POINT` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyPoint_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyVector_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.COMPOSITION_TREE.APPLY_VECTOR.ANGULAR_ERROR` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error`](../../formal/Dry/Numeric/Orientation.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.ORIENTATION.NATIVE.CONTRACT.CORPUS` | [`DRY.RESOLVE.ORIENTATION_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks`](../../formal/Dry/Tests/OrientationContractFixtures.lean) | `orientation-contract-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
+| `FM1.NUMERIC.APPLY_POINT.LOCAL_ERROR` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Binary64.binary64ApplyPoint_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.NUMERIC.APPLY_VECTOR.LOCAL_ERROR` | [`DRY.NUMERIC.PLANAR_BINARY64_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Binary64.binary64ApplyVector_error`](../../formal/Dry/Numeric/Binary64.lean) | `feature-planar-binary64-v0` | `approximate` | `proved` | `bounded` | `pending` |
+| `FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC` | [`DRY.FEATURE.EXPANSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CheckedExpansion.CheckedEvaluates.deterministic`](../../formal/Dry/Semantics/CheckedExpansion.lean) | `feature-refinement-v0` | `trace-exact` | `proved` | `not-applicable` | `checked` |
+| `FM1.ORDERED_FOLD.DETERMINISTIC` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.OrderedFold.Exec.deterministic`](../../formal/Dry/Semantics/OrderedFold.lean) | `resolve-v0` | `exact` | `proved` | `not-applicable` | `pending` |
+| `FM1.L2.WELL_FORMED.REJECTION` | [`DRY.IR.L2_WELL_FORMED_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Language.L2.Validation.validate_success_iff`](../../formal/Dry/Language/WellFormed.lean) | `dry-ir-v0` | `rejection` | `proved` | `not-applicable` | `pending` |
+| `FM1.L2.LOGICAL_EQUALITY.STRUCTURAL` | [`DRY.IR.L2_WELL_FORMED_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Language.L2.LogicalEquality.equivalent_iff_eq`](../../formal/Dry/Language/LogicalEquality.lean) | `dry-ir-v0` | `exact` | `proved` | `not-applicable` | `pending` |
+| `FM1.DIMENSION.COMMUTATIVE` | [`DRY.QUANTITY.DIMENSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Dimension.compose_commutative`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
+| `FM1.DIMENSION.DEPOSITION` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Dimension.deposition_dimension`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
+| `FM1.UNIT.NORMALIZE_CONVERT` | [`DRY.QUANTITY.DIMENSION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.Unit.normalize_convert`](../../formal/Dry/Numeric/Quantity.lean) | `quantity-model-v0` | `exact` | `proved` | `not-applicable` | `pending` |
+| `FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS` | [`DRY.RESOLVE.ORIENTATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations`](../../formal/Dry/Semantics/ResolveOrientation.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS` | [`DRY.RESOLVE.ORIENTATION_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean) | `resolve-orientation-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
+| `FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.ResolveChannels.resolve_append`](../../formal/Dry/Semantics/ResolveChannels.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS` | [`DRY.RESOLVE.CHANNELS_V0`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean) | `resolve-channels-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
+| `FM1.DEPOSITION.MODEL.SEMANTICS` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.SIMULATE_METRICS.MODEL.SEMANTICS` | [`DRY.REPORT.METRICS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` | [`DRY.REPORT.VERIFIER_RULES_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.OPTIMIZATION.MODEL.SEMANTICS` | [`DRY.OPTIMIZATION.OBSERVATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.CODEC_INVERSE.MODEL.SEMANTICS` | [`DRY.IR.CODEC_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.CAPABILITY.MODEL.SEMANTICS` | [`DRY.CAPABILITY.MATCHING_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 
 ## Open registry obligations
 
@@ -95,6 +96,7 @@ Planar pose composition acts on points by nested application
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `pending`, Rust refinement `pending`.
 - Spec profile: `feature-v0`; `L0` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Real.
 - Lean theorem: [`Dry.Geometry.PlanarTransform.apply_compose`](../../formal/Dry/Geometry/PlanarTransform.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -119,6 +121,7 @@ Feature groups preserve source-list expansion order
 - Scope/relation: `abstract` / `trace-exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.expand_group_append`](../../formal/Dry/Semantics/ExpandFeatures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -143,6 +146,7 @@ Repeat expansion emits exactly count times the child operation count
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number resource counts.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.repeat_op_count`](../../formal/Dry/Semantics/ExpandFeatures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -167,6 +171,7 @@ Accepted abstract feature trees respect operation, node and depth budgets
 - Scope/relation: `abstract` / `invariant-preservation`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number resource counts.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.expansion_respects_budgets`](../../formal/Dry/Semantics/ExpandFeatures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -192,6 +197,7 @@ Abstract feature expansion has a unique operation trace
 - Scope/relation: `abstract` / `trace-exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.Evaluates.deterministic`](../../formal/Dry/Semantics/ExpandFeatures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -216,6 +222,7 @@ A feature pose acts locally before its outer planar transform
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `pending`, Rust refinement `pending`.
 - Spec profile: `feature-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Real.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.Geometry.feature_composition_action`](../../formal/Dry/Semantics/ExpandFeatures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -241,6 +248,7 @@ Selected nested Feature and Repeat paths preserve parent-first transform-tree pa
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-v0`; `One selected path through planar Feature, ordered Group and Repeat nodes` → `Identity/pose/binary-compose TransformTree syntax`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric composition-expression shape.
 - Lean theorem: [`Dry.Semantics.CompositionTreeRefinement.expandNode_tree_parenthesization`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -266,6 +274,7 @@ Profiled binary64 degree-to-radian conversion has a checked absolute error bound
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `Binary64 FeaturePose rotation in degrees` → `Profile-gated binary64 radian intermediate`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Angle.binary64Radians_error`](../../formal/Dry/Numeric/Angle.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -292,6 +301,7 @@ Profiled binary64 degree-to-sine/cosine coefficient construction has a checked c
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `Binary64 FeaturePose rotation in degrees` → `Profile-gated libm 0.2.16 planar rotation coefficients`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 conversion plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.Trig.binary64Coefficients_error`](../../formal/Dry/Numeric/Trig.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -319,6 +329,7 @@ Profiled binary64 planar transform composition has a concrete componentwise loca
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `Exact-real planar transform expression` → `Profile-gated IEEE-754 binary64 round-to-nearest operation graph`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64Compose_error`](../../formal/Dry/Numeric/Binary64.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -344,6 +355,7 @@ Selected native cardinal-angle pose construction, composition and application sa
 - Scope/relation: `implementation` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `checked`.
 - Spec profile: `native-feature-numeric-interval-v0`; `Thirteen Lean-generated cardinal-angle FeaturePose, composition, point, Arc-centre and orientation cases` → `Native Rust f64 Transform::from_pose, compose, apply_point, apply_xy and apply_vector results`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Exact real π reference intervals plus exact dyadic models of the observed finite binary64 inputs and local operation graph.
 - Lean theorem: [`Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks`](../../formal/Dry/Tests/NativeNumericFixtures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`native_numeric_tests.rs`](../../crates/core/src/features/native_numeric_tests.rs).
@@ -370,6 +382,7 @@ Selected nested Feature and Repeat programs satisfy checked point, Arc-centre an
 - Scope/relation: `implementation` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `checked`.
 - Spec profile: `nested-application-refinement-v0`; `Three Lean-generated nested Repeat-to-Repeat-to-Feature programs with point, Arc-centre and orientation operations` → `Native Rust f64 feature expansion through pose construction, parenthesized composition and final operation application`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Exact integer quarter-turn reference semantics observed through stricter power-of-two ceilings that imply the published tree-application budgets.
 - Lean theorem: [`Dry.Tests.NestedApplicationFixtures.nestedApplicationFixtureChecks`](../../formal/Dry/Tests/NestedApplicationFixtures.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs).
@@ -397,6 +410,7 @@ Profiled sequential repeat-transform accumulation has checked conditional coeffi
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `One profiled FeaturePose and a bounded natural repeat count` → `Profile-gated sequential binary64 repeat-transform accumulator`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.Accumulation.binary64Repeat_error`](../../formal/Dry/Numeric/Accumulation.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -425,6 +439,7 @@ Profiled arbitrary parenthesized transform-composition trees have checked condit
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `A bounded binary tree of profiled FeaturePose leaves, identity leaves and transform compositions` → `Profile-gated parenthesization-preserving binary64 transform tree`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.CompositionTree.binary64Tree_error`](../../formal/Dry/Numeric/CompositionTree.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -454,6 +469,7 @@ Profiled point and Arc-centre application after arbitrary transform-composition 
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `An exact-real point or Arc centre acted on by a bounded parenthesized transform tree` → `Profile-gated binary64 transform tree followed by the direct binary64 planar point application graph`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyPoint_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -482,6 +498,7 @@ Profiled orientation application after arbitrary transform-composition trees has
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `An exact-real orientation vector acted on by a bounded parenthesized transform tree` → `Profile-gated binary64 transform tree followed by the direct binary64 planar vector application graph`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyVector_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -510,6 +527,7 @@ Profiled unit orientation application after arbitrary transform-composition tree
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `An exact unit orientation vector acted on by a bounded parenthesized transform tree` → `A nonzero profile-gated binary64 orientation with bounded unoriented angular error`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Euclidean three-space over the Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 contract.
 - Lean theorem: [`Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error`](../../formal/Dry/Numeric/Orientation.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs).
@@ -537,6 +555,7 @@ Selected native orientation inputs refine nonzero resolution and unit verificati
 - Scope/relation: `implementation` / `observational`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `orientation-contract-refinement-v0`; `Six Lean-generated exact rational orientation vectors` → `Native Rust resolve_checked acceptance followed by orientation-not-unit verification classification`.
+- Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational source classification observed through selected finite binary64 values.
 - Lean theorem: [`Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks`](../../formal/Dry/Tests/OrientationContractFixtures.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
@@ -563,6 +582,7 @@ Profiled binary64 planar point application has a concrete componentwise local-op
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `Exact-real planar point expression` → `Profile-gated IEEE-754 binary64 round-to-nearest operation graph`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64ApplyPoint_error`](../../formal/Dry/Numeric/Binary64.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -588,6 +608,7 @@ Profiled binary64 planar vector application has a concrete componentwise local-o
 - Scope/relation: `abstract` / `approximate`.
 - Status: abstract `proved`, numeric `bounded`, Rust refinement `pending`.
 - Spec profile: `feature-planar-binary64-v0`; `Exact-real planar vector expression` → `Profile-gated IEEE-754 binary64 round-to-nearest operation graph`.
+- Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64ApplyVector_error`](../../formal/Dry/Numeric/Binary64.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -614,6 +635,7 @@ Checked feature expansion has a unique success or first-error result
 - Scope/relation: `abstract` / `trace-exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `feature-refinement-v0`; `L1` → `L1`.
+- Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number translations and resource counters plus rejected non-finite tokens.
 - Lean theorem: [`Dry.Semantics.CheckedExpansion.CheckedEvaluates.deterministic`](../../formal/Dry/Semantics/CheckedExpansion.lean).
 - Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
@@ -642,6 +664,7 @@ Ordered state-fold execution has a unique final state
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `resolve-v0`; `L1` → `L2`.
+- Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Integer.
 - Lean theorem: [`Dry.Semantics.OrderedFold.Exec.deterministic`](../../formal/Dry/Semantics/OrderedFold.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
@@ -666,6 +689,7 @@ L2 v0 validation succeeds exactly for well-formed logical toolpaths
 - Scope/relation: `abstract` / `rejection`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `dry-ir-v0`; `L2` → `L2`.
+- Normative clause: `DRY.IR.L2_WELL_FORMED_V0` — L2 toolpaths obey the published segment and well-formedness rules.
 - Numeric domain: Exact rationals plus an explicit rejected non-finite token.
 - Lean theorem: [`Dry.Language.L2.Validation.validate_success_iff`](../../formal/Dry/Language/WellFormed.lean).
 - Rust anchors: [`ir.rs`](../../crates/core/src/ir.rs), [`resolve.rs`](../../crates/core/src/resolve.rs).
@@ -692,6 +716,7 @@ Normalized L2 logical equivalence is structural equality
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `dry-ir-v0`; `L2` → `L2`.
+- Normative clause: `DRY.IR.L2_WELL_FORMED_V0` — L2 toolpaths obey the published segment and well-formedness rules.
 - Numeric domain: Normalized exact logical values.
 - Lean theorem: [`Dry.Language.L2.LogicalEquality.equivalent_iff_eq`](../../formal/Dry/Language/LogicalEquality.lean).
 - Rust anchors: [`ir.rs`](../../crates/core/src/ir.rs), [`mod.rs`](../../crates/core/src/codec/mod.rs).
@@ -717,6 +742,7 @@ Dimension composition is commutative
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `quantity-model-v0`; `Common` → `Common`.
+- Normative clause: `DRY.QUANTITY.DIMENSION_V0` — Quantities retain their declared dimensions and compatible-unit normalization.
 - Numeric domain: Integer exponent vectors.
 - Lean theorem: [`Dry.Numeric.Dimension.compose_commutative`](../../formal/Dry/Numeric/Quantity.lean).
 - Rust anchors: [`units.rs`](../../crates/core/src/units.rs).
@@ -739,6 +765,7 @@ The deposition volume equation is dimensionally valid
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `quantity-model-v0`; `L1` → `L2`.
+- Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
 - Numeric domain: Integer exponent vectors.
 - Lean theorem: [`Dry.Numeric.Dimension.deposition_dimension`](../../formal/Dry/Numeric/Quantity.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`units.rs`](../../crates/core/src/units.rs).
@@ -762,6 +789,7 @@ Converting units and then normalizing preserves canonical value
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `quantity-model-v0`; `Common` → `Common`.
+- Normative clause: `DRY.QUANTITY.DIMENSION_V0` — Quantities retain their declared dimensions and compatible-unit normalization.
 - Numeric domain: Rational.
 - Lean theorem: [`Dry.Numeric.Unit.normalize_convert`](../../formal/Dry/Numeric/Quantity.lean).
 - Rust anchors: [`units.rs`](../../crates/core/src/units.rs).
@@ -787,6 +815,7 @@ Orientation resolution is deterministically folded, defaults to Z-axis, propagat
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over minimal resolution operations, L2 segments, and numeric validity predicates` → `Lean proof model for orientation-aware L1 to L2 resolution`.
+- Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational numbers and optional 3D vectors.
 - Lean theorem: [`Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations`](../../formal/Dry/Semantics/ResolveOrientation.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
@@ -811,6 +840,7 @@ Native Rust resolve_checked accurately refines Lean orientation resolution seman
 - Scope/relation: `implementation` / `observational`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `resolve-orientation-refinement-v0`; `Five Lean-generated exact rational operation sequence test cases` → `Native Rust resolve_checked state tracking and segment orientation output verified by native verifier`.
+- Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs).
@@ -835,6 +865,7 @@ Process channels (temperature, fan, flow, tool) deterministically propagate forw
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over process channel operations and L2 segments` → `Lean proof model for channel-aware L1 to L2 resolution`.
+- Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Exact rational process values and optional quantities.
 - Lean theorem: [`Dry.Semantics.ResolveChannels.resolve_append`](../../formal/Dry/Semantics/ResolveChannels.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
@@ -858,6 +889,7 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 - Scope/relation: `implementation` / `observational`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `resolve-channels-refinement-v0`; `Six Lean-generated exact rational channel operation sequence test cases` → `Native Rust resolve_checked channel state propagation and segment output`.
+- Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`resolve_channels_refinement.rs`](../../crates/core/tests/resolve_channels_refinement.rs).
@@ -880,6 +912,7 @@ Extrusion volume and filament consumption math obey travel zero-extrusion and li
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over exact rational segment dimensions and flow` → `Lean proof model for segment volume and filament calculation`.
+- Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
 - Numeric domain: Exact rational length, width, height, and flow values.
 - Lean theorem: [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean).
 - Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
@@ -902,6 +935,7 @@ The abstract exact-rational metric fold composes over appended segment traces
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over toolpath metric fold aggregation` → `Lean proof model for toolpath simulation summary metrics`.
+- Normative clause: `DRY.REPORT.METRICS_V1` — Simulation and trace reports expose validated metric summaries.
 - Numeric domain: Exact rational metric counters and segment parameters.
 - Lean theorem: [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean).
 - Rust anchors: [`engine.rs`](../../crates/core/src/engine.rs).
@@ -927,6 +961,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean verifier predicate soundness semantics` → `Lean proof model for verifier rule soundness`.
+- Normative clause: `DRY.REPORT.VERIFIER_RULES_V1` — Verifier rules are explicit, located, and coverage-aware.
 - Numeric domain: Exact rational bounds, speeds, flows, and Z elevations.
 - Lean theorem: [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean).
 - Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
@@ -950,6 +985,7 @@ The abstract merge constructor stores the sum of input lengths and volumes
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over collinear segment merging` → `Lean proof model for optimization pass semantics`.
+- Normative clause: `DRY.OPTIMIZATION.OBSERVATION_V0` — Optimization passes declare their observation relation.
 - Numeric domain: Exact rational segment lengths and volumes.
 - Lean theorem: [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean).
 - Rust anchors: [`merge.rs`](../../crates/core/src/optimize/merge.rs).
@@ -974,6 +1010,7 @@ A serializer-neutral field-copy encoding model has an exact list round-trip inve
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over a three-field abstract segment list` → `Serializer-neutral field-copy encoding model`.
+- Normative clause: `DRY.IR.CODEC_V0` — JSON, DRY0, and DRY1 are versioned interchange boundaries.
 - Numeric domain: Exact rational segment fields and lists.
 - Lean theorem: [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean).
 - Rust anchors: [`mod.rs`](../../crates/core/src/codec/mod.rs).
@@ -999,6 +1036,7 @@ An abstract three-bound capability predicate fails closed when any modeled bound
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
 - Spec profile: `v0.4`; `Executable Lean semantics over machine capability matching` → `Lean proof model for capability verification`.
+- Normative clause: `DRY.CAPABILITY.MATCHING_V0` — Capability matching fails closed at the machine boundary.
 - Numeric domain: Exact rational machine limits and requirements.
 - Lean theorem: [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean).
 - Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
@@ -1020,6 +1058,7 @@ An abstract three-bound capability predicate fails closed when any modeled bound
 
 ```bash
 python3 tools/validate_proof_claims.py
+python3 tools/validate_spec_claim_links.py
 python3 tools/validate_numeric_boundaries.py
 python3 tools/check_proof_fixtures.py
 python3 tools/check_resolve_orientation_mutations.py

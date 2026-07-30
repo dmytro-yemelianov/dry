@@ -34,6 +34,8 @@ class AssuranceReportTests(unittest.TestCase):
         self.assertNotIn("3,138 compiled proof", report)
         self.assertIn("build-system job count, not a theorem count", report)
         self.assertIn("../../proofs/claims.toml", report)
+        self.assertIn("Normative clause", report)
+        self.assertIn("DRY.FEATURE.EXPANSION_V0", report)
 
     def test_report_exposes_independent_status_layers_and_obligations(self) -> None:
         claims = report_module.load_claims()

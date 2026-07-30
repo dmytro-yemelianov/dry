@@ -726,8 +726,9 @@ published subsets.
 ### FM1.9 — publication, maintenance and release gates
 
 Current status: **partial**. The claim registry now generates a portable assumption/coverage report,
-and CI rejects report drift. Normative clause identifiers, proof-impact enforcement, clean release
-reproduction, unsupported-syntax publication and external review remain open.
+all registered claims have stable normative clause IDs validated independently, and CI rejects report
+or clause-link drift. Proof-impact enforcement, clean release reproduction, unsupported-syntax
+publication and external review remain open.
 
 Dependencies: FM1.1–FM1.8 as claims mature.
 
