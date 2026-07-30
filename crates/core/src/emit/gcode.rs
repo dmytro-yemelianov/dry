@@ -1,4 +1,3 @@
-use super::kinematics::tool_rotaries;
 use super::{Kinematics, SplineFlatteningIterator};
 use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
@@ -62,97 +61,6 @@ pub(crate) fn num(v: f64) -> String {
         "0".to_string()
     } else {
         s.to_string()
-    }
-}
-
-/// Helper to translate a 3D point from Workpiece Coordinate System (WCS) to Machine
-/// Coordinate System (MCS) using the configured 5-axis kinematics and offsets.
-fn to_mcs(p: [f64; 3], orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [f64; 3] {
-    let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-    match kinematics {
-        Kinematics::Ab {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let a_nom = libm::atan2(j, libm::hypot(i, k));
-            let b_nom = libm::atan2(i, k);
-            let a = a_nom + rotary_offset[0].to_radians();
-            let b = b_nom + rotary_offset[1].to_radians();
-
-            let sa = libm::sin(a);
-            let ca = libm::cos(a);
-            let sb = libm::sin(b);
-            let cb = libm::cos(b);
-
-            // R = R_y(b) * R_x(a)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let rx = cb * lx - sb * sa * ly + sb * ca * lz;
-            let ry = ca * ly + sa * lz;
-            let rz = -sb * lx - cb * sa * ly + cb * ca * lz;
-
-            [p[0] - rx, p[1] - ry, p[2] - rz]
-        }
-        Kinematics::Ac {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let c_nom = libm::atan2(j, i);
-            let a_nom = libm::acos(k.clamp(-1.0, 1.0));
-            let a = a_nom + rotary_offset[0].to_radians();
-            let c = c_nom + rotary_offset[1].to_radians();
-
-            let sa = libm::sin(a);
-            let ca = libm::cos(a);
-            let sc = libm::sin(c);
-            let cc = libm::cos(c);
-
-            // R_table = R_x(a) * R_z(c)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let px = p[0] + lx;
-            let py = p[1] + ly;
-            let pz = p[2] + lz;
-
-            let rx = cc * px - sc * py;
-            let ry = ca * sc * px + ca * cc * py - sa * pz;
-            let rz = sa * sc * px + sa * cc * py + ca * pz;
-
-            [rx - lx, ry - ly, rz - lz]
-        }
-        Kinematics::Bc {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let c_nom = libm::atan2(j, i);
-            let b_nom = libm::acos(k.clamp(-1.0, 1.0));
-            let b = b_nom + rotary_offset[0].to_radians();
-            let c = c_nom + rotary_offset[1].to_radians();
-
-            let sb = libm::sin(b);
-            let cb = libm::cos(b);
-            let sc = libm::sin(c);
-            let cc = libm::cos(c);
-
-            // R_table = R_y(b) * R_z(c)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let px = p[0] + lx;
-            let py = p[1] + ly;
-            let pz = p[2] + lz;
-
-            let rx = cb * cc * px - cb * sc * py + sb * pz;
-            let ry = sc * px + cc * py;
-            let rz = -sb * cc * px + sb * sc * py + cb * pz;
-
-            [rx - lx, ry - ly, rz - lz]
-        }
     }
 }
 
@@ -275,7 +183,7 @@ where
 
         // Determine target linear axes (in machine joint coordinates if five_axis is true).
         let target_axes = if p.five_axis {
-            to_mcs(end_prog, s.orientation, p.kinematics)
+            p.kinematics.machine_position(end_prog, s.orientation)
         } else {
             end_prog
         };
@@ -299,7 +207,7 @@ where
         // 5-axis: emit the two rotary words (degrees) from the toolframe orientation under the chosen
         // kinematics, each only when it changes. In 3-axis mode the orientation is dropped entirely.
         if p.five_axis {
-            let rotaries = tool_rotaries(s.orientation, p.kinematics);
+            let rotaries = p.kinematics.rotary_words(s.orientation);
             let prev = prev_rotary.unwrap_or([f64::NAN, f64::NAN]);
             for (r, &pv) in rotaries.iter().zip(prev.iter()) {
                 if r.value != pv {
@@ -314,12 +222,10 @@ where
             let [sx_prog, sy_prog, sz_prog] = start_prog;
 
             let (i_val, j_val) = if p.five_axis {
-                let start_mcs = to_mcs(start_prog, prev_orientation, p.kinematics);
-                let centre_mcs = to_mcs(
-                    [cx_prog.value(), cy_prog.value(), sz_prog],
-                    s.orientation,
-                    p.kinematics,
-                );
+                let start_mcs = p.kinematics.machine_position(start_prog, prev_orientation);
+                let centre_mcs = p
+                    .kinematics
+                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation);
                 (centre_mcs[0] - start_mcs[0], centre_mcs[1] - start_mcs[1])
             } else {
                 (

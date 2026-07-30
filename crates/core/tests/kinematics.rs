@@ -8,7 +8,9 @@
 //!
 //! Default kinematics is AB, so the default emit is byte-identical to the existing behaviour.
 
-use dry_core::{emit, resolve, Design, EmitParams, Kinematics, ResolveParams};
+use dry_core::{
+    emit, resolve, Design, EmitParams, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,
+};
 
 fn ab() -> Kinematics {
     Kinematics::Ab {
@@ -64,6 +66,37 @@ fn has(g: &[String], word: &str) -> bool {
 fn default_kinematics_is_ab() {
     assert_eq!(Kinematics::default(), ab());
     assert_eq!(EmitParams::default().kinematics, ab());
+}
+
+#[test]
+fn reference_five_axis_machine_is_bc_and_emits_5_axis_motion() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"orient","i":1.0,"j":0.0,"k":0.0},
+                {"op":"move","x":0,"y":0,"z":0.2},
+                {"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    let g = emit(
+        &tp,
+        &EmitParams {
+            five_axis: true,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
+            ..EmitParams::default()
+        },
+    );
+
+    assert_eq!(
+        REFERENCE_FIVE_AXIS_MACHINE,
+        Kinematics::Bc {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0]
+        }
+    );
+    assert!(has(&g, "B90"));
+    assert!(has(&g, "C0"));
 }
 
 #[test]

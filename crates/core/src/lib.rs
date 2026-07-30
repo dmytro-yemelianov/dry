@@ -51,6 +51,7 @@ pub use compare::{
 };
 pub use emit::{
     emit, emit_step_nc, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics,
+    REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
