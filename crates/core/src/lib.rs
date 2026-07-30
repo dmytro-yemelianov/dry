@@ -18,24 +18,33 @@ pub mod engine;
 pub mod explain;
 pub mod features;
 pub mod forensics;
+pub mod frame;
 pub mod gcode;
+
 pub mod generate;
 pub mod ir;
+pub mod nonplanar;
 pub mod optimize;
+
 pub mod profile;
 pub mod recommend;
 pub mod report;
 pub mod resolve;
+pub mod reverse;
+pub mod sdk;
 pub mod trace;
+
 pub mod units;
 pub mod verify;
 
 pub use codec::{
     decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
     decode_chunked_streaming_with_limits, decode_streaming, decode_streaming_with_limits,
-    decode_with_limits, encode_chunked, BinarySegmentsIterator, ChunkedSegmentsIterator,
-    CodecError, DecodeLimits, JsonSegmentsIterator, SegmentStream, StreamingDecode,
+    decode_with_limits, encode_chunked, export_3mf_xml, import_3mf_xml, BinarySegmentsIterator,
+    ChunkedSegmentsIterator, CodecError, DecodeLimits, JsonSegmentsIterator, SegmentStream,
+    StreamingDecode, ThreeMfError,
 };
+
 pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
@@ -52,6 +61,7 @@ pub use forensics::{
     analyze as forensics_analyze, Confidence, DeclaredSettings, Estimate, FeatureStat,
     ForensicsReport, Hotspot, LayerModel, SeamHint, TravelStat, TravelStrategy,
 };
+pub use frame::{FrameError, FrameGraph, TransformSE3};
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
     import_parsed_gcode, import_parsed_gcode_with_map, parse_gcode_lines, DistanceMode,
@@ -63,6 +73,7 @@ pub use generate::{
     tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
+pub use nonplanar::{compute_triangle_normal, conformal_surface_z, offset_along_normal};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
     apply_safe_gated, arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline,
@@ -81,7 +92,13 @@ pub use report::{LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult,
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };
-pub use trace::{trace_summary, trace_summary_with_sources, TraceError, TraceSummary, TraceWindow};
+pub use reverse::{reverse, ReverseError};
+pub use sdk::DesignBuilder;
+pub use trace::{
+    trace_summary, trace_summary_with_sources, LayerTraceLinkage, TraceError, TraceSummary,
+    TraceWindow,
+};
+
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
     catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,

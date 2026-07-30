@@ -24,6 +24,19 @@ pub struct TraceSummary {
     pub max_feedrate_mm_min: f64,
     pub max_flow_mm3_s: f64,
     pub windows: Vec<TraceWindow>,
+    pub layers: Vec<LayerTraceLinkage>,
+}
+
+/// Linkage between Z-height layers and trace segment ranges.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LayerTraceLinkage {
+    pub layer_index: usize,
+    pub z_mm: f64,
+    pub segment_start: usize,
+    pub segment_end: usize,
+    pub print_time_s: f64,
+    pub travel_time_s: f64,
+    pub extruded_volume_mm3: f64,
 }
 
 /// One fixed-duration trace window.
@@ -100,7 +113,32 @@ impl TraceSummary {
             max_feedrate_mm_min: 0.0,
             max_flow_mm3_s: 0.0,
             windows: Vec::new(),
+            layers: Vec::new(),
         }
+    }
+
+    /// Formats the windowed trace time-series as CSV records for tabular analysis / Parquet export.
+    pub fn to_csv(&self) -> String {
+        let mut out = String::from(
+            "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,max_feedrate_mm_min,max_flow_mm3_s\n",
+        );
+        for w in &self.windows {
+            out.push_str(&format!(
+                "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}\n",
+                w.index,
+                w.start_time_s,
+                w.end_time_s,
+                w.print_time_s,
+                w.travel_time_s,
+                w.dwell_time_s,
+                w.extruding_distance_mm,
+                w.travel_distance_mm,
+                w.extruded_volume_mm3,
+                w.max_feedrate_mm_min,
+                w.max_flow_mm3_s
+            ));
+        }
+        out
     }
 }
 

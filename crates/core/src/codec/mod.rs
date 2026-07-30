@@ -53,7 +53,10 @@ mod chunked;
 mod columnar;
 mod error;
 mod json;
+pub mod threemf;
 mod util;
+
+pub use threemf::{export_3mf_xml, import_3mf_xml, ThreeMfError};
 
 #[cfg(test)]
 mod tests;

@@ -40,7 +40,8 @@
             "max_feedrate_mm_min": 9000.0,
             "max_flow_mm3_s": 3.401582249527499
           }
-        ]
+        ],
+        "layers": []
       }
     },
     "forensics": {
