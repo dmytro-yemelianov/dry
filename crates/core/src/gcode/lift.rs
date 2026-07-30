@@ -1077,4 +1077,14 @@ mod tests {
         assert_eq!(tp.segments[2].kind, SegmentKind::Line);
         assert_eq!(tp.segments[2].end[0], Some(Length::mm(2.0)));
     }
+
+    #[test]
+    fn dwell_imports_from_ms_g4_p_word() {
+        let tp = import_gcode("G1 X1\nG4 P1500\nX2\n", &Default::default()).unwrap();
+        assert_eq!(tp.segments.len(), 3);
+        assert_eq!(tp.segments[1].kind, SegmentKind::Dwell);
+        assert_eq!(tp.segments[1].dwell_s, Some(1.5));
+        assert_eq!(tp.segments[2].kind, SegmentKind::Line);
+        assert_eq!(tp.segments[2].end[0], Some(Length::mm(2.0)));
+    }
 }
