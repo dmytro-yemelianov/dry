@@ -384,6 +384,155 @@ fn emit_five_axis_respects_profile_model_and_flag_override() {
 }
 
 #[test]
+fn emit_profile_linuxcnc_flavor_is_implicit_rs274_with_step_nc() {
+    let path = fixture("vectors/five_axis", "input");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-linuxcnc-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "firmware": {
+            "flavor": "linuxcnc"
+          },
+          "machine": {
+            "five_axis": "bc"
+          }
+        }"#,
+    )
+    .unwrap();
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-linuxcnc-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--five-axis",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "linuxcnc flavor should imply RS-274 emit (without --format)"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(motion_count, 1);
+    assert!(
+        gcode.contains("G1") && !gcode.contains("LIN ") && !gcode.contains("WAIT"),
+        "profile-driven RS-274 should not emit robot style words"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<stepnc"));
+    assert!(sidecar.contains("workingstep id=\"ws-0\""));
+
+    let _ = std::fs::remove_file(profile_path);
+    let _ = std::fs::remove_file(step_nc);
+}
+
+#[test]
+fn emit_profile_robot_krl_flavor_is_robot_motion_style() {
+    let path = fixture("vectors/five_axis", "input");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-robot-krl-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "firmware": {
+            "flavor": "robot-krl"
+          },
+          "machine": {
+            "five_axis": "bc"
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--five-axis",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "robot-krl profile should imply robot-motion emit (without --format)"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(motion_count, 1);
+    assert!(
+        gcode.contains("LIN") || gcode.contains("PTP"),
+        "profile-driven robot flavor should emit robot command verbs"
+    );
+    assert!(
+        !gcode.contains("G4 P") && !gcode.contains("G1 ") && !gcode.contains("G0 "),
+        "robot profile should not emit RS-274 / GRBL words"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let _ = std::fs::remove_file(profile_path);
+}
+
+#[test]
 fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
     // The rotary-axes selector was renamed `--kinematics` → `--rotary-axes`; the old name stays a
     // visible alias. Both must be accepted and produce byte-identical g-code for the same value.
@@ -849,7 +998,10 @@ fn emit_rs274_five_axis_with_step_nc_is_parseable_and_tracks_toolframe() {
     let step_nc = std::env::temp_dir().join(format!(
         "dry-cli-rs274-five-axis-step-nc-{}-{}.xml",
         std::process::id(),
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
     ));
 
     let out = Command::new(bin())
