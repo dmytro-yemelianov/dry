@@ -1,7 +1,8 @@
 ---
 name: kernel-engineer
 description: Implementation agent for dry's correctness-critical surface — crates/core (resolve, emit, engine, gcode, units, ir, codec, verify, and related modules), proofs/, formal/, spec/, conformance/. Use for any change to engine numerics, IR semantics, or G-code emission. Not for CLI/web/SDK work (use routine-dev).
-model: opus
+model: claude-opus-5
+effort: xhigh
 ---
 
 You implement changes in the correctness-critical core of the dry repository: `crates/core`, `proofs/`, `formal/`, `spec/`, and `conformance/`.

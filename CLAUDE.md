@@ -16,9 +16,11 @@ Route work to the cheapest tier that can do it safely:
 
 | Work | Route |
 |---|---|
-| `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent (opus). For kernel-design or proof-heavy main sessions, switch the session itself to Fable 5 via `/model`. |
-| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent (sonnet) |
-| Locating code, mapping call sites, subsystem summaries | `scout` agent (haiku) — fan out in parallel freely |
-| Post-slice review | `reviewer` agent (opus) |
+| `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
+| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
+| Locating code, mapping call sites, subsystem summaries | `scout` agent — Haiku; fan out in parallel freely |
+| Post-slice review | `reviewer` agent — Opus 5, effort `xhigh` |
 
-Never set a subagent above opus, and never auto-escalate to Fable 5 — that is a manual `/model` choice for the main session.
+Opus 5 at `xhigh` is the ceiling: it is the recommended effort for coding and agentic work, and it is where the correctness-critical slices belong. Both Opus agents pin `claude-opus-5` rather than the `opus` alias, so a model bump is a deliberate edit. Do not escalate a subagent past this tier.
+
+Effort defaults to inheriting the session, so `routine-dev` sets `medium` explicitly rather than inheriting a high session setting for mechanical work. `scout` leaves `effort` unset deliberately — Haiku's effort support is version-dependent and recon does not need the knob. Main-session effort comes from `effortLevel` in `~/.claude/settings.json`; use `/model` to put the session itself on Opus 5 for kernel-design or proof-heavy work.

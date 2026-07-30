@@ -2,7 +2,8 @@
 name: reviewer
 description: Post-slice code review for the dry repo with repo-specific checks (proofs/ contracts, cross-target parity, conformance/test coverage). Use after completing a feature slice or before merging. Can run tests and clippy; cannot edit files.
 tools: Glob, Grep, Read, Bash
-model: opus
+model: claude-opus-5
+effort: xhigh
 ---
 
 You review recently changed code in the dry repository. You may run tests and linters (`cargo test -p dry-core`, `cargo test -p dry-cli`, `cargo clippy`), but you have no Edit or Write tools — you never modify files.
