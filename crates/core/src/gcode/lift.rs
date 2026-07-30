@@ -1028,6 +1028,32 @@ mod tests {
     }
 
     #[test]
+    fn imports_robot_krl_arc_words_and_wait() {
+        let tp = import_gcode(
+            "PTP V1500 X10 Y20\nLIN X20 Y20\nCIRC X20 Y30 C0 D5\nWAIT 1.5\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(tp.segments.len(), 4);
+
+        assert_eq!(tp.segments[0].kind, SegmentKind::Line);
+        assert_eq!(tp.segments[0].speed, crate::units::Feedrate(1500.0));
+        assert_eq!(tp.segments[0].start, [None, None, None]);
+        assert_eq!(tp.segments[0].end[0], Some(Length::mm(10.0)));
+        assert_eq!(tp.segments[0].end[1], Some(Length::mm(20.0)));
+
+        assert_eq!(tp.segments[1].kind, SegmentKind::Line);
+        assert_eq!(tp.segments[1].end[0], Some(Length::mm(20.0)));
+
+        assert_eq!(tp.segments[2].kind, SegmentKind::Arc);
+        assert!(tp.segments[2].clockwise);
+        assert_eq!(tp.segments[2].centre, Some([Length::mm(20.0), Length::mm(25.0)]));
+
+        assert_eq!(tp.segments[3].kind, SegmentKind::Dwell);
+        assert_eq!(tp.segments[3].dwell_s, Some(1.5));
+    }
+
+    #[test]
     fn rejects_arcs_whose_end_is_not_on_the_radius() {
         let err = import_gcode("G1 X10 Y0\nG3 X1 Y1 I-10 J0\n", &Default::default()).unwrap_err();
         assert_eq!(err.source_line, 2);
