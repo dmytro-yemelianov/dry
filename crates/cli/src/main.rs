@@ -8,9 +8,10 @@ use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
-    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
-    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
-    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
+    parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
+    trace_summary_with_sources, try_pocket_design, verify, verify_stream, Contracts, CutMode,
+    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, PocketOptions,
+    PocketShape, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -171,6 +172,58 @@ enum CloudCmd {
 }
 
 #[derive(Subcommand)]
+enum GenerateCmd {
+    /// Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON.
+    Pocket {
+        /// rect | circle
+        #[arg(long, value_parser = ["rect", "circle"])]
+        shape: String,
+        #[arg(long, allow_hyphen_values = true)]
+        x: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        y: Option<f64>,
+        #[arg(long)]
+        width: Option<f64>,
+        #[arg(long)]
+        height: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        cx: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        cy: Option<f64>,
+        #[arg(long)]
+        radius: Option<f64>,
+        /// pocket (clear the interior) | profile (single boundary contour)
+        #[arg(long, default_value = "pocket", value_parser = ["pocket", "profile"])]
+        mode: String,
+        #[arg(long)]
+        tool_diameter: f64,
+        /// Stepover as a fraction of tool diameter in (0, 1].
+        #[arg(long)]
+        stepover: Option<f64>,
+        #[arg(long)]
+        depth: f64,
+        #[arg(long)]
+        depth_per_pass: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        z_top: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        safe_z: Option<f64>,
+        /// Cutting feed, mm/min.
+        #[arg(long)]
+        cut_feed: Option<f64>,
+        /// Plunge feed, mm/min (default cut_feed / 3).
+        #[arg(long)]
+        plunge_feed: Option<f64>,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
     /// Authenticate with Dry Cloud.
     Auth {
@@ -248,6 +301,11 @@ enum Cmd {
         /// Write JSON to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
+    },
+    /// Generate a parametric design and write its resolved Dry IR.
+    Generate {
+        #[command(subcommand)]
+        what: GenerateCmd,
     },
     /// Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume).
     ImportPrinterCfg {
@@ -607,6 +665,11 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
+fn require(value: Option<f64>, flag: &str) -> f64 {
+    value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
+}
+
 /// The wire label for an [`OptimizeMode`], used for the `RewriteReport.mode` string and stderr summary.
 fn optimize_mode_label(mode: OptimizeMode) -> &'static str {
     match mode {
@@ -828,7 +891,7 @@ fn run(cli: Cli) -> ExitCode {
                 five_axis,
                 kinematics,
                 flavor,
-                ..EmitParams::default()
+                cnc_frame: profile.as_ref().and_then(|p| p.machine.cnc),
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
@@ -897,6 +960,74 @@ fn run(cli: Cli) -> ExitCode {
             let tp = Toolpath::from_bytes(&bytes)
                 .unwrap_or_else(|e| die(format!("not a Dry IR binary {file}: {e}")));
             let json = tp.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::Pocket {
+                    shape,
+                    x,
+                    y,
+                    width,
+                    height,
+                    cx,
+                    cy,
+                    radius,
+                    mode,
+                    tool_diameter,
+                    stepover,
+                    depth,
+                    depth_per_pass,
+                    z_top,
+                    safe_z,
+                    cut_feed,
+                    plunge_feed,
+                    profile,
+                    out,
+                },
+        } => {
+            let shape = match shape.as_str() {
+                "rect" => PocketShape::Rect {
+                    x: require(x, "--x"),
+                    y: require(y, "--y"),
+                    width: require(width, "--width"),
+                    height: require(height, "--height"),
+                },
+                _ => PocketShape::Circle {
+                    cx: require(cx, "--cx"),
+                    cy: require(cy, "--cy"),
+                    radius: require(radius, "--radius"),
+                },
+            };
+            let options = PocketOptions {
+                shape,
+                mode: if mode == "profile" {
+                    CutMode::Profile
+                } else {
+                    CutMode::Pocket
+                },
+                tool_diameter,
+                stepover,
+                depth,
+                depth_per_pass,
+                z_top,
+                safe_z,
+                cut_feed,
+                plunge_feed,
+            };
+            let design = try_pocket_design(&options)
+                .unwrap_or_else(|e| die(format!("cannot generate pocket: {e}")));
+            let params = load_profile(profile.as_deref())
+                .map(|p| p.resolve_params())
+                .unwrap_or_default();
+            let toolpath = resolve_checked(&design, &params)
+                .unwrap_or_else(|e| die(format!("cannot resolve pocket design: {e}")));
+            let json = toolpath.to_json();
             match out {
                 Some(path) => fs::write(&path, json + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
