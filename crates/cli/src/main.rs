@@ -828,6 +828,7 @@ fn run(cli: Cli) -> ExitCode {
                 five_axis,
                 kinematics,
                 flavor,
+                ..EmitParams::default()
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
@@ -1374,6 +1375,7 @@ fn run(cli: Cli) -> ExitCode {
                     .as_ref()
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
+                ..EmitParams::default()
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -2418,6 +2420,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
                 .as_ref()
                 .map(|p| p.emit_params().flavor)
                 .unwrap_or(FirmwareFlavor::Marlin),
+            ..EmitParams::default()
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();
