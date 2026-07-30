@@ -39,7 +39,8 @@ manual review; they are not silently treated as motion.
 |---|---|
 | FFF g-code (3-axis) | Supported |
 | FFF 5-axis / non-planar (rotary emit, toolframe) | Experimental (no kinematics/collision validation) |
-| CNC RS-274 / GRBL / KRL robot (`emit --format`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; no CAM operations, no spindle/laser power channel, no program frame; never validated against a real controller) |
+| CNC RS-274 (`emit --format rs274`) | Experimental (rect/circle pocket+profile via `dry generate pocket`; RS-274 program frame from `machine.cnc`; no spindle/laser power channel; not validated against a physical controller) |
+| GRBL / KRL robot (`emit --format`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; no program frame; never validated against a real controller) |
 
 ## Platforms (release artifacts)
 

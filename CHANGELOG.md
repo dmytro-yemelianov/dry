@@ -9,6 +9,16 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **CNC pocket/profile → RS-274 (P5.3):** a contour-parallel pocket/profile generator for rectangles
+  and circles (`dry_core::pocket_design`/`try_pocket_design`, `dry generate pocket`) and a
+  profile-driven RS-274 program frame — `machine.cnc` (`wcs`, `tool`, `spindle_rpm`, `coolant`) brackets
+  the motion with `G21 G17 G90` / `G5x` / `T<n> M6` / `S<rpm> M3` / `M8` and `M9` / `M5` / `M30`.
+  The frame is opt-in and RS-274-only: without `machine.cnc`, and for every other flavor, emitted
+  g-code is byte-identical to before. Acceptance is `crates/core/tests/cnc_pocket_e2e.rs` with the
+  drift-gated golden `conformance/reports/cnc/pocket-rect-rs274.ngc`; the program has not been run on
+  a physical controller.
+
 ## [0.4.0] - 2026-07-28
 
 Post-0.3.0 work — additive features plus the licensing/distribution change below.

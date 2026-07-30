@@ -99,8 +99,11 @@ cutting moves so they classify as work moves (RS-274/GRBL already suppress `E` w
   Rings are cut innermost→outermost (conventional roughing order: full-width first cuts happen at
   the center), linked by straight feed moves (they lie in already-cleared material).
 - *Circle pocket:* concentric full circles of the same inset series, each authored as **two
-  half-circle `Arc` ops** (a full circle in one arc has `start == end`, which the arc validator
-  treats as degenerate). This path exercises `G2/G3` + `I/J` emission, including the five-axis arc
+  half-circle `Arc` ops**. A single full-circle arc is not rejected — `resolve` and `verify` both
+  normalise a `start == end` arc to a full `TAU` sweep rather than treating it as degenerate — but
+  it would emit as a zero-displacement `G2/G3`, which leans on each controller's full-circle
+  convention; two half-circles are unambiguous in every dialect Dry emits and give each ring an
+  explicit midpoint. This path exercises `G2/G3` + `I/J` emission, including the five-axis arc
   frame regression (`23f2d73`).
 - *Profile (both shapes):* the single boundary contour inset by `tool_diameter/2`, per depth pass.
   (External profiles — tool outside the shape — are out of scope for this slice; "Profile" here is
@@ -202,8 +205,11 @@ generator's feeds.
 - **Frame via `start_gcode`/`end_gcode` templates only** — rejected: not validated, not
   deterministic, and every user would hand-write the same ten lines; kept as an escape hatch that
   composes around the structured frame.
-- **Full-circle single-arc rings** — rejected: `start == end` arcs are degenerate under the arc
-  validator; two half-circles are unambiguous and exercise both G2 arc words.
+- **Full-circle single-arc rings** — rejected on emitted-program grounds, not validator grounds:
+  `resolve`/`verify` normalise a `start == end` arc to a full `TAU` sweep, so one would resolve and
+  verify fine, but it emits as a zero-displacement arc whose meaning depends on the controller's
+  full-circle convention. Two half-circles are unambiguous, and each still emits a `G2`/`G3` with
+  incremental `I/J` offsets.
 - **Zigzag clearing / arbitrary polygons / external profiles** — deferred (scope decision
   2026-07-30); contour-parallel on rect+circle is the smallest geometry that exercises lines *and*
   arcs.

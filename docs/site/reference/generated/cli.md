@@ -22,6 +22,7 @@ Commands:
   emit                Emit motion g-code for a Dry IR file
   pack                Encode a Dry IR (JSON) file to the chunked streaming binary form
   unpack              Decode a `.dry` binary back to Dry IR JSON (lossless)
+  generate            Generate a parametric design and write its resolved Dry IR
   import-printer-cfg  Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume)
   import-gcode        Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation
   review-gcode        Review slicer G-code directly, reporting metrics and contract findings with source line numbers
@@ -52,6 +53,7 @@ Options:
 | [`emit`](/reference/generated/cli/emit) | [Author a path](/guide/author) | Emit motion g-code for a Dry IR file |
 | [`pack`](/reference/generated/cli/pack) | [Lower to the Dry IR](/guide/lower) | Encode a Dry IR (JSON) file to the chunked streaming binary form |
 | [`unpack`](/reference/generated/cli/unpack) | [Lower to the Dry IR](/guide/lower) | Decode a `.dry` binary back to Dry IR JSON (lossless) |
+| [`generate`](/reference/generated/cli/generate) |  | Generate a parametric design and write its resolved Dry IR |
 | [`import-printer-cfg`](/reference/generated/cli/import-printer-cfg) | [Lower to the Dry IR](/guide/lower) | Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume) |
 | [`import-gcode`](/reference/generated/cli/import-gcode) | [Lower to the Dry IR](/guide/lower) | Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation |
 | [`review-gcode`](/reference/generated/cli/review-gcode) | [Verify](/guide/verify) | Review slicer G-code directly, reporting metrics and contract findings with source line numbers |

@@ -59,6 +59,55 @@ dry pack conformance/gcode/square.json -o square.dry   # → square.dry (125 byt
 dry unpack square.dry                                   # → {"version":0,"segments":[…]}
 ```
 
+## Generating CAM toolpaths (CNC)
+
+### `generate pocket` — CNC pocket → RS-274
+
+Contour-parallel clearing of a rectangular or circular pocket (`--mode pocket`), or a single boundary
+contour (`--mode profile`), written as resolved Dry IR — then verified and emitted as a framed RS-274
+program. The program frame (units/plane/distance mode, WCS, tool change, spindle, program end) comes
+from the profile's `machine.cnc` block; without a profile carrying it, `emit --format rs274` emits bare
+motion that a real controller would reject.
+
+`cnc.json`:
+```json
+{
+  "version": 1,
+  "firmware": { "flavor": "rs274" },
+  "machine": { "cnc": { "wcs": 54, "tool": 1, "spindle_rpm": 10000 } }
+}
+```
+
+```sh
+dry generate pocket --shape rect --x 0 --y 0 --width 60 --height 40 \
+  --tool-diameter 6 --depth 5 --depth-per-pass 2.5 -o pocket.json
+dry verify pocket.json
+#   verify: pocket.json — OK (no findings)
+dry emit pocket.json --format rs274 --profile cnc.json
+# G21 G17 G90
+# G54
+# T1 M6
+# S10000 M3
+# G0 F8000 Z5
+# G0 X21 Y20
+# G1 F100 Z-2.5
+# G1 F300 X39
+# …
+# G0 F8000 Z5
+# M5
+# M30
+```
+
+Flags: `--shape rect|circle` (with `--x/--y/--width/--height` or `--cx/--cy/--radius`), `--mode
+pocket|profile`, `--tool-diameter`, `--stepover` (fraction of the tool diameter in (0, 1], default
+`0.5`), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
+`--profile P.json`, `-o FILE`.
+
+That exact program is frozen as `conformance/reports/cnc/pocket-rect-rs274.ngc` and drift-gated by
+`crates/core/tests/cnc_pocket_e2e.rs` (regenerate with `UPDATE_GOLDEN=1 cargo test -p dry-core --test
+cnc_pocket_e2e`). It has **not** been validated against a physical controller — see
+[`16-support-matrix.md`](16-support-matrix.md).
+
 ## Working with Klipper configurations
 
 ### `import-printer-cfg` — Klipper `printer.cfg` → Dry profile
