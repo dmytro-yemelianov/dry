@@ -47,7 +47,11 @@ pub struct EmitParams {
     pub flavor: FirmwareFlavor,
     /// CNC work-coordinate/tool/spindle/coolant frame emitted ahead of motion by the RS-274 renderer
     /// (Task 5). Additive and optional: absent leaves existing g-code output byte-identical.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ///
+    /// **Invariant: the frame is emitted once per program, never per span.** Any path that emits a
+    /// toolpath piecewise — the span-preserving g-code rewrite in [`crate::gcode`] — must clear this
+    /// field, or every spliced span gets its own preamble and the per-span line accounting desyncs.
+    #[serde(default)]
     pub cnc_frame: Option<CncFrame>,
 }
 

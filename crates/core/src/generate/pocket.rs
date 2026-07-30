@@ -10,6 +10,22 @@ use crate::resolve::{Design, Op};
 /// No legitimate job reaches this; it gates infinite loops on tiny step sizes.
 const MAX_TOTAL_PASSES: u32 = 100_000;
 
+/// Smallest cut radius that survives emission. `emit` rounds coordinates to 6 decimals, so a ring
+/// below this collapses to an arc with identical start/end and `I0 J0` — a zero-radius arc real
+/// controllers reject. 1e-5 mm keeps a clear margin above the rounding grid.
+const MIN_CUT_RADIUS: f64 = 1e-5;
+
+/// Largest ring-to-ring inset that still clears a rectangle's corners. A ring's swath ends in a
+/// *sharp* inner corner `tool_r` inside the ring, while the ring inward of it only reaches out to
+/// that corner through a `tool_r` fillet; an inset above `tool_r·(1 + 1/√2)` therefore leaves an
+/// uncut cusp in each of the three corners the ring-to-ring link move does not cross. Requested
+/// stepovers above ≈0.854 are clamped to this — never rejected, and never silently *larger* than
+/// asked for. Concentric circles need no such clamp: their swaths are annuli that overlap for any
+/// inset ≤ the tool diameter.
+fn rect_inset(step: f64, tool_r: f64) -> f64 {
+    step.min(tool_r * (1.0 + std::f64::consts::FRAC_1_SQRT_2))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PocketShape {
     Rect {
@@ -37,6 +53,9 @@ pub struct PocketOptions {
     pub shape: PocketShape,
     pub mode: CutMode,
     pub tool_diameter: f64,
+    /// Ring-to-ring inset as a fraction of `tool_diameter`, in `(0, 1]` (default 0.5). For
+    /// rectangular pockets the resulting inset is clamped to the largest corner-clearing value
+    /// (`tool_r · (1 + 1/√2)`, ≈ 0.854 of the diameter) — see [`rect_inset`].
     pub stepover: Option<f64>,
     pub depth: f64,
     pub depth_per_pass: Option<f64>,
@@ -144,11 +163,12 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
             }
             // Compute ring count: count how many rings fit before both dimensions collapse.
             let tool_r = d / 2.0;
-            let step = stepover * d;
+            let step = rect_inset(stepover * d, tool_r);
             let hw = width / 2.0 - tool_r;
             let hh = height / 2.0 - tool_r;
             let smaller = hw.min(hh);
-            let ring_count_f = (smaller / step).ceil() + 1.0; // +1 for final line pass
+            // +2 for the final line pass and the possible extra innermost ring
+            let ring_count_f = (smaller / step).ceil() + 2.0;
             if ring_count_f > MAX_TOTAL_PASSES as f64 {
                 return Err(PocketError::new(format!(
                     "tool_diameter ({d}) too small relative to pocket dimensions ({width}x{height}): \
@@ -174,11 +194,19 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
                 )));
             }
             // Compute ring count: circle_radii pushes one radius per `step` from the
-            // wall-inset outer radius down to (but not including) zero.
+            // wall-inset outer radius down to (but not including) zero, plus one centre-clearing
+            // ring when the innermost one does not reach the centre.
             let tool_r = d / 2.0;
             let step = stepover * d;
             let outer_r = radius - tool_r;
-            let ring_count_f = (outer_r / step).ceil().max(1.0);
+            if outer_r < MIN_CUT_RADIUS {
+                return Err(PocketError::new(format!(
+                    "tool_diameter ({d}) leaves a cut radius of {outer_r} on the radius-{radius} \
+                     circle: below the {MIN_CUT_RADIUS} mm emission resolution, so the ring would \
+                     emit as a zero-radius arc"
+                )));
+            }
+            let ring_count_f = (outer_r / step).ceil().max(1.0) + 1.0;
             if ring_count_f > MAX_TOTAL_PASSES as f64 {
                 return Err(PocketError::new(format!(
                     "tool_diameter ({d}) too small relative to circle radius ({radius}): \
@@ -229,11 +257,12 @@ fn depth_levels(r: &Resolved) -> Vec<f64> {
 
 /// Contour-parallel rectangle passes, innermost first. `hw`/`hh` are the OUTERMOST
 /// ring's half-extents (wall already inset by the tool radius).
-fn rect_rings(hw: f64, hh: f64, step: f64) -> Vec<RectPass> {
+fn rect_rings(hw: f64, hh: f64, step: f64, tool_r: f64) -> Vec<RectPass> {
+    let inset = rect_inset(step, tool_r);
     let mut out = Vec::new(); // built outermost-first, reversed at the end
     let mut k = 0u32;
     loop {
-        let (sw, sh) = (hw - k as f64 * step, hh - k as f64 * step);
+        let (sw, sh) = (hw - k as f64 * inset, hh - k as f64 * inset);
         if sw > 0.0 && sh > 0.0 {
             out.push(RectPass::Ring { hw: sw, hh: sh });
             k += 1;
@@ -248,6 +277,22 @@ fn rect_rings(hw: f64, hh: f64, step: f64) -> Vec<RectPass> {
             });
         }
         break;
+    }
+    // A ring's swath leaves an uncut rectangle of half-extents (hw − tool_r, hh − tool_r) inside
+    // it. When the series ends on a ring whose smaller half-extent still exceeds `tool_r` — only
+    // reachable for stepover > 0.5, since otherwise `inset ≤ tool_r` — that rectangle is a real
+    // island. One more ring, shrunk so the smaller half-extent is exactly `tool_r`, clears it: its
+    // own interior collapses to zero extent, and the extra inset is < `tool_r`, so it opens no new
+    // gap against the ring outside it. A centre *line* pass already reaches the centre, so the
+    // rescue is only needed when the innermost pass is a ring.
+    if let Some(&RectPass::Ring { hw: sw, hh: sh }) = out.last() {
+        let shrink = sw.min(sh) - tool_r;
+        if shrink > 0.0 {
+            out.push(RectPass::Ring {
+                hw: sw - shrink,
+                hh: sh - shrink,
+            });
+        }
     }
     out.reverse();
     out
@@ -356,12 +401,19 @@ fn rect_passes(cx: f64, cy: f64, rings: &[RectPass], r: &Resolved) -> Vec<Op> {
 
 /// Contour-parallel circle cut radii, innermost first. `outer_r` is the wall-inset
 /// (by tool radius) outermost cut radius.
-fn circle_radii(outer_r: f64, step: f64) -> Vec<f64> {
+fn circle_radii(outer_r: f64, step: f64, tool_r: f64) -> Vec<f64> {
     let mut radii = Vec::new();
     let mut r = outer_r;
     while r > 0.0 {
         radii.push(r);
         r -= step;
+    }
+    // The innermost ring's swath reaches the centre only when its radius is ≤ `tool_r`; above that
+    // it leaves an uncut centre disc (only reachable for stepover > 0.5). One extra ring at exactly
+    // `tool_r` closes it, and since `step ≤ tool_diameter` the ring outside it sits at ≤ 2·tool_r,
+    // so the added ring opens no new annular gap.
+    if radii.last().is_some_and(|&r| r > tool_r) {
+        radii.push(tool_r);
     }
     radii.reverse();
     radii
@@ -453,7 +505,12 @@ fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
             CutMode::Pocket,
         ) => {
             let (cx, cy) = (x + width / 2.0, y + height / 2.0);
-            let rings = rect_rings(width / 2.0 - r.tool_r, height / 2.0 - r.tool_r, r.step);
+            let rings = rect_rings(
+                width / 2.0 - r.tool_r,
+                height / 2.0 - r.tool_r,
+                r.step,
+                r.tool_r,
+            );
             rect_passes(cx, cy, &rings, r)
         }
         (
@@ -472,9 +529,12 @@ fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
             }];
             rect_passes(cx, cy, &ring, r)
         }
-        (PocketShape::Circle { cx, cy, radius }, CutMode::Pocket) => {
-            circle_passes(*cx, *cy, &circle_radii(radius - r.tool_r, r.step), r)
-        }
+        (PocketShape::Circle { cx, cy, radius }, CutMode::Pocket) => circle_passes(
+            *cx,
+            *cy,
+            &circle_radii(radius - r.tool_r, r.step, r.tool_r),
+            r,
+        ),
         (PocketShape::Circle { cx, cy, radius }, CutMode::Profile) => {
             circle_passes(*cx, *cy, &[radius - r.tool_r], r)
         }
@@ -558,6 +618,151 @@ mod tests {
                 ((px - closest_x).powi(2) + (py - closest_y).powi(2)).sqrt()
             }
             _ => f64::INFINITY, // Undefined coordinates
+        }
+    }
+
+    /// Exact distance from a point to an `Arc` segment (a chord approximation would run straight
+    /// through a ring's centre and hide exactly the uncut-island class this file guards).
+    fn dist_point_arc(px: f64, py: f64, s: &crate::ir::Segment) -> f64 {
+        let c = match s.centre {
+            Some(c) => [c[0].value(), c[1].value()],
+            None => return f64::INFINITY,
+        };
+        let (sx, sy) = match (s.start[0], s.start[1]) {
+            (Some(a), Some(b)) => (a.value(), b.value()),
+            _ => return f64::INFINITY,
+        };
+        let (ex, ey) = match (s.end[0], s.end[1]) {
+            (Some(a), Some(b)) => (a.value(), b.value()),
+            _ => return f64::INFINITY,
+        };
+        let tau = std::f64::consts::TAU;
+        let norm = |a: f64| {
+            let m = a % tau;
+            if m < 0.0 {
+                m + tau
+            } else {
+                m
+            }
+        };
+        let ang = |x: f64, y: f64| (y - c[1]).atan2(x - c[0]);
+        let radius = ((sx - c[0]).powi(2) + (sy - c[1]).powi(2)).sqrt();
+        let (a0, a1) = (ang(sx, sy), ang(ex, ey));
+        // `start == end` is resolve's full-circle convention, so a zero sweep means TAU.
+        let raw = if s.clockwise { a0 - a1 } else { a1 - a0 };
+        let sweep = if norm(raw) == 0.0 { tau } else { norm(raw) };
+        let delta = norm(if s.clockwise {
+            a0 - ang(px, py)
+        } else {
+            ang(px, py) - a0
+        });
+        if delta <= sweep {
+            (((px - c[0]).powi(2) + (py - c[1]).powi(2)).sqrt() - radius).abs()
+        } else {
+            let d0 = ((px - sx).powi(2) + (py - sy).powi(2)).sqrt();
+            let d1 = ((px - ex).powi(2) + (py - ey).powi(2)).sqrt();
+            d0.min(d1)
+        }
+    }
+
+    fn dist_point_path(px: f64, py: f64, s: &crate::ir::Segment) -> f64 {
+        if s.kind == crate::ir::SegmentKind::Arc && s.centre.is_some() {
+            dist_point_arc(px, py, s)
+        } else {
+            dist_point_segment(px, py, s)
+        }
+    }
+
+    /// Floor points the tool centre must reach: the shape inset by the tool radius, on a `grid`
+    /// lattice (same construction as [`rect_pocket_ops_resolve_and_cover`], finer and shape-generic).
+    fn interior_samples(shape: &PocketShape, tool_r: f64, grid: f64) -> Vec<(f64, f64)> {
+        let mut out = Vec::new();
+        match *shape {
+            PocketShape::Rect {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                let (nx, ny) = (
+                    ((width - 2.0 * tool_r) / grid).floor() as i32,
+                    ((height - 2.0 * tool_r) / grid).floor() as i32,
+                );
+                for gx in 0..=nx {
+                    for gy in 0..=ny {
+                        out.push((x + tool_r + gx as f64 * grid, y + tool_r + gy as f64 * grid));
+                    }
+                }
+            }
+            PocketShape::Circle { cx, cy, radius } => {
+                let inner = radius - tool_r;
+                let n = (2.0 * inner / grid).floor() as i32;
+                for gx in 0..=n {
+                    for gy in 0..=n {
+                        let (px, py) =
+                            (cx - inner + gx as f64 * grid, cy - inner + gy as f64 * grid);
+                        if (px - cx).powi(2) + (py - cy).powi(2) <= inner * inner + 1e-9 {
+                            out.push((px, py));
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Spec §5.1 full-coverage property: across the whole documented stepover range, every floor
+    /// point the tool centre can reach lies within `tool_r` of some cutting move. A point farther
+    /// than `tool_r` from every cut path is material the program never removes — an uncut island.
+    #[test]
+    fn pocket_interiors_have_no_uncut_islands_across_the_stepover_range() {
+        let shapes = [
+            PocketShape::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 60.0,
+                height: 40.0,
+            },
+            // square: hw == hh, so the ring series never degenerates into a centre line pass
+            PocketShape::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 62.0,
+                height: 62.0,
+            },
+            PocketShape::Circle {
+                cx: 10.0,
+                cy: 10.0,
+                radius: 15.0,
+            },
+        ];
+        for stepover in [0.25, 0.5, 0.75, 1.0] {
+            for shape in &shapes {
+                let o = PocketOptions {
+                    shape: shape.clone(),
+                    stepover: Some(stepover),
+                    ..rect_opts()
+                };
+                let tool_r = o.tool_diameter / 2.0;
+                let d = Design {
+                    ops: try_pocket_ops(&o).unwrap(),
+                };
+                let tp = crate::resolve::resolve(&d, &crate::resolve::ResolveParams::default());
+                let cut: Vec<_> = tp
+                    .segments
+                    .iter()
+                    .filter(|s| s.filament.value() > 0.0)
+                    .collect();
+                for (px, py) in interior_samples(shape, tool_r, 0.5) {
+                    let covered = cut
+                        .iter()
+                        .any(|s| dist_point_path(px, py, s) <= tool_r + 1e-9);
+                    assert!(
+                        covered,
+                        "uncut island at ({px}, {py}) for {shape:?} at stepover {stepover}"
+                    );
+                }
+            }
         }
     }
 
@@ -651,7 +856,7 @@ mod tests {
     #[test]
     fn rect_rings_are_innermost_first_and_step_apart() {
         // 60x40 pocket, tool d=6 → outermost ring half-extents (27, 17); step 3.
-        let rings = rect_rings(27.0, 17.0, 3.0);
+        let rings = rect_rings(27.0, 17.0, 3.0, 3.0);
         // Innermost first; the smaller half-extent shrinks to <= 0 after 5 more steps
         // (17 - 6*3 = -1) so ring count along hh is 6 rings (17,14,11,8,5,2) then a line pass.
         match rings.first().unwrap() {
@@ -724,8 +929,57 @@ mod tests {
 
     #[test]
     fn circle_radii_are_innermost_first() {
-        // outer cut radius 12 (15 - tool_r 3), step 3 → radii 12,9,6,3 innermost-first.
-        assert_eq!(circle_radii(12.0, 3.0), vec![3.0, 6.0, 9.0, 12.0]);
+        // outer cut radius 12 (15 - tool_r 3), step 3 → radii 12,9,6,3 innermost-first. The
+        // innermost equals tool_r, so no centre-clearing ring is added.
+        assert_eq!(circle_radii(12.0, 3.0, 3.0), vec![3.0, 6.0, 9.0, 12.0]);
+    }
+
+    #[test]
+    fn circle_radii_add_a_centre_ring_when_the_innermost_misses_the_centre() {
+        // stepover 1.0 on a radius-15 pocket with a 6mm tool: 12, 6 — the 6mm ring's swath spans
+        // radii 3..9, leaving a 3mm uncut centre post. The rescue ring at tool_r closes it.
+        assert_eq!(circle_radii(12.0, 6.0, 3.0), vec![3.0, 6.0, 12.0]);
+    }
+
+    #[test]
+    fn rect_rings_add_a_centre_ring_when_the_innermost_misses_the_centre() {
+        // square pocket, stepover 1.0 clamped to the corner-safe inset (3·(1+1/√2) = 5.1213):
+        // the series ends on a ring whose half-extents still exceed tool_r, so one shrunk ring is
+        // added with the smaller half-extent at exactly tool_r.
+        let rings = rect_rings(4.5, 4.5, 6.0, 3.0);
+        match rings.first().unwrap() {
+            RectPass::Ring { hw, hh } => assert_eq!((*hw, *hh), (3.0, 3.0)),
+            other => panic!("innermost pass should be the centre-clearing ring, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn exact_tool_fit_circle_is_rejected_in_both_modes() {
+        // d == 2·radius: the cut radius is 0, which would emit an arc with identical start/end
+        // and `I0 J0`.
+        for mode in [CutMode::Pocket, CutMode::Profile] {
+            let o = PocketOptions {
+                mode,
+                tool_diameter: 30.0,
+                ..circle_opts()
+            };
+            let err = try_pocket_ops(&o).unwrap_err();
+            assert!(
+                err.to_string().contains("zero-radius arc"),
+                "{mode:?}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn sub_resolution_cut_radius_is_rejected() {
+        // outer_r = 1e-9 rounds to nothing at emission's 6 decimals.
+        let o = PocketOptions {
+            tool_diameter: 30.0 - 2e-9,
+            ..circle_opts()
+        };
+        let err = try_pocket_ops(&o).unwrap_err();
+        assert!(err.to_string().contains("zero-radius arc"), "{err}");
     }
 
     #[test]

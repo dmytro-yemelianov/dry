@@ -241,11 +241,22 @@ impl ImportedGcode {
         self.splice_motion_spans(&span_motion_lines)
     }
 
+    /// Emit each span's motion, prefixed by the modal prologue that makes the span self-contained.
+    ///
+    /// The RS-274 program frame is emitted once per *program*, never per span: with a
+    /// `cnc_frame` set, `emit` would prepend the preamble to the whole-program stream *and* to
+    /// every per-span stream, so the line accounting below would desync and each splice would
+    /// carry a duplicate frame. Callers may hand us a profile's `EmitParams` verbatim, so the
+    /// invariant is enforced here rather than left to every caller.
     fn emit_normalized_span_lines(
         &self,
         span_toolpaths: &[Toolpath],
         params: &EmitParams,
     ) -> Result<Vec<Vec<String>>, GcodeImportError> {
+        let params = &EmitParams {
+            cnc_frame: None,
+            ..params.clone()
+        };
         let reset_flow = self
             .toolpath
             .segments
@@ -935,6 +946,49 @@ mod tests {
         assert_eq!(lines[7], "G90");
         assert_eq!(lines[8], "M83");
         assert!(lines[9].starts_with("G1 "));
+    }
+
+    /// The RS-274 frame belongs to the program, not to a span: a caller handing a cnc profile's
+    /// `EmitParams` straight to the rewrite path must not get a preamble spliced into every span.
+    #[test]
+    fn source_preserving_emit_never_splices_the_cnc_frame() {
+        let imported = import_gcode_with_map(
+            "; header\nG1 X0 Y0 Z0.2 F9000\nM104 S210\nG1 X10 F1200\n",
+            &Default::default(),
+        )
+        .unwrap();
+        let framed = EmitParams {
+            flavor: crate::emit::FirmwareFlavor::Rs274,
+            cnc_frame: Some(crate::emit::CncFrame {
+                wcs: Some(54),
+                tool: Some(1),
+                spindle_rpm: Some(10000.0),
+                coolant: Some(true),
+            }),
+            ..EmitParams::default()
+        };
+        let lines = imported
+            .emit_source_preserving(&imported.toolpath, &framed)
+            .unwrap();
+        for frame_line in ["G21 G17 G90", "G54", "T1 M6", "S10000 M3", "M8"] {
+            assert!(
+                !lines.iter().any(|line| line == frame_line),
+                "frame line {frame_line:?} spliced into a rewritten span: {lines:?}"
+            );
+        }
+        // and the rewrite still lines up with the unframed params
+        assert_eq!(
+            lines,
+            imported
+                .emit_source_preserving(
+                    &imported.toolpath,
+                    &EmitParams {
+                        cnc_frame: None,
+                        ..framed.clone()
+                    }
+                )
+                .unwrap()
+        );
     }
 
     #[test]
