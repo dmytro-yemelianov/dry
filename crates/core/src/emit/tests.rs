@@ -429,3 +429,136 @@ fn test_rs274_output_is_parseable_and_importable() {
     assert_eq!(imported.segments.len(), 5);
     assert_eq!(imported.segments[4].kind, SegmentKind::Dwell);
 }
+
+#[test]
+fn test_rs274_arc_output_is_parseable_and_importable() {
+    use super::{emit, EmitParams, FirmwareFlavor};
+    use crate::gcode::{import_gcode, parse_gcode_lines, GcodeImportParams};
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![
+            Segment {
+                start: [None, None, None],
+                end: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                travel: true,
+                speed: Feedrate(900.0),
+                length: Length::mm(10.0),
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::Line,
+                centre: None,
+                clockwise: false,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                manual_gcode: None,
+                orientation: None,
+                control_points: None,
+            },
+            Segment {
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                end: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                travel: false,
+                speed: Feedrate(900.0),
+                length: Length::mm(std::f64::consts::PI * 5.0 * 0.5),
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::Arc,
+                centre: Some([Length::mm(5.0), Length::mm(5.0)]),
+                clockwise: true,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: None,
+                manual_gcode: None,
+                orientation: None,
+                control_points: None,
+            },
+            Segment {
+                start: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                end: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                travel: true,
+                speed: Feedrate(900.0),
+                length: Length::ZERO,
+                volume: Volume::ZERO,
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                kind: SegmentKind::Dwell,
+                centre: None,
+                clockwise: false,
+                temperature: None,
+                fan: None,
+                flow: None,
+                tool: None,
+                dwell_s: Some(0.75),
+                manual_gcode: None,
+                orientation: None,
+                control_points: None,
+            },
+        ],
+    };
+
+    let gcode = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            relative_e: false,
+            ..EmitParams::default()
+        },
+    )
+    .join("\n");
+
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, crate::gcode::GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 3,
+        "RS-274 travel, arc and dwell should produce three motion records"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 3);
+    assert_eq!(imported.segments[1].kind, SegmentKind::Arc);
+    assert_eq!(imported.segments[2].kind, SegmentKind::Dwell);
+}
