@@ -18,6 +18,16 @@ pub enum FirmwareFlavor {
     RobotKrl,
 }
 
+impl FirmwareFlavor {
+    /// Whether the target has a filament (E) axis. CNC, laser and robot controllers reject `E`.
+    pub fn has_extruder(self) -> bool {
+        matches!(
+            self,
+            FirmwareFlavor::Marlin | FirmwareFlavor::Klipper | FirmwareFlavor::Duet
+        )
+    }
+}
+
 /// How to emit.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EmitParams {
@@ -242,8 +252,8 @@ where
             }
         }
 
-        if is_robot {
-            // Robot targets currently emit motion-only commands and do not model filament words.
+        if !p.flavor.has_extruder() {
+            // CNC, laser and robot targets emit motion-only commands and have no filament axis.
         } else if p.relative_e {
             if has_e_word {
                 toks.push(format!("E{}", num(s.filament.value())));

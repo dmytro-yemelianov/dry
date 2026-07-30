@@ -871,3 +871,124 @@ fn test_rs274_arc_output_is_parseable_and_importable() {
     assert_eq!(imported.segments[1].kind, SegmentKind::Arc);
     assert_eq!(imported.segments[2].kind, SegmentKind::Dwell);
 }
+
+#[test]
+fn non_extruder_flavors_emit_no_e_words() {
+    use super::{emit, EmitParams, FirmwareFlavor};
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    // An extruding move: on an FFF target this carries an E word.
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![Segment {
+            start: [None, None, None],
+            end: [Some(Length::mm(10.0)), None, None],
+            travel: false,
+            speed: Feedrate(1000.0),
+            length: Length::mm(10.0),
+            volume: Volume::ZERO,
+            filament: Length::mm(0.5),
+            width: None,
+            height: None,
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            temperature: None,
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: None,
+            control_points: None,
+        }],
+    };
+
+    // FFF targets keep the extruder word.
+    let marlin = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Marlin,
+            ..EmitParams::default()
+        },
+    );
+    assert!(
+        marlin.iter().any(|l| l.contains('E')),
+        "marlin must keep the extruder word: {marlin:?}"
+    );
+
+    // RS-274 and GRBL controllers have no E axis; an E word is a program error there.
+    for flavor in [FirmwareFlavor::Rs274, FirmwareFlavor::Grbl] {
+        let gcode = emit(
+            &tp,
+            &EmitParams {
+                flavor,
+                ..EmitParams::default()
+            },
+        );
+        for line in &gcode {
+            assert!(
+                !line.contains('E'),
+                "{flavor:?} must not emit an extruder word: {line}"
+            );
+        }
+        assert!(
+            gcode.iter().any(|l| l.starts_with("G1")),
+            "{flavor:?} must still emit the cutting move: {gcode:?}"
+        );
+    }
+}
+
+#[test]
+fn non_extruder_flavors_keep_travel_and_cut_moves_distinct() {
+    use super::{emit, EmitParams, FirmwareFlavor};
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let seg = |travel: bool, filament: f64, x: f64| Segment {
+        start: [None, None, None],
+        end: [Some(Length::mm(x)), None, None],
+        travel,
+        speed: Feedrate(1000.0),
+        length: Length::mm(10.0),
+        volume: Volume::ZERO,
+        filament: Length::mm(filament),
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    };
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![seg(true, 0.0, 10.0), seg(false, 0.5, 20.0)],
+    };
+
+    // Suppressing E must not collapse a cutting move into a rapid.
+    let gcode = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            ..EmitParams::default()
+        },
+    );
+    assert!(
+        gcode.iter().any(|l| l.starts_with("G0")),
+        "travel must stay a rapid: {gcode:?}"
+    );
+    assert!(
+        gcode.iter().any(|l| l.starts_with("G1")),
+        "the extruding/cutting move must stay a feed move, not a rapid: {gcode:?}"
+    );
+}

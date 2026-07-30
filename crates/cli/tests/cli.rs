@@ -926,10 +926,33 @@ fn emit_rs274_flag_uses_rs274_output_mode() {
         "dry emit --format rs274 should succeed"
     );
 
+    let rs274_out = String::from_utf8(rs274.stdout).unwrap();
+    let default_out = String::from_utf8(default.stdout).unwrap();
+
+    // RS-274 controllers have no E axis: the motion is the same, the extruder words are gone.
+    assert!(
+        default_out.contains('E'),
+        "the FFF fixture should carry extruder words to make this test meaningful"
+    );
+    assert!(
+        !rs274_out.contains('E'),
+        "rs274 output must carry no extruder word: {rs274_out}"
+    );
+    let strip_e = |s: &str| {
+        s.lines()
+            .map(|l| {
+                l.split_whitespace()
+                    .filter(|t| !t.starts_with('E'))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     assert_eq!(
-        String::from_utf8(rs274.stdout).unwrap(),
-        String::from_utf8(default.stdout).unwrap(),
-        "rs274 output should remain a conservative valid motion program"
+        rs274_out.trim_end(),
+        strip_e(&default_out).trim_end(),
+        "rs274 motion should otherwise match the default target"
     );
 }
 
