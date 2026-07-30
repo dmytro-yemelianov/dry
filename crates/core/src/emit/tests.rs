@@ -1,3 +1,4 @@
+use super::emit_step_nc;
 use super::gcode::num;
 
 #[test]
@@ -184,4 +185,62 @@ fn test_dwell_firmware_flavors() {
         },
     );
     assert_eq!(gcode_klipper[0], "G4 P1500");
+
+    // RS-274 uses the conservative Marlin-style dwell syntax (`G4 S<sec>`) for now.
+    let gcode_rs274 = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            ..EmitParams::default()
+        },
+    );
+    assert_eq!(gcode_rs274[0], "G4 S1.5");
+}
+
+#[test]
+fn test_step_nc_emitter_is_deterministic() {
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![Segment {
+            start: [None, None, None],
+            end: [
+                Some(Length::mm(10.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.0)),
+            ],
+            travel: true,
+            speed: Feedrate(1200.0),
+            length: Length::mm(10.0),
+            volume: Volume::ZERO,
+            filament: Length::ZERO,
+            width: None,
+            height: None,
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            temperature: None,
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: None,
+            control_points: None,
+        }],
+    };
+
+    let step_nc = emit_step_nc(
+        &tp,
+        &crate::emit::EmitParams {
+            ..crate::emit::EmitParams::default()
+        },
+    );
+
+    assert!(step_nc.contains("<stepnc"));
+    assert!(step_nc.contains("<workingstep id=\"ws-0\""));
+    assert!(step_nc.contains("<motion kind=\"line\""));
 }

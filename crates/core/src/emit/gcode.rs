@@ -11,6 +11,8 @@ pub enum FirmwareFlavor {
     Marlin,
     Klipper,
     Duet,
+    /// CNC/RS-274 family (`ISO-6983`).
+    Rs274,
 }
 
 /// How to emit.
@@ -208,7 +210,7 @@ where
                         let ms = (secs * 1000.0).round() as u64;
                         format!("G4 P{ms}")
                     }
-                    _ => {
+                    FirmwareFlavor::Rs274 | FirmwareFlavor::Marlin | FirmwareFlavor::Duet => {
                         format!("G4 S{}", num(secs))
                     }
                 };

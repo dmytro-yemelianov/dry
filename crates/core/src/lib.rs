@@ -49,7 +49,9 @@ pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
-pub use emit::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics};
+pub use emit::{
+    emit, emit_step_nc, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics,
+};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
 pub use features::{

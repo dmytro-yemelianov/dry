@@ -10,6 +10,7 @@
 mod gcode;
 mod kinematics;
 mod spline;
+mod step_nc;
 
 #[cfg(test)]
 mod tests;
@@ -18,3 +19,4 @@ pub(crate) use self::gcode::num as format_number;
 pub use self::gcode::{emit, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor};
 pub use self::kinematics::Kinematics;
 pub use self::spline::SplineFlatteningIterator;
+pub use self::step_nc::emit_step_nc;

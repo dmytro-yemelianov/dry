@@ -381,6 +381,7 @@ impl Profile {
     /// Convert firmware/profile settings to emitter parameters.
     pub fn emit_params(&self) -> EmitParams {
         let flavor = match self.firmware.flavor.as_deref() {
+            Some("rs274") | Some("linuxcnc") => FirmwareFlavor::Rs274,
             Some("klipper") => FirmwareFlavor::Klipper,
             Some("duet") => FirmwareFlavor::Duet,
             _ => FirmwareFlavor::Marlin, // default

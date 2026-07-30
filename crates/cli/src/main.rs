@@ -6,10 +6,10 @@ mod printer_registry;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    apply_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
-    import_klipper, optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv,
-    parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources, verify,
-    verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
+    apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
+    import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
+    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
+    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
     OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath,
 };
 use std::fs;
@@ -25,6 +25,14 @@ enum RotaryAxesArg {
     Ab,
     Ac,
     Bc,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum EmitOutputFormat {
+    /// Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile).
+    Gcode,
+    /// Emit conservative RS-274 output. For now, motion text is conservative and overlap-safe.
+    Rs274,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -208,10 +216,16 @@ enum Cmd {
         /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
+        /// Emit RS-274 output instead of the default FFF G-code target.
+        #[arg(long, default_value = "gcode", value_enum)]
+        format: EmitOutputFormat,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
         /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
         #[arg(long, visible_alias = "kinematics", value_enum)]
         rotary_axes: Option<RotaryAxesArg>,
+        /// Also write a STEP-NC intent file with the same program to this path.
+        #[arg(long)]
+        step_nc: Option<String>,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -781,7 +795,9 @@ fn run(cli: Cli) -> ExitCode {
             absolute_e,
             profile,
             five_axis,
+            format,
             rotary_axes,
+            step_nc,
             out,
         } => {
             let stream =
@@ -791,32 +807,71 @@ fn run(cli: Cli) -> ExitCode {
                 .map(Into::into)
                 .or_else(|| profile.as_ref().and_then(|p| p.machine.five_axis))
                 .unwrap_or_default();
+            let mut flavor = profile
+                .as_ref()
+                .map(|p| p.emit_params().flavor)
+                .unwrap_or(FirmwareFlavor::Marlin);
+            if let EmitOutputFormat::Rs274 = format {
+                flavor = FirmwareFlavor::Rs274;
+            }
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
                 kinematics,
-                flavor: profile
-                    .as_ref()
-                    .map(|p| p.emit_params().flavor)
-                    .unwrap_or(FirmwareFlavor::Marlin),
+                flavor,
                 ..EmitParams::default()
             };
-            match out {
-                Some(path) => {
-                    let out_file = fs::File::create(&path)
-                        .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                    let mut writer = std::io::BufWriter::new(out_file);
-                    emit_stream_to_writer(stream, &params, &mut writer)
-                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+            if let Some(step_nc_path) = step_nc {
+                let segments = stream
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                let toolpath = Toolpath {
+                    version: 0,
+                    meta: None,
+                    segments: segments.clone(),
+                };
+                let step_nc_text = emit_step_nc(&toolpath, &params);
+                fs::write(&step_nc_path, step_nc_text)
+                    .unwrap_or_else(|e| die(format!("cannot write {step_nc_path}: {e}")));
+                match out {
+                    Some(path) => {
+                        let out_file = fs::File::create(&path)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                        let mut writer = std::io::BufWriter::new(out_file);
+                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                    }
+                    None => {
+                        let stdout = std::io::stdout();
+                        let mut writer = stdout.lock();
+                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                    }
                 }
-                None => {
-                    let stdout = std::io::stdout();
-                    let mut writer = stdout.lock();
-                    emit_stream_to_writer(stream, &params, &mut writer)
-                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+            } else {
+                match out {
+                    Some(path) => {
+                        let out_file = fs::File::create(&path)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                        let mut writer = std::io::BufWriter::new(out_file);
+                        emit_stream_to_writer(stream, &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                    }
+                    None => {
+                        let stdout = std::io::stdout();
+                        let mut writer = stdout.lock();
+                        emit_stream_to_writer(stream, &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                    }
                 }
             }
             ExitCode::SUCCESS

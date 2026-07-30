@@ -403,6 +403,54 @@ fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
 }
 
 #[test]
+fn emit_rs274_flag_uses_rs274_output_mode() {
+    let path = fixture("gcode", "square");
+    let default = Command::new(bin()).arg("emit").arg(&path).output().unwrap();
+    assert!(default.status.success());
+
+    let rs274 = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "rs274"])
+        .output()
+        .unwrap();
+    assert!(
+        rs274.status.success(),
+        "dry emit --format rs274 should succeed"
+    );
+
+    assert_eq!(
+        String::from_utf8(rs274.stdout).unwrap(),
+        String::from_utf8(default.stdout).unwrap(),
+        "rs274 output should remain a conservative valid motion program"
+    );
+}
+
+#[test]
+fn emit_with_step_nc_sidecar_writes_intent_file() {
+    let path = fixture("gcode", "square");
+    let tmp = std::env::temp_dir().join(format!(
+        "dry-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let out = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--step-nc"])
+        .arg(&tmp)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "emit --step-nc should succeed");
+
+    let step_nc = std::fs::read_to_string(&tmp).unwrap();
+    assert!(step_nc.starts_with("<?xml version=\"1.0\""));
+    assert!(step_nc.contains("<stepnc"));
+
+    std::fs::remove_file(tmp).unwrap();
+}
+
+#[test]
 fn simulate_json_is_valid_and_matches_the_metrics() {
     let path = fixture("simulate", "square");
     let out = Command::new(bin())
