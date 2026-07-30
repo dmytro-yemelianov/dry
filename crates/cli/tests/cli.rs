@@ -403,6 +403,53 @@ fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
 }
 
 #[test]
+fn emit_grbl_flag_uses_grbl_output_mode() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-grbl-emit-{}-{}.json",
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{"version":0,"segments":[{"start":[null,null,null],"end":[null,null,null],"travel":false,"speed":1000.0,"length":0.0,"volume":0.0,"filament":0.0,"kind":"dwell","dwell_s":1.5}]}"#,
+    )
+    .unwrap();
+
+    let rs274 = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "rs274"])
+        .output()
+        .unwrap();
+    assert!(
+        rs274.status.success(),
+        "dry emit --format rs274 should succeed"
+    );
+
+    let grbl = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "grbl"])
+        .output()
+        .unwrap();
+    assert!(
+        grbl.status.success(),
+        "dry emit --format grbl should succeed"
+    );
+
+    let rs274_stdout = String::from_utf8(rs274.stdout).unwrap();
+    let grbl_stdout = String::from_utf8(grbl.stdout).unwrap();
+    assert_eq!(
+        rs274_stdout.trim(),
+        "G4 S1.5",
+        "rs274 output should use S dwell syntax"
+    );
+    assert_eq!(
+        grbl_stdout.trim(),
+        "G4 P1.5",
+        "grbl output should use P dwell syntax"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn emit_rs274_flag_uses_rs274_output_mode() {
     let path = fixture("gcode", "square");
     let default = Command::new(bin()).arg("emit").arg(&path).output().unwrap();

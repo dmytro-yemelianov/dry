@@ -13,6 +13,8 @@ pub enum FirmwareFlavor {
     Duet,
     /// CNC/RS-274 family (`ISO-6983`).
     Rs274,
+    /// GRBL laser controller dialect.
+    Grbl,
 }
 
 /// How to emit.
@@ -29,7 +31,7 @@ pub struct EmitParams {
     /// Which rotary kinematics map the orientation onto words (default [`Kinematics::Ab`]).
     #[serde(default)]
     pub kinematics: Kinematics,
-    /// Firmware/dialect flavor: marlin, klipper, duet.
+    /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl.
     #[serde(default)]
     pub flavor: FirmwareFlavor,
 }
@@ -213,6 +215,7 @@ where
                     FirmwareFlavor::Rs274 | FirmwareFlavor::Marlin | FirmwareFlavor::Duet => {
                         format!("G4 S{}", num(secs))
                     }
+                    FirmwareFlavor::Grbl => format!("G4 P{}", num(secs)),
                 };
                 write_line(writer, &mut first_line, &cmd)?;
             }

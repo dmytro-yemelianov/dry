@@ -31,8 +31,10 @@ enum RotaryAxesArg {
 enum EmitOutputFormat {
     /// Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile).
     Gcode,
-    /// Emit conservative RS-274 output. For now, motion text is conservative and overlap-safe.
+    /// Emit existing CNC/RS-274 output.
     Rs274,
+    /// Emit GRBL (laser) output.
+    Grbl,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -811,8 +813,10 @@ fn run(cli: Cli) -> ExitCode {
                 .as_ref()
                 .map(|p| p.emit_params().flavor)
                 .unwrap_or(FirmwareFlavor::Marlin);
-            if let EmitOutputFormat::Rs274 = format {
-                flavor = FirmwareFlavor::Rs274;
+            match format {
+                EmitOutputFormat::Rs274 => flavor = FirmwareFlavor::Rs274,
+                EmitOutputFormat::Grbl => flavor = FirmwareFlavor::Grbl,
+                EmitOutputFormat::Gcode => {}
             }
             let params = EmitParams {
                 relative_e: !absolute_e,

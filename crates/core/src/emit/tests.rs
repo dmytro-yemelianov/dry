@@ -195,6 +195,16 @@ fn test_dwell_firmware_flavors() {
         },
     );
     assert_eq!(gcode_rs274[0], "G4 S1.5");
+
+    // GRBL uses `G4 P<sec>`.
+    let gcode_grbl = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::Grbl,
+            ..EmitParams::default()
+        },
+    );
+    assert_eq!(gcode_grbl[0], "G4 P1.5");
 }
 
 #[test]

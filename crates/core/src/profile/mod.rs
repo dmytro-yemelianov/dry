@@ -382,6 +382,7 @@ impl Profile {
     pub fn emit_params(&self) -> EmitParams {
         let flavor = match self.firmware.flavor.as_deref() {
             Some("rs274") | Some("linuxcnc") => FirmwareFlavor::Rs274,
+            Some("grbl") => FirmwareFlavor::Grbl,
             Some("klipper") => FirmwareFlavor::Klipper,
             Some("duet") => FirmwareFlavor::Duet,
             _ => FirmwareFlavor::Marlin, // default
@@ -404,23 +405,32 @@ mod tests {
 
     #[test]
     fn emit_params_maps_rs274_flavors() {
-        let profile = Profile {
+        let base = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("rs274".to_string()),
                 ..FirmwareProfile::default()
             },
             ..Profile::default()
         };
-        assert_eq!(profile.emit_params().flavor, FirmwareFlavor::Rs274);
+        assert_eq!(base.emit_params().flavor, FirmwareFlavor::Rs274);
 
         let profile_linux = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("linuxcnc".to_string()),
                 ..FirmwareProfile::default()
             },
-            ..profile
+            ..base.clone()
         };
         assert_eq!(profile_linux.emit_params().flavor, FirmwareFlavor::Rs274);
+
+        let profile_grbl = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("grbl".to_string()),
+                ..FirmwareProfile::default()
+            },
+            ..base
+        };
+        assert_eq!(profile_grbl.emit_params().flavor, FirmwareFlavor::Grbl);
     }
 
     #[test]
