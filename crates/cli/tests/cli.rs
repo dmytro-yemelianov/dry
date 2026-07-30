@@ -2257,5 +2257,18 @@ fn generate_pocket_rejects_oversized_tool() {
         ])
         .output()
         .unwrap();
-    assert!(!out.status.success());
+    // Must fail via the generator's own validation (die(), exit 2) and carry its real message —
+    // not merely exit non-zero, which a panic (101) or a clap usage error would also satisfy and
+    // which would hide a regression that turned validation into an unwrap() panic.
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "expected the generator's validation error (exit 2), got: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("tool_diameter") && stderr.contains("does not fit"),
+        "expected the pocket generator's oversized-tool message, got: {stderr}"
+    );
 }
