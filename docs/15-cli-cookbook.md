@@ -108,6 +108,13 @@ pocket|profile`, `--tool-diameter`, `--stepover` (fraction of the tool diameter 
 still clears the corners), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
 `--profile P.json`, `-o FILE`.
 
+Safety limits: a job is bounded to 100,000 total passes (depth passes × rings for a pocket, depth
+passes for a profile), so a tool diameter or depth-per-pass small enough to run away is rejected
+rather than generated. Degenerate fits are rejected too — a tool that exactly fills the pocket in
+both directions, or leaves a cutting region below the emission resolution, would otherwise produce a
+program that plunges and retracts without cutting. A tool that fills exactly one direction is a
+slot, and is cut normally.
+
 That exact program is frozen as `conformance/reports/cnc/pocket-rect-rs274.ngc` and drift-gated by
 `crates/core/tests/cnc_pocket_e2e.rs` (regenerate with `UPDATE_GOLDEN=1 cargo test -p dry-core --test
 cnc_pocket_e2e`). It has **not** been validated against a physical controller — see

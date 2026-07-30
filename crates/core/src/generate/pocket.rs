@@ -6,13 +6,21 @@
 
 use crate::resolve::{Design, Op};
 
-/// Maximum total passes (depth × rings) before rejecting as pathological input.
-/// No legitimate job reaches this; it gates infinite loops on tiny step sizes.
+/// Maximum total passes before rejecting as pathological input. No legitimate job reaches this; it
+/// gates runaway pass counts from tiny step sizes. What binds differs by mode: a Pocket walks the
+/// ring series inward, so its bound is depth passes × rings, while a Profile cuts one contour per
+/// depth level, so depth passes alone bound it. The `total_passes` product check is therefore
+/// *unreachable* in Profile mode — the depth-pass gate has already rejected anything that could
+/// exceed it — and is kept only as the shared backstop for the Pocket path.
 const MAX_TOTAL_PASSES: u32 = 100_000;
 
-/// Smallest cut radius that survives emission. `emit` rounds coordinates to 6 decimals, so a ring
-/// below this collapses to an arc with identical start/end and `I0 J0` — a zero-radius arc real
-/// controllers reject. 1e-5 mm keeps a clear margin above the rounding grid.
+/// Smallest cut extent that survives emission, applied to the radius-shaped quantity of each shape:
+/// a circle's wall-inset cut radius, and a rectangle's half-extents. `emit` rounds coordinates to 6
+/// decimals, so a circle ring below this collapses to an arc with identical start/end and `I0 J0` —
+/// a zero-radius arc real controllers reject — and a rectangle with both half-extents below it
+/// collapses to a single point. Because the comparison is against a *half* extent, the smallest
+/// full span that survives is 2e-5 mm: roughly 2× stricter than the rounding grid alone demands,
+/// deliberately, since anything near that size is a mistake in the input rather than a cut.
 const MIN_CUT_RADIUS: f64 = 1e-5;
 
 /// Largest ring-to-ring inset that still clears a rectangle's corners. A ring's swath ends in a
@@ -171,9 +179,9 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
             // BOTH collapse.
             if hw < MIN_CUT_RADIUS && hh < MIN_CUT_RADIUS {
                 return Err(PocketError::new(format!(
-                    "tool_diameter ({d}) leaves cut half-extents of {hw}x{hh} in the \
-                     {width}x{height} rectangle: both are below the {MIN_CUT_RADIUS} mm emission \
-                     resolution, so the program would contain no cutting moves"
+                    "tool_diameter ({d}) leaves no machinable cutting region in the \
+                     {width}x{height} rectangle: both extents are within the {MIN_CUT_RADIUS} mm \
+                     emission resolution of the tool diameter (cut half-extents {hw}x{hh})"
                 )));
             }
             // Profile cuts one contour per depth level whatever the outline measures; only Pocket
@@ -1023,7 +1031,7 @@ mod tests {
             };
             let err = try_pocket_ops(&o).unwrap_err();
             assert!(
-                err.to_string().contains("no cutting moves"),
+                err.to_string().contains("no machinable cutting region"),
                 "{mode:?}: {err}"
             );
         }
@@ -1046,7 +1054,7 @@ mod tests {
             };
             let err = try_pocket_ops(&o).unwrap_err();
             assert!(
-                err.to_string().contains("no cutting moves"),
+                err.to_string().contains("no machinable cutting region"),
                 "{mode:?}: {err}"
             );
         }
@@ -1055,7 +1063,9 @@ mod tests {
     #[test]
     fn slot_at_exact_tool_width_still_cuts() {
         // Exactly ONE axis at tool size: the cutting region is a zero-width slot down the centre,
-        // which the centre `Line` pass cuts. This must keep validating and emitting real moves.
+        // which the centre `Line` pass cuts. This must keep validating and emitting real moves —
+        // and, since Profile mode expresses the slot as a zero-width ring, the result must stay
+        // verifier-clean rather than merely resolvable.
         let shape = PocketShape::Rect {
             x: 0.0,
             y: 0.0,
@@ -1070,7 +1080,10 @@ mod tests {
             };
             let ops = try_pocket_ops(&o).expect("slot must validate");
             let d = Design { ops };
-            let tp = crate::resolve::resolve(&d, &crate::resolve::ResolveParams::default());
+            let tp = crate::resolve::resolve_checked(&d, &crate::resolve::ResolveParams::default())
+                .unwrap_or_else(|e| panic!("{mode:?}: slot must resolve cleanly: {e:?}"));
+            let report = crate::verify::verify(&tp, &crate::verify::Contracts::default());
+            assert!(report.ok(), "{mode:?}: slot must verify clean: {report:?}");
             let cut: Vec<_> = tp
                 .segments
                 .iter()
@@ -1142,22 +1155,27 @@ mod tests {
     #[test]
     fn depth_pass_boundary_is_exact() {
         // The depth-pass gate alone, isolated in Profile mode (one contour per level):
-        // ceil(depth / depth_per_pass) == MAX_TOTAL_PASSES validates, one more rejects.
+        // ceil(depth / depth_per_pass) == MAX_TOTAL_PASSES validates, one more rejects. The ratios
+        // are deliberately non-integral so the `ceil` is load-bearing: under `floor`, `past_limit`
+        // would come to 100000 and wrongly validate.
         let at_limit = PocketOptions {
             mode: CutMode::Profile,
-            depth: MAX_TOTAL_PASSES as f64,
+            depth: MAX_TOTAL_PASSES as f64 - 0.5, // ceil(99_999.5 / 1) = 100_000
             depth_per_pass: Some(1.0),
             ..rect_opts()
         };
         validate(&at_limit).expect("exactly MAX_TOTAL_PASSES depth passes must validate");
         let past_limit = PocketOptions {
-            depth: MAX_TOTAL_PASSES as f64 + 1.0,
+            depth: MAX_TOTAL_PASSES as f64 + 0.5, // ceil(100_000.5 / 1) = 100_001
             ..at_limit
         };
         let err = validate(&past_limit).unwrap_err();
+        let msg = err.to_string();
+        // Pin the *computed* count, not a bare number: `depth` is echoed in the same message, so
+        // `contains("100001")` alone would pass on the echo whatever the arithmetic produced.
         assert!(
-            err.to_string().contains("depth_per_pass") && err.to_string().contains("100001"),
-            "boundary rejection should name depth_per_pass and the exact count: {err}"
+            msg.contains("depth_per_pass") && msg.contains("would require 100001 passes"),
+            "boundary rejection should name depth_per_pass and the computed pass count: {msg}"
         );
     }
 

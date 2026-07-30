@@ -7,7 +7,7 @@
 //! sugar and inherit the whole engine (verify / simulate / emit) for free.
 //!
 //! The generators are the TPMS infill ([`tpms`]) with all ten surfaces ([`tpms::Surface`]) and the
-//! CNC pocket/profile cutter ([`pocket`]); the PyO3 exposure and the TS-SDK delegation are deferred
+//! CNC pocket/profile cutter ([`pocket`]); the PyO3, wasm and TS-SDK exposures are deferred
 //! follow-ups.
 
 pub mod pocket;
