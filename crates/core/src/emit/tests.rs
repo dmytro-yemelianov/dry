@@ -992,3 +992,91 @@ fn non_extruder_flavors_keep_travel_and_cut_moves_distinct() {
         "the extruding/cutting move must stay a feed move, not a rapid: {gcode:?}"
     );
 }
+
+#[test]
+fn five_axis_arc_offsets_do_not_depend_on_the_preceding_orientation() {
+    use super::{emit, EmitParams, Kinematics};
+    use crate::ir::{Segment, SegmentKind, Toolpath};
+    use crate::units::{Feedrate, Length, Volume};
+
+    let tilted = Some([0.0, 0.6, 0.8]);
+    let other = Some([0.6, 0.0, 0.8]);
+
+    let lead_in = |orientation| Segment {
+        start: [None, None, None],
+        end: [
+            Some(Length::mm(10.0)),
+            Some(Length::mm(0.0)),
+            Some(Length::mm(0.2)),
+        ],
+        travel: true,
+        speed: Feedrate(1000.0),
+        length: Length::mm(10.0),
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation,
+        control_points: None,
+    };
+    // The same quarter arc in both programs: same start, end, centre and orientation.
+    let arc = Segment {
+        end: [
+            Some(Length::mm(0.0)),
+            Some(Length::mm(10.0)),
+            Some(Length::mm(0.2)),
+        ],
+        kind: SegmentKind::Arc,
+        centre: Some([Length::mm(0.0), Length::mm(0.0)]),
+        length: Length::mm(std::f64::consts::FRAC_PI_2 * 10.0),
+        orientation: tilted,
+        ..lead_in(tilted)
+    };
+
+    let params = EmitParams {
+        five_axis: true,
+        kinematics: Kinematics::Bc {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        },
+        ..EmitParams::default()
+    };
+    let arc_line = |lead_orientation| {
+        let tp = Toolpath {
+            version: 0,
+            meta: None,
+            segments: vec![lead_in(lead_orientation), arc.clone()],
+        };
+        let gcode = emit(&tp, &params);
+        gcode
+            .iter()
+            .find(|l| l.starts_with("G2") || l.starts_with("G3"))
+            .expect("expected an arc line")
+            .clone()
+    };
+
+    // I/J are an incremental start→centre offset: both endpoints must be expressed in the arc's
+    // own table frame, so the offset cannot depend on what the tool was oriented to beforehand.
+    let same = arc_line(tilted);
+    let changed = arc_line(other);
+    let ij = |line: &str| {
+        line.split_whitespace()
+            .filter(|t| t.starts_with('I') || t.starts_with('J'))
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        ij(&same),
+        ij(&changed),
+        "arc I/J must not change with the preceding orientation:\n  after same:    {same}\n  after changed: {changed}"
+    );
+}

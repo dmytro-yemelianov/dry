@@ -110,7 +110,6 @@ where
     let letters = ['X', 'Y', 'Z'];
 
     let mut prog_pos = [0.0; 3];
-    let mut prev_orientation: Option<[f64; 3]> = None;
 
     for res in segments {
         let s = res?;
@@ -232,7 +231,9 @@ where
             let [sx_prog, sy_prog, sz_prog] = start_prog;
 
             let (i_val, j_val) = if p.five_axis {
-                let start_mcs = p.kinematics.machine_position(start_prog, prev_orientation);
+                // I/J is an incremental start→centre offset, so both points must be transformed
+                // under the orientation the arc itself is executed at.
+                let start_mcs = p.kinematics.machine_position(start_prog, s.orientation);
                 let centre_mcs = p
                     .kinematics
                     .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation);
@@ -267,7 +268,6 @@ where
             }
         }
 
-        prev_orientation = s.orientation;
         write_line(writer, &mut first_line, &toks.join(" "))?;
     }
     Ok(())
