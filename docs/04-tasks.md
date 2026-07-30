@@ -118,10 +118,24 @@ refinement evidence.
 
 - **FM1 exit gate:** not met. Abstract proofs and five implementation-scoped corpus claims are registered, but universal numeric/Rust refinement, actual codec/optimization/backend composition, release reproduction, and independent review remain open.
 
+## Core hardening workstream H1
+
+Findings from the 2026-07-31 core audit (`docs/superpowers/specs/2026-07-31-core-hardening-audit.md`):
+five parallel subsystem audits over `units`, `resolve`/`engine`, `emit`/`gcode`, `verify` and
+`generate/tpms`, hunting the seven defect classes found and fixed in `generate/pocket.rs`. Every item
+was confirmed against the code, most by execution. The unifying finding: **non-finite quantities could
+reach metal** — `num()` printed `NaN`/`inf` verbatim as g-code words, and `dry emit` never runs the
+verifier, so `emit` is the last gate.
+
+- `[x]` **H1.1** (M) **Emit safety gate** — the emitter must reject what it cannot faithfully represent. **Landed:** non-finite values no longer reach g-code words; five-axis orientations are normalised and zero/non-finite magnitudes rejected (a non-unit orientation silently displaced the *linear* axes, and the `Ac`/`Bc` and `Ab` models disagreed on identical input); RS-274 span rewrites no longer splice `M83`/`M82`/`G92 E`/`M221` into CNC programs (an unknown M-code aborts on LinuxCNC/Fanuc, and the guarding test passed with the bug present); `CncFrame` validates `wcs ∈ 54..=59` and `spindle_rpm > 0` on the `pub`/`Deserialize` path, not only through `Profile`; an `Arc` with an undefined endpoint is refused instead of emitting a bare `G3 I.. J..`, which is a full 360° circle on RS-274. *Accept (met):* invalid IR is refused, goldens and conformance corpus byte-unchanged. *Open:* `emit()` stays infallible for binding compatibility and returns an empty program in release on a precondition violation — safe but quiet; migrating the two binding call sites to the already-fallible `emit_stream` and deprecating `emit()` is the follow-up.
+- `[ ]` **H1.2** (M) **Ingress validation** — close the paths that feed non-finite and out-of-domain values into the IR, so H1.1's gate is defence in depth rather than the only defence. Binary codec `Reader::f64` accepts any bit pattern (`DecodeLimits` bounds sizes, never values, though hostile input is explicitly in the threat model); `flow_ratio_from_percent` detects a non-finite `M221` and returns it anyway; `ResolveParams.retraction_distance`/`_speed` are never validated and are deserialized from caller JSON on every binding (a negative distance flips a retract into an unretract); zero and negative feedrates are accepted, and `simulate` silently drops zero-speed segments from every metric while making them immune to the max-flow ceiling. Add a checked `Length::try_mm` and give the newtypes a value invariant. *Dep: H1.1. Accept:* no path from untrusted input to a non-finite quantity in the IR.
+- `[ ]` **H1.3** (L) **Verify strengthening** — `verify` is a strong *contract* checker and a weak *well-formedness* checker, and downstream assurance arguments lean on it as the latter. No rule compares segment *i*'s end to segment *i+1*'s start, and the emitter writes endpoints only — so a gap produces no repositioning move and the machine cuts straight across it (which also makes `monotonic-z` intra-segment only). No rule relates deposited material to geometry, so an 8000× under-extrusion passes. Sign and zero are unchecked; a zero-length extruding move disables three rules at once. `junction-velocity` measures a speed *difference*, not a direction change, so it misses the constant-speed 90° corner it is named for — and disagrees with `optimize/adaptive_speed.rs`, which computes the right quantity under the same name. Under `Contracts::default()` only 5 of 18 rules can fail, yet 8 call sites use `report.ok()` as an assurance claim; a vacuous pass is byte-identical to a real one. *Dep: H1.2. Accept:* a clean `verify` certifies well-formedness, and reports record what was inspected.
+- `[ ]` **H1.4** (M) **TPMS hardening** — see `docs/superpowers/plans/2026-07-31-tpms-hardening.md`. TPMS carries an analogue of **all seven** pocket defects and is the most-exposed generator (wasm + PyO3 + TS). *Dep: none (parallel to H1.2). Accept:* every documented parameter range either produces material or is refused.
+
 ## Immediate next 5 (if starting today)
 
-1. **FM1.9 traceability** — assign normative clause identifiers and link them to registered claims.
-2. **FM1.5 refinement** — connect the deposition, simulation, and verifier models to binary64 Rust evidence.
-3. **FM1.7 codec foundation** — model one real format boundary and refine it against Rust plus the independent reader.
-4. **FM1.6 pass contracts** — state and prove the real observation relation for production collinear merge.
-5. **FM1.8 capability foundation** — freeze requirement extraction and fail-closed matching before adding machine targets.
+1. **H1.2 ingress validation** — the emit gate landed; close the paths that feed it before anything else.
+2. **H1.4 TPMS hardening** — the most-exposed generator silently emits empty programs and 8× over-extruded adaptive layers.
+3. **H1.3 verify strengthening** — segment continuity and material consistency; today "verify clean" certifies less than it reads.
+4. **FM1.5 refinement** — connect the deposition, simulation, and verifier models to binary64 Rust evidence. The audit found `proofs/` accurate but assuming a runtime finiteness gate that H1.1 has only now supplied; `FM1.VERIFIER_SOUNDNESS` is marked `refinement = "not-applicable"` where `"pending"` is the honest status, and `FM1.UNIT.NORMALIZE_CONVERT` names `units.rs` as its Rust source although no unit conversion lives there.
+5. **FM1.9 traceability** — assign normative clause identifiers and link them to registered claims.

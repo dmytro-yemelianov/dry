@@ -173,6 +173,7 @@ proof build, numeric profiles, boundary inventory and claim registry.
 | **Ecosystem migration** (lose the FC community) | medium | high | New Python SDK keeps FC-flavored ergonomics + a compat shim; cut FC **last** (P6) with a migration guide. |
 | **Second-system over-design** | medium | medium | Anchor every abstraction to an *oracle-validated behaviour* (architecture §10); if it isn't reused or conformance-tested, defer it. |
 | **Two codebases to maintain** (fork + new) until P6 | certain | medium | Freeze the fork to maintenance-only once P1 starts; all new feature work goes to the new core. |
+| **Parity gates ≠ robustness gates** (the conformance suite proves Dry matches the oracle on *well-formed* input; nothing in it exercises malformed, degenerate or hostile input) | certain | high | Confirmed by the 2026-07-31 core audit: every conformance corpus is oracle-generated and therefore well-formed by construction, so defects reachable only from hand-built IR, imported g-code, the binary codec or the SDKs' raw JSON were invisible to a green suite — including non-finite values printed verbatim into g-code. Mitigation: the **H1 hardening workstream** (`04-tasks.md`) validates at every ingress and at emit; add degenerate-input vectors to `conformance/` rather than relying on oracle-generated corpora alone. |
 
 ## Sequencing & dependencies
 
