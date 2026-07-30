@@ -234,14 +234,9 @@ fn verify_peak_from_stream(segments: usize) -> (bool, usize) {
     (report.ok(), peak_delta())
 }
 
+#[derive(Default)]
 struct LineCountingWriter {
     lines: usize,
-}
-
-impl Default for LineCountingWriter {
-    fn default() -> Self {
-        Self { lines: 0 }
-    }
 }
 
 impl Write for LineCountingWriter {

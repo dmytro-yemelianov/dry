@@ -3,7 +3,9 @@
 //! Exercises the full pipeline: L1 Orient ops → resolve → simulate → emit (3-axis and 5-axis AB/BC)
 //! to prove the toolframe orientation channel works end-to-end for non-planar designs.
 
-use dry_core::{emit, resolve, resolve_checked, simulate, Design, EmitParams, Kinematics, ResolveParams};
+use dry_core::{
+    emit, resolve, resolve_checked, simulate, Design, EmitParams, Kinematics, ResolveParams,
+};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -32,7 +34,11 @@ fn non_planar_design() -> Design {
 fn non_planar_design_resolves_successfully() {
     let d = non_planar_design();
     let result = resolve_checked(&d, &ResolveParams::default());
-    assert!(result.is_ok(), "non-planar design must resolve: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "non-planar design must resolve: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -43,10 +49,17 @@ fn non_planar_segments_carry_orientation() {
     // Move 1: (0,0,0.2) → (10,0,0.2) with orient [1,0,0]
     // Move 2: (10,0,0.2) → (20,10,0.2) with orient [0,1,0]
     // Move 3: (20,10,0.2) → (30,10,0.2) with orient [0,0,1]
-    assert!(tp.segments.len() >= 3, "expected at least 3 motion segments");
+    assert!(
+        tp.segments.len() >= 3,
+        "expected at least 3 motion segments"
+    );
 
     // Find segments that carry orientation (skip any travel positioning)
-    let oriented: Vec<_> = tp.segments.iter().filter(|s| s.orientation.is_some()).collect();
+    let oriented: Vec<_> = tp
+        .segments
+        .iter()
+        .filter(|s| s.orientation.is_some())
+        .collect();
     assert!(
         oriented.len() >= 3,
         "expected at least 3 oriented segments, got {}",
@@ -56,8 +69,10 @@ fn non_planar_segments_carry_orientation() {
     // Check that the last orient in the sequence is [0,0,1] (+Z)
     let last = oriented.last().unwrap();
     let [i, j, k] = last.orientation.unwrap();
-    assert!((i - 0.0).abs() < 1e-12 && (j - 0.0).abs() < 1e-12 && (k - 1.0).abs() < 1e-12,
-        "last oriented segment should carry [0,0,1], got [{i},{j},{k}]");
+    assert!(
+        (i - 0.0).abs() < 1e-12 && (j - 0.0).abs() < 1e-12 && (k - 1.0).abs() < 1e-12,
+        "last oriented segment should carry [0,0,1], got [{i},{j},{k}]"
+    );
 }
 
 #[test]

@@ -410,7 +410,6 @@ mod tests {
         let base = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("rs274".to_string()),
-                ..FirmwareProfile::default()
             },
             ..Profile::default()
         };
@@ -419,7 +418,6 @@ mod tests {
         let profile_linux = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("linuxcnc".to_string()),
-                ..FirmwareProfile::default()
             },
             ..base.clone()
         };
@@ -428,7 +426,6 @@ mod tests {
         let profile_grbl = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("grbl".to_string()),
-                ..FirmwareProfile::default()
             },
             ..base.clone()
         };
@@ -437,7 +434,6 @@ mod tests {
         let profile_krl = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("robot-krl".to_string()),
-                ..FirmwareProfile::default()
             },
             ..base.clone()
         };
@@ -445,7 +441,6 @@ mod tests {
         let profile_krl_alias = Profile {
             firmware: FirmwareProfile {
                 flavor: Some("krl".to_string()),
-                ..FirmwareProfile::default()
             },
             ..base
         };

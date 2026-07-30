@@ -9,9 +9,8 @@ use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
-    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams,
-    Kinematics, REFERENCE_FIVE_AXIS_MACHINE, OptimizeMode, Profile, RewriteReport, RewriteSpanResult,
-    Toolpath,
+    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
+    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -829,7 +828,6 @@ fn run(cli: Cli) -> ExitCode {
                 five_axis,
                 kinematics,
                 flavor,
-                ..EmitParams::default()
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream

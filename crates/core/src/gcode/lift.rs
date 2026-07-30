@@ -1047,7 +1047,10 @@ mod tests {
 
         assert_eq!(tp.segments[2].kind, SegmentKind::Arc);
         assert!(tp.segments[2].clockwise);
-        assert_eq!(tp.segments[2].centre, Some([Length::mm(20.0), Length::mm(25.0)]));
+        assert_eq!(
+            tp.segments[2].centre,
+            Some([Length::mm(20.0), Length::mm(25.0)])
+        );
 
         assert_eq!(tp.segments[3].kind, SegmentKind::Dwell);
         assert_eq!(tp.segments[3].dwell_s, Some(1.5));

@@ -45,8 +45,7 @@ pub fn emit_step_nc(tp: &Toolpath, _params: &crate::emit::EmitParams) -> String 
                 };
 
                 out.push_str(&format!(
-                    "      <workingstep id=\"ws-{index}\" type=\"{}\">\n",
-                    kind
+                    "      <workingstep id=\"ws-{index}\" type=\"{kind}\">\n"
                 ));
                 out.push_str(&format!(
                     "        <motion kind=\"{}\" speed=\"{}\">\n",

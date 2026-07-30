@@ -34,7 +34,10 @@ fn orientation_drives_a_b_words() {
         g.iter().any(|l| l.contains("A0")),
         "expected A angle: {g:?}"
     );
-    assert!(g.iter().any(|l| l.contains("B36.869898")), "expected B angle: {g:?}");
+    assert!(
+        g.iter().any(|l| l.contains("B36.869898")),
+        "expected B angle: {g:?}"
+    );
 }
 
 #[test]

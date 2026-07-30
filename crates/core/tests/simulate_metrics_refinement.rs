@@ -110,64 +110,85 @@ fn native_simulate_refines_generated_lean_simulate_corpus() {
         let observed = simulate(&toolpath);
 
         assert!(
-            close(observed.total_time_s.0, fixture.expected.total_time.to_f64()),
+            close(
+                observed.total_time_s.0,
+                fixture.expected.total_time.to_f64()
+            ),
             "case {} total_time_s mismatch: {} != {}",
             fixture.id,
             observed.total_time_s.0,
             fixture.expected.total_time.to_f64()
         );
         assert!(
-            close(observed.print_time_s.0, fixture.expected.print_time.to_f64()),
+            close(
+                observed.print_time_s.0,
+                fixture.expected.print_time.to_f64()
+            ),
             "case {} print_time_s mismatch: {} != {}",
             fixture.id,
             observed.print_time_s.0,
             fixture.expected.print_time.to_f64()
         );
         assert!(
-            close(observed.travel_time_s.0, fixture.expected.travel_time.to_f64()),
+            close(
+                observed.travel_time_s.0,
+                fixture.expected.travel_time.to_f64()
+            ),
             "case {} travel_time_s mismatch: {} != {}",
             fixture.id,
             observed.travel_time_s.0,
             fixture.expected.travel_time.to_f64()
         );
         assert!(
-            close(observed.extruding_distance.0, fixture.expected.extruding_distance.to_f64()),
+            close(
+                observed.extruding_distance.0,
+                fixture.expected.extruding_distance.to_f64()
+            ),
             "case {} extruding_distance mismatch: {} != {}",
             fixture.id,
             observed.extruding_distance.0,
             fixture.expected.extruding_distance.to_f64()
         );
         assert!(
-            close(observed.travel_distance.0, fixture.expected.travel_distance.to_f64()),
+            close(
+                observed.travel_distance.0,
+                fixture.expected.travel_distance.to_f64()
+            ),
             "case {} travel_distance mismatch: {} != {}",
             fixture.id,
             observed.travel_distance.0,
             fixture.expected.travel_distance.to_f64()
         );
         assert!(
-            close(observed.extruded_volume.0, fixture.expected.extruded_volume.to_f64()),
+            close(
+                observed.extruded_volume.0,
+                fixture.expected.extruded_volume.to_f64()
+            ),
             "case {} extruded_volume mismatch: {} != {}",
             fixture.id,
             observed.extruded_volume.0,
             fixture.expected.extruded_volume.to_f64()
         );
         assert!(
-            close(observed.filament_length.0, fixture.expected.filament_length.to_f64()),
+            close(
+                observed.filament_length.0,
+                fixture.expected.filament_length.to_f64()
+            ),
             "case {} filament_length mismatch: {} != {}",
             fixture.id,
             observed.filament_length.0,
             fixture.expected.filament_length.to_f64()
         );
         assert_eq!(
-            observed.segment_count,
-            fixture.expected.segment_count,
+            observed.segment_count, fixture.expected.segment_count,
             "case {} segment_count mismatch: {} != {}",
-            fixture.id,
-            observed.segment_count,
-            fixture.expected.segment_count
+            fixture.id, observed.segment_count, fixture.expected.segment_count
         );
         assert!(
-            close(observed.max_flow_rate.0, fixture.expected.max_flow_rate.to_f64()),
+            close(
+                observed.max_flow_rate.0,
+                fixture.expected.max_flow_rate.to_f64()
+            ),
             "case {} max_flow_rate mismatch: {} != {}",
             fixture.id,
             observed.max_flow_rate.0,
