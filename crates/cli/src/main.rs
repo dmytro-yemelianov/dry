@@ -194,7 +194,7 @@ enum GenerateCmd {
         radius: Option<f64>,
         /// pocket (clear the interior) | profile (single boundary contour)
         #[arg(long, default_value = "pocket", value_parser = ["pocket", "profile"])]
-        mode: String,
+        cut_mode: String,
         #[arg(long)]
         tool_diameter: f64,
         /// Stepover as a fraction of tool diameter in (0, 1]. Rectangular pockets clamp the
@@ -979,7 +979,7 @@ fn run(cli: Cli) -> ExitCode {
                     cx,
                     cy,
                     radius,
-                    mode,
+                    cut_mode,
                     tool_diameter,
                     stepover,
                     depth,
@@ -1007,7 +1007,7 @@ fn run(cli: Cli) -> ExitCode {
             };
             let options = PocketOptions {
                 shape,
-                mode: if mode == "profile" {
+                mode: if cut_mode == "profile" {
                     CutMode::Profile
                 } else {
                     CutMode::Pocket

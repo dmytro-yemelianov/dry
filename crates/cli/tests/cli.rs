@@ -2202,7 +2202,7 @@ fn generate_pocket_circle_profile_mode() {
             "6",
             "--depth",
             "3",
-            "--mode",
+            "--cut-mode",
             "profile",
             "-o",
             ring.to_str().unwrap(),

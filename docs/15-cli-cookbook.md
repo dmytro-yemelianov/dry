@@ -63,8 +63,8 @@ dry unpack square.dry                                   # → {"version":0,"segm
 
 ### `generate pocket` — CNC pocket → RS-274
 
-Contour-parallel clearing of a rectangular or circular pocket (`--mode pocket`), or a single boundary
-contour (`--mode profile`), written as resolved Dry IR — then verified and emitted as a framed RS-274
+Contour-parallel clearing of a rectangular or circular pocket (`--cut-mode pocket`), or a single boundary
+contour (`--cut-mode profile`), written as resolved Dry IR — then verified and emitted as a framed RS-274
 program. The program frame (units/plane/distance mode, WCS, tool change, spindle, program end) comes
 from the profile's `machine.cnc` block; without a profile carrying it, `emit --format rs274` emits bare
 motion, which a controller will happily run under whatever modal state it is already in — units, work
@@ -102,7 +102,7 @@ dry emit pocket.json --format rs274 --profile cnc.json
 # M30
 ```
 
-Flags: `--shape rect|circle` (with `--x/--y/--width/--height` or `--cx/--cy/--radius`), `--mode
+Flags: `--shape rect|circle` (with `--x/--y/--width/--height` or `--cx/--cy/--radius`), `--cut-mode
 pocket|profile`, `--tool-diameter`, `--stepover` (fraction of the tool diameter in (0, 1], default
 `0.5`; rectangular pockets clamp the resulting ring inset to ≈`0.854·d`, the largest inset that
 still clears the corners), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
