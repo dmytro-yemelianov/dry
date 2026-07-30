@@ -58,6 +58,32 @@
               "description": "Max junction (square-corner) velocity in mm/s; caps the per-junction feedrate."
             }
           }
+        },
+        "cnc": {
+          "type": "object",
+          "description": "CNC work-coordinate/tool/spindle/coolant frame, flowed verbatim into EmitParams::cnc_frame. Read only by the RS-274 renderer: absent, or under any other firmware flavor, emitted g-code is unchanged. Every key is optional.",
+          "properties": {
+            "wcs": {
+              "type": "integer",
+              "minimum": 54,
+              "maximum": 59,
+              "description": "Work coordinate system 54..=59, emitted as G54..G59. Absent defaults to G54."
+            },
+            "tool": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Tool number for the `T<n> M6` tool change. Absent omits the tool change."
+            },
+            "spindle_rpm": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Spindle speed in RPM for `S<rpm> M3`. Absent omits the spindle start (and the `M5` stop)."
+            },
+            "coolant": {
+              "type": "boolean",
+              "description": "Flood coolant. `true` emits `M8` in the preamble and `M9` in the postamble; `false` and absent both emit neither."
+            }
+          }
         }
       }
     },

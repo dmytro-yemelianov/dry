@@ -27,7 +27,7 @@
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "2dc517b4b8fa1c9f618d63d5deb930e54865b5307ebf4d7cb6ba866abe336ee6"
+      "sha256": "c36d7be038f871bcbf61d866ed319699e6b586e1522ad5878fdaeb4a39f81748"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
@@ -35,11 +35,11 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "d10b817d4821e15fba6c86c1a531157929dac7825900f4ec00c114b6d72b2884"
+      "sha256": "2a8211cc8d3b39537f950d2f67e0df3bbe09671b49a5359b65c47796f8c3ffd3"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "112abb05d5aa2160e4d2e0ce331e64b99a71e88fd87d6f3243da0b031bc8175b"
+      "sha256": "8f46b43237de9b9b2cb71d9a6a45cb570566c5c5541fb9fc92b2f15f0222a7a4"
     }
   },
   "dynamic": {
