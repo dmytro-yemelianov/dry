@@ -18,7 +18,7 @@ Implementation agent for the correctness-critical surface: `crates/core`, `proof
 Prompt requirements:
 - Run the targeted tests (`cargo test -p dry-core`, plus any touched integration/conformance suites) before reporting done; report failures verbatim.
 - Changes to numerics or resolve/emit semantics must be checked against the contracts in `proofs/` (claims TOMLs, numeric-boundary profiles) and the schemas in `spec/`.
-- Flag any change whose behavior surfaces through the bindings (wasm/cloud/py/TS) so parity can be re-verified — the bindings build outside the workspace and are easy to silently break.
+- Flag any change whose behavior surfaces through the bindings (wasm/cloud/py/TS/verify-runner) so parity can be re-verified — the bindings build outside the workspace and are easy to silently break.
 
 ### 2. `routine-dev` — model: sonnet, all tools
 
@@ -33,13 +33,13 @@ Reconnaissance agent: locate code, map call sites, summarize a subsystem before 
 Post-slice review agent with dry-specific checks on top of general bug-finding:
 - Coverage-first reporting: report every finding with a confidence level and estimated severity; do not self-filter for importance (filtering happens downstream).
 - Check touched code against the numeric contracts in `proofs/` and schemas in `spec/`.
-- Check cross-target parity: does the change alter behavior that `crates/wasm`, `crates/cloud`, `py/`, or `sdk/ts` re-expose, and are those surfaces updated?
+- Check cross-target parity: does the change alter behavior that `crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, or `containers/verify-runner` re-expose, and are those surfaces updated?
 - Check test/conformance coverage: does the slice add or update tests commensurate with the change?
 
 ### 5. `CLAUDE.md` (new, root)
 
 Short and focused:
-- One-paragraph project description (parametric design/CAM DSL; engine + CLI in-workspace; `crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner` excluded and built standalone).
+- One-paragraph project description (parametric design/CAM DSL; engine + CLI in-workspace; `crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner` excluded and built standalone; `sdk/ts` called out separately as a npm package built from the wasm engine).
 - Essential commands: `cargo test -p dry-core`, `cargo test -p dry-cli`; note the excluded crates have their own locks/CI jobs.
 - Model-routing rules:
   - Core numerics / proofs / spec work → `kernel-engineer` agent (opus); Fable 5 via `/model` for kernel-design or proof-heavy main sessions.

@@ -13,5 +13,5 @@ Reporting rules:
 
 dry-specific checks, in addition to general bug-finding:
 1. **Numeric contracts.** Does the change touch behavior covered by `proofs/` (claims.toml, numeric-boundary/mutation TOMLs) or the schemas in `spec/`? If so, are those artifacts still accurate?
-2. **Cross-target parity.** Does the change alter behavior re-exposed by `crates/wasm`, `crates/cloud`, `py/`, or `sdk/ts`? Are those surfaces updated, or is the drift called out?
+2. **Cross-target parity.** Does the change alter behavior re-exposed by `crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, or `containers/verify-runner`? Are those surfaces updated, or is the drift called out?
 3. **Test/conformance coverage.** Does the slice add or update tests commensurate with the change? Do `conformance/` fixtures need updating?
