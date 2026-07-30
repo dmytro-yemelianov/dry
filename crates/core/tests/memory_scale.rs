@@ -10,11 +10,12 @@
 //! parallel tests.
 
 use dry_core::{
-    decode_any_streaming, simulate, simulate_stream, verify_stream, CodecError, Contracts,
-    Feedrate, Length, Segment, SegmentKind, Toolpath, Volume,
+    decode_any_streaming, emit_stream_to_writer, simulate, simulate_stream, verify_stream,
+    CodecError, Contracts, EmitParams, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Cursor;
+use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 struct Counting;
@@ -233,6 +234,40 @@ fn verify_peak_from_stream(segments: usize) -> (bool, usize) {
     (report.ok(), peak_delta())
 }
 
+struct LineCountingWriter {
+    lines: usize,
+}
+
+impl Default for LineCountingWriter {
+    fn default() -> Self {
+        Self { lines: 0 }
+    }
+}
+
+impl Write for LineCountingWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.lines += buf.iter().filter(|&&b| b == b'\n').count();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn emit_peak_from_stream(segments: usize) -> (usize, usize) {
+    reset_peak();
+    let mut writer = LineCountingWriter::default();
+    emit_stream_to_writer(
+        StreamedSegmentSource::new(segments),
+        &EmitParams::default(),
+        &mut writer,
+    )
+    .unwrap();
+    // writer.lines counts emitted '\n' separators, so the number of lines is lines + 1.
+    (writer.lines + 1, peak_delta())
+}
+
 #[test]
 fn dry1_streaming_scales_to_one_million_segments() {
     let n = 1_000_000;
@@ -257,5 +292,15 @@ fn dry1_streaming_scales_to_one_million_segments() {
     assert!(
         verify_peak < 32 * 1024 * 1024,
         "verify_stream peak exceeded 32 MiB ({verify_peak} B)"
+    );
+
+    let (emitted_lines, emit_peak) = emit_peak_from_stream(n);
+    assert_eq!(
+        emitted_lines, n,
+        "emit_stream should preserve segment cardinality"
+    );
+    assert!(
+        emit_peak < 16 * 1024 * 1024,
+        "emit_stream peak exceeded 16 MiB ({emit_peak} B)"
     );
 }

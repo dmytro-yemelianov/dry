@@ -107,3 +107,53 @@ fn collinear_control_points_yield_a_straight_path() {
         }
     }
 }
+
+#[test]
+fn clothoid_corner_design_emits_curved_spline_segments() {
+    // A spline with a gradual cornering profile should emit a dense, visibly curved output.
+    let d = design(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+            {"op":"move","x":0,"y":0,"z":0.2},
+            {"op":"spline","points":[[8,0,0.2],[16,4,0.2],[24,14,0.2],[34,26,0.2],[40,40,0.2]]}]"#,
+    );
+    let tp = resolve(&d, &ResolveParams::default());
+    let gcode = emit(&tp, &EmitParams::default());
+
+    // 1 move + 5 spans * 16 samples = 81 lines.
+    assert_eq!(gcode.len(), 81);
+
+    let mut points = Vec::new();
+    for line in gcode.iter().skip(1) {
+        if !line.starts_with('G') {
+            continue;
+        }
+        let mut x = None;
+        let mut y = None;
+        for token in line.split_whitespace() {
+            if let Some(v) = token.strip_prefix('X') {
+                x = v.parse::<f64>().ok();
+            } else if let Some(v) = token.strip_prefix('Y') {
+                y = v.parse::<f64>().ok();
+            }
+        }
+        if let (Some(xv), Some(yv)) = (x, y) {
+            points.push((xv, yv));
+        }
+    }
+
+    assert_eq!(
+        points.last(),
+        Some(&(40.0, 40.0)),
+        "spline endpoint preserved"
+    );
+    assert!(
+        points.windows(3).any(|w| {
+            let (x1, y1) = w[0];
+            let (x2, y2) = w[1];
+            let (x3, y3) = w[2];
+            let area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+            area.abs() > 1e-6
+        }),
+        "clothoid-like spline should produce non-collinear intermediate points"
+    );
+}
