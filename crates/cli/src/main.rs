@@ -891,7 +891,7 @@ fn run(cli: Cli) -> ExitCode {
                 five_axis,
                 kinematics,
                 flavor,
-                cnc_frame: profile.as_ref().and_then(|p| p.machine.cnc),
+                cnc_frame: profile.as_ref().and_then(|p| p.emit_params().cnc_frame),
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
@@ -1497,6 +1497,17 @@ fn run(cli: Cli) -> ExitCode {
             );
             let imported = import_gcode_reader_with_map(input, &params)
                 .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            // cnc_frame is intentionally left None (not wired from `profile`) here: this path calls
+            // `emit_source_preserving_spans`, which emits each span in isolation to line up with a
+            // separately-emitted flattened reference (see `emit_normalized_span_lines` in
+            // dry-core's gcode/lift.rs) to recover per-span line offsets. If cnc_frame were set,
+            // every span — not just the first — would grow its own copy of the G21/G54/T../S../M3
+            // preamble, which would either desync that line-count accounting (corrupting the
+            // splice) or, if accounting happened to survive, duplicate the frame once per span and
+            // strand `emit`'s M30 postamble mid-file instead of at the true end. Wiring this
+            // correctly needs a design decision in dry-core (e.g. an internal frame-suppression
+            // knob for non-leading spans), tracked as follow-up, not blindly copied from the `Emit`
+            // arm's fix.
             let emit_params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
@@ -1506,7 +1517,7 @@ fn run(cli: Cli) -> ExitCode {
                     .as_ref()
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
-                ..EmitParams::default()
+                cnc_frame: None,
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -2542,6 +2553,11 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
             .unwrap_or_else(|e| die(format!("cannot read {}: {e}", args.file)));
         let imported = import_gcode_reader_with_map(input, &params)
             .unwrap_or_else(|e| die(format!("cannot import {}: {e}", args.file)));
+        // cnc_frame is intentionally left None here for the same reason as the `RewriteGcode` arm:
+        // this path also calls `emit_source_preserving_spans`, which emits each span in isolation
+        // to recover per-span line offsets against a separately-emitted flattened reference. Setting
+        // cnc_frame would desync that accounting (or duplicate the preamble per span and strand the
+        // M30 postamble mid-file). Needs a dry-core design decision, tracked as follow-up.
         let emit_params = EmitParams {
             relative_e: true,
             travel_g1_e0: false,
@@ -2551,7 +2567,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
                 .as_ref()
                 .map(|p| p.emit_params().flavor)
                 .unwrap_or(FirmwareFlavor::Marlin),
-            ..EmitParams::default()
+            cnc_frame: None,
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();
