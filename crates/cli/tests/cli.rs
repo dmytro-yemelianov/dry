@@ -844,6 +844,62 @@ fn emit_rs274_output_is_parseable_and_step_nc_is_written() {
 }
 
 #[test]
+fn emit_rs274_five_axis_with_step_nc_is_parseable_and_tracks_toolframe() {
+    let out_path = fixture("vectors/five_axis", "input");
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-five-axis-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+    ));
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            out_path.to_str().unwrap(),
+            "--format",
+            "rs274",
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "emit --format rs274 --five-axis should succeed for 5-axis fixture"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 1,
+        "rs274 five-axis output should contain one motion line for the fixture"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<toolframe"));
+    assert!(sidecar.contains("workingstep id=\"ws-0\""));
+
+    let _ = std::fs::remove_file(step_nc);
+}
+
+#[test]
 fn emit_grbl_output_is_parseable() {
     let path = std::env::temp_dir().join(format!(
         "dry-cli-grbl-{}-{}.json",
