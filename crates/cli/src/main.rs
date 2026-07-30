@@ -35,6 +35,9 @@ enum EmitOutputFormat {
     Rs274,
     /// Emit GRBL (laser) output.
     Grbl,
+    /// Emit KRL-style robot output.
+    #[value(alias = "krl")]
+    RobotKrl,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -218,7 +221,7 @@ enum Cmd {
         /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
-        /// Emit RS-274 output instead of the default FFF G-code target.
+        /// Emit RS-274 / GRBL / KRL output instead of the default FFF G-code target.
         #[arg(long, default_value = "gcode", value_enum)]
         format: EmitOutputFormat,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
@@ -816,6 +819,7 @@ fn run(cli: Cli) -> ExitCode {
             match format {
                 EmitOutputFormat::Rs274 => flavor = FirmwareFlavor::Rs274,
                 EmitOutputFormat::Grbl => flavor = FirmwareFlavor::Grbl,
+                EmitOutputFormat::RobotKrl => flavor = FirmwareFlavor::RobotKrl,
                 EmitOutputFormat::Gcode => {}
             }
             let params = EmitParams {

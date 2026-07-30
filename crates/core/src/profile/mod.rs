@@ -383,6 +383,7 @@ impl Profile {
         let flavor = match self.firmware.flavor.as_deref() {
             Some("rs274") | Some("linuxcnc") => FirmwareFlavor::Rs274,
             Some("grbl") => FirmwareFlavor::Grbl,
+            Some("robot-krl") | Some("krl") => FirmwareFlavor::RobotKrl,
             Some("klipper") => FirmwareFlavor::Klipper,
             Some("duet") => FirmwareFlavor::Duet,
             _ => FirmwareFlavor::Marlin, // default
@@ -428,9 +429,29 @@ mod tests {
                 flavor: Some("grbl".to_string()),
                 ..FirmwareProfile::default()
             },
-            ..base
+            ..base.clone()
         };
         assert_eq!(profile_grbl.emit_params().flavor, FirmwareFlavor::Grbl);
+
+        let profile_krl = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("robot-krl".to_string()),
+                ..FirmwareProfile::default()
+            },
+            ..base.clone()
+        };
+        assert_eq!(profile_krl.emit_params().flavor, FirmwareFlavor::RobotKrl);
+        let profile_krl_alias = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("krl".to_string()),
+                ..FirmwareProfile::default()
+            },
+            ..base
+        };
+        assert_eq!(
+            profile_krl_alias.emit_params().flavor,
+            FirmwareFlavor::RobotKrl
+        );
     }
 
     #[test]

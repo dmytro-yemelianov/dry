@@ -205,6 +205,16 @@ fn test_dwell_firmware_flavors() {
         },
     );
     assert_eq!(gcode_grbl[0], "G4 P1.5");
+
+    // KRL prototype uses a conservative `WAIT` dwell keyword.
+    let gcode_krl = emit(
+        &tp,
+        &EmitParams {
+            flavor: FirmwareFlavor::RobotKrl,
+            ..EmitParams::default()
+        },
+    );
+    assert_eq!(gcode_krl[0], "WAIT 1.5");
 }
 
 #[test]

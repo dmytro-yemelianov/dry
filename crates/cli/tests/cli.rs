@@ -407,7 +407,10 @@ fn emit_grbl_flag_uses_grbl_output_mode() {
     let path = std::env::temp_dir().join(format!(
         "dry-cli-grbl-emit-{}-{}.json",
         std::process::id(),
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
     ));
     std::fs::write(
         &path,
@@ -444,6 +447,37 @@ fn emit_grbl_flag_uses_grbl_output_mode() {
         grbl_stdout.trim(),
         "G4 P1.5",
         "grbl output should use P dwell syntax"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_krl_flag_uses_krl_output_mode() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-emit-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{"version":0,"segments":[{"start":[null,null,null],"end":[10.0,null,null],"travel":true,"speed":1500.0,"length":10.0,"volume":0.0,"filament":0.0,"kind":"line","centre":null,"clockwise":false}]}"#,
+    )
+    .unwrap();
+
+    let krl = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "krl"])
+        .output()
+        .unwrap();
+    assert!(krl.status.success(), "dry emit --format krl should succeed");
+
+    assert_eq!(
+        String::from_utf8(krl.stdout).unwrap().trim(),
+        "PTP V1500 X10",
+        "krl output should be robot-motion style"
     );
 
     let _ = std::fs::remove_file(path);

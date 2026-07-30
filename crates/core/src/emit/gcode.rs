@@ -15,6 +15,8 @@ pub enum FirmwareFlavor {
     Rs274,
     /// GRBL laser controller dialect.
     Grbl,
+    /// Kuka Robot Language (KRL) style robot program output.
+    RobotKrl,
 }
 
 /// How to emit.
@@ -31,7 +33,7 @@ pub struct EmitParams {
     /// Which rotary kinematics map the orientation onto words (default [`Kinematics::Ab`]).
     #[serde(default)]
     pub kinematics: Kinematics,
-    /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl.
+    /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl, robot_krl.
     #[serde(default)]
     pub flavor: FirmwareFlavor,
 }
@@ -216,6 +218,7 @@ where
                         format!("G4 S{}", num(secs))
                     }
                     FirmwareFlavor::Grbl => format!("G4 P{}", num(secs)),
+                    FirmwareFlavor::RobotKrl => format!("WAIT {}", num(secs)),
                 };
                 write_line(writer, &mut first_line, &cmd)?;
             }
@@ -239,7 +242,16 @@ where
 
         let is_arc = s.kind == SegmentKind::Arc && s.centre.is_some();
         let has_e_word = !s.travel || s.filament != Length::ZERO;
-        let cmd = if is_arc {
+        let is_robot = p.flavor == FirmwareFlavor::RobotKrl;
+        let cmd = if is_robot {
+            if is_arc {
+                "CIRC"
+            } else if s.travel && !p.travel_g1_e0 && !has_e_word {
+                "PTP"
+            } else {
+                "LIN"
+            }
+        } else if is_arc {
             if s.clockwise {
                 "G2"
             } else {
@@ -253,7 +265,11 @@ where
         let mut toks = vec![cmd.to_string()];
 
         if prev_speed != Some(s.speed) {
-            toks.push(format!("F{}", num(s.speed.value())));
+            if is_robot {
+                toks.push(format!("V{}", num(s.speed.value())));
+            } else {
+                toks.push(format!("F{}", num(s.speed.value())));
+            }
             prev_speed = Some(s.speed);
         }
 
@@ -311,11 +327,18 @@ where
                     (cy_prog - Length::mm(sy_prog)).value(),
                 )
             };
-            toks.push(format!("I{}", num(i_val)));
-            toks.push(format!("J{}", num(j_val)));
+            if p.flavor == FirmwareFlavor::RobotKrl {
+                toks.push(format!("C{}", num(i_val)));
+                toks.push(format!("D{}", num(j_val)));
+            } else {
+                toks.push(format!("I{}", num(i_val)));
+                toks.push(format!("J{}", num(j_val)));
+            }
         }
 
-        if p.relative_e {
+        if is_robot {
+            // Robot targets currently emit motion-only commands and do not model filament words.
+        } else if p.relative_e {
             if has_e_word {
                 toks.push(format!("E{}", num(s.filament.value())));
             } else if p.travel_g1_e0 {
