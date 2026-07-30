@@ -23,11 +23,11 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "01b298c920f257aec386762b64cc443d0d701ec8aa152fd14f63d5eaaecf561b"
+      "sha256": "9a897107413ac32d372e23a2579616200ac94e70d80a4fa6d18b75a324c00001"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "131652b6919dc6d2ed5f758d237400b25a4582d80a034b17e739e7ac5d8c4f20"
+      "sha256": "9663dea35e9855478ec1f8f97ea4a6830a4cabbdb6e8a97c3849a2aac8972bfc"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
