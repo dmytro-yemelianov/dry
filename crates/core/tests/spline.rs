@@ -109,8 +109,10 @@ fn collinear_control_points_yield_a_straight_path() {
 }
 
 #[test]
-fn clothoid_corner_design_emits_curved_spline_segments() {
+fn gradual_corner_design_emits_curved_spline_segments() {
     // A spline with a gradual cornering profile should emit a dense, visibly curved output.
+    // NOTE: this is a Catmull-Rom spline, NOT a clothoid. Curvature-linear (Euler spiral)
+    // cornering is not implemented -- see P2.1/P5.5 in docs/04-tasks.md.
     let d = design(
         r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
             {"op":"move","x":0,"y":0,"z":0.2},
