@@ -597,6 +597,97 @@ fn emit_krl_output_is_parseable_and_importable() {
 }
 
 #[test]
+fn emit_krl_five_axis_with_bc_kinematics_is_parseable_and_importable() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-five-axis-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [10.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 10.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [1.0, 0.0, 0.0]
+            },
+            {
+              "start": [10.0, 0.0, 0.0],
+              "end": [10.0, 10.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 10.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [0.0, 1.0, 0.0]
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--format",
+            "krl",
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "dry emit --format krl --five-axis should succeed"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 2,
+        "KRL five-axis output should produce motion records for each segment"
+    );
+    assert!(gcode.contains("C0"));
+    assert!(gcode.contains("C90"));
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 2);
+    assert_eq!(imported.segments[0].kind, SegmentKind::Line);
+    assert_eq!(imported.segments[1].kind, SegmentKind::Line);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn emit_rs274_flag_uses_rs274_output_mode() {
     let path = fixture("gcode", "square");
     let default = Command::new(bin()).arg("emit").arg(&path).output().unwrap();

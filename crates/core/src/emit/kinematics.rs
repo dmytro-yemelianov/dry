@@ -336,3 +336,83 @@ pub(crate) struct Rotary {
     pub(super) letter: char,
     pub(super) value: f64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unit_vec(v: [f64; 3]) -> [f64; 3] {
+        let norm = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        [v[0] / norm, v[1] / norm, v[2] / norm]
+    }
+
+    fn norm(v: [f64; 3]) -> f64 {
+        (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+    }
+
+    fn assert_point_within_epsilon(a: [f64; 3], b: [f64; 3], eps: f64) {
+        assert!((a[0] - b[0]).abs() < eps);
+        assert!((a[1] - b[1]).abs() < eps);
+        assert!((a[2] - b[2]).abs() < eps);
+    }
+
+    #[test]
+    fn machine_position_preserves_reference_radius_for_zero_pivot_models() {
+        let point = [10.0, -7.0, 4.25];
+        let orientations = [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            unit_vec([0.2, 0.6, 0.76]),
+            unit_vec([0.9, -0.3, 0.316227766016838]),
+        ];
+        let reference_radius = norm(point);
+
+        let models = [
+            Kinematics::Ab {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+        ];
+
+        for model in models {
+            for orientation in orientations {
+                let projected = model.machine_position(point, Some(unit_vec(orientation)));
+                let projected_radius = norm(projected);
+                assert!(
+                    (projected_radius - reference_radius).abs() < 1e-10,
+                    "machine-position should preserve distance-to-origin for zero-pivot models"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn machine_position_ab_model_identity_with_zero_pivot_offset() {
+        let point = [2.5, -6.0, 11.75];
+        let model = Kinematics::Ab {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        };
+        let orientations = [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            unit_vec([0.2, 0.6, 0.76]),
+            unit_vec([0.9, -0.3, 0.316227766016838]),
+        ];
+
+        for orientation in orientations {
+            let projected = model.machine_position(point, Some(unit_vec(orientation)));
+            assert_point_within_epsilon(projected, point, 1e-12);
+        }
+    }
+}

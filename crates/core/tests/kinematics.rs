@@ -9,8 +9,8 @@
 //! Default kinematics is AB, so the default emit is byte-identical to the existing behaviour.
 
 use dry_core::{
-    parse_gcode_lines, emit, import_gcode, resolve, GcodeImportParams, GcodeRecord, ResolveParams,
-    Design, EmitParams, Kinematics, REFERENCE_FIVE_AXIS_MACHINE,
+    emit, import_gcode, parse_gcode_lines, resolve, Design, EmitParams, GcodeImportParams,
+    GcodeRecord, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,
 };
 
 fn ab() -> Kinematics {
