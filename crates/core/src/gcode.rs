@@ -266,6 +266,11 @@ fn strip_checksum(code: &str) -> &str {
 }
 
 fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodeParseError> {
+    const ROBOT_PT: char = 'Q';
+    const ROBOT_LIN: char = 'L';
+    const ROBOT_CIRC: char = 'A';
+    const ROBOT_WAIT: char = 'W';
+
     let mut words = Vec::new();
     let mut i = 0;
     let chars: Vec<(usize, char)> = code.char_indices().collect();
@@ -276,13 +281,90 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
             continue;
         }
         if !c.is_ascii_alphabetic() {
-            return Err(GcodeParseError::new(
-                source_line,
-                format!("expected word letter, found {c:?}"),
-            ));
+            if !c.is_ascii_digit() && !matches!(c, '.' | '-' | '+') {
+                return Err(GcodeParseError::new(
+                    source_line,
+                    format!("expected word letter, found {c:?}"),
+                ));
+            }
+
+            if words
+                .last()
+                .is_none_or(|word: &GcodeWord| word.letter != ROBOT_WAIT)
+            {
+                return Err(GcodeParseError::new(
+                    source_line,
+                    format!("expected word letter, found {c:?}"),
+                ));
+            }
+
+            let value_start = chars[i].0;
+            let mut value_end_i = i;
+            while value_end_i < chars.len() {
+                let (_, next) = chars[value_end_i];
+                if next.is_ascii_whitespace() {
+                    break;
+                }
+                if next.is_ascii_alphabetic() && !is_exponent_marker(&chars, value_end_i) {
+                    break;
+                }
+                value_end_i += 1;
+            }
+            let value = code[value_start
+                ..chars
+                    .get(value_end_i)
+                    .map(|(idx, _)| *idx)
+                    .unwrap_or(code.len())]
+                .trim();
+            let value = value.parse::<f64>().map_err(|e| {
+                GcodeParseError::new(
+                    source_line,
+                    format!("bad {ROBOT_WAIT} word value {value:?}: {e}"),
+                )
+            })?;
+            words.push(GcodeWord { letter: 'S', value });
+            i = value_end_i;
+            continue;
         }
-        let letter = c.to_ascii_uppercase();
+
+        let token_start = i;
         i += 1;
+        while i < chars.len() && chars[i].1.is_ascii_alphabetic() {
+            i += 1;
+        }
+        let token_end = chars.get(i).map(|(idx, _)| *idx).unwrap_or(code.len());
+        let token = &code[chars[token_start].0..token_end];
+
+        let robot_command = match token {
+            _ if token.eq_ignore_ascii_case("PTP") => Some(ROBOT_PT),
+            _ if token.eq_ignore_ascii_case("LIN") => Some(ROBOT_LIN),
+            _ if token.eq_ignore_ascii_case("CIRC") => Some(ROBOT_CIRC),
+            _ if token.eq_ignore_ascii_case("WAIT") => Some(ROBOT_WAIT),
+            _ => None,
+        };
+        if let Some(letter) = robot_command {
+            words.push(GcodeWord { letter, value: 0.0 });
+            continue;
+        }
+
+        if token.len() > 1 {
+            let letter = c.to_ascii_uppercase();
+            let value_start = chars
+                .get(token_start + 1)
+                .map(|(idx, _)| *idx)
+                .unwrap_or(code.len());
+            let value = code[value_start..token_end].trim();
+            let value = value.parse::<f64>().map_err(|e| {
+                GcodeParseError::new(
+                    source_line,
+                    format!("bad {letter} word value {value:?}: {e}"),
+                )
+            })?;
+            words.push(GcodeWord { letter, value });
+            continue;
+        }
+
+        let letter = c.to_ascii_uppercase();
         let value_start = chars.get(i).map(|(idx, _)| *idx).unwrap_or(code.len());
         while i < chars.len() {
             let (_, next) = chars[i];
@@ -358,11 +440,17 @@ fn classify_record(
     words: &[GcodeWord],
     state: &mut GcodeModalState,
 ) -> GcodeRecord {
+    const ROBOT_PT: char = 'Q';
+    const ROBOT_LIN: char = 'L';
+    const ROBOT_CIRC: char = 'A';
+    const ROBOT_WAIT: char = 'W';
+
     if words.is_empty() {
         return GcodeRecord::Empty;
     }
 
     let mut explicit_motion = None;
+    let mut robot_arc = false;
     let mut state_record = None;
     let mut process_record = None;
     let mut other = None;
@@ -406,6 +494,22 @@ fn classify_record(
             ('G', Some(92)) => {
                 state_record = Some(StateCommand::SetPosition);
             }
+            (ROBOT_PT, _) => {
+                explicit_motion = Some(MotionMode::Linear);
+                state.motion = explicit_motion;
+            }
+            (ROBOT_LIN, _) => {
+                explicit_motion = Some(MotionMode::Linear);
+                state.motion = explicit_motion;
+            }
+            (ROBOT_CIRC, _) => {
+                explicit_motion = Some(MotionMode::ClockwiseArc);
+                state.motion = explicit_motion;
+                robot_arc = true;
+            }
+            (ROBOT_WAIT, _) => {
+                explicit_motion = Some(MotionMode::Dwell);
+            }
             ('M', Some(82)) => {
                 state.extrusion_mode = ExtrusionMode::Absolute;
                 state_record = Some(StateCommand::ExtrusionMode(ExtrusionMode::Absolute));
@@ -446,7 +550,7 @@ fn classify_record(
         }
     }
 
-    let f = word_value(words, 'F');
+    let f = word_value(words, 'F').or_else(|| word_value(words, 'V'));
     if let Some(feedrate) = f {
         state.feedrate = Some(feedrate);
     }
@@ -468,6 +572,17 @@ fn classify_record(
         None
     };
     if let Some(mode) = explicit_motion.or(modal_motion) {
+        let i = if robot_arc {
+            word_value(words, 'C').or_else(|| word_value(words, 'I'))
+        } else {
+            word_value(words, 'I')
+        };
+        let j = if robot_arc {
+            word_value(words, 'D').or_else(|| word_value(words, 'J'))
+        } else {
+            word_value(words, 'J')
+        };
+
         return GcodeRecord::Motion(MotionRecord {
             source_line,
             mode,
@@ -476,8 +591,8 @@ fn classify_record(
             y: word_value(words, 'Y'),
             z: word_value(words, 'Z'),
             e: word_value(words, 'E'),
-            i: word_value(words, 'I'),
-            j: word_value(words, 'J'),
+            i,
+            j,
             k: word_value(words, 'K'),
             f,
             s: word_value(words, 'S'),
@@ -655,5 +770,41 @@ mod tests {
         let err = parse_gcode_lines("G1 Xnope\n").unwrap_err();
         assert_eq!(err.source_line, 1);
         assert!(err.message.contains("X word"));
+    }
+
+    #[test]
+    fn parses_robot_motion_commands_with_robot_words_and_wait() {
+        let lines = parse_gcode_lines(
+            "PTP V1500 X10 Y20\nLIN X20 Y20\nCIRC V1200 X30 Y30 C-5 D2.5\nWAIT 1.5\n",
+        )
+        .unwrap();
+
+        let GcodeRecord::Motion(ptp) = &lines[0].record else {
+            panic!("expected linear robot motion");
+        };
+        assert_eq!(ptp.mode, MotionMode::Linear);
+        assert_eq!(ptp.x, Some(10.0));
+        assert_eq!(ptp.y, Some(20.0));
+        assert_eq!(ptp.f, Some(1500.0));
+        assert_eq!(ptp.state.feedrate, Some(1500.0));
+
+        let GcodeRecord::Motion(linear) = &lines[1].record else {
+            panic!("expected linear robot motion");
+        };
+        assert_eq!(linear.mode, MotionMode::Linear);
+        assert_eq!(linear.x, Some(20.0));
+
+        let GcodeRecord::Motion(circ) = &lines[2].record else {
+            panic!("expected circular robot motion");
+        };
+        assert_eq!(circ.mode, MotionMode::ClockwiseArc);
+        assert_eq!(circ.i, Some(-5.0));
+        assert_eq!(circ.j, Some(2.5));
+
+        let GcodeRecord::Motion(wait) = &lines[3].record else {
+            panic!("expected robot dwell");
+        };
+        assert_eq!(wait.mode, MotionMode::Dwell);
+        assert_eq!(wait.s, Some(1.5));
     }
 }

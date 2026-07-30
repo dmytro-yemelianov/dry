@@ -485,6 +485,118 @@ fn emit_krl_flag_uses_krl_output_mode() {
 }
 
 #[test]
+fn emit_krl_output_is_parseable_and_importable() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [20.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 0.0, 0.0],
+              "end": [20.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 20.0, 0.0],
+              "end": [0.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 20.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 0.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": true,
+              "speed": 1200.0,
+              "length": 0.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "dwell",
+              "centre": null,
+              "clockwise": false,
+              "dwell_s": 0.5
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "krl"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "emit --format krl should succeed");
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 5,
+        "KRL emit should produce one motion record per segment"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn emit_rs274_flag_uses_rs274_output_mode() {
     let path = fixture("gcode", "square");
     let default = Command::new(bin()).arg("emit").arg(&path).output().unwrap();
@@ -725,10 +837,7 @@ fn emit_grbl_output_is_parseable() {
         .args(["emit", path.to_str().unwrap(), "--format", "grbl"])
         .output()
         .unwrap();
-    assert!(
-        out.status.success(),
-        "emit --format grbl should succeed"
-    );
+    assert!(out.status.success(), "emit --format grbl should succeed");
 
     let gcode = String::from_utf8(out.stdout).unwrap();
     let parsed = parse_gcode_lines(&gcode).unwrap();
