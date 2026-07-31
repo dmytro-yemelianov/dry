@@ -24,6 +24,39 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   emitting a program with no cutting moves; a tool filling exactly one direction is a slot and still
   cuts.
 
+### Changed
+- **BREAKING (wasm and Python bindings): `emit` now refuses IR it cannot faithfully represent.**
+  `dry emit` never runs the verifier, so the emitter is the last gate before a machine, and it
+  validated nothing: a non-finite quantity left as a syntactically well-formed word (`G1 FNaN Xinf
+  YNaN Z0.2`), an un-normalised five-axis toolframe moved the linear axes to the wrong point, a
+  `CncFrame` reaching the `pub`/`Deserialize` path unvalidated emitted a bare `G0` where `G54`
+  belongs or `S0 M3` before a cutting move, and an arc with no explicit endpoint emitted a full 360°
+  circle on RS-274. All four are refused. On the bindings this is a **behaviour change on a published
+  surface**: `dry.resolve_gcode` / `resolve_tpms_gcode` (wasm, TS SDK) and `resolve_gcode` /
+  `resolve_tpms_gcode` (Python) now raise instead of returning an empty array/list. The empty return
+  was reachable from ordinary JSON — `validate_design` checks only finiteness for an arc op, so
+  `[geometry, extruder on, {"op":"arc","cx":10,"cy":0}]` resolved cleanly and emitted nothing — and
+  in-tree consumers (`web/viewer.js`, `sdk/ts/src/engine.ts`) read that empty result as a successful
+  zero-line program. `dry emit` on refused IR exits 2 and now leaves **no** output file: the program
+  is streamed to a temporary path and renamed only once it is complete, so a mid-program refusal no
+  longer leaves a truncated-but-valid `.gcode` (and, under RS-274, one missing its `M9`/`M5`/`M30`
+  postamble). `dry emit --step-nc` gates the sidecar the same way and writes it only after the g-code
+  program is known to be emittable; `dry_core::emit_step_nc` returns `Result<String, CodecError>`
+  accordingly.
+- **RS-274 / GRBL / KRL span rewrites no longer carry filament-axis modals.** `dry rewrite-gcode`
+  targeting a non-FFF flavor previously spliced `M83` / `M82` / `G92 E0` / `M221 S100` into every
+  rewritten motion span — words addressing an axis a CNC, laser or robot controller does not have,
+  and an unknown M-code aborts the program on LinuxCNC/Fanuc. Output for those three flavors changes;
+  Marlin/Klipper/Duet output is byte-identical. Source lines *outside* a motion span are still echoed
+  through verbatim by contract, so a Marlin source's own `M104`/`M106`/`M221` still reaches the
+  rewrite — filtering that echo is a separate decision.
+
+### Deprecated
+- `dry_core::emit` — use `emit_stream`, which reports the refusals above. `emit` keeps its infallible
+  signature and its refuse-the-whole-program behaviour (debug builds panic on the `debug_assert`,
+  release builds return no lines) as a transitional guard for in-tree callers that build their own
+  IR; any caller handling IR it did not construct must migrate.
+
 ## [0.4.0] - 2026-07-28
 
 Post-0.3.0 work — additive features plus the licensing/distribution change below.
