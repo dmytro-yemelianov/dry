@@ -37,12 +37,14 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   was reachable from ordinary JSON — `validate_design` checks only finiteness for an arc op, so
   `[geometry, extruder on, {"op":"arc","cx":10,"cy":0}]` resolved cleanly and emitted nothing — and
   in-tree consumers (`web/viewer.js`, `sdk/ts/src/engine.ts`) read that empty result as a successful
-  zero-line program. `dry emit` on refused IR exits 2 and now leaves **no** output file: the program
-  is streamed to a temporary path and renamed only once it is complete, so a mid-program refusal no
-  longer leaves a truncated-but-valid `.gcode` (and, under RS-274, one missing its `M9`/`M5`/`M30`
-  postamble). `dry emit --step-nc` gates the sidecar the same way and writes it only after the g-code
-  program is known to be emittable; `dry_core::emit_step_nc` returns `Result<String, CodecError>`
-  accordingly.
+  zero-line program. `dry emit` on refused IR exits 2 and now leaves **no new** output file: the
+  program is streamed to a temporary path and renamed into place only once it is complete, so a
+  mid-program refusal no longer *truncates* a `.gcode` at `--out` (and, under RS-274, one missing its
+  `M9`/`M5`/`M30` postamble) — a stale file already at that path is left as it was, since the rename
+  never happens. `dry emit --step-nc` gates the sidecar the same way and stages it to a temp path
+  before the g-code emits, committing both only once the program is known to be emittable, so the
+  `.stpnc` gets the same atomicity guarantee; `dry_core::emit_step_nc` returns `Result<String,
+  CodecError>` accordingly.
 - **RS-274 / GRBL / KRL span rewrites no longer carry filament-axis modals.** `dry rewrite-gcode`
   targeting a non-FFF flavor previously spliced `M83` / `M82` / `G92 E0` / `M221 S100` into every
   rewritten motion span — words addressing an axis a CNC, laser or robot controller does not have,

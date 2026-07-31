@@ -2365,8 +2365,67 @@ fn emit_step_nc_sidecar_is_not_written_for_a_refused_program() {
         !sidecar.exists(),
         "refused program left a STEP-NC intent file at {sidecar:?}"
     );
+    let sidecar_partial = PathBuf::from(format!("{}.dry-partial", sidecar.to_str().unwrap()));
+    assert!(
+        !sidecar_partial.exists(),
+        "the sidecar's own temp file was not cleaned up"
+    );
+    let out_partial = PathBuf::from(format!("{}.dry-partial", out.to_str().unwrap()));
+    assert!(
+        !out_partial.exists(),
+        "the g-code temp file was not cleaned up"
+    );
 
     let _ = std::fs::remove_file(&ir);
+}
+
+/// The sidecar is staged to its own temp file *before* the g-code emits, so a failure to commit the
+/// sidecar into place — after the g-code has already been committed — must not make it look like
+/// nothing was written: the g-code at `--out` is complete and real, and exit 2 must say so.
+#[test]
+fn emit_step_nc_sidecar_commit_failure_reports_partial_success() {
+    let path = fixture("gcode", "square");
+    let out = temp_path("sidecar-atomic-out.gcode");
+    // A directory at the sidecar's destination path makes the final `rename` fail deterministically
+    // (EISDIR) without needing to simulate disk-full, while leaving the temp-file staging untouched.
+    let sidecar_dir = temp_path("sidecar-atomic-blocked.stpnc");
+    std::fs::create_dir(&sidecar_dir).unwrap();
+
+    let run = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--step-nc",
+            sidecar_dir.to_str().unwrap(),
+            "-o",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(run.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(
+        stderr.contains(&format!("already written to {}", out.to_str().unwrap())),
+        "exit 2 must say a complete g-code program was already written: {stderr}"
+    );
+    assert!(
+        out.exists(),
+        "the g-code that already committed must remain on disk"
+    );
+    let sidecar_partial = PathBuf::from(format!("{}.dry-partial", sidecar_dir.to_str().unwrap()));
+    assert!(
+        !sidecar_partial.exists(),
+        "the sidecar temp file was not cleaned up after the failed commit"
+    );
+    let out_partial = PathBuf::from(format!("{}.dry-partial", out.to_str().unwrap()));
+    assert!(
+        !out_partial.exists(),
+        "the g-code temp file was not cleaned up"
+    );
+
+    let _ = std::fs::remove_file(&out);
+    let _ = std::fs::remove_dir(&sidecar_dir);
 }
 
 /// The successful path still writes the whole program, sidecar included.
