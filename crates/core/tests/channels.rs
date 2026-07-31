@@ -2,6 +2,10 @@
 //! authored as L1 ops, propagate with defaults through `resolve`, and ride each L2 segment; they are
 //! carried for `simulate`/`verify` (and the binary codec), without disturbing the motion g-code.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
     emit, resolve, simulate, verify, Contracts, Design, EmitParams, ResolveParams, SegmentKind,
     Time,
