@@ -24,3 +24,5 @@ Route work to the cheapest tier that can do it safely:
 Opus 5 at `xhigh` is the ceiling: it is the recommended effort for coding and agentic work, and it is where the correctness-critical slices belong. Both Opus agents pin `claude-opus-5` rather than the `opus` alias, so a model bump is a deliberate edit. Do not escalate a subagent past this tier.
 
 Effort defaults to inheriting the session, so `routine-dev` sets `medium` explicitly rather than inheriting a high session setting for mechanical work. `scout` leaves `effort` unset deliberately — Haiku's effort support is version-dependent and recon does not need the knob. Main-session effort comes from `effortLevel` in `~/.claude/settings.json`; use `/model` to put the session itself on Opus 5 for kernel-design or proof-heavy work.
+
+**Commit attribution.** A subagent signs `Co-Authored-By` with the model it actually ran on — not the dispatching session's. Do not paste your own trailer into a subagent brief; that attributes one model's work to another. If a brief asks you to sign a name that isn't yours, sign yours and say so in your report.
