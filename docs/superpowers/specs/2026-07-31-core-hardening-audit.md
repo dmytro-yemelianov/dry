@@ -7,6 +7,25 @@ Defect classes: **D1** degenerate input silently accepted · **D2** guard mode-b
 
 ---
 
+## Status (updated 2026-07-31)
+
+| Slice | State |
+|---|---|
+| **H1.1 emit safety gate** | **Closed.** Non-finite words, five-axis orientation, RS-274 prologue leakage, `CncFrame` validation, arc-without-endpoint. Two review rounds; the second found the refusal had not been followed to the CLI (truncated file on disk), the STEP-NC sidecar (written first, ungated), or the bindings (empty array read as success by `web/viewer.js` and `sdk/ts`). |
+| **H1.2 ingress validation** | **Closed.** All five ingress paths admit no non-finite quantity. Three rounds: round 2 found the accept clause still false on the `resolve_checked` path nobody had checked; round 3 found two of this document's own follow-up notes had drifted ahead of the code. Decisions recorded in [ADR 0002](../../adr/0002-numeric-ingress-and-emission-gates.md). |
+| **H1.3 verify strengthening** | Open — [#185](https://github.com/dmytro-yemelianov/dry/issues/185). The largest remaining item and the gate on any product claim that leans on "verify is clean". |
+| **H1.4 TPMS hardening** | Open — [#186](https://github.com/dmytro-yemelianov/dry/issues/186), plan at `docs/superpowers/plans/2026-07-31-tpms-hardening.md`. T4 (`maxFieldSamples` sentinel) is blocked on a wire-contract decision, since `sdk/ts` encodes `Infinity → 0`. |
+| **H1.5 formal-model speed divergence** | Open — surfaced by H1.2. |
+
+**Two corrections to this document**, both found by implementers working from it — recorded because it is the source spec for the open slices:
+
+1. `Area::sqrt` was described as having zero production call sites. It does not: `resolve.rs` calls it inside `pub fn dist`. The `optimize/arc.rs` sites cited alongside it are a local closure over `libm::hypot` that never touches `Area`.
+2. That same fallback was then described as unreachable ("a sum of squares is never negative"). Also false — `Area::sqrt` returns `None` for NaN as well as for a negative area, and a release-build spline with ~1e308 control points reaches it.
+
+The pattern in both is the one this audit exists to find: a claim that outran the behaviour it described. Treat the remaining entries as hypotheses to verify, not as established fact.
+
+---
+
 ## The unifying finding
 
 **Non-finite quantities reach metal.** `num()` (`emit/gcode.rs:93`) is `format!("{v:.6}")` plus trimming; Rust renders NaN as `NaN` and infinities as `inf`. Confirmed output: `G1 FNaN Xinf YNaN E0`. A `finite` rule exists in `verify.rs:210`, but `dry emit` streams IR from disk straight to the emitter (`cli/src/main.rs:862`) and never calls it. Three of the five audits reached this independently.
