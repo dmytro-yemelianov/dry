@@ -201,7 +201,15 @@ Regenerate `conformance/gallery/gyroid_infill.json`, then record in the commit m
 > silently accepts `0` as unlimited — a doc/behaviour mismatch of exactly the D5 class this audit hunts.
 > T4a changes no legitimate caller's behaviour and needs no TS change.
 >
-> **T4b — blocked on a decision:** should `0` — and therefore the TS SDK's `Infinity` — keep meaning
+> **T4b — DECIDED (2026-07-31): keep `0` = unlimited, and document it.** Reject `NaN` and negative
+> outright; leave `0` meaning unlimited; and fix the public Rust field doc, which today says *"Use a
+> large value for trusted offline generation"* while the code silently accepts `0`. No `sdk/ts` change
+> is needed, so T4a and T4b collapse into one non-breaking slice. **Accepted residual, recorded
+> deliberately:** a caller who can send `0` — which on wasm is any browser page taking user input —
+> can still disable the guardrail. That is a known, documented hole, not an oversight; revisit it if
+> the browser surface ever accepts untrusted option JSON. Original framing kept below for the record.
+>
+> ~~**T4b — blocked on a decision:**~~ should `0` — and therefore the TS SDK's `Infinity` — keep meaning
 > *unlimited* across an untrusted boundary? Keeping it leaves the DoS guard disableable by anyone who can
 > send `0`, which on wasm is any browser page taking user input. Removing it breaks a released TS API.
 > Clamping at the binding was considered and rejected: the same wasm path serves both a browser page
