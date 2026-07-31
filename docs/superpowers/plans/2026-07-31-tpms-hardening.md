@@ -168,11 +168,15 @@ The comparison must apply the same rounding `move_op` does — comparing raw f64
 
 Preferred: dedupe on the **rounded** `point_key`, so dedupe and emission share one quantum by construction and cannot drift apart again. Fallback: raise the threshold to `>= 1.5e-6`. State which you chose and why in the commit body.
 
-> **Premise correction (2026-07-31).** T1/T2's implementer reports `conformance/gallery/gyroid_infill.json`
-> is a **FullControl-oracle fixture** (201 ops, `width 0.6`/`height 0.3`, uniform Z), not
-> `generate/tpms.rs` output at all — so this task's assumption that it must be regenerated is probably
-> wrong. Re-derive whether any fixture actually depends on the generator before touching one; if none
-> does, drop the regeneration step rather than performing it to satisfy the plan.
+> **Premise correction — CONFIRMED (2026-07-31).** `conformance/gallery/gyroid_infill.json` carries
+> `"oracle": "fullcontrol"`, 201 ops (1 `geometry {width: 0.6, height: 0.3}` + 200 `move`), uniform Z
+> `[0.8, 1.1, 1.4, 1.7]`, no `temperature`/`speed`/`extruder` ops and no `adaptive`. The generator's
+> defaults are `beadWidth 0.45`/`layerHeight 0.28` and it always emits those three ops. **It is not
+> `generate/tpms.rs` output**, no test under `crates/*/tests/` reads the gallery, and no other fixture
+> references TPMS. **There is nothing to regenerate.** Step 4 below has no target and its STOP condition
+> has no baseline. Replace it: create a degenerate-input fixture for the coincident-move property
+> instead — ADR 0002's Consequences already calls for exactly that, since oracle-generated corpora
+> cannot express hostile or degenerate input. Do not perform a regeneration to satisfy the plan text.
 
 - [ ] **Step 4: Regenerate conformance and quantify the delta**
 
