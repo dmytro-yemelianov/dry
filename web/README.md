@@ -28,13 +28,13 @@ The left panel has a **thumbnail Source gallery**. `Gallery design` loads author
 fullcontrol.xyz-only examples, and the remaining oracle gallery, with provenance links on every design;
 `Printable star lattice` generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process
 controls using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field
-contour infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls.
-TPMS generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native
-circular arcs only when they stay inside tolerance, otherwise they remain `G1` moves. The `linear G1`
-mode keeps the original fully segmented output, and Marlin `G5` splines stay a future dialect-specific
-emitter target rather than a default TPMS representation. A browser-side resolution budget keeps
-oversized settings failing fast with an error instead of running a huge marching-squares job. All three
-sources feed the same viewer, g-code, metrics, optimize and verify panels.
+contour infill with surface, cell, sampling, layer, adaptive slicing and perimeter controls, Op
+generation delegated to the Rust engine over wasm (`tpms-engine.js`) so it is byte-identical to the
+native CLI and other SDKs. The engine's TPMS generator only ever emits `G1` moves — there is no
+`pathMode` control and no `safe arcs G2/G3`/arc-fitting option surface for TPMS, since the engine has
+no arc-fitting equivalent to delegate to. A browser-side resolution budget keeps oversized settings
+failing fast with an error instead of running a huge marching-squares job. All three sources feed the
+same viewer, g-code, metrics, optimize and verify panels.
 
 A **Printer** selector applies profile metadata to the resolver defaults (`print_speed`,
 `travel_speed`, filament diameter), verifier presets (flow, temperature, bounds, speed range), and

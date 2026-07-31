@@ -401,7 +401,7 @@ const SOURCE_DEFS = [
     label: 'Gallery',
     description: 'Authored parametric examples from the design table.',
     tags: ['DESIGNS', 'controls'],
-    ops: () => DESIGNS.star?.ops || [],
+    ops: () => DESIGNS.star?.ops?.() || [],
   },
   {
     key: 'fullcontrol',
