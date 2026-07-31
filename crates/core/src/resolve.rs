@@ -193,8 +193,12 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
     // `Length(NaN)` for a travel, whose zero volume becomes `0.0 / 0.0`.
     let area = bead_area(p.dia);
     if !(area.value().is_finite() && area.value() > 0.0) {
+        // `{:e}` for the same reason `gcode/lift.rs` uses it: `{}` never switches to exponent
+        // notation, so the subnormal `dia` that reaches this arm prints its full decimal expansion
+        // (`5e-324` gives a 407-character message).
         return Err(ResolveError::new(format!(
-            "resolve_params.dia must give a finite non-zero bead cross-section, got {} for dia {}",
+            "resolve_params.dia must give a finite non-zero bead cross-section, got {:e} for dia \
+             {:e}",
             area.value(),
             p.dia
         )));

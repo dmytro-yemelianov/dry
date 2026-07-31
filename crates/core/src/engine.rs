@@ -48,6 +48,11 @@ pub struct Metrics {
 /// checked constructor, `resolve_checked` refuses a toolpath whose lowered quantities are not
 /// finite, and the binary decoder rejects the bit patterns. Reaching this arm means hand-built IR
 /// or an engine bug.
+///
+/// `resolve_checked`'s refusal is a *postcondition*, so how it refuses depends on the build profile:
+/// a design whose lowering overflows to NaN (a spline with ~1e308 control points) trips
+/// `Length::mm`'s `debug_assert` inside the lowering in a debug build and panics, where a release
+/// build reaches the postcondition and returns `Err`. Either way nothing non-finite enters the IR.
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     let distance = if s.length > Length::ZERO {
         s.length
