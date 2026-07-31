@@ -27,17 +27,31 @@ pub struct Metrics {
     pub max_flow_rate: Flow,
 }
 
+/// The duration of a move, or `None` when it has none.
+///
+/// Two distinct cases return `None` and must not be conflated: a segment that does not move (a
+/// dwell, a channel-only or manual-g-code segment) has *no* duration to compute, while a segment
+/// that moves at a non-positive feedrate has an *undefined* one. Zero means "not stated by the
+/// source program" — motion before the first `F` inherits the machine's modal feedrate — and is the
+/// branch `Dry.Semantics.SimulateMetrics.segmentMotionTime` models exactly (`FM1.SIMULATE_METRICS`,
+/// pinned by `proofs/fixtures/simulate-metrics-refinement-v0.json`), so it keeps contributing
+/// nothing. A *negative* feedrate is outside that modelled branch (the claim excludes "invalid or
+/// zero speed behavior outside the modeled branch"); it used to yield a negative duration that was
+/// subtracted from `total_time_s`, and is now un-timeable instead. Ingress refuses it besides:
+/// see `gcode/lift.rs` and `codec/threemf.rs`.
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
-    if s.speed == Feedrate::ZERO {
-        return None;
-    }
-    if s.length > Length::ZERO {
-        Some(s.length / s.speed)
+    let distance = if s.length > Length::ZERO {
+        s.length
     } else if s.filament != Length::ZERO {
-        Some(Length::mm(s.filament.value().abs()) / s.speed)
+        // a filament-only prime/retract is timed against the extruder axis.
+        Length::mm(s.filament.value().abs())
     } else {
-        None
+        return None; // nothing to time
+    };
+    if !s.speed.value().is_finite() || s.speed <= Feedrate::ZERO {
+        return None; // undefined duration
     }
+    Some(distance / s.speed)
 }
 
 /// Fold a streaming iterator of segments into print metrics.

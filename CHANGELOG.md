@@ -25,6 +25,47 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   cuts.
 
 ### Changed
+- **BREAKING (wasm, Python and the `dry` CLI): the ingress paths now refuse the values `emit`
+  refuses.** H1.1 made the emitter the last gate before a machine; it was also the *only* one. Five
+  paths fed non-finite or nonsensical quantities into the IR behind it, and each is now closed where
+  the number enters:
+  - **Binary codec.** `Reader::f64` was a bare `from_le_bytes` with no validation, so a `.dryc`
+    carrying `00 00 00 00 00 00 F8 7F` in any column decoded to `Length(NaN)` — `DecodeLimits`
+    bounds sizes, never values, though hostile input is explicitly in the decoder's threat model.
+    Both binary forms (`DRY0` and `DRY1`, which share the reader) now fail with the new
+    `CodecError::NonFinite`. The JSON codec was never exposed: `serde_json` rejects the bare
+    `NaN`/`Infinity` literals, so JSON round-trips were always safe.
+  - **G-code import.** The word scanner deliberately admits exponent notation, so `M221 S1e400`
+    parsed to `inf`; `flow_ratio_from_percent` detected the non-finite value and returned it
+    anyway, and one `0.0 * inf = NaN` later the following move emitted `E NaN`. `G1 Xnan` reached
+    the IR by the same route without any exponent. Every numeric word (X/Y/Z/E/F/S/P/I/J/K) is now
+    checked finite at the scanner (`GcodeParseError`), and both ratio helpers are total. A negative
+    `F` is refused when the motion is lifted (`GcodeImportError`); motion *before* the first `F` is
+    still accepted, since a program that inherits the machine's modal feedrate is valid.
+  - **`ResolveParams`.** `retraction_distance` / `retraction_speed` were never validated, although
+    the per-op `Retract`/`Unretract` fields they stand in for were checked positive — the guard was
+    bypassed by omitting the op field. `retraction_distance: Some(-2.0)` made
+    `filament: Length::mm(-dist)` *positive*, so `verify` classified the retract as an unretract and
+    `max_retraction_distance` never applied, while `simulate` subtracted a negative duration. Both
+    are now required finite and positive. This is live on the bindings: wasm and PyO3 deserialize
+    `ResolveParams` from raw caller JSON, so `resolve_*` now errors where it used to return a
+    mis-modelled toolpath.
+  - **3MF import.** A present-but-non-finite attribute (`x="nan"`, `feedrate="inf"`) went straight
+    into the IR, a negative `feedrate` was accepted, and a *missing* one made a moving segment
+    zero-speed — invisible to every metric. All three are now `ThreeMfError`s.
+  - **Negative feedrate in `simulate`.** It passed the `speed == ZERO` check entirely and produced a
+    negative duration that was subtracted from `total_time_s`; such a move is now un-timeable
+    instead. Zero-speed accounting is deliberately **unchanged**: it is the branch
+    `Dry.Semantics.SimulateMetrics.segmentMotionTime` models, pinned by
+    `proofs/fixtures/simulate-metrics-refinement-v0.json`.
+
+  Emitted g-code for valid input is byte-identical; every golden and conformance vector is
+  unchanged. Only inputs that were already invalid change outcome.
+- **BREAKING (library): `Area::sqrt` returns `Option<Length>`.** It returned `Length(NaN)` for a
+  negative area — trivially constructible, and a non-finite quantity manufactured inside the unit
+  system itself. `Length::mm` now carries `debug_assert!(value.is_finite())` and `Length::try_mm` is
+  the checked constructor for boundary code; deliberate construction of hostile IR (as in the emit
+  rejection tests) uses the raw `Length(..)` tuple constructor.
 - **BREAKING (wasm and Python bindings): `emit` now refuses IR it cannot faithfully represent.**
   `dry emit` never runs the verifier, so the emitter is the last gate before a machine, and it
   validated nothing: a non-finite quantity left as a syntactically well-formed word (`G1 FNaN Xinf

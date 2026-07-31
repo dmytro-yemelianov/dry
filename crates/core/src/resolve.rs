@@ -187,6 +187,16 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
     require_positive("resolve_params.print_speed", p.print_speed)?;
     require_positive("resolve_params.travel_speed", p.travel_speed)?;
     require_positive("resolve_params.dia", p.dia)?;
+    // The per-op `Retract`/`Unretract` distance and speed are checked positive below; these are the
+    // fallbacks those ops use when they carry none, so the same guard has to apply here or it is
+    // bypassed by omitting the field. A negative distance made `filament: Length::mm(-dist)`
+    // *positive*, which `verify` reads as an unretract — the retraction limits then never applied.
+    if let Some(distance) = p.retraction_distance {
+        require_positive("resolve_params.retraction_distance", distance)?;
+    }
+    if let Some(speed) = p.retraction_speed {
+        require_positive("resolve_params.retraction_speed", speed)?;
+    }
 
     for (idx, op) in design.ops.iter().enumerate() {
         let prefix = |field: &str| format!("ops[{idx}].{field}");
@@ -340,7 +350,10 @@ pub fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
             sq = sq + d * d;
         }
     }
-    sq.sqrt()
+    // A sum of squares is never negative, so the root exists for every finite input. A NaN
+    // coordinate (refused by `validate_design`, and again by the emit gate) keeps propagating as
+    // it did before `Area::sqrt` was made total, rather than collapsing to a plausible zero.
+    sq.sqrt().unwrap_or(Length(f64::NAN))
 }
 
 /// Uniform Catmull-Rom interpolation of the span `p1 → p2` (phantom neighbours `p0`, `p3`) at

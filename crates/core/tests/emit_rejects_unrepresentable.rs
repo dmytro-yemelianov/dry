@@ -97,13 +97,18 @@ fn assert_refused(segments: Vec<Segment>, params: &EmitParams, expected: &str) {
 }
 
 // ---- C1: non-finite values ------------------------------------------------------------------
+//
+// These build their hostile values with the raw `Length(..)` tuple constructor on purpose: the
+// checked `Length::mm` now debug-asserts finiteness (H1.2), so it would trip *here* instead of at
+// the emit gate that is under test. The IR a hostile archive or a buggy pass produces is exactly
+// what these tests need to hand the emitter.
 
 #[test]
 fn non_finite_coordinates_are_refused() {
     for (axis, bad) in [(0usize, 'X'), (1, 'Y'), (2, 'Z')] {
         for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             let mut segment = line_to([10.0, 0.0, 0.2]);
-            segment.end[axis] = Some(Length::mm(value));
+            segment.end[axis] = Some(Length(value));
             assert_refused(
                 vec![segment],
                 &EmitParams::default(),
@@ -121,7 +126,7 @@ fn non_finite_feedrate_and_filament_are_refused() {
         assert_refused(vec![speed], &EmitParams::default(), "non-finite F");
 
         let mut filament = line_to([10.0, 0.0, 0.2]);
-        filament.filament = Length::mm(value);
+        filament.filament = Length(value);
         assert_refused(vec![filament], &EmitParams::default(), "non-finite E");
     }
 }
@@ -147,7 +152,7 @@ fn non_finite_absolute_e_accumulator_is_refused() {
 fn non_finite_arc_offsets_are_refused() {
     let mut segment = line_to([10.0, 0.0, 0.2]);
     segment.kind = SegmentKind::Arc;
-    segment.centre = Some([Length::mm(f64::NAN), Length::mm(0.0)]);
+    segment.centre = Some([Length(f64::NAN), Length::mm(0.0)]);
     assert_refused(vec![segment], &EmitParams::default(), "non-finite I");
 }
 
@@ -180,8 +185,8 @@ fn non_finite_dwell_is_refused() {
 #[test]
 fn no_emitted_word_ever_carries_nan_or_inf() {
     let mut segment = line_to([10.0, 0.0, 0.2]);
-    segment.end[0] = Some(Length::mm(f64::INFINITY));
-    segment.end[1] = Some(Length::mm(f64::NAN));
+    segment.end[0] = Some(Length(f64::INFINITY));
+    segment.end[1] = Some(Length(f64::NAN));
     segment.speed = Feedrate(f64::NAN);
 
     // The fallible path hands back the refusal in place of any line at all …
@@ -303,7 +308,7 @@ fn arcs_that_close_on_themselves_still_emit_their_endpoint() {
 #[test]
 fn step_nc_refuses_non_finite_quantities() {
     let mut end_x = line_to([10.0, 0.0, 0.2]);
-    end_x.end[0] = Some(Length::mm(f64::NAN));
+    end_x.end[0] = Some(Length(f64::NAN));
 
     let mut speed = line_to([10.0, 0.0, 0.2]);
     speed.speed = Feedrate(f64::INFINITY);
@@ -313,7 +318,7 @@ fn step_nc_refuses_non_finite_quantities() {
 
     let mut arc = line_to([10.0, 0.0, 0.2]);
     arc.kind = SegmentKind::Arc;
-    arc.centre = Some([Length::mm(f64::NEG_INFINITY), Length::mm(0.0)]);
+    arc.centre = Some([Length(f64::NEG_INFINITY), Length::mm(0.0)]);
 
     let mut dwell = line_to([10.0, 0.0, 0.2]);
     dwell.kind = SegmentKind::Dwell;
