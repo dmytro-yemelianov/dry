@@ -295,6 +295,52 @@ jobs:
       - name: compile benches
         run: cargo bench -p dry-core --no-run --locked
 
+  cloud:
+    name: cloud (workers-rs wasm32 build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
+      # as crates/wasm), so it gets its own fmt + clippy (same -D warnings, no #[allow] discipline).
+      - name: rust check (the cloud worker)
+        working-directory: crates/cloud
+        run: |
+          cargo fmt --check
+          cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+      # `worker-build` (the packaging step `wrangler deploy` would run) needs a wasm-bindgen build
+      # that isn't reliably reproducible in CI today (externref/reference-types mismatches against
+      # pinned wasm-bindgen releases); a plain `cargo build` for the wasm32 target still catches any
+      # compile break against dry-core without depending on that packaging step.
+      - name: build (wasm32, dry-cloud)
+        working-directory: crates/cloud
+        run: cargo build --target wasm32-unknown-unknown --locked
+
+  verify-runner:
+    name: verify-runner (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+      # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, builds
+      # standalone or via Docker — see containers/verify-runner/Dockerfile), so it gets its own
+      # fmt + clippy (same -D warnings, no #[allow] discipline) and its own test run.
+      - name: rust check (the verify runner)
+        working-directory: containers/verify-runner
+        run: |
+          cargo fmt --check
+          cargo clippy --locked -- -D warnings
+      - name: test
+        working-directory: containers/verify-runner
+        run: cargo test --locked
+
   security:
     name: dependency security audit
     runs-on: ubuntu-latest
