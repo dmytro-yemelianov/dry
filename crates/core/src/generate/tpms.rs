@@ -32,6 +32,10 @@ const DEFAULT_ADAPTIVE_MAX_POINT_DELTA: f64 = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH: u32 = 4;
 /// Field-sample budget guardrail for interactive/untrusted use.
 const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
+/// The top base layer is clamped to the block height, so it gets whatever Z remains. A remainder
+/// below this fraction of the nominal layer height is a slicing artifact rather than a printable
+/// layer (1% of a 0.2 mm layer is 2 µm) and is merged into the layer below instead of stacked on it.
+const DEGENERATE_TOP_LAYER_FRACTION: f64 = 0.01;
 
 /// A triply-periodic minimal surface, selecting which nodal field [`Tpms`] slices. The JSON wire form
 /// is kebab-case (matching the TS SDK), e.g. `"schwarz-p"` or `"fischer-koch-s"`. Each formula is a
@@ -468,8 +472,39 @@ impl Tpms {
         let slices = self.build_layer_slices();
         self.reject_vacuous(&slices)?;
         let mut previous_local: Option<Point> = None;
+        // `resolve` reads `Op::Geometry`'s height as the deposited bead (`length × width × height ×
+        // flow`), so under adaptive slicing the declaration has to track the gap each layer actually
+        // occupies. Declaring the base layer height once charged every refined layer the full bead:
+        // measured gaps of [0.05, 0.1, 0.2, 0.4] against a single `height: 0.4` is 8x
+        // over-extrusion on the thinnest layer, and no verifier can see it because the IR is
+        // self-consistent. Non-adaptive jobs have a uniform gap by construction and keep their
+        // single declaration, so the common path does not churn.
+        let mut previous_z: Option<f64> = None;
+        let mut declared_height = self.bead_height;
         for slice in slices {
-            let z = self.z0 + slice.z_local;
+            let z = round(self.z0 + slice.z_local);
+            // A layer with no contours emits nothing (as before), so it is also not the layer the
+            // next bead rests on — the gap is measured against the last layer that deposited.
+            if !self.perimeter && slice.paths.is_empty() {
+                continue;
+            }
+            if self.adaptive.is_some() {
+                // The first emitted layer has no layer beneath it to measure a gap against, so it
+                // keeps the configured `beadHeight` (which defaults to `layerHeight`). `resolve` has
+                // no first-layer convention of its own to match, so deriving one from `z0` here
+                // would be inventing one — and `z0` is the nozzle Z, not necessarily a plate gap.
+                if let Some(previous) = previous_z {
+                    let gap = round(z - previous);
+                    if gap != declared_height {
+                        ops.push(Op::Geometry {
+                            width: Some(self.bead_width),
+                            height: Some(gap),
+                        });
+                        declared_height = gap;
+                    }
+                }
+            }
+            previous_z = Some(z);
             if self.perimeter {
                 let rect_local = rectangle_path(self.width, self.depth, self.perimeter_inset);
                 let rect: Vec<Point> = rect_local.iter().map(|p| self.to_world(*p)).collect();
@@ -556,7 +591,18 @@ impl Tpms {
             z += self.layer_height;
         }
         if self.height > EPS && (zs[zs.len() - 1] - self.height).abs() > EPS {
-            zs.push(round(self.height));
+            let last = zs.len() - 1;
+            // The clamped top layer gets whatever Z remains. When that remainder is a sliver —
+            // `cellSize: 12, cellsZ: 1, layerHeight: 1.9999` leaves 0.6 µm — stacking it puts two
+            // layers 0.0006 mm apart, each extruding a full 1.9999 mm bead. Merge it into the layer
+            // below instead: the block still reaches its full height, without a second bead for it.
+            if last > 0
+                && self.height - zs[last] < DEGENERATE_TOP_LAYER_FRACTION * self.layer_height
+            {
+                zs[last] = round(self.height);
+            } else {
+                zs.push(round(self.height));
+            }
         }
         zs
     }
@@ -998,6 +1044,125 @@ mod tests {
             cells_z: Some(1),
             ..Default::default()
         }
+    }
+
+    /// Pair each emitted layer's Z with the bead height declared for it, walking the op stream the
+    /// way `resolve` does: `Op::Geometry` is a sticky channel, so every move carries the last one
+    /// seen. Only the first move of each layer is recorded.
+    fn declared_bead_heights_by_layer(ops: &[Op]) -> Vec<(f64, f64)> {
+        let mut height: Option<f64> = None;
+        let mut out: Vec<(f64, f64)> = Vec::new();
+        for op in ops {
+            match op {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => height = Some(*h),
+                Op::Move { z: Some(z), .. } => {
+                    let h = height.expect("a geometry op must precede the first move");
+                    if out.last().is_none_or(|&(prev_z, _)| prev_z != *z) {
+                        out.push((*z, h));
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn adaptive_layers_declare_the_bead_height_they_occupy() {
+        // Measured before the fix: one `Op::Geometry { height: 0.4 }` against actual layer gaps of
+        // [0.05, 0.1, 0.2, 0.4] — an 8x over-extrusion on the thinnest layer. `resolve.rs` reads the
+        // declared height as deposited volume (`length × width × height × flow`), so the IR records
+        // a self-consistent lie that no verifier can catch.
+        let options = TpmsOptions {
+            cells_x: Some(1),
+            cells_y: Some(1),
+            cells_z: Some(1),
+            samples_per_cell: Some(8),
+            layer_height: Some(0.4),
+            adaptive: Some(true),
+            adaptive_min_layer_height: Some(0.05),
+            adaptive_max_length_delta: Some(0.01),
+            adaptive_max_point_delta: Some(0.01),
+            ..Default::default()
+        };
+        let ops = try_tpms_ops(&options).expect("valid adaptive options");
+
+        let declared = declared_bead_heights_by_layer(&ops);
+        for w in declared.windows(2) {
+            let (z_prev, _) = w[0];
+            let (z, height) = w[1];
+            let gap = z - z_prev;
+            assert!(
+                (height - gap).abs() <= 1e-9,
+                "layer at z={z} spans {gap} but declares bead height {height}"
+            );
+        }
+        assert!(
+            declared.len() > 2,
+            "the fixture must actually refine: {declared:?}"
+        );
+        // The refinement must really be non-uniform, or the assertion above is vacuous.
+        let gaps: Vec<f64> = declared.windows(2).map(|w| w[1].0 - w[0].0).collect();
+        let (lo, hi) = gaps
+            .iter()
+            .fold((f64::MAX, 0.0_f64), |(lo, hi), &g| (lo.min(g), hi.max(g)));
+        assert!(
+            hi - lo > 1e-6,
+            "the fixture must produce varying layer gaps, got {lo}..{hi}"
+        );
+    }
+
+    #[test]
+    fn a_non_adaptive_job_declares_one_bead_height() {
+        // The common path must not churn: a uniform-gap job keeps exactly one `Op::Geometry`.
+        let ops = try_tpms_ops(&small_cell()).expect("valid options");
+        let geometry: Vec<&Op> = ops
+            .iter()
+            .filter(|o| matches!(o, Op::Geometry { .. }))
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "a non-adaptive job must declare its bead once, got {geometry:?}"
+        );
+        assert!(
+            matches!(geometry[0], Op::Geometry { height: Some(h), .. }
+                if (*h - DEFAULT_LAYER_HEIGHT).abs() < 1e-12),
+            "the single declaration must be the layer height, got {:?}",
+            geometry[0]
+        );
+    }
+
+    #[test]
+    fn a_sliver_top_layer_is_merged_not_stacked() {
+        // `base_layer_zs` unconditionally appended a final layer at exactly `height`. With
+        // cellSize 12, cellsZ 1, layerHeight 1.9999 that put two layers 0.6 µm apart, both
+        // extruding a full 1.9999 mm bead.
+        let layer_height = 1.9999;
+        let options = TpmsOptions {
+            layer_height: Some(layer_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let zs: Vec<f64> = declared_bead_heights_by_layer(&ops)
+            .into_iter()
+            .map(|(z, _)| z)
+            .collect();
+        for w in zs.windows(2) {
+            assert!(
+                w[1] - w[0] > 0.01 * layer_height,
+                "layers at {} and {} are a sliver apart: {zs:?}",
+                w[0],
+                w[1]
+            );
+        }
+        // Merging must not shorten the block: the top layer still caps it at z0 + height.
+        assert!(
+            zs.last().is_some_and(|z| (z - (0.2 + 12.0)).abs() < 1e-6),
+            "the block must still reach its full height: {zs:?}"
+        );
     }
 
     #[test]
