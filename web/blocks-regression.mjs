@@ -211,11 +211,14 @@ assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bea
 assert(indexHtml.includes('maxFieldSamples: 3_000_000'), 'web TPMS generator should set an interactive resolution budget');
 assert(!indexHtml.includes('pathMode'), 'web app should not reference the dropped TPMS pathMode option');
 assert(!indexHtml.includes('arcFit'), 'web app should not reference the dropped TPMS arcFit* options');
+assert(!designsJs.includes('pathMode'), 'designs.js should not reference the dropped TPMS pathMode option');
+assert(!designsJs.includes('arcFit'), 'designs.js should not reference the dropped TPMS arcFit* options');
 // The former tpms.js reimplementation is gone; TPMS Op generation now delegates to the Rust engine
-// over wasm (tpms-engine.js), the same idiom sdk/ts/src/generators/tpms.ts uses. Its actual output
-// is byte-identical to the native CLI / other SDKs and is exercised by the engine's own test suite
-// and by web/smoke.cjs once the wasm build exists — this file runs before that build in CI (see
-// .github/workflows/ci.yml), so it only checks the delegation wiring statically, not live output.
+// over wasm (tpms-engine.js), the same idiom sdk/ts/src/generators/tpms.ts uses. No behavioural
+// coverage of its live output existed anywhere before this fix (web/smoke.cjs didn't call
+// tpms_ops_json and no conformance vectors covered TPMS); this file runs before the wasm build in
+// CI (see .github/workflows/ci.yml), so it only checks the delegation wiring statically here. Live
+// TPMS output is now asserted in web/smoke.cjs against the built web/pkg-node/ module.
 assert(tpmsEngineJs.includes("from './pkg/dry_wasm.js'"), 'TPMS generator should import the wasm engine binding');
 assert(tpmsEngineJs.includes('tpms_ops_json'), 'TPMS generator should delegate Op generation to tpms_ops_json');
 for (const surface of [
@@ -316,7 +319,8 @@ assert(Math.min(...vaseRadii) < 8.3 && Math.max(...vaseRadii) > 17, 'vaseHelixOp
 // TPMS Op generation itself (printable defaults, adaptive slicing, resolution-budget rejection) is
 // no longer JS the way `patternsModule`/`templatesModule` above are: `tpms-engine.js` delegates to
 // the wasm engine (`tpms_ops_json`), which needs the built `web/pkg/` module. This file runs before
-// that build in CI (see .github/workflows/ci.yml), so live TPMS output is exercised by the engine's
-// own Rust test suite and by `web/smoke.cjs` against the built `web/pkg-node/` module instead —
-// static delegation-wiring checks for TPMS live above, alongside the other string assertions.
+// that build in CI (see .github/workflows/ci.yml), so it only checks delegation wiring statically
+// (above), and does not exercise live TPMS output itself. Live output is now covered by both the
+// engine's own Rust test suite and behavioural assertions in `web/smoke.cjs` against the built
+// `web/pkg-node/` module.
 console.log(`Blockly regression checks passed (${templateCount} templates)`);

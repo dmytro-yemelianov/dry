@@ -14,7 +14,7 @@ const files = [
   'designs.js',
   'fullcontrol-gallery.generated.js',
   'lattice-research.js',
-  'tpms.js',
+  'tpms-engine.js',
   'viewer.js',
   'thumb.js',
   'spline.js',

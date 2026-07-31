@@ -40,6 +40,18 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   G1 moves. `web/blocks-regression.mjs` is re-baselined: its former dynamic execution of the deleted
   JS generator is replaced with static checks that the delegation wiring is in place, since TPMS
   Op-generation output now requires the wasm build (`web/pkg/`), which this file runs before in CI.
+  No behavioural coverage of the browser's TPMS output existed before this fix (`web/smoke.cjs` never
+  called `tpms_ops_json`, and no conformance vectors cover TPMS) — `web/smoke.cjs` now asserts
+  `tpms_ops_json` output shape (non-empty, `geometry`-first, `move`-only, unknown-surface rejection)
+  for a few surfaces against the built `web/pkg-node/`, and `web/designs-import-check.mjs` imports
+  `web/designs.js` under Node (against the browser-target `web/pkg/`, when built locally) to catch
+  regressions in the lazy TPMS-gallery pattern. `web/pkg/` itself stays git-ignored and must be
+  rebuilt locally with `bash web/build.sh` — it is not currently produced by any CI job, so the
+  second half of `designs-import-check.mjs` only runs where that build exists.
+  Fixed alongside this: `materializeDesign` in `web/designs.js` used to call the (now engine-backed)
+  `build` eagerly at module-evaluation time, which threw before wasm `init()` ran and blanked the
+  whole gallery page; `docs/site/scripts/stage-gallery.mjs`'s allow-list still named the deleted
+  `web/tpms.js` instead of `web/tpms-engine.js`, breaking the docs-site product build.
 - **BREAKING (wasm, Python, the TS SDK and the Rust API): every TPMS layer declares the bead height
   it occupies — the clamped top layer included, on the non-adaptive path too.** The per-layer
   declaration added for adaptive slicing (below) was gated on `adaptive`, so a plain job's top layer

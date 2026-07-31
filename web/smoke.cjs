@@ -82,4 +82,39 @@ for (const [name, bounds, speedRange, firstLayerHeightRange, firstLayerSpeedRang
     process.exit(1);
   }
 }
-console.log(`wasm engine reproduced the oracle for ${checked} designs (incl spiral_vase)`);
+// TPMS delegation (web/tpms-engine.js -> tpms_ops_json): the browser gallery's TPMS Op generation
+// has no other behavioural coverage (blocks-regression.mjs only checks static delegation wiring,
+// and conformance/ carries no TPMS vectors), so exercise a few surfaces here directly.
+const tpmsSurfaces = ['gyroid', 'schwarz-p', 'iwp'];
+for (const surface of tpmsSurfaces) {
+  const optsJson = JSON.stringify({
+    surface, cellSize: 20, cellsX: 1, cellsY: 1, cellsZ: 1,
+    samplesPerCell: 12, layerHeight: 0.28, beadWidth: 0.45, beadHeight: 0.28,
+    printSpeed: 1200, perimeter: true, maxFieldSamples: 1_000_000,
+  });
+  const ops = JSON.parse(dry.tpms_ops_json(optsJson));
+  if (!Array.isArray(ops) || ops.length === 0) {
+    console.error(`[tpms:${surface}] expected a non-empty op list, got`, ops);
+    process.exit(1);
+  }
+  if (ops[0].op !== 'geometry') {
+    console.error(`[tpms:${surface}] expected the first op to be 'geometry', got`, ops[0]);
+    process.exit(1);
+  }
+  if (!ops.some((op) => op.op === 'move')) {
+    console.error(`[tpms:${surface}] expected at least one 'move' op`);
+    process.exit(1);
+  }
+  if (ops.some((op) => op.op === 'arc')) {
+    console.error(`[tpms:${surface}] TPMS generation should never emit 'arc' ops`);
+    process.exit(1);
+  }
+}
+try {
+  dry.tpms_ops_json(JSON.stringify({ surface: 'not-a-real-surface', cellSize: 20 }));
+  console.error('[tpms] expected an unknown surface to be rejected');
+  process.exit(1);
+} catch (error) {
+  // expected: the engine rejects unknown surfaces with a structured error
+}
+console.log(`wasm engine reproduced the oracle for ${checked} designs (incl spiral_vase), plus ${tpmsSurfaces.length} TPMS surfaces`);

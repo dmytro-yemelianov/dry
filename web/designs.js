@@ -358,7 +358,11 @@ function defaultParams(params = []) {
 function materializeDesign(def) {
   const params = def.params || [];
   const defaults = defaultParams(params);
-  const ops = typeof def.build === 'function' ? def.build(defaults) : (def.ops || []);
+  // `ops` is a lazy thunk, not an eagerly-computed array: engine-backed defs (e.g. TPMS) call into
+  // the wasm module via `build`, which isn't initialized yet at module-evaluation time. Consumers
+  // already know how to call a function-valued `ops` (see fillCardThumbnail in index.html and the
+  // SOURCE_DEFS entries it was modeled on), so this stays a drop-in replacement.
+  const ops = () => (typeof def.build === 'function' ? def.build(defaults) : (def.ops || []));
   return { ...def, params, defaults, ops };
 }
 

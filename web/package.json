@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "All web/*.js are ES modules (loaded via <script type=module> in the browser and via ESM import elsewhere); this marks that explicitly so Node's module loader treats them as ESM too (needed for web/designs-import-check.mjs to actually import web/designs.js). web/*.cjs files (e.g. smoke.cjs) are unaffected — the .cjs extension always forces CommonJS regardless of this file."
+}

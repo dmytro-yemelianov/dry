@@ -1,7 +1,8 @@
 # TPMS Code Generator
 
 Dry now includes a TPMS contour code generator in `sdk/ts/src/generators/tpms.ts` and browser examples
-in `web/tpms.js`. It is a toolpath generator, not a mesh/STL exporter: each Z layer is sampled from an
+in `web/tpms-engine.js` (which delegates Op generation to the Rust engine over wasm). It is a toolpath
+generator, not a mesh/STL exporter: each Z layer is sampled from an
 implicit TPMS field, sliced with marching squares, stitched into polylines, and emitted as Dry L1 ops.
 
 The equation set follows the common nodal approximations used by nTop's TPMS equation reference and the
