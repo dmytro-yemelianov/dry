@@ -39,6 +39,13 @@ pub struct Metrics {
 /// zero speed behavior outside the modeled branch"); it used to yield a negative duration that was
 /// subtracted from `total_time_s`, and is now un-timeable instead. Ingress refuses it besides:
 /// see `gcode/lift.rs` and `codec/threemf.rs`.
+///
+/// A **non-finite** speed is un-timeable for the same reason, and that is an accounting change with
+/// a cost worth naming: `inf` previously divided to a zero duration and surfaced as
+/// `max_flow_rate = inf`, which `verify`'s max-flow rule failed, while `NaN` poisoned
+/// `total_time_s`. Such a segment is now simply invisible to the metrics, so it no longer trips
+/// that rule. Nothing in ingress can produce one — every path builds its quantities through a
+/// checked constructor — so reaching this arm means hand-built IR or an engine bug.
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     let distance = if s.length > Length::ZERO {
         s.length

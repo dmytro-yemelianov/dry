@@ -25,23 +25,38 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   cuts.
 
 ### Changed
-- **BREAKING (wasm, Python and the `dry` CLI): the ingress paths now refuse the values `emit`
-  refuses.** H1.1 made the emitter the last gate before a machine; it was also the *only* one. Five
-  paths fed non-finite or nonsensical quantities into the IR behind it, and each is now closed where
-  the number enters:
+- **BREAKING (wasm, Python, the `dry` CLI, `containers/verify-runner` and `crates/cloud`): the
+  ingress paths now refuse the values `emit` refuses.** H1.1 made the emitter the last gate before a
+  machine; it was also the *only* one. Five paths fed non-finite or nonsensical quantities into the
+  IR behind it, and each is now closed where the number enters. `verify-runner` and `cloud` are named
+  explicitly because both call `import_gcode_reader_with_map` and `decode`, so both gain the new
+  rejections:
   - **Binary codec.** `Reader::f64` was a bare `from_le_bytes` with no validation, so a `.dryc`
     carrying `00 00 00 00 00 00 F8 7F` in any column decoded to `Length(NaN)` — `DecodeLimits`
     bounds sizes, never values, though hostile input is explicitly in the decoder's threat model.
     Both binary forms (`DRY0` and `DRY1`, which share the reader) now fail with the new
     `CodecError::NonFinite`. The JSON codec was never exposed: `serde_json` rejects the bare
-    `NaN`/`Infinity` literals, so JSON round-trips were always safe.
+    `NaN`/`Infinity` literals, so JSON round-trips were always safe. Note the encode/decode
+    asymmetry this creates: `encode` is not tightened in this release, but an existing `.dryc`
+    written by an older version from a toolpath holding non-finite values is now **undecodable** —
+    the only producer of such a file was a defect, so the archive was never faithfully readable, but
+    the failure now surfaces at decode instead of downstream.
   - **G-code import.** The word scanner deliberately admits exponent notation, so `M221 S1e400`
     parsed to `inf`; `flow_ratio_from_percent` detected the non-finite value and returned it
     anyway, and one `0.0 * inf = NaN` later the following move emitted `E NaN`. `G1 Xnan` reached
     the IR by the same route without any exponent. Every numeric word (X/Y/Z/E/F/S/P/I/J/K) is now
     checked finite at the scanner (`GcodeParseError`), and both ratio helpers are total. A negative
     `F` is refused when the motion is lifted (`GcodeImportError`); motion *before* the first `F` is
-    still accepted, since a program that inherits the machine's modal feedrate is valid.
+    still accepted, since a program that inherits the machine's modal feedrate is valid. Checking the
+    *parsed word* is not sufficient on its own, so the arithmetic between the scanner and the IR is
+    checked too: `G1 X1e308 Y1e308` overflows in `point_dist`, `G20` scales every coordinate,
+    feedrate, extrusion and `G92` origin by 25.4, and an `M221` flow ratio scales the deposit before
+    it meets the filament cross-section. Each of those built a quantity from a computed value and
+    put `Length(inf)` into the IR of a release build (and panicked `Length::mm`'s `debug_assert` in a
+    debug one) from a file of a few dozen bytes. Every such value now goes through `Length::try_mm`
+    or an explicit finiteness check and reports a `GcodeImportError` naming the source line. A
+    `filament_diameter` that is finite but too large to square into a finite cross-section is
+    likewise refused (`GcodeImportParams` is caller JSON on wasm and PyO3).
   - **`ResolveParams`.** `retraction_distance` / `retraction_speed` were never validated, although
     the per-op `Retract`/`Unretract` fields they stand in for were checked positive — the guard was
     bypassed by omitting the op field. `retraction_distance: Some(-2.0)` made
@@ -52,10 +67,21 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
     mis-modelled toolpath.
   - **3MF import.** A present-but-non-finite attribute (`x="nan"`, `feedrate="inf"`) went straight
     into the IR, a negative `feedrate` was accepted, and a *missing* one made a moving segment
-    zero-speed — invisible to every metric. All three are now `ThreeMfError`s.
+    zero-speed — invisible to every metric. All three are now `ThreeMfError`s, as is a segment
+    length that overflows to `inf` after parsing (`x="1e308"` against an origin of zero — the
+    attribute is finite, the squared delta is not). **`export_3mf_xml` changes with it:** it now
+    writes `feedrate="0.0"` for a moving zero-speed segment, where it previously wrote the attribute
+    only when `speed > 0`. That combination is not hypothetical and dry itself produces it — a
+    G-code program with motion before its first `F` imports to exactly such a segment — so without
+    this the importer's new rejection would have refused dry's own export. Round-trip is restored.
   - **Negative feedrate in `simulate`.** It passed the `speed == ZERO` check entirely and produced a
     negative duration that was subtracted from `total_time_s`; such a move is now un-timeable
-    instead. Zero-speed accounting is deliberately **unchanged**: it is the branch
+    instead. A **non-finite** speed is un-timeable for the same reason, and that is a second
+    accounting change worth stating plainly: `inf` previously divided to a zero duration and showed
+    up as `max_flow_rate = inf`, which `verify`'s max-flow rule failed, while `NaN` poisoned
+    `total_time_s`; such a segment is now invisible to the metrics and no longer trips that rule.
+    Nothing in ingress can produce one any more, so reaching that arm means hand-built IR.
+    Zero-speed accounting is deliberately **unchanged**: it is the branch
     `Dry.Semantics.SimulateMetrics.segmentMotionTime` models, pinned by
     `proofs/fixtures/simulate-metrics-refinement-v0.json`.
 

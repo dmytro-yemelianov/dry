@@ -499,6 +499,14 @@ fn validate_params(params: &GcodeImportParams) -> Result<(), GcodeImportError> {
             "filament_diameter must be finite and positive",
         ));
     }
+    // A finite diameter can still square to a non-finite cross-section, which would then multiply
+    // every deposited length into a non-finite `volume`.
+    if !filament_area(params.filament_diameter).value().is_finite() {
+        return Err(GcodeImportError::new(
+            0,
+            "filament_diameter is too large to give a finite cross-section",
+        ));
+    }
     for (name, value) in [
         ("line_width", params.line_width),
         ("layer_height", params.layer_height),
@@ -545,11 +553,22 @@ fn lift_motion(
                 format!("feedrate F{f} must not be negative"),
             ));
         }
-        state.feedrate = Some(f * factor);
+        // Inches scale the word by 25.4, which overflows a finite `F` to `inf` (`G20` + `F1e307`).
+        let scaled = f * factor;
+        if !scaled.is_finite() {
+            return Err(GcodeImportError::new(
+                motion.source_line,
+                format!("feedrate F{f} is not finite after unit conversion"),
+            ));
+        }
+        state.feedrate = Some(scaled);
     }
     // Zero means "not stated by this file": motion before the first `F` inherits the machine's
     // modal feedrate, which the program does not record. It stays accepted — the program is valid
-    // on the machine — but `simulate` no longer lets such a move vanish from the metrics entirely.
+    // on the machine — and such a move still contributes nothing to `simulate`'s metrics: that is
+    // the branch `Dry.Semantics.SimulateMetrics.segmentMotionTime` models, and an attempt to change
+    // it failed the `FM1.SIMULATE_METRICS` refinement corpus. See `engine::segment_motion_time` and
+    // the pin in `crates/core/tests/ingress_validation.rs`.
     let speed = Feedrate(state.feedrate.unwrap_or(0.0));
 
     if motion.mode == MotionMode::Dwell {
@@ -557,7 +576,7 @@ fn lift_motion(
         if dwell_s.is_none() {
             return Ok(None);
         }
-        let pos = lengths(state.pos);
+        let pos = lengths(state.pos, motion.source_line)?;
         return Ok(Some(Segment {
             start: pos,
             end: pos,
@@ -591,11 +610,19 @@ fn lift_motion(
     let filament_delta = extrusion_delta(motion, state, factor);
     let deposited = filament_delta.max(0.0) * state.flow;
     let filament = if filament_delta < 0.0 {
-        Length::mm(filament_delta)
+        checked_mm(filament_delta, motion.source_line, "extrusion")?
     } else {
-        Length::mm(deposited)
+        checked_mm(deposited, motion.source_line, "extrusion")?
     };
-    let volume = filament_area * Length::mm(deposited);
+    // Both factors are finite by here, but their product need not be: a huge `M221` flow ratio
+    // scales a modest `E` into a length that overflows once multiplied by the cross-section.
+    let volume = filament_area * checked_mm(deposited, motion.source_line, "extrusion")?;
+    if !volume.value().is_finite() {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            format!("deposited volume is not finite ({})", volume.value()),
+        ));
+    }
     let travel = motion.mode == MotionMode::Rapid || motion.e.is_none();
     let flow = if state.flow == 1.0 {
         None
@@ -608,26 +635,31 @@ fn lift_motion(
             SegmentKind::Line,
             None,
             false,
-            Length::mm(point_dist(start, end)),
+            checked_mm(point_dist(start, end), motion.source_line, "move length")?,
         ),
         MotionMode::ClockwiseArc | MotionMode::CounterClockwiseArc => {
             let clockwise = motion.mode == MotionMode::ClockwiseArc;
             let arc = arc_geometry(motion, start, end, factor, clockwise)?;
             (
                 SegmentKind::Arc,
-                Some([Length::mm(arc.centre[0]), Length::mm(arc.centre[1])]),
+                Some([
+                    checked_mm(arc.centre[0], motion.source_line, "arc centre I")?,
+                    checked_mm(arc.centre[1], motion.source_line, "arc centre J")?,
+                ]),
                 clockwise,
-                Length::mm(arc.length),
+                checked_mm(arc.length, motion.source_line, "arc length")?,
             )
         }
         MotionMode::Dwell => unreachable!("handled above"),
     };
 
+    let start_lengths = lengths(start, motion.source_line)?;
+    let end_lengths = lengths(end, motion.source_line)?;
     state.pos = end;
 
     Ok(Some(Segment {
-        start: lengths(start),
-        end: lengths(end),
+        start: start_lengths,
+        end: end_lengths,
         travel,
         speed,
         length,
@@ -683,11 +715,23 @@ fn extrusion_delta(motion: &super::MotionRecord, state: &mut LiftState, factor: 
 fn apply_g92(line: &ParsedGcodeLine, state: &mut LiftState) -> Result<(), GcodeImportError> {
     let factor = unit_factor(line.state_after.units);
     for word in &line.words {
+        // `G92` writes the position directly, so an inch conversion that overflows would seed every
+        // later move with a non-finite origin. Refuse it here, where the source line is known.
+        let scaled = word.value * factor;
+        if matches!(word.letter, 'X' | 'Y' | 'Z' | 'E') && !scaled.is_finite() {
+            return Err(GcodeImportError::new(
+                line.source_line,
+                format!(
+                    "G92 {}{} is not finite after unit conversion",
+                    word.letter, word.value
+                ),
+            ));
+        }
         match word.letter {
-            'X' => state.pos[0] = Some(word.value * factor),
-            'Y' => state.pos[1] = Some(word.value * factor),
-            'Z' => state.pos[2] = Some(word.value * factor),
-            'E' => state.e = word.value * factor,
+            'X' => state.pos[0] = Some(scaled),
+            'Y' => state.pos[1] = Some(scaled),
+            'Z' => state.pos[2] = Some(scaled),
+            'E' => state.e = scaled,
             _ => {}
         }
     }
@@ -703,12 +747,31 @@ fn apply_process(command: ProcessCommand, state: &mut LiftState) {
     }
 }
 
-fn lengths(pos: [Option<f64>; 3]) -> [Option<Length>; 3] {
-    [
-        pos[0].map(Length::mm),
-        pos[1].map(Length::mm),
-        pos[2].map(Length::mm),
-    ]
+/// Build a [`Length`] from a value the importer *computed*, refusing a non-finite result.
+///
+/// The word scanner rejects a non-finite word, but the arithmetic between it and the IR can still
+/// overflow a finite one: `G20` scales every coordinate by 25.4, and `point_dist` squares the
+/// deltas. `Length::mm` only *asserts* finiteness (and only in debug builds), so an overflow here
+/// would panic a debug consumer and put `Length(inf)` in the IR of a release one — this is the
+/// ingress-side enforcement that assertion documents.
+fn checked_mm(value: f64, source_line: usize, what: &str) -> Result<Length, GcodeImportError> {
+    Length::try_mm(value).ok_or_else(|| {
+        GcodeImportError::new(source_line, format!("{what} is not finite ({value})"))
+    })
+}
+
+fn lengths(
+    pos: [Option<f64>; 3],
+    source_line: usize,
+) -> Result<[Option<Length>; 3], GcodeImportError> {
+    const AXES: [&str; 3] = ["coordinate X", "coordinate Y", "coordinate Z"];
+    let mut out = [None; 3];
+    for (axis, value) in pos.iter().enumerate() {
+        if let Some(value) = value {
+            out[axis] = Some(checked_mm(*value, source_line, AXES[axis])?);
+        }
+    }
+    Ok(out)
 }
 
 fn point_dist(a: [Option<f64>; 3], b: [Option<f64>; 3]) -> f64 {
