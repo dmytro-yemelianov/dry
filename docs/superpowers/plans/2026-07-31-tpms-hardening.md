@@ -168,6 +168,12 @@ The comparison must apply the same rounding `move_op` does — comparing raw f64
 
 Preferred: dedupe on the **rounded** `point_key`, so dedupe and emission share one quantum by construction and cannot drift apart again. Fallback: raise the threshold to `>= 1.5e-6`. State which you chose and why in the commit body.
 
+> **Premise correction (2026-07-31).** T1/T2's implementer reports `conformance/gallery/gyroid_infill.json`
+> is a **FullControl-oracle fixture** (201 ops, `width 0.6`/`height 0.3`, uniform Z), not
+> `generate/tpms.rs` output at all — so this task's assumption that it must be regenerated is probably
+> wrong. Re-derive whether any fixture actually depends on the generator before touching one; if none
+> does, drop the regeneration step rather than performing it to satisfy the plan.
+
 - [ ] **Step 4: Regenerate conformance and quantify the delta**
 
 Regenerate `conformance/gallery/gyroid_infill.json`, then record in the commit message: op count before → after, and confirm the geometry is unchanged apart from removed duplicates (the delta should be exactly the coincident pairs). If the delta is larger than that, STOP — the fix removed real geometry.
@@ -178,7 +184,27 @@ Regenerate `conformance/gallery/gyroid_infill.json`, then record in the commit m
 
 ---
 
-### Task 4: `maxFieldSamples` sentinel + adaptive budget estimate (four-target)
+### Task 4: sample-budget hardening
+
+> **Split (2026-07-31).** Reviewing what actually needs a human decision showed that only the sentinel
+> *semantics* do. Everything else here is unambiguous and must not wait on it. Do **T4a** now; leave
+> **T4b** until the wire-contract question below is answered.
+>
+> **T4a — unblocked, do now:** reject `NaN` and negative `maxFieldSamples` outright (nobody intends
+> those, and rejecting them closes most of the hostile-JSON hole on its own); fix the adaptive budget
+> over-estimate; fix the mutation-loose boundary test; validate `adaptiveMaxDepth`; and correct the
+> public field doc, which today says *"Use a large value for trusted offline generation"* while the code
+> silently accepts `0` as unlimited — a doc/behaviour mismatch of exactly the D5 class this audit hunts.
+> T4a changes no legitimate caller's behaviour and needs no TS change.
+>
+> **T4b — blocked on a decision:** should `0` — and therefore the TS SDK's `Infinity` — keep meaning
+> *unlimited* across an untrusted boundary? Keeping it leaves the DoS guard disableable by anyone who can
+> send `0`, which on wasm is any browser page taking user input. Removing it breaks a released TS API.
+> Clamping at the binding was considered and rejected: the same wasm path serves both a browser page
+> (untrusted) and a Node script doing trusted offline generation, so there is no clean split by surface.
+> This is a product question — is unlimited a supported use case over an untrusted boundary — not an
+> engineering one. Do not decide it inside the slice.
+
 
 **Files:** Modify `crates/core/src/generate/tpms.rs` (`assert_budget` at `:632`, layer estimate at `:310`/`:635`, boundary test at `:923`, `adaptive_max_depth` validation at `:285`); `sdk/ts/src/generators/tpms.ts:234`; `docs/07-tpms-codegen.md:70`
 
