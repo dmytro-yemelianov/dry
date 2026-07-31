@@ -77,7 +77,7 @@ Tests pass; `conformance/gallery/gyroid_infill.json` byte-identical (`git status
 
 - [ ] **Step 5: Commit**
 
-`fix(core): refuse TPMS option sets that emit no material (H1.4, #182)`
+`fix(core): refuse TPMS option sets that emit no material (H1.4, #186)`
 
 ---
 
@@ -133,7 +133,7 @@ Add/confirm a test that a **non-adaptive** job still emits exactly one `Op::Geom
 
 - [ ] **Step 5: Commit** (do NOT regenerate conformance yet — Task 3 does it once)
 
-`fix(core): declare per-layer bead height for adaptive TPMS slices (H1.4, #182)`
+`fix(core): declare per-layer bead height for adaptive TPMS slices (H1.4, #186)`
 
 ---
 
@@ -174,7 +174,7 @@ Regenerate `conformance/gallery/gyroid_infill.json`, then record in the commit m
 
 - [ ] **Step 5: Commit**
 
-`fix(core): dedupe TPMS points on the emission grid, regen gallery fixture (H1.4, #182)`
+`fix(core): dedupe TPMS points on the emission grid, regen gallery fixture (H1.4, #186)`
 
 ---
 
@@ -224,7 +224,7 @@ fn adaptive_budget_charges_reachable_refinement_not_the_floor() {
 
 - [ ] **Step 4: Four-target sweep** — Rust tests, `sdk/ts` build + its own tests, four `cargo check`s, conformance byte-identical, docs updated at `docs/07-tpms-codegen.md:70` and the public field doc at `tpms.rs:97`.
 
-- [ ] **Step 5: Commit** — `fix(core,sdk): make the TPMS sample budget un-disablable and adaptive-aware (H1.4, #182)`
+- [ ] **Step 5: Commit** — `fix(core,sdk): make the TPMS sample budget un-disablable and adaptive-aware (H1.4, #186)`
 
 ---
 
@@ -240,7 +240,7 @@ fn adaptive_budget_charges_reachable_refinement_not_the_floor() {
 
 - [ ] **Step 3: Verify the drift gates** — `python tools/validate_vectors.py conformance/vectors`, the `formal-assurance` CI job's local equivalent, and `cd docs/site && npm run reference` if any manifest source changed.
 
-- [ ] **Step 4: Commit** — `docs(proofs,spec): register TPMS numeric boundaries; correct stale exposure claims (H1.4, #182)`
+- [ ] **Step 4: Commit** — `docs(proofs,spec): register TPMS numeric boundaries; correct stale exposure claims (H1.4, #186)`
 
 ---
 
@@ -249,4 +249,4 @@ fn adaptive_budget_charges_reachable_refinement_not_the_floor() {
 - **Audit coverage:** TPMS findings 1→T1, 2→T4a, 3→T3, 4→T4b, 5→T2, 6→T4 Step 2, 7→T1, 8→T5. All eight are assigned.
 - **Sequencing rationale:** T1 changes no valid output and can land immediately. T2 and T3 both change valid output; T3 owns the single conformance regeneration so the fixture is not churned twice. T4 is gated on a human decision about the wire sentinel and touches TypeScript, so it is deliberately not first. T5 is documentation and can land any time after T1–T4 settle the facts it documents.
 - **Known judgment calls left to the implementer:** whether the vacuous-program check reports `isoLevel` or `minPathLength` in ambiguous cases (T1 Step 3); first-layer bead-height convention (T2 Step 3); dedupe-on-rounded-key vs raised-threshold (T3 Step 3); the sentinel contract itself (T4 Step 1) — that one should be escalated, not decided silently.
-- **Issue number `#182` is a placeholder** — replace with the real issue once filed, or drop the suffix.
+- **Tracked as [#186](https://github.com/dmytro-yemelianov/dry/issues/186)**; sibling hardening issues are [#184](https://github.com/dmytro-yemelianov/dry/issues/184) (H1.2 ingress validation) and [#185](https://github.com/dmytro-yemelianov/dry/issues/185) (H1.3 verify strengthening).
