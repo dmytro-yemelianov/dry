@@ -9,8 +9,35 @@
     {
       "rule": "first-layer-speed",
       "severity": "warning",
-      "segment": 1,
+      "segment": 2,
       "message": "first layer speed 3000.000 mm/min is outside the range [500.000, 2000.000]"
     }
-  ]
+  ],
+  "segments_inspected": 3,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "first-layer-height",
+    "first-layer-speed",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "monotonic_z": false,
+    "first_layer_height_range": [
+      0.1,
+      0.3
+    ],
+    "first_layer_speed_range": [
+      500.0,
+      2000.0
+    ]
+  }
 }

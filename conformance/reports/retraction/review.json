@@ -1,37 +1,37 @@
 {
   "file": null,
   "profile": null,
-  "segments": 4,
+  "segments": 5,
   "metrics": {
-    "total_time_s": 2.528,
+    "total_time_s": 3.028,
     "print_time_s": 0.928,
-    "travel_time_s": 1.6,
+    "travel_time_s": 2.1,
     "extruding_distance": 10.0,
-    "travel_distance": 40.0,
+    "travel_distance": 60.0,
     "extruded_volume": 0.8,
     "filament_length": -9.67,
-    "segment_count": 4,
+    "segment_count": 5,
     "max_flow_rate": 2.0
   },
   "findings": [
     {
       "rule": "travel-without-retraction",
       "severity": "warning",
-      "segment": 1,
+      "segment": 2,
       "source_line": null,
-      "message": "travel run distance 40.000 mm exceeds limit of 30.000 without retraction"
+      "message": "travel run distance 60.000 mm exceeds limit of 30.000 without retraction"
     },
     {
       "rule": "retraction-distance",
       "severity": "error",
-      "segment": 2,
+      "segment": 3,
       "source_line": null,
       "message": "retraction distance 8.000 mm exceeds the limit of 5.000"
     },
     {
       "rule": "retraction-speed",
       "severity": "error",
-      "segment": 3,
+      "segment": 4,
       "source_line": null,
       "message": "retraction speed 2500 mm/min exceeds the limit of 2000"
     }

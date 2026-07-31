@@ -9,20 +9,43 @@
     {
       "rule": "bead",
       "severity": "error",
-      "segment": 1,
+      "segment": 2,
       "message": "extruding move has a non-positive bead (width 0, height 0)"
     },
     {
       "rule": "orientation-not-unit",
       "severity": "error",
-      "segment": 2,
+      "segment": 4,
       "message": "toolframe orientation [1, 1, 1] has magnitude 1.7320508075688772 (must be 1)"
     },
     {
       "rule": "arc-radius",
       "severity": "error",
-      "segment": 3,
+      "segment": 5,
       "message": "arc endpoint radius differs from start radius by 1.049876 mm"
+    },
+    {
+      "rule": "arc-length",
+      "severity": "error",
+      "segment": 5,
+      "message": "declared length 10 disagrees with the arc implied by its radius and swept angle (15.034185 mm)"
     }
-  ]
+  ],
+  "segments_inspected": 6,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "monotonic_z": false
+  }
 }

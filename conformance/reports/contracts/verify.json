@@ -7,28 +7,76 @@
       "message": "X = 500 is outside the build volume [0, 200]"
     },
     {
-      "rule": "max-flow",
+      "rule": "bounds",
       "severity": "error",
       "segment": 1,
+      "message": "X = 500 is outside the build volume [0, 200]"
+    },
+    {
+      "rule": "max-flow",
+      "severity": "error",
+      "segment": 2,
       "message": "flow 80.000 mm³/s exceeds the ceiling 10.000"
     },
     {
       "rule": "speed",
       "severity": "error",
-      "segment": 2,
+      "segment": 4,
       "message": "feedrate 12000 is outside [300, 9000] mm/min"
     },
     {
       "rule": "monotonic-z",
       "severity": "error",
-      "segment": 3,
+      "segment": 6,
       "message": "Z decreases from 0.4 to 0.2"
     },
     {
       "rule": "cold-extrusion",
       "severity": "error",
-      "segment": 4,
+      "segment": 8,
       "message": "extruding at nozzle temperature 150 (< 200 °C)"
     }
-  ]
+  ],
+  "segments_inspected": 9,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "bounds",
+    "max-flow",
+    "speed",
+    "monotonic-z",
+    "cold-extrusion",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "bounds": [
+      [
+        0.0,
+        200.0
+      ],
+      [
+        0.0,
+        200.0
+      ],
+      [
+        0.0,
+        200.0
+      ]
+    ],
+    "max_flow": 10.0,
+    "speed_range": [
+      300.0,
+      9000.0
+    ],
+    "monotonic_z": true,
+    "min_temp": 200.0
+  }
 }

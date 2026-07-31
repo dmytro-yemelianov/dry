@@ -22,6 +22,9 @@ use std::f64::consts::TAU;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// A candidate rule, as a predicate over a toolpath's segments returning one message per hit.
+type RulePredicate = fn(&[Segment]) -> Vec<String>;
+
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
@@ -49,8 +52,8 @@ fn probe_continuity(segments: &[Segment]) -> Vec<String> {
             tracked = [None; 3];
             continue;
         }
-        for k in 0..3 {
-            if let (Some(p), Some(q)) = (tracked[k], s.start[k]) {
+        for (k, (prev, start)) in tracked.iter().zip(s.start.iter()).enumerate() {
+            if let (Some(p), Some(q)) = (prev, start) {
                 if hybrid_exceeds(p.value(), q.value(), 1e-6) {
                     hits.push(format!(
                         "seg {i}: {} gap {:.9} mm (prev end {:.6} -> start {:.6})",
@@ -62,9 +65,9 @@ fn probe_continuity(segments: &[Segment]) -> Vec<String> {
                 }
             }
         }
-        for k in 0..3 {
-            // "inherit": an unstated axis is the previous value.
-            tracked[k] = s.end[k].or(tracked[k]);
+        // "inherit": an unstated axis is the previous value.
+        for (t, end) in tracked.iter_mut().zip(s.end.iter()) {
+            *t = end.or(*t);
         }
     }
     hits
@@ -108,6 +111,43 @@ fn probe_negative_quantity(segments: &[Segment]) -> Vec<String> {
     hits
 }
 
+/// `segment-length`: for straight or stationary primitives, the declared `length` must equal the
+/// distance between the segment's own endpoints. Added after the first probe run exposed the gap —
+/// `arc-length` covers arcs only, so `vectors/retract_unretract` seg 0 (`length: 0.0` with endpoints
+/// 10 mm apart) was visible only as a downstream `continuity` symptom on the *following* segment.
+///
+/// `Arc` is excluded (`arc-length` owns it), `Spline` is excluded (its `length` is the sampled curve,
+/// not the chord), and `ManualGcode` is excluded as unmodeled.
+fn probe_segment_length(segments: &[Segment]) -> Vec<String> {
+    let mut hits = Vec::new();
+    for (i, s) in segments.iter().enumerate() {
+        if matches!(
+            s.kind,
+            SegmentKind::Arc | SegmentKind::Spline | SegmentKind::ManualGcode
+        ) {
+            continue;
+        }
+        let (Some(sx), Some(sy), Some(sz), Some(ex), Some(ey), Some(ez)) = (
+            s.start[0], s.start[1], s.start[2], s.end[0], s.end[1], s.end[2],
+        ) else {
+            continue; // an undefined axis inherits; no displacement is asserted
+        };
+        let dx = ex.value() - sx.value();
+        let dy = ey.value() - sy.value();
+        let dz = ez.value() - sz.value();
+        let expected = (dx * dx + dy * dy + dz * dz).sqrt();
+        if hybrid_exceeds(s.length.value(), expected, 1e-6) {
+            hits.push(format!(
+                "seg {i} ({:?}): length {:.9} vs |end-start| {:.9}",
+                s.kind,
+                s.length.value(),
+                expected
+            ));
+        }
+    }
+    hits
+}
+
 fn normalised_angle(v: f64) -> f64 {
     let mut out = v % TAU;
     if out < 0.0 {
@@ -138,7 +178,7 @@ fn probe_arc_length(segments: &[Segment]) -> Vec<String> {
             continue; // malformed arcs are `arc-radius`'s business, not this rule's
         };
         let radius = (sx - cx).hypot(sy - cy).value();
-        if !(radius > 0.0) {
+        if !radius.is_finite() || radius <= 0.0 {
             continue;
         }
         let start_a = (sy - cy).atan2(sx - cx).value();
@@ -255,9 +295,10 @@ fn probe_new_rules_against_the_frozen_corpora() {
         corpora.len()
     );
 
-    let rules: [(&str, fn(&[Segment]) -> Vec<String>); 4] = [
+    let rules: [(&str, RulePredicate); 5] = [
         ("continuity", probe_continuity),
         ("negative-quantity", probe_negative_quantity),
+        ("segment-length", probe_segment_length),
         ("arc-length", probe_arc_length),
         ("filament-consistency", probe_filament_consistency),
     ];
@@ -266,7 +307,10 @@ fn probe_new_rules_against_the_frozen_corpora() {
     let mut hit_count: BTreeMap<&str, usize> = BTreeMap::new();
     let mut fixtures_hit: BTreeMap<&str, usize> = BTreeMap::new();
 
-    println!("\n=== H1.3 §5 corpus probe: {} toolpaths ===\n", corpora.len());
+    println!(
+        "\n=== H1.3 §5 corpus probe: {} toolpaths ===\n",
+        corpora.len()
+    );
     for (name, tp) in &corpora {
         total_segments += tp.segments.len();
         for (rule, predicate) in rules {

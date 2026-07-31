@@ -24,7 +24,14 @@ fn is_contiguous(a: &Segment, b: &Segment) -> bool {
 }
 
 /// Compute the unit tangent vector at the start and end of a segment.
-fn get_tangents(s: &Segment) -> Option<([f64; 3], [f64; 3])> {
+/// Unit entry and exit tangents of a segment — arc-aware (tangent ⟂ radius, winding-signed) and
+/// Δz-aware. `None` when the segment is too short or too degenerate to have a direction.
+///
+/// Shared with `verify`'s `junction-velocity` rule on purpose: that contract names one machine limit
+/// (square-corner velocity), so the cornering quantity must be computed in exactly one place. Before
+/// H1.3 `verify` measured a scalar feedrate delta under the same name, which missed the constant-speed
+/// 90° corner the rule is named for.
+pub(crate) fn get_tangents(s: &Segment) -> Option<([f64; 3], [f64; 3])> {
     let sx = s.start[0]?.value();
     let sy = s.start[1]?.value();
     let sz = s.start[2].unwrap_or(Length::ZERO).value();

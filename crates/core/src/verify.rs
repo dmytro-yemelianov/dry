@@ -12,44 +12,71 @@
 
 use crate::engine::segment_motion_time;
 use crate::ir::{Segment, SegmentKind, Toolpath};
+use crate::optimize::get_tangents;
 use crate::resolve::{catmull_rom, SAMPLES};
 use crate::units::Length;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 /// The limits a toolpath is checked against. An unset (`None`/`false`) field disables that check.
-#[derive(Debug, Clone, Default, Deserialize)]
+///
+/// This is `Serialize` as well as `Deserialize` because [`Report`] echoes the contracts it ran under
+/// (§3.5 of the H1.3 design): "clean" is not a claim until you can see what it was clean *against*.
+/// `None` fields are skipped rather than written as `null`, so a default `Contracts` echoes as
+/// `{"monotonic_z": false}` and the `conformance/reports/*/verify.json` byte-goldens stay compact.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Contracts {
     /// Build volume as `[[x_lo, x_hi], [y_lo, y_hi], [z_lo, z_hi]]` (mm).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<[[f64; 2]; 3]>,
     /// Maximum volumetric flow rate (mm³/s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_flow: Option<f64>,
     /// Allowed feedrate range `[min, max]` (mm/min) for extruding moves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed_range: Option<[f64; 2]>,
     /// Require Z never to decrease along the path.
+    #[serde(default)]
     pub monotonic_z: bool,
     /// Minimum nozzle temperature (°C) required to extrude (cold-extrusion guard).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_temp: Option<f64>,
     /// Maximum retraction distance (mm).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_retraction_distance: Option<f64>,
     /// Maximum retraction speed (mm/min).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_retraction_speed: Option<f64>,
     /// Maximum travel run distance without a retraction (mm).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_travel_without_retract: Option<f64>,
     /// Allowed Z height range `[min, max]` (mm) for the first layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_layer_height_range: Option<[f64; 2]>,
     /// Allowed speed range `[min, max]` (mm/min) for the first layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_layer_speed_range: Option<[f64; 2]>,
+    /// Relative tolerance for the `bead-volume` rule (`volume ≈ length·width·height·flow`).
+    ///
+    /// Contract-gated rather than always-on because two `optimize` passes violate the identity by
+    /// design: `coasting` zeroes `volume` on the tail of an extrusion run while keeping the bead, and
+    /// `arc_fit` sets `length` to the arc while summing chord volumes. Imported IR takes `volume` from
+    /// `E` while `width`/`height` come from a user-supplied constant, so it breaks in both directions
+    /// on real slicer output too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bead_volume_tolerance: Option<f64>,
     /// Kinematic limits for the peak-acceleration / junction-velocity rules. `None` disables them.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kinematics: Option<KinematicContracts>,
 }
 
 /// Kinematic limits checked by the `peak-acceleration` (arc centripetal) and `junction-velocity`
-/// (per-junction Δv) rules. An unset field disables its check.
-#[derive(Debug, Clone, Default, Deserialize)]
+/// (cornering) rules. An unset field disables its check.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct KinematicContracts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_acceleration_mm_s2: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_junction_velocity_mm_s: Option<f64>,
 }
 
@@ -171,6 +198,18 @@ pub enum RuleId {
     JunctionVelocity,
     /// Verbatim or imported G-code is preserved but not semantically verified.
     UnmodeledGcode,
+    /// A segment starts somewhere other than where the previous one ended.
+    Continuity,
+    /// A quantity that cannot be negative is (length, volume, speed), or a bead dimension is ≤ 0.
+    NegativeQuantity,
+    /// A straight or stationary segment's declared length disagrees with its own endpoints.
+    SegmentLength,
+    /// An arc's declared length disagrees with its radius and swept angle.
+    ArcLength,
+    /// The volume-to-filament ratio changes within one tool.
+    FilamentConsistency,
+    /// Deposited volume disagrees with the bead geometry (`length·width·height·flow`).
+    BeadVolume,
 }
 
 /// One rule's catalog entry.
@@ -183,7 +222,7 @@ pub struct Rule {
 
 impl RuleId {
     /// Every rule, in catalog order.
-    pub const ALL: [RuleId; 18] = [
+    pub const ALL: [RuleId; 24] = [
         RuleId::Finite,
         RuleId::TravelExtrudes,
         RuleId::Bead,
@@ -202,6 +241,12 @@ impl RuleId {
         RuleId::PeakAcceleration,
         RuleId::JunctionVelocity,
         RuleId::UnmodeledGcode,
+        RuleId::Continuity,
+        RuleId::NegativeQuantity,
+        RuleId::SegmentLength,
+        RuleId::ArcLength,
+        RuleId::FilamentConsistency,
+        RuleId::BeadVolume,
     ];
 
     /// The stable kebab-case wire id.
@@ -225,6 +270,12 @@ impl RuleId {
             RuleId::PeakAcceleration => "peak-acceleration",
             RuleId::JunctionVelocity => "junction-velocity",
             RuleId::UnmodeledGcode => "unmodeled-gcode",
+            RuleId::Continuity => "continuity",
+            RuleId::NegativeQuantity => "negative-quantity",
+            RuleId::SegmentLength => "segment-length",
+            RuleId::ArcLength => "arc-length",
+            RuleId::FilamentConsistency => "filament-consistency",
+            RuleId::BeadVolume => "bead-volume",
         }
     }
 
@@ -240,7 +291,11 @@ impl RuleId {
             | RuleId::FirstLayerHeight
             | RuleId::FirstLayerSpeed
             | RuleId::JunctionVelocity
-            | RuleId::UnmodeledGcode => Severity::Warning,
+            | RuleId::UnmodeledGcode
+            // Ships as a warning for one minor release before promotion to error (design §8):
+            // multi-diameter / multi-material IR is unusual but not ill-formed, and no in-tree
+            // producer makes any, so we have no evidence either way yet.
+            | RuleId::FilamentConsistency => Severity::Warning,
             _ => Severity::Error,
         }
     }
@@ -274,6 +329,63 @@ impl RuleId {
             RuleId::UnmodeledGcode => {
                 "verbatim or imported G-code is preserved but not semantically verified"
             }
+            RuleId::Continuity => {
+                "a segment starts somewhere other than where the previous one ended"
+            }
+            RuleId::NegativeQuantity => {
+                "a length, volume or speed is negative, or a bead dimension is not positive"
+            }
+            RuleId::SegmentLength => {
+                "a straight or stationary segment's length disagrees with its own endpoints"
+            }
+            RuleId::ArcLength => "an arc's length disagrees with its radius and swept angle",
+            RuleId::FilamentConsistency => {
+                "the volume-to-filament ratio changes within a single tool"
+            }
+            RuleId::BeadVolume => {
+                "deposited volume disagrees with the bead geometry (length x width x height x flow)"
+            }
+        }
+    }
+
+    /// Whether this rule is evaluated at all under `c` — i.e. whether it is structural (always on)
+    /// or its gating contract supplies a limit.
+    ///
+    /// This is what makes a vacuous pass visible: [`Report::rules_evaluated`] is built from it, so a
+    /// report clean under ten rules is distinguishable from one clean under twenty-four.
+    pub fn is_evaluated(self, c: &Contracts) -> bool {
+        match self {
+            // Structural / well-formedness: no contract can make a violation acceptable.
+            RuleId::Finite
+            | RuleId::TravelExtrudes
+            | RuleId::Bead
+            | RuleId::OrientationNotUnit
+            | RuleId::ArcRadius
+            | RuleId::UnmodeledGcode
+            | RuleId::Continuity
+            | RuleId::NegativeQuantity
+            | RuleId::SegmentLength
+            | RuleId::ArcLength
+            | RuleId::FilamentConsistency => true,
+            RuleId::Bounds => c.bounds.is_some(),
+            RuleId::MaxFlow => c.max_flow.is_some(),
+            RuleId::Speed => c.speed_range.is_some(),
+            RuleId::MonotonicZ => c.monotonic_z,
+            RuleId::ColdExtrusion => c.min_temp.is_some(),
+            RuleId::RetractionDistance => c.max_retraction_distance.is_some(),
+            RuleId::RetractionSpeed => c.max_retraction_speed.is_some(),
+            RuleId::TravelWithoutRetraction => c.max_travel_without_retract.is_some(),
+            RuleId::FirstLayerHeight => c.first_layer_height_range.is_some(),
+            RuleId::FirstLayerSpeed => c.first_layer_speed_range.is_some(),
+            RuleId::BeadVolume => c.bead_volume_tolerance.is_some(),
+            RuleId::PeakAcceleration => c
+                .kinematics
+                .as_ref()
+                .is_some_and(|k| k.max_acceleration_mm_s2.is_some()),
+            RuleId::JunctionVelocity => c
+                .kinematics
+                .as_ref()
+                .is_some_and(|k| k.max_junction_velocity_mm_s.is_some()),
         }
     }
 }
@@ -303,13 +415,30 @@ pub struct Finding {
 }
 
 /// The result of verifying a toolpath.
+///
+/// The three fields beside `findings` exist so that a **vacuous** pass is not byte-identical to a real
+/// one (H1.3 design §3.5). `ok()` alone cannot distinguish "clean" from "nothing was inspected" or
+/// "clean against no limits at all", and eight in-tree call sites were reading it as an assurance
+/// claim. All three are `#[serde(default)]`, so reports written by older Dry still deserialize.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Report {
     pub findings: Vec<Finding>,
+    /// How many segments this pass actually looked at. Zero means the pass proved nothing.
+    #[serde(default)]
+    pub segments_inspected: usize,
+    /// The wire ids of every rule that was in force, in catalog order.
+    #[serde(default)]
+    pub rules_evaluated: Vec<String>,
+    /// The contracts the toolpath was checked against.
+    #[serde(default)]
+    pub contracts: Contracts,
 }
 
 impl Report {
     /// True when there are no `Error`-severity findings.
+    ///
+    /// Note this says nothing about *coverage*: see [`Report::segments_inspected`] and
+    /// [`Report::evaluated`] before treating it as an assurance claim.
     pub fn ok(&self) -> bool {
         !self.findings.iter().any(|f| f.severity == Severity::Error)
     }
@@ -320,9 +449,32 @@ impl Report {
             .filter(|f| f.severity == Severity::Error)
             .count()
     }
+    /// Whether `rule` was in force for this report.
+    pub fn evaluated(&self, rule: RuleId) -> bool {
+        self.rules_evaluated.iter().any(|r| r == rule.as_str())
+    }
 }
 
 const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
+
+/// Per-axis continuity tolerance (mm), applied by the hybrid rule below.
+///
+/// 1e-6 mm is the emitter's own print resolution (`num()` formats `{v:.6}`), so a gap smaller than
+/// this is not representable in the output at all.
+const CONTINUITY_TOLERANCE_MM: f64 = 1e-6;
+
+/// Relative tolerance for `segment-length` and `arc-length`.
+const LENGTH_TOLERANCE: f64 = 1e-6;
+
+/// Relative tolerance for `filament-consistency`.
+const FILAMENT_RATIO_TOLERANCE: f64 = 1e-6;
+
+/// The tolerance idiom already used at `arc_radius_error` and `gcode/lift.rs:819`: absolute below
+/// 1 mm, relative above. Keeps `verify` on one tolerance policy rather than three, and stays
+/// satisfiable at large coordinates where `f64` spacing alone exceeds a fixed 1e-6 mm.
+fn differs_beyond(a: f64, b: f64, rel: f64) -> bool {
+    (a - b).abs() > rel * a.abs().max(b.abs()).max(1.0)
+}
 
 /// Per-segment volumetric flow (mm³/s), or `None` for a move with no duration.
 fn flow(s: &Segment) -> Option<f64> {
@@ -530,6 +682,53 @@ fn arc_radius_error(s: &Segment) -> Option<String> {
     }
 }
 
+/// The straight-line distance between a segment's own endpoints, or `None` when any axis is
+/// undefined on either side (an undefined axis inherits, so no displacement is asserted).
+fn endpoint_distance_mm(s: &Segment) -> Option<f64> {
+    let (Some(sx), Some(sy), Some(sz), Some(ex), Some(ey), Some(ez)) = (
+        s.start[0], s.start[1], s.start[2], s.end[0], s.end[1], s.end[2],
+    ) else {
+        return None;
+    };
+    let dx = ex.value() - sx.value();
+    let dy = ey.value() - sy.value();
+    let dz = ez.value() - sz.value();
+    Some(libm::sqrt(dx * dx + dy * dy + dz * dz))
+}
+
+/// The arc length implied by a segment's own radius and swept angle: `hypot(r·sweep, Δz)`.
+///
+/// One formula across the tree — `resolve.rs:602-614`, `gcode/lift.rs:840` and `optimize/arc.rs:140`
+/// all agree — which is what makes this checkable always-on. `None` for a malformed arc, which is
+/// `arc-radius`'s business rather than this rule's.
+fn arc_length_mm(s: &Segment) -> Option<f64> {
+    let [cx, cy] = s.centre?;
+    let (sx, sy, ex, ey) = (s.start[0]?, s.start[1]?, s.end[0]?, s.end[1]?);
+    let radius = (sx - cx).hypot(sy - cy).value();
+    // is_finite() first, so a NaN radius returns None rather than slipping past a `<= 0.0` test.
+    if !radius.is_finite() || radius <= 0.0 {
+        return None;
+    }
+    let start_a = (sy - cy).atan2(sx - cx).value();
+    let end_a = (ey - cy).atan2(ex - cx).value();
+    let sweep = swept_delta(start_a, end_a, s.clockwise);
+    let dz = match (s.start[2], s.end[2]) {
+        (Some(z0), Some(z1)) => z1.value() - z0.value(),
+        _ => 0.0,
+    };
+    Some(libm::hypot(radius * sweep, dz))
+}
+
+/// `segment-length` applies to primitives whose length is the straight-line distance between their
+/// endpoints. `Arc` belongs to `arc-length`; a `Spline`'s length is the sampled curve, not the chord;
+/// `ManualGcode` is unmodeled by definition.
+fn has_straight_length(kind: SegmentKind) -> bool {
+    !matches!(
+        kind,
+        SegmentKind::Arc | SegmentKind::Spline | SegmentKind::ManualGcode
+    )
+}
+
 fn push_finding(report: &mut Report, rule: RuleId, segment: Option<usize>, message: String) {
     report.findings.push(Finding {
         rule: rule.as_str().to_string(),
@@ -544,20 +743,36 @@ pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, crate::cod
 where
     I: IntoIterator<Item = Result<Segment, crate::codec::CodecError>>,
 {
-    let mut r = Report::default();
+    let mut r = Report {
+        rules_evaluated: RuleId::ALL
+            .into_iter()
+            .filter(|rule| rule.is_evaluated(c))
+            .map(|rule| rule.as_str().to_string())
+            .collect(),
+        contracts: c.clone(),
+        ..Report::default()
+    };
     let axis = ['X', 'Y', 'Z'];
     let mut first_layer_z: Option<f64> = None;
 
     let mut travel_run_length = 0.0;
     let mut retracted = true;
     let mut flagged_travel = false;
-    // For junction-velocity: track the end position and speed of the previous printing segment
-    // so we can compute Δv at contiguous junctions (reset on travel moves).
+    // For junction-velocity: track the exit tangent and speed of the previous printing segment so we
+    // can compute the vector velocity change at contiguous junctions (reset on travel moves).
     let mut prev_print_end: Option<[Option<Length>; 3]> = None;
     let mut prev_speed_mm_s: Option<f64> = None;
+    let mut prev_exit_tangent: Option<[f64; 3]> = None;
+    // For continuity: the machine position after the previous segment, per axis. An axis stays at its
+    // last defined value ("inherit"), which is what both `resolve` and the emitter do.
+    let mut tracked_pos: [Option<Length>; 3] = [None; 3];
+    // For filament-consistency: the first volume/filament ratio observed for each tool.
+    let mut tool_ratio: std::collections::BTreeMap<Option<u32>, f64> =
+        std::collections::BTreeMap::new();
 
     for (i, segment) in segments.into_iter().enumerate() {
         let s = segment?;
+        r.segments_inspected += 1;
         // --- structural invariants (always on) ---
         if s.kind == SegmentKind::ManualGcode {
             push_finding(
@@ -617,7 +832,149 @@ where
             push_finding(&mut r, RuleId::ArcRadius, Some(i), message);
         }
 
+        // --- continuity: this segment must start where the last one left the machine ---
+        // Verbatim G-code may move the machine arbitrarily, so we neither compare across it nor
+        // claim to know where it ended: `unmodeled-gcode` already says the segment is outside the
+        // model, and asserting continuity through it would be a stronger claim than we can support.
+        if s.kind == SegmentKind::ManualGcode {
+            tracked_pos = [None; 3];
+        } else {
+            for (k, (prev, start)) in tracked_pos.iter().zip(s.start.iter()).enumerate() {
+                if let (Some(p), Some(q)) = (prev, start) {
+                    let (p, q) = (p.value(), q.value());
+                    if differs_beyond(p, q, CONTINUITY_TOLERANCE_MM) {
+                        push_finding(
+                            &mut r,
+                            RuleId::Continuity,
+                            Some(i),
+                            format!(
+                                "{} starts at {q} but the previous move ended at {p} (gap {:.6} mm); \
+                                 the emitter writes endpoints only, so no repositioning move is \
+                                 produced and the machine cuts straight across",
+                                axis[k],
+                                (p - q).abs()
+                            ),
+                        );
+                    }
+                }
+            }
+            for (tracked, end) in tracked_pos.iter_mut().zip(s.end.iter()) {
+                *tracked = end.or(*tracked);
+            }
+        }
+
+        // --- negative quantities: outside the IR's own type contract, so no contract can excuse them ---
+        // `filament` < 0 is deliberately excluded: that is a retraction.
+        for (name, value) in [
+            ("length", s.length.value()),
+            ("volume", s.volume.value()),
+            ("speed", s.speed.value()),
+        ] {
+            if value < 0.0 {
+                push_finding(
+                    &mut r,
+                    RuleId::NegativeQuantity,
+                    Some(i),
+                    format!("{name} is {value} (must not be negative)"),
+                );
+            }
+        }
+        for (name, value) in [("width", s.width), ("height", s.height)] {
+            if let Some(v) = value.map(|l| l.value()) {
+                if v <= 0.0 {
+                    push_finding(
+                        &mut r,
+                        RuleId::NegativeQuantity,
+                        Some(i),
+                        format!("bead {name} is {v} (must be positive when set)"),
+                    );
+                }
+            }
+        }
+
+        // --- declared length must agree with the segment's own geometry ---
+        if has_straight_length(s.kind) {
+            if let Some(expected) = endpoint_distance_mm(&s) {
+                if differs_beyond(s.length.value(), expected, LENGTH_TOLERANCE) {
+                    push_finding(
+                        &mut r,
+                        RuleId::SegmentLength,
+                        Some(i),
+                        format!(
+                            "declared length {} disagrees with the distance between its own \
+                             endpoints ({expected:.6} mm)",
+                            s.length.value()
+                        ),
+                    );
+                }
+            }
+        } else if s.kind == SegmentKind::Arc {
+            if let Some(expected) = arc_length_mm(&s) {
+                if differs_beyond(s.length.value(), expected, LENGTH_TOLERANCE) {
+                    push_finding(
+                        &mut r,
+                        RuleId::ArcLength,
+                        Some(i),
+                        format!(
+                            "declared length {} disagrees with the arc implied by its radius and \
+                             swept angle ({expected:.6} mm)",
+                            s.length.value()
+                        ),
+                    );
+                }
+            }
+        }
+
+        // --- filament consistency: volume/filament is the feedstock cross-section, one per tool ---
+        if !s.travel && s.volume.value() > 0.0 && s.filament.value() > 0.0 {
+            let ratio = s.volume.value() / s.filament.value();
+            match tool_ratio.get(&s.tool) {
+                None => {
+                    tool_ratio.insert(s.tool, ratio);
+                }
+                Some(&base) => {
+                    if (ratio - base).abs() > FILAMENT_RATIO_TOLERANCE * base.abs().max(ratio.abs())
+                    {
+                        push_finding(
+                            &mut r,
+                            RuleId::FilamentConsistency,
+                            Some(i),
+                            format!(
+                                "volume/filament {ratio:.6} mm² differs from {base:.6} mm² seen \
+                                 earlier on this tool; one of the two segments misstates how much \
+                                 material it deposits"
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+
         // --- contract-driven checks ---
+        if let Some(tol) = c.bead_volume_tolerance {
+            // Line and Spline only: `arc_fit` sums chord volumes against an arc length, and
+            // `coasting` zeroes volume while keeping the bead, both by design.
+            let applies = matches!(s.kind, SegmentKind::Line | SegmentKind::Spline)
+                && !s.travel
+                && s.volume.value() > 0.0;
+            if let (true, Some(w), Some(h)) = (applies, s.width, s.height) {
+                // `flow` is omitted from the wire when exactly 1.0, so it must be defaulted.
+                let flow = s.flow.unwrap_or(1.0);
+                let expected = s.length.value() * w.value() * h.value() * flow;
+                if (s.volume.value() - expected).abs() > tol * expected.abs() {
+                    push_finding(
+                        &mut r,
+                        RuleId::BeadVolume,
+                        Some(i),
+                        format!(
+                            "deposited volume {:.6} mm³ differs from the bead geometry \
+                             ({expected:.6} mm³ = length x width x height x flow) by more than {tol}",
+                            s.volume.value()
+                        ),
+                    );
+                }
+            }
+        }
         if let Some(b) = c.bounds {
             'points: for point in bounds_points(&s) {
                 for (k, coord) in point.iter().enumerate() {
@@ -835,23 +1192,48 @@ where
                 }
             }
 
-            // JunctionVelocity: fire when two contiguous printing segments have a Δv that exceeds
-            // the machine's square-corner velocity limit. Contiguity is required (within 0.1 mm)
-            // so non-adjacent segments (e.g. after a travel) never produce a false positive.
-            if let (Some(max_jv), Some(pv), true) =
-                (kin.max_junction_velocity_mm_s, prev_speed_mm_s, is_print)
-            {
+            // JunctionVelocity: fire when the *vector* velocity change across two contiguous
+            // printing segments exceeds the machine's square-corner velocity.
+            //
+            //     ‖ v_b·t̂_b − v_a·t̂_a ‖ > max_junction_velocity_mm_s
+            //
+            // Tangents come from `optimize::get_tangents`, the same arc-aware, winding-signed
+            // computation `adaptive_speed` shapes its output with, so one contract names one
+            // quantity. This strictly generalises the scalar Δv it replaces: when the tangents are
+            // equal it reduces to |v_b − v_a|, so nothing that fired before stops firing. What it
+            // adds is the constant-speed 90° corner — the case the rule is actually named for, and
+            // the one the scalar form could never see.
+            //
+            // Contiguity is still required (within 0.1 mm) so non-adjacent segments — e.g. across a
+            // travel — never produce a false positive.
+            let tangents = get_tangents(&s);
+            if let (Some(max_jv), Some(pv), Some(pt), true) = (
+                kin.max_junction_velocity_mm_s,
+                prev_speed_mm_s,
+                prev_exit_tangent,
+                is_print,
+            ) {
                 if junction_contiguous(&prev_print_end, &s.start) {
-                    let dv = (s.speed.value() / 60.0 - pv).abs();
-                    if dv > max_jv {
-                        push_finding(
-                            &mut r,
-                            RuleId::JunctionVelocity,
-                            Some(i),
-                            format!(
-                                "junction Δv {dv:.1} mm/s exceeds square-corner velocity {max_jv:.1}"
-                            ),
+                    if let Some((entry, _)) = tangents {
+                        let v = s.speed.value() / 60.0;
+                        let dv = libm::sqrt(
+                            (0..3)
+                                .map(|k| {
+                                    let d = v * entry[k] - pv * pt[k];
+                                    d * d
+                                })
+                                .sum::<f64>(),
                         );
+                        if dv > max_jv {
+                            push_finding(
+                                &mut r,
+                                RuleId::JunctionVelocity,
+                                Some(i),
+                                format!(
+                                    "junction Δv {dv:.1} mm/s exceeds square-corner velocity {max_jv:.1}"
+                                ),
+                            );
+                        }
                     }
                 }
             }
@@ -859,10 +1241,12 @@ where
             if is_print {
                 prev_print_end = Some(s.end);
                 prev_speed_mm_s = Some(s.speed.value() / 60.0);
+                prev_exit_tangent = tangents.map(|(_, exit)| exit);
             } else if s.travel {
                 // Reset junction tracking across travel moves.
                 prev_print_end = None;
                 prev_speed_mm_s = None;
+                prev_exit_tangent = None;
             }
         }
     }
@@ -1153,7 +1537,84 @@ mod tests {
                 "first-layer-speed",
                 "junction-velocity",
                 "unmodeled-gcode",
+                // Staged: promoted to Error one minor release after landing (design §8).
+                "filament-consistency",
             ]
         );
+    }
+
+    /// Pins the always-on rule set exactly, so the structural baseline cannot drift silently the way
+    /// "5 of 18" did before H1.3. A rule joining or leaving this list changes what `Report::ok()`
+    /// means for every caller that supplies no contracts, which is a decision, not a detail.
+    #[test]
+    fn contracts_default_evaluates_only_structural_rules() {
+        let c = Contracts::default();
+        let evaluated: Vec<&str> = RuleId::ALL
+            .into_iter()
+            .filter(|r| r.is_evaluated(&c))
+            .map(|r| r.as_str())
+            .collect();
+        assert_eq!(
+            evaluated,
+            vec![
+                "finite",
+                "travel-extrudes",
+                "bead",
+                "orientation-not-unit",
+                "arc-radius",
+                "unmodeled-gcode",
+                "continuity",
+                "negative-quantity",
+                "segment-length",
+                "arc-length",
+                "filament-consistency",
+            ],
+            "the always-on structural set changed"
+        );
+
+        // Of those, the ones that can flip `ok()`. Before H1.3 this was 5 of 18.
+        let can_fail: Vec<&str> = evaluated
+            .iter()
+            .copied()
+            .filter(|id| RuleId::from_wire(id).unwrap().default_severity() == Severity::Error)
+            .collect();
+        assert_eq!(
+            can_fail.len(),
+            9,
+            "error-severity always-on rules: {can_fail:?}"
+        );
+        assert_eq!(RuleId::ALL.len(), 24);
+    }
+
+    #[test]
+    fn a_fully_populated_contract_evaluates_every_rule() {
+        let c = Contracts {
+            bounds: Some([[0.0, 100.0]; 3]),
+            max_flow: Some(10.0),
+            speed_range: Some([100.0, 6000.0]),
+            monotonic_z: true,
+            min_temp: Some(180.0),
+            max_retraction_distance: Some(5.0),
+            max_retraction_speed: Some(3000.0),
+            max_travel_without_retract: Some(20.0),
+            first_layer_height_range: Some([0.1, 0.4]),
+            first_layer_speed_range: Some([100.0, 2000.0]),
+            bead_volume_tolerance: Some(0.01),
+            kinematics: Some(KinematicContracts {
+                max_acceleration_mm_s2: Some(500.0),
+                max_junction_velocity_mm_s: Some(8.0),
+            }),
+        };
+        assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
+
+        // The point of `rules_evaluated`: "clean" under 11 rules is a different claim from "clean"
+        // under 24, and until H1.3 the two reports were byte-identical.
+        let tp = Toolpath {
+            version: 0,
+            meta: None,
+            segments: Vec::new(),
+        };
+        assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 11);
+        assert_eq!(verify(&tp, &c).rules_evaluated.len(), 24);
     }
 }

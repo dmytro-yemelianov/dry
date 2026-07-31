@@ -3,20 +3,43 @@
     {
       "rule": "travel-without-retraction",
       "severity": "warning",
-      "segment": 1,
-      "message": "travel run distance 40.000 mm exceeds limit of 30.000 without retraction"
+      "segment": 2,
+      "message": "travel run distance 60.000 mm exceeds limit of 30.000 without retraction"
     },
     {
       "rule": "retraction-distance",
       "severity": "error",
-      "segment": 2,
+      "segment": 3,
       "message": "retraction distance 8.000 mm exceeds the limit of 5.000"
     },
     {
       "rule": "retraction-speed",
       "severity": "error",
-      "segment": 3,
+      "segment": 4,
       "message": "retraction speed 2500 mm/min exceeds the limit of 2000"
     }
-  ]
+  ],
+  "segments_inspected": 5,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "retraction-distance",
+    "retraction-speed",
+    "travel-without-retraction",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "monotonic_z": false,
+    "max_retraction_distance": 5.0,
+    "max_retraction_speed": 2000.0,
+    "max_travel_without_retract": 30.0
+  }
 }

@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "rule": "continuity",
+      "severity": "error",
+      "segment": 1,
+      "message": "X starts at 20 but the previous move ended at 10 (gap 10.000000 mm); the emitter writes endpoints only, so no repositioning move is produced and the machine cuts straight across"
+    },
+    {
+      "rule": "negative-quantity",
+      "severity": "error",
+      "segment": 2,
+      "message": "length is -10 (must not be negative)"
+    },
+    {
+      "rule": "segment-length",
+      "severity": "error",
+      "segment": 2,
+      "message": "declared length -10 disagrees with the distance between its own endpoints (10.000000 mm)"
+    },
+    {
+      "rule": "bead-volume",
+      "severity": "error",
+      "segment": 2,
+      "message": "deposited volume 0.800000 mm³ differs from the bead geometry (-0.800000 mm³ = length x width x height x flow) by more than 0.05"
+    },
+    {
+      "rule": "bead-volume",
+      "severity": "error",
+      "segment": 3,
+      "message": "deposited volume 0.400000 mm³ differs from the bead geometry (0.800000 mm³ = length x width x height x flow) by more than 0.05"
+    },
+    {
+      "rule": "filament-consistency",
+      "severity": "warning",
+      "segment": 4,
+      "message": "volume/filament 1.600000 mm² differs from 2.424242 mm² seen earlier on this tool; one of the two segments misstates how much material it deposits"
+    }
+  ],
+  "segments_inspected": 5,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency",
+    "bead-volume"
+  ],
+  "contracts": {
+    "monotonic_z": false,
+    "bead_volume_tolerance": 0.05
+  }
+}

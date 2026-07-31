@@ -1,16 +1,16 @@
 {
   "file": null,
   "profile": null,
-  "segments": 5,
+  "segments": 9,
   "metrics": {
-    "total_time_s": 1.35,
-    "print_time_s": 1.35,
-    "travel_time_s": 0.0,
-    "extruding_distance": 50.0,
-    "travel_distance": 0.0,
+    "total_time_s": 26.250099990002003,
+    "print_time_s": 20.9500799920016,
+    "travel_time_s": 5.3000199980003995,
+    "extruding_distance": 540.00199980004,
+    "travel_distance": 530.00199980004,
     "extruded_volume": 10.800000000000002,
-    "filament_length": 1.6500000000000001,
-    "segment_count": 5,
+    "filament_length": 4.455,
+    "segment_count": 9,
     "max_flow_rate": 80.0
   },
   "findings": [
@@ -22,33 +22,40 @@
       "message": "X = 500 is outside the build volume [0, 200]"
     },
     {
-      "rule": "max-flow",
+      "rule": "bounds",
       "severity": "error",
       "segment": 1,
+      "source_line": null,
+      "message": "X = 500 is outside the build volume [0, 200]"
+    },
+    {
+      "rule": "max-flow",
+      "severity": "error",
+      "segment": 2,
       "source_line": null,
       "message": "flow 80.000 mm³/s exceeds the ceiling 10.000"
     },
     {
       "rule": "speed",
       "severity": "error",
-      "segment": 2,
+      "segment": 4,
       "source_line": null,
       "message": "feedrate 12000 is outside [300, 9000] mm/min"
     },
     {
       "rule": "monotonic-z",
       "severity": "error",
-      "segment": 3,
+      "segment": 6,
       "source_line": null,
       "message": "Z decreases from 0.4 to 0.2"
     },
     {
       "rule": "cold-extrusion",
       "severity": "error",
-      "segment": 4,
+      "segment": 8,
       "source_line": null,
       "message": "extruding at nozzle temperature 150 (< 200 °C)"
     }
   ],
-  "error_count": 5
+  "error_count": 6
 }
