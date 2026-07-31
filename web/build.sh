@@ -21,4 +21,13 @@ cargo build --release --manifest-path "$ROOT/crates/wasm/Cargo.toml" \
   --target wasm32-unknown-unknown
 wasm-bindgen "$ROOT/crates/wasm/target/wasm32-unknown-unknown/release/dry_wasm.wasm" \
   --target "$TARGET" --out-dir "$OUT" --no-typescript
+
+if [ "$TARGET" = "nodejs" ]; then
+  # wasm-bindgen's --target nodejs glue is CommonJS. web/package.json declares
+  # "type": "module" (needed for the browser TPMS delegation, web/tpms-engine.js), which would
+  # otherwise make Node parse this generated glue as ESM whenever $OUT lives under web/. Scope
+  # the CommonJS declaration to just the output directory so it wins regardless of $OUT.
+  printf '{"type":"commonjs"}\n' > "$OUT/package.json"
+fi
+
 echo "built $TARGET -> $OUT"
