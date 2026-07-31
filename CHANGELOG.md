@@ -25,6 +25,61 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   cuts.
 
 ### Changed
+- **The browser gallery's TPMS generator now delegates to the Rust engine over wasm instead of
+  reimplementing it in JavaScript (H1.7).** `web/tpms.js` — a 638-line browser-only marching-squares
+  generator with zero engine calls — is gone; `web/designs.js` and `web/index.html` now build TPMS
+  ops through `web/tpms-engine.js`, which calls the same `tpms_ops_json` wasm export
+  `sdk/ts/src/generators/tpms.ts` already delegates to. This makes the browser demo byte-identical to
+  the native CLI, the Python SDK, and the TS SDK, and it stops shipping the JS generator's own
+  defects (an isoLevel finite-only check, a perimeter-inset clamp, a single up-front
+  `{op:'geometry', height: beadHeight}` op, no vacuity check, and unconditional `height`-sized top
+  layers) — all superseded by the engine's own fixes. The browser-only `pathMode` (`linear` /
+  `safe-arcs`) and `arcFit*` options are dropped, not ported: the engine's TPMS generator only ever
+  emits `move` ops, so there is no G2/G3 arc-fitting equivalent to delegate to. The `tpmsPathMode` UI
+  control is removed along with them; TPMS contours generated in the browser are now always linear
+  G1 moves. `web/blocks-regression.mjs` is re-baselined: its former dynamic execution of the deleted
+  JS generator is replaced with static checks that the delegation wiring is in place, since TPMS
+  Op-generation output now requires the wasm build (`web/pkg/`), which this file runs before in CI.
+- **BREAKING (wasm, Python, the TS SDK and the Rust API): every TPMS layer declares the bead height
+  it occupies — the clamped top layer included, on the non-adaptive path too.** The per-layer
+  declaration added for adaptive slicing (below) was gated on `adaptive`, so a plain job's top layer
+  still declared the full `layerHeight` while occupying only the Z that remained after clamping. At
+  the generator defaults (`2×2×2`, `cellSize 12`, `layerHeight 0.28`) the top layer spans **0.2 mm and
+  declared 0.28 — 1.40× over-extrusion on the top layer of every default gyroid**, and the residual
+  was not bounded at 40%: `DEGENERATE_TOP_LAYER_FRACTION` merges only sub-1% remainders, so the worst
+  surviving case was **99.95×**, measured at `layerHeight 0.5997` (a 0.006 mm layer declaring 0.5997).
+  As with the adaptive case, no verifier could catch it — the IR records the wrong bead
+  self-consistently. This changes the default op stream on every published surface
+  (`resolve_tpms_gcode` / `tpms_ops_json` on wasm, `resolve_tpms_gcode` on PyO3, `tpms()` / `tpmsOps()`
+  in `sdk/ts`, and `tpms_ops` / `tpms_design` / `try_tpms_ops` / `try_tpms_design` in Rust): a clamped
+  job now emits one additional `Op::Geometry`, and the G-code it produces deposits less material on
+  its top layer.
+
+  `beadHeight` is now preserved as a **ratio** (`gap × beadHeight / layerHeight`) rather than
+  discarded. Declaring the raw gap overrode the option from the second layer onward: measured
+  `layerHeight 0.4, beadHeight 0.5, adaptive: true, adaptiveMinLayerHeight 0.2` emitted declared
+  heights `[0.5, 0.2]`, silently turning a deliberate 1.25× squish into 0.5× on every layer after the
+  first. A nominal-height layer therefore declares exactly the configured `beadHeight`, which is also
+  what the first layer gets — no longer a special case, just the same rule applied to its nominal gap.
+  `beadHeight` defaults to `layerHeight`, so a job that does not set it is unaffected by this part.
+
+  `DEGENERATE_TOP_LAYER_FRACTION` is **kept** and now pinned from both sides by a boundary test (a
+  0.9% remainder merges, a 1.1% remainder stacks). An honest declaration does not make a degenerate
+  layer emittable: the remainder has no lower bound, and below half the coordinate quantum it rounds
+  onto the Z of the layer below and declares a zero height, which `resolve` refuses outright.
+  Redistributing the remainder across all layers — which would make the constant unnecessary — is a
+  slicing-policy change, not a declaration fix, and was declined for this slice.
+
+  **Op-stream delta, measured across 21 option sets by diffing the serialized op list against the
+  previous commit:** every clamped case is **exactly +1 op** (default 21634 → 21635; `small_cell`,
+  `perimeter`, a flow/phase variant, a `layerHeight 0.37` block, the `0.5997` worst case, and all ten
+  surfaces likewise +1). The adaptive fixture is **byte-identical** (6568 ops), as are a job whose
+  height is an exact multiple of its layer height and a non-adaptive `beadHeight` job. The
+  `beadHeight`-under-adaptive fixture keeps its op count and changes only the declared value
+  (`0.2` → `0.25`). With `Op::Geometry` filtered out, **all 21 streams are byte-identical before and
+  after** — no move, path ordering, or layer set moved. `conformance/`, `proofs/`, `spec/` and
+  `formal/` are untouched: there is no TPMS generator fixture in the conformance corpus
+  (`gallery/gyroid_infill.json` is FullControl-oracle output, not generator output).
 - **Adaptive TPMS layers now declare the bead height they actually occupy.** `Op::Geometry` was
   pushed once, before any slice, carrying `beadHeight` (which defaults to `layerHeight`), and was
   never updated. `resolve` reads that height as deposited volume (`length × width × height × flow`),

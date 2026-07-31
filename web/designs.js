@@ -2,7 +2,7 @@
 // Each is an array of ops: geometry / extruder / speed / move / arc. The same op vocabulary the
 // Python SDK and the conformance oracle use.
 import { starPolygonLatticeOps } from './lattice-research.js';
-import { tpmsOps } from './tpms.js';
+import { tpmsOps } from './tpms-engine.js';
 import { FULLCONTROL_DESIGNS } from './fullcontrol-gallery.generated.js';
 
 const TAU = Math.PI * 2;
@@ -327,10 +327,6 @@ const range = (id, label, defaultValue, min, max, step, unit = '1', title = '') 
   title,
   integer: Number(step) >= 1 && Number.isInteger(defaultValue) && Number.isInteger(min) && Number.isInteger(max),
 });
-const selectParam = (id, label, defaultValue, options, title = '') => ({
-  type: 'select', id, label, defaultValue, options, title,
-});
-
 const centerParams = () => [
   range('cx', 'cx', 50, 0, 100, 0.5, 'mm', 'Center X.'),
   range('cy', 'cy', 50, 0, 100, 0.5, 'mm', 'Center Y.'),
@@ -346,10 +342,6 @@ const starLatticeParams = (alphaDeg) => [
   range('layerHeight', 'layer', 0.2, 0.05, 2, 0.001, 'mm'),
 ];
 const tpmsParams = () => [
-  selectParam('pathMode', 'path', 'safe-arcs', [
-    { value: 'safe-arcs', label: 'safe arcs G2/G3' },
-    { value: 'linear', label: 'linear G1' },
-  ]),
   range('cellSize', 'cell', 22, 4, 80, 0.5, 'mm'),
   range('samplesPerCell', 'samples', 16, 4, 64, 1, '1/cell'),
   range('cellsX', 'cells X', 1, 1, 8, 1, '1'),
@@ -497,13 +489,13 @@ const DESIGN_DEFS = {
   star_lattice_m2: { label: 'M2 star-polygon lattice (alpha 60 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M2', 'parametric'], params: starLatticeParams(60), build: researchLattice('M2', 60) },
   star_lattice_m3: { label: 'M3 star-polygon lattice (alpha 30 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M3', 'parametric'], params: starLatticeParams(30), build: researchLattice('M3', 30) },
   star_lattice_m4: { label: 'M4 star-polygon lattice (alpha 45 deg)', group: 'Research lattices', tags: ['research', 'lattice', 'M4', 'parametric'], params: starLatticeParams(45), build: researchLattice('M4', 45) },
-  tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('gyroid') },
-  tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('schwarz-p') },
-  tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('schwarz-d') },
-  tpms_iwp: { label: 'TPMS I-WP contours', group: 'TPMS', tags: ['TPMS', 'I-WP', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('iwp') },
-  tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('neovius') },
-  tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('fischer-koch-s') },
-  tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit', 'G2/G3'], params: tpmsParams(), build: tpmsGallery('frd') },
+  tpms_gyroid: { label: 'TPMS gyroid contours', group: 'TPMS', tags: ['TPMS', 'gyroid', 'implicit'], params: tpmsParams(), build: tpmsGallery('gyroid') },
+  tpms_schwarz_p: { label: 'TPMS Schwarz P contours', group: 'TPMS', tags: ['TPMS', 'Schwarz P', 'implicit'], params: tpmsParams(), build: tpmsGallery('schwarz-p') },
+  tpms_schwarz_d: { label: 'TPMS Schwarz D contours', group: 'TPMS', tags: ['TPMS', 'Schwarz D', 'implicit'], params: tpmsParams(), build: tpmsGallery('schwarz-d') },
+  tpms_iwp: { label: 'TPMS I-WP contours', group: 'TPMS', tags: ['TPMS', 'I-WP', 'implicit'], params: tpmsParams(), build: tpmsGallery('iwp') },
+  tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit'], params: tpmsParams(), build: tpmsGallery('neovius') },
+  tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit'], params: tpmsParams(), build: tpmsGallery('fischer-koch-s') },
+  tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit'], params: tpmsParams(), build: tpmsGallery('frd') },
 };
 
 const DESIGNS = Object.fromEntries(

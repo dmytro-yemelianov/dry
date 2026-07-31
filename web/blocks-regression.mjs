@@ -11,7 +11,7 @@ function assert(condition, message) {
 const blocksHtml = read('blocks.html');
 const templatesJs = read('templates.js');
 const patternsJs = read('patterns.js');
-const tpmsJs = read('tpms.js');
+const tpmsEngineJs = read('tpms-engine.js');
 const designsJs = read('designs.js');
 const viewerJs = read('viewer.js');
 const indexHtml = read('index.html');
@@ -196,10 +196,8 @@ assert(toolUiCss.includes('grid-template-columns: var(--source-w) 7px'), 'resiza
 assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 'collapsed panels should hide body content');
 assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
 assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
-assert(indexHtml.includes('id="tpmsPathMode"'), 'TPMS generator missing path mode control');
-assert(indexHtml.includes("'tpmsPathMode', 'tpmsCell'"), 'TPMS path mode should participate in default reset tracking');
-assert(indexHtml.includes('value="safe-arcs"'), 'TPMS generator missing safe G2/G3 path mode');
-assert(indexHtml.includes('pathMode === \'safe-arcs\' ? \'G2/G3\' : \'G1\''), 'TPMS generator should tag generated path mode');
+assert(!indexHtml.includes('id="tpmsPathMode"'), 'TPMS path mode control should be gone (dropped, no engine equivalent)');
+assert(indexHtml.includes("'tpmsSurface', 'tpmsCell'"), 'TPMS surface should participate in default reset tracking');
 for (const id of [
   'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
   'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
@@ -211,14 +209,21 @@ assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill 
 assert(indexHtml.includes('id="tpmsAdaptive"'), 'TPMS generator missing adaptive slicing toggle');
 assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bead height should match layer height in the web app');
 assert(indexHtml.includes('maxFieldSamples: 3_000_000'), 'web TPMS generator should set an interactive resolution budget');
-assert(tpmsJs.includes('DEFAULT_LAYER_HEIGHT = 0.28'), 'TPMS generator should default to printable layer height');
-assert(tpmsJs.includes('DEFAULT_MAX_FIELD_SAMPLES'), 'TPMS generator missing resolution budget guard');
-assert(tpmsJs.includes('TPMS_PATH_MODES'), 'TPMS generator missing path mode enum');
-assert(tpmsJs.includes('DEFAULT_PATH_MODE = TPMS_PATH_MODES.SAFE_ARCS'), 'TPMS generator should default to safe arcs');
-assert(tpmsJs.includes('appendArcFittedPath'), 'TPMS generator missing safe arc fitting path');
-assert(tpmsJs.includes('bestArcFit'), 'TPMS generator missing arc candidate selection');
-assert(tpmsJs.includes('buildLayerSlices'), 'TPMS generator missing adaptive layer slicing');
-assert(tpmsJs.includes('needsAdaptiveLayer'), 'TPMS generator missing bad-zone adaptivity heuristic');
+assert(!indexHtml.includes('pathMode'), 'web app should not reference the dropped TPMS pathMode option');
+assert(!indexHtml.includes('arcFit'), 'web app should not reference the dropped TPMS arcFit* options');
+// The former tpms.js reimplementation is gone; TPMS Op generation now delegates to the Rust engine
+// over wasm (tpms-engine.js), the same idiom sdk/ts/src/generators/tpms.ts uses. Its actual output
+// is byte-identical to the native CLI / other SDKs and is exercised by the engine's own test suite
+// and by web/smoke.cjs once the wasm build exists — this file runs before that build in CI (see
+// .github/workflows/ci.yml), so it only checks the delegation wiring statically, not live output.
+assert(tpmsEngineJs.includes("from './pkg/dry_wasm.js'"), 'TPMS generator should import the wasm engine binding');
+assert(tpmsEngineJs.includes('tpms_ops_json'), 'TPMS generator should delegate Op generation to tpms_ops_json');
+for (const surface of [
+  'gyroid', 'schwarz-p', 'schwarz-d', 'iwp', 'neovius',
+  'fischer-koch-s', 'fischer-koch-y', 'frd', 'lidinoid', 'split-p',
+]) {
+  assert(tpmsEngineJs.includes(`'${surface}'`) || tpmsEngineJs.includes(`${surface}:`), `TPMS generator missing surface metadata for ${surface}`);
+}
 
 for (const unsupported of ['controls_whileUntil', 'controls_forEach', 'procedures_defnoreturn', 'procedures_defreturn']) {
   assert(!blocksHtml.includes(`<block type="${unsupported}"`), `unsupported ${unsupported} leaked into toolbox`);
@@ -234,7 +239,6 @@ for (const [name, source] of [
 
 const templatesModule = await import(`data:text/javascript;base64,${Buffer.from(templatesJs).toString('base64')}`);
 const patternsModule = await import(`data:text/javascript;base64,${Buffer.from(patternsJs).toString('base64')}`);
-const tpmsModule = await import(`data:text/javascript;base64,${Buffer.from(tpmsJs).toString('base64')}`);
 const fakeBlockly = {
   utils: { xml: { textToDom: (xml) => xml } },
   Xml: { domToWorkspace: (xml, workspace) => { workspace.xml = xml; } },
@@ -309,37 +313,10 @@ assert(Math.max(...vaseZ) - Math.min(...vaseZ) === 48, 'vaseHelixOps should span
 assert(Math.abs((vaseTotalAngle / (Math.PI * 2)) - 16) < 1e-9, 'vaseHelixOps should complete 16 turns');
 assert(Math.min(...vaseRadii) < 8.3 && Math.max(...vaseRadii) > 17, 'vaseHelixOps should retain the fluted belly profile');
 
-const printableTpms = tpmsModule.tpmsOps({ cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 6, samplesPerCell: 4, minPathLength: 0 });
-assert(printableTpms[0].op === 'geometry', 'TPMS generator should emit geometry first');
-assert(printableTpms[0].height === 0.28, 'TPMS default bead height should match printable layer height');
-const linearTpms = tpmsModule.tpmsOps({
-  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22,
-  samplesPerCell: 20, layerHeight: 0.28, minPathLength: 0, pathMode: 'linear',
-});
-const arcTpms = tpmsModule.tpmsOps({
-  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 22,
-  samplesPerCell: 20, layerHeight: 0.28, minPathLength: 0, pathMode: 'safe-arcs',
-});
-assert(!linearTpms.some((op) => op.op === 'arc'), 'linear TPMS path mode should not emit arcs');
-assert(arcTpms.some((op) => op.op === 'arc'), 'safe-arc TPMS path mode should emit fitted G2/G3 arc ops');
-const coarseTpms = tpmsModule.tpmsOps({
-  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10,
-  samplesPerCell: 8, layerHeight: 1.2, minPathLength: 0,
-});
-const adaptiveTpms = tpmsModule.tpmsOps({
-  surface: 'gyroid', cellsX: 1, cellsY: 1, cellsZ: 1, cellSize: 10,
-  samplesPerCell: 8, layerHeight: 1.2, minPathLength: 0,
-  adaptive: true, adaptiveMinLayerHeight: 0.15, adaptiveMaxLayerHeight: 0.3,
-});
-assert(adaptiveTpms.length > coarseTpms.length, 'adaptive TPMS slicing should insert extra printable layers');
-let rejectedRunawayTpms = false;
-try {
-  tpmsModule.tpmsOps({
-    cellsX: 8, cellsY: 8, cellsZ: 8, cellSize: 80,
-    samplesPerCell: 64, layerHeight: 0.08, maxFieldSamples: 100_000,
-  });
-} catch (error) {
-  rejectedRunawayTpms = /TPMS resolution budget exceeded/.test(error.message || String(error));
-}
-assert(rejectedRunawayTpms, 'TPMS generator should reject runaway interactive resolutions');
+// TPMS Op generation itself (printable defaults, adaptive slicing, resolution-budget rejection) is
+// no longer JS the way `patternsModule`/`templatesModule` above are: `tpms-engine.js` delegates to
+// the wasm engine (`tpms_ops_json`), which needs the built `web/pkg/` module. This file runs before
+// that build in CI (see .github/workflows/ci.yml), so live TPMS output is exercised by the engine's
+// own Rust test suite and by `web/smoke.cjs` against the built `web/pkg-node/` module instead —
+// static delegation-wiring checks for TPMS live above, alongside the other string assertions.
 console.log(`Blockly regression checks passed (${templateCount} templates)`);
