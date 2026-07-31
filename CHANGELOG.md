@@ -75,23 +75,59 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   what the first layer gets — no longer a special case, just the same rule applied to its nominal gap.
   `beadHeight` defaults to `layerHeight`, so a job that does not set it is unaffected by this part.
 
+  **A layer that follows one or more layers which traced no contour declares the nominal bead, not
+  the Z it spans.** A layer with no contours emits nothing and is not the layer the next bead rests
+  on, so the next depositing layer's gap spans every skipped layer — under `adaptive` that was
+  already the case, and ungating the declaration made it the default-path behaviour. Measured at
+  `neovius, isoLevel 1.0, layerHeight 0.2`, the layer at `z = 7.8` follows fifteen empty ones, spans
+  3.2 mm and declared 3.2: a **16× bead**, worth +20% of filament through `resolve_checked`
+  (47.2735 → 56.7330 mm). `neovius, isoLevel ±0.8, layerHeight 0.28` alternated 0.28/0.56 (2×) and
+  `schwarz-p, isoLevel 1.0, layerHeight 0.28` declared up to 1.4 (5×). The gap is only a bead height
+  when it is material actually stacked beneath: across the skipped layers nothing was deposited, so
+  the nozzle lays one ordinary bead onto whatever is below rather than a 3.2 mm column into air.
+  Declaring the span would be a self-consistent lie of exactly the kind this change removes, and a
+  larger one than the defect it fixes. No verifier catches either version — no rule relates deposited
+  material to geometry (H1.3).
+
   `DEGENERATE_TOP_LAYER_FRACTION` is **kept** and now pinned from both sides by a boundary test (a
   0.9% remainder merges, a 1.1% remainder stacks). An honest declaration does not make a degenerate
-  layer emittable: the remainder has no lower bound, and below half the coordinate quantum it rounds
-  onto the Z of the layer below and declares a zero height, which `resolve` refuses outright.
-  Redistributing the remainder across all layers — which would make the constant unnecessary — is a
-  slicing-policy change, not a declaration fix, and was declined for this slice.
+  layer emittable: the remainder has no lower bound, and when it is smaller than half the coordinate
+  *step* (`1e-6 mm`, so 5e-7 mm) the appended top Z rounds onto the Z of the layer below, the gap
+  becomes `0.0`, and the declaration is a zero height that `resolve` refuses outright. Reaching that
+  needs a block height off the layer grid: with the constant deleted, `cellSize 12.0000003,
+  layerHeight 2.0` emits `[2.0, 0.0]` and is refused. A *layer height* with a sub-step remainder is
+  not a trigger — `layerHeight 1.99999995` on a 12 mm block emits `[1.99999995, 2.0]` and resolves,
+  because every intermediate Z is rounded as it is pushed, so `zs.last()` already equals the height
+  and the clamp branch never runs. Redistributing the remainder across all layers — which would make
+  the constant unnecessary — is a slicing-policy change, not a declaration fix, and was declined for
+  this slice.
 
-  **Op-stream delta, measured across 21 option sets by diffing the serialized op list against the
-  previous commit:** every clamped case is **exactly +1 op** (default 21634 → 21635; `small_cell`,
-  `perimeter`, a flow/phase variant, a `layerHeight 0.37` block, the `0.5997` worst case, and all ten
-  surfaces likewise +1). The adaptive fixture is **byte-identical** (6568 ops), as are a job whose
-  height is an exact multiple of its layer height and a non-adaptive `beadHeight` job. The
-  `beadHeight`-under-adaptive fixture keeps its op count and changes only the declared value
-  (`0.2` → `0.25`). With `Op::Geometry` filtered out, **all 21 streams are byte-identical before and
-  after** — no move, path ordering, or layer set moved. `conformance/`, `proofs/`, `spec/` and
-  `formal/` are untouched: there is no TPMS generator fixture in the conformance corpus
-  (`gallery/gyroid_infill.json` is FullControl-oracle output, not generator output).
+  **Op-stream delta, measured across 28 option sets by diffing the serialized op list against the
+  previous commit:** with a **grid-aligned** `layerHeight`, every clamped case is **exactly +1 op**
+  (default 21634 → 21635; `small_cell`, `perimeter`, a flow/phase variant, a `layerHeight 0.37`
+  block, the `0.5997` worst case, and all ten surfaces likewise +1). A `layerHeight` that is *not* a
+  multiple of the 1e-6 mm coordinate step is not +1: the quantized gap alternates, so the
+  declaration re-emits on most layers — `layerHeight = 1/3` on a 12 mm block goes **2463 → 2488 ops
+  (+25)**, 26 declarations across 37 layers alternating `0.333333`/`0.333334`. That is honest (the
+  emitted Z really does step by that amount) and is left unsuppressed: a tolerance would reintroduce
+  the declared-vs-actual divergence this change removes. The adaptive fixture is **byte-identical**,
+  as are a job whose height is an exact multiple of its layer height and a non-adaptive `beadHeight`
+  job. The `beadHeight`-under-adaptive fixture keeps its op count and changes only the declared value
+  (`0.2` → `0.25`). The four skipped-layer fixtures end at **+1 or +0** against the pre-change stream
+  (e.g. `neovius, isoLevel 1.0, layerHeight 0.2` is 2852 → 2852 and byte-identical). With
+  `Op::Geometry` filtered out, **all 28 streams are byte-identical before and after** — no move, path
+  ordering, or layer set moved. `conformance/`, `proofs/`, `spec/` and `formal/` are untouched: there
+  is no TPMS generator fixture in the conformance corpus (`gallery/gyroid_infill.json` is
+  FullControl-oracle output, not generator output).
+
+  **Known extreme-value gaps, recorded not closed** (outside physical ranges, all three the generator
+  emitting IR its own `resolve` refuses — the class H1.1/H1.2 closed — while `tpms_ops_json` returns
+  the stream with no refusal at all): the ratio can round a declared height to `0.0`
+  (`layerHeight 0.5997, beadHeight 0.00004` → `[4e-5, 0.0]`, refused downstream; it validated OK
+  before this change); `DEGENERATE_TOP_LAYER_FRACTION` does not close that hole for
+  `layerHeight < ~5e-5` (`cellSize 0.1000003, layerHeight 1e-5` → refused); and `round()` overflows
+  to `inf` for `beadHeight 1e307`. Tracked under H1.6 in `docs/04-tasks.md` for a later slice to
+  close in the `reject_vacuous` idiom (ADR 0002 §4).
 - **Adaptive TPMS layers now declare the bead height they actually occupy.** `Op::Geometry` was
   pushed once, before any slice, carrying `beadHeight` (which defaults to `layerHeight`), and was
   never updated. `resolve` reads that height as deposited volume (`length × width × height × flow`),

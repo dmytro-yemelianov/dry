@@ -37,13 +37,20 @@ const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
 /// layer (1% of a 0.2 mm layer is 2 µm) and is merged into the layer below instead of stacked on it.
 ///
 /// It stays a slicing rule now that every layer declares the height it occupies, because an honest
-/// declaration does not make a degenerate layer emittable. The remainder has no lower bound: below
-/// half the `QUANTUM` it rounds onto the Z of the layer below, and the declared gap then rounds to
-/// zero — which `resolve` refuses outright (`height must be > 0`). Well above that floor the layer is
-/// still a full re-trace of the contour beneath it at a bead no machine can lay down, so refusing to
-/// stack it is a slicing decision, not a numeric compensation. Redistributing the remainder across
-/// all layers instead (which would make this constant unnecessary) is the principled alternative and
-/// was considered and declined for #187 — it is a slicing-policy change, not a declaration fix.
+/// declaration does not make a degenerate layer emittable. The remainder has no lower bound, and
+/// when it is smaller than half the coordinate step (`1 / QUANTUM`, so 5e-7 mm) the appended top Z
+/// *rounds onto the Z of the layer below*: the two layers land at the same coordinate, the gap is
+/// `0.0`, the declaration is `0.0`, and `resolve` refuses the whole program (`require_positive`,
+/// `crates/core/src/resolve.rs` — `height must be > 0`). That needs a block height off the layer
+/// grid to reach — measured with this constant deleted, `cellSize 12.0000003, layerHeight 2.0`
+/// emits declared heights `[2.0, 0.0]` and is refused. A layer height with a sub-step remainder is
+/// *not* a trigger (`layerHeight 1.99999995` on a 12 mm block emits `[1.99999995, 2.0]` and
+/// resolves): every intermediate Z is rounded as it is pushed, so `zs.last()` already equals
+/// `height` and the clamp branch never runs. Well above that floor the layer is still a full
+/// re-trace of the contour beneath it at a bead no machine can lay down, so refusing to stack it is
+/// a slicing decision, not a numeric compensation. Redistributing the remainder across all layers
+/// instead (which would make this constant unnecessary) is the principled alternative and was
+/// considered and declined for #187 — it is a slicing-policy change, not a declaration fix.
 /// Pinned at both boundaries by `the_degenerate_top_layer_threshold_is_one_percent`.
 const DEGENERATE_TOP_LAYER_FRACTION: f64 = 0.01;
 
@@ -489,18 +496,35 @@ impl Tpms {
         // layer), but the clamped top layer is the common one: at the generator defaults it spans
         // 0.2 mm and used to declare 0.28. No verifier can see either, because the IR records the
         // wrong bead self-consistently. A uniform job still declares once, so the common path only
-        // gains the one op its clamped layer needs.
+        // gains the one op its clamped layer needs — at a `layerHeight` on the 1e-6 mm coordinate
+        // grid. One off it (e.g. 1/3) makes the quantized gap alternate, so most layers re-declare:
+        // 2463 -> 2488 ops on a 12 mm block. That is honest, and a tolerance to suppress it would
+        // reintroduce the declared-vs-actual divergence this tracking exists to remove.
         let mut previous_z: Option<f64> = None;
+        let mut skipped_since_deposit = false;
         let mut declared_height = self.bead_height;
         for slice in slices {
             let z = round(self.z0 + slice.z_local);
             // A layer with no contours emits nothing (as before), so it is also not the layer the
-            // next bead rests on — the gap is measured against the last layer that deposited.
+            // next bead rests on — the gap is measured against the last layer that deposited, and
+            // the skip is remembered because a gap that spans nothing deposited is not a bead.
             if !self.perimeter && slice.paths.is_empty() {
+                skipped_since_deposit = true;
                 continue;
             }
             if let Some(previous) = previous_z {
-                let declared = self.declared_bead_height(round(z - previous));
+                // The gap is only a bead height when it is material actually stacked beneath. When
+                // the intervening layers traced nothing, the nozzle still lays one bead onto
+                // whatever is below — it does not extrude a layer-tall column into air — so such a
+                // layer declares the nominal bead (`self.bead_height` is exactly what
+                // `declared_bead_height` yields for a nominal gap). Measured at `neovius,
+                // isoLevel 1.0, layerHeight 0.2`: the layer after fifteen empty ones spans 3.2 mm,
+                // and declaring the span inflated the job 47.27 -> 56.73 mm of filament (+20%).
+                let declared = if skipped_since_deposit {
+                    self.bead_height
+                } else {
+                    self.declared_bead_height(round(z - previous))
+                };
                 if declared != declared_height {
                     ops.push(Op::Geometry {
                         width: Some(self.bead_width),
@@ -510,6 +534,7 @@ impl Tpms {
                 }
             }
             previous_z = Some(z);
+            skipped_since_deposit = false;
             if self.perimeter {
                 let rect_local = rectangle_path(self.width, self.depth, self.perimeter_inset);
                 let rect: Vec<Point> = rect_local.iter().map(|p| self.to_world(*p)).collect();
@@ -1265,6 +1290,136 @@ mod tests {
         assert!(
             gaps.iter().any(|g| *g < layer_height - 1e-9),
             "the fixture must produce sub-nominal gaps, got {gaps:?}"
+        );
+
+        // The adaptive fixture above is not what a user with a squish setting actually hits: the
+        // common case is a plain job whose top layer is clamped. `layerHeight 0.28,
+        // beadHeight 0.35` (a 1.25x squish) leaves a 0.24 mm top gap, which must declare 0.30 —
+        // the same ratio — rather than 0.24 (the raw gap) or 0.35 (the nominal bead).
+        let options = TpmsOptions {
+            layer_height: Some(0.28),
+            bead_height: Some(0.35),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let clamped: Vec<f64> = ops
+            .iter()
+            .filter_map(|o| match o {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => Some(*h),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            clamped.len(),
+            2,
+            "a clamped squished job declares the nominal bead and the clamped one: {clamped:?}"
+        );
+        assert!(
+            (clamped[0] - 0.35).abs() <= 1e-12 && (clamped[1] - 0.30).abs() <= 1e-12,
+            "layerHeight 0.28 / beadHeight 0.35 must declare [0.35, 0.30], got {clamped:?}"
+        );
+    }
+
+    #[test]
+    fn a_nominal_layer_declares_the_configured_bead_bit_for_bit() {
+        // `declared_bead_height`'s `gap == layer_height` arm is an exactness guard, not a policy
+        // case: without it a nominal layer's declaration goes through `round`, which can land a
+        // hair off the configured `beadHeight` and churn a spurious second `Op::Geometry` on a job
+        // that has only nominal gaps. `layerHeight 0.25` divides `cellSize 12` exactly, so every
+        // gap is nominal; `beadHeight 1/3` is not representable at the 1e-6 quantum, so `round`
+        // yields 0.333333 against a configured 0.3333333333333333. With the guard the job declares
+        // once (3231 ops); replacing it with `false` gives two declarations (3232).
+        let bead_height = 0.3333333333333333_f64;
+        let options = TpmsOptions {
+            layer_height: Some(0.25),
+            bead_height: Some(bead_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let geometry: Vec<f64> = ops
+            .iter()
+            .filter_map(|o| match o {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => Some(*h),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "every gap is nominal, so an unrepresentable beadHeight must still declare once, got \
+             {geometry:?}"
+        );
+        assert_eq!(
+            geometry[0], bead_height,
+            "the declaration must be the configured beadHeight bit for bit, not a rounded copy"
+        );
+    }
+
+    #[test]
+    fn a_layer_after_skipped_layers_declares_the_nominal_bead_not_the_span() {
+        // A layer that traces no contour emits nothing and does not advance `previous_z`, so the
+        // next depositing layer's gap spans every skipped layer. Ungating the declaration made that
+        // the default-path behaviour: measured at `neovius, isoLevel 1.0, layerHeight 0.2`, the
+        // layer at z=7.8 follows fifteen empty ones and spans 3.2 mm, so it declared 3.2 — a 16x
+        // bead, worth +20% of filament through `resolve_checked` (47.2735 -> 56.7330 mm).
+        //
+        // The gap is only a bead height when it is material actually stacked beneath. Nothing was
+        // deposited across the skipped layers, so the nozzle lays one ordinary bead onto whatever
+        // is below rather than a 3.2 mm column into air: such a layer declares the nominal bead.
+        let layer_height = 0.2;
+        let options = TpmsOptions {
+            surface: Some(Surface::Neovius),
+            iso_level: Some(1.0),
+            layer_height: Some(layer_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let declared = declared_bead_heights_by_layer(&ops);
+
+        // The fixture must really skip layers, or every assertion below is satisfied by uniformity.
+        let spanning: Vec<(f64, f64)> = declared
+            .windows(2)
+            .filter(|w| round(w[1].0 - w[0].0) > layer_height + 1e-9)
+            .map(|w| (w[1].0, round(w[1].0 - w[0].0)))
+            .collect();
+        assert_eq!(
+            spanning,
+            vec![(7.8, 3.2)],
+            "the fixture must leave exactly one 3.2 mm gap of skipped layers, got {spanning:?} \
+             from {:?}",
+            declared.iter().map(|(z, _)| *z).collect::<Vec<_>>()
+        );
+
+        // No layer may declare more than the nominal bead: the spanning one declares nominal, and
+        // every other gap is nominal or the clamped remainder.
+        for &(z, height) in &declared {
+            assert!(
+                height <= layer_height + 1e-9,
+                "layer at z={z} declares {height}, above the nominal {layer_height}"
+            );
+        }
+        let (span_z, span_height) = *declared
+            .iter()
+            .find(|(z, _)| *z == 7.8)
+            .expect("the spanning layer is emitted");
+        assert!(
+            (span_height - layer_height).abs() <= 1e-12,
+            "the layer at z={span_z} follows skipped layers and must declare the nominal \
+             {layer_height}, got {span_height}"
+        );
+        // With every gap either nominal or spanned-but-nominal, the job declares exactly once.
+        let geometry: Vec<&Op> = ops
+            .iter()
+            .filter(|o| matches!(o, Op::Geometry { .. }))
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "skipped layers must not add declarations, got {geometry:?}"
         );
     }
 

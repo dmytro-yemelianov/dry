@@ -72,9 +72,12 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
   it really occupies. `beadHeight` is preserved as a *ratio* (`gap × beadHeight / layerHeight`), so a
   deliberate squish survives on every layer; a nominal-height layer declares exactly the configured
   `beadHeight`, and so does the first layer, which has nothing beneath it to measure against (`z0` is
-  the nozzle Z, not a guaranteed plate gap). A top-layer remainder below 1% of `layerHeight` is a
-  slicing artifact rather than a printable layer and is merged into the layer below, which keeps the
-  block's full height without a second bead for it.
+  the nozzle Z, not a guaranteed plate gap). A layer that follows one or more layers which traced no
+  contour also declares the nominal bead rather than the Z it spans: nothing was deposited across the
+  skipped layers, so the nozzle lays one ordinary bead onto whatever is below rather than a
+  layers-tall column into air. A top-layer remainder below 1% of `layerHeight` is a slicing artifact
+  rather than a printable layer and is merged into the layer below, which keeps the block's full
+  height without a second bead for it.
 - `adaptive` inserts extra Z slices in intervals that are too tall or change contour topology/length
   sharply. `adaptiveMinLayerHeight`, `adaptiveMaxLayerHeight`, and the delta thresholds bound this pass.
 - `maxFieldSamples` is a preflight budget for marching-squares work. It rejects runaway combinations of
