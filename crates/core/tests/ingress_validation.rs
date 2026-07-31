@@ -267,6 +267,79 @@ fn resolve_still_accepts_valid_retraction_params() {
     assert_eq!(toolpath.segments[2].filament, Length::mm(2.0));
 }
 
+/// `validate_design` bounds its inputs with `is_finite` and no magnitude, which does not survive
+/// `dist`: two ops 1e200 apart square to `Area(inf)`, and `Area::sqrt` returns `Some(Length(inf))`
+/// because `inf >= 0.0`. Schema-valid JSON therefore put a non-finite length in the IR on every
+/// `resolve_*` surface — the same "gate the input, not the constructed quantity" seam H1.2 closed
+/// in the two importers.
+#[test]
+fn resolve_rejects_a_design_whose_lowered_distance_overflows() {
+    let design: Design = serde_json::from_str(
+        r#"{"ops":[{"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":1e200,"y":0,"z":0.2}]}"#,
+    )
+    .expect("design parses");
+
+    let Err(error) = resolve_checked(&design, &ResolveParams::default()) else {
+        panic!("resolve must refuse a design whose lowered distance overflows");
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("segments[1].length resolved to inf"),
+        "expected a lowered-length error, got {error}"
+    );
+}
+
+/// A finite, positive `dia` is not enough: `π·(dia/2)²` underflows to zero below `dia ≈ 4e-162`,
+/// and every extruding op divides by it. `Op::Deposit` produced `Length(inf)` filament, a travel's
+/// `0.0 / 0.0` produced `Length(NaN)`, and `simulate` then read the `NaN` back through
+/// `Length::mm(s.filament.value().abs())` — tripping the `debug_assert` in a debug build and
+/// poisoning `total_time_s` in a release one.
+#[test]
+fn resolve_rejects_a_diameter_with_no_bead_cross_section() {
+    let design: Design = serde_json::from_str(
+        r#"{"ops":[{"op":"move","x":0,"y":0,"z":0.2},{"op":"deposit","volume":1.0,"speed":600}]}"#,
+    )
+    .expect("design parses");
+
+    for dia in [1e-200, 1e200] {
+        let params = ResolveParams {
+            dia,
+            ..ResolveParams::default()
+        };
+        let Err(error) = resolve_checked(&design, &params) else {
+            panic!("resolve must refuse dia {dia:e}, which has no usable bead cross-section");
+        };
+        assert!(
+            error.to_string().contains("bead cross-section"),
+            "expected a cross-section error for dia {dia:e}, got {error}"
+        );
+    }
+}
+
+/// The ordinary diameters stay accepted — the guard above must not be a magnitude policy in
+/// disguise.
+#[test]
+fn resolve_still_accepts_ordinary_filament_diameters() {
+    let design: Design = serde_json::from_str(
+        r#"{"ops":[{"op":"move","x":0,"y":0,"z":0.2},{"op":"deposit","volume":1.0,"speed":600}]}"#,
+    )
+    .expect("design parses");
+
+    for dia in [1.75, 2.85, 3.0, 1e-6, 1e6] {
+        let params = ResolveParams {
+            dia,
+            ..ResolveParams::default()
+        };
+        let toolpath = resolve_checked(&design, &params)
+            .unwrap_or_else(|e| panic!("dia {dia} must resolve, got {e}"));
+        assert!(toolpath
+            .segments
+            .iter()
+            .all(|s| s.filament.value().is_finite()));
+    }
+}
+
 // ---- 4: feedrate sign and zero ---------------------------------------------------------------
 
 /// A **zero**-speed move still contributes nothing to any metric, and that is deliberate: it is the
@@ -365,22 +438,33 @@ fn threemf_import_rejects_motion_without_a_feedrate() {
 /// zero-speed moving segment is exactly what the G-code importer preserves for motion before the
 /// first `F`; writing the attribute only when `speed > 0` made that export un-importable, so the
 /// rejection above broke dry's own round-trip.
+/// The second case is the one that matters: the *first* segment of a G-code import has an undefined
+/// start, so its IR `length` is zero even though it moves. Keying the export guard on `seg.length`
+/// therefore omitted `feedrate` for it and the re-import failed — unless the program happened to
+/// start at the importer's implicit origin, which is why an `X0 Y0` fixture alone proves nothing.
+/// The guard mirrors the importer's own running-position delta instead.
 #[test]
 fn threemf_round_trips_a_zero_speed_moving_segment() {
-    let toolpath = import_gcode(
+    for source in [
         "G1 X0 Y0\nG1 X10 Y0\nG1 X10 Y10\n",
-        &GcodeImportParams::default(),
-    )
-    .expect("motion before the first F is a valid program");
-    assert_eq!(toolpath.segments[1].speed, Feedrate::ZERO);
+        // first motion away from the origin — segment 0 moves with `length == 0`.
+        "G1 X10 Y0\nG1 X20 Y0 F1200\n",
+        // never any `F` at all, off origin.
+        "G1 X10 Y5\nG1 X20 Y5\n",
+    ] {
+        let toolpath = import_gcode(source, &GcodeImportParams::default())
+            .expect("motion before the first F is a valid program");
+        assert_eq!(toolpath.segments[0].speed, Feedrate::ZERO);
 
-    let xml = dry_core::export_3mf_xml(&toolpath);
-    assert!(
-        xml.contains(r#"feedrate="0.0""#),
-        "a moving zero-speed segment must still carry its feedrate:\n{xml}"
-    );
-    let reimported = import_3mf_xml(&xml).expect("dry's own 3MF export must re-import");
-    assert_eq!(reimported.segments.len(), toolpath.segments.len());
+        let xml = dry_core::export_3mf_xml(&toolpath);
+        assert!(
+            xml.contains(r#"feedrate="0.0""#),
+            "a moving zero-speed segment must still carry its feedrate for {source:?}:\n{xml}"
+        );
+        let reimported = import_3mf_xml(&xml)
+            .unwrap_or_else(|e| panic!("dry's own 3MF export must re-import {source:?}: {e}"));
+        assert_eq!(reimported.segments.len(), toolpath.segments.len());
+    }
 }
 
 /// `parse_length_attr` admits only finite text, but the squared deltas overflow it: `x="1e308"`

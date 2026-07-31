@@ -44,8 +44,10 @@ pub struct Metrics {
 /// a cost worth naming: `inf` previously divided to a zero duration and surfaced as
 /// `max_flow_rate = inf`, which `verify`'s max-flow rule failed, while `NaN` poisoned
 /// `total_time_s`. Such a segment is now simply invisible to the metrics, so it no longer trips
-/// that rule. Nothing in ingress can produce one — every path builds its quantities through a
-/// checked constructor — so reaching this arm means hand-built IR or an engine bug.
+/// that rule. No ingress path can produce one: the two importers build every quantity through a
+/// checked constructor, `resolve_checked` refuses a toolpath whose lowered quantities are not
+/// finite, and the binary decoder rejects the bit patterns. Reaching this arm means hand-built IR
+/// or an engine bug.
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     let distance = if s.length > Length::ZERO {
         s.length
