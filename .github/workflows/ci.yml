@@ -341,6 +341,29 @@ jobs:
         working-directory: containers/verify-runner
         run: cargo test --locked
 
+  linuxcnc:
+    name: linuxcnc (reference interpreter accepts the CNC goldens)
+    runs-on: ubuntu-latest
+    # Debian ships linuxcnc-uspace (1:2.9.4-2+deb13u1 in trixie) as a stock package;
+    # Ubuntu does not carry it at all, so the job runs in a Debian container rather
+    # than adding the upstream apt source to the runner. No VM is involved — the Lima
+    # guest in tools/linuxcnc.lima.yaml exists only for running this check on macOS.
+    container: debian:trixie
+    steps:
+      - name: install the reference interpreter
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates linuxcnc-uspace
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # This is the only independent oracle in the repo: every other gate is Dry
+      # checking Dry (its own parser, its own frozen goldens). rs274 re-reads the
+      # emitted program and emits canonical machine ops, so a file passes only if
+      # LinuxCNC agrees it describes real motion.
+      - name: rs274 accepts the emitted CNC programs
+        run: tools/linuxcnc_check.sh
+
   security:
     name: dependency security audit
     runs-on: ubuntu-latest

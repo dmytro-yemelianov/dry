@@ -1,0 +1,59 @@
+# Lima guest that provides `rs274`, the reference LinuxCNC interpreter, for
+# tools/linuxcnc_check.sh on macOS (LinuxCNC does not run natively there).
+#
+#   limactl start --name=linuxcnc tools/linuxcnc.lima.yaml
+#   tools/linuxcnc_check.sh
+#
+# The script detects a missing `rs274` on the host and re-executes itself inside
+# this guest, so nothing else is needed once it is running. The guest name is
+# read from $DRY_LINUXCNC_LIMA (default: linuxcnc).
+#
+# The repository is mounted writable at the SAME absolute path as on the host —
+# that is load-bearing, not incidental: it is what lets relative arguments and
+# the working directory survive the hop into the guest.
+#
+# CI does not use this file. There the job runs in a Debian container where
+# rs274 is installed directly (see the `linuxcnc` job in .github/workflows/ci.yml),
+# so no VM is involved.
+
+vmType: "vz"
+mountType: "virtiofs"
+
+images:
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+    arch: "x86_64"
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.qcow2"
+    arch: "aarch64"
+
+cpus: 4
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  # Mounted at the same path inside the guest, writable so --out can write here.
+  - location: "{{.Dir}}/../.."
+    mountPoint: "{{.Dir}}/../.."
+    writable: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      # linuxcnc-uspace is a stock trixie package (1:2.9.4-2+deb13u1) — no extra
+      # apt source or keyring required. For a newer interpreter, the upstream repo
+      # at https://www.linuxcnc.org/ trixie ships 2.9.10; the check script does not
+      # depend on the version.
+      apt-get install -y --no-install-recommends linuxcnc-uspace
+
+probes:
+  - description: "rs274 (the LinuxCNC interpreter) is on PATH"
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      timeout 300s bash -c "until command -v rs274 >/dev/null 2>&1; do sleep 3; done"
+    hint: |
+      linuxcnc-uspace did not install. Check the provision log:
+        limactl shell linuxcnc -- sudo journalctl -u cloud-final
