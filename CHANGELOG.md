@@ -52,10 +52,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   below). `conformance/gallery/gyroid_infill.json` is unaffected and byte-identical — it is a
   FullControl-oracle fixture with uniform 0.3 mm layers and no `adaptive`, and it is not produced by
   this generator.
-- **BREAKING (wasm, Python and the TS SDK): the TPMS generator refuses option sets that would
-  deposit no material.** TPMS is the only generator exposed on all three published surfaces
+- **BREAKING (wasm, Python, the TS SDK and the Rust API): the TPMS generator refuses option sets
+  that would deposit no material.** TPMS is the only generator exposed on all three published surfaces
   (`resolve_tpms_gcode` / `tpms_ops_json` on wasm, `resolve_tpms_gcode` on PyO3, `tpms()` in
-  `sdk/ts`), so this narrows acceptance on each of them. Following ADR 0002 §4 — refuse, do not
+  `sdk/ts`), so this narrows acceptance on each of them. The panicking Rust wrappers `tpms_ops` /
+  `tpms_design` (re-exported from `lib.rs`) now panic for these classes where they previously
+  returned a four-op program; `try_tpms_ops` / `try_tpms_design` return the error. Following ADR 0002 §4 — refuse, do not
   clamp, and do not silently emit nothing — three input classes that previously returned `Ok` now
   return a `TpmsError`:
   - **`isoLevel` outside the surface's field range.** It was checked only for finiteness. The gyroid
@@ -72,7 +74,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   - **`perimeterInset` at or beyond half the block width or depth**, which was silently **clamped**
     to `width/2 - 1e-9`, producing a rectangle spanning 2e-9 mm and 44 zero-length extrusions
     presented as a perimeter wall. The clamp is removed; the inset is only read when `perimeter` is
-    on, so it is only gated there.
+    on, so it is only gated there. **This narrows the class rather than closing it:** the gate is an
+    exact `2·inset >= width` boundary, so an inset one epsilon below it still yields a rectangle
+    below the 1e-6 emission quantum — measured at `perimeterInset: 5.9999999` on a 12 mm block, 176
+    coincident extruding moves with zero extruded length that `verify` reports clean. The vacuity
+    check cannot catch it either, because a `perimeter: true` job is exempt from that check
+    unconditionally. Requiring the rectangle to survive emission rounding is tracked as a follow-up.
 
   A program whose only material is its perimeter is still accepted — a perimeter wall is real
   material. Emitted output for every option set that already deposited material is **unchanged**,
