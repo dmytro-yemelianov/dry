@@ -2272,3 +2272,147 @@ fn generate_pocket_rejects_oversized_tool() {
         "expected the pocket generator's oversized-tool message, got: {stderr}"
     );
 }
+
+/// A unique path under the temp dir, in the style the other CLI tests use.
+fn temp_path(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "dry-cli-{name}-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ))
+}
+
+/// An IR whose *last* segment the emitter refuses: an arc with no explicit endpoint, which is a
+/// full 360° circle on RS-274 rather than the no-op the missing words suggest.
+fn ir_refused_at_the_last_segment() -> String {
+    let good = |from: [f64; 3], to: [f64; 3]| {
+        format!(
+            r#"{{"start":[{},{},{}],"end":[{},{},{}],"travel":false,"speed":1200.0,"length":1.0,
+                "volume":0.12,"filament":0.05,"width":0.4,"height":0.2,"kind":"line","centre":null,
+                "clockwise":false,"temperature":null,"fan":null,"flow":null,"tool":null,
+                "dwell_s":null,"orientation":null}}"#,
+            from[0], from[1], from[2], to[0], to[1], to[2]
+        )
+    };
+    let endpointless_arc = r#"{"start":[2.0,0.0,0.2],"end":[null,null,0.2],"travel":false,
+        "speed":1200.0,"length":1.0,"volume":0.12,"filament":0.05,"width":0.4,"height":0.2,
+        "kind":"arc","centre":[-1.0,0.0],"clockwise":false,"temperature":null,"fan":null,
+        "flow":null,"tool":null,"dwell_s":null,"orientation":null}"#;
+    format!(
+        r#"{{"version":0,"segments":[{},{},{}]}}"#,
+        good([0.0, 0.0, 0.2], [1.0, 0.0, 0.2]),
+        good([1.0, 0.0, 0.2], [2.0, 0.0, 0.2]),
+        endpointless_arc
+    )
+}
+
+/// `emit_stream_to_writer` streams, and the refusal only surfaces at the *last* segment — so
+/// writing straight into `--out` left a truncated but syntactically valid g-code program on disk
+/// (under RS-274, one that has also lost its `M9`/`M5`/`M30` postamble) and then exited 2.
+#[test]
+fn emit_leaves_no_file_behind_when_the_program_is_refused() {
+    let ir = temp_path("refused-ir.json");
+    std::fs::write(&ir, ir_refused_at_the_last_segment()).unwrap();
+    let out = temp_path("refused-out.gcode");
+
+    let run = Command::new(bin())
+        .args(["emit", ir.to_str().unwrap(), "-o", out.to_str().unwrap()])
+        .output()
+        .unwrap();
+
+    assert_eq!(run.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&run.stderr).contains("arc segment needs an explicit end"));
+    assert!(
+        !out.exists(),
+        "a refused program must not leave a truncated g-code file at {out:?}"
+    );
+    let partial = PathBuf::from(format!("{}.dry-partial", out.to_str().unwrap()));
+    assert!(
+        !partial.exists(),
+        "the temporary program was not cleaned up"
+    );
+
+    let _ = std::fs::remove_file(&ir);
+}
+
+/// The `.stpnc` sidecar is a machining program too: it must not be written before the g-code
+/// program it describes is known to be emittable.
+#[test]
+fn emit_step_nc_sidecar_is_not_written_for_a_refused_program() {
+    let ir = temp_path("refused-step-nc-ir.json");
+    std::fs::write(&ir, ir_refused_at_the_last_segment()).unwrap();
+    let out = temp_path("refused-step-nc-out.gcode");
+    let sidecar = temp_path("refused-sidecar.stpnc");
+
+    let run = Command::new(bin())
+        .args([
+            "emit",
+            ir.to_str().unwrap(),
+            "--step-nc",
+            sidecar.to_str().unwrap(),
+            "-o",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(run.status.code(), Some(2));
+    assert!(!out.exists(), "refused program left g-code at {out:?}");
+    assert!(
+        !sidecar.exists(),
+        "refused program left a STEP-NC intent file at {sidecar:?}"
+    );
+
+    let _ = std::fs::remove_file(&ir);
+}
+
+/// The successful path still writes the whole program, sidecar included.
+#[test]
+fn emit_to_a_file_writes_the_whole_program() {
+    let path = fixture("gcode", "square");
+    let out = temp_path("emit-ok-out.gcode");
+    let sidecar = temp_path("emit-ok-sidecar.stpnc");
+
+    let run = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--step-nc",
+            sidecar.to_str().unwrap(),
+            "-o",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+
+    let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let want: Vec<String> = doc["expected"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let got: Vec<String> = std::fs::read_to_string(&out)
+        .unwrap()
+        .lines()
+        .map(String::from)
+        .collect();
+    assert_eq!(
+        got, want,
+        "`dry emit -o` must write the same program as stdout"
+    );
+    assert!(std::fs::read_to_string(&sidecar)
+        .unwrap()
+        .contains("<stepnc"));
+
+    let _ = std::fs::remove_file(&out);
+    let _ = std::fs::remove_file(&sidecar);
+}

@@ -666,6 +666,38 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Stream a program to `path` through a sibling temporary file, renaming it into place only once
+/// the whole program is on disk.
+///
+/// `emit_stream_to_writer` writes lines as it produces them and refuses on *segment content* — a
+/// non-finite word, an endpointless arc — which it can only discover mid-program, and [`die`] exits
+/// on the spot. Streaming straight into the destination therefore leaves a truncated but
+/// syntactically valid g-code file exactly where the caller asked for a program; under RS-274 that
+/// prefix has also lost its `M9`/`M5`/`M30` postamble. Nothing appears at `path` unless the whole
+/// program emitted.
+fn write_program(
+    path: &str,
+    emit: impl FnOnce(&mut std::io::BufWriter<fs::File>) -> Result<(), String>,
+) {
+    let tmp = format!("{path}.dry-partial");
+    let file = fs::File::create(&tmp).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+    let mut writer = std::io::BufWriter::new(file);
+    let result = emit(&mut writer)
+        .and_then(|()| writeln!(writer).map_err(|e| format!("cannot write {path}: {e}")))
+        .and_then(|()| {
+            writer
+                .flush()
+                .map_err(|e| format!("cannot write {path}: {e}"))
+        });
+    drop(writer);
+    let renamed = result
+        .and_then(|()| fs::rename(&tmp, path).map_err(|e| format!("cannot write {path}: {e}")));
+    if let Err(msg) = renamed {
+        let _ = fs::remove_file(&tmp);
+        die(msg);
+    }
+}
+
 /// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
 fn require(value: Option<f64>, flag: &str) -> f64 {
     value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
@@ -903,19 +935,17 @@ fn run(cli: Cli) -> ExitCode {
                     meta: None,
                     segments: segments.clone(),
                 };
-                let step_nc_text = emit_step_nc(&toolpath, &params);
-                fs::write(&step_nc_path, step_nc_text)
-                    .unwrap_or_else(|e| die(format!("cannot write {step_nc_path}: {e}")));
+                // Render the sidecar before emitting, so a toolpath STEP-NC cannot represent is
+                // refused before anything is written — but write it *after* the program. The
+                // `.stpnc` is itself a machining program: it must not be left on disk describing a
+                // cut whose g-code the emitter went on to refuse.
+                let step_nc_text = emit_step_nc(&toolpath, &params)
+                    .unwrap_or_else(|e| die(format!("cannot emit {step_nc_path}: {e}")));
                 match out {
-                    Some(path) => {
-                        let out_file = fs::File::create(&path)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                        let mut writer = std::io::BufWriter::new(out_file);
-                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                    }
+                    Some(path) => write_program(&path, |writer| {
+                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, writer)
+                            .map_err(|e| format!("cannot emit {file}: {e}"))
+                    }),
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
@@ -925,17 +955,14 @@ fn run(cli: Cli) -> ExitCode {
                             .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
                     }
                 }
+                fs::write(&step_nc_path, step_nc_text)
+                    .unwrap_or_else(|e| die(format!("cannot write {step_nc_path}: {e}")));
             } else {
                 match out {
-                    Some(path) => {
-                        let out_file = fs::File::create(&path)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                        let mut writer = std::io::BufWriter::new(out_file);
-                        emit_stream_to_writer(stream, &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                    }
+                    Some(path) => write_program(&path, |writer| {
+                        emit_stream_to_writer(stream, &params, writer)
+                            .map_err(|e| format!("cannot emit {file}: {e}"))
+                    }),
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
