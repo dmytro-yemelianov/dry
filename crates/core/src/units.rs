@@ -112,6 +112,12 @@ impl Length {
     /// A non-finite value reaching here is therefore an engine *bug*, not hostile input — it trips
     /// the assertion in debug builds and is still caught by the emit gate in release ones. Boundary
     /// code that handles untrusted numbers must use [`Length::try_mm`] instead.
+    ///
+    /// "Untrusted" covers *computed* values, not only parsed ones. Rejecting a non-finite input word
+    /// does not establish this invariant on its own: unit conversion and distance arithmetic
+    /// overflow finite inputs (`G20` scales by 25.4, `point_dist` squares the deltas), so an ingress
+    /// path must build every quantity through the checked constructor, not merely validate what it
+    /// read. The assertion below documents an invariant; it does not create one.
     #[inline]
     pub fn mm(value: f64) -> Length {
         debug_assert!(value.is_finite(), "Length::mm({value}) is not finite");

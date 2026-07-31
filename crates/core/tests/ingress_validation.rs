@@ -112,8 +112,9 @@ fn gcode_import_rejects_non_finite_word_values() {
         "G1 X10 Y0 F1e400\n",
         "G1 Xnan Y0 F1200\n",
     ] {
-        let error = import_gcode(source, &params)
-            .expect_err("import must refuse a non-finite word value in {source}");
+        let Err(error) = import_gcode(source, &params) else {
+            panic!("import must refuse a non-finite word value in {source:?}");
+        };
         assert!(
             error.to_string().contains("non-finite"),
             "expected a non-finite word error for {source:?}, got {error}"
@@ -143,6 +144,74 @@ fn gcode_import_still_accepts_motion_before_the_first_feedrate() {
     )
     .expect("motion before the first F is a valid program");
     assert_eq!(toolpath.segments[0].speed, Feedrate::ZERO);
+}
+
+/// Checking the *parsed* word is not enough: the arithmetic between the scanner and the IR
+/// overflows finite words. `point_dist` squares the deltas, `G20` scales every coordinate, feedrate
+/// and extrusion by 25.4, `G92` writes a converted origin straight into the position, and a flow
+/// ratio multiplies the deposited length before it meets the filament cross-section. Each of these
+/// reached `Length::mm`/`Feedrate` with a non-finite value — `Length(inf)` in the IR of a release
+/// build, and a `debug_assert` panic in a debug one, from a 40-byte file.
+#[test]
+fn gcode_import_rejects_values_that_overflow_after_parsing() {
+    let params = GcodeImportParams::default();
+    for (source, expected) in [
+        // `point_dist` across the f64 range.
+        (
+            "G1 X0 Y0 F1200\nG1 X1e308 Y1e308 F1200\n",
+            "line 2: move length is not finite (inf)",
+        ),
+        // inch → mm on a coordinate.
+        (
+            "G20\nG1 X1e307 F1200\n",
+            "line 2: coordinate X is not finite (inf)",
+        ),
+        // inch → mm on the feedrate.
+        ("G20\nG1 X1 F1e307\n", "is not finite after unit conversion"),
+        // inch → mm on the extrusion axis.
+        (
+            "G20\nG1 X1 E1e307 F100\n",
+            "line 2: extrusion is not finite (inf)",
+        ),
+        // a relative move that walks off the end of the range.
+        (
+            "G91\nG1 X1e308 F100\nG1 X1e308\n",
+            "line 3: move length is not finite (inf)",
+        ),
+        // `G92` seeds the position, so it must be checked where it is written.
+        ("G20\nG92 X1e307\n", "is not finite after unit conversion"),
+        // `M221` scales the deposit; both factors stay finite while the product does not.
+        (
+            "M221 S1e300\nG1 X1 E1e10 F100\n",
+            "line 2: deposited volume is not finite (inf)",
+        ),
+    ] {
+        let Err(error) = import_gcode(source, &params) else {
+            panic!("import must refuse an overflowing value in {source:?}");
+        };
+        assert!(
+            error.to_string().contains(expected),
+            "expected {expected:?} for {source:?}, got {error}"
+        );
+    }
+}
+
+/// A finite `filament_diameter` can still square to a non-finite cross-section, which would then
+/// make every extruding segment's `volume` non-finite. `GcodeImportParams` is caller JSON on the
+/// wasm and PyO3 surfaces.
+#[test]
+fn gcode_import_rejects_a_diameter_with_no_finite_cross_section() {
+    let params = GcodeImportParams {
+        filament_diameter: 1e200,
+        ..GcodeImportParams::default()
+    };
+    let Err(error) = import_gcode("G1 X1 E1 F100\n", &params) else {
+        panic!("import must refuse a diameter with no finite cross-section");
+    };
+    assert!(
+        error.to_string().contains("finite cross-section"),
+        "expected a cross-section error, got {error}"
+    );
 }
 
 // ---- 3: `ResolveParams` ----------------------------------------------------------------------
@@ -209,16 +278,30 @@ fn resolve_still_accepts_valid_retraction_params() {
 /// attempt fails *here*, next to the reason, rather than in the refinement corpus.
 #[test]
 fn zero_speed_accounting_stays_as_the_lean_model_specifies_it() {
-    let mut travel = line_to([10.0, 0.0, 0.2]);
-    travel.travel = true;
-    travel.volume = Volume::ZERO;
-    travel.filament = Length::ZERO;
-    travel.speed = Feedrate::ZERO;
+    // The corpus case is an *extruding* segment, not a travel: `length = 10`, `speed = 0`,
+    // `filament = 6`, `volume = 3`. Reproduce it exactly, because the two halves of its expectation
+    // pull in opposite directions and only the pair pins the model.
+    let mut extruding = line_to([10.0, 0.0, 0.2]);
+    extruding.travel = false;
+    extruding.length = Length::mm(10.0);
+    extruding.speed = Feedrate::ZERO;
+    extruding.filament = Length::mm(6.0);
+    extruding.volume = Volume(3.0);
 
-    let metrics = simulate(&tp(vec![travel]));
+    let metrics = simulate(&tp(vec![extruding]));
+    // (a) the move is un-timeable, so it contributes no distance, no time and no segment count …
+    assert_eq!(metrics.extruding_distance, Length::ZERO);
     assert_eq!(metrics.travel_distance, Length::ZERO);
+    assert_eq!(metrics.print_time_s, Time::ZERO);
     assert_eq!(metrics.total_time_s, Time::ZERO);
     assert_eq!(metrics.segment_count, 0);
+    // … (b) but the *materials* still accrue: `withMaterials` in
+    // `formal/Dry/Semantics/SimulateMetrics.lean` adds volume and filament on every segment,
+    // un-timeable or not. Dropping the segment wholesale would break the model just as surely as
+    // counting its distance would.
+    assert_eq!(metrics.extruded_volume, Volume(3.0));
+    assert_eq!(metrics.filament_length, Length::mm(6.0));
+    assert_eq!(metrics.max_flow_rate, dry_core::Flow::ZERO);
 }
 
 /// A negative feedrate passed the `== ZERO` check entirely and produced a negative duration that
@@ -240,19 +323,29 @@ fn simulate_never_accrues_negative_time() {
 
 #[test]
 fn threemf_import_rejects_invalid_attributes() {
-    for attrs in [
-        r#" x="nan" y="0.0" z="0.2" feedrate="1200.0""#,
-        r#" x="10.0" y="0.0" z="0.2" feedrate="inf""#,
-        r#" x="10.0" y="0.0" z="0.2" feedrate="-1200.0""#,
+    // Each case must fail for *its own* reason: asserting only that some error came back passes
+    // just as happily when a later guard rejects the segment for something unrelated.
+    for (attrs, expected) in [
+        (
+            r#" x="nan" y="0.0" z="0.2" feedrate="1200.0""#,
+            r#"3MF error: attribute x="nan" is not a finite length"#,
+        ),
+        (
+            r#" x="10.0" y="0.0" z="0.2" feedrate="inf""#,
+            r#"3MF error: attribute feedrate="inf" is not finite"#,
+        ),
+        (
+            r#" x="10.0" y="0.0" z="0.2" feedrate="-1200.0""#,
+            "3MF error: segment feedrate must not be negative",
+        ),
     ] {
         let xml = format!(
             "<model>\n  <build>\n    <tp:toolpath>\n      <tp:segment id=\"0\" type=\"line\" travel=\"true\"{attrs}/>\n    </tp:toolpath>\n  </build>\n</model>\n"
         );
-        let error = import_3mf_xml(&xml).expect_err("3MF import must refuse an invalid attribute");
-        assert!(
-            !error.to_string().is_empty(),
-            "expected a 3MF error for {attrs:?}"
-        );
+        let Err(error) = import_3mf_xml(&xml) else {
+            panic!("3MF import must refuse {attrs:?}");
+        };
+        assert_eq!(error.to_string(), expected, "wrong rejection for {attrs:?}");
     }
 }
 
@@ -266,4 +359,38 @@ fn threemf_import_rejects_motion_without_a_feedrate() {
         error.to_string().contains("feedrate"),
         "expected a feedrate error, got {error}"
     );
+}
+
+/// …and dry's own exporter must therefore *be* a legitimate producer of `feedrate="0.0"`. A
+/// zero-speed moving segment is exactly what the G-code importer preserves for motion before the
+/// first `F`; writing the attribute only when `speed > 0` made that export un-importable, so the
+/// rejection above broke dry's own round-trip.
+#[test]
+fn threemf_round_trips_a_zero_speed_moving_segment() {
+    let toolpath = import_gcode(
+        "G1 X0 Y0\nG1 X10 Y0\nG1 X10 Y10\n",
+        &GcodeImportParams::default(),
+    )
+    .expect("motion before the first F is a valid program");
+    assert_eq!(toolpath.segments[1].speed, Feedrate::ZERO);
+
+    let xml = dry_core::export_3mf_xml(&toolpath);
+    assert!(
+        xml.contains(r#"feedrate="0.0""#),
+        "a moving zero-speed segment must still carry its feedrate:\n{xml}"
+    );
+    let reimported = import_3mf_xml(&xml).expect("dry's own 3MF export must re-import");
+    assert_eq!(reimported.segments.len(), toolpath.segments.len());
+}
+
+/// `parse_length_attr` admits only finite text, but the squared deltas overflow it: `x="1e308"`
+/// against an origin of zero produced `Length(inf)` in release and tripped `Length::mm`'s
+/// `debug_assert` in debug.
+#[test]
+fn threemf_import_rejects_a_length_that_overflows_after_parsing() {
+    let xml = "<model>\n  <build>\n    <tp:toolpath>\n      <tp:segment id=\"0\" type=\"line\" travel=\"true\" x=\"1e308\" y=\"1e308\" z=\"0.2\" feedrate=\"1200.0\"/>\n    </tp:toolpath>\n  </build>\n</model>\n";
+    let Err(error) = import_3mf_xml(xml) else {
+        panic!("3MF import must refuse a length that overflows");
+    };
+    assert_eq!(error.to_string(), "3MF error: segment length is not finite");
 }

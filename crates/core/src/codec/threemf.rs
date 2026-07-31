@@ -57,7 +57,11 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
         if let Some(z) = seg.end[2] {
             xml.push_str(&format!(" z=\"{:.4}\"", z.0));
         }
-        if seg.speed.0 > 0.0 {
+        // A moving segment must carry its feedrate even when that feedrate is zero: the importer
+        // refuses motion with no `feedrate` attribute, and a zero-speed moving segment is exactly
+        // what the G-code importer preserves for motion before the first `F` (see `gcode/lift.rs`).
+        // Writing nothing there would make dry's own export un-importable.
+        if seg.speed.0 > 0.0 || seg.length > Length::ZERO {
             xml.push_str(&format!(" feedrate=\"{:.1}\"", seg.speed.0));
         }
         if seg.volume.0 > 0.0 {
@@ -114,11 +118,20 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
                 end_pos[1].unwrap_or(Length::ZERO).0 - current_pos[1].unwrap_or(Length::ZERO).0;
             let dz =
                 end_pos[2].unwrap_or(Length::ZERO).0 - current_pos[2].unwrap_or(Length::ZERO).0;
-            let length = Length::mm((dx * dx + dy * dy + dz * dz).sqrt());
+            // `parse_length_attr` accepts only finite text, but the squared deltas can still
+            // overflow it (`x="1e308"` against an origin of zero), so the distance goes through the
+            // checked constructor too — `Length::mm` would only assert, and only in debug builds.
+            let squared = dx * dx + dy * dy + dz * dz;
+            let Some(length) = Length::try_mm(squared.sqrt()) else {
+                return Err(ThreeMfError {
+                    message: "segment length is not finite".into(),
+                });
+            };
 
-            // A segment that moves must say how fast: `export_3mf_xml` always writes `feedrate` for
-            // one, and defaulting a missing attribute to zero produced a move that contributed no
-            // time, no distance and no segment count to `simulate` — an invisible move.
+            // A segment that moves must say how fast: `export_3mf_xml` writes `feedrate` for one
+            // (including `feedrate="0.0"` when the source program never stated a feedrate), and
+            // defaulting a *missing* attribute to zero produced a move that contributed no time, no
+            // distance and no segment count to `simulate` — an invisible move.
             let speed = match feedrate {
                 Some(f) => Feedrate(f),
                 None if length > Length::ZERO => {
