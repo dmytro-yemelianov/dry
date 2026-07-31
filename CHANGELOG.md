@@ -25,6 +25,33 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   cuts.
 
 ### Changed
+- **Adaptive TPMS layers now declare the bead height they actually occupy.** `Op::Geometry` was
+  pushed once, before any slice, carrying `beadHeight` (which defaults to `layerHeight`), and was
+  never updated. `resolve` reads that height as deposited volume (`length × width × height × flow`),
+  so with `layerHeight: 0.4, adaptive: true, adaptiveMinLayerHeight: 0.05` a single
+  `Op::Geometry { height: 0.4 }` stood against measured layer gaps of `[0.05, 0.1, 0.2, 0.4]` — **8×
+  over-extrusion on the thinnest layer**, and the defect that adaptive slicing exists to avoid. No
+  verifier could catch it: the IR faithfully records the wrong bead, so `bead`, `max-flow` and every
+  other rule saw a self-consistent lie. The generator now emits a fresh `Op::Geometry` whenever the
+  gap to the layer below changes. The first layer keeps the configured `beadHeight`: it has no layer
+  beneath it to measure a gap against, and `resolve` has no first-layer convention of its own to
+  match. A layer that traces no contour deposits nothing, so the next layer's gap is measured from
+  the last layer that did.
+
+  Separately, `base_layer_zs` unconditionally appended a final layer at exactly the block height.
+  With `cellSize: 12, cellsZ: 1, layerHeight: 1.9999` that put two layers **0.6 µm apart**, each
+  extruding a full 1.9999 mm bead; the sliver is now merged into the layer below, which keeps the
+  block's full height without inventing a second bead for it.
+
+  **Output changes for adaptive jobs and for that degenerate top-layer case only.** Verified by
+  diffing the op stream against the previous commit across 15 option sets: the default options, all
+  ten surfaces, `perimeter`, and a flow/phase/`z0`/`beadHeight` variant are **byte-identical**. The
+  adaptive fixture gains 29 `Op::Geometry` ops (6539 → 6568) and **no move changes at all**; the
+  sliver fixture drops from 518 to 454 ops, and the top layer keeps the same 55-point geometry
+  (only the nearest-neighbour path ordering shifts, since its cursor now comes from the layer
+  below). `conformance/gallery/gyroid_infill.json` is unaffected and byte-identical — it is a
+  FullControl-oracle fixture with uniform 0.3 mm layers and no `adaptive`, and it is not produced by
+  this generator.
 - **BREAKING (wasm, Python and the TS SDK): the TPMS generator refuses option sets that would
   deposit no material.** TPMS is the only generator exposed on all three published surfaces
   (`resolve_tpms_gcode` / `tpms_ops_json` on wasm, `resolve_tpms_gcode` on PyO3, `tpms()` in
