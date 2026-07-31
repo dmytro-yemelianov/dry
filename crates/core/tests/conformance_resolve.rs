@@ -3,6 +3,10 @@
 //! including the ~120-segment parametric spiral vase. This proves the deposition + arc math on real
 //! geometry, clean-room (Dry resolves the oracle's design; it does not re-author it by hand).
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, resolve, simulate, Design, EmitParams, ResolveParams};
 use serde::Deserialize;
 use std::fs;

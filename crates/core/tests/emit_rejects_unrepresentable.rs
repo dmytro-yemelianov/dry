@@ -9,6 +9,10 @@
 //!
 //! The five-axis orientation rejection lives in `tests/kinematics.rs`, next to the model helpers.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
     emit, emit_stream, CncFrame, EmitParams, Feedrate, FirmwareFlavor, Length, Segment,
     SegmentKind, Toolpath, Volume,
@@ -56,11 +60,29 @@ fn tp(segments: Vec<Segment>) -> Toolpath {
     }
 }
 
-/// Emit through the infallible entry point without tripping its `debug_assert`, so one assertion
-/// covers both build profiles: debug panics, release returns no lines, neither writes a word.
-fn emit_refusing(toolpath: &Toolpath, params: &EmitParams) -> Vec<String> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| emit(toolpath, params)))
-        .unwrap_or_default()
+/// Assert the infallible entry point refuses the whole program **in the profile being built**.
+///
+/// The two profiles refuse differently and each needs its own assertion. Wrapping `emit` in
+/// `catch_unwind(..).unwrap_or_default()` and asserting emptiness once would pass on the *caught
+/// panic* in debug and never execute the `Vec::new()` that release builds return — and CI runs
+/// debug only (`ci.yml`), so the branch that actually ships would go untested. Run this file under
+/// `cargo test --release` to cover the other half.
+#[cfg(debug_assertions)]
+fn assert_emit_refuses(toolpath: &Toolpath, params: &EmitParams) {
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| emit(toolpath, params)));
+    assert!(
+        outcome.is_err(),
+        "debug emit() must trip its debug_assert on a violated precondition, got {outcome:?}"
+    );
+}
+
+#[cfg(not(debug_assertions))]
+fn assert_emit_refuses(toolpath: &Toolpath, params: &EmitParams) {
+    let lines = emit(toolpath, params);
+    assert!(
+        lines.is_empty(),
+        "release emit() must refuse the whole program, not emit part of it: {lines:?}"
+    );
 }
 
 fn assert_refused(segments: Vec<Segment>, params: &EmitParams, expected: &str) {
@@ -71,10 +93,7 @@ fn assert_refused(segments: Vec<Segment>, params: &EmitParams, expected: &str) {
         error.contains(expected),
         "expected an error mentioning {expected:?}, got {error:?}"
     );
-    assert!(
-        emit_refusing(&tp(segments), params).is_empty(),
-        "the infallible emit() must refuse the whole program, not emit part of it"
-    );
+    assert_emit_refuses(&tp(segments), params);
 }
 
 // ---- C1: non-finite values ------------------------------------------------------------------
@@ -165,13 +184,19 @@ fn no_emitted_word_ever_carries_nan_or_inf() {
     segment.end[1] = Some(Length::mm(f64::NAN));
     segment.speed = Feedrate(f64::NAN);
 
-    let lines = emit_refusing(&tp(vec![segment]), &EmitParams::default());
+    // The fallible path hands back the refusal in place of any line at all …
+    let error = emit_stream(
+        vec![segment.clone()].into_iter().map(Ok),
+        &EmitParams::default(),
+    )
+    .expect_err("emit should refuse this program")
+    .to_string();
     assert!(
-        !lines
-            .iter()
-            .any(|line| line.contains("NaN") || line.contains("inf")),
-        "non-finite word reached the emitted program: {lines:?}"
+        !error.contains("G1"),
+        "the refusal must replace the move, not describe one: {error:?}"
     );
+    // … and the infallible one refuses the whole program in whichever profile is being built.
+    assert_emit_refuses(&tp(vec![segment]), &EmitParams::default());
 }
 
 // ---- CncFrame on the pub/Deserialize path ----------------------------------------------------
@@ -265,4 +290,59 @@ fn arcs_that_close_on_themselves_still_emit_their_endpoint() {
         lines.iter().any(|l| l.contains('X') && l.contains('Y')),
         "a closed arc must still carry X/Y: {lines:?}"
     );
+}
+
+// ---- the STEP-NC sidecar is a machining program too --------------------------------------------
+
+/// `emit_step_nc` formats through the same unchecked `format_number`, so a non-finite quantity left
+/// as the well-formed attribute value `NaN`/`inf` in a `.stpnc` intent document — and `dry emit
+/// --step-nc` wrote that file, so the sidecar outlived the refused g-code program.
+///
+/// Its gate is wider than the g-code one: `<toolframe>` is written for every oriented segment, not
+/// only under a five-axis model, so a value the g-code path drops still reaches this document.
+#[test]
+fn step_nc_refuses_non_finite_quantities() {
+    let mut end_x = line_to([10.0, 0.0, 0.2]);
+    end_x.end[0] = Some(Length::mm(f64::NAN));
+
+    let mut speed = line_to([10.0, 0.0, 0.2]);
+    speed.speed = Feedrate(f64::INFINITY);
+
+    let mut toolframe = line_to([10.0, 0.0, 0.2]);
+    toolframe.orientation = Some([0.0, f64::NAN, 1.0]);
+
+    let mut arc = line_to([10.0, 0.0, 0.2]);
+    arc.kind = SegmentKind::Arc;
+    arc.centre = Some([Length::mm(f64::NEG_INFINITY), Length::mm(0.0)]);
+
+    let mut dwell = line_to([10.0, 0.0, 0.2]);
+    dwell.kind = SegmentKind::Dwell;
+    dwell.dwell_s = Some(f64::NAN);
+
+    for (segment, expected) in [
+        (end_x, "end x"),
+        (speed, "speed"),
+        (toolframe, "toolframe j"),
+        (arc, "arc centre_x"),
+        (dwell, "dwell"),
+    ] {
+        let error = dry_core::emit_step_nc(&tp(vec![segment]), &EmitParams::default())
+            .expect_err("step-nc should refuse a non-finite quantity")
+            .to_string();
+        assert!(
+            error.contains(expected),
+            "expected an error mentioning {expected:?}, got {error:?}"
+        );
+    }
+}
+
+#[test]
+fn step_nc_still_renders_a_finite_toolpath() {
+    let xml = dry_core::emit_step_nc(&tp(vec![line_to([10.0, 0.0, 0.2])]), &EmitParams::default())
+        .expect("a finite toolpath is representable as STEP-NC");
+    assert!(
+        xml.contains("<workingstep id=\"ws-0\" type=\"motion\">"),
+        "{xml}"
+    );
+    assert!(!xml.contains("NaN") && !xml.contains("inf"), "{xml}");
 }

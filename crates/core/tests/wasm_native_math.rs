@@ -1,3 +1,7 @@
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, resolve, Design, EmitParams, ResolveParams, Toolpath};
 use std::fs;
 use std::path::PathBuf;

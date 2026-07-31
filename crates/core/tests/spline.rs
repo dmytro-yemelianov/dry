@@ -2,6 +2,10 @@
 //! through each control point; `resolve` keeps the curve intact in the L2 toolpath as a first-class
 //! spline segment, and `emit` lowers/resolves it to a chain of line segments.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, resolve, Design, EmitParams, ResolveParams, SegmentKind};
 
 fn design(ops: &str) -> Design {

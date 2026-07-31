@@ -134,7 +134,10 @@ pub(crate) fn num(v: f64) -> String {
 /// as `inf`/`-inf` — so a non-finite quantity leaves here as a syntactically well-formed word with
 /// a nonsense value (`G1 FNaN Xinf`). `emit` is the last gate before a machine (`dry emit` never
 /// runs the verifier), so the fallible emit path refuses the program rather than writing it.
-fn num_checked(v: f64, word: impl std::fmt::Display) -> Result<String, crate::codec::CodecError> {
+pub(crate) fn num_checked(
+    v: f64,
+    word: impl std::fmt::Display,
+) -> Result<String, crate::codec::CodecError> {
     if !v.is_finite() {
         return Err(crate::codec::CodecError::Other(format!(
             "cannot emit non-finite {word} value ({v})"
@@ -161,6 +164,16 @@ fn write_line<W: std::io::Write>(
 }
 
 /// Emit motion g-code for a stream of segments to a writer without collecting every line first.
+///
+/// # Errors
+///
+/// Returns the first refusal or IO failure. **This is the one emit entry point that can write a
+/// partial program**: unlike [`emit`] and [`emit_stream`], which buffer and hand back nothing on
+/// error, lines here reach `writer` as they are produced, so a refusal raised mid-program (a
+/// non-finite word, an endpointless arc) leaves everything before it already written. Under RS-274
+/// that prefix is missing its `M9`/`M5`/`M30` postamble while still parsing as a valid program.
+/// A caller streaming to a file must not leave the partial output where the program belongs —
+/// write to a temporary path and rename only on `Ok`, or unlink on `Err`.
 pub fn emit_stream_to_writer<I, W>(
     segments: I,
     p: &EmitParams,
@@ -426,11 +439,14 @@ where
 
 /// Emit motion g-code lines for a toolpath.
 ///
+/// **Deprecated in favour of [`emit_stream`]**, which reports what this cannot. It survives only as
+/// a transitional guard for the in-tree call sites that build their own IR and so cannot violate
+/// the precondition below; every caller handling IR it did not construct must use [`emit_stream`].
+///
 /// **Precondition: `tp` carries only finite quantities and `p` is a valid emit configuration**
 /// (unit toolframe orientations under a five-axis model, an in-range [`CncFrame`], an explicit
-/// endpoint on every arc). This entry point is infallible for API stability — the out-of-workspace
-/// bindings (`crates/wasm`, `py/`) call it directly — so it has no way to report the rejection that
-/// [`emit_stream`] and [`emit_stream_to_writer`] perform.
+/// endpoint on every arc). This entry point is infallible, so it has no way to report the rejection
+/// that [`emit_stream`] and [`emit_stream_to_writer`] perform.
 ///
 /// On a violated precondition it **refuses the program**: debug builds panic on the
 /// `debug_assert`, release builds return no lines at all. It never emits a partial or
@@ -438,6 +454,7 @@ where
 /// wrong-origin `G0` is the one output that reaches metal unchallenged.
 ///
 /// Callers handling untrusted IR must use [`emit_stream`] and surface the error.
+#[deprecated(note = "use emit_stream; emit() cannot report a refused program")]
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     match emit_stream(tp.segments.iter().cloned().map(Ok), p) {
         Ok(lines) => lines,

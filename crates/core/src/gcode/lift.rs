@@ -964,9 +964,18 @@ mod tests {
     /// The RS-274 frame belongs to the program, not to a span: a caller handing a cnc profile's
     /// `EmitParams` straight to the rewrite path must not get a preamble spliced into every span.
     ///
-    /// The same applies to the *modal* prologue: `M83`/`M82`/`G92 E`/`M221` address a filament axis
-    /// that an RS-274 controller does not have, and an unknown M-code aborts the program on
-    /// LinuxCNC/Fanuc. Asserting only on the frame lines let that regression pass unseen.
+    /// The same applies to the *modal* prologue the emitter synthesises: `M83`/`M82`/`G92 E`/`M221`
+    /// address a filament axis that an RS-274 controller does not have, and an unknown M-code aborts
+    /// the program on LinuxCNC/Fanuc. Asserting only on the frame lines let that regression pass
+    /// unseen.
+    ///
+    /// **Scope: emitter-synthesised lines only.** `splice_motion_spans` copies every source line
+    /// *outside* a motion span through verbatim — that is this function's contract — so a Marlin
+    /// source's own `M104 S210`/`M106`/`M221 S90` still reaches an RS-274 rewrite. The fixture below
+    /// carries `M104 S210` and the output retains it; the assertions are worded to let it through on
+    /// purpose. Filtering that echo fights the source-preserving contract and is a separate
+    /// decision — what is pinned here is only that the *emitter* contributes no filament-axis modal
+    /// of its own.
     #[test]
     fn source_preserving_emit_never_splices_the_cnc_frame() {
         let imported = import_gcode_with_map(
@@ -987,13 +996,22 @@ mod tests {
         let lines = imported
             .emit_source_preserving(&imported.toolpath, &framed)
             .unwrap();
+        // Non-vacuity: every assertion below is negative, so an empty `lines` would satisfy all of
+        // them. Pin that the rewrite actually produced the span's motion first.
+        assert!(
+            lines.iter().any(|line| line == "G0 F9000 X0 Y0 Z0.2"),
+            "the rewritten span lost its motion: {lines:?}"
+        );
         for frame_line in ["G21 G17 G90", "G54", "T1 M6", "S10000 M3", "M8"] {
             assert!(
                 !lines.iter().any(|line| line == frame_line),
                 "frame line {frame_line:?} spliced into a rewritten span: {lines:?}"
             );
         }
-        // no filament-axis modal reaches an RS-274 program either
+        // No filament-axis modal *synthesised by the emitter* reaches an RS-274 program either.
+        // Source lines echoed through from outside the motion spans are out of scope (see above):
+        // this fixture's own `M104 S210` survives, and these patterns are exact enough not to catch
+        // an echoed `M221 S90` — only the `M221 S100` the emitter would write itself.
         for line in &lines {
             assert!(
                 !(line == "M83"

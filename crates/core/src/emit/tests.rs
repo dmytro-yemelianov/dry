@@ -1,3 +1,7 @@
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use super::emit_step_nc;
 use super::gcode::num;
 
@@ -258,7 +262,8 @@ fn test_step_nc_emitter_is_deterministic() {
         &crate::emit::EmitParams {
             ..crate::emit::EmitParams::default()
         },
-    );
+    )
+    .expect("a finite toolpath is representable as STEP-NC");
 
     assert!(step_nc.contains("<stepnc"));
     assert!(step_nc.contains("<workingstep id=\"ws-0\""));
@@ -338,7 +343,8 @@ fn test_step_nc_emitter_includes_five_axis_toolframe_intent() {
         &crate::emit::EmitParams {
             ..crate::emit::EmitParams::default()
         },
-    );
+    )
+    .expect("a finite toolpath is representable as STEP-NC");
 
     let toolframes: Vec<&str> = step_nc
         .lines()

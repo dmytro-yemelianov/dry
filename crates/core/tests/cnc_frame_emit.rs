@@ -4,6 +4,10 @@
 //! `Sxxxx M3`, `M8`) and a postamble (`M9`, `M5`, `M30`) when a frame is present. Absent a frame,
 //! or for any other firmware flavor, output must stay byte-identical to before this task.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, resolve, CncFrame, Design, EmitParams, FirmwareFlavor, ResolveParams};
 
 fn tiny_design() -> Design {

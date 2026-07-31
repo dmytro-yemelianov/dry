@@ -9,6 +9,10 @@
 //! The independent Python validator (`tools/validate_vectors.py`) re-checks the same committed bytes
 //! without `dry-core`.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
     emit, simulate, EmitParams, Feedrate, Length, Meta, Segment, SegmentKind, Toolpath, Volume,
 };

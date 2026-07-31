@@ -8,6 +8,10 @@
 //!
 //! Default kinematics is AB, so the default emit is byte-identical to the existing behaviour.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
     emit, emit_stream, import_gcode, parse_gcode_lines, resolve, Design, EmitParams,
     GcodeImportParams, GcodeRecord, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,

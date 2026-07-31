@@ -4,7 +4,7 @@
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
 use dry_core::{
-    balanced_pipeline, emit, expand_features as expand_feature_program, optimize_pipeline,
+    balanced_pipeline, emit_stream, expand_features as expand_feature_program, optimize_pipeline,
     resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
     FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams,
     TpmsOptions,
@@ -63,6 +63,10 @@ fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKin
 /// `rotary_axes` is the rotary-axes selector (the ab/ac/bc STRING) choosing which two rotary axes
 /// carry the toolframe orientation in 5-axis emit — unrelated to the machine motion-limits
 /// `kinematics_json` OBJECT consumed by `resolve_balanced_ir` / `resolve_verify`.
+///
+/// IR the emitter refuses — a non-finite word, an arc with no explicit endpoint (which
+/// `validate_design` does not require) — raises `ValueError`. It previously came back as an empty
+/// list, which callers read as a successfully emitted zero-line program.
 #[pyfunction]
 #[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
 fn resolve_gcode(
@@ -77,8 +81,8 @@ fn resolve_gcode(
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
         Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(emit(
-        &tp,
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
         &EmitParams {
             relative_e,
             travel_g1_e0,
@@ -86,14 +90,15 @@ fn resolve_gcode(
             kinematics,
             ..EmitParams::default()
         },
-    ))
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Generate a TPMS infill design and emit motion g-code (one string per line).
 ///
 /// `tpms_options_json` is the TPMS option bundle (camelCase, matching the engine/TS wire form), e.g.
 /// `{"surface":"gyroid","cellSize":12}`. An unknown surface name (or any malformed option) is a clean
-/// `ValueError`, never a panic.
+/// `ValueError`, never a panic — as is IR the emitter refuses (see `resolve_gcode`).
 #[pyfunction]
 #[pyo3(signature = (tpms_options_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
 fn resolve_tpms_gcode(
@@ -111,8 +116,8 @@ fn resolve_tpms_gcode(
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
         Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(emit(
-        &tp,
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
         &EmitParams {
             relative_e,
             travel_g1_e0,
@@ -120,7 +125,8 @@ fn resolve_tpms_gcode(
             kinematics,
             ..EmitParams::default()
         },
-    ))
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Resolve a design and return its simulation metrics as a JSON string.
