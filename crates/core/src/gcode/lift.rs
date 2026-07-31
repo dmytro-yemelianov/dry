@@ -536,8 +536,20 @@ fn lift_motion(
 ) -> Result<Option<Segment>, GcodeImportError> {
     let factor = unit_factor(motion.state.units);
     if let Some(f) = motion.f {
+        // A negative feedrate is not a slow move — it has no meaning on any machine, and it used to
+        // reach `simulate` as a *negative* duration subtracted from the total. (Non-finite values
+        // were already refused by the word scanner.)
+        if f < 0.0 {
+            return Err(GcodeImportError::new(
+                motion.source_line,
+                format!("feedrate F{f} must not be negative"),
+            ));
+        }
         state.feedrate = Some(f * factor);
     }
+    // Zero means "not stated by this file": motion before the first `F` inherits the machine's
+    // modal feedrate, which the program does not record. It stays accepted — the program is valid
+    // on the machine — but `simulate` no longer lets such a move vanish from the metrics entirely.
     let speed = Feedrate(state.feedrate.unwrap_or(0.0));
 
     if motion.mode == MotionMode::Dwell {

@@ -15,6 +15,8 @@ pub enum CodecError {
     BadMeta,
     /// The segment kind dictionary contained a value this engine does not support.
     BadKind(String),
+    /// A decoded quantity is NaN or infinite — the IR carries only finite values.
+    NonFinite,
     /// The value cannot be represented in the fixed-width binary format.
     TooLarge { field: &'static str, len: usize },
     /// A declared input size exceeds the configured decoder resource budget.
@@ -37,6 +39,7 @@ impl std::fmt::Display for CodecError {
             CodecError::BadCompression => write!(f, "corrupt compressed body"),
             CodecError::BadMeta => write!(f, "invalid IR meta header"),
             CodecError::BadKind(s) => write!(f, "unsupported segment kind {s:?}"),
+            CodecError::NonFinite => write!(f, "non-finite value in the binary body"),
             CodecError::TooLarge { field, len } => {
                 write!(f, "{field} length/count {len} exceeds u32::MAX")
             }
