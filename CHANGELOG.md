@@ -25,6 +25,32 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   cuts.
 
 ### Changed
+- **BREAKING (wasm, Python and the TS SDK): the TPMS generator refuses option sets that would
+  deposit no material.** TPMS is the only generator exposed on all three published surfaces
+  (`resolve_tpms_gcode` / `tpms_ops_json` on wasm, `resolve_tpms_gcode` on PyO3, `tpms()` in
+  `sdk/ts`), so this narrows acceptance on each of them. Following ADR 0002 §4 — refuse, do not
+  clamp, and do not silently emit nothing — three input classes that previously returned `Ok` now
+  return a `TpmsError`:
+  - **`isoLevel` outside the surface's field range.** It was checked only for finiteness. The gyroid
+    saturates at ±1.5, Schwarz-P at ±3, and the others differ; the valid range is surface-dependent
+    and was documented nowhere. `{"isoLevel": 1.5}` produced a **4-op program with zero moves** that
+    resolved, verified with **zero findings**, and simulated to **zero extruded volume** — a file
+    that heats the nozzle and prints nothing. No verifier could catch it: the IR faithfully records
+    an empty program. The check is computed from the sliced result rather than a per-surface table,
+    so it holds for every surface and every phase/cell combination.
+  - **`minPathLength` above the contour scale**, which filtered away every stitched contour. The
+    rejection distinguishes this from the `isoLevel` case by the *pre-filter* contour count, and
+    names the option that actually emptied the program plus the longest contour that was dropped —
+    a message that blamed the wrong option would be worse than none.
+  - **`perimeterInset` at or beyond half the block width or depth**, which was silently **clamped**
+    to `width/2 - 1e-9`, producing a rectangle spanning 2e-9 mm and 44 zero-length extrusions
+    presented as a perimeter wall. The clamp is removed; the inset is only read when `perimeter` is
+    on, so it is only gated there.
+
+  A program whose only material is its perimeter is still accepted — a perimeter wall is real
+  material. Emitted output for every option set that already deposited material is **unchanged**,
+  and `conformance/gallery/gyroid_infill.json` is byte-identical (it is a FullControl-oracle
+  fixture and is not produced by this generator).
 - **BREAKING (wasm, Python, the `dry` CLI, `containers/verify-runner` and `crates/cloud`): the
   ingress paths now refuse the values `emit` refuses.** H1.1 made the emitter the last gate before a
   machine; it was also the *only* one. Five paths fed non-finite or nonsensical quantities into the

@@ -52,6 +52,24 @@ pub enum Surface {
     SplitP,
 }
 
+impl Surface {
+    /// The kebab-case wire name, so an error quotes the surface the way the caller spelled it.
+    fn wire_name(self) -> &'static str {
+        match self {
+            Surface::Gyroid => "gyroid",
+            Surface::SchwarzP => "schwarz-p",
+            Surface::SchwarzD => "schwarz-d",
+            Surface::Iwp => "iwp",
+            Surface::Neovius => "neovius",
+            Surface::FischerKochS => "fischer-koch-s",
+            Surface::FischerKochY => "fischer-koch-y",
+            Surface::Frd => "frd",
+            Surface::Lidinoid => "lidinoid",
+            Surface::SplitP => "split-p",
+        }
+    }
+}
+
 /// Options for [`tpms_ops`] / [`tpms_design`]. Every field is optional; an omitted field takes the
 /// documented default. The JSON wire form is camelCase (matching the TS SDK), e.g. `{"cellSize":12}`.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
@@ -186,6 +204,11 @@ struct LayerSlice {
     path_count: usize,
     point_count: usize,
     length: f64,
+    /// Contours stitched for this layer *before* the `min_path_length` filter, kept so a program that
+    /// emits nothing can name whichever option emptied it (see [`Tpms::reject_vacuous`]).
+    raw_path_count: usize,
+    /// Length of the longest pre-filter contour, so the rejection can say what to lower the filter to.
+    longest_raw_length: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -322,9 +345,16 @@ impl Tpms {
         let perimeter_inset = positive_or_zero(
             "perimeterInset",
             options.perimeter_inset.unwrap_or(bead_width),
-        )?
-        .min((width / 2.0 - EPS).max(0.0))
-        .min((depth / 2.0 - EPS).max(0.0));
+        )?;
+        // ADR 0002 §4: refuse, do not clamp. The old `.min((width/2 - EPS).max(0.0))` turned an
+        // oversized inset into a rectangle spanning 2e-9 mm — 44 zero-length extrusions presented as
+        // a perimeter wall. The inset is only read when `perimeter` is on, so only gate it there.
+        if perimeter && (2.0 * perimeter_inset >= width || 2.0 * perimeter_inset >= depth) {
+            return Err(TpmsError::new(format!(
+                "perimeterInset {perimeter_inset} collapses the perimeter rectangle: it must be \
+                 < half of both width ({width}) and depth ({depth})"
+            )));
+        }
 
         Ok(Tpms {
             surface,
@@ -418,7 +448,7 @@ impl Tpms {
         }
     }
 
-    fn emit(&self) -> Vec<Op> {
+    fn emit(&self) -> Result<Vec<Op>, TpmsError> {
         let mut ops = vec![
             Op::Geometry {
                 width: Some(self.bead_width),
@@ -436,6 +466,7 @@ impl Tpms {
         }
 
         let slices = self.build_layer_slices();
+        self.reject_vacuous(&slices)?;
         let mut previous_local: Option<Point> = None;
         for slice in slices {
             let z = self.z0 + slice.z_local;
@@ -453,7 +484,41 @@ impl Tpms {
             }
         }
         ops.push(Op::Extruder { on: false });
-        ops
+        Ok(ops)
+    }
+
+    /// Refuse an option set that traces no contour on any layer (ADR 0002 §4: refuse, never silently
+    /// emit nothing). Such a program resolves, verifies with zero findings and simulates to zero
+    /// volume — a file that heats the nozzle and prints nothing. The `resolve` postcondition cannot
+    /// see it: an empty toolpath is perfectly finite.
+    ///
+    /// A perimeter deposits material on its own, so it exempts the program from the check.
+    fn reject_vacuous(&self, slices: &[LayerSlice]) -> Result<(), TpmsError> {
+        if self.perimeter || slices.iter().any(|s| s.path_count > 0) {
+            return Ok(());
+        }
+        // Which option emptied the program is decided by the pre-filter contour count, not guessed:
+        // contours that existed and were dropped implicate `minPathLength`; no contours at all means
+        // `isoLevel` sits outside this surface's field range (which is surface-dependent, so a
+        // computed check beats a per-surface table).
+        let raw: usize = slices.iter().map(|s| s.raw_path_count).sum();
+        if raw > 0 {
+            let longest = slices
+                .iter()
+                .map(|s| s.longest_raw_length)
+                .fold(0.0_f64, f64::max);
+            return Err(TpmsError::new(format!(
+                "minPathLength {} dropped all {raw} contours (longest was {longest}), so the \
+                 program would deposit no material. Lower minPathLength or raise samplesPerCell.",
+                self.min_path_length
+            )));
+        }
+        Err(TpmsError::new(format!(
+            "isoLevel {} is outside the {} field's range: no layer traces a contour, so the program \
+             would deposit no material.",
+            self.iso_level,
+            self.surface.wire_name()
+        )))
     }
 
     /// Map a layer-local point (origin at the slice's lower-left) into world coordinates.
@@ -521,11 +586,20 @@ impl Tpms {
 
     fn build_layer(&self, z_local: f64) -> LayerSlice {
         let segments = self.marching_squares_layer(z_local);
-        let paths: Vec<Path> = stitch_segments(&segments)
+        let stitched: Vec<Path> = stitch_segments(&segments)
             .into_iter()
-            .filter(|p| p.points.len() >= 2 && path_length(&p.points) >= self.min_path_length)
+            .filter(|p| p.points.len() >= 2)
             .collect();
-        layer_slice(z_local, paths)
+        let raw_path_count = stitched.len();
+        let longest_raw_length = stitched
+            .iter()
+            .map(|p| path_length(&p.points))
+            .fold(0.0_f64, f64::max);
+        let paths: Vec<Path> = stitched
+            .into_iter()
+            .filter(|p| path_length(&p.points) >= self.min_path_length)
+            .collect();
+        layer_slice(z_local, paths, raw_path_count, longest_raw_length)
     }
 
     fn marching_squares_layer(&self, z_local: f64) -> Vec<Seg2> {
@@ -645,7 +719,12 @@ fn assert_budget(
     )))
 }
 
-fn layer_slice(z_local: f64, paths: Vec<Path>) -> LayerSlice {
+fn layer_slice(
+    z_local: f64,
+    paths: Vec<Path>,
+    raw_path_count: usize,
+    longest_raw_length: f64,
+) -> LayerSlice {
     let point_count = paths.iter().map(|p| p.points.len()).sum();
     let length = paths.iter().map(|p| path_length(&p.points)).sum();
     LayerSlice {
@@ -653,6 +732,8 @@ fn layer_slice(z_local: f64, paths: Vec<Path>) -> LayerSlice {
         path_count: paths.len(),
         point_count,
         length,
+        raw_path_count,
+        longest_raw_length,
         paths,
     }
 }
@@ -877,7 +958,7 @@ fn distance(a: Point, b: Point) -> f64 {
 
 /// Build the selected TPMS infill as an L1 op list, returning a structured error for invalid options.
 pub fn try_tpms_ops(options: &TpmsOptions) -> Result<Vec<Op>, TpmsError> {
-    Ok(Tpms::resolve(options)?.emit())
+    Tpms::resolve(options)?.emit()
 }
 
 /// Build the selected TPMS infill as an L1 op list.
@@ -917,6 +998,75 @@ mod tests {
             cells_z: Some(1),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn iso_level_outside_the_field_range_is_rejected() {
+        // The gyroid saturates at ±1.5, so nothing at or beyond that traces a contour. Every one of
+        // these used to return `Ok` with 4 ops and no moves: a program that heats the nozzle,
+        // verifies clean, and prints nothing.
+        for iso in [1.5_f64, 5.0, 1e6, -1e6] {
+            let options = TpmsOptions {
+                iso_level: Some(iso),
+                ..small_cell()
+            };
+            let err = try_tpms_ops(&options).expect_err(&format!(
+                "isoLevel {iso} must be refused, not emitted empty"
+            ));
+            assert!(
+                err.to_string().contains("isoLevel"),
+                "message must name the option: {err}"
+            );
+            // A message that blames the wrong option is worse than none: nothing was filtered here,
+            // there were no contours to filter.
+            assert!(
+                !err.to_string().contains("minPathLength"),
+                "message must not blame the filter when no contour existed: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn min_path_length_that_filters_every_path_is_rejected() {
+        let options = TpmsOptions {
+            min_path_length: Some(1e9),
+            ..small_cell()
+        };
+        let err = try_tpms_ops(&options)
+            .expect_err("a minPathLength above the contour scale must be refused");
+        assert!(
+            err.to_string().contains("minPathLength"),
+            "message must name the option that actually dropped the contours: {err}"
+        );
+        // The iso level is fine here — contours were traced and then filtered away.
+        assert!(
+            !err.to_string().contains("isoLevel"),
+            "message must not blame the iso level when contours were traced: {err}"
+        );
+    }
+
+    #[test]
+    fn perimeter_inset_collapsing_the_rectangle_is_rejected() {
+        let options = TpmsOptions {
+            perimeter: Some(true),
+            perimeter_inset: Some(1e9),
+            ..small_cell()
+        };
+        let err = try_tpms_ops(&options)
+            .expect_err("an inset >= width/2 must be refused, not clamped to a 2e-9 rectangle");
+        assert!(
+            err.to_string().contains("perimeterInset"),
+            "message must name the option: {err}"
+        );
+    }
+
+    #[test]
+    fn a_valid_job_still_deposits_material() {
+        let ops = try_tpms_ops(&small_cell()).expect("default options are valid");
+        assert!(
+            ops.iter().any(|o| matches!(o, Op::Move { .. })),
+            "control: valid options must still emit moves"
+        );
     }
 
     #[test]
