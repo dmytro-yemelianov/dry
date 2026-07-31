@@ -1468,13 +1468,18 @@ mod tests {
     }
 
     #[test]
-    fn empty_toolpath_is_ok() {
+    fn empty_toolpath_is_ok_but_vacuously_so() {
         let tp = Toolpath {
             version: 0,
             meta: None,
             segments: vec![],
         };
-        assert!(verify(&tp, &Contracts::default()).ok());
+        let report = verify(&tp, &Contracts::default());
+        assert!(report.ok());
+        // This is the canonical vacuous pass, so name it as one: `ok()` here means "nothing was
+        // found wrong with nothing", and until H1.3 that was byte-identical to a real clean report.
+        assert_eq!(report.segments_inspected, 0);
+        assert!(report.findings.is_empty());
     }
 
     #[test]

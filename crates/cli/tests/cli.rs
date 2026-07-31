@@ -1917,7 +1917,12 @@ fn verify_runs_and_reports_findings() {
         .unwrap();
     assert!(out.status.success());
     let text = String::from_utf8(out.stdout).unwrap();
-    assert!(text.contains("OK (no findings)"));
+    assert!(text.contains("OK (no findings"), "{text}");
+    // A clean run must also say what it covered, so a vacuous pass is distinguishable without
+    // --json. `--bounds` is supplied here, so `bounds` is in force on top of the structural set.
+    assert!(text.contains("segment(s) inspected"), "{text}");
+    assert!(!text.contains("0 segment(s) inspected"), "{text}");
+    assert!(text.contains("12 rule(s) in force"), "{text}");
 
     // out-of-bounds path should fail (non-zero exit code)
     let out_bad = Command::new(bin())

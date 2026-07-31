@@ -130,10 +130,13 @@ fn balanced_rejected_when_adaptive_speed_drops_below_min() {
         ..Contracts::default()
     };
     // Sanity: the authored input is in-range (no pre-existing speed error).
+    let baseline = dry_core::verify(&input, &contracts);
     assert!(
-        dry_core::verify(&input, &contracts).ok(),
+        baseline.ok(),
         "authored 1500 mm/min must start in the [1200, 6000] range"
     );
+    // `speed` is the rule this gate turns on; pin that the contract actually put it in force.
+    assert!(baseline.evaluated(dry_core::RuleId::Speed));
     let result = apply_gated(&input, &contracts, OptimizeMode::Balanced, None);
     assert!(
         !result.accepted,
@@ -165,8 +168,10 @@ fn max_rejected_under_monotonic_z() {
         ..Contracts::default()
     };
     // Sanity: the authored input never decreases Z.
+    let baseline = dry_core::verify(&input, &contracts);
+    assert!(baseline.evaluated(dry_core::RuleId::MonotonicZ));
     assert!(
-        dry_core::verify(&input, &contracts).ok(),
+        baseline.ok(),
         "the constant-Z authored input must satisfy monotonic-z"
     );
     let result = apply_gated(&input, &contracts, OptimizeMode::Max, None);
