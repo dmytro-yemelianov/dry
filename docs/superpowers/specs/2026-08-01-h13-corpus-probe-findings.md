@@ -20,8 +20,15 @@ Corpora: `conformance/vectors/*/input.json` (12), `conformance/gcode/*.json` `.i
 |---|---|---|
 | `continuity` | 1 | `vectors/retract_unretract` |
 | `negative-quantity` | 0 | — |
+| `segment-length` † | 3 | `vectors/retract_unretract`, `vectors/deposit` |
 | `arc-length` | 1 | `vectors/arc_g2_g3` |
 | `filament-consistency` | 0 | — |
+
+† Added to the probe after the first run exposed the gap described in correction 2 below, and
+adopted as a sixth rule. It paid for itself immediately: it caught hit 2 **at its source** (both
+segments, rather than as a downstream symptom on the following one) and found a **third** defective
+vector that every other rule missed — `vectors/deposit`, a single-segment toolpath, which is exactly
+the case `continuity` structurally cannot see.
 
 §5 predicted **zero** hits. Two fired. Both are **class (c) — synthetic-fixture defect**, and both are
 real defects in the IR, not in the predicates. Neither rule is weakened.
@@ -80,6 +87,27 @@ moves the tool 10 mm during a retraction and the metrics say nothing moved. Seg 
 Repair: `end` should equal `start` on both segments (extruder-only, no motion). That makes the
 emitted G-code `G1 F1800 E-2` / `G1 F900 E2`, makes the existing `metrics.json` correct rather than
 merely unfalsified, and clears the continuity finding.
+
+## Hit 3 — `vectors/deposit` seg 0 (`segment-length`)
+
+```
+seg 0: kind=deposit start=[0,0,0.2] end=[10,0,0.2] length=0.0 volume=0.05 filament=0.02 speed=600
+```
+
+The vector's own description is **"A stationary deposit segment."** Its frozen expected output is:
+
+```
+G1 F600 X10 Y0 Z0.2 E0.02
+```
+
+which moves the tool 10 mm while depositing. `metrics.json` records `extruding_distance: 0.0` and
+`total_time_s: 0.002` — the time implied by extruding 0.02 mm of filament at F600. The move the
+controller will actually perform is 10 mm at F600, i.e. **1.0 s**: a 500× error in the fixture's own
+time metric, on a segment declared stationary.
+
+This is the case that decided the sixth rule. `deposit` is a single-segment toolpath, so `continuity`
+has no following segment to compare against and cannot see it; `arc-length` does not apply; every
+other proposed rule passes it. Repair: `end` should equal `start`.
 
 ## Two corrections to the design spec
 

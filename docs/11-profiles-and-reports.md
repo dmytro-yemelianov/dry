@@ -121,10 +121,50 @@ are warnings.
 | `peak-acceleration` | error | an arc's centripetal acceleration exceeds the machine's max acceleration | `machine.kinematics.max_acceleration_mm_s2` |
 | `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
 | `unmodeled-gcode` | **warning** | imported/manual G-code is preserved but is outside the verifier's semantic model | always active when present |
+| `continuity` | error | a segment starts somewhere other than where the previous one ended | always active |
+| `negative-quantity` | error | a length, volume or speed is negative, or a bead dimension is not positive | always active |
+| `segment-length` | error | a straight or stationary segment's length disagrees with its own endpoints | always active |
+| `arc-length` | error | an arc's length disagrees with its radius and swept angle | always active |
+| `filament-consistency` | **warning** | the volume-to-filament ratio changes within a single tool | always active |
+| `bead-volume` | error | deposited volume disagrees with `length × width × height × flow` | `process.bead_volume_tolerance` |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
 changing a rule's default severity, is a notable change called out in release notes.
+
+### Structural rules and what "clean" means
+
+The six rules marked *always active* are **structural**: they state properties no Dry producer can
+violate, so no contract can make a violation acceptable. `resolve`, the G-code lifter and the codec all
+thread position exactly and derive `length` from geometry, so a toolpath that trips one of these did not
+come from Dry intact — and the emitted program will not describe the IR's own geometry. `continuity` is
+the sharpest of them: the emitter writes endpoints only, so a gap produces **no repositioning move** and
+the machine cuts a straight line across it, along a path no other rule inspects.
+
+`bead-volume` is opt-in instead, because two `optimize` passes break `volume = length × width × height ×
+flow` by design (`coasting` zeroes volume on the tail of an extrusion run; `arc_fit` sums chord volumes
+against an arc length), and imported IR takes `volume` from `E` while the bead comes from a user-supplied
+constant.
+
+`filament-consistency` ships at **warning** for one minor release before being promoted to error.
+Multi-diameter or multi-material IR is unusual but not ill-formed, and no in-tree producer emits any, so
+the release buys evidence rather than assuming it.
+
+### A clean report states its own coverage
+
+`findings: []` alone cannot distinguish a clean program from one that was never inspected, or one checked
+against no limits. A report therefore also carries:
+
+| Field | Meaning |
+|---|---|
+| `segments_inspected` | how many segments the pass saw; `0` is a vacuous pass |
+| `rules_evaluated` | the rule ids in force, in catalog order — clean under 11 is a weaker claim than clean under 24 |
+| `contracts` | the limits checked against, so "`max_flow` was checked" is distinguishable from "checked against 1e9" |
+
+With no contracts supplied, 11 of the 24 rules are evaluated and 9 of those can produce an error. All
+three fields are optional in `spec/dry-reports-v1.schema.json`, so reports written by older engines
+remain valid; consumers pinned to the *previous* schema text will reject newer reports, which is recorded
+as a breaking change in the changelog.
 
 ## 3. Report outputs
 

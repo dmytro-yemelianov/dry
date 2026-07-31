@@ -1404,7 +1404,15 @@ export function createViewer(cfg) {
       } else {
         const ok = document.createElement('div');
         ok.className = 'ok';
-        ok.textContent = '✓ no findings';
+        // An empty findings array is equally true of a clean program and of one that was never
+        // inspected — a confusion this panel has shipped before (ADR 0002 §3). Say what was covered.
+        const inspected = report.segments_inspected;
+        const rules = (report.rules_evaluated || []).length;
+        ok.textContent = inspected === undefined
+          ? '✓ no findings'
+          : inspected === 0
+            ? '⚠ nothing inspected (0 segments) — this is not a clean result'
+            : `✓ no findings — ${inspected.toLocaleString()} segments, ${rules} rules in force`;
         verifyEl.appendChild(ok);
       }
     }

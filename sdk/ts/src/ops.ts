@@ -135,6 +135,17 @@ export interface Finding {
 /** Verification result containing all findings emitted by enabled rules. */
 export interface Report {
   findings: Finding[];
+  /**
+   * How many segments the pass actually inspected. Zero means it proved nothing — an empty
+   * `findings` array is equally true of a clean program and of one that was never looked at.
+   *
+   * Optional so reports produced by engines older than Dry 0.5 stay assignable to this type.
+   */
+  segments_inspected?: number;
+  /** The rule ids that were in force. "Clean under 11 rules" is a weaker claim than under 24. */
+  rules_evaluated?: string[];
+  /** The limits the toolpath was checked against. */
+  contracts?: Record<string, unknown>;
 }
 
 /** Device defaults (the generic printer). More profiles land with the device-profile work. */

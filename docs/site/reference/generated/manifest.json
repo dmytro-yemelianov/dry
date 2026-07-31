@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "96b4b2e3a7aaa5ad98876a7ecf1698914f7df49271d5a51270ac7236fcf3568e"
+      "sha256": "b74cb7bc2f0665f428bbd5da32f2ac0003143f47ef54d7dfa27cc094dec55312"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
@@ -35,7 +35,7 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "0c6214d002ada6ba04e372b427e031840bbbf1758cf22ad9823a9fa43cc9a805"
+      "sha256": "15c9c5f6fdce396aac1ad09b4077ce4c0589900d77de8788e7371b907e81531c"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
