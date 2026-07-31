@@ -558,7 +558,8 @@ fn lift_motion(
         if !scaled.is_finite() {
             return Err(GcodeImportError::new(
                 motion.source_line,
-                format!("feedrate F{f} is not finite after unit conversion"),
+                // `{f:e}` rather than `{f}`: an exponent-notation word round-trips to ~310 digits.
+                format!("feedrate F{f:e} is not finite after unit conversion"),
             ));
         }
         state.feedrate = Some(scaled);
@@ -722,7 +723,7 @@ fn apply_g92(line: &ParsedGcodeLine, state: &mut LiftState) -> Result<(), GcodeI
             return Err(GcodeImportError::new(
                 line.source_line,
                 format!(
-                    "G92 {}{} is not finite after unit conversion",
+                    "G92 {}{:e} is not finite after unit conversion",
                     word.letter, word.value
                 ),
             ));

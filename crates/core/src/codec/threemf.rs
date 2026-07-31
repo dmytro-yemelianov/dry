@@ -32,7 +32,23 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
     xml.push_str("  <build>\n");
     xml.push_str("    <tp:toolpath>\n");
 
+    // `import_3mf_xml` decides whether a segment moves from the coordinate delta against a running
+    // position that starts at the origin, *not* from any length it was told. Mirror that cursor
+    // exactly, so the exporter's "does this segment move?" is the same question the importer asks.
+    // Keying on `Segment.length` instead disagrees on the first segment of a G-code import, whose
+    // start is undefined and whose IR length is therefore zero even though it moves.
+    let mut cursor = [0.0_f64; 3];
+
     for (idx, seg) in toolpath.segments.iter().enumerate() {
+        let mut moves = false;
+        for (axis, held) in cursor.iter_mut().enumerate() {
+            if let Some(end) = seg.end[axis] {
+                if end.0 != *held {
+                    moves = true;
+                }
+                *held = end.0;
+            }
+        }
         let kind_str = match seg.kind {
             SegmentKind::Line => "line",
             SegmentKind::Arc => "arc",
@@ -61,7 +77,7 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
         // refuses motion with no `feedrate` attribute, and a zero-speed moving segment is exactly
         // what the G-code importer preserves for motion before the first `F` (see `gcode/lift.rs`).
         // Writing nothing there would make dry's own export un-importable.
-        if seg.speed.0 > 0.0 || seg.length > Length::ZERO {
+        if seg.speed.0 > 0.0 || moves {
             xml.push_str(&format!(" feedrate=\"{:.1}\"", seg.speed.0));
         }
         if seg.volume.0 > 0.0 {

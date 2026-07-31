@@ -29,8 +29,7 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   ingress paths now refuse the values `emit` refuses.** H1.1 made the emitter the last gate before a
   machine; it was also the *only* one. Five paths fed non-finite or nonsensical quantities into the
   IR behind it, and each is now closed where the number enters. `verify-runner` and `cloud` are named
-  explicitly because both call `import_gcode_reader_with_map` and `decode`, so both gain the new
-  rejections:
+  explicitly because both call `import_gcode_reader_with_map`, so both gain the G-code rejections:
   - **Binary codec.** `Reader::f64` was a bare `from_le_bytes` with no validation, so a `.dryc`
     carrying `00 00 00 00 00 00 F8 7F` in any column decoded to `Length(NaN)` — `DecodeLimits`
     bounds sizes, never values, though hostile input is explicitly in the decoder's threat model.
@@ -64,7 +63,16 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
     `max_retraction_distance` never applied, while `simulate` subtracted a negative duration. Both
     are now required finite and positive. This is live on the bindings: wasm and PyO3 deserialize
     `ResolveParams` from raw caller JSON, so `resolve_*` now errors where it used to return a
-    mis-modelled toolpath.
+    mis-modelled toolpath. Validating the *inputs* is again not sufficient on its own, so
+    `resolve_checked` now also checks the toolpath it produced: `validate_design` bounds coordinates
+    only by `is_finite`, and two ops 1e200 apart square to `Area(inf)` inside `dist`, which
+    `Area::sqrt` returns as `Some(Length(inf))` because `inf >= 0.0` — schema-valid JSON put a
+    non-finite length straight into the IR. `resolve_checked` refuses any lowered toolpath carrying
+    a non-finite quantity, naming the segment and field; the check is a postcondition, so it holds
+    however the lowering computes and for ops added later. Separately, `dia` must now give a finite
+    non-zero bead cross-section: `π·(dia/2)²` underflows to zero below `dia ≈ 4e-162`, and every
+    extruding op divides by it — `Op::Deposit` yielded `Length(inf)` filament and a travel's
+    `0.0 / 0.0` yielded `Length(NaN)`, which `simulate` then read back through `Length::mm`.
   - **3MF import.** A present-but-non-finite attribute (`x="nan"`, `feedrate="inf"`) went straight
     into the IR, a negative `feedrate` was accepted, and a *missing* one made a moving segment
     zero-speed — invisible to every metric. All three are now `ThreeMfError`s, as is a segment
@@ -73,7 +81,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
     writes `feedrate="0.0"` for a moving zero-speed segment, where it previously wrote the attribute
     only when `speed > 0`. That combination is not hypothetical and dry itself produces it — a
     G-code program with motion before its first `F` imports to exactly such a segment — so without
-    this the importer's new rejection would have refused dry's own export. Round-trip is restored.
+    this the importer's new rejection would have refused dry's own export. The guard mirrors the
+    importer's own running-position delta rather than `Segment.length`, because the two disagree on
+    the first segment of a G-code import: its start is undefined, so its IR length is zero even
+    though it moves. Round-trip is restored, including for a program whose first motion is away from
+    the origin.
   - **Negative feedrate in `simulate`.** It passed the `speed == ZERO` check entirely and produced a
     negative duration that was subtracted from `total_time_s`; such a move is now un-timeable
     instead. A **non-finite** speed is un-timeable for the same reason, and that is a second
