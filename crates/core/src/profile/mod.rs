@@ -3,7 +3,7 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
-use crate::emit::{EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
+use crate::emit::{CncFrame, EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
@@ -112,6 +112,10 @@ pub struct MachineProfile {
     /// [`EmitParams::kinematics`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub five_axis: Option<Kinematics>,
+    /// CNC work-coordinate/tool/spindle/coolant frame flowed verbatim into `EmitParams::cnc_frame`
+    /// (RS-274 renderer, Task 5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cnc: Option<CncFrame>,
 }
 
 /// Deterministic kinematic limits used to shape cornering speed in `balanced` mode.
@@ -292,6 +296,22 @@ impl Profile {
                 .validate()
                 .map_err(|error| ProfileError::new(format!("machine.five_axis {error}")))?;
         }
+        if let Some(cnc) = &self.machine.cnc {
+            if let Some(wcs) = cnc.wcs {
+                if !(54..=59).contains(&wcs) {
+                    return Err(ProfileError::new(format!(
+                        "machine.cnc.wcs must be 54..=59 (G54..G59), got {wcs}"
+                    )));
+                }
+            }
+            if let Some(rpm) = cnc.spindle_rpm {
+                if !(rpm.is_finite() && rpm > 0.0) {
+                    return Err(ProfileError::new(format!(
+                        "machine.cnc.spindle_rpm must be finite and > 0, got {rpm}"
+                    )));
+                }
+            }
+        }
         validate_positive(
             "material.filament_diameter",
             self.material.filament_diameter,
@@ -397,6 +417,7 @@ impl Profile {
         if let Some(kinematics) = self.machine.five_axis {
             params.kinematics = kinematics;
         }
+        params.cnc_frame = self.machine.cnc;
         params
     }
 }
@@ -461,6 +482,54 @@ mod tests {
             REFERENCE_FIVE_AXIS_MACHINE,
             "when machine.five_axis is omitted, emit must default to reference BC machine model"
         );
+    }
+
+    #[test]
+    fn cnc_frame_parses_and_flows_to_emit_params() {
+        let profile: Profile = serde_json::from_str(
+            r#"{
+            "version": 1,
+            "firmware": { "flavor": "rs274" },
+            "machine": { "cnc": { "wcs": 55, "tool": 3, "spindle_rpm": 12000, "coolant": true } }
+        }"#,
+        )
+        .unwrap();
+        profile.validate().unwrap();
+        let params = profile.emit_params();
+        let frame = params.cnc_frame.expect("machine.cnc flows into EmitParams");
+        assert_eq!(frame.wcs, Some(55));
+        assert_eq!(frame.tool, Some(3));
+        assert_eq!(frame.spindle_rpm, Some(12000.0));
+        assert_eq!(frame.coolant, Some(true));
+    }
+
+    #[test]
+    fn cnc_frame_validation_rejects_bad_values() {
+        for (field, json) in [
+            ("wcs", r#"{"version":1,"machine":{"cnc":{"wcs":53}}}"#),
+            ("wcs", r#"{"version":1,"machine":{"cnc":{"wcs":60}}}"#),
+            (
+                "spindle_rpm",
+                r#"{"version":1,"machine":{"cnc":{"spindle_rpm":0}}}"#,
+            ),
+            (
+                "spindle_rpm",
+                r#"{"version":1,"machine":{"cnc":{"spindle_rpm":-100}}}"#,
+            ),
+        ] {
+            let profile: Profile = serde_json::from_str(json).unwrap();
+            let err = profile.validate().unwrap_err();
+            assert!(
+                err.to_string().contains(field),
+                "expected {field} error, got: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn profiles_without_cnc_are_unchanged() {
+        let profile: Profile = serde_json::from_str(r#"{"version":1}"#).unwrap();
+        assert!(profile.emit_params().cnc_frame.is_none());
     }
 
     #[test]

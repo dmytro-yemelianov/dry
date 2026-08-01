@@ -50,8 +50,8 @@ pub use compare::{
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
 pub use emit::{
-    emit, emit_step_nc, emit_stream, emit_stream_to_writer, EmitParams, FirmwareFlavor, Kinematics,
-    REFERENCE_FIVE_AXIS_MACHINE,
+    emit, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
+    Kinematics, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
@@ -73,7 +73,9 @@ pub use gcode::{
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 pub use generate::{
-    tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
+    pocket_design, pocket_ops, tpms_design, tpms_ops, try_pocket_design, try_pocket_ops,
+    try_tpms_design, try_tpms_ops, CutMode, PocketError, PocketOptions, PocketShape, Surface,
+    TpmsError, TpmsOptions,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use nonplanar::{compute_triangle_normal, conformal_surface_z, offset_along_normal};

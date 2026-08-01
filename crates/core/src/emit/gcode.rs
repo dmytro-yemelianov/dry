@@ -1,7 +1,7 @@
 use super::{Kinematics, SplineFlatteningIterator};
 use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -45,6 +45,31 @@ pub struct EmitParams {
     /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl, robot_krl.
     #[serde(default)]
     pub flavor: FirmwareFlavor,
+    /// CNC work-coordinate/tool/spindle/coolant frame emitted ahead of motion by the RS-274 renderer
+    /// (Task 5). Additive and optional: absent leaves existing g-code output byte-identical.
+    ///
+    /// **Invariant: the frame is emitted once per program, never per span.** Any path that emits a
+    /// toolpath piecewise — the span-preserving g-code rewrite in [`crate::gcode`] — must clear this
+    /// field, or every spliced span gets its own preamble and the per-span line accounting desyncs.
+    #[serde(default)]
+    pub cnc_frame: Option<CncFrame>,
+}
+
+/// CNC work-coordinate/tool/spindle/coolant preamble, sourced from `MachineProfile::cnc`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub struct CncFrame {
+    /// Work coordinate system, `54..=59` → `G54..G59`. `None` ⇒ default to G54.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wcs: Option<u8>,
+    /// Tool number for `T<n> M6`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<u32>,
+    /// Spindle speed in RPM for `S<rpm> M3`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spindle_rpm: Option<f64>,
+    /// Flood coolant on/off (`M8`/`M9`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coolant: Option<bool>,
 }
 
 fn default_true() -> bool {
@@ -59,6 +84,7 @@ impl Default for EmitParams {
             five_axis: false,
             kinematics: Kinematics::default(),
             flavor: FirmwareFlavor::default(),
+            cnc_frame: None,
         }
     }
 }
@@ -110,6 +136,28 @@ where
     let letters = ['X', 'Y', 'Z'];
 
     let mut prog_pos = [0.0; 3];
+
+    let frame = match (p.flavor, &p.cnc_frame) {
+        (FirmwareFlavor::Rs274, Some(f)) => Some(*f),
+        _ => None,
+    };
+    if let Some(f) = frame {
+        write_line(writer, &mut first_line, "G21 G17 G90")?;
+        write_line(
+            writer,
+            &mut first_line,
+            &format!("G{}", f.wcs.unwrap_or(54)),
+        )?;
+        if let Some(tool) = f.tool {
+            write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
+        }
+        if let Some(rpm) = f.spindle_rpm {
+            write_line(writer, &mut first_line, &format!("S{} M3", num(rpm)))?;
+        }
+        if f.coolant == Some(true) {
+            write_line(writer, &mut first_line, "M8")?;
+        }
+    }
 
     for res in segments {
         let s = res?;
@@ -270,6 +318,17 @@ where
 
         write_line(writer, &mut first_line, &toks.join(" "))?;
     }
+
+    if let Some(f) = frame {
+        if f.coolant == Some(true) {
+            write_line(writer, &mut first_line, "M9")?;
+        }
+        if f.spindle_rpm.is_some() {
+            write_line(writer, &mut first_line, "M5")?;
+        }
+        write_line(writer, &mut first_line, "M30")?;
+    }
+
     Ok(())
 }
 
@@ -292,4 +351,16 @@ where
 /// Emit motion g-code lines for a toolpath.
 pub fn emit(tp: &Toolpath, p: &EmitParams) -> Vec<String> {
     emit_stream(tp.segments.iter().cloned().map(Ok), p).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emit_params_json_without_cnc_frame_deserializes() {
+        let p: EmitParams = serde_json::from_str(r#"{"relative_e":true}"#).unwrap();
+        assert!(p.cnc_frame.is_none());
+        assert!(EmitParams::default().cnc_frame.is_none());
+    }
 }

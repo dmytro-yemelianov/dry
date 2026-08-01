@@ -8,9 +8,10 @@ use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
-    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
-    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
-    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
+    parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
+    trace_summary_with_sources, try_pocket_design, verify, verify_stream, Contracts, CutMode,
+    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, PocketOptions,
+    PocketShape, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -171,6 +172,59 @@ enum CloudCmd {
 }
 
 #[derive(Subcommand)]
+enum GenerateCmd {
+    /// Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON.
+    Pocket {
+        /// rect | circle
+        #[arg(long, value_parser = ["rect", "circle"])]
+        shape: String,
+        #[arg(long, allow_hyphen_values = true)]
+        x: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        y: Option<f64>,
+        #[arg(long)]
+        width: Option<f64>,
+        #[arg(long)]
+        height: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        cx: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        cy: Option<f64>,
+        #[arg(long)]
+        radius: Option<f64>,
+        /// pocket (clear the interior) | profile (single boundary contour)
+        #[arg(long, default_value = "pocket", value_parser = ["pocket", "profile"])]
+        cut_mode: String,
+        #[arg(long)]
+        tool_diameter: f64,
+        /// Stepover as a fraction of tool diameter in (0, 1]. Rectangular pockets clamp the
+        /// resulting inset to ~0.854 of the diameter, the largest value that still clears corners.
+        #[arg(long)]
+        stepover: Option<f64>,
+        #[arg(long)]
+        depth: f64,
+        #[arg(long)]
+        depth_per_pass: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        z_top: Option<f64>,
+        #[arg(long, allow_hyphen_values = true)]
+        safe_z: Option<f64>,
+        /// Cutting feed, mm/min.
+        #[arg(long)]
+        cut_feed: Option<f64>,
+        /// Plunge feed, mm/min (default cut_feed / 3).
+        #[arg(long)]
+        plunge_feed: Option<f64>,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
     /// Authenticate with Dry Cloud.
     Auth {
@@ -248,6 +302,11 @@ enum Cmd {
         /// Write JSON to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
+    },
+    /// Generate a parametric design and write its resolved Dry IR.
+    Generate {
+        #[command(subcommand)]
+        what: GenerateCmd,
     },
     /// Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume).
     ImportPrinterCfg {
@@ -607,6 +666,11 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
+fn require(value: Option<f64>, flag: &str) -> f64 {
+    value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
+}
+
 /// The wire label for an [`OptimizeMode`], used for the `RewriteReport.mode` string and stderr summary.
 fn optimize_mode_label(mode: OptimizeMode) -> &'static str {
     match mode {
@@ -828,6 +892,7 @@ fn run(cli: Cli) -> ExitCode {
                 five_axis,
                 kinematics,
                 flavor,
+                cnc_frame: profile.as_ref().and_then(|p| p.emit_params().cnc_frame),
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
@@ -896,6 +961,74 @@ fn run(cli: Cli) -> ExitCode {
             let tp = Toolpath::from_bytes(&bytes)
                 .unwrap_or_else(|e| die(format!("not a Dry IR binary {file}: {e}")));
             let json = tp.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::Pocket {
+                    shape,
+                    x,
+                    y,
+                    width,
+                    height,
+                    cx,
+                    cy,
+                    radius,
+                    cut_mode,
+                    tool_diameter,
+                    stepover,
+                    depth,
+                    depth_per_pass,
+                    z_top,
+                    safe_z,
+                    cut_feed,
+                    plunge_feed,
+                    profile,
+                    out,
+                },
+        } => {
+            let shape = match shape.as_str() {
+                "rect" => PocketShape::Rect {
+                    x: require(x, "--x"),
+                    y: require(y, "--y"),
+                    width: require(width, "--width"),
+                    height: require(height, "--height"),
+                },
+                _ => PocketShape::Circle {
+                    cx: require(cx, "--cx"),
+                    cy: require(cy, "--cy"),
+                    radius: require(radius, "--radius"),
+                },
+            };
+            let options = PocketOptions {
+                shape,
+                mode: if cut_mode == "profile" {
+                    CutMode::Profile
+                } else {
+                    CutMode::Pocket
+                },
+                tool_diameter,
+                stepover,
+                depth,
+                depth_per_pass,
+                z_top,
+                safe_z,
+                cut_feed,
+                plunge_feed,
+            };
+            let design = try_pocket_design(&options)
+                .unwrap_or_else(|e| die(format!("cannot generate pocket: {e}")));
+            let params = load_profile(profile.as_deref())
+                .map(|p| p.resolve_params())
+                .unwrap_or_default();
+            let toolpath = resolve_checked(&design, &params)
+                .unwrap_or_else(|e| die(format!("cannot resolve pocket design: {e}")));
+            let json = toolpath.to_json();
             match out {
                 Some(path) => fs::write(&path, json + "\n")
                     .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
@@ -1365,6 +1498,17 @@ fn run(cli: Cli) -> ExitCode {
             );
             let imported = import_gcode_reader_with_map(input, &params)
                 .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            // cnc_frame is intentionally left None (not wired from `profile`) here: this path calls
+            // `emit_source_preserving_spans`, which emits each span in isolation to line up with a
+            // separately-emitted flattened reference (see `emit_normalized_span_lines` in
+            // dry-core's gcode/lift.rs) to recover per-span line offsets. If cnc_frame were set,
+            // every span — not just the first — would grow its own copy of the G21/G54/T../S../M3
+            // preamble, which would either desync that line-count accounting (corrupting the
+            // splice) or, if accounting happened to survive, duplicate the frame once per span and
+            // strand `emit`'s M30 postamble mid-file instead of at the true end. Wiring this
+            // correctly needs a design decision in dry-core (e.g. an internal frame-suppression
+            // knob for non-leading spans), tracked as follow-up, not blindly copied from the `Emit`
+            // arm's fix.
             let emit_params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
@@ -1374,6 +1518,7 @@ fn run(cli: Cli) -> ExitCode {
                     .as_ref()
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
+                cnc_frame: None,
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -2409,6 +2554,11 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
             .unwrap_or_else(|e| die(format!("cannot read {}: {e}", args.file)));
         let imported = import_gcode_reader_with_map(input, &params)
             .unwrap_or_else(|e| die(format!("cannot import {}: {e}", args.file)));
+        // cnc_frame is intentionally left None here for the same reason as the `RewriteGcode` arm:
+        // this path also calls `emit_source_preserving_spans`, which emits each span in isolation
+        // to recover per-span line offsets against a separately-emitted flattened reference. Setting
+        // cnc_frame would desync that accounting (or duplicate the preamble per span and strand the
+        // M30 postamble mid-file). Needs a dry-core design decision, tracked as follow-up.
         let emit_params = EmitParams {
             relative_e: true,
             travel_g1_e0: false,
@@ -2418,6 +2568,7 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
                 .as_ref()
                 .map(|p| p.emit_params().flavor)
                 .unwrap_or(FirmwareFlavor::Marlin),
+            cnc_frame: None,
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();

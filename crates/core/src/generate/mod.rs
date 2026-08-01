@@ -6,11 +6,17 @@
 //! [`crate::resolve::resolve_checked`] exactly like hand-authored designs, so generators are pure L1
 //! sugar and inherit the whole engine (verify / simulate / emit) for free.
 //!
-//! The first generator is the TPMS infill ([`tpms`]) with all ten surfaces ([`tpms::Surface`]); the
-//! PyO3 exposure and the TS-SDK delegation are deferred follow-ups.
+//! The generators are the TPMS infill ([`tpms`]) with all ten surfaces ([`tpms::Surface`]) and the
+//! CNC pocket/profile cutter ([`pocket`]); the PyO3, wasm and TS-SDK exposures are deferred
+//! follow-ups.
 
+pub mod pocket;
 pub mod tpms;
 
+pub use pocket::{
+    pocket_design, pocket_ops, try_pocket_design, try_pocket_ops, CutMode, PocketError,
+    PocketOptions, PocketShape,
+};
 pub use tpms::{
     tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
 };

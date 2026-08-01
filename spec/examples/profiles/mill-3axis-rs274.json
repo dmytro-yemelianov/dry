@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "3-axis mill 300x200, RS-274",
+  "firmware": { "flavor": "rs274" },
+  "machine": {
+    "build_volume": [[0.0, 300.0], [0.0, 200.0], [-80.0, 60.0]],
+    "feedrate_range": [50.0, 3000.0],
+    "cnc": { "wcs": 54, "tool": 1, "spindle_rpm": 10000.0, "coolant": true }
+  }
+}

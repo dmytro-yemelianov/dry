@@ -20,6 +20,10 @@ schema validates the canonical names.
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
 | `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
+| `machine` | `cnc.wcs` | integer 54–59 | — | work offset, emitted as `G54`…`G59`; absent ⇒ `G54` |
+| `machine` | `cnc.tool` | integer ≥ 0 | — | emits `T<n> M6`; absent ⇒ no tool change |
+| `machine` | `cnc.spindle_rpm` | RPM > 0 | — | emits `S<rpm> M3`, and `M5` at program end; absent ⇒ neither |
+| `machine` | `cnc.coolant` | bool | — | `true` emits `M8` / `M9`; `false` and absent emit neither |
 | `material` | `filament_diameter` | mm > 0 | — | |
 | `material` | `max_volumetric_flow_mm3_s` | mm³/s > 0 | `max_flow`, `max_volumetric_flow` | |
 | `material` | `min_nozzle_temperature_c` | °C > 0 | `min_temp`, `min_nozzle_temp` | cold-extrusion guard |
@@ -35,7 +39,8 @@ schema validates the canonical names.
 
 Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive
 fields are finite and `> 0`; range fields are finite with a non-negative lower bound; when present, both
-`machine.kinematics` fields are finite and `> 0`. A profile maps to verifier **contracts** (§2), import
+`machine.kinematics` fields are finite and `> 0`; when present, `machine.cnc.wcs` is in `54..=59` and
+`machine.cnc.spindle_rpm` is finite and `> 0`. A profile maps to verifier **contracts** (§2), import
 params, resolve params and emit params.
 
 **`machine.kinematics`** is a small, optional, **firmware-agnostic** motion model: a max acceleration and a
@@ -57,6 +62,17 @@ max junction / square-corner velocity. It has two optional numeric fields:
 Kinematic limits feed the `balanced` optimisation pipeline but are *not* enforced by the core verifier
 (they are gated in the rewrite process). Pressure-advance and input-shaper models are deliberately out of
 scope for v1.
+
+**`machine.cnc`** is the optional RS-274 **program frame** — the work offset, tool change, spindle and
+coolant state that a controller needs around the motion. It flows verbatim into `EmitParams::cnc_frame`
+and is read *only* by the RS-274 renderer: without it, and under every other firmware flavor, emitted
+g-code is byte-identical to a profile that omits the block. When present, `emit --format rs274` brackets
+the program with a preamble (`G21 G17 G90`, then `G5x`, `T<n> M6`, `S<rpm> M3`, `M8`) and a postamble
+(`M9`, `M5`, `M30`); each optional word appears only when its key is set (see the field table above).
+All four keys are optional — an empty `"cnc": {}` still frames the program with `G21 G17 G90` / `G54` /
+`M30`, the smallest frame Dry emits; it does not set tool-length offset (`G43`), cutter compensation
+(`G40`) or feed-rate mode (`G94`). Spindle *power* is not modeled as an IR channel in
+v1, so RPM is a per-program constant, not a per-operation value.
 
 **Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a
 minor change; removing/renaming/retyping a field or changing a default is a major change (a new

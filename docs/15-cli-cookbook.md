@@ -59,6 +59,67 @@ dry pack conformance/gcode/square.json -o square.dry   # → square.dry (125 byt
 dry unpack square.dry                                   # → {"version":0,"segments":[…]}
 ```
 
+## Generating CAM toolpaths (CNC)
+
+### `generate pocket` — CNC pocket → RS-274
+
+Contour-parallel clearing of a rectangular or circular pocket (`--cut-mode pocket`), or a single boundary
+contour (`--cut-mode profile`), written as resolved Dry IR — then verified and emitted as a framed RS-274
+program. The program frame (units/plane/distance mode, WCS, tool change, spindle, program end) comes
+from the profile's `machine.cnc` block; without a profile carrying it, `emit --format rs274` emits bare
+motion, which a controller will happily run under whatever modal state it is already in — units, work
+offset, plane and spindle are then whatever the previous program left behind.
+
+`cnc.json` (the minimum; the committed
+[`spec/examples/profiles/mill-3axis-rs274.json`](../spec/examples/profiles/mill-3axis-rs274.json) adds a
+build volume, a feedrate range and `coolant`, and the field table is in
+[`11-profiles-and-reports.md`](11-profiles-and-reports.md) §1):
+```json
+{
+  "version": 1,
+  "firmware": { "flavor": "rs274" },
+  "machine": { "cnc": { "wcs": 54, "tool": 1, "spindle_rpm": 10000 } }
+}
+```
+
+```sh
+dry generate pocket --shape rect --x 0 --y 0 --width 60 --height 40 \
+  --tool-diameter 6 --depth 5 --depth-per-pass 2.5 -o pocket.json
+dry verify pocket.json
+#   verify: pocket.json — OK (no findings)
+dry emit pocket.json --format rs274 --profile cnc.json
+# G21 G17 G90
+# G54
+# T1 M6
+# S10000 M3
+# G0 F8000 Z5
+# G0 X21 Y20
+# G1 F100 Z-2.5
+# G1 F300 X39
+# …
+# G0 F8000 Z5
+# M5
+# M30
+```
+
+Flags: `--shape rect|circle` (with `--x/--y/--width/--height` or `--cx/--cy/--radius`), `--cut-mode
+pocket|profile`, `--tool-diameter`, `--stepover` (fraction of the tool diameter in (0, 1], default
+`0.5`; rectangular pockets clamp the resulting ring inset to ≈`0.854·d`, the largest inset that
+still clears the corners), `--depth`, `--depth-per-pass`, `--z-top`, `--safe-z`, `--cut-feed`, `--plunge-feed`,
+`--profile P.json`, `-o FILE`.
+
+Safety limits: a job is bounded to 100,000 total passes (depth passes × rings for a pocket, depth
+passes for a profile), so a tool diameter or depth-per-pass small enough to run away is rejected
+rather than generated. Degenerate fits are rejected too — a tool that exactly fills the pocket in
+both directions, or leaves a cutting region below the emission resolution, would otherwise produce a
+program that plunges and retracts without cutting. A tool that fills exactly one direction is a
+slot, and is cut normally.
+
+That exact program is frozen as `conformance/reports/cnc/pocket-rect-rs274.ngc` and drift-gated by
+`crates/core/tests/cnc_pocket_e2e.rs` (regenerate with `UPDATE_GOLDEN=1 cargo test -p dry-core --test
+cnc_pocket_e2e`). It has **not** been validated against a physical controller — see
+[`16-support-matrix.md`](16-support-matrix.md).
+
 ## Working with Klipper configurations
 
 ### `import-printer-cfg` — Klipper `printer.cfg` → Dry profile
