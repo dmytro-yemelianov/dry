@@ -1,0 +1,117 @@
+schema_version = 1
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
+model = "verify-tolerance-binary64-v0"
+status = "provisional"
+contract = "assurance-precondition-only"
+rust_toolchain = "1.88.0"
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+# The structural rules compare quantities that are already binary64; they call no transcendental
+# function of their own, so this profile inherits the libm contract without depending on it. It is
+# restated because the schema requires it and because `arc-length` reads a swept angle that
+# `resolve` produced with `atan2`.
+[libm]
+crate = "libm"
+version = "0.2.16"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+source_tag = "libm-v0.2.16"
+source_commit = "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d"
+trig_accuracy_basis = "upstream-mpfr-test-policy"
+trig_max_ulp = 1
+trig_contract_status = "imported-assumption"
+
+# ---------------------------------------------------------------------------------------------
+# Limits
+# ---------------------------------------------------------------------------------------------
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.COMPARED_COORDINATE_MM"
+quantity = "Absolute value of any coordinate or length the structural rules compare"
+lower = -1.0e154
+upper = 1.0e154
+unit = "mm"
+enforcement = "assumption"
+rationale = """
+Bounded by the ingress gate rather than by this profile: H1.2 admits any finite binary64 quantity, \
+and ADR 0002 §2 deliberately declined to impose a magnitude policy, having measured acceptance out \
+to 1e154 mm. The bound is recorded here because it is what forces the tolerances below to be \
+*hybrid or relative* rather than absolute — at 1e154 the spacing between adjacent binary64 values \
+already exceeds any fixed 1e-6 mm epsilon, so an absolute-only predicate would be unsatisfiable \
+there and the rule would fire on correct output.
+"""
+boundary_ids = [
+  "FM1.F64.VERIFY.CONTINUITY.GAP",
+  "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
+]
+
+# ---------------------------------------------------------------------------------------------
+# Budgets — one per tolerance constant, pinned against verify.rs by
+# validate_verify_implementation_values so a constant cannot be retuned without updating this file.
+# ---------------------------------------------------------------------------------------------
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.CONTINUITY_GAP_MM"
+metric = "Per-axis gap between a segment's start and the previous segment's end that `continuity` tolerates"
+unit = "mm"
+status = "bounded"
+ceiling = 1e-6
+boundary_ids = ["FM1.F64.VERIFY.CONTINUITY.GAP"]
+rationale = """
+Not a tuned number: it is the emitter's own print resolution. `num()` in emit/gcode.rs formats \
+coordinates with `{v:.6}`, so a gap below 1e-6 mm is not representable in the emitted program at \
+all — two points differing by less than this produce identical G-code and therefore describe the \
+same machine position. Applied in hybrid form (absolute below 1 mm, relative above) per the \
+COMPARED_COORDINATE_MM limit. The rejected alternative was 0.1 mm, reused from `junction_contiguous`, \
+where being generous is safe because it *suppresses* a warning; as a violation threshold it would \
+admit a 99 µm gap, half a layer height on a 0.2 mm layer.
+"""
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/emit/gcode.rs",
+  "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
+]
+next_obligation = "Re-derive if the emitter's coordinate precision changes; the two must stay equal."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.LENGTH_RELATIVE_ERROR"
+metric = "Relative disagreement between a segment's declared length and the length its own geometry implies"
+unit = "relative"
+status = "bounded"
+ceiling = 1e-6
+boundary_ids = ["FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH"]
+rationale = """
+Shared by `segment-length` (straight and stationary primitives, against the distance between the \
+segment's endpoints) and `arc-length` (against `hypot(radius·swept, Δz)`). One tolerance because \
+there is one length formula: resolve.rs, gcode/lift.rs and optimize/arc.rs all compute it \
+identically, so the predicate is checking agreement between a producer and itself rather than \
+between two independent derivations. Relative rather than absolute for the reason recorded on \
+COMPARED_COORDINATE_MM.
+"""
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/src/gcode/lift.rs",
+]
+next_obligation = "Re-derive if any producer adopts a different length formula; the rule assumes there is exactly one."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR"
+metric = "Relative drift in volume/filament within a single tool"
+unit = "relative"
+status = "bounded"
+ceiling = 1e-6
+boundary_ids = ["FM1.F64.VERIFY.FILAMENT_RATIO"]
+rationale = """
+The compared quantity is itself a ratio — the feedstock cross-section — so the tolerance is \
+necessarily relative. Holds exactly for `resolve` (one area) and `gcode/lift` (one filament area), \
+and is preserved by every optimize pass: merge and arc_fit sum numerator and denominator together, \
+and coasting zeroes both, which the rule's `> 0` gates exclude. Known limit, recorded rather than \
+hidden: a *uniformly* wrong diameter yields a constant ratio and passes. Closing that needs a \
+filament diameter the IR does not carry.
+"""
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/optimize/coasting.rs",
+  "crates/core/src/optimize/arc.rs",
+]
+next_obligation = "Revisit when the IR carries a filament diameter, which would let the rule check the cross-section rather than only its constancy."

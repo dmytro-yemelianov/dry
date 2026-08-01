@@ -1430,7 +1430,11 @@ rust_sources = [
   "crates/core/src/verify.rs"
 ]
 numeric_evidence = []
-numeric_boundaries = []
+numeric_boundaries = [
+  "FM1.F64.VERIFY.CONTINUITY.GAP",
+  "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
+  "FM1.F64.VERIFY.FILAMENT_RATIO",
+]
 refinement_evidence = []
 
 [claim.status]

@@ -1,0 +1,107 @@
+schema_version = 1
+model = "verify-numeric-boundaries-v0"
+scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the three tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency) from Segment inputs through Report findings."
+numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
+
+[[source]]
+path = "crates/core/src/verify.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "cb3a830848fc198ef229347c382225f3ea5fe45af5d0979b587887555e9a9c7d"
+
+# ---------------------------------------------------------------------------------------------
+# H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
+# tolerance-bearing predicate is `approximate` and its epsilon must be *named*. These are the three.
+#
+# The remaining structural rules (`negative-quantity`, `bead-volume`) are exact comparisons against
+# zero or a caller-supplied tolerance and carry no epsilon of their own, so they have no entry here.
+# ---------------------------------------------------------------------------------------------
+
+[[boundary]]
+id = "FM1.F64.VERIFY.CONTINUITY.GAP"
+title = "Continuity tolerates a per-axis gap only below the emitter's own coordinate resolution"
+rust_symbol = "verify_stream"
+source_path = "crates/core/src/verify.rs"
+source_anchor = "const CONTINUITY_TOLERANCE_MM: f64 = 1e-6;"
+inputs = ["Segment.start", "Segment.end"]
+operation = "Per axis, with the previous segment's end p and this segment's start q: fire when |p - q| > 1e-6 * max(|p|, |q|, 1). An undefined axis inherits and never fires; ManualGcode resets the tracked position instead of being compared."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "The emitter formats coordinates with {v:.6}, so a difference below 1e-6 mm cannot appear in the emitted program.",
+  "Every in-tree producer threads position exactly, so continuity is not a tolerance question for Dry-produced IR - the epsilon exists for imported and hand-authored IR.",
+]
+exclusions = [
+  "Gaps across a ManualGcode segment, which is outside the verifier's semantic model by construction.",
+  "Whether the repositioning the emitter omits is safe on a given machine; the rule states only that the IR and the emitted program disagree.",
+]
+next_obligation = "Keep this equal to the emitter's coordinate precision. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/emit/gcode.rs",
+  "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
+]
+claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.COMPARED_COORDINATE_MM",
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.CONTINUITY_GAP_MM",
+]
+
+[[boundary]]
+id = "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH"
+title = "A declared length must agree with the geometry the segment itself carries"
+rust_symbol = "verify_stream"
+source_path = "crates/core/src/verify.rs"
+source_anchor = "const LENGTH_TOLERANCE: f64 = 1e-6;"
+inputs = ["Segment.length", "Segment.start", "Segment.end", "Segment.centre", "Segment.clockwise"]
+operation = "For straight and stationary primitives, fire when the declared length differs from the distance between the segment's own endpoints by more than 1e-6 relative. For an Arc, compare against hypot(radius * swept, dz) instead. Spline and ManualGcode are excluded."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "There is exactly one arc-length formula in the tree: resolve.rs, gcode/lift.rs and optimize/arc.rs agree.",
+  "A Spline's length is the sampled curve rather than the chord, so it is not checkable by this predicate.",
+]
+exclusions = [
+  "Splines, whose declared length has no closed form to compare against here.",
+  "Whether the length is physically achievable; the rule states only that the IR contradicts itself.",
+]
+next_obligation = "If any producer adopts a different length formula, this rule stops checking a producer against itself and needs re-deriving."
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/src/gcode/lift.rs",
+]
+claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.COMPARED_COORDINATE_MM",
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.LENGTH_RELATIVE_ERROR",
+]
+
+[[boundary]]
+id = "FM1.F64.VERIFY.FILAMENT_RATIO"
+title = "The volume-to-filament ratio is the feedstock cross-section and is constant per tool"
+rust_symbol = "verify_stream"
+source_path = "crates/core/src/verify.rs"
+source_anchor = "const FILAMENT_RATIO_TOLERANCE: f64 = 1e-6;"
+inputs = ["Segment.volume", "Segment.filament", "Segment.tool", "Segment.travel"]
+operation = "Over segments with !travel and volume > 0 and filament > 0, grouped by tool: fire when volume/filament differs from the group's first observed ratio by more than 1e-6 relative."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "resolve uses one bead cross-section and gcode/lift one filament area, so the ratio is constant by construction for both.",
+  "merge and arc_fit sum numerator and denominator together; coasting zeroes both and is excluded by the > 0 gates.",
+]
+exclusions = [
+  "A uniformly wrong filament diameter, which yields a constant ratio and passes. Detecting it needs a diameter the IR does not carry.",
+  "Multi-diameter or multi-material IR, which is unusual but not ill-formed - the reason the rule ships at Warning for one minor release.",
+]
+next_obligation = "Promote to Error one minor release after landing, and revisit if the IR gains a filament diameter."
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/optimize/coasting.rs",
+  "crates/core/src/optimize/arc.rs",
+]
+claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
+]
