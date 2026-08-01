@@ -22,21 +22,6 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   emission grid**, rather than only at an exact `2·inset >= width` boundary. An inset one epsilon
   below the old boundary produced 176 coincident extruding moves with zero extruded length that
   `verify` reported clean. Jobs relying on a sub-grid "perimeter" were producing nothing.
-
-### Fixed
-- **TPMS: the adaptive field-sample budget no longer over-estimates by 15×.** It charged every base
-  interval as if it refined all the way to `adaptiveMinLayerHeight`, ignoring `adaptiveMaxDepth` — the
-  actual limiter at the defaults. Measured 2001 layers estimated against 133 actual, so turning
-  `adaptive` on could refuse a job that was legal without it. No previously-accepted job is now
-  refused by this change; it only stops false refusals.
-- **TPMS: a vacuity refusal no longer blames an option the caller never set.** `minPathLength`
-  defaults to a value derived from the sample spacing, and when contours were traced but fell below
-  it, the error told the user to lower that derived number — on 7 of 10 surfaces, always in the narrow
-  band at the edge of the field range, which is exactly where someone tuning `isoLevel` lands.
-  Following the advice did not help. The message now names `isoLevel` when the filter value was
-  derived, and keeps naming `minPathLength` when the caller set it. Likewise a `perimeterInset`
-  refusal says when the value was defaulted from `beadWidth`.
-
 - **`verify` gained six rules, five of them always active, so a toolpath that was previously reported
   clean may now report errors (H1.3).** Each states a property no Dry producer can violate, so the only
   reports that turn red were already describing a program that does not match its own IR:
@@ -71,6 +56,29 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   previously could not. Reported magnitudes change: the kinematics conformance report moves from
   `Δv 25.0` to `55.9` with an unchanged finding set.
 
+### Fixed
+- **TPMS: no surface emits a coincident extruding move any more (H1.4 T3).** The path dedupe compared
+  points against a 1e-7 threshold while emission rounds coordinates to the 1e-6 grid, so points up to
+  five times further apart than the threshold still collapsed onto a single emitted coordinate — an
+  extruding move from a point to itself. Measured at *default* options: `schwarz-d` at
+  `samplesPerCell 8` produced 4, `fischer-koch-y` 3 across two resolutions, `neovius` 1. Deduplication
+  now happens against the grid the points are actually emitted on, so the property holds by
+  construction, and a path whose points all land on one coordinate is dropped rather than emitted as a
+  travel followed by an extruder-on with no move. `conformance/gallery/gyroid_infill.json` is
+  unchanged: the defect is surface- and resolution-dependent and gyroid at the fixture's options never
+  had a collapsing pair.
+- **TPMS: the adaptive field-sample budget no longer over-estimates by 15×.** It charged every base
+  interval as if it refined all the way to `adaptiveMinLayerHeight`, ignoring `adaptiveMaxDepth` — the
+  actual limiter at the defaults. Measured 2001 layers estimated against 133 actual, so turning
+  `adaptive` on could refuse a job that was legal without it. No previously-accepted job is now
+  refused by this change; it only stops false refusals.
+- **TPMS: a vacuity refusal no longer blames an option the caller never set.** `minPathLength`
+  defaults to a value derived from the sample spacing, and when contours were traced but fell below
+  it, the error told the user to lower that derived number — on 7 of 10 surfaces, always in the narrow
+  band at the edge of the field range, which is exactly where someone tuning `isoLevel` lands.
+  Following the advice did not help. The message now names `isoLevel` when the filter value was
+  derived, and keeps naming `minPathLength` when the caller set it. Likewise a `perimeterInset`
+  refusal says when the value was defaulted from `beadWidth`.
 ### Added
 - **CNC pocket/profile → RS-274 (P5.3):** a contour-parallel pocket/profile generator for rectangles
   and circles (`dry_core::pocket_design`/`try_pocket_design`, `dry generate pocket --cut-mode
