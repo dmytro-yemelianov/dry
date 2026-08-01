@@ -295,6 +295,75 @@ jobs:
       - name: compile benches
         run: cargo bench -p dry-core --no-run --locked
 
+  cloud:
+    name: cloud (workers-rs wasm32 build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
+      # as crates/wasm), so it gets its own fmt + clippy (same -D warnings, no #[allow] discipline).
+      - name: rust check (the cloud worker)
+        working-directory: crates/cloud
+        run: |
+          cargo fmt --check
+          cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+      # `worker-build` (the packaging step `wrangler deploy` would run) needs a wasm-bindgen build
+      # that isn't reliably reproducible in CI today (externref/reference-types mismatches against
+      # pinned wasm-bindgen releases); a plain `cargo build` for the wasm32 target still catches any
+      # compile break against dry-core without depending on that packaging step.
+      - name: build (wasm32, dry-cloud)
+        working-directory: crates/cloud
+        run: cargo build --target wasm32-unknown-unknown --locked
+
+  verify-runner:
+    name: verify-runner (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+      # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, builds
+      # standalone or via Docker — see containers/verify-runner/Dockerfile), so it gets its own
+      # fmt + clippy (same -D warnings, no #[allow] discipline) and its own test run.
+      - name: rust check (the verify runner)
+        working-directory: containers/verify-runner
+        run: |
+          cargo fmt --check
+          cargo clippy --locked -- -D warnings
+      - name: test
+        working-directory: containers/verify-runner
+        run: cargo test --locked
+
+  linuxcnc:
+    name: linuxcnc (reference interpreter accepts the CNC goldens)
+    runs-on: ubuntu-latest
+    # Debian ships linuxcnc-uspace (1:2.9.4-2+deb13u1 in trixie) as a stock package;
+    # Ubuntu does not carry it at all, so the job runs in a Debian container rather
+    # than adding the upstream apt source to the runner. No VM is involved — the Lima
+    # guest in tools/linuxcnc.lima.yaml exists only for running this check on macOS.
+    container: debian:trixie
+    steps:
+      - name: install the reference interpreter
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates linuxcnc-uspace
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # This is the only independent oracle in the repo: every other gate is Dry
+      # checking Dry (its own parser, its own frozen goldens). rs274 re-reads the
+      # emitted program and emits canonical machine ops, so a file passes only if
+      # LinuxCNC agrees it describes real motion.
+      - name: rs274 accepts the emitted CNC programs
+        run: tools/linuxcnc_check.sh
+
   security:
     name: dependency security audit
     runs-on: ubuntu-latest
