@@ -94,7 +94,13 @@ export interface TpmsOptions {
   adaptiveMaxPointDelta?: number;
   /** Maximum recursive adaptive subdivision depth. */
   adaptiveMaxDepth?: number;
-  /** Guardrail for browser/interactive use. Set to Infinity for trusted offline generation. */
+  /**
+   * Guardrail for browser/interactive use. Set to `Infinity` for trusted offline generation — it is
+   * encoded on the wire as `0`, the engine's documented "unlimited" sentinel, because JSON has no
+   * `Infinity` literal.
+   *
+   * Negative values are refused by the engine; they used to disable the guardrail silently.
+   */
   maxFieldSamples?: number;
 }
 

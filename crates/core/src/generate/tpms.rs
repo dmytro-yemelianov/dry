@@ -30,6 +30,9 @@ const DEFAULT_ADAPTIVE_MAX_LAYER_HEIGHT: f64 = 0.32;
 const DEFAULT_ADAPTIVE_MAX_LENGTH_DELTA: f64 = 0.35;
 const DEFAULT_ADAPTIVE_MAX_POINT_DELTA: f64 = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH: u32 = 4;
+/// Adaptive refinement bisects, so depth is an exponent: at 16 one base interval could carry 65,535
+/// inserted layers. Past this the value is not a slicing request.
+const MAX_ADAPTIVE_MAX_DEPTH: u32 = 16;
 /// Field-sample budget guardrail for interactive/untrusted use.
 const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
 /// The top base layer is clamped to the block height, so it gets whatever Z remains. A remainder
@@ -133,7 +136,18 @@ pub struct TpmsOptions {
     pub adaptive_max_length_delta: Option<f64>,
     pub adaptive_max_point_delta: Option<f64>,
     pub adaptive_max_depth: Option<u32>,
-    /// Guardrail for interactive use. Use a large value for trusted offline generation.
+    /// Field-sample guardrail for interactive use; defaults to 6,000,000.
+    ///
+    /// **`0` means unlimited.** That is the sentinel `sdk/ts` encodes `Infinity` as
+    /// (`sdk/ts/src/generators/tpms.ts`), so it is a wire contract, not an accident: trusted offline
+    /// generation passes `0` rather than a large finite value. A non-finite value is also treated as
+    /// unlimited. `NaN` and negative values are **refused** — nobody intends either, and accepting
+    /// them silently switched the guardrail off.
+    ///
+    /// Accepted residual, recorded deliberately (H1.4 T4b): a caller who can send `0` can still
+    /// disable the guard, and on wasm that is any browser page passing through user option JSON.
+    /// That is a documented hole, not an oversight; revisit if the browser surface ever accepts
+    /// untrusted option JSON.
     pub max_field_samples: Option<f64>,
 }
 
@@ -261,6 +275,10 @@ struct Tpms {
     perimeter: bool,
     perimeter_inset: f64,
     min_path_length: f64,
+    /// Whether the caller supplied `minPathLength`, or it was derived from the sample spacing.
+    /// Only used to attribute blame in the vacuity error — naming a value nobody typed sends the
+    /// user to the wrong knob (#189).
+    min_path_length_explicit: bool,
     adaptive: Option<AdaptiveOptions>,
     // derived
     width: f64,
@@ -329,6 +347,15 @@ impl Tpms {
             let max_depth = options
                 .adaptive_max_depth
                 .unwrap_or(DEFAULT_ADAPTIVE_MAX_DEPTH);
+            // The only integer option with no validation until now. Refinement bisects, so depth is
+            // an exponent: at 16 a single base interval could carry 65,535 inserted layers. Anything
+            // beyond that is not a slicing request.
+            if max_depth > MAX_ADAPTIVE_MAX_DEPTH {
+                return Err(TpmsError::new(format!(
+                    "adaptiveMaxDepth {max_depth} exceeds the maximum of {MAX_ADAPTIVE_MAX_DEPTH}: \
+                     each level halves the layer spacing, so depth is an exponent"
+                )));
+            }
             if min_layer_height - max_layer_height > EPS {
                 return Err(TpmsError::new(
                     "adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight",
@@ -351,11 +378,22 @@ impl Tpms {
         let nx = cells_x as usize * samples_per_cell as usize;
         let ny = cells_y as usize * samples_per_cell as usize;
 
-        let slice_height = match &adaptive {
-            Some(a) => layer_height.min(a.min_layer_height),
-            None => layer_height,
-        };
-        assert_budget(nx, ny, height, slice_height, options.max_field_samples)?;
+        // `0` is the documented "unlimited" sentinel and a non-finite value is treated the same, but
+        // NaN and negative are refused: they were silently switching the guardrail off, and the raw
+        // JSON path wasm and PyO3 use makes that reachable from untrusted input.
+        if let Some(max) = options.max_field_samples {
+            if max.is_nan() || max < 0.0 {
+                return Err(TpmsError::new(format!(
+                    "maxFieldSamples {max} must not be negative or NaN (use 0 for unlimited)"
+                )));
+            }
+        }
+        assert_budget(
+            nx,
+            ny,
+            estimate_layer_count(height, layer_height, adaptive.as_ref()),
+            options.max_field_samples,
+        )?;
 
         let dx = width / nx as f64;
         let dy = depth / ny as f64;
@@ -370,11 +408,33 @@ impl Tpms {
         // ADR 0002 §4: refuse, do not clamp. The old `.min((width/2 - EPS).max(0.0))` turned an
         // oversized inset into a rectangle spanning 2e-9 mm — 44 zero-length extrusions presented as
         // a perimeter wall. The inset is only read when `perimeter` is on, so only gate it there.
-        if perimeter && (2.0 * perimeter_inset >= width || 2.0 * perimeter_inset >= depth) {
-            return Err(TpmsError::new(format!(
-                "perimeterInset {perimeter_inset} collapses the perimeter rectangle: it must be \
-                 < half of both width ({width}) and depth ({depth})"
-            )));
+        //
+        // The gate must be on the *surviving span*, not on an exact `2·inset >= width` boundary. An
+        // inset one epsilon below that boundary passed while leaving a rectangle far below the 1e-6
+        // emission grid, which rounds to a point: measured on a 12 mm block at `perimeterInset:
+        // 5.9999999`, 176 coincident extruding moves with zero extruded length and a clean `verify`
+        // — the exact artifact the gate was added to remove (#189).
+        if perimeter {
+            let span_x = width - 2.0 * perimeter_inset;
+            let span_y = depth - 2.0 * perimeter_inset;
+            let min_span = 1.0 / QUANTUM;
+            if span_x < min_span || span_y < min_span {
+                // `perimeterInset` defaults to `beadWidth`, so a caller who never set it can still
+                // land here — on any block narrower than two beads. Name the option they actually
+                // typed, or say the value was derived and from where.
+                let source = if options.perimeter_inset.is_some() {
+                    String::new()
+                } else {
+                    format!(" (defaulted from beadWidth {bead_width}, not set by you)")
+                };
+                return Err(TpmsError::new(format!(
+                    "perimeterInset {perimeter_inset}{source} collapses the perimeter rectangle to \
+                     {:.9} x {:.9} mm, below the {min_span} mm emission grid: it must leave a span \
+                     of at least {min_span} mm in both width ({width}) and depth ({depth})",
+                    span_x.max(0.0),
+                    span_y.max(0.0)
+                )));
+            }
         }
 
         Ok(Tpms {
@@ -396,6 +456,7 @@ impl Tpms {
             perimeter,
             perimeter_inset,
             min_path_length,
+            min_path_length_explicit: options.min_path_length.is_some(),
             adaptive,
             width,
             depth,
@@ -580,7 +641,14 @@ impl Tpms {
     ///
     /// A perimeter deposits material on its own, so it exempts the program from the check.
     fn reject_vacuous(&self, slices: &[LayerSlice]) -> Result<(), TpmsError> {
-        if self.perimeter || slices.iter().any(|s| s.path_count > 0) {
+        // The perimeter exemption is conditional on the rectangle actually having length. It used to
+        // short-circuit on `self.perimeter` alone, so a perimeter of literally zero length exempted
+        // the whole program from the vacuity check (#189). The span gate in `resolve` now refuses
+        // that case up front; this keeps the exemption honest if the two ever drift apart.
+        let perimeter_has_length = self.perimeter
+            && (self.width - 2.0 * self.perimeter_inset) >= 1.0 / QUANTUM
+            && (self.depth - 2.0 * self.perimeter_inset) >= 1.0 / QUANTUM;
+        if perimeter_has_length || slices.iter().any(|s| s.path_count > 0) {
             return Ok(());
         }
         // Which option emptied the program is decided by the pre-filter contour count, not guessed:
@@ -593,9 +661,26 @@ impl Tpms {
                 .iter()
                 .map(|s| s.longest_raw_length)
                 .fold(0.0_f64, f64::max);
+            if self.min_path_length_explicit {
+                return Err(TpmsError::new(format!(
+                    "minPathLength {} dropped all {raw} contours (longest was {longest}), so the \
+                     program would deposit no material. Lower minPathLength or raise \
+                     samplesPerCell.",
+                    self.min_path_length
+                )));
+            }
+            // The filter did the dropping, but the caller never chose its value — it is derived from
+            // the sample spacing. Telling them to lower a number they did not set sent them to the
+            // wrong knob on 7 of 10 surfaces, always in the narrow band at the edge of the field
+            // range, which is exactly where someone tuning `isoLevel` lands (#189). Following that
+            // advice did not help: the contours that survive are microscopic either way.
             return Err(TpmsError::new(format!(
-                "minPathLength {} dropped all {raw} contours (longest was {longest}), so the \
-                 program would deposit no material. Lower minPathLength or raise samplesPerCell.",
+                "isoLevel {} sits at the edge of the {} field's range: the {raw} contours it traces \
+                 are shorter (longest {longest}) than the default minPathLength {} derived from the \
+                 sample spacing, so the program would deposit no material. Move isoLevel toward the \
+                 middle of the range, or raise samplesPerCell to resolve finer contours.",
+                self.iso_level,
+                self.surface.wire_name(),
                 self.min_path_length
             )));
         }
@@ -790,20 +875,44 @@ impl Tpms {
     }
 }
 
-/// Estimate the field-sample count and reject a request that blows the guardrail. A non-finite or
-/// non-positive `max_field_samples` (or the default-disabling large value) means "no limit".
+/// An upper bound on the number of layers the slicer can produce.
+///
+/// Adaptive refinement **bisects** each base interval and stops on two conditions: `max_depth`
+/// levels, and neighbours no closer than `min_layer_height`. So a base interval carries at most
+/// `2^max_depth - 1` inserted layers, and at most `layer_height / min_layer_height - 1`.
+///
+/// The previous estimate charged the job as if every interval refined all the way down to
+/// `min_layer_height` — `ceil(height / min_layer_height) + 1` — which ignores `max_depth`, the
+/// binding limit at the defaults. Measured on the audit's case that was **2001 layers estimated
+/// against 133 actual**, a 15x over-estimate, so switching `adaptive` on could make a job illegal
+/// that is perfectly legal without it. Refusing work that would have succeeded is the mirror image
+/// of the defects this hardening pass exists to remove.
+fn estimate_layer_count(height: f64, layer_height: f64, adaptive: Option<&AdaptiveOptions>) -> f64 {
+    let base = libm::ceil(height / layer_height) + 1.0;
+    let Some(a) = adaptive else {
+        return base;
+    };
+    let by_depth = libm::pow(2.0, a.max_depth as f64) - 1.0;
+    let by_min_height = (layer_height / a.min_layer_height - 1.0).max(0.0);
+    let per_interval = by_depth.min(by_min_height);
+    base + (base - 1.0).max(0.0) * per_interval
+}
+
+/// Estimate the field-sample count and reject a request that blows the guardrail.
+///
+/// `0` means "no limit" — the documented sentinel `sdk/ts` encodes `Infinity` as — and a non-finite
+/// limit is treated the same. NaN and negative values never reach here; they are refused during
+/// validation, because accepting them switched the guardrail off silently.
 fn assert_budget(
     nx: usize,
     ny: usize,
-    height: f64,
-    slice_height: f64,
+    estimated_layers: f64,
     max_field_samples: Option<f64>,
 ) -> Result<(), TpmsError> {
     let max = max_field_samples.unwrap_or(DEFAULT_MAX_FIELD_SAMPLES);
     if !max.is_finite() || max <= 0.0 {
         return Ok(());
     }
-    let estimated_layers = libm::ceil(height / slice_height) + 1.0;
     let estimated = (nx + 1) as f64 * (ny + 1) as f64 * estimated_layers;
     if estimated <= max {
         return Ok(());
@@ -1547,6 +1656,47 @@ mod tests {
     }
 
     #[test]
+    fn a_derived_min_path_length_blames_iso_level_not_the_filter() {
+        // #189: `minPathLength` defaults to `dx.min(dy)` — derived from the sample spacing, never
+        // typed by the caller. When contours exist but are shorter than that derived value, the old
+        // message told the user to "lower minPathLength", naming a number they had not set, on 7 of
+        // 10 surfaces. It was always in the narrow band at the edge of the field range, which is
+        // exactly where someone tuning `isoLevel` lands — and lowering the filter did not help,
+        // because the surviving contours are microscopic either way.
+        for (surface, iso) in [
+            ("schwarz-d", 1.4),
+            ("fischer-koch-s", 1.4),
+            ("split-p", 1.7),
+        ] {
+            let json = format!(
+                r#"{{"surface":"{surface}","isoLevel":{iso},"cellSize":12,"cellsX":1,"cellsY":1,
+                    "cellsZ":1,"samplesPerCell":8}}"#
+            );
+            let options: TpmsOptions = serde_json::from_str(&json).unwrap();
+            let err = try_tpms_ops(&options)
+                .expect_err(&format!("{surface} at isoLevel {iso} must be refused"));
+            let msg = err.to_string();
+
+            assert!(
+                msg.contains("isoLevel"),
+                "[{surface}] must name the option the caller actually set: {msg}"
+            );
+            assert!(
+                !msg.contains("Lower minPathLength"),
+                "[{surface}] must not send the user to a knob they never touched: {msg}"
+            );
+        }
+
+        // The control: when the caller *does* set `minPathLength`, it keeps the blame.
+        let options = TpmsOptions {
+            min_path_length: Some(1e9),
+            ..small_cell()
+        };
+        let msg = try_tpms_ops(&options).unwrap_err().to_string();
+        assert!(msg.contains("Lower minPathLength"), "{msg}");
+    }
+
+    #[test]
     fn perimeter_inset_collapsing_the_rectangle_is_rejected() {
         let options = TpmsOptions {
             perimeter: Some(true),
@@ -1573,30 +1723,147 @@ mod tests {
     #[test]
     fn budget_guardrail_triggers_at_threshold() {
         // nx = ny = 10 → (10+1)·(10+1) = 121 samples per layer.
-        // height = 10, layerHeight = 1 → ceil(10/1) + 1 = 11 layers. 121 · 11 = 1331 samples.
+        //
+        // The layer count uses a NON-integral height/layerHeight ratio on purpose: height = 10 with
+        // layerHeight = 3 gives ceil(10/3) + 1 = 5 layers, where floor would give 4. The old fixture
+        // used layerHeight = 1, so ceil(10) and floor(10) were both 10 and a `ceil`→`floor` mutation
+        // survived the boundary test — the same defect fixed in `generate/pocket.rs`.
+        //
+        // 121 · 5 = 605 samples; the floor mutant would estimate 121 · 4 = 484.
         let base = TpmsOptions {
             cell_size: Some(10.0),
             cells_x: Some(1),
             cells_y: Some(1),
             cells_z: Some(1),
             samples_per_cell: Some(10),
-            layer_height: Some(1.0),
+            layer_height: Some(3.0),
             ..Default::default()
         };
 
         let mut too_tight = base.clone();
-        too_tight.max_field_samples = Some(1330.0);
-        let err = try_tpms_ops(&too_tight).expect_err("1330 < 1331 should trip the guardrail");
+        too_tight.max_field_samples = Some(604.0);
+        let err = try_tpms_ops(&too_tight).expect_err("604 < 605 should trip the guardrail");
         assert!(
             err.to_string().contains("budget"),
             "expected a budget error, got: {err}"
         );
 
         let mut just_enough = base;
-        just_enough.max_field_samples = Some(1331.0);
+        just_enough.max_field_samples = Some(605.0);
         assert!(
             try_tpms_ops(&just_enough).is_ok(),
-            "1331 == estimate should pass"
+            "605 == estimate should pass"
+        );
+    }
+
+    #[test]
+    fn max_field_samples_rejects_nan_and_negative_but_keeps_zero_unlimited() {
+        let huge = || TpmsOptions {
+            cell_size: Some(10.0),
+            cells_x: Some(1),
+            cells_y: Some(1),
+            cells_z: Some(1),
+            samples_per_cell: Some(10),
+            layer_height: Some(3.0),
+            ..Default::default()
+        };
+
+        for bad in [f64::NAN, -1.0, -f64::INFINITY] {
+            let mut o = huge();
+            o.max_field_samples = Some(bad);
+            let err = try_tpms_ops(&o).expect_err(&format!(
+                "maxFieldSamples {bad} must be refused, not ignored"
+            ));
+            assert!(
+                err.to_string().contains("maxFieldSamples"),
+                "message must name the option: {err}"
+            );
+        }
+
+        // `0` stays the documented "unlimited" sentinel — it is the value `sdk/ts` encodes
+        // `Infinity` as, so changing it would break a released TS API.
+        let mut unlimited = huge();
+        unlimited.max_field_samples = Some(0.0);
+        assert!(
+            try_tpms_ops(&unlimited).is_ok(),
+            "0 must keep meaning unlimited"
+        );
+    }
+
+    #[test]
+    fn adaptive_budget_charges_bisection_depth_not_the_minimum_layer_height() {
+        // Adaptive bisects, bounded by `adaptiveMaxDepth`. Charging the job as if every interval
+        // refined to `adaptiveMinLayerHeight` over-counted 15x at the defaults, so switching
+        // `adaptive` on could refuse a job that is legal without it.
+        let base_layers = libm::ceil(10.0 / 3.0) + 1.0;
+        let adaptive = AdaptiveOptions {
+            min_layer_height: 0.01,
+            max_layer_height: 3.0,
+            max_length_delta: 0.35,
+            max_point_delta: 0.45,
+            max_depth: 2,
+        };
+
+        let estimate = estimate_layer_count(10.0, 3.0, Some(&adaptive));
+        // depth 2 → at most 3 inserted layers per interval, not 3/0.01 = 299.
+        assert_eq!(estimate, base_layers + (base_layers - 1.0) * 3.0);
+
+        let naive = libm::ceil(10.0 / adaptive.min_layer_height) + 1.0;
+        assert!(
+            estimate < naive / 10.0,
+            "estimate {estimate} should be far below the old {naive}"
+        );
+        assert_eq!(estimate_layer_count(10.0, 3.0, None), base_layers);
+    }
+
+    #[test]
+    fn adaptive_max_depth_is_validated() {
+        let mut o = small_cell();
+        o.adaptive = Some(true);
+        o.adaptive_max_depth = Some(MAX_ADAPTIVE_MAX_DEPTH + 1);
+        let err = try_tpms_ops(&o).expect_err("an absurd refinement depth must be refused");
+        assert!(
+            err.to_string().contains("adaptiveMaxDepth"),
+            "message must name the option: {err}"
+        );
+    }
+
+    #[test]
+    fn a_perimeter_rectangle_below_the_emission_grid_is_rejected() {
+        // #189: the old gate was an exact `2·inset >= width` boundary, so an inset one epsilon below
+        // it left a rectangle far under the 1e-6 emission grid — 176 coincident extruding moves with
+        // zero extruded length, and `verify` clean.
+        let mut o = small_cell();
+        o.cell_size = Some(12.0);
+        o.cells_x = Some(1);
+        o.cells_y = Some(1);
+        o.cells_z = Some(1);
+        o.perimeter = Some(true);
+        o.perimeter_inset = Some(5.9999999);
+
+        let err = try_tpms_ops(&o).expect_err("a sub-grid perimeter rectangle must be refused");
+        let msg = err.to_string();
+        assert!(msg.contains("perimeterInset"), "names the option: {msg}");
+        assert!(msg.contains("emission grid"), "explains the floor: {msg}");
+    }
+
+    #[test]
+    fn a_defaulted_perimeter_inset_says_where_the_value_came_from() {
+        // `perimeterInset` defaults to `beadWidth`, so any `perimeter: true` job on a block narrower
+        // than two beads is refused naming a knob the caller never set (#189).
+        let mut o = small_cell();
+        o.cell_size = Some(0.9);
+        o.cells_x = Some(1);
+        o.cells_y = Some(1);
+        o.cells_z = Some(1);
+        o.perimeter = Some(true);
+        o.perimeter_inset = None;
+
+        let err = try_tpms_ops(&o).expect_err("a block narrower than two beads must be refused");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("defaulted from beadWidth"),
+            "must say the value was derived, not chosen: {msg}"
         );
     }
 

@@ -10,6 +10,33 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### BREAKING
+- **TPMS: `maxFieldSamples` now refuses negative and `NaN` values (H1.4).** Both previously disabled
+  the field-sample guardrail *silently*, and the raw-JSON path wasm and PyO3 share made that reachable
+  from untrusted input — measured accepted at 8,120,601 samples against a 6,000,000 budget. **`0`
+  still means unlimited** and is unchanged: it is the sentinel `sdk/ts` encodes `Infinity` as, so it
+  is a wire contract. The accepted residual is recorded deliberately — a caller who can send `0` can
+  still disable the guard.
+- **TPMS: `adaptiveMaxDepth` is validated and capped at 16.** It was the only integer option with no
+  validation. Refinement bisects, so the depth is an exponent.
+- **TPMS: `perimeterInset` is now refused when it leaves a rectangle narrower than the 1e-6 mm
+  emission grid**, rather than only at an exact `2·inset >= width` boundary. An inset one epsilon
+  below the old boundary produced 176 coincident extruding moves with zero extruded length that
+  `verify` reported clean. Jobs relying on a sub-grid "perimeter" were producing nothing.
+
+### Fixed
+- **TPMS: the adaptive field-sample budget no longer over-estimates by 15×.** It charged every base
+  interval as if it refined all the way to `adaptiveMinLayerHeight`, ignoring `adaptiveMaxDepth` — the
+  actual limiter at the defaults. Measured 2001 layers estimated against 133 actual, so turning
+  `adaptive` on could refuse a job that was legal without it. No previously-accepted job is now
+  refused by this change; it only stops false refusals.
+- **TPMS: a vacuity refusal no longer blames an option the caller never set.** `minPathLength`
+  defaults to a value derived from the sample spacing, and when contours were traced but fell below
+  it, the error told the user to lower that derived number — on 7 of 10 surfaces, always in the narrow
+  band at the edge of the field range, which is exactly where someone tuning `isoLevel` lands.
+  Following the advice did not help. The message now names `isoLevel` when the filter value was
+  derived, and keeps naming `minPathLength` when the caller set it. Likewise a `perimeterInset`
+  refusal says when the value was defaulted from `beadWidth`.
+
 - **`verify` gained six rules, five of them always active, so a toolpath that was previously reported
   clean may now report errors (H1.3).** Each states a property no Dry producer can violate, so the only
   reports that turn red were already describing a program that does not match its own IR:
