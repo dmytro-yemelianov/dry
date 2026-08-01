@@ -1422,7 +1422,8 @@ assumptions = [
 exclusions = [
   "Refinement of these abstract predicates against crates/core/src/verify.rs.",
   "Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.",
-  "Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation."
+  "Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.",
+  "The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified."
 ]
 lean_source = "formal/Dry/Semantics/VerifierSoundness.lean"
 rust_sources = [
@@ -1435,7 +1436,14 @@ refinement_evidence = []
 [claim.status]
 abstract = "proved"
 numeric = "not-applicable"
-refinement = "not-applicable"
+# `pending`, not `not-applicable`. Under ADR 0001 `not-applicable` asserts that no implementation
+# refinement is *owed*, and that is not defensible here: `Report::ok()` is read as an assurance claim
+# at eight in-tree call sites, and H1.3 widened the gap between the Lean predicate set (5 rules) and
+# verify.rs (24). The abstract theorem is unaffected — the exclusions above still limit this claim to
+# speed, flow, retraction speed/distance and monotonic elevation, and H1.3 changed none of those five
+# predicates — so `abstract = "proved"` stands. What changes is only the honest name for the missing
+# half. Tracked as #198.
+refinement = "pending"
 
 [[claim]]
 id = "FM1.OPTIMIZATION.MODEL.SEMANTICS"
