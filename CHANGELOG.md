@@ -9,6 +9,8 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-01
+
 ### BREAKING
 - **TPMS: `maxFieldSamples` now refuses negative and `NaN` values (H1.4).** Both previously disabled
   the field-sample guardrail *silently*, and the raw-JSON path wasm and PyO3 share made that reachable

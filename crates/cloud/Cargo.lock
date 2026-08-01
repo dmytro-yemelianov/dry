@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "dry-cloud"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "dry-core",
  "serde",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "libm",
  "miniz_oxide",
