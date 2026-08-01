@@ -58,66 +58,82 @@ fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
     Ok([v[0] / magnitude, v[1] / magnitude, v[2] / magnitude])
 }
 
-impl Kinematics {
-    /// Convert a toolframe orientation into the two rotary words used by this model.
+/// Sine of the tool tilt at or below which the `C` axis carries no direction: the singular cone.
+///
+/// `Ac` and `Bc` both recover `C` as `atan2(j, i)`. As the tool approaches ±Z the tilt `hypot(i, j)`
+/// falls to zero and `C` stops being determined by the direction at all; at exactly ±Z `atan2(0, 0)`
+/// returns `0`, which is a C library return value rather than a choice. Emitting it swings a real
+/// rotary axis mid-cut for no geometric reason — and because the linear axes are expressed in the
+/// rotated table frame, they swing with it.
+///
+/// The threshold is derived from the emitter's own word resolution, not tuned. Substituting any `C`
+/// for the computed one moves the tool direction by at most `2·asin(hypot(i, j))` radians (the two
+/// directions sit on a circle of radius `hypot(i, j)` about ±Z). At `1e-9` that is `2e-9` rad =
+/// `1.15e-7°`, an order of magnitude below the `1e-6°` that [`super::gcode::num`]'s `{v:.6}` can
+/// print — so holding `C` can never change a word the program is able to express. Any larger epsilon
+/// would let this policy alter emitted geometry silently.
+const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;
+
+/// The `C`-axis state carried from one segment to the next.
+///
+/// [`Kinematics::resolve_joints`] cannot be a pure per-segment function: inside the singular cone
+/// `C` is undetermined, and the only defensible answer is where the previous segment left the axis,
+/// which is history. `emit_stream_to_writer` threads this the way it already threads `prog_pos`.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct RotaryState {
+    /// Last determined `C`, in **radians**, nominal (before `rotary_offset`).
     ///
-    /// The orientation is normalised first; see [`unit_orientation`].
-    pub(crate) fn rotary_words(
+    /// Seeded at `0` — the identity — by `Default`. On the first move there is no previous
+    /// orientation, and the program cannot know where the operator left the axis, so the identity is
+    /// the only value it can assert. It is also what [`unit_orientation`] already substitutes for a
+    /// missing orientation (`[0, 0, 1]`), so a program that *starts* inside the cone is byte-identical
+    /// to one emitted before this state existed. A program that *enters* the cone differs,
+    /// deliberately: entering carries a determined `C`, starting carries none.
+    c: f64,
+}
+
+/// One segment's rotary joint angles in **radians**, nominal (before `rotary_offset`), in the order
+/// this model emits its words: `Ab` ⇒ `(A, B)`, `Ac` ⇒ `(C, A)`, `Bc` ⇒ `(C, B)`.
+///
+/// Resolving them once per segment is load-bearing, not tidiness. [`Kinematics::rotary_words`] and
+/// [`Kinematics::machine_position`] each used to recompute `atan2(j, i)` from the orientation. Once
+/// `C` can be *held* rather than computed, a held value reaching only one of them would emit rotary
+/// words for one machine state and linear words for another: under `Bc` at `B = 0`, holding
+/// `C = 90°` while the linear transform still assumed `C = 0` puts the programmed point a quarter
+/// turn about Z away from the metal.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Joints([f64; 2]);
+
+/// Resolve the `C` angle for a tool direction, holding the previous value inside the singular cone.
+///
+/// Advancing the state *is* the resolution: outside the cone the direction determines `C` and the
+/// state records it; inside, the recorded value is reused unchanged.
+fn resolve_c(i: f64, j: f64, state: &mut RotaryState) -> f64 {
+    if libm::hypot(i, j) > SINGULAR_CONE_SIN_TILT {
+        state.c = libm::atan2(j, i);
+    }
+    state.c
+}
+
+impl Kinematics {
+    /// Resolve one segment's rotary joint angles, advancing the `C`-axis state.
+    ///
+    /// The orientation is normalised first; see [`unit_orientation`]. This is the only fallible step
+    /// of the mapping — everything downstream is a function of the angles alone.
+    ///
+    /// `Ab` never touches the state: it has no `C` axis. Its own singularity — `B = atan2(i, k)` with
+    /// the tool along ±Y, where `i = k = 0` — is the exact analogue of the one handled here and is
+    /// **not** addressed; a tilting head passing through horizontal still swings `B` to zero.
+    pub(crate) fn resolve_joints(
         &self,
         orientation: Option<[f64; 3]>,
-    ) -> Result<[Rotary; 2], String> {
+        state: &mut RotaryState,
+    ) -> Result<Joints, String> {
         let [i, j, k] = unit_orientation(orientation)?;
         Ok(match *self {
-            Self::Ab {
-                rotary_offset,
-                pivot_offset: _,
-            } => {
-                let a = libm::atan2(j, libm::hypot(i, k)).to_degrees() + rotary_offset[0];
-                let b = libm::atan2(i, k).to_degrees() + rotary_offset[1];
-                [
-                    Rotary {
-                        letter: 'A',
-                        value: a,
-                    },
-                    Rotary {
-                        letter: 'B',
-                        value: b,
-                    },
-                ]
-            }
-            Self::Ac {
-                rotary_offset,
-                pivot_offset: _,
-            } => {
-                let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
-                let a = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
-                [
-                    Rotary {
-                        letter: 'C',
-                        value: c,
-                    },
-                    Rotary {
-                        letter: 'A',
-                        value: a,
-                    },
-                ]
-            }
-            Self::Bc {
-                rotary_offset,
-                pivot_offset: _,
-            } => {
-                let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
-                let b = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
-                [
-                    Rotary {
-                        letter: 'C',
-                        value: c,
-                    },
-                    Rotary {
-                        letter: 'B',
-                        value: b,
-                    },
-                ]
+            Self::Ab { .. } => Joints([libm::atan2(j, libm::hypot(i, k)), libm::atan2(i, k)]),
+            Self::Ac { .. } | Self::Bc { .. } => {
+                Joints([resolve_c(i, j, state), libm::acos(k.clamp(-1.0, 1.0))])
             }
         })
     }
@@ -174,24 +190,65 @@ impl Kinematics {
         }
     }
 
+    /// Convert resolved joint angles into the two rotary words used by this model.
+    pub(crate) fn rotary_words(&self, joints: Joints) -> [Rotary; 2] {
+        let Joints([first, second]) = joints;
+        match *self {
+            Self::Ab {
+                rotary_offset,
+                pivot_offset: _,
+            } => [
+                Rotary {
+                    letter: 'A',
+                    value: first.to_degrees() + rotary_offset[0],
+                },
+                Rotary {
+                    letter: 'B',
+                    value: second.to_degrees() + rotary_offset[1],
+                },
+            ],
+            Self::Ac {
+                rotary_offset,
+                pivot_offset: _,
+            } => [
+                Rotary {
+                    letter: 'C',
+                    value: first.to_degrees() + rotary_offset[1],
+                },
+                Rotary {
+                    letter: 'A',
+                    value: second.to_degrees() + rotary_offset[0],
+                },
+            ],
+            Self::Bc {
+                rotary_offset,
+                pivot_offset: _,
+            } => [
+                Rotary {
+                    letter: 'C',
+                    value: first.to_degrees() + rotary_offset[1],
+                },
+                Rotary {
+                    letter: 'B',
+                    value: second.to_degrees() + rotary_offset[0],
+                },
+            ],
+        }
+    }
+
     /// Convert machine workpoint `p` in WCS to MCS machine coordinates for this kinematic model.
     ///
-    /// The orientation is normalised first; see [`unit_orientation`].
-    pub(crate) fn machine_position(
-        &self,
-        p: [f64; 3],
-        orientation: Option<[f64; 3]>,
-    ) -> Result<[f64; 3], String> {
-        let [i, j, k] = unit_orientation(orientation)?;
-        Ok(match *self {
+    /// Takes the same [`Joints`] the rotary words are rendered from, so the linear and rotary halves
+    /// of a line always describe one machine state.
+    pub(crate) fn machine_position(&self, p: [f64; 3], joints: Joints) -> [f64; 3] {
+        let Joints([first, second]) = joints;
+        match *self {
             Self::Ab {
                 pivot_offset,
                 rotary_offset,
             } => {
-                let a_nom = libm::atan2(j, libm::hypot(i, k));
-                let b_nom = libm::atan2(i, k);
-                let a = a_nom + rotary_offset[0].to_radians();
-                let b = b_nom + rotary_offset[1].to_radians();
+                let a = first + rotary_offset[0].to_radians();
+                let b = second + rotary_offset[1].to_radians();
 
                 let sa = libm::sin(a);
                 let ca = libm::cos(a);
@@ -213,10 +270,8 @@ impl Kinematics {
                 pivot_offset,
                 rotary_offset,
             } => {
-                let c_nom = libm::atan2(j, i);
-                let a_nom = libm::acos(k.clamp(-1.0, 1.0));
-                let a = a_nom + rotary_offset[0].to_radians();
-                let c = c_nom + rotary_offset[1].to_radians();
+                let c = first + rotary_offset[1].to_radians();
+                let a = second + rotary_offset[0].to_radians();
 
                 let sa = libm::sin(a);
                 let ca = libm::cos(a);
@@ -242,10 +297,8 @@ impl Kinematics {
                 pivot_offset,
                 rotary_offset,
             } => {
-                let c_nom = libm::atan2(j, i);
-                let b_nom = libm::acos(k.clamp(-1.0, 1.0));
-                let b = b_nom + rotary_offset[0].to_radians();
-                let c = c_nom + rotary_offset[1].to_radians();
+                let c = first + rotary_offset[1].to_radians();
+                let b = second + rotary_offset[0].to_radians();
 
                 let sb = libm::sin(b);
                 let cb = libm::cos(b);
@@ -267,7 +320,7 @@ impl Kinematics {
 
                 [rx - lx, ry - ly, rz - lz]
             }
-        })
+        }
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -438,6 +491,13 @@ mod tests {
         assert!((a[2] - b[2]).abs() < eps);
     }
 
+    /// Resolve joints from a fresh (identity-seeded) state, as a one-segment program would.
+    fn joints_of(model: Kinematics, orientation: [f64; 3]) -> Joints {
+        model
+            .resolve_joints(Some(orientation), &mut RotaryState::default())
+            .unwrap()
+    }
+
     #[test]
     fn machine_position_preserves_reference_radius_for_zero_pivot_models() {
         let point = [10.0, -7.0, 4.25];
@@ -467,9 +527,8 @@ mod tests {
 
         for model in models {
             for orientation in orientations {
-                let projected = model
-                    .machine_position(point, Some(unit_vec(orientation)))
-                    .unwrap();
+                let projected =
+                    model.machine_position(point, joints_of(model, unit_vec(orientation)));
                 let projected_radius = norm(projected);
                 assert!(
                     (projected_radius - reference_radius).abs() < 1e-10,
@@ -530,7 +589,9 @@ mod tests {
         ];
         for model in models {
             for orientation in orientations {
-                let words = model.rotary_words(Some(orientation)).unwrap();
+                // A fresh RotaryState per case: this test is about the trig round-tripping, not
+                // about the cone-hold, and a held C would make the inverse depend on history.
+                let words = model.rotary_words(joints_of(model, orientation));
                 let back = model.orientation_from_rotary_words([words[0].value, words[1].value]);
                 // measured worst case over this matrix: 1.67e-16 per component, i.e. rounding.
                 for axis in 0..3 {
@@ -566,10 +627,93 @@ mod tests {
         ];
 
         for orientation in orientations {
-            let projected = model
-                .machine_position(point, Some(unit_vec(orientation)))
-                .unwrap();
+            let projected = model.machine_position(point, joints_of(model, unit_vec(orientation)));
             assert_point_within_epsilon(projected, point, 1e-12);
         }
+    }
+
+    /// The C axis stops being determined by the tool direction inside the cone, so the resolver must
+    /// return the previous value rather than `atan2(0, 0)`.
+    #[test]
+    fn c_is_held_inside_the_singular_cone_and_recomputed_outside_it() {
+        for model in [
+            Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+        ] {
+            let mut state = RotaryState::default();
+            // Seed: tool tilted toward +Y ⇒ C = 90°.
+            let tilted = model
+                .resolve_joints(Some(unit_vec([0.0, 1.0, 0.2])), &mut state)
+                .unwrap();
+            assert!((tilted.0[0].to_degrees() - 90.0).abs() < 1e-12);
+
+            // Straight up, and every direction whose tilt is inside the cone, holds it.
+            for inside in [
+                [0.0, 0.0, 1.0],
+                [-1e-17, 0.0, 1.0],
+                [0.0, SINGULAR_CONE_SIN_TILT, 1.0],
+                [-SINGULAR_CONE_SIN_TILT, 0.0, 1.0],
+            ] {
+                let held = model.resolve_joints(Some(inside), &mut state).unwrap();
+                assert!(
+                    (held.0[0].to_degrees() - 90.0).abs() < 1e-12,
+                    "{inside:?} should hold C = 90°, got {}",
+                    held.0[0].to_degrees()
+                );
+            }
+
+            // One decade outside the cone the direction determines C again.
+            let outside = model
+                .resolve_joints(Some([-1e-8, 0.0, 1.0]), &mut state)
+                .unwrap();
+            assert!((outside.0[0].to_degrees() - 180.0).abs() < 1e-12);
+        }
+    }
+
+    /// The bound that makes the epsilon defensible: holding C instead of computing it can move the
+    /// tool direction by at most `2·asin(SINGULAR_CONE_SIN_TILT)` radians, which is below the
+    /// `1e-6°` the emitter's `{v:.6}` word format can print.
+    #[test]
+    fn holding_c_inside_the_cone_stays_below_the_emitted_word_resolution() {
+        let model = Kinematics::Bc {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        };
+        let worst_case_rad = 2.0 * libm::asin(SINGULAR_CONE_SIN_TILT);
+        assert!(worst_case_rad.to_degrees() < 1e-6);
+
+        // Sample the cone boundary at the worst possible held value (180° away from the true C) and
+        // measure the angle between the direction the program describes and the true direction.
+        let mut worst_measured: f64 = 0.0;
+        for step in 0..=36 {
+            let theta = f64::from(step) * 10.0_f64.to_radians();
+            let h = SINGULAR_CONE_SIN_TILT;
+            let direction = unit_vec([h * libm::cos(theta), h * libm::sin(theta), 1.0]);
+            let mut state = RotaryState {
+                c: theta + std::f64::consts::PI,
+            };
+            let joints = model.resolve_joints(Some(direction), &mut state).unwrap();
+            let (c, b) = (joints.0[0], joints.0[1]);
+            let described = [
+                libm::sin(b) * libm::cos(c),
+                libm::sin(b) * libm::sin(c),
+                libm::cos(b),
+            ];
+            let dot = described[0] * direction[0]
+                + described[1] * direction[1]
+                + described[2] * direction[2];
+            worst_measured = worst_measured.max(libm::acos(dot.clamp(-1.0, 1.0)));
+        }
+        assert!(
+            worst_measured <= worst_case_rad,
+            "measured worst-case direction error {worst_measured} exceeds the published \
+             {worst_case_rad} rad bound"
+        );
     }
 }

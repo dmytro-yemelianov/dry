@@ -26,7 +26,8 @@
     "model": {
       "enum": [
         "feature-planar-binary64-v0",
-        "verify-tolerance-binary64-v0"
+        "verify-tolerance-binary64-v0",
+        "emit-kinematics-binary64-v0"
       ]
     },
     "status": {
