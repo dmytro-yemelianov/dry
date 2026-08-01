@@ -21,10 +21,13 @@
       "const": 1
     },
     "id": {
-      "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+      "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.[A-Z0-9_.]+$"
     },
     "model": {
-      "const": "feature-planar-binary64-v0"
+      "enum": [
+        "feature-planar-binary64-v0",
+        "verify-tolerance-binary64-v0"
+      ]
     },
     "status": {
       "enum": [
@@ -84,7 +87,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^FM1\\.F64\\.FEATURE\\.[A-Z0-9_.-]+$"
+        "pattern": "^FM1\\.F64\\.[A-Z0-9_.-]+$"
       }
     },
     "libm": {
@@ -147,7 +150,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.LIMIT\\.[A-Z0-9_.-]+$"
+          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.[A-Z0-9_.]+\\.LIMIT\\.[A-Z0-9_.-]+$"
         },
         "quantity": {
           "type": "string",
@@ -194,7 +197,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.BUDGET\\.[A-Z0-9_.-]+$"
+          "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.[A-Z0-9_.]+\\.BUDGET\\.[A-Z0-9_.-]+$"
         },
         "metric": {
           "type": "string",

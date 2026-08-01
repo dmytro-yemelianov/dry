@@ -17,14 +17,17 @@
       "const": 1
     },
     "model": {
-      "const": "feature-numeric-boundaries-v0"
+      "enum": [
+        "feature-numeric-boundaries-v0",
+        "verify-numeric-boundaries-v0"
+      ]
     },
     "scope": {
       "type": "string",
       "minLength": 1
     },
     "numeric_profile_id": {
-      "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+      "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.[A-Z0-9_.]+$"
     },
     "source": {
       "type": "array",
@@ -132,7 +135,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^FM1\\.F64\\.FEATURE\\.[A-Z0-9_.-]+$"
+          "pattern": "^FM1\\.F64\\.[A-Z0-9_.-]+$"
         },
         "title": {
           "type": "string",
@@ -205,7 +208,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.(?:LIMIT|BUDGET)\\.[A-Z0-9_.-]+$"
+            "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.[A-Z0-9_.]+\\.(?:LIMIT|BUDGET)\\.[A-Z0-9_.-]+$"
           }
         }
       }

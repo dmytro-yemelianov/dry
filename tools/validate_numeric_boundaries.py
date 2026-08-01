@@ -10,7 +10,7 @@ import math
 from pathlib import Path
 import re
 import sys
-from typing import Any
+from typing import Any, NamedTuple
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
@@ -22,10 +22,15 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_MODEL = "feature-numeric-boundaries-v0"
+FEATURE_MODEL = "feature-numeric-boundaries-v0"
+VERIFY_MODEL = "verify-numeric-boundaries-v0"
 EXPECTED_SCHEMA_ID = "https://dry.dev/schemas/numeric-boundaries-v1.schema.json"
 EXPECTED_PROFILE_SCHEMA_ID = "https://dry.dev/schemas/numeric-profile-v1.schema.json"
-EXPECTED_PROFILE_ID = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+FEATURE_PROFILE_ID = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+VERIFY_PROFILE_ID = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
+# Alias: the feature-specific policy tables and implementation check below are written against
+# this name and are not shared with any other model.
+EXPECTED_PROFILE_ID = FEATURE_PROFILE_ID
 EXPECTED_TARGETS = {
     "x86_64-unknown-linux-gnu",
     "wasm32-unknown-unknown",
@@ -37,11 +42,11 @@ EXPECTED_LIBM_CONTRACT = {
     "trig_max_ulp": 1,
     "trig_contract_status": "imported-assumption",
 }
-EXPECTED_SOURCES = {
+FEATURE_SOURCES = {
     "crates/core/src/features.rs",
     "crates/core/src/resolve.rs",
 }
-EXPECTED_BOUNDARIES = {
+FEATURE_BOUNDARIES = {
     "FM1.F64.FEATURE.POSE.FINITE",
     "FM1.F64.FEATURE.COORDINATE.INHERIT",
     "FM1.F64.FEATURE.ANGLE.DEGREES",
@@ -56,7 +61,7 @@ EXPECTED_BOUNDARIES = {
     "FM1.F64.FEATURE.MANUAL.IDENTITY",
     "FM1.F64.FEATURE.OP.PASSTHROUGH",
 }
-EXPECTED_LIMITS = {
+FEATURE_LIMITS = {
     f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_COORDINATE_MM",
     f"{EXPECTED_PROFILE_ID}.LIMIT.POSE_TRANSLATION_MM",
     f"{EXPECTED_PROFILE_ID}.LIMIT.POSE_ROTATION_DEG",
@@ -67,7 +72,7 @@ EXPECTED_LIMITS = {
     f"{EXPECTED_PROFILE_ID}.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT",
     f"{EXPECTED_PROFILE_ID}.LIMIT.RADIAN_INTERMEDIATE",
 }
-EXPECTED_BUDGETS = {
+FEATURE_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.COORDINATE_INHERIT_BIT_ERROR",
     f"{EXPECTED_PROFILE_ID}.BUDGET.ANGLE_RAD_ABS_ERROR",
     f"{EXPECTED_PROFILE_ID}.BUDGET.TRIG_COEFFICIENT_ABS_ERROR",
@@ -113,6 +118,75 @@ EXPECTED_BINARY64_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM": 2**-28,
     f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR": 2**-29,
 }
+VERIFY_SOURCES = {"crates/core/src/verify.rs"}
+VERIFY_BOUNDARIES = {
+    "FM1.F64.VERIFY.CONTINUITY.GAP",
+    "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
+    "FM1.F64.VERIFY.FILAMENT_RATIO",
+}
+VERIFY_LIMITS = {
+    f"{VERIFY_PROFILE_ID}.LIMIT.COMPARED_COORDINATE_MM",
+}
+VERIFY_BUDGETS = {
+    f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM",
+    f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR",
+    f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
+}
+# The tolerance constants this profile publishes, checked against verify.rs so a constant cannot be
+# retuned without updating the assurance artifact that names it. That pin is the whole point of the
+# entry: without it the recorded epsilon is prose.
+VERIFY_IMPLEMENTATION_TOLERANCES = {
+    f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM": "CONTINUITY_TOLERANCE_MM",
+    f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR": "LENGTH_TOLERANCE",
+    f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR": "FILAMENT_RATIO_TOLERANCE",
+}
+
+
+class ModelSpec(NamedTuple):
+    """Everything that differs between numeric-boundary inventories.
+
+    The validator was written for a single inventory, with six per-model facts as module constants.
+    A second inventory (verify's tolerances) cannot share them, so they move here and are resolved
+    from the inventory's own declared `model`. Behaviour for the feature inventory is unchanged.
+    """
+
+    profile_id: str
+    profile_path: str
+    sources: set[str]
+    boundaries: set[str]
+    limits: set[str]
+    budgets: set[str]
+    implementation_check: Any
+
+
+MODELS: dict[str, ModelSpec] = {
+    FEATURE_MODEL: ModelSpec(
+        profile_id=FEATURE_PROFILE_ID,
+        profile_path="proofs/feature-planar-numeric-profile-v0.toml",
+        sources=FEATURE_SOURCES,
+        boundaries=FEATURE_BOUNDARIES,
+        limits=FEATURE_LIMITS,
+        budgets=FEATURE_BUDGETS,
+        implementation_check=lambda profile, errors: (
+            validate_feature_implementation_values(profile, errors)
+        ),
+    ),
+    VERIFY_MODEL: ModelSpec(
+        profile_id=VERIFY_PROFILE_ID,
+        profile_path="proofs/verify-tolerance-numeric-profile-v0.toml",
+        sources=VERIFY_SOURCES,
+        boundaries=VERIFY_BOUNDARIES,
+        limits=VERIFY_LIMITS,
+        budgets=VERIFY_BUDGETS,
+        implementation_check=lambda profile, errors: (
+            validate_verify_implementation_values(profile, errors)
+        ),
+    ),
+}
+# A claim may link boundaries from more than one inventory; see validate_boundaries.
+ALL_KNOWN_BOUNDARIES = {b for spec in MODELS.values() for b in spec.boundaries}
+
+
 STATUS_BY_CLASSIFICATION = {
     "exact-in-range": {"bounded", "pending"},
     "rejected": {"not-applicable"},
@@ -146,9 +220,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        default=Path("proofs/feature-planar-numeric-profile-v0.toml"),
+        default=None,
         type=Path,
-        help="numeric profile relative to the repository root",
+        help="numeric profile relative to the repository root "
+        "(defaults to the profile the inventory's model declares)",
     )
     parser.add_argument(
         "--profile-schema",
@@ -225,7 +300,7 @@ def validate_schema(
 
 
 def validate_sources(
-    raw_sources: object, errors: list[str]
+    raw_sources: object, expected_sources: set[str], errors: list[str]
 ) -> dict[str, str]:
     if not isinstance(raw_sources, list):
         errors.append("source must be an array of tables")
@@ -279,9 +354,9 @@ def validate_sources(
                 )
 
     source_paths = set(sources)
-    if source_paths != EXPECTED_SOURCES:
-        missing = sorted(EXPECTED_SOURCES - source_paths)
-        extra = sorted(source_paths - EXPECTED_SOURCES)
+    if source_paths != expected_sources:
+        missing = sorted(expected_sources - source_paths)
+        extra = sorted(source_paths - expected_sources)
         if missing:
             errors.append("missing pinned sources: " + ", ".join(missing))
         if extra:
@@ -319,6 +394,8 @@ def validate_boundaries(
     raw_boundaries: object,
     sources: dict[str, str],
     claims: dict[str, set[str]],
+    expected_boundaries: set[str],
+    known_boundaries: set[str],
     errors: list[str],
 ) -> dict[str, set[str]]:
     if not isinstance(raw_boundaries, list):
@@ -398,27 +475,78 @@ def validate_boundaries(
                 entry for entry in raw_profile_entries if isinstance(entry, str)
             }
 
-    if ids != EXPECTED_BOUNDARIES:
-        missing = sorted(EXPECTED_BOUNDARIES - ids)
-        extra = sorted(ids - EXPECTED_BOUNDARIES)
+    if ids != expected_boundaries:
+        missing = sorted(expected_boundaries - ids)
+        extra = sorted(ids - expected_boundaries)
         if missing:
             errors.append("missing required boundaries: " + ", ".join(missing))
         if extra:
             errors.append("unexpected boundaries: " + ", ".join(extra))
 
     for claim_id, boundary_ids in claims.items():
-        unknown = sorted(boundary_ids - ids)
+        # A claim may legitimately link boundaries from more than one inventory, so "unknown" means
+        # "in no registered model", not "absent from the inventory being validated". Reciprocity
+        # below is still scoped to this inventory's own boundaries.
+        unknown = sorted(boundary_ids - known_boundaries)
         if unknown:
             errors.append(
                 f"{claim_id}: unknown numeric boundaries: {', '.join(unknown)}"
             )
-        missing_backlinks = sorted(boundary_ids - backlinks.get(claim_id, set()))
+        missing_backlinks = sorted(
+            (boundary_ids & ids) - backlinks.get(claim_id, set())
+        )
         if missing_backlinks:
             errors.append(
                 f"{claim_id}: inventory is missing reciprocal claim_ids links: "
                 + ", ".join(missing_backlinks)
             )
     return profile_links
+
+
+
+def validate_verify_implementation_values(
+    profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Pin the published tolerance budgets against the constants in `verify.rs`.
+
+    This is what makes the profile an assurance artifact rather than a description. ADR 0001 requires
+    a tolerance-bearing predicate to *name* its epsilon; naming it is only load-bearing if the name
+    cannot drift from the code. Retuning `CONTINUITY_TOLERANCE_MM` without updating the budget here
+    now fails the formal-assurance job.
+    """
+    source = (ROOT / "crates/core/src/verify.rs").read_text(encoding="utf-8")
+    raw_budgets = profile.get("budget")
+    budgets = (
+        {
+            item.get("id"): item
+            for item in raw_budgets
+            if isinstance(item, dict) and isinstance(item.get("id"), str)
+        }
+        if isinstance(raw_budgets, list)
+        else {}
+    )
+
+    for budget_id, constant in sorted(VERIFY_IMPLEMENTATION_TOLERANCES.items()):
+        match = re.search(
+            r"const " + re.escape(constant) + r": f64 = ([0-9.eE+-]+);", source
+        )
+        if match is None:
+            errors.append(f"cannot find {constant} in verify.rs")
+            continue
+        implementation_value = float(match.group(1))
+        budget = budgets.get(budget_id)
+        if budget is None:
+            errors.append(f"{budget_id}: profile is missing this budget")
+            continue
+        ceiling = budget.get("ceiling")
+        if not isinstance(ceiling, (int, float)) or isinstance(ceiling, bool):
+            errors.append(f"{budget_id}: ceiling must be a number")
+            continue
+        if float(ceiling) != implementation_value:
+            errors.append(
+                f"{budget_id}: ceiling {ceiling} does not match {constant} "
+                f"= {implementation_value} in verify.rs"
+            )
 
 
 def validate_expected_ids(
@@ -494,6 +622,8 @@ def validate_toolchain(profile: dict[str, Any], errors: list[str]) -> None:
 def validate_profile_entries(
     profile: dict[str, Any],
     boundary_links: dict[str, set[str]],
+    expected_limits: set[str],
+    expected_budgets: set[str],
     errors: list[str],
 ) -> tuple[int, int, dict[str, int]]:
     entries: dict[str, set[str]] = {}
@@ -594,8 +724,8 @@ def validate_profile_entries(
             else set()
         )
 
-    validate_expected_ids(limit_ids, EXPECTED_LIMITS, "profile limits", errors)
-    validate_expected_ids(budget_ids, EXPECTED_BUDGETS, "profile budgets", errors)
+    validate_expected_ids(limit_ids, expected_limits, "profile limits", errors)
+    validate_expected_ids(budget_ids, expected_budgets, "profile budgets", errors)
 
     boundary_ids = set(boundary_links)
     for entry_id, linked_boundaries in entries.items():
@@ -628,7 +758,7 @@ def validate_profile_entries(
     return len(limits), len(budgets), budget_statuses
 
 
-def validate_profile_implementation_values(
+def validate_feature_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
     source = (ROOT / "crates/core/src/features.rs").read_text(encoding="utf-8")
@@ -720,7 +850,23 @@ def main() -> int:
         inventory = load_toml(root_path(args.inventory), "inventory")
         schema = load_json(root_path(args.schema))
         claims = load_toml(root_path(args.claims), "claim registry")
-        profile = load_toml(root_path(args.profile), "numeric profile")
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    model = inventory.get("model")
+    spec = MODELS.get(model) if isinstance(model, str) else None
+    if spec is None:
+        print(
+            f"error: unknown inventory model {model!r}; expected one of "
+            + ", ".join(sorted(MODELS)),
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        profile_path = args.profile or Path(spec.profile_path)
+        profile = load_toml(root_path(profile_path), "numeric profile")
         profile_schema = load_json(root_path(args.profile_schema))
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
@@ -734,23 +880,26 @@ def main() -> int:
     validate_schema(profile_schema, profile, "numeric-profile", errors)
     if inventory.get("schema_version") != 1:
         errors.append("schema_version must be 1")
-    if inventory.get("model") != EXPECTED_MODEL:
-        errors.append(f"model must be {EXPECTED_MODEL!r}")
-    if inventory.get("numeric_profile_id") != EXPECTED_PROFILE_ID:
-        errors.append(f"numeric_profile_id must be {EXPECTED_PROFILE_ID!r}")
-    if profile.get("id") != EXPECTED_PROFILE_ID:
-        errors.append(f"numeric profile id must be {EXPECTED_PROFILE_ID!r}")
+    if inventory.get("numeric_profile_id") != spec.profile_id:
+        errors.append(f"numeric_profile_id must be {spec.profile_id!r}")
+    if profile.get("id") != spec.profile_id:
+        errors.append(f"numeric profile id must be {spec.profile_id!r}")
 
-    sources = validate_sources(inventory.get("source"), errors)
+    sources = validate_sources(inventory.get("source"), spec.sources, errors)
     links = claim_links(claims, errors)
     boundary_links = validate_boundaries(
-        inventory.get("boundary"), sources, links, errors
+        inventory.get("boundary"),
+        sources,
+        links,
+        spec.boundaries,
+        ALL_KNOWN_BOUNDARIES,
+        errors,
     )
     validate_toolchain(profile, errors)
     limit_count, budget_count, budget_statuses = validate_profile_entries(
-        profile, boundary_links, errors
+        profile, boundary_links, spec.limits, spec.budgets, errors
     )
-    validate_profile_implementation_values(profile, errors)
+    spec.implementation_check(profile, errors)
 
     if errors:
         for error in errors:
@@ -767,7 +916,7 @@ def main() -> int:
     )
     print(
         f"numeric boundaries: ok ({len(boundaries)} boundaries, "
-        f"{status_summary}, 2 pinned sources; profile "
+        f"{status_summary}, {len(sources)} pinned sources; profile "
         f"{limit_count} limits/{budget_count} budgets: "
         + ", ".join(
             f"{status}={count}"
