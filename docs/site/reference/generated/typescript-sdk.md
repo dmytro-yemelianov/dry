@@ -17,13 +17,21 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | Export | Kind | Docs | Source | Sample | Summary |
 | --- | --- | --- | --- | --- | --- |
 | `Design` | class | [Design](/reference/generated/typescript-sdk/design) | `sdk/ts/src/design.ts` |  | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
+| `expandFeatures` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Expand a bounded L0 feature graph into the canonical L1 op list. |
+| `feature` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
+| `FeatureNode` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
+| `FeaturePose` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
+| `FeatureProgram` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Expand through the Rust engine and return the canonical L1 `Design`. |
+| `FeatureProgramDocument` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
 | `Finding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Single verification finding, optionally tied to a resolved segment index. |
+| `group` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Preserve source order while composing feature nodes. |
 | `MachineKinematics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Machine kinematic limits used by `resolveBalancedIr` and `resolveVerify`. |
 | `Metrics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Simulation metrics returned by `simulate`. |
 | `NormalizedStarPolygonAlpha` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalized alpha angle and regime classification for a lattice family. |
 | `normalizeStarPolygonAlpha` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalize an alpha angle into its effective value and geometric regime. |
 | `Op` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
 | `PRINTERS` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Device defaults (the generic printer). |
+| `repeat` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Repeat a child; instance zero is unchanged and each later instance composes one `step`. |
 | `Report` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Verification result containing all findings emitted by enabled rules. |
 | `RESOLVE_PARAMS` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Default resolver parameters for the generic built-in printer profile. |
 | `resolveBalancedIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design through the kinematics-aware balanced optimization pipeline. |

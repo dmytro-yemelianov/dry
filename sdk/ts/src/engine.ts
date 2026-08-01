@@ -1,6 +1,7 @@
 // Binding-agnostic Dry wasm engine wrapper: exposes typed, low-level resolve calls over whichever
 // wasm binding a platform loader installs (engine.node.ts on Node, engine.web.ts in the browser).
 // This module is the only place that touches the binding; everything else works in terms of typed ops.
+import type { FeatureProgramDocument } from './features';
 import type { Metrics, Op, Report, ResolveParams, Toolpath } from './ops';
 
 /**
@@ -17,6 +18,7 @@ export interface MachineKinematics {
 }
 
 export interface DryWasm {
+  expand_features(programJson: string): string;
   resolve_gcode(
     opsJson: string,
     paramsJson: string,
@@ -65,6 +67,11 @@ function bind(): DryWasm {
     );
   }
   return wasm;
+}
+
+/** Expand a bounded L0 feature graph into the canonical L1 op list. */
+export function expandFeatures(program: FeatureProgramDocument): Op[] {
+  return JSON.parse(bind().expand_features(JSON.stringify(program)));
 }
 
 /**

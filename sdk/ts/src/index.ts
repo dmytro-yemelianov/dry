@@ -11,7 +11,10 @@
 import './engine.node'; // side effect: install the Node wasm binding on import (Node entry only)
 
 export { Design } from './design';
+export { FeatureProgram, feature, group, repeat } from './features';
+export type { FeatureNode, FeaturePose, FeatureProgramDocument } from './features';
 export {
+  expandFeatures,
   resolveGcode,
   resolveMetrics,
   resolveMetricsIr,

@@ -1,7 +1,7 @@
 # Dry Commercial Product — Licensed CLI for Post-Slicer Review (Design)
 
 **Date:** 2026-07-28
-**Status:** Approved design, pre-implementation
+**Status:** SUPERSEDED by 2026-07-28-dry-cloud-registry-design.md (owner pivoted from binary license enforcement to an API-driven SaaS; the dry-license crate is repurposed for pack signing)
 **Owner:** Dmytro Yemelianov
 
 ## Purpose

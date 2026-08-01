@@ -33,6 +33,7 @@
         "max_feedrate_mm_min": 6000.0,
         "max_flow_mm3_s": 50.92958178940652
       }
-    ]
+    ],
+    "layers": []
   }
 }

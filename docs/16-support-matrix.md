@@ -29,7 +29,9 @@ manual review; they are not silently treated as motion.
 | `DRY1` (chunked streaming binary) | ✅ | ✅ | Supported (the bounded-memory path) |
 | Slicer g-code | ✅ (import) | ✅ (emit / rewrite) | Supported (Marlin/Klipper/Duet) |
 | Profiles (v1 JSON) | ✅ | — | Supported (spec: [`11`](11-profiles-and-reports.md)) |
-| 3MF / STEP-NC / mesh | — | — | Out of scope |
+| 3MF Toolpath (XML) | ✅ (import) | ✅ (export) | Experimental (core API only; documented lossiness) |
+| STEP-NC (XML sidecar) | — | ✅ (`emit --step-nc`) | Experimental (schema-light; no XSD validation; motion transcription, not machining intent) |
+| Mesh | — | — | Out of scope |
 
 ## Targets
 
@@ -37,7 +39,7 @@ manual review; they are not silently treated as motion.
 |---|---|
 | FFF g-code (3-axis) | Supported |
 | FFF 5-axis / non-planar (rotary emit, toolframe) | Experimental (no kinematics/collision validation) |
-| CNC / laser / robot | Out of scope (architecture anticipates them; no dialects yet) |
+| CNC RS-274 / GRBL / KRL robot (`emit --format`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; no CAM operations, no spindle/laser power channel, no program frame; never validated against a real controller) |
 
 ## Platforms (release artifacts)
 

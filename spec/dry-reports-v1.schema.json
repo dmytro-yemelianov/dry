@@ -135,7 +135,8 @@
         "filament_mm",
         "max_feedrate_mm_min",
         "max_flow_mm3_s",
-        "windows"
+        "windows",
+        "layers"
       ],
       "properties": {
         "window_s": { "type": "number" },
@@ -151,9 +152,33 @@
         "filament_mm": { "type": "number" },
         "max_feedrate_mm_min": { "type": "number" },
         "max_flow_mm3_s": { "type": "number" },
-        "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } }
+        "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } },
+        "layers": { "type": "array", "items": { "$ref": "#/$defs/LayerTraceLinkage" } }
       }
     },
+    "LayerTraceLinkage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer_index",
+        "z_mm",
+        "segment_start",
+        "segment_end",
+        "print_time_s",
+        "travel_time_s",
+        "extruded_volume_mm3"
+      ],
+      "properties": {
+        "layer_index": { "type": "integer", "minimum": 0 },
+        "z_mm": { "type": "number" },
+        "segment_start": { "type": "integer", "minimum": 0 },
+        "segment_end": { "type": "integer", "minimum": 0 },
+        "print_time_s": { "type": "number" },
+        "travel_time_s": { "type": "number" },
+        "extruded_volume_mm3": { "type": "number" }
+      }
+    },
+
     "TraceReport": {
       "type": "object",
       "additionalProperties": false,

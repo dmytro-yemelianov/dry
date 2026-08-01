@@ -5,6 +5,155 @@
 Public TypeScript types and report contracts re-exported by the SDK.
 
 
+## `expandFeatures`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function expandFeatures(program: FeatureProgramDocument): Op[]
+```
+
+Expand a bounded L0 feature graph into the canonical L1 op list.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `program` | `FeatureProgramDocument` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `feature`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export function feature(design: Design | readonly Op[], pose: FeaturePose = {}, name?: string): FeatureNode
+```
+
+Wrap a coordinate-local L1 design/op list as a feature at a planar pose.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `design` | `Design \| readonly Op[]` |  | Yes |
+| `pose` | `FeaturePose` | `{}` | No |
+| `name` | `string` |  | No |
+
+Returns: `FeatureNode`
+
+
+## `FeatureNode`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export type FeatureNode = | {
+      kind: 'feature';
+      name?: string;
+      pose?: FeaturePose;
+      ops: Op[];
+    }
+  | {
+      kind: 'group';
+      children: FeatureNode[];
+    }
+  | {
+      kind: 'repeat';
+      count: number;
+      step?: FeaturePose;
+      child: FeatureNode;
+    }
+```
+
+Declared in the public API.
+
+
+## `FeaturePose`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export interface FeaturePose
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `x` | `number` | No | Declared in the public API. |
+| `y` | `number` | No | Declared in the public API. |
+| `z` | `number` | No | Declared in the public API. |
+| `rotate_z_deg` | `number` | No | Declared in the public API. |
+
+
+## `FeatureProgram`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export class FeatureProgram
+```
+
+Expand through the Rust engine and return the canonical L1 `Design`.
+
+### Method summary
+
+| Method | Signature | Sample | Summary |
+| --- | --- | --- | --- |
+| `add` | `add(...nodes: FeatureNode[]): this` |  | Declared in the public API. |
+| `expand` | `expand(): Design` |  | Expand through the Rust engine and return the canonical L1 `Design`. |
+
+### `add`
+
+```ts
+add(...nodes: FeatureNode[]): this
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `nodes` | `FeatureNode[]` |  | Yes |
+
+Returns: `this`
+
+Declared in the public API.
+
+### `expand`
+
+```ts
+expand(): Design
+```
+
+Returns: `Design`
+
+Expand through the Rust engine and return the canonical L1 `Design`.
+
+
+## `FeatureProgramDocument`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export interface FeatureProgramDocument
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `features` | `FeatureNode[]` | Yes | Declared in the public API. |
+
+
 ## `Finding`
 
 Source: `sdk/ts/src/ops.ts`
@@ -26,6 +175,25 @@ Single verification finding, optionally tied to a resolved segment index.
 | `severity` | `Severity` | Yes | Whether the finding blocks the contract or is advisory. |
 | `segment` | `number \| null` | Yes | Zero-based segment index, or null when the finding is global. |
 | `message` | `string` | Yes | Human-readable finding details. |
+
+
+## `group`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export function group(...children: FeatureNode[]): FeatureNode
+```
+
+Preserve source order while composing feature nodes.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `children` | `FeatureNode[]` |  | Yes |
+
+Returns: `FeatureNode`
 
 
 ## `MachineKinematics`
@@ -122,6 +290,27 @@ export const PRINTERS: Record<string, ResolveParams>
 ```
 
 Device defaults (the generic printer). More profiles land with the device-profile work.
+
+
+## `repeat`
+
+Source: `sdk/ts/src/features.ts`
+
+```ts
+export function repeat(child: FeatureNode, count: number, step: FeaturePose = {}): FeatureNode
+```
+
+Repeat a child; instance zero is unchanged and each later instance composes one `step`.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `child` | `FeatureNode` |  | Yes |
+| `count` | `number` |  | Yes |
+| `step` | `FeaturePose` | `{}` | No |
+
+Returns: `FeatureNode`
 
 
 ## `Report`

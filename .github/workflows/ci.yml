@@ -45,6 +45,8 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: test
         run: cargo test --workspace --all-features --locked
+      - name: kill bounded feature source mutations
+        run: python3 tools/check_feature_mutations.py
       - name: compile the minimal CLI feature set
         run: cargo check -p dry-cli --no-default-features --locked
       - name: build (wasm, dry-core)
@@ -241,6 +243,43 @@ jobs:
       # (report drift gate + rule-catalog coverage) rides `cargo test --all` in the `core` job.
       - name: validate report schemas + example profiles
         run: python tools/validate_reports.py .
+
+  formal-assurance:
+    name: formal assurance (claims + Lean proofs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: install claim-validator dependencies
+        run: pip install -r tools/requirements.txt
+      - name: validate proof claims and numeric-boundary inventory
+        run: |
+          python tools/validate_proof_claims.py
+          python tools/validate_spec_claim_links.py
+          python tools/validate_numeric_boundaries.py
+          python -m unittest discover -s tools/tests -p 'test_validate_proof_claims.py'
+          python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
+          python -m unittest discover -s tools/tests -p 'test_generate_assurance_report.py'
+          python tools/generate_assurance_report.py --check
+      - name: build checked proofs with the pinned Lean/Mathlib toolchain
+        uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1.5.0
+        with:
+          lake-package-directory: formal
+          auto-config: false
+          build: true
+          build-args: "--wfail"
+          test: false
+          lint: false
+          use-mathlib-cache: true
+      - name: check executable Lean proof fixtures
+        run: python tools/check_proof_fixtures.py
+      - name: check scoped Rust refinement mutations
+        run: |
+          python tools/check_resolve_orientation_mutations.py
+          python tools/check_resolve_channels_mutations.py
+          python tools/check_feature_mutations.py
 
   bench:
     name: benches (compile gate)

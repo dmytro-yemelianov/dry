@@ -1,0 +1,51 @@
+schema_version = 1
+model = "resolve-channels-source-mutations-v0"
+source = "crates/core/src/resolve.rs"
+source_sha256 = "562b36b923ce698201828495508dac0d3566ca16d8eb430d5496cf126c1d8537"
+test = "crates/core/tests/resolve_channels_refinement.rs"
+
+[[mutation]]
+id = "flow-default-not-omitted"
+witness = "default-channels"
+description = "Emit explicit flow field even when flow ratio equals default 1.0."
+old = "let flow_field = if flow == 1.0 { None } else { Some(flow) };"
+new = "let flow_field = Some(flow);"
+
+
+[[mutation]]
+id = "temperature-does-not-propagate"
+witness = "temp-fan-tool-propagation"
+description = "Ignore temperature channel state updates during resolution."
+old = "Op::Temperature { nozzle } => temp = Some(nozzle),"
+new = "Op::Temperature { .. } => {}"
+
+[[mutation]]
+id = "fan-does-not-propagate"
+witness = "temp-fan-tool-propagation"
+description = "Ignore fan channel state updates during resolution."
+old = "Op::Fan { speed } => fan = Some(speed),"
+new = "Op::Fan { .. } => {}"
+
+[[mutation]]
+id = "tool-does-not-propagate"
+witness = "temp-fan-tool-propagation"
+description = "Ignore tool channel state updates during resolution."
+old = "Op::Tool { index } => tool = Some(index),"
+new = "Op::Tool { .. } => {}"
+
+[[mutation]]
+id = "dwell-ignores-temperature"
+witness = "dwell-inherits-channels"
+description = "Do not attach active temperature state to dwell segments."
+old = '''
+                kind: SegmentKind::Dwell,
+                centre: None,
+                clockwise: false,
+                temperature: temp,
+'''
+new = '''
+                kind: SegmentKind::Dwell,
+                centre: None,
+                clockwise: false,
+                temperature: None,
+'''

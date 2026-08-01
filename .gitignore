@@ -24,6 +24,9 @@ target
 node_modules/
 dist/
 *.tsbuildinfo
+.wrangler/
+*.cpuprofile
+.lake/
 
 # wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)
 web/pkg/
@@ -49,3 +52,4 @@ __pycache__/
 
 # Claude Code harness worktrees (per-agent, transient)
 .claude/worktrees/
+.superpowers/

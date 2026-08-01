@@ -1,0 +1,48 @@
+# Standalone workspace root: same pattern as `../../crates/wasm` and `../../crates/cloud` — the
+# engine workspace (../../Cargo.toml) excludes this container crate (own Cargo.lock, own build:
+# `docker build` invokes `cargo build --release` inside this directory, not via the workspace), but
+# cargo still walks parent directories looking for an owning workspace. An empty `[workspace]` table
+# marks dry-verify-runner as its own root so it builds standalone and in Docker.
+[workspace]
+
+[package]
+name = "dry-verify-runner"
+description = "Native dry-core verify shim: the compute engine cloud verify jobs dispatch to (Task R3 Worker -> this container). Same import+verify call sequence as `dry import-gcode` -> `dry verify --json`; responds with the byte-identical report shape."
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "../../LICENSE"
+repository = "https://github.com/dmytro-yemelianov/dry"
+publish = false
+
+[[bin]]
+name = "dry-verify-runner"
+path = "src/main.rs"
+
+[lib]
+name = "verify_runner"
+path = "src/lib.rs"
+
+[dependencies]
+dry-core = { path = "../../crates/core" }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "net", "signal"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+# rustls only (no openssl/native-tls) per the task's Global Constraints. `json` is dropped: the
+# profile fetch reads the body as text (`.text()`) and parses it via `Profile::from_json`, so
+# reqwest's `.json()` convenience (and the extra serde_json coupling it pulls in) is unused.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+# `axum::extract::DefaultBodyLimit` only enforces a cap for `Bytes`-based extractors (`String`,
+# `Json`, `Form`, ...) — see its own doc comment ("if an extractor consumes the body directly with
+# `Body::poll_frame`, or similar, the default limit is _not_ applied"). This handler reads the raw
+# request body itself (streamed straight to a tempfile), so `RequestBodyLimitLayer` is what
+# actually enforces `MAX_BODY_BYTES` here: it wraps the body in a `Limited<Body>` unconditionally,
+# regardless of how the inner service consumes it.
+tower-http = { version = "0.6", default-features = false, features = ["limit"] }
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }

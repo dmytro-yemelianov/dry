@@ -1,13 +1,16 @@
 //! `dry` — the toolpath compiler CLI. Operates on a Dry IR file (`{version, segments}`, or a fixture
 //! wrapping it under an `ir` key). Phase-0 surface: `inspect` / `simulate` / `emit` (`docs/04-tasks.md`).
 
+mod cloud;
+mod printer_registry;
+
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    apply_gated, emit_stream_to_writer, import_gcode_reader, import_gcode_reader_with_map,
-    import_klipper, optimize_aggressive_pipeline, optimize_pipeline, parse_bounds_csv,
-    parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources, verify,
-    verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
-    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath,
+    apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
+    import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
+    parse_bounds_csv, parse_speed_range_csv, simulate, simulate_stream, trace_summary_with_sources,
+    verify, verify_stream, Contracts, EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics,
+    OptimizeMode, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -22,6 +25,19 @@ enum RotaryAxesArg {
     Ab,
     Ac,
     Bc,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum EmitOutputFormat {
+    /// Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile).
+    Gcode,
+    /// Emit existing CNC/RS-274 output.
+    Rs274,
+    /// Emit GRBL (laser) output.
+    Grbl,
+    /// Emit KRL-style robot output.
+    #[value(alias = "krl")]
+    RobotKrl,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -69,7 +85,121 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum PrinterCmd {
+    /// Search printers by identity, firmware, motion, material, hardware, and macro capabilities.
+    Search {
+        /// Free-text printer, vendor, model, or variant query.
+        query: Option<String>,
+        #[arg(long)]
+        vendor: Vec<String>,
+        #[arg(long)]
+        firmware: Vec<String>,
+        #[arg(long)]
+        kinematics: Vec<String>,
+        #[arg(long)]
+        material: Vec<String>,
+        #[arg(long)]
+        nozzle: Option<f64>,
+        #[arg(long)]
+        build_x: Option<f64>,
+        #[arg(long)]
+        build_y: Option<f64>,
+        #[arg(long)]
+        build_z: Option<f64>,
+        /// Require a macro definition id, for example `dry:macro/print-start`.
+        #[arg(long = "macro")]
+        macro_ids: Vec<String>,
+        #[arg(long = "hardware-category")]
+        hardware_categories: Vec<String>,
+        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u16).range(1..=100))]
+        first: u16,
+        /// Emit the complete GraphQL result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect the versioned capabilities and artifacts for one printer.
+    Inspect {
+        id: String,
+        #[arg(long)]
+        version: Option<String>,
+        /// Emit the complete GraphQL result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Resolve, hash-verify, and download one runtime dry-profile-v1 artifact.
+    Resolve {
+        id: String,
+        #[arg(long)]
+        version: Option<String>,
+        #[arg(long)]
+        material: Option<String>,
+        #[arg(long)]
+        nozzle: Option<f64>,
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuthCmd {
+    /// Sign in with Dry Cloud's device authorization flow.
+    Login,
+    /// Show the current account and monthly usage.
+    Status,
+    /// Remove the locally stored Dry Cloud token.
+    Logout,
+}
+
+#[derive(Subcommand)]
+enum CloudCmd {
+    /// Submit G-code for verification by Dry Cloud and wait for the report.
+    Verify {
+        /// G-code file to upload.
+        file: String,
+        /// Printer pack id in the public Dry printer registry.
+        #[arg(long)]
+        printer: String,
+        /// Immutable printer-pack version. When omitted, the cloud resolves the registry default.
+        #[arg(long)]
+        pack_version: Option<String>,
+        /// Print the complete verification report as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
+    /// Authenticate with Dry Cloud.
+    Auth {
+        #[command(subcommand)]
+        command: AuthCmd,
+        /// Dry Cloud origin. `DRY_CLOUD_URL` takes precedence over the hosted default.
+        #[arg(long, global = true)]
+        cloud_url: Option<String>,
+    },
+    /// Run opt-in Dry Cloud operations.
+    Cloud {
+        #[command(subcommand)]
+        command: CloudCmd,
+        /// Dry Cloud origin. `DRY_CLOUD_URL` takes precedence over the hosted default.
+        #[arg(long, global = true)]
+        cloud_url: Option<String>,
+    },
+    /// Query Dry's hosted printer capability graph.
+    Printer {
+        #[command(subcommand)]
+        command: PrinterCmd,
+        /// Registry origin. Can also point at a local or private compatible registry.
+        #[arg(
+            long,
+            global = true,
+            default_value = printer_registry::DEFAULT_REGISTRY_URL
+        )]
+        source: String,
+    },
     /// Parse + simulate a Dry IR file and print a concise summary.
     Inspect { file: String },
     /// Simulate a Dry IR file and print its metrics.
@@ -85,13 +215,22 @@ enum Cmd {
         /// Emit absolute extrusion (default is relative E).
         #[arg(long)]
         absolute_e: bool,
+        /// Machine/material profile JSON to supply defaults and rotary model.
+        #[arg(long)]
+        profile: Option<String>,
         /// Emit rotary words from the toolframe orientation (5-axis).
         #[arg(long)]
         five_axis: bool,
+        /// Emit RS-274 / GRBL / KRL output instead of the default FFF G-code target.
+        #[arg(long, default_value = "gcode", value_enum)]
+        format: EmitOutputFormat,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
         /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
-        #[arg(long, visible_alias = "kinematics", value_enum, default_value_t = RotaryAxesArg::Ab)]
-        rotary_axes: RotaryAxesArg,
+        #[arg(long, visible_alias = "kinematics", value_enum)]
+        rotary_axes: Option<RotaryAxesArg>,
+        /// Also write a STEP-NC intent file with the same program to this path.
+        #[arg(long)]
+        step_nc: Option<String>,
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
@@ -570,6 +709,32 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.cmd {
+        Cmd::Auth { command, cloud_url } => {
+            let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
+            match command {
+                AuthCmd::Login => {
+                    cloud::login(&cloud_url).unwrap_or_else(|error| die(error.to_string()))
+                }
+                AuthCmd::Status => {
+                    cloud::status(&cloud_url).unwrap_or_else(|error| die(error.to_string()))
+                }
+                AuthCmd::Logout => cloud::logout().unwrap_or_else(|error| die(error.to_string())),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Cloud { command, cloud_url } => {
+            let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
+            match command {
+                CloudCmd::Verify {
+                    file,
+                    printer,
+                    pack_version,
+                    json,
+                } => cloud::verify(&cloud_url, &file, &printer, pack_version.as_deref(), json)
+                    .unwrap_or_else(|error| die(error.to_string())),
+            }
+        }
+        Cmd::Printer { command, source } => run_printer(command, &source),
         Cmd::Inspect { file } => {
             let tp = load(&file);
             let m = simulate(&tp);
@@ -633,34 +798,87 @@ fn run(cli: Cli) -> ExitCode {
         Cmd::Emit {
             file,
             absolute_e,
+            profile,
             five_axis,
+            format,
             rotary_axes,
+            step_nc,
             out,
         } => {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let kinematics = rotary_axes
+                .map(Into::into)
+                .or_else(|| profile.as_ref().and_then(|p| p.machine.five_axis))
+                .unwrap_or(REFERENCE_FIVE_AXIS_MACHINE);
+            let mut flavor = profile
+                .as_ref()
+                .map(|p| p.emit_params().flavor)
+                .unwrap_or(FirmwareFlavor::Marlin);
+            match format {
+                EmitOutputFormat::Rs274 => flavor = FirmwareFlavor::Rs274,
+                EmitOutputFormat::Grbl => flavor = FirmwareFlavor::Grbl,
+                EmitOutputFormat::RobotKrl => flavor = FirmwareFlavor::RobotKrl,
+                EmitOutputFormat::Gcode => {}
+            }
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
                 five_axis,
-                kinematics: rotary_axes.into(),
-                ..EmitParams::default()
+                kinematics,
+                flavor,
             };
-            match out {
-                Some(path) => {
-                    let out_file = fs::File::create(&path)
-                        .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                    let mut writer = std::io::BufWriter::new(out_file);
-                    emit_stream_to_writer(stream, &params, &mut writer)
-                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+            if let Some(step_nc_path) = step_nc {
+                let segments = stream
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                let toolpath = Toolpath {
+                    version: 0,
+                    meta: None,
+                    segments: segments.clone(),
+                };
+                let step_nc_text = emit_step_nc(&toolpath, &params);
+                fs::write(&step_nc_path, step_nc_text)
+                    .unwrap_or_else(|e| die(format!("cannot write {step_nc_path}: {e}")));
+                match out {
+                    Some(path) => {
+                        let out_file = fs::File::create(&path)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                        let mut writer = std::io::BufWriter::new(out_file);
+                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                    }
+                    None => {
+                        let stdout = std::io::stdout();
+                        let mut writer = stdout.lock();
+                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                    }
                 }
-                None => {
-                    let stdout = std::io::stdout();
-                    let mut writer = stdout.lock();
-                    emit_stream_to_writer(stream, &params, &mut writer)
-                        .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                    writeln!(writer).unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+            } else {
+                match out {
+                    Some(path) => {
+                        let out_file = fs::File::create(&path)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                        let mut writer = std::io::BufWriter::new(out_file);
+                        emit_stream_to_writer(stream, &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                    }
+                    None => {
+                        let stdout = std::io::stdout();
+                        let mut writer = stdout.lock();
+                        emit_stream_to_writer(stream, &params, &mut writer)
+                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                        writeln!(writer)
+                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                    }
                 }
             }
             ExitCode::SUCCESS
@@ -1415,6 +1633,268 @@ fn run(cli: Cli) -> ExitCode {
             }
         }
     }
+}
+
+fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
+    match command {
+        PrinterCmd::Search {
+            query,
+            vendor,
+            firmware,
+            kinematics,
+            material,
+            nozzle,
+            build_x,
+            build_y,
+            build_z,
+            macro_ids,
+            hardware_categories,
+            first,
+            json,
+        } => {
+            let connection = printer_registry::search(
+                source,
+                printer_registry::SearchFilter {
+                    text: query,
+                    vendor,
+                    firmware,
+                    kinematics,
+                    material,
+                    nozzle_diameter_mm: nozzle,
+                    build_x_mm: build_x,
+                    build_y_mm: build_y,
+                    build_z_mm: build_z,
+                    macro_ids,
+                    hardware_categories,
+                },
+                first.into(),
+            )
+            .unwrap_or_else(|error| die(format!("printer search failed: {error}")));
+            if json {
+                println!("{}", serde_json::to_string_pretty(&connection).unwrap());
+                return ExitCode::SUCCESS;
+            }
+            let total = connection
+                .get("totalCount")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            println!("{total} matching printer(s)");
+            for printer in connection
+                .get("nodes")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let id = printer
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                let name = printer
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(id);
+                let version = first_version(printer);
+                let version_label = version
+                    .and_then(|value| value.get("version"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                println!("{id}  {name}  v{version_label}");
+                if let Some(capabilities) = version.and_then(|value| value.get("capabilities")) {
+                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
+                    let machine = capabilities.get("machine");
+                    let kinematics = machine
+                        .and_then(|value| value.get("kinematics"))
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?");
+                    let volume = machine
+                        .and_then(|value| value.get("buildVolume"))
+                        .map(format_build_volume)
+                        .unwrap_or_else(|| "?×?×? mm".into());
+                    let materials = strings_at(capabilities, &["materials"], "family");
+                    println!(
+                        "  {} | {} | {} | {}",
+                        if firmware.is_empty() {
+                            "?".into()
+                        } else {
+                            firmware.join(", ")
+                        },
+                        kinematics,
+                        volume,
+                        if materials.is_empty() {
+                            "materials ?".into()
+                        } else {
+                            materials.join(", ")
+                        }
+                    );
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        PrinterCmd::Inspect { id, version, json } => {
+            let printer = printer_registry::inspect(source, &id, version.as_deref())
+                .unwrap_or_else(|error| die(format!("printer inspect failed: {error}")))
+                .unwrap_or_else(|| die(format!("printer not found: {id}")));
+            if json {
+                println!("{}", serde_json::to_string_pretty(&printer).unwrap());
+                return ExitCode::SUCCESS;
+            }
+            let name = printer
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(&id);
+            println!("{name} ({id})");
+            println!(
+                "  kind:      {}",
+                printer
+                    .get("kind")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?")
+            );
+            for version in printer
+                .get("versions")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                println!(
+                    "  version:   {} [{} / {}]",
+                    version
+                        .get("version")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                    version
+                        .get("trustLevel")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                    version
+                        .get("supportStatus")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?"),
+                );
+                if let Some(capabilities) = version.get("capabilities") {
+                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
+                    let machine = capabilities.get("machine");
+                    println!(
+                        "  machine:   {} | {}",
+                        machine
+                            .and_then(|value| value.get("kinematics"))
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("?"),
+                        machine
+                            .and_then(|value| value.get("buildVolume"))
+                            .map(format_build_volume)
+                            .unwrap_or_else(|| "?×?×? mm".into())
+                    );
+                    println!("  firmware:  {}", firmware.join(", "));
+                    println!(
+                        "  graph:     {} hardware, {} materials, {} macros, {} profiles",
+                        array_len(capabilities, "hardware"),
+                        array_len(capabilities, "materials"),
+                        array_len(capabilities, "macroBindings"),
+                        array_len(version, "profiles"),
+                    );
+                }
+                if let Some(url) = version.get("packUrl").and_then(serde_json::Value::as_str) {
+                    println!("  pack:      {url}");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        PrinterCmd::Resolve {
+            id,
+            version,
+            material,
+            nozzle,
+            profile,
+            out,
+        } => {
+            let resolved = printer_registry::resolve_profile(
+                source,
+                &id,
+                &printer_registry::ProfileSelector {
+                    version,
+                    material_id: material,
+                    nozzle_diameter_mm: nozzle,
+                    profile_id: profile,
+                },
+            )
+            .unwrap_or_else(|error| die(format!("profile resolution failed: {error}")))
+            .unwrap_or_else(|| die(format!("no matching profile for printer {id}")));
+            let bytes = printer_registry::download_profile(
+                &resolved,
+                out.as_deref().map(std::path::Path::new),
+            )
+            .unwrap_or_else(|error| die(format!("profile download failed: {error}")));
+            if let Some(path) = out {
+                eprintln!(
+                    "resolved {} → {path} ({} bytes, SHA-256 verified)",
+                    resolved
+                        .get("id")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("profile"),
+                    bytes.len()
+                );
+            } else {
+                std::io::stdout()
+                    .write_all(&bytes)
+                    .unwrap_or_else(|error| die(format!("cannot write stdout: {error}")));
+                if !bytes.ends_with(b"\n") {
+                    println!();
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+fn first_version(printer: &serde_json::Value) -> Option<&serde_json::Value> {
+    printer
+        .get("versions")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|versions| versions.first())
+}
+
+fn array_len(value: &serde_json::Value, key: &str) -> usize {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0)
+}
+
+fn strings_at(value: &serde_json::Value, path: &[&str], field: &str) -> Vec<String> {
+    let mut current = value;
+    for key in path {
+        let Some(next) = current.get(key) else {
+            return Vec::new();
+        };
+        current = next;
+    }
+    current
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.get(field).and_then(serde_json::Value::as_str))
+        .map(str::to_owned)
+        .collect()
+}
+
+fn format_build_volume(volume: &serde_json::Value) -> String {
+    let axis = |name: &str| {
+        volume
+            .get(name)
+            .and_then(|value| value.get("sizeMm"))
+            .and_then(serde_json::Value::as_f64)
+            .map(|value| {
+                if value.fract() == 0.0 {
+                    format!("{value:.0}")
+                } else {
+                    value.to_string()
+                }
+            })
+            .unwrap_or_else(|| "?".into())
+    };
+    format!("{}×{}×{} mm", axis("x"), axis("y"), axis("z"))
 }
 
 fn load_profile(path: Option<&str>) -> Option<Profile> {

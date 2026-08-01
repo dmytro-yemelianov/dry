@@ -42,6 +42,30 @@ new Design().geometry(0.6, 0.2).temperature(210).fan(0.5).flow(0.95).tool(0).ext
   .dwell(2);   // a G4 pause
 ```
 
+Reusable planar L0 features expand through the Rust engine:
+
+```ts
+import { Design, FeatureProgram, feature, group, repeat } from '@dry/sdk';
+
+const line = new Design()
+  .geometry(0.6, 0.2)
+  .extruder(true)
+  .point(0, 0, 0.2)
+  .point(10);
+
+const placed = new FeatureProgram()
+  .add(group(
+    feature(line, { x: 5 }, 'first'),
+    repeat(feature(line), 2, { x: 20 })
+  ))
+  .expand();
+```
+
+Features must define their local coordinates before inheriting them; process/channel state still follows
+normal ordered L1 semantics. P2.3 poses provide XYZ translation and rotation about Z
+(`rotate_z_deg`); full 3D named frames remain planned under D1.3. Expansion rejects transformed manual
+G-code and is bounded by engine node/depth/op limits.
+
 ## Research generators
 
 The SDK also includes a generator for the star-polygon planar lattice families described by Soyarslan
@@ -115,6 +139,7 @@ npm test        # node --test: the SDK reproduces the conformance oracle byte-fo
 | `src/ops.ts` | the L1 op vocabulary + engine data shapes (types only) |
 | `src/engine.ts` | loads the wasm engine; typed low-level `resolveGcode` / `resolveMetrics` / `resolveIr` |
 | `src/design.ts` | the fluent `Design` builder |
+| `src/features.ts` | bounded L0 `FeatureProgram` / `Feature@pose` / `Group` / `Repeat` builders |
 | `src/generators/starPolygonLattice.ts` | parametric `M1`..`M4` star-polygon lattice generator as Dry L1 ops |
 | `src/generators/tpms.ts` | TPMS implicit-field contour slicer (`gyroid`, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD, …) |
 | `test/` | byte-identity vs `conformance/gcode` + `conformance/simulate` |

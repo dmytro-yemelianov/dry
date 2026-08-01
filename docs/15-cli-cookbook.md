@@ -84,6 +84,42 @@ dry review-gcode sliced.gcode --profile voron.json          # diagnose
 dry rewrite-gcode sliced.gcode --profile voron.json --mode balanced -o rewritten.gcode  # optimize for the printer's dynamics
 ```
 
+## Working with the hosted printer graph
+
+### `printer search` — filter compatible printers
+
+```sh
+dry printer search voron \
+  --firmware klipper --kinematics corexy \
+  --material ABS --nozzle 0.4 \
+  --build-x 300 --build-y 300 --build-z 250
+```
+
+Repeat `--vendor`, `--firmware`, `--kinematics`, `--material`, `--macro`, or
+`--hardware-category` to add accepted values. Add `--json` for the full paginated GraphQL result.
+
+### `printer inspect` — traverse capabilities and artifacts
+
+```sh
+dry printer inspect voron-2.4-350-klipper --version 0.1.0
+dry printer inspect voron-2.4-350-klipper --json
+```
+
+### `printer resolve` — download a verified runtime profile
+
+```sh
+dry printer resolve voron-2.4-350-klipper \
+  --version 0.1.0 \
+  --material dry:material/abs \
+  --nozzle 0.4 \
+  --out voron-abs-0.4.json
+
+dry review-gcode sliced.gcode --profile voron-abs-0.4.json
+```
+
+The download is accepted only when its SHA-256 matches the graph response. All three commands use
+`https://api.dry.yemelianov.dev` by default; `--source` selects a local or private compatible registry.
+
 ## Working on slicer g-code
 
 ### `import-gcode` — g-code → Dry IR JSON

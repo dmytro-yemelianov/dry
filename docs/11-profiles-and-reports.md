@@ -28,7 +28,7 @@ schema validates the canonical names.
 |---|---|---|---|---|
 | — | `version` | `1` | — | profile schema version |
 | — | `name` | string | — | human-readable, for reports |
-| `firmware` | `flavor` | string | — | `marlin` / `klipper` / `duet` |
+| `firmware` | `flavor` | string | — | `marlin` / `klipper` / `duet` / `rs274` / `grbl` / `robot-krl` (`krl`) |
 | `machine` | `build_volume` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | `bounds` | |
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |

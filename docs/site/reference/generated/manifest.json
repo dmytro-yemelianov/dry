@@ -3,15 +3,15 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "42d97f885f607c7be81e45ee5cba4673f4b06af9477f4cab1c33de4c99c05672"
+      "sha256": "109e81f8986d8a62faa1250fe0f59b97abe738e2680dd5f3c37354a00f135e06"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "5a113d36c8fcd52152d5a15b4fa6ccb70a1f6d3003e8b16a31b356c000564286"
+      "sha256": "2ac6bdbee1b79406c49f12897f1a1b7a1e7c228fde5ba484bef58e0e0a5987d4"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "bd89756f50890eb3fc7818eba859bd63f3d5b4f04f59069705c2b8406ff18870"
+      "sha256": "f1fe7f571ac9c9378680bd50024e4996c441c583fefe3ca52fa9c8f255be2132"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
@@ -23,11 +23,11 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "91e9ba6c6c06a399adaa63f756e70b751432dc19393296d40f2d38751db6f0d3"
+      "sha256": "1c9caa73c7e8cae10e7feec1421304ebeb664995153a7a68540dadbca12f9ab6"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
-      "sha256": "3c2f7303a51f09e41907b343e0170a2a260e19feaaa2d8cabf3deea86f2ce81e"
+      "sha256": "6cdc09181dc80ea64de520b8f02f0329c957bba0a4c6a78daae18e60c163a81f"
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
@@ -35,17 +35,17 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "92e2422d3d1c1c17a9540c8ffd1f1f0022200198b12d1dc2ac64af413c4fac23"
+      "sha256": "d10b817d4821e15fba6c86c1a531157929dac7825900f4ec00c114b6d72b2884"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "975306c90ad0d8cde12bf26f6ebc23745ab1d329bf69edf47ab2620c1865c36b"
+      "sha256": "491a104d3c0008bbd98775bbdf2605322b3f3b9dace60ccc223121f29ce0f7c6"
     }
   },
   "dynamic": {
     "cliHelp": {
       "command": "cargo run -q -p dry-cli -- --help",
-      "sha256": "0a43bf95522395a674fcbe5b51f9a7dd6050092a271036b9d2c718d60c5148eb"
+      "sha256": "209ce912817c5d0fc920609712dc3de970e1cbe5a6b6881cc5748aeb75e9fe89"
     }
   }
 }

@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/nested-application-refinement-fixtures-v0.json",
+  "title": "Dry nested feature transform-application refinement fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model",
+    "model_checks",
+    "profile_budgets",
+    "derived_profile_ceilings",
+    "observation_ceilings",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "nested-application-refinement-v0" },
+    "model_checks": { "const": true },
+    "profile_budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["point_xy", "orientation_xy"],
+      "properties": {
+        "point_xy": {
+          "$ref": "#/$defs/budget",
+          "properties": {
+            "id": {
+              "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_POINT_COMPONENT_ABS_ERROR_MM"
+            },
+            "ceiling": { "const": 2147483648 }
+          }
+        },
+        "orientation_xy": {
+          "$ref": "#/$defs/budget",
+          "properties": {
+            "id": {
+              "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR"
+            },
+            "ceiling": { "const": 0.00390625 }
+          }
+        }
+      }
+    },
+    "derived_profile_ceilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["point_z"],
+      "properties": {
+        "point_z": { "const": 0.000244140625 }
+      }
+    },
+    "observation_ceilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["point_xy", "point_z", "orientation_xy", "orientation_z"],
+      "properties": {
+        "point_xy": { "const": 3.725290298461914e-9 },
+        "point_z": { "const": 9.313225746154785e-10 },
+        "orientation_xy": { "const": 1.862645149230957e-9 },
+        "orientation_z": { "const": 0 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ceiling"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ceiling": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z", "rotate_z_deg"],
+      "properties": {
+        "x": { "type": "integer", "minimum": -1048576, "maximum": 1048576 },
+        "y": { "type": "integer", "minimum": -1048576, "maximum": 1048576 },
+        "z": { "type": "integer", "minimum": -1048576, "maximum": 1048576 },
+        "rotate_z_deg": { "type": "integer", "minimum": -360, "maximum": 360 }
+      }
+    },
+    "move": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "x", "y", "z"],
+      "properties": {
+        "op": { "const": "move" },
+        "x": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "y": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "z": { "type": "integer", "minimum": -4194304, "maximum": 4194304 }
+      }
+    },
+    "arc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "cx", "cy", "x", "y", "z", "clockwise"],
+      "properties": {
+        "op": { "const": "arc" },
+        "cx": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "cy": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "x": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "y": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "z": { "type": "integer", "minimum": -4194304, "maximum": 4194304 },
+        "clockwise": { "type": "boolean" }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "i", "j", "k"],
+      "properties": {
+        "op": { "const": "orient" },
+        "i": { "type": "integer", "minimum": -1, "maximum": 1 },
+        "j": { "type": "integer", "minimum": -1, "maximum": 1 },
+        "k": { "type": "integer", "minimum": -1, "maximum": 1 }
+      }
+    },
+    "op": {
+      "oneOf": [
+        { "$ref": "#/$defs/move" },
+        { "$ref": "#/$defs/arc" },
+        { "$ref": "#/$defs/orientation" }
+      ]
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "pose", "ops"],
+          "properties": {
+            "kind": { "const": "feature" },
+            "pose": { "$ref": "#/$defs/pose" },
+            "ops": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/op" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "count", "step", "child"],
+          "properties": {
+            "kind": { "const": "repeat" },
+            "count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+            "step": { "$ref": "#/$defs/pose" },
+            "child": { "$ref": "#/$defs/node" }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_ops", "max_nodes", "max_depth"],
+      "properties": {
+        "max_ops": { "const": 100 },
+        "max_nodes": { "const": 100 },
+        "max_depth": { "const": 10 }
+      }
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["features"],
+      "properties": {
+        "features": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/node" }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "limits", "program", "expected_ops"],
+      "properties": {
+        "id": {
+          "enum": [
+            "nested-application-point",
+            "nested-application-arc-center",
+            "nested-application-orientation"
+          ]
+        },
+        "limits": { "$ref": "#/$defs/limits" },
+        "program": { "$ref": "#/$defs/program" },
+        "expected_ops": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/op" }
+        }
+      }
+    }
+  }
+}

@@ -70,6 +70,99 @@ Dry's **own** golden outputs become the reference so the oracle can be dropped.
 **Exit gate:** the **entire** conformance suite passes against Dry's own references (goldens + gallery +
 profiles + cross-SDK); the FullControl oracle is removed from CI; the Dry IR is the public contract.
 
+## Deferred strategic initiative — the Dry IR language and ecosystem
+
+**Status:** intentionally unscheduled; preserve for a later planning pick after the current FFF roadmap
+and the P5 target experiments establish the right boundaries. The implementation sequence, compatibility
+strategy and merge-sized work packets are defined in
+[`20-dry-ir-ecosystem-implementation-plan.md`](20-dry-ir-ecosystem-implementation-plan.md).
+
+**Goal:** evolve Dry from a strong FFF toolpath compiler into a machine-independent, verified
+manufacturing-language layer with a usable surrounding ecosystem: versioned dialect contracts,
+multi-language SDKs, capability/profile schemas, validators, importers, target backends, conformance
+kits and reference workflows. G-code and other controller languages remain compatibility backends; Dry
+does **not** become real-time motion-control firmware.
+
+**Current baseline:** Dry already has the correct compiler shape — authoring ops → resolved absolute L2
+IR → simulate/verify/optimise → Marlin/Klipper/Duet output — but Dry IR v0 is only the resolved L2
+contract. Authoring still contains inherited state and bare numeric conventions; profiles and
+verification are FFF-centred; coordinate frames, a general capability model, high-level manufacturing
+intent, collision/process validation and production non-FFF backends are not complete.
+
+**Candidate scope when activated:**
+
+- A real **L0 manufacturing-intent dialect** for features/operations such as regions, deposition
+  strategies, pockets, profiles, drilling and tool/process plans, while keeping CAD/B-rep and slicing
+  kernels outside the core.
+- A **non-modal L1 path dialect** with explicit state, named coordinate frames and transforms
+  (design/workpiece/fixture/tool/machine); lowering may use state internally, but the interchange
+  contract must not depend on hidden prior commands.
+- **End-to-end dimensional types** at public SDK, profile and wire boundaries, with canonical-unit
+  normalization and explicit dimensions instead of undocumented bare-number conventions.
+- A versioned, extensible **typed channel registry** and **machine capability schema** covering supported
+  primitives, axes/kinematics, tools, process limits and target features without hard-coding one firmware
+  family into the generic IR.
+- Target-aware verification beyond the current rule catalog: tool/fixture/build-volume collision,
+  reachability and singularities, unsupported operations, thermal/process envelopes and explicit
+  treatment of opaque/manual machine code. A clean report must retain a precisely documented meaning
+  rather than imply general unattended safety.
+- A pluggable L3 backend contract with production-grade targets selected from the P5 experiments
+  (FFF plus CNC/RS-274 and/or laser/GRBL first; STEP-NC for intent interchange where it adds value).
+- Bidirectional target contracts: parsers/lifters for FFF and the selected non-FFF workflow, with
+  explicit lossiness, tolerance and opaque-command policies instead of treating emitted machine code as
+  automatically recoverable intent.
+- Conformance at every boundary: intent → path, path → absolute motion, motion → target, import/lift,
+  and target-specific verification, including reference-machine and versioned controlled-hardware
+  protocols. The public ecosystem includes schemas, fixtures, diagnostics and compatibility tooling,
+  not only the Rust implementation.
+
+**Non-goals:** replacing firmware motion planners, promising one identical program for fundamentally
+different manufacturing processes, silently accepting unknown controller behavior, or claiming
+certification from static verification alone.
+
+**Entry gate:** P2.3 (feature expansion) and P4.3 (published IR contract) are complete; at least one
+non-FFF target experiment, **P5.3 or P5.4**, has met its prototype acceptance; and an activation record
+names the selected non-FFF workflow, reference machine/controller and evidence carried forward. This is
+the objective replacement for an open-ended dependency on "relevant P5 experiments."
+
+**Exit gate:** within at least one process, a machine-independent authored program lowers to two
+different controller dialects through declared capability profiles with no hidden modal assumptions;
+FFF plus one non-FFF workflow passes structural, process, kinematic and collision/reachability checks on
+reference machines; emitted programs lift back to their declared semantic boundary with documented
+losses; controlled hardware runs pass a versioned protocol with archived evidence; and an independent
+implementation round-trips the public contracts.
+
+## Mathematical assurance workstream
+
+**Status:** planned as FM1 in
+[`21-mathematical-assurance-plan.md`](21-mathematical-assurance-plan.md). The v0 quantities, L2 logical
+model, planar feature expansion and codec semantics can start before D1. Proofs for full frames,
+capabilities and targets follow the corresponding D1 contract freezes.
+
+**Goal:** give the language a machine-checked semantic foundation and connect it to the Rust compiler
+without confusing exact real-number theorems, bounded floating-point behavior, conformance tests or
+hardware evidence.
+
+**Scope:** typed quantity algebra; transforms and frames; L0/L1/L2 lowering; trace and observation
+relations; simulation/verifier predicates; per-pass optimization contracts; codec/version round trips;
+capability matching; target lowering and semantic lift; floating-point error budgets; and an executable
+Rust refinement bridge.
+
+**Non-goals:** proving firmware or hardware correct, treating sampled curves as analytically exact,
+claiming static verification certifies a process, or labeling the whole compiler “formally verified”
+when only a subset has met the published proof/refinement gates.
+
+**Entry gate:** the published L2 v0 specification is sufficient for the FM1.1 tooling/claim constitution
+and the v0 portion of FM1.2/FM1.7. Each later proof packet additionally requires its public language
+contract to be frozen. D1-dependent proof work does not set D1 semantics.
+
+**Exit gate:** every supported assurance claim maps to a checked theorem, explicit assumptions and
+numeric domain; every semantic floating-point boundary appears in a versioned, source-drift-checked
+inventory, every bounded theorem names an accepted numeric profile, and unresolved claims remain
+marked empirical/pending; Rust passes independent refinement checks; FFF and the selected non-FFF
+workflow satisfy the bounded conditional compiler theorem; and an independent reviewer reproduces the
+proof build, numeric profiles, boundary inventory and claim registry.
+
 ## Risk register
 
 | Risk | Likelihood | Impact | Mitigation |
@@ -87,7 +180,14 @@ profiles + cross-SDK); the FullControl oracle is removed from CI; the Dry IR is 
 P0 ──► P1 ──► P2 ──────────► P6 (cut)
          └──► P3 ──► P4 ──┘
                      └► P5 (parallel, lands before/with P6)
+
+P2.3 ─┐
+P4.3 ─┼──► D1 activation ──► language foundations ──► target loop ──► ecosystem + hardware gates
+P5.3/4┘
 ```
+
+D1 remains outside the current critical path. Its activation consumes the published L2 contract,
+feature-expansion experience and one accepted non-FFF prototype; it does not delay finishing P6.
 Critical path: **P0 → P1 → P2 → P6**. P3 (engine surface + web) and P4 (multi-SDK + standard) branch off
 P1/P2 and can run in parallel. P5 (generalisation) depends on P1's toolframe design and lands alongside
 P6. The cut (P6) requires the full conformance suite green — i.e. P2 (gallery) + P1 (output) + P4

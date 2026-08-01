@@ -1,0 +1,12 @@
+# Keeps the `containers/verify-runner` Docker build context small: its Dockerfile needs the repo
+# root Cargo.toml (workspace.package inheritance) and the workspace member crates dry-core path-
+# depends on transitively, but none of the build output, VCS history, or unrelated large trees below.
+target
+**/target
+.git
+node_modules
+**/node_modules
+docs/site
+py/.venv
+**/__pycache__
+**/*.pyc

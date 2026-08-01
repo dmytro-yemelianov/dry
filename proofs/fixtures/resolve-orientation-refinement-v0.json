@@ -1,0 +1,85 @@
+{"schema_version": 1,
+ "model_checks": true,
+ "model": "resolve-orientation-refinement-v0",
+ "cases":
+ [{"ops": [{"type": "move", "finish": {"z": 0, "y": 0, "x": 10}}],
+   "id": "default-move",
+   "expected":
+   {"verifier_findings": [],
+    "segment_orientations": [null],
+    "resolve_accepts": true,
+    "emitted_count": 1}},
+  {"ops":
+   [{"vector":
+     {"k": {"numerator": 1, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}},
+     "type": "orient"},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 10}},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 20}}],
+   "id": "orient-then-two-moves",
+   "expected":
+   {"verifier_findings": [],
+    "segment_orientations":
+    [{"k": {"numerator": 1, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}},
+     {"k": {"numerator": 1, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}}],
+    "resolve_accepts": true,
+    "emitted_count": 2}},
+  {"ops":
+   [{"vector":
+     {"k": {"numerator": 0, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 1, "denominator": 1}},
+     "type": "orient"},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 10}},
+    {"vector":
+     {"k": {"numerator": 0, "denominator": 1},
+      "j": {"numerator": 1, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}},
+     "type": "orient"},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 20}}],
+   "id": "orient-a-move-orient-b-move",
+   "expected":
+   {"verifier_findings": [],
+    "segment_orientations":
+    [{"k": {"numerator": 0, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 1, "denominator": 1}},
+     {"k": {"numerator": 0, "denominator": 1},
+      "j": {"numerator": 1, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}}],
+    "resolve_accepts": true,
+    "emitted_count": 2}},
+  {"ops":
+   [{"vector":
+     {"k": {"numerator": 0, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}},
+     "type": "orient"},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 10}}],
+   "id": "zero-orient-before-motion",
+   "expected":
+   {"verifier_findings": ["not_evaluated"],
+    "segment_orientations": [],
+    "resolve_accepts": false,
+    "emitted_count": 0}},
+  {"ops":
+   [{"vector":
+     {"k": {"numerator": 2, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}},
+     "type": "orient"},
+    {"type": "move", "finish": {"z": 0, "y": 0, "x": 10}}],
+   "id": "non-unit-orient-accepted-verifier-finding",
+   "expected":
+   {"verifier_findings": ["orientation-not-unit"],
+    "segment_orientations":
+    [{"k": {"numerator": 2, "denominator": 1},
+      "j": {"numerator": 0, "denominator": 1},
+      "i": {"numerator": 0, "denominator": 1}}],
+    "resolve_accepts": true,
+    "emitted_count": 1}}]}

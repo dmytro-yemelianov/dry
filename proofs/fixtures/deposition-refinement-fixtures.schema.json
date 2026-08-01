@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/deposition-refinement-fixtures-v0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "model_checks", "cases"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "deposition-refinement-v0" },
+    "model_checks": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "travel", "length", "width", "height", "flow", "expected_volume"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "travel": { "type": "boolean" },
+          "length": { "$ref": "#/$defs/number" },
+          "width": { "$ref": "#/$defs/number" },
+          "height": { "$ref": "#/$defs/number" },
+          "flow": { "$ref": "#/$defs/number" },
+          "expected_volume": { "$ref": "#/$defs/number" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "number": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": { "type": "integer" },
+            "denominator": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

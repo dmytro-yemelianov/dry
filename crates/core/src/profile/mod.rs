@@ -3,7 +3,7 @@
 //! Profiles are intentionally small at this stage: they carry the factual limits that can be enforced
 //! by the existing verifier and the import defaults needed to recover geometry from slicer G-code.
 
-use crate::emit::{EmitParams, FirmwareFlavor};
+use crate::emit::{EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
 use crate::verify::Contracts;
@@ -107,6 +107,11 @@ pub struct MachineProfile {
     /// optimisation pipeline. Optional and additive: absent leaves `balanced` at its built-in defaults.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kinematics: Option<MachineKinematics>,
+    /// Optional 5-axis machine model used when `EmitParams::five_axis` is enabled. The `kinematics`
+    /// string/object maps the toolframe orientation to rotary axes using the same enum as
+    /// [`EmitParams::kinematics`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub five_axis: Option<Kinematics>,
 }
 
 /// Deterministic kinematic limits used to shape cornering speed in `balanced` mode.
@@ -282,6 +287,11 @@ impl Profile {
                 kinematics.max_junction_velocity_mm_s,
             )?;
         }
+        if let Some(kinematics) = &self.machine.five_axis {
+            kinematics
+                .validate()
+                .map_err(|error| ProfileError::new(format!("machine.five_axis {error}")))?;
+        }
         validate_positive(
             "material.filament_diameter",
             self.material.filament_diameter,
@@ -371,20 +381,87 @@ impl Profile {
     /// Convert firmware/profile settings to emitter parameters.
     pub fn emit_params(&self) -> EmitParams {
         let flavor = match self.firmware.flavor.as_deref() {
+            Some("rs274") | Some("linuxcnc") => FirmwareFlavor::Rs274,
+            Some("grbl") => FirmwareFlavor::Grbl,
+            Some("robot-krl") | Some("krl") => FirmwareFlavor::RobotKrl,
             Some("klipper") => FirmwareFlavor::Klipper,
             Some("duet") => FirmwareFlavor::Duet,
             _ => FirmwareFlavor::Marlin, // default
         };
-        EmitParams {
+        let mut params = EmitParams {
             flavor,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
             ..EmitParams::default()
+        };
+
+        if let Some(kinematics) = self.machine.five_axis {
+            params.kinematics = kinematics;
         }
+        params
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn emit_params_maps_rs274_flavors() {
+        let base = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("rs274".to_string()),
+            },
+            ..Profile::default()
+        };
+        assert_eq!(base.emit_params().flavor, FirmwareFlavor::Rs274);
+
+        let profile_linux = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("linuxcnc".to_string()),
+            },
+            ..base.clone()
+        };
+        assert_eq!(profile_linux.emit_params().flavor, FirmwareFlavor::Rs274);
+
+        let profile_grbl = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("grbl".to_string()),
+            },
+            ..base.clone()
+        };
+        assert_eq!(profile_grbl.emit_params().flavor, FirmwareFlavor::Grbl);
+
+        let profile_krl = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("robot-krl".to_string()),
+            },
+            ..base.clone()
+        };
+        assert_eq!(profile_krl.emit_params().flavor, FirmwareFlavor::RobotKrl);
+        let profile_krl_alias = Profile {
+            firmware: FirmwareProfile {
+                flavor: Some("krl".to_string()),
+            },
+            ..base
+        };
+        assert_eq!(
+            profile_krl_alias.emit_params().flavor,
+            FirmwareFlavor::RobotKrl
+        );
+    }
+
+    #[test]
+    fn emit_params_uses_reference_five_axis_machine_by_default() {
+        let base = Profile {
+            machine: MachineProfile::default(),
+            ..Profile::default()
+        };
+        assert_eq!(
+            base.emit_params().kinematics,
+            REFERENCE_FIVE_AXIS_MACHINE,
+            "when machine.five_axis is omitted, emit must default to reference BC machine model"
+        );
+    }
 
     #[test]
     fn profile_maps_to_contracts() {

@@ -1,4 +1,7 @@
-# Dependencies for the independent Dry IR vector validator (tools/validate_vectors.py).
-# Deliberately minimal and independent of dry-core: only a JSON Schema engine. The codec itself
-# (DRY0/DRY1) is implemented from the Python standard library (zlib + struct + json).
+# Dependencies for the independent Dry IR vector and proof-claim validators.
+# Deliberately minimal and independent of dry-core: JSON Schema plus a TOML parser only on Python
+# versions older than 3.11. The codec itself uses the standard library (zlib + struct + json).
 jsonschema>=4.18
+# `tomllib` entered the standard library in Python 3.11. The proof-claim validator keeps local
+# Python 3.9/3.10 development usable without affecting newer interpreters.
+tomli>=2.0; python_version < "3.11"

@@ -9,7 +9,8 @@
 
 use dry_core::{
     adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated, Contracts, Feedrate,
-    Length, MachineKinematics, OptimizeMode, Profile, Segment, SegmentKind, Toolpath, Volume,
+    Kinematics, Length, MachineKinematics, OptimizeMode, Profile, Segment, SegmentKind, Toolpath,
+    Volume,
 };
 
 /// A valid extruding line move at `speed` mm/min; override per case.
@@ -140,6 +141,73 @@ fn negative_junction_velocity_is_rejected() {
     assert!(
         err.to_string().contains("max_junction_velocity_mm_s"),
         "rejection must name the offending field (got {err})"
+    );
+}
+
+#[test]
+fn profile_with_five_axis_model_round_trips_and_validates() {
+    let profile = Profile::from_json(
+        r#"{
+          "version": 1,
+          "name": "five-axis",
+          "machine": {
+            "five_axis": {
+              "type": "bc",
+              "pivot_offset": [0.0, 0.0, -50.0],
+              "rotary_offset": [5.0, -2.5]
+            }
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let five_axis = profile.machine.five_axis.expect("five_axis present");
+    assert_eq!(
+        five_axis,
+        Kinematics::Bc {
+            pivot_offset: [0.0, 0.0, -50.0],
+            rotary_offset: [5.0, -2.5],
+        }
+    );
+
+    let json = serde_json::to_string(&profile).unwrap();
+    let reparsed = Profile::from_json(&json).unwrap();
+    assert_eq!(reparsed, profile);
+}
+
+#[test]
+fn invalid_five_axis_finite_check_fails() {
+    let mut profile = Profile::default();
+    profile.machine.five_axis = Some(Kinematics::Ab {
+        pivot_offset: [0.0, f64::NAN, 0.0],
+        rotary_offset: [0.0, 0.0],
+    });
+
+    let err = profile.validate().unwrap_err();
+    assert!(
+        err.to_string().contains("machine.five_axis"),
+        "bad five_axis should be rejected with machine.five_axis in error: {err}"
+    );
+}
+
+#[test]
+fn five_axis_kinematics_string_form_is_valid_profile_input() {
+    let profile = Profile::from_json(
+        r#"{
+          "version": 1,
+          "machine": {
+            "five_axis": "ac"
+          }
+        }"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        profile.machine.five_axis,
+        Some(Kinematics::Ac {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0]
+        })
     );
 }
 

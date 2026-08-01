@@ -1,0 +1,26 @@
+schema_version = 1
+model = "resolve-orientation-source-mutations-v0"
+source = "crates/core/src/resolve.rs"
+source_sha256 = "562b36b923ce698201828495508dac0d3566ca16d8eb430d5496cf126c1d8537"
+test = "crates/core/tests/resolve_orientation_refinement.rs"
+
+[[mutation]]
+id = "orient-zero-magnitude-accepted"
+witness = "zero-orient-before-motion"
+description = "Accept zero-magnitude orientation vector during resolution."
+old = "if mag <= 0.0 {"
+new = "if false {"
+
+[[mutation]]
+id = "orient-does-not-propagate"
+witness = "orient-then-two-moves"
+description = "Ignore orientation changes during state resolution."
+old = "Op::Orient { i, j, k } => orientation = Some([i, j, k]),"
+new = "Op::Orient { .. } => {}"
+
+[[mutation]]
+id = "orient-resets-on-move"
+witness = "orient-then-two-moves"
+description = "Reset orientation state to None when Orient op is encountered."
+old = "Op::Orient { i, j, k } => orientation = Some([i, j, k]),"
+new = "Op::Orient { .. } => orientation = None,"

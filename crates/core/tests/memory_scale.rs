@@ -10,11 +10,12 @@
 //! parallel tests.
 
 use dry_core::{
-    decode_any_streaming, simulate, simulate_stream, verify_stream, Contracts, Feedrate, Length,
-    Segment, SegmentKind, Toolpath, Volume,
+    decode_any_streaming, emit_stream_to_writer, simulate, simulate_stream, verify_stream,
+    CodecError, Contracts, EmitParams, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Cursor;
+use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 struct Counting;
@@ -122,6 +123,63 @@ fn materialize_peak(dry1: &[u8]) -> usize {
     peak_delta()
 }
 
+struct StreamedSegmentSource {
+    remaining: usize,
+    phase: usize,
+}
+
+impl StreamedSegmentSource {
+    fn new(segments: usize) -> Self {
+        Self {
+            remaining: segments,
+            phase: 0,
+        }
+    }
+}
+
+impl Iterator for StreamedSegmentSource {
+    type Item = Result<Segment, CodecError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+        self.remaining -= 1;
+        let x = (self.phase % 200) as f64;
+        self.phase += 1;
+        Some(Ok(Segment {
+            start: [
+                Some(Length::mm(x)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            end: [
+                Some(Length::mm(x + 1.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            travel: false,
+            speed: Feedrate(1500.0),
+            length: Length::mm(1.0),
+            volume: Volume(0.08),
+            filament: Length::mm(0.033),
+            width: Some(Length::mm(0.4)),
+            height: Some(Length::mm(0.2)),
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            temperature: None,
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: None,
+            control_points: None,
+        }))
+    }
+}
+
 #[test]
 fn dry1_streaming_is_bounded_memory() {
     let n = 10_000;
@@ -160,5 +218,84 @@ fn dry1_streaming_is_bounded_memory() {
     assert!(
         stream_2n * 5 < mat_2n,
         "DRY1 streaming ({stream_2n}) is not bounded well below materialization ({mat_2n})"
+    );
+}
+
+fn simulate_peak_from_stream(segments: usize) -> (dry_core::engine::Metrics, usize) {
+    reset_peak();
+    let metrics = simulate_stream(StreamedSegmentSource::new(segments)).unwrap();
+    (metrics, peak_delta())
+}
+
+fn verify_peak_from_stream(segments: usize) -> (bool, usize) {
+    reset_peak();
+    let report =
+        verify_stream(StreamedSegmentSource::new(segments), &Contracts::default()).unwrap();
+    (report.ok(), peak_delta())
+}
+
+#[derive(Default)]
+struct LineCountingWriter {
+    lines: usize,
+}
+
+impl Write for LineCountingWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.lines += buf.iter().filter(|&&b| b == b'\n').count();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn emit_peak_from_stream(segments: usize) -> (usize, usize) {
+    reset_peak();
+    let mut writer = LineCountingWriter::default();
+    emit_stream_to_writer(
+        StreamedSegmentSource::new(segments),
+        &EmitParams::default(),
+        &mut writer,
+    )
+    .unwrap();
+    // writer.lines counts emitted '\n' separators, so the number of lines is lines + 1.
+    (writer.lines + 1, peak_delta())
+}
+
+#[test]
+fn dry1_streaming_scales_to_one_million_segments() {
+    let n = 1_000_000;
+
+    let (metrics, simulate_peak) = simulate_peak_from_stream(n);
+    assert_eq!(metrics.segment_count as usize, n);
+    assert!(
+        (metrics.total_time_s.0 - n as f64 * 0.04).abs() < 1e-6,
+        "unexpected total time: {}",
+        metrics.total_time_s.0
+    );
+
+    // Keep this threshold conservative but stable: it catches regressions that accidentally
+    // materialize large intermediate buffers while still allowing small allocator growth.
+    assert!(
+        simulate_peak < 16 * 1024 * 1024,
+        "simulate_stream peak exceeded 16 MiB ({simulate_peak} B)"
+    );
+
+    let (report_ok, verify_peak) = verify_peak_from_stream(n);
+    assert!(report_ok, "verify_stream reported errors");
+    assert!(
+        verify_peak < 32 * 1024 * 1024,
+        "verify_stream peak exceeded 32 MiB ({verify_peak} B)"
+    );
+
+    let (emitted_lines, emit_peak) = emit_peak_from_stream(n);
+    assert_eq!(
+        emitted_lines, n,
+        "emit_stream should preserve segment cardinality"
+    );
+    assert!(
+        emit_peak < 16 * 1024 * 1024,
+        "emit_stream peak exceeded 16 MiB ({emit_peak} B)"
     );
 }

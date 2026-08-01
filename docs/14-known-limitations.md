@@ -12,9 +12,9 @@ Do not rely on Dry for any of these today:
 - **A slicer replacement.** Dry has no mesh import/repair, slicing, supports, infill, placement or cooling
   generation. It compiles *authored* or *imported* toolpaths; it does not turn a mesh into one.
 - **Turnkey industrial certification.** No process qualification, traceability or certification claims.
-- **Production CNC / laser / robot output.** The multi-target architecture exists, but only **FFF g-code**
-  is a supported emission target. CNC/laser/robot dialects, process models and machine profiles are not
-  production-ready.
+- **Production CNC / laser / robot output.** Production readiness is still **FFF-first**: CNC/laser/robot
+  targets are not yet production-ready, although RS-274 output and prototype STEP-NC intent export are now
+  available via `--format rs274` and `--step-nc`.
 - **A complete non-planar / 5-axis workflow.** The toolframe orientation is a first-class IR property and
   5-axis rotary emission exists, but there is no kinematics validation, collision/singularity handling, or
   real-machine gating. Treat 5-axis as experimental.
@@ -46,7 +46,7 @@ Do not rely on Dry for any of these today:
   and `first-layer-speed` are **warnings**, not errors — a report with only these passes `verify`.
 - **Profiles are intentionally small.** The v1 profile schema (`docs/11`) carries the limits the verifier
   can enforce plus import defaults — not a full slicer/material database. `firmware.flavor` is recognized
-  for `marlin` / `klipper` / `duet`; others fall back to Marlin-style behavior.
+  for `marlin` / `klipper` / `duet` / `rs274` / `linuxcnc`; others fall back to Marlin-style behavior.
 - **Kinematic verification is deliberately approximate.** `machine.kinematics` feeds the `balanced`
   optimisation pass and the `peak-acceleration` / `junction-velocity` rules. These are deterministic,
   firmware-neutral envelope checks, not a reproduction of firmware motion planning. There is no
@@ -63,8 +63,8 @@ Do not rely on Dry for any of these today:
 
 Supported today: **FFF-centered** authoring (Python/TypeScript/Rust), `DRY0`/`DRY1`/JSON IR round-trips,
 `simulate`/`verify`/`optimize`/`emit`, and post-slicer `review`/`trace`/`rewrite` for Marlin/Klipper/Duet
-g-code. Everything outside that — mesh slicing, non-FFF targets, certified/unattended safety,
-production 5-axis — is out of scope for the current releases.
+`g-code`, plus experimental RS-274 output and STEP-NC intent sidecars. Everything outside that — mesh slicing,
+non-FFF targets, certified/unattended safety, production 5-axis — is out of scope for the current releases.
 
 See also: `docs/08-production-transition.md` (the path to widening this boundary) and
 `docs/09-customer-readiness.md` (which segments are ready now).

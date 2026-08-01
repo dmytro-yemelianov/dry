@@ -19,6 +19,7 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 
 | Method | Signature | Sample | Summary |
 | --- | --- | --- | --- |
+| `fromOps` | `fromOps(ops: readonly Op[]): Design` |  | Create an L1 design from an existing canonical op list. |
 | `geometry` | `geometry(width: number, height: number): this` |  | Set the extrusion bead cross-section (mm). |
 | `extruder` | `extruder(on: boolean): this` |  | Turn the extruder on/off (off =&gt; subsequent moves are travels). |
 | `speed` | `speed(printSpeed: number): this` |  | Set the print feedrate (mm/min). |
@@ -42,6 +43,22 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. |
 | `binary` | `binary(printer = 'generic'): Uint8Array` |  | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
 | `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
+
+### `fromOps`
+
+```ts
+fromOps(ops: readonly Op[]): Design
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `readonly Op[]` |  | Yes |
+
+Returns: `Design`
+
+Create an L1 design from an existing canonical op list.
 
 ### `geometry`
 

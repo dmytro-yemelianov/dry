@@ -1,0 +1,85 @@
+{"schema_version": 1,
+ "profile_budgets":
+ {"point_xy":
+  {"id":
+   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_POINT_COMPONENT_ABS_ERROR_MM",
+   "ceiling": 2147483648},
+  "orientation_xy":
+  {"id":
+   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR",
+   "ceiling": 0.00390625}},
+ "observation_ceilings":
+ {"point_z": 0.000000000931322574615478515625,
+  "point_xy": 0.0000000037252902984619140625,
+  "orientation_z": 0,
+  "orientation_xy": 0.00000000186264514923095703125},
+ "model_checks": true,
+ "model": "nested-application-refinement-v0",
+ "derived_profile_ceilings": {"point_z": 0.000244140625},
+ "cases":
+ [{"program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": 100, "rotate_z_deg": 0},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 90},
+       "kind": "repeat",
+       "count": 2,
+       "child":
+       {"pose": {"z": 3, "y": 0, "x": 10, "rotate_z_deg": 0},
+        "ops": [{"z": 7, "y": 2, "x": 5, "op": "move"}],
+        "kind": "feature"}}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nested-application-point",
+   "expected_ops":
+   [{"z": 10, "y": 2, "x": 15, "op": "move"},
+    {"z": 10, "y": 15, "x": -2, "op": "move"},
+    {"z": 10, "y": 2, "x": 115, "op": "move"},
+    {"z": 10, "y": 15, "x": 98, "op": "move"}]},
+  {"program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": 100, "rotate_z_deg": 0},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 90},
+       "kind": "repeat",
+       "count": 2,
+       "child":
+       {"pose": {"z": 3, "y": 0, "x": 10, "rotate_z_deg": 0},
+        "ops":
+        [{"z": 0, "y": 0, "x": 0, "op": "move"},
+         {"z": 10, "y": 9, "x": 6, "op": "arc", "cy": 8, "cx": 4, "clockwise": true}],
+        "kind": "feature"}}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nested-application-arc-center",
+   "expected_ops":
+   [{"z": 3, "y": 0, "x": 10, "op": "move"},
+    {"z": 13, "y": 9, "x": 16, "op": "arc", "cy": 8, "cx": 14, "clockwise": true},
+    {"z": 3, "y": 10, "x": 0, "op": "move"},
+    {"z": 13, "y": 16, "x": -9, "op": "arc", "cy": 14, "cx": -8, "clockwise": true},
+    {"z": 3, "y": 0, "x": 110, "op": "move"},
+    {"z": 13, "y": 9, "x": 116, "op": "arc", "cy": 8, "cx": 114, "clockwise": true},
+    {"z": 3, "y": 10, "x": 100, "op": "move"},
+    {"z": 13, "y": 16, "x": 91, "op": "arc", "cy": 14, "cx": 92, "clockwise": true}]},
+  {"program":
+   {"features":
+    [{"step": {"z": 0, "y": 0, "x": 100, "rotate_z_deg": 0},
+      "kind": "repeat",
+      "count": 2,
+      "child":
+      {"step": {"z": 0, "y": 0, "x": 0, "rotate_z_deg": 90},
+       "kind": "repeat",
+       "count": 2,
+       "child":
+       {"pose": {"z": 3, "y": 0, "x": 10, "rotate_z_deg": 0},
+        "ops": [{"op": "orient", "k": 1, "j": -1, "i": 1}],
+        "kind": "feature"}}}]},
+   "limits": {"max_ops": 100, "max_nodes": 100, "max_depth": 10},
+   "id": "nested-application-orientation",
+   "expected_ops":
+   [{"op": "orient", "k": 1, "j": -1, "i": 1},
+    {"op": "orient", "k": 1, "j": 1, "i": 1},
+    {"op": "orient", "k": 1, "j": -1, "i": 1},
+    {"op": "orient", "k": 1, "j": 1, "i": 1}]}]}

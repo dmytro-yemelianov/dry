@@ -1,0 +1,426 @@
+schema_version = 1
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+model = "feature-planar-binary64-v0"
+status = "provisional"
+contract = "assurance-precondition-only"
+rust_toolchain = "1.88.0"
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+[libm]
+crate = "libm"
+version = "0.2.16"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+source_tag = "libm-v0.2.16"
+source_commit = "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d"
+trig_accuracy_basis = "upstream-mpfr-test-policy"
+trig_max_ulp = 1
+trig_contract_status = "imported-assumption"
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_COORDINATE_MM"
+quantity = "Absolute value of a local Move, Arc endpoint or Spline coordinate"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 mm envelope is exactly representable in binary64 and deliberately wider than practical machine travel; it is a proof precondition, not a language validity limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.COORDINATE.INHERIT",
+  "FM1.F64.FEATURE.APPLY.POINT"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_TRANSLATION_MM"
+quantity = "Absolute value of each FeaturePose translation component"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 mm envelope is proof-friendly and does not redefine the current finite-f64 acceptance contract."
+boundary_ids = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.POSE_ROTATION_DEG"
+quantity = "FeaturePose.rotate_z_deg before degree-to-radian conversion"
+lower = -360.0
+upper = 360.0
+unit = "degree"
+enforcement = "assumption"
+rationale = "One signed revolution bounds libm argument reduction while preserving every planar orientation modulo a future normalization theorem."
+boundary_ids = [
+  "FM1.F64.FEATURE.POSE.FINITE",
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ARC_CENTER_MM"
+quantity = "Absolute value of each local Arc centre component"
+lower = -1048576.0
+upper = 1048576.0
+unit = "mm"
+enforcement = "assumption"
+rationale = "Arc centres pass a runtime finiteness gate; this proof-only limit additionally bounds finite magnitude."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ORIENTATION_COMPONENT"
+quantity = "Each local tool-orientation vector component"
+lower = -1.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "assumption"
+rationale = "Orientation components pass a runtime finiteness gate; nonzero/unit validation and normalization remain separate semantic obligations."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION",
+  "FM1.F64.FEATURE.ORIENTATION.FINITE"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.TRANSFORM_COMPOSITIONS"
+quantity = "Maximum transform compositions on one accepted default-limit expansion path"
+lower = 0
+upper = 100000
+unit = "count"
+enforcement = "assumption"
+rationale = "The ceiling matches DEFAULT_MAX_EXPANDED_NODES and safely covers used plus final unused repeat-step composition; custom ExpandLimits require a separately instantiated profile."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.MANUAL.IDENTITY"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_MULTIPLY_EXACT_RESULT"
+quantity = "Absolute value of an exact-real multiplication result before one profiled binary64 rounding step"
+lower = -1048576.0
+upper = 1048576.0
+unit = "result-value"
+enforcement = "assumption"
+rationale = "The symmetric 2^20 result envelope supports a conservative 2^-32 absolute binary64 multiplication-rounding ceiling, including gradual underflow."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.LOCAL_ADD_SUB_EXACT_RESULT"
+quantity = "Absolute value of an exact-real addition or subtraction result before one profiled binary64 rounding step"
+lower = -4194304.0
+upper = 4194304.0
+unit = "result-value"
+enforcement = "assumption"
+rationale = "The symmetric 2^22 result envelope supports a conservative 2^-30 absolute binary64 addition/subtraction-rounding ceiling, including gradual underflow."
+boundary_ids = [
+  "FM1.F64.FEATURE.COMPOSE.ROTATION",
+  "FM1.F64.FEATURE.COMPOSE.TRANSLATION",
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.APPLY.ORIENTATION"
+]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.RADIAN_INTERMEDIATE"
+quantity = "Binary64 radian intermediate passed from FeaturePose conversion to libm"
+lower = -7.0
+upper = 7.0
+unit = "radian"
+enforcement = "assumption"
+rationale = "The checked degree-conversion theorem proves the intermediate lies strictly inside this envelope whenever rotate_z_deg is within the profiled signed-revolution limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COORDINATE_INHERIT_BIT_ERROR"
+metric = "Binary64 bit-pattern difference after Option-based coordinate inheritance"
+unit = "bit-difference"
+status = "bounded"
+ceiling = 0.0
+rationale = "inherit_point selects and copies a finite f64 without arithmetic."
+evidence = [
+  "formal/Dry/Semantics/CheckedExpansion.lean",
+  "proofs/fixtures/feature-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+next_obligation = "Keep the zero-error result synchronized with any future coordinate representation."
+boundary_ids = ["FM1.F64.FEATURE.COORDINATE.INHERIT"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ANGLE_RAD_ABS_ERROR"
+metric = "Absolute error between exact degrees*pi/180 and the binary64 radian intermediate"
+unit = "radian"
+status = "bounded"
+ceiling = 1.4210854715202004e-14
+rationale = "The checked operation-order proof uses Rust's exact binary64 PI rational, Mathlib's real-pi bounds and the scoped gradual-underflow-aware rounding contract to establish a conservative 2^-46 radian ceiling over [-360, 360] degrees."
+evidence = [
+  "formal/Dry/Numeric/Angle.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Generalize the selected native cardinal-angle witnesses to exhaustive native/wasm execution refinement and connect every checked interval to the imported libm contract."
+boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.TRIG_COEFFICIENT_ABS_ERROR"
+metric = "Maximum absolute error of a constructed sine or cosine coefficient against exact real trigonometry of the profiled degree input"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 2.842170943040401e-14
+rationale = "Under the named imported libm 0.2.16 one-ULP MPFR contract, Lean derives a conservative 2^-51 same-input trigonometric error and composes it with the checked 2^-46 degree-conversion error through the one-Lipschitz sine/cosine bounds, yielding 2^-45 end to end."
+evidence = [
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Angle.lean",
+  "proofs/libm-0.2.16-trig-contract.md",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Replace the imported upstream accuracy assumption with exhaustive source-level verification, generalize selected native calls to native/wasm refinement and propagate coefficient error through repeated composition."
+boundary_ids = [
+  "FM1.F64.FEATURE.ANGLE.DEGREES",
+  "FM1.F64.FEATURE.TRIG.LIBM"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_ROTATION_COMPONENT_ABS_ERROR"
+metric = "Local binary64 operation error of either composed rotation coefficient against the exact-real expression over the same represented inputs"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 1.862645149230957e-9
+rationale = "The checked one-step formula is at most 2^-29 when each multiplication result is within 2^20 and each addition/subtraction result is within 2^22 under the scoped binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+metric = "Local binary64 operation error of each composed translation component against the exact-real expression over the same represented inputs"
+unit = "mm"
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "The checked one-step XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_ROTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of either accumulated repeat-transform rotation coefficient against repeated exact-real composition"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 0.0009765625
+rationale = "For at most 100,000 sequential compositions of one profiled pose, Lean combines the conditional 2^-45 sine/cosine component bound with the checked local composition graph and proves a complex coefficient-norm ceiling of 2^-10; each component is therefore bounded by the same ceiling."
+evidence = [
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Refine the Rust repeat loop to the recurrence and its range premises and tighten the conservative same-step ceiling; the separate arbitrary-tree budget now covers mixed composition shapes."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.REPEAT_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each accumulated repeat-transform translation component against repeated exact-real composition"
+unit = "mm"
+status = "bounded"
+ceiling = 536870912.0
+rationale = "For at most 100,000 sequential compositions of one profiled pose with each XY translation component at most 2^20, Lean proves an intentionally conservative XY complex-norm ceiling of 2^29 mm and a tighter Z ceiling of 2^-13 mm; every component is covered by the published 2^29 ceiling."
+evidence = [
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Tighten this non-production tolerance and refine the Rust repeat loop and range premises; the separate arbitrary-tree budget now covers mixed composition shapes."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ROTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of either rotation coefficient for an arbitrary parenthesized transform-composition tree against its exact-real tree"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 0.0009765625
+rationale = "For a tree with at most 100,000 composition nodes, Lean charges one 2^-28 factor for each pose construction or composition, proves that the total cost is at most 200,001, and bounds the coefficient norm error by 2^-10 without reassociating binary64 operations."
+evidence = [
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Refine the Rust nested Feature/Repeat evaluator to the preserved tree, profile predicates and per-node operation-range premises."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_TRANSLATION_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each translation component for an arbitrary parenthesized transform-composition tree against its exact-real tree"
+unit = "mm"
+status = "bounded"
+ceiling = 1073741824.0
+rationale = "For a tree with at most 100,000 composition nodes and profiled pose leaves, Lean proves a quadratic XY norm budget below 2^30 mm and a tighter Z ceiling of 2^-13 mm. The parenthesization is preserved and every local composition must satisfy the checked operation-result range predicate."
+evidence = [
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Accumulation.lean",
+  "formal/Dry/Numeric/Trig.lean",
+  "formal/Dry/Numeric/Binary64.lean"
+]
+next_obligation = "Tighten this non-production tolerance and refine the Rust nested Feature/Repeat evaluator to the tree and range premises."
+boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_POINT_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error of each transformed point or Arc-centre component after an arbitrary parenthesized transform-composition tree"
+unit = "mm"
+status = "bounded"
+ceiling = 2147483648.0
+rationale = "Lean composes the tree's 2^-10 coefficient-norm and 2^30 mm translation-norm ceilings with a local XY input norm at most 2^21 mm and the 2^-28 local application graph, yielding a conservative 2^31 mm XY component ceiling. Point Z is separately proved below 2^-12 mm."
+evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+next_obligation = "Tighten this non-production ceiling and generalize the selected nested native corpus to arbitrary profiled Feature/Repeat trees, input envelopes and per-node range premises."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.POINT",
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of each transformed orientation XY component after an arbitrary parenthesized transform-composition tree"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 0.00390625
+rationale = "For local orientation components within [-1, 1], Lean bounds the XY input norm by 2 and composes the tree's 2^-10 coefficient-norm ceiling with the 2^-29 local vector graph, yielding a conservative 2^-8 component ceiling. Z remains bit-exact."
+evidence = [
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NestedApplicationFixtures.lean",
+  "proofs/fixtures/nested-application-refinement-v0.json",
+  "crates/core/tests/feature_refinement.rs"
+]
+next_obligation = "Use the linked angular theorem where direction is the observation, tighten both conservative ceilings and generalize the selected nested native corpus to every theorem premise."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.COMPOSITION_TREE_ORIENTATION_ANGULAR_ERROR_RAD"
+metric = "Maximum unoriented angular error for a unit orientation transformed by an arbitrary parenthesized transform-composition tree"
+unit = "radian"
+status = "bounded"
+ceiling = 0.25
+rationale = "Lean converts the tree's 2^-8 bounds on each XY component and exact Z copy into Euclidean distance at most 2^-7. For an exact unit output this proves the computed vector is nonzero and its direction cosine is at least 127/129, which implies an angular error of at most 1/4 radian."
+evidence = [
+  "formal/Dry/Numeric/Orientation.lean",
+  "formal/Dry/Numeric/ApplicationAccumulation.lean",
+  "formal/Dry/Numeric/CompositionTree.lean"
+]
+next_obligation = "Tighten this conservative directional ceiling and refine arbitrary native/wasm Feature/Repeat executions to the theorem's profile, range, rounding, libm and unit-input premises."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.POINT_COMPONENT_ABS_ERROR_MM"
+metric = "Local binary64 operation error of each transformed Move, Arc-end or Spline component against the exact-real expression over the same represented inputs"
+unit = "mm"
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "The checked XY formula is at most 2^-28 and its Z formula is at most 2^-30 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic witnesses to every profiled native/wasm execution."
+boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM"
+metric = "Local binary64 operation error of each transformed Arc-centre component against the exact-real expression over the same represented inputs"
+unit = "mm"
+status = "bounded"
+ceiling = 3.725290298461914e-9
+rationale = "Arc-centre XY uses the checked point graph and is at most 2^-28 under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic apply_xy witnesses to every profiled native/wasm execution."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ARC.CENTER",
+  "FM1.F64.FEATURE.ARC.CENTER.FINITE"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR"
+metric = "Local binary64 operation error of each transformed orientation-vector component against the exact-real expression over the same represented inputs"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 1.862645149230957e-9
+rationale = "The checked XY vector formula is at most 2^-29 and Z is copied exactly under the scoped operation-result limits and binary64 rounding contract."
+evidence = [
+  "formal/Dry/Numeric/RoundModel.lean",
+  "formal/Dry/Numeric/Binary64.lean",
+  "formal/Dry/Tests/NativeNumericFixtures.lean",
+  "proofs/fixtures/native-feature-numeric-interval-v0.json",
+  "crates/core/src/features/native_numeric_tests.rs"
+]
+next_obligation = "Compose this local budget with coefficient construction where appropriate and generalize the selected native exact-dyadic and orientation-contract witnesses to arbitrary profiled native/wasm execution."
+boundary_ids = [
+  "FM1.F64.FEATURE.APPLY.ORIENTATION",
+  "FM1.F64.FEATURE.ORIENTATION.FINITE"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.MANUAL_IDENTITY_COMPONENT_THRESHOLD"
+metric = "Maximum absolute component deviation accepted by Transform::is_identity"
+unit = "component-value"
+status = "policy"
+ceiling = 1e-12
+rationale = "This records the existing code threshold without claiming it is a proved geometry error budget."
+evidence = ["crates/core/src/features.rs"]
+next_obligation = "Replace policy status with a proved observation bound or reject every non-bit-identity transform for manual code."
+boundary_ids = ["FM1.F64.FEATURE.MANUAL.IDENTITY"]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.PASSTHROUGH_BIT_ERROR"
+metric = "Binary64 bit-pattern difference across cloned non-geometric Op payloads"
+unit = "bit-difference"
+status = "bounded"
+ceiling = 0.0
+rationale = "The feature pass clones these payloads and performs no numeric operation."
+evidence = ["crates/core/src/features.rs"]
+next_obligation = "Keep the zero-error pass-through classification synchronized with the pinned Op enum."
+boundary_ids = ["FM1.F64.FEATURE.OP.PASSTHROUGH"]

@@ -1,5 +1,6 @@
 //! End-to-end CLI tests: run the `dry` binary on a conformance fixture and check its output.
 
+use dry_core::{import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -35,7 +36,6 @@ fn fixture(corpus: &str, name: &str) -> PathBuf {
         .join(format!("../../conformance/{corpus}/{name}.json"))
 }
 
-#[cfg(feature = "moonraker")]
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     use std::io::Read as _;
 
@@ -69,7 +69,6 @@ fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     String::from_utf8(request).unwrap()
 }
 
-#[cfg(feature = "moonraker")]
 fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
     use std::io::Write as _;
 
@@ -79,6 +78,127 @@ fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
         body.len()
     )
     .unwrap();
+}
+
+#[test]
+fn printer_search_sends_typed_graph_filters() {
+    use std::net::TcpListener;
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut stream);
+        assert!(request.starts_with("POST /graphql "));
+        assert!(request.contains(r#""text":"voron""#));
+        assert!(request.contains(r#""firmware":["KLIPPER"]"#));
+        assert!(request.contains(r#""material":["ABS"]"#));
+        write_json_response(
+            &mut stream,
+            r#"{"data":{"printers":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"voron","name":"Voron","vendor":"Voron Design","model":"2.4","variant":null,"kind":"PRINTER_CLASS","versions":[]}]}}}"#,
+        );
+    });
+
+    let out = Command::new(bin())
+        .args([
+            "printer",
+            "search",
+            "voron",
+            "--firmware",
+            "klipper",
+            "--material",
+            "ABS",
+            "--source",
+            &format!("http://{address}"),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    server.join().unwrap();
+
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let result: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(result["totalCount"], 1);
+    assert_eq!(result["nodes"][0]["id"], "voron");
+}
+
+#[test]
+fn printer_resolve_downloads_and_hash_verifies_profile() {
+    use sha2::{Digest, Sha256};
+    use std::net::TcpListener;
+    use std::thread;
+
+    let profile = br#"{"version":1,"name":"ABS 0.4"}"#;
+    let sha256 = format!("{:x}", Sha256::digest(profile));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let profile_url = format!("http://{address}/profile");
+    let graph_body = serde_json::json!({
+        "data": {
+            "printer": {
+                "versions": [{
+                    "profiles": [{
+                        "id": "abs-0.4",
+                        "materialId": "dry:material/abs",
+                        "filamentId": null,
+                        "processPresetId": "abs",
+                        "nozzleDiameterMm": 0.4,
+                        "profileUrl": profile_url,
+                        "sha256": sha256,
+                    }]
+                }]
+            }
+        }
+    })
+    .to_string();
+    let server = thread::spawn(move || {
+        let (mut graph_stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut graph_stream);
+        assert!(request.starts_with("POST /graphql "));
+        assert!(request.contains(r#""version":"0.1.0""#));
+        assert!(request.contains(r#""materialId":"dry:material/abs""#));
+        write_json_response(&mut graph_stream, &graph_body);
+
+        let (mut profile_stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut profile_stream);
+        assert!(request.starts_with("GET /profile "));
+        use std::io::Write as _;
+        write!(
+            profile_stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            profile.len()
+        )
+        .unwrap();
+        profile_stream.write_all(profile).unwrap();
+    });
+
+    let out = Command::new(bin())
+        .args([
+            "printer",
+            "resolve",
+            "voron",
+            "--version",
+            "0.1.0",
+            "--material",
+            "dry:material/abs",
+            "--source",
+            &format!("http://{address}"),
+        ])
+        .output()
+        .unwrap();
+    server.join().unwrap();
+
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(out.stdout, b"{\"version\":1,\"name\":\"ABS 0.4\"}\n");
 }
 
 #[cfg(feature = "moonraker")]
@@ -166,6 +286,328 @@ fn emit_reproduces_the_fixture_gcode() {
 }
 
 #[test]
+fn emit_five_axis_respects_profile_model_and_flag_override() {
+    let path = fixture("gcode", "square");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "machine": {
+            "five_axis": {
+              "type": "bc",
+              "pivot_offset": [0.0, 0.0, 0.0],
+              "rotary_offset": [0.0, 0.0]
+            }
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let from_profile = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--five-axis", "--profile"])
+        .arg(profile_path.to_str().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        from_profile.status.success(),
+        "dry emit --profile ... --five-axis should succeed"
+    );
+    let profile_out = String::from_utf8(from_profile.stdout).unwrap();
+
+    let from_flag = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        from_flag.status.success(),
+        "dry emit --rotary-axes bc --five-axis should succeed"
+    );
+    assert_eq!(
+        profile_out,
+        String::from_utf8(from_flag.stdout).unwrap(),
+        "profile machine.five_axis should be used when --five-axis is set"
+    );
+
+    let explicit = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--rotary-axes",
+            "ac",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        explicit.status.success(),
+        "explicit rotary-axes must still be accepted"
+    );
+    let explicit = String::from_utf8(explicit.stdout).unwrap();
+
+    let ac_flag = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "ac",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        ac_flag.status.success(),
+        "dry emit --rotary-axes ac --five-axis should succeed"
+    );
+    assert_eq!(
+        explicit,
+        String::from_utf8(ac_flag.stdout).unwrap(),
+        "explicit --rotary-axes should override profile machine.five_axis"
+    );
+
+    let _ = std::fs::remove_file(profile_path);
+}
+
+#[test]
+fn emit_five_axis_defaults_to_reference_bc_when_no_kinematics_provided() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-five-axis-default-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [0.0, 0.0, 0.2],
+              "end": [10.0, 0.0, 0.2],
+              "travel": false,
+              "speed": 1000.0,
+              "length": 10.0,
+              "volume": 0.5,
+              "filament": 0.2,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [1.0, 0.0, 0.0]
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let implicit = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--five-axis"])
+        .output()
+        .unwrap();
+    assert!(
+        implicit.status.success(),
+        "dry emit --five-axis should default to reference machine kinematics"
+    );
+    let implicit = String::from_utf8(implicit.stdout).unwrap();
+
+    let explicit_bc = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        explicit_bc.status.success(),
+        "dry emit --five-axis --rotary-axes bc should succeed"
+    );
+    let explicit_bc = String::from_utf8(explicit_bc.stdout).unwrap();
+
+    assert_eq!(
+        implicit, explicit_bc,
+        "absent machine.five_axis and --rotary-axes should use the reference BC model"
+    );
+    assert!(
+        implicit.contains("B90"),
+        "reference BC model should emit B90 for +X orientation"
+    );
+    assert!(
+        implicit.contains("C0"),
+        "reference BC model should emit C0 for +X orientation"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_profile_linuxcnc_flavor_is_implicit_rs274_with_step_nc() {
+    let path = fixture("vectors/five_axis", "input");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-linuxcnc-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "firmware": {
+            "flavor": "linuxcnc"
+          },
+          "machine": {
+            "five_axis": "bc"
+          }
+        }"#,
+    )
+    .unwrap();
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-linuxcnc-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--five-axis",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "linuxcnc flavor should imply RS-274 emit (without --format)"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(motion_count, 1);
+    assert!(
+        gcode.contains("G1") && !gcode.contains("LIN ") && !gcode.contains("WAIT"),
+        "profile-driven RS-274 should not emit robot style words"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<stepnc"));
+    assert!(sidecar.contains("workingstep id=\"ws-0\""));
+
+    let _ = std::fs::remove_file(profile_path);
+    let _ = std::fs::remove_file(step_nc);
+}
+
+#[test]
+fn emit_profile_robot_krl_flavor_is_robot_motion_style() {
+    let path = fixture("vectors/five_axis", "input");
+    let profile_path = std::env::temp_dir().join(format!(
+        "dry-cli-emit-profile-robot-krl-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &profile_path,
+        r#"{
+          "version": 1,
+          "firmware": {
+            "flavor": "robot-krl"
+          },
+          "machine": {
+            "five_axis": "bc"
+          }
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--profile",
+            profile_path.to_str().unwrap(),
+            "--five-axis",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "robot-krl profile should imply robot-motion emit (without --format)"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(motion_count, 1);
+    assert!(
+        gcode.contains("LIN") || gcode.contains("PTP"),
+        "profile-driven robot flavor should emit robot command verbs"
+    );
+    assert!(
+        !gcode.contains("G4 P") && !gcode.contains("G1 ") && !gcode.contains("G0 "),
+        "robot profile should not emit RS-274 / GRBL words"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let _ = std::fs::remove_file(profile_path);
+}
+
+#[test]
 fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
     // The rotary-axes selector was renamed `--kinematics` → `--rotary-axes`; the old name stays a
     // visible alias. Both must be accepted and produce byte-identical g-code for the same value.
@@ -183,6 +625,665 @@ fn emit_rotary_axes_flag_and_legacy_kinematics_alias_are_equivalent() {
         run("--kinematics"),
         "`--kinematics` must remain a working alias of `--rotary-axes`"
     );
+}
+
+#[test]
+fn emit_grbl_flag_uses_grbl_output_mode() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-grbl-emit-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{"version":0,"segments":[{"start":[null,null,null],"end":[null,null,null],"travel":false,"speed":1000.0,"length":0.0,"volume":0.0,"filament":0.0,"kind":"dwell","dwell_s":1.5}]}"#,
+    )
+    .unwrap();
+
+    let rs274 = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "rs274"])
+        .output()
+        .unwrap();
+    assert!(
+        rs274.status.success(),
+        "dry emit --format rs274 should succeed"
+    );
+
+    let grbl = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "grbl"])
+        .output()
+        .unwrap();
+    assert!(
+        grbl.status.success(),
+        "dry emit --format grbl should succeed"
+    );
+
+    let rs274_stdout = String::from_utf8(rs274.stdout).unwrap();
+    let grbl_stdout = String::from_utf8(grbl.stdout).unwrap();
+    assert_eq!(
+        rs274_stdout.trim(),
+        "G4 S1.5",
+        "rs274 output should use S dwell syntax"
+    );
+    assert_eq!(
+        grbl_stdout.trim(),
+        "G4 P1.5",
+        "grbl output should use P dwell syntax"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_krl_flag_uses_krl_output_mode() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-emit-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{"version":0,"segments":[{"start":[null,null,null],"end":[10.0,null,null],"travel":true,"speed":1500.0,"length":10.0,"volume":0.0,"filament":0.0,"kind":"line","centre":null,"clockwise":false}]}"#,
+    )
+    .unwrap();
+
+    let krl = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "krl"])
+        .output()
+        .unwrap();
+    assert!(krl.status.success(), "dry emit --format krl should succeed");
+
+    assert_eq!(
+        String::from_utf8(krl.stdout).unwrap().trim(),
+        "PTP V1500 X10",
+        "krl output should be robot-motion style"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_krl_output_is_parseable_and_importable() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [20.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 0.0, 0.0],
+              "end": [20.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 20.0, 0.0],
+              "end": [0.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 20.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 0.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": true,
+              "speed": 1200.0,
+              "length": 0.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "dwell",
+              "centre": null,
+              "clockwise": false,
+              "dwell_s": 0.5
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "krl"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "emit --format krl should succeed");
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 5,
+        "KRL emit should produce one motion record per segment"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_krl_five_axis_with_bc_kinematics_is_parseable_and_importable() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-krl-five-axis-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [10.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 10.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [1.0, 0.0, 0.0]
+            },
+            {
+              "start": [10.0, 0.0, 0.0],
+              "end": [10.0, 10.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 10.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false,
+              "orientation": [0.0, 1.0, 0.0]
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--format",
+            "krl",
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "dry emit --format krl --five-axis should succeed"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 2,
+        "KRL five-axis output should produce motion records for each segment"
+    );
+    assert!(gcode.contains("C0"));
+    assert!(gcode.contains("C90"));
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 2);
+    assert_eq!(imported.segments[0].kind, SegmentKind::Line);
+    assert_eq!(imported.segments[1].kind, SegmentKind::Line);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_rs274_flag_uses_rs274_output_mode() {
+    let path = fixture("gcode", "square");
+    let default = Command::new(bin()).arg("emit").arg(&path).output().unwrap();
+    assert!(default.status.success());
+
+    let rs274 = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "rs274"])
+        .output()
+        .unwrap();
+    assert!(
+        rs274.status.success(),
+        "dry emit --format rs274 should succeed"
+    );
+
+    let rs274_out = String::from_utf8(rs274.stdout).unwrap();
+    let default_out = String::from_utf8(default.stdout).unwrap();
+
+    // RS-274 controllers have no E axis: the motion is the same, the extruder words are gone.
+    assert!(
+        default_out.contains('E'),
+        "the FFF fixture should carry extruder words to make this test meaningful"
+    );
+    assert!(
+        !rs274_out.contains('E'),
+        "rs274 output must carry no extruder word: {rs274_out}"
+    );
+    let strip_e = |s: &str| {
+        s.lines()
+            .map(|l| {
+                l.split_whitespace()
+                    .filter(|t| !t.starts_with('E'))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(
+        rs274_out.trim_end(),
+        strip_e(&default_out).trim_end(),
+        "rs274 motion should otherwise match the default target"
+    );
+}
+
+#[test]
+fn emit_rs274_output_is_parseable_and_step_nc_is_written() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [20.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 0.0, 0.0],
+              "end": [20.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 20.0, 0.0],
+              "end": [0.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 20.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 0.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": true,
+              "speed": 1200.0,
+              "length": 0.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "dwell",
+              "centre": null,
+              "clockwise": false,
+              "dwell_s": 0.5
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            path.to_str().unwrap(),
+            "--format",
+            "rs274",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "emit --format rs274 --step-nc should succeed"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 5,
+        "RS-274 emit should produce one motion record per segment"
+    );
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<stepnc"));
+    assert!(sidecar.contains("workingstep id=\"ws-4\""));
+
+    let _ = std::fs::remove_file(path);
+    let _ = std::fs::remove_file(step_nc);
+}
+
+#[test]
+fn emit_rs274_five_axis_with_step_nc_is_parseable_and_tracks_toolframe() {
+    let out_path = fixture("vectors/five_axis", "input");
+    let step_nc = std::env::temp_dir().join(format!(
+        "dry-cli-rs274-five-axis-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+
+    let out = Command::new(bin())
+        .args([
+            "emit",
+            out_path.to_str().unwrap(),
+            "--format",
+            "rs274",
+            "--five-axis",
+            "--rotary-axes",
+            "bc",
+            "--step-nc",
+            step_nc.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "emit --format rs274 --five-axis should succeed for 5-axis fixture"
+    );
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 1,
+        "rs274 five-axis output should contain one motion line for the fixture"
+    );
+
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 1);
+
+    let sidecar = std::fs::read_to_string(&step_nc).unwrap();
+    assert!(sidecar.contains("<toolframe"));
+    assert!(sidecar.contains("workingstep id=\"ws-0\""));
+
+    let _ = std::fs::remove_file(step_nc);
+}
+
+#[test]
+fn emit_grbl_output_is_parseable() {
+    let path = std::env::temp_dir().join(format!(
+        "dry-cli-grbl-{}-{}.json",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &path,
+        r#"{
+          "version": 0,
+          "segments": [
+            {
+              "start": [null, null, null],
+              "end": [20.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 0.0, 0.0],
+              "end": [20.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [20.0, 20.0, 0.0],
+              "end": [0.0, 20.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "volume": 0.0,
+              "length": 20.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 20.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": false,
+              "speed": 1200.0,
+              "length": 20.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "line",
+              "centre": null,
+              "clockwise": false
+            },
+            {
+              "start": [0.0, 0.0, 0.0],
+              "end": [0.0, 0.0, 0.0],
+              "travel": true,
+              "speed": 1200.0,
+              "length": 0.0,
+              "volume": 0.0,
+              "filament": 0.0,
+              "kind": "dwell",
+              "centre": null,
+              "clockwise": false,
+              "dwell_s": 0.5
+            }
+          ]
+        }"#,
+    )
+    .unwrap();
+
+    let out = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--format", "grbl"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "emit --format grbl should succeed");
+
+    let gcode = String::from_utf8(out.stdout).unwrap();
+    let parsed = parse_gcode_lines(&gcode).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(
+        motion_count, 5,
+        "GRBL emit should produce one motion record per segment"
+    );
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 5);
+    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn emit_with_step_nc_sidecar_writes_intent_file() {
+    let path = fixture("gcode", "square");
+    let tmp = std::env::temp_dir().join(format!(
+        "dry-step-nc-{}-{}.xml",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let out = Command::new(bin())
+        .args(["emit", path.to_str().unwrap(), "--step-nc"])
+        .arg(&tmp)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "emit --step-nc should succeed");
+
+    let step_nc = std::fs::read_to_string(&tmp).unwrap();
+    assert!(step_nc.starts_with("<?xml version=\"1.0\""));
+    assert!(step_nc.contains("<stepnc"));
+
+    std::fs::remove_file(tmp).unwrap();
 }
 
 #[test]

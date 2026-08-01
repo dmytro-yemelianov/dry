@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// The rotary kinematics of the 5-axis machine: which two rotary axes carry the toolframe orientation,
 /// and how the tool-direction unit vector maps onto them. Supports mechanical TCP (Tool Center Point)
@@ -22,6 +22,12 @@ pub enum Kinematics {
     },
 }
 
+/// Reference machine model used for the 5-axis task: B/C rotary axes with zero offsets.
+pub const REFERENCE_FIVE_AXIS_MACHINE: Kinematics = Kinematics::Bc {
+    pivot_offset: [0.0, 0.0, 0.0],
+    rotary_offset: [0.0, 0.0],
+};
+
 impl Default for Kinematics {
     fn default() -> Self {
         Kinematics::Ab {
@@ -32,6 +38,185 @@ impl Default for Kinematics {
 }
 
 impl Kinematics {
+    /// Convert a toolframe orientation into the two rotary words used by this model.
+    ///
+    /// `None` is identity toolframe (`[0, 0, 1]`).
+    pub(crate) fn rotary_words(&self, orientation: Option<[f64; 3]>) -> [Rotary; 2] {
+        let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
+        match *self {
+            Self::Ab {
+                rotary_offset,
+                pivot_offset: _,
+            } => {
+                let a = libm::atan2(j, libm::hypot(i, k)).to_degrees() + rotary_offset[0];
+                let b = libm::atan2(i, k).to_degrees() + rotary_offset[1];
+                [
+                    Rotary {
+                        letter: 'A',
+                        value: a,
+                    },
+                    Rotary {
+                        letter: 'B',
+                        value: b,
+                    },
+                ]
+            }
+            Self::Ac {
+                rotary_offset,
+                pivot_offset: _,
+            } => {
+                let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
+                let a = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
+                [
+                    Rotary {
+                        letter: 'C',
+                        value: c,
+                    },
+                    Rotary {
+                        letter: 'A',
+                        value: a,
+                    },
+                ]
+            }
+            Self::Bc {
+                rotary_offset,
+                pivot_offset: _,
+            } => {
+                let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
+                let b = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
+                [
+                    Rotary {
+                        letter: 'C',
+                        value: c,
+                    },
+                    Rotary {
+                        letter: 'B',
+                        value: b,
+                    },
+                ]
+            }
+        }
+    }
+
+    /// Convert machine workpoint `p` in WCS to MCS machine coordinates for this kinematic model.
+    pub(crate) fn machine_position(&self, p: [f64; 3], orientation: Option<[f64; 3]>) -> [f64; 3] {
+        let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
+        match *self {
+            Self::Ab {
+                pivot_offset,
+                rotary_offset,
+            } => {
+                let a_nom = libm::atan2(j, libm::hypot(i, k));
+                let b_nom = libm::atan2(i, k);
+                let a = a_nom + rotary_offset[0].to_radians();
+                let b = b_nom + rotary_offset[1].to_radians();
+
+                let sa = libm::sin(a);
+                let ca = libm::cos(a);
+                let sb = libm::sin(b);
+                let cb = libm::cos(b);
+
+                // R = R_y(b) * R_x(a)
+                let lx = pivot_offset[0];
+                let ly = pivot_offset[1];
+                let lz = pivot_offset[2];
+
+                let rx = cb * lx - sb * sa * ly + sb * ca * lz;
+                let ry = ca * ly + sa * lz;
+                let rz = -sb * lx - cb * sa * ly + cb * ca * lz;
+
+                [p[0] - rx, p[1] - ry, p[2] - rz]
+            }
+            Self::Ac {
+                pivot_offset,
+                rotary_offset,
+            } => {
+                let c_nom = libm::atan2(j, i);
+                let a_nom = libm::acos(k.clamp(-1.0, 1.0));
+                let a = a_nom + rotary_offset[0].to_radians();
+                let c = c_nom + rotary_offset[1].to_radians();
+
+                let sa = libm::sin(a);
+                let ca = libm::cos(a);
+                let sc = libm::sin(c);
+                let cc = libm::cos(c);
+
+                // R_table = R_x(a) * R_z(c)
+                let lx = pivot_offset[0];
+                let ly = pivot_offset[1];
+                let lz = pivot_offset[2];
+
+                let px = p[0] + lx;
+                let py = p[1] + ly;
+                let pz = p[2] + lz;
+
+                let rx = cc * px - sc * py;
+                let ry = ca * sc * px + ca * cc * py - sa * pz;
+                let rz = sa * sc * px + sa * cc * py + ca * pz;
+
+                [rx - lx, ry - ly, rz - lz]
+            }
+            Self::Bc {
+                pivot_offset,
+                rotary_offset,
+            } => {
+                let c_nom = libm::atan2(j, i);
+                let b_nom = libm::acos(k.clamp(-1.0, 1.0));
+                let b = b_nom + rotary_offset[0].to_radians();
+                let c = c_nom + rotary_offset[1].to_radians();
+
+                let sb = libm::sin(b);
+                let cb = libm::cos(b);
+                let sc = libm::sin(c);
+                let cc = libm::cos(c);
+
+                // R_table = R_y(b) * R_z(c)
+                let lx = pivot_offset[0];
+                let ly = pivot_offset[1];
+                let lz = pivot_offset[2];
+
+                let px = p[0] + lx;
+                let py = p[1] + ly;
+                let pz = p[2] + lz;
+
+                let rx = cb * cc * px - cb * sc * py + sb * pz;
+                let ry = sc * px + cc * py;
+                let rz = -sb * cc * px + sb * sc * py + cb * pz;
+
+                [rx - lx, ry - ly, rz - lz]
+            }
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::Ab {
+                pivot_offset,
+                rotary_offset,
+            }
+            | Self::Ac {
+                pivot_offset,
+                rotary_offset,
+            }
+            | Self::Bc {
+                pivot_offset,
+                rotary_offset,
+            } => {
+                for (axis, value) in ["x", "y", "z"].iter().zip(*pivot_offset) {
+                    if !value.is_finite() {
+                        return Err(format!("pivot_offset[{axis}] must be finite"));
+                    }
+                }
+                for (axis, value) in ["0", "1"].iter().zip(*rotary_offset) {
+                    if !value.is_finite() {
+                        return Err(format!("rotary_offset[{axis}] must be finite"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn named(name: &str) -> Result<Self, String> {
         match name {
             "ab" => Ok(Kinematics::Ab {
@@ -102,74 +287,132 @@ impl<'de> serde::Deserialize<'de> for Kinematics {
     }
 }
 
+impl Serialize for Kinematics {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Raw {
+            #[serde(rename = "type")]
+            kind: &'static str,
+            #[serde(default)]
+            pivot_offset: [f64; 3],
+            #[serde(default)]
+            rotary_offset: [f64; 2],
+        }
+
+        match self {
+            Self::Ab {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "ab",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
+            Self::Ac {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "ac",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
+            Self::Bc {
+                pivot_offset,
+                rotary_offset,
+            } => Raw {
+                kind: "bc",
+                pivot_offset: *pivot_offset,
+                rotary_offset: *rotary_offset,
+            }
+            .serialize(serializer),
+        }
+    }
+}
+
 /// One emitted rotary word: its letter and its value in **degrees**.
-pub(super) struct Rotary {
+pub(crate) struct Rotary {
     pub(super) letter: char,
     pub(super) value: f64,
 }
 
-/// Map a toolframe orientation (tool-direction unit vector) to the two rotary words for `kinematics`,
-/// in source order. `None` ⇒ identity (+Z) ⇒ all-zero angles. Conventions (each documented on
-/// [`Kinematics`]):
-///
-/// - **AB**: `B = atan2(i, k)` (lead in X-Z), `A = atan2(j, hypot(i, k))` (tilt toward Y).
-/// - **AC**: `C = atan2(j, i)` (azimuth about Z), `A = acos(k)` (polar tilt from +Z).
-/// - **BC**: `C = atan2(j, i)`, `B = acos(k)`.
-///
-/// `+Z` gives `atan2(0, 0) = 0` and `acos(1) = 0`, so every convention yields zeros there.
-pub(super) fn tool_rotaries(orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [Rotary; 2] {
-    let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-    match kinematics {
-        Kinematics::Ab {
-            pivot_offset: _,
-            rotary_offset,
-        } => {
-            let a = libm::atan2(j, libm::hypot(i, k)).to_degrees() + rotary_offset[0];
-            let b = libm::atan2(i, k).to_degrees() + rotary_offset[1];
-            [
-                Rotary {
-                    letter: 'A',
-                    value: a,
-                },
-                Rotary {
-                    letter: 'B',
-                    value: b,
-                },
-            ]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unit_vec(v: [f64; 3]) -> [f64; 3] {
+        let norm = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        [v[0] / norm, v[1] / norm, v[2] / norm]
+    }
+
+    fn norm(v: [f64; 3]) -> f64 {
+        (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+    }
+
+    fn assert_point_within_epsilon(a: [f64; 3], b: [f64; 3], eps: f64) {
+        assert!((a[0] - b[0]).abs() < eps);
+        assert!((a[1] - b[1]).abs() < eps);
+        assert!((a[2] - b[2]).abs() < eps);
+    }
+
+    #[test]
+    fn machine_position_preserves_reference_radius_for_zero_pivot_models() {
+        let point = [10.0, -7.0, 4.25];
+        let orientations = [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            unit_vec([0.2, 0.6, 0.76]),
+            unit_vec([0.9, -0.3, 0.316227766016838]),
+        ];
+        let reference_radius = norm(point);
+
+        let models = [
+            Kinematics::Ab {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+        ];
+
+        for model in models {
+            for orientation in orientations {
+                let projected = model.machine_position(point, Some(unit_vec(orientation)));
+                let projected_radius = norm(projected);
+                assert!(
+                    (projected_radius - reference_radius).abs() < 1e-10,
+                    "machine-position should preserve distance-to-origin for zero-pivot models"
+                );
+            }
         }
-        Kinematics::Ac {
-            pivot_offset: _,
-            rotary_offset,
-        } => {
-            let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
-            let a = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
-            [
-                Rotary {
-                    letter: 'C',
-                    value: c,
-                },
-                Rotary {
-                    letter: 'A',
-                    value: a,
-                },
-            ]
-        }
-        Kinematics::Bc {
-            pivot_offset: _,
-            rotary_offset,
-        } => {
-            let c = libm::atan2(j, i).to_degrees() + rotary_offset[1];
-            let b = libm::acos(k.clamp(-1.0, 1.0)).to_degrees() + rotary_offset[0];
-            [
-                Rotary {
-                    letter: 'C',
-                    value: c,
-                },
-                Rotary {
-                    letter: 'B',
-                    value: b,
-                },
-            ]
+    }
+
+    #[test]
+    fn machine_position_ab_model_identity_with_zero_pivot_offset() {
+        let point = [2.5, -6.0, 11.75];
+        let model = Kinematics::Ab {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        };
+        let orientations = [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            unit_vec([0.2, 0.6, 0.76]),
+            unit_vec([0.9, -0.3, 0.316227766016838]),
+        ];
+
+        for orientation in orientations {
+            let projected = model.machine_position(point, Some(unit_vec(orientation)));
+            assert_point_within_epsilon(projected, point, 1e-12);
         }
     }
 }

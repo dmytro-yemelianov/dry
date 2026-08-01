@@ -8,7 +8,10 @@
 //!
 //! Default kinematics is AB, so the default emit is byte-identical to the existing behaviour.
 
-use dry_core::{emit, resolve, Design, EmitParams, Kinematics, ResolveParams};
+use dry_core::{
+    emit, import_gcode, parse_gcode_lines, resolve, Design, EmitParams, GcodeImportParams,
+    GcodeRecord, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,
+};
 
 fn ab() -> Kinematics {
     Kinematics::Ab {
@@ -64,6 +67,82 @@ fn has(g: &[String], word: &str) -> bool {
 fn default_kinematics_is_ab() {
     assert_eq!(Kinematics::default(), ab());
     assert_eq!(EmitParams::default().kinematics, ab());
+}
+
+#[test]
+fn reference_five_axis_machine_is_bc_and_emits_5_axis_motion() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"orient","i":1.0,"j":0.0,"k":0.0},
+                {"op":"move","x":0,"y":0,"z":0.2},
+                {"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    let g = emit(
+        &tp,
+        &EmitParams {
+            five_axis: true,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
+            ..EmitParams::default()
+        },
+    );
+
+    assert_eq!(
+        REFERENCE_FIVE_AXIS_MACHINE,
+        Kinematics::Bc {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0]
+        }
+    );
+    assert!(has(&g, "B90"));
+    assert!(has(&g, "C0"));
+}
+
+#[test]
+fn reference_five_axis_emission_is_parseable_and_importable() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},
+                {"op":"extruder","on":true},
+                {"op":"orient","i":1.0,"j":0.0,"k":0.0},
+                {"op":"move","x":10.0,"y":0.0,"z":0.2},
+                {"op":"orient","i":0.0,"j":1.0,"k":0.0},
+                {"op":"move","x":10.0,"y":10.0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    let g = emit(
+        &tp,
+        &EmitParams {
+            five_axis: true,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
+            ..EmitParams::default()
+        },
+    );
+    let parsed = parse_gcode_lines(&g.join("\n")).unwrap();
+    let motion_count = parsed
+        .iter()
+        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
+        .count();
+    assert_eq!(motion_count, 2);
+    assert!(g.iter().any(|line| line.contains("B90")));
+    assert!(g.iter().any(|line| line.contains("C90")));
+
+    let imported = import_gcode(
+        &g.join("\n"),
+        &GcodeImportParams {
+            relative_e: false,
+            ..GcodeImportParams::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(imported.segments.len(), 2);
+    assert!(imported
+        .segments
+        .iter()
+        .all(|segment| segment.speed.0 > 0.0));
 }
 
 #[test]
@@ -146,7 +225,7 @@ fn tool_plus_z_is_all_zeros() {
 
 #[test]
 fn default_emit_byte_identical_to_explicit_ab() {
-    // an oriented design emitted with the default EmitParams (AB) must equal the explicit-AB output.
+    // an oriented design emitted with default EmitParams (AB) must equal explicit-AB output.
     let tp = resolve(
         &design(
             r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},

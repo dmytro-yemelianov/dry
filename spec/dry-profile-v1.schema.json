@@ -15,7 +15,10 @@
     "firmware": {
       "type": "object",
       "properties": {
-        "flavor": { "type": "string", "description": "e.g. marlin, klipper, duet" }
+        "flavor": {
+          "type": "string",
+          "description": "Firmware output target: marlin, klipper, duet, rs274, grbl, robot-krl (or krl)"
+        }
       }
     },
     "machine": {

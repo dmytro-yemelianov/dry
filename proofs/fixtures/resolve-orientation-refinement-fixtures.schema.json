@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/resolve-orientation-refinement-fixtures-v0.json",
+  "title": "Dry resolve orientation refinement fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model",
+    "model_checks",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "model": { "const": "resolve-orientation-refinement-v0" },
+    "model_checks": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "scalar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": -16, "maximum": 16 },
+        "denominator": { "type": "integer", "minimum": 1, "maximum": 16 }
+      }
+    },
+    "vector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["i", "j", "k"],
+      "properties": {
+        "i": { "$ref": "#/$defs/scalar" },
+        "j": { "$ref": "#/$defs/scalar" },
+        "k": { "$ref": "#/$defs/scalar" }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "z": { "type": "integer" }
+      }
+    },
+    "op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["move", "orient"] },
+        "finish": { "$ref": "#/$defs/point" },
+        "vector": { "$ref": "#/$defs/vector" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolve_accepts", "emitted_count", "segment_orientations", "verifier_findings"],
+      "properties": {
+        "resolve_accepts": { "type": "boolean" },
+        "emitted_count": { "type": "integer", "minimum": 0 },
+        "segment_orientations": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "null" },
+              { "$ref": "#/$defs/vector" }
+            ]
+          }
+        },
+        "verifier_findings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ops", "expected"],
+      "properties": {
+        "id": {
+          "enum": [
+            "default-move",
+            "orient-then-two-moves",
+            "orient-a-move-orient-b-move",
+            "zero-orient-before-motion",
+            "non-unit-orient-accepted-verifier-finding"
+          ]
+        },
+        "ops": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/op" }
+        },
+        "expected": { "$ref": "#/$defs/expected" }
+      }
+    }
+  }
+}

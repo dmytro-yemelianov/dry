@@ -1,4 +1,3 @@
-use super::kinematics::tool_rotaries;
 use super::{Kinematics, SplineFlatteningIterator};
 use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
@@ -11,6 +10,22 @@ pub enum FirmwareFlavor {
     Marlin,
     Klipper,
     Duet,
+    /// CNC/RS-274 family (`ISO-6983`).
+    Rs274,
+    /// GRBL laser controller dialect.
+    Grbl,
+    /// Kuka Robot Language (KRL) style robot program output.
+    RobotKrl,
+}
+
+impl FirmwareFlavor {
+    /// Whether the target has a filament (E) axis. CNC, laser and robot controllers reject `E`.
+    pub fn has_extruder(self) -> bool {
+        matches!(
+            self,
+            FirmwareFlavor::Marlin | FirmwareFlavor::Klipper | FirmwareFlavor::Duet
+        )
+    }
 }
 
 /// How to emit.
@@ -27,7 +42,7 @@ pub struct EmitParams {
     /// Which rotary kinematics map the orientation onto words (default [`Kinematics::Ab`]).
     #[serde(default)]
     pub kinematics: Kinematics,
-    /// Firmware/dialect flavor: marlin, klipper, duet.
+    /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl, robot_krl.
     #[serde(default)]
     pub flavor: FirmwareFlavor,
 }
@@ -56,97 +71,6 @@ pub(crate) fn num(v: f64) -> String {
         "0".to_string()
     } else {
         s.to_string()
-    }
-}
-
-/// Helper to translate a 3D point from Workpiece Coordinate System (WCS) to Machine
-/// Coordinate System (MCS) using the configured 5-axis kinematics and offsets.
-fn to_mcs(p: [f64; 3], orientation: Option<[f64; 3]>, kinematics: Kinematics) -> [f64; 3] {
-    let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-    match kinematics {
-        Kinematics::Ab {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let a_nom = libm::atan2(j, libm::hypot(i, k));
-            let b_nom = libm::atan2(i, k);
-            let a = a_nom + rotary_offset[0].to_radians();
-            let b = b_nom + rotary_offset[1].to_radians();
-
-            let sa = libm::sin(a);
-            let ca = libm::cos(a);
-            let sb = libm::sin(b);
-            let cb = libm::cos(b);
-
-            // R = R_y(b) * R_x(a)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let rx = cb * lx - sb * sa * ly + sb * ca * lz;
-            let ry = ca * ly + sa * lz;
-            let rz = -sb * lx - cb * sa * ly + cb * ca * lz;
-
-            [p[0] - rx, p[1] - ry, p[2] - rz]
-        }
-        Kinematics::Ac {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let c_nom = libm::atan2(j, i);
-            let a_nom = libm::acos(k.clamp(-1.0, 1.0));
-            let a = a_nom + rotary_offset[0].to_radians();
-            let c = c_nom + rotary_offset[1].to_radians();
-
-            let sa = libm::sin(a);
-            let ca = libm::cos(a);
-            let sc = libm::sin(c);
-            let cc = libm::cos(c);
-
-            // R_table = R_x(a) * R_z(c)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let px = p[0] + lx;
-            let py = p[1] + ly;
-            let pz = p[2] + lz;
-
-            let rx = cc * px - sc * py;
-            let ry = ca * sc * px + ca * cc * py - sa * pz;
-            let rz = sa * sc * px + sa * cc * py + ca * pz;
-
-            [rx - lx, ry - ly, rz - lz]
-        }
-        Kinematics::Bc {
-            pivot_offset,
-            rotary_offset,
-        } => {
-            let c_nom = libm::atan2(j, i);
-            let b_nom = libm::acos(k.clamp(-1.0, 1.0));
-            let b = b_nom + rotary_offset[0].to_radians();
-            let c = c_nom + rotary_offset[1].to_radians();
-
-            let sb = libm::sin(b);
-            let cb = libm::cos(b);
-            let sc = libm::sin(c);
-            let cc = libm::cos(c);
-
-            // R_table = R_y(b) * R_z(c)
-            let lx = pivot_offset[0];
-            let ly = pivot_offset[1];
-            let lz = pivot_offset[2];
-
-            let px = p[0] + lx;
-            let py = p[1] + ly;
-            let pz = p[2] + lz;
-
-            let rx = cb * cc * px - cb * sc * py + sb * pz;
-            let ry = sc * px + cc * py;
-            let rz = -sb * cc * px + sb * sc * py + cb * pz;
-
-            [rx - lx, ry - ly, rz - lz]
-        }
     }
 }
 
@@ -186,7 +110,6 @@ where
     let letters = ['X', 'Y', 'Z'];
 
     let mut prog_pos = [0.0; 3];
-    let mut prev_orientation: Option<[f64; 3]> = None;
 
     for res in segments {
         let s = res?;
@@ -208,9 +131,11 @@ where
                         let ms = (secs * 1000.0).round() as u64;
                         format!("G4 P{ms}")
                     }
-                    _ => {
+                    FirmwareFlavor::Rs274 | FirmwareFlavor::Marlin | FirmwareFlavor::Duet => {
                         format!("G4 S{}", num(secs))
                     }
+                    FirmwareFlavor::Grbl => format!("G4 P{}", num(secs)),
+                    FirmwareFlavor::RobotKrl => format!("WAIT {}", num(secs)),
                 };
                 write_line(writer, &mut first_line, &cmd)?;
             }
@@ -234,7 +159,16 @@ where
 
         let is_arc = s.kind == SegmentKind::Arc && s.centre.is_some();
         let has_e_word = !s.travel || s.filament != Length::ZERO;
-        let cmd = if is_arc {
+        let is_robot = p.flavor == FirmwareFlavor::RobotKrl;
+        let cmd = if is_robot {
+            if is_arc {
+                "CIRC"
+            } else if s.travel && !p.travel_g1_e0 && !has_e_word {
+                "PTP"
+            } else {
+                "LIN"
+            }
+        } else if is_arc {
             if s.clockwise {
                 "G2"
             } else {
@@ -248,13 +182,17 @@ where
         let mut toks = vec![cmd.to_string()];
 
         if prev_speed != Some(s.speed) {
-            toks.push(format!("F{}", num(s.speed.value())));
+            if is_robot {
+                toks.push(format!("V{}", num(s.speed.value())));
+            } else {
+                toks.push(format!("F{}", num(s.speed.value())));
+            }
             prev_speed = Some(s.speed);
         }
 
         // Determine target linear axes (in machine joint coordinates if five_axis is true).
         let target_axes = if p.five_axis {
-            to_mcs(end_prog, s.orientation, p.kinematics)
+            p.kinematics.machine_position(end_prog, s.orientation)
         } else {
             end_prog
         };
@@ -278,7 +216,7 @@ where
         // 5-axis: emit the two rotary words (degrees) from the toolframe orientation under the chosen
         // kinematics, each only when it changes. In 3-axis mode the orientation is dropped entirely.
         if p.five_axis {
-            let rotaries = tool_rotaries(s.orientation, p.kinematics);
+            let rotaries = p.kinematics.rotary_words(s.orientation);
             let prev = prev_rotary.unwrap_or([f64::NAN, f64::NAN]);
             for (r, &pv) in rotaries.iter().zip(prev.iter()) {
                 if r.value != pv {
@@ -293,12 +231,12 @@ where
             let [sx_prog, sy_prog, sz_prog] = start_prog;
 
             let (i_val, j_val) = if p.five_axis {
-                let start_mcs = to_mcs(start_prog, prev_orientation, p.kinematics);
-                let centre_mcs = to_mcs(
-                    [cx_prog.value(), cy_prog.value(), sz_prog],
-                    s.orientation,
-                    p.kinematics,
-                );
+                // I/J is an incremental start→centre offset, so both points must be transformed
+                // under the orientation the arc itself is executed at.
+                let start_mcs = p.kinematics.machine_position(start_prog, s.orientation);
+                let centre_mcs = p
+                    .kinematics
+                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation);
                 (centre_mcs[0] - start_mcs[0], centre_mcs[1] - start_mcs[1])
             } else {
                 (
@@ -306,11 +244,18 @@ where
                     (cy_prog - Length::mm(sy_prog)).value(),
                 )
             };
-            toks.push(format!("I{}", num(i_val)));
-            toks.push(format!("J{}", num(j_val)));
+            if p.flavor == FirmwareFlavor::RobotKrl {
+                toks.push(format!("C{}", num(i_val)));
+                toks.push(format!("D{}", num(j_val)));
+            } else {
+                toks.push(format!("I{}", num(i_val)));
+                toks.push(format!("J{}", num(j_val)));
+            }
         }
 
-        if p.relative_e {
+        if !p.flavor.has_extruder() {
+            // CNC, laser and robot targets emit motion-only commands and have no filament axis.
+        } else if p.relative_e {
             if has_e_word {
                 toks.push(format!("E{}", num(s.filament.value())));
             } else if p.travel_g1_e0 {
@@ -323,7 +268,6 @@ where
             }
         }
 
-        prev_orientation = s.orientation;
         write_line(writer, &mut first_line, &toks.join(" "))?;
     }
     Ok(())

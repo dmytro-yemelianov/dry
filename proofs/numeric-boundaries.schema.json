@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dry.dev/schemas/numeric-boundaries-v1.schema.json",
+  "title": "Dry semantic numeric-boundary inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model",
+    "scope",
+    "numeric_profile_id",
+    "source",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "model": {
+      "const": "feature-numeric-boundaries-v0"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "numeric_profile_id": {
+      "const": "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
+    },
+    "source": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "boundary": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/boundary"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyStrings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "role",
+        "hash_mode",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^crates/.+\\.rs$"
+        },
+        "role": {
+          "enum": [
+            "implementation",
+            "input-domain"
+          ]
+        },
+        "hash_mode": {
+          "enum": [
+            "file",
+            "slice"
+          ]
+        },
+        "anchor_start": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor_end": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "hash_mode": {
+                "const": "slice"
+              }
+            },
+            "required": [
+              "hash_mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "anchor_start",
+              "anchor_end"
+            ]
+          }
+        }
+      ]
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "rust_symbol",
+        "source_path",
+        "source_anchor",
+        "inputs",
+        "operation",
+        "classification",
+        "numeric_status",
+        "assumptions",
+        "exclusions",
+        "next_obligation",
+        "evidence",
+        "claim_ids",
+        "profile_entries"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^FM1\\.F64\\.FEATURE\\.[A-Z0-9_.-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rust_symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_path": {
+          "type": "string",
+          "pattern": "^crates/.+\\.rs$"
+        },
+        "source_anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "operation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "exact-in-range",
+            "rejected",
+            "interval-bounded",
+            "interval-bound-pending",
+            "deterministic-but-unbounded",
+            "pass-through"
+          ]
+        },
+        "numeric_status": {
+          "enum": [
+            "pending",
+            "bounded",
+            "empirical",
+            "not-applicable"
+          ]
+        },
+        "assumptions": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "exclusions": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "exact_envelope": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "next_obligation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "claim_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^FM1\\.[A-Z][A-Z0-9_.-]*$"
+          }
+        },
+        "profile_entries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^FM1\\.NUMERIC\\.PROFILE\\.FEATURE\\.PLANAR\\.V0\\.(?:LIMIT|BUDGET)\\.[A-Z0-9_.-]+$"
+          }
+        }
+      }
+    }
+  }
+}

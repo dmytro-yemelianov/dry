@@ -1,0 +1,191 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dry-cloud",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // Production vars. Deliberately NO Turnstile dev-bypass and NO dummy
+  // Turnstile keys here — the real TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY
+  // are provisioned as encrypted secrets via `wrangler secret put`, never
+  // committed as plaintext vars. See src/activate.ts's fail-closed guard,
+  // which refuses to start if TURNSTILE_DEV_BYPASS is ever set while
+  // ENVIRONMENT is "production".
+  "vars": {
+    "ENVIRONMENT": "production",
+    "QUOTA_KEYS": "1",
+    "QUOTA_JOBS_PER_MONTH": "20",
+    // The PUBLIC printer registry (dry-printer-registry, a separate repo/service —
+    // see docs/19-printer-registry-api.md). The queue consumer passes this straight
+    // through to the verify-runner container as `?registry=<REGISTRY_URL>`; the
+    // runner's own `ALLOWED_REGISTRY_HOST` env var (set on the VerifyContainer DO,
+    // src/container.ts) is derived from this SAME value at container-start time, so
+    // they can never drift out of sync within one deploy. If a later task (R7) makes
+    // REGISTRY_URL overridable in production (e.g. a secret or per-env var), the
+    // container's ALLOWED_REGISTRY_HOST derivation must move/track with it.
+    "REGISTRY_URL": "https://api.dry.yemelianov.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dry-cloud-dev",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "CODES",
+      "id": "0000000000000000000000000000000"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "dry-cloud-storage"
+    }
+  ],
+  // `dead_letter_queue` names a queue Wrangler does NOT auto-create --
+  // R7 (deploy) MUST run `wrangler queues create verify-jobs-dlq` (and
+  // `verify-jobs-dlq-dev` for `env.dev`, see below) BEFORE `wrangler deploy`,
+  // or messages that exhaust `max_retries` have nowhere to land. `wrangler
+  // deploy --dry-run` does not hit the Cloudflare API to check this, so a
+  // green dry-run here is NOT proof the DLQs already exist.
+  "queues": {
+    "producers": [
+      {
+        "queue": "verify-jobs",
+        "binding": "VERIFY_JOBS"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "verify-jobs",
+        "max_batch_size": 5,
+        "max_retries": 2,
+        "dead_letter_queue": "verify-jobs-dlq"
+      }
+    ]
+  },
+  // The verify-runner container (containers/verify-runner/, Task R2). `image` is a
+  // Dockerfile path relative to this file; `image_build_context` overrides the
+  // default (the Dockerfile's own directory) with the REPO ROOT, because the
+  // runner's Cargo.toml reaches outside containers/verify-runner/ via
+  // `dry-core = { path = "../../crates/core" }` (Docker cannot COPY paths outside
+  // the build context — see containers/verify-runner/Dockerfile's own header
+  // comment for the full explanation). Matches the exact command R2 documented:
+  // `docker build -f containers/verify-runner/Dockerfile -t dry-verify-runner .`
+  // run from the repo root.
+  "containers": [
+    {
+      "name": "dry-verify-runner",
+      "class_name": "VerifyContainer",
+      "image": "../../containers/verify-runner/Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "standard-2",
+      "max_instances": 5
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "VERIFY_CONTAINER",
+        "class_name": "VerifyContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["VerifyContainer"]
+    }
+  ],
+  "env": {
+    "dev": {
+      // Local/dev-only: dummy Turnstile keys (Cloudflare's published always-pass
+      // test keys) plus the bypass flag that skips Turnstile verification
+      // entirely. Bindings are repeated here because Wrangler does not
+      // inherit "vars", "d1_databases", "kv_namespaces", "r2_buckets", "queues",
+      // "containers", or "durable_objects" into named environments.
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "TURNSTILE_DEV_BYPASS": "1",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+        "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
+        // Empty = hostname pinning disabled. When set (here or in production
+        // vars/secrets), verifyTurnstile() also requires the siteverify
+        // response's `hostname` to match exactly.
+        "TURNSTILE_HOSTNAME": "",
+        "QUOTA_KEYS": "1",
+        "QUOTA_JOBS_PER_MONTH": "20",
+        // itest/jobs-local.sh overrides this at runtime to its local stub
+        // registry (`wrangler dev --var REGISTRY_URL:http://127.0.0.1:...`)
+        // rather than editing this checked-in value -- the runner's
+        // ALLOWED_REGISTRY_HOST SSRF allowlist (containers/verify-runner/src/
+        // lib.rs) has a deliberate http+127.0.0.1/localhost escape hatch for
+        // exactly this. See that script and the ALLOWED_REGISTRY_HOST
+        // coupling note on the top-level var above.
+        "REGISTRY_URL": "https://api.dry.yemelianov.dev"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dry-cloud-dev",
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CODES",
+          "id": "0000000000000000000000000000000"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "STORAGE",
+          "bucket_name": "dry-cloud-storage-dev"
+        }
+      ],
+      // Same `dead_letter_queue` provisioning note as the top-level `queues`
+      // block above -- R7 must `wrangler queues create verify-jobs-dlq-dev`
+      // for THIS env too, before `wrangler deploy --env dev`.
+      "queues": {
+        "producers": [
+          {
+            "queue": "verify-jobs-dev",
+            "binding": "VERIFY_JOBS"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "verify-jobs-dev",
+            "max_batch_size": 5,
+            "max_retries": 2,
+            "dead_letter_queue": "verify-jobs-dlq-dev"
+          }
+        ]
+      },
+      "containers": [
+        {
+          "name": "dry-verify-runner-dev",
+          "class_name": "VerifyContainer",
+          "image": "../../containers/verify-runner/Dockerfile",
+          "image_build_context": "../..",
+          "instance_type": "lite",
+          "max_instances": 2
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "VERIFY_CONTAINER",
+            "class_name": "VerifyContainer"
+          }
+        ]
+      }
+    }
+  }
+}
