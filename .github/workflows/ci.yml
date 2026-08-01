@@ -1,8 +1,20 @@
 name: CI
 
 on:
+  # `pull_request` alone left every branch without an open PR completely unverified — no trigger
+  # fired at all (#197). That is not theoretical: 29 commits of hardening work accumulated on one
+  # such branch, and the first CI run against them failed four jobs on three independent causes,
+  # none subtle, all of which would have been caught within minutes of the commit that introduced
+  # them. This repo uses CI as the *only* enforcement point for the docs-site drift gate, the
+  # `proofs/` mutation checksums and the wasm/native bit-identity test, so a branch CI never sees is
+  # one where those gates are silently unenforced.
+  #
+  # Trade-off, accepted deliberately: a branch matching these prefixes that *also* has an open PR now
+  # runs twice, once per event. Collapsing both into one concurrency group would fix that, but
+  # `cancel-in-progress` would then cancel the PR's own checks and show them as failed — worse than
+  # the duplicate. Opening a draft PR early avoids the duplicate and is the cheaper habit anyway.
   push:
-    branches: [main]
+    branches: [main, "feat/**", "stack/**"]
   pull_request:
 
 permissions:
