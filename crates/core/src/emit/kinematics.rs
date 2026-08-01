@@ -122,6 +122,58 @@ impl Kinematics {
         })
     }
 
+    /// The letters of this model's two rotary words, in the order [`Self::rotary_words`] returns
+    /// them — `Ab` writes `A` then `B`, `Ac` and `Bc` write `C` then their tilt axis.
+    pub(crate) fn rotary_letters(&self) -> [char; 2] {
+        match self {
+            Self::Ab { .. } => ['A', 'B'],
+            Self::Ac { .. } => ['C', 'A'],
+            Self::Bc { .. } => ['C', 'B'],
+        }
+    }
+
+    /// Invert [`Self::rotary_words`]: recover the tool-direction vector from two rotary word values
+    /// in **degrees**, given in the order [`Self::rotary_letters`] reports.
+    ///
+    /// This is the import side of the forward map. `Ab` writes `a = atan2(j, hypot(i, k))` and
+    /// `b = atan2(i, k)`, so on a unit vector `hypot(i, k) = cos a` and the inverse is
+    /// `[cos a · sin b, sin a, cos a · cos b]`; `Ac`/`Bc` write `acos(k)` for the tilt and
+    /// `atan2(j, i)` for `C`, so the inverse is `[sin t · cos c, sin t · sin c, cos t]`. Each per-axis
+    /// `rotary_offset` is subtracted before the trig, mirroring the addition on the way out.
+    ///
+    /// The result is a unit vector by construction (`sin² + cos² = 1`), so it needs no normalisation
+    /// and cannot trip `verify`'s `orientation-not-unit`. It is finite whenever the words and the
+    /// model's offsets are — the words are finite by [`crate::gcode::GcodeParser`]'s word scanner and
+    /// the offsets by [`Self::validate`], which the import path calls once up front exactly as
+    /// `emit_stream` does. That is why this map is infallible where the forward one is not.
+    ///
+    /// `inverse ∘ forward` is the identity on any unit vector. `forward ∘ inverse` is the identity
+    /// only on the branch the forward map can produce (`|a| ≤ 90°` for `Ab`, tilt in `[0°, 180°]`
+    /// for `Ac`/`Bc`): a program stating a tilt outside it still yields the tool direction that pose
+    /// points in, which is the honest reading of the words.
+    pub(crate) fn orientation_from_rotary_words(&self, values: [f64; 2]) -> [f64; 3] {
+        match *self {
+            Self::Ab { rotary_offset, .. } => {
+                let a = (values[0] - rotary_offset[0]).to_radians();
+                let b = (values[1] - rotary_offset[1]).to_radians();
+                let ca = libm::cos(a);
+                [ca * libm::sin(b), libm::sin(a), ca * libm::cos(b)]
+            }
+            Self::Ac { rotary_offset, .. } => {
+                let c = (values[0] - rotary_offset[1]).to_radians();
+                let a = (values[1] - rotary_offset[0]).to_radians();
+                let sa = libm::sin(a);
+                [sa * libm::cos(c), sa * libm::sin(c), libm::cos(a)]
+            }
+            Self::Bc { rotary_offset, .. } => {
+                let c = (values[0] - rotary_offset[1]).to_radians();
+                let b = (values[1] - rotary_offset[0]).to_radians();
+                let sb = libm::sin(b);
+                [sb * libm::cos(c), sb * libm::sin(c), libm::cos(b)]
+            }
+        }
+    }
+
     /// Convert machine workpoint `p` in WCS to MCS machine coordinates for this kinematic model.
     ///
     /// The orientation is normalised first; see [`unit_orientation`].
@@ -423,6 +475,77 @@ mod tests {
                     (projected_radius - reference_radius).abs() < 1e-10,
                     "machine-position should preserve distance-to-origin for zero-pivot models"
                 );
+            }
+        }
+    }
+
+    /// `orientation_from_rotary_words` is the exact inverse of `rotary_words`, with no g-code
+    /// formatting in between: this isolates the trig from the emitter's 6-decimal word rounding,
+    /// which is what dominates the end-to-end round-trip error measured in
+    /// `tests/five_axis_import.rs`.
+    ///
+    /// Every vector here is off the singular cone (`|k| < 1`, `hypot(i, j) > 0`). On the cone the
+    /// second word is not recoverable from the *forward* map — `atan2(0, 0)` and `hypot(i, k) = 0`
+    /// throw away the axis the tool is symmetric about — so a round-trip there would be measuring the
+    /// forward map's loss, not this inverse. (The recovered *vector* is still correct on the cone,
+    /// because the lost word multiplies a zero sine; that is not what this test is for.)
+    #[test]
+    fn rotary_words_invert_back_to_the_orientation_they_came_from() {
+        let orientations = [
+            unit_vec([0.36, 0.48, 0.8]),
+            unit_vec([0.6, 0.0, 0.8]),
+            unit_vec([0.0, 0.6, 0.8]),
+            unit_vec([-0.36, 0.48, 0.8]),
+            unit_vec([0.48, 0.36, -0.8]),
+            unit_vec([1.0, 1.0, 0.0]),
+            unit_vec([-0.2, -0.7, 0.3]),
+        ];
+        let models = [
+            Kinematics::Ab {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            },
+            // a machine whose rotary joints are not zeroed: the offset must be subtracted on the way
+            // back in, not added a second time.
+            Kinematics::Ab {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [10.0, -5.0],
+            },
+            Kinematics::Ac {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [-7.5, 21.0],
+            },
+            Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [3.25, -90.0],
+            },
+        ];
+        for model in models {
+            for orientation in orientations {
+                let words = model.rotary_words(Some(orientation)).unwrap();
+                let back = model.orientation_from_rotary_words([words[0].value, words[1].value]);
+                // measured worst case over this matrix: 1.67e-16 per component, i.e. rounding.
+                for axis in 0..3 {
+                    assert!(
+                        (back[axis] - orientation[axis]).abs() < 1e-15,
+                        "{model:?}: {orientation:?} -> {} {} / {} {} -> {back:?}",
+                        words[0].letter,
+                        words[0].value,
+                        words[1].letter,
+                        words[1].value,
+                    );
+                }
+                // and the recovered vector is unit *by construction*, so it can never trip
+                // `verify`'s `orientation-not-unit`. Measured `|‖v‖ - 1|` over this matrix: exactly 0.
+                assert!((norm(back) - 1.0).abs() < 1e-15, "{back:?} is not unit");
             }
         }
     }

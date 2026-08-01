@@ -46,6 +46,9 @@ fn roundtrip_conformance_byte_for_byte() {
             line_width: None,
             layer_height: None,
             relative_e: fx.init_params.relative_e,
+            // 3-axis corpus: no fixture carries a rotary word, and the re-emit below is `five_axis:
+            // false`, so no model is needed to read one back.
+            kinematics: None,
         };
 
         let tp = import_gcode(&fx.gcode, &import_params)

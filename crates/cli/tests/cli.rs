@@ -1,6 +1,9 @@
 //! End-to-end CLI tests: run the `dry` binary on a conformance fixture and check its output.
 
-use dry_core::{import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind};
+use dry_core::{
+    import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind,
+    REFERENCE_FIVE_AXIS_MACHINE,
+};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -524,6 +527,10 @@ fn emit_profile_linuxcnc_flavor_is_implicit_rs274_with_step_nc() {
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
+            // model to read the rotary words back. Naming the constant rather than repeating
+            // its literal keeps this correct if the reference machine ever changes.
+            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
             ..Default::default()
         },
     )
@@ -598,6 +605,10 @@ fn emit_profile_robot_krl_flavor_is_robot_motion_style() {
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
+            // model to read the rotary words back. Naming the constant rather than repeating
+            // its literal keeps this correct if the reference machine ever changes.
+            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
             ..Default::default()
         },
     )
@@ -900,6 +911,10 @@ fn emit_krl_five_axis_with_bc_kinematics_is_parseable_and_importable() {
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
+            // model to read the rotary words back. Naming the constant rather than repeating
+            // its literal keeps this correct if the reference machine ever changes.
+            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
             ..GcodeImportParams::default()
         },
     )
@@ -1136,6 +1151,10 @@ fn emit_rs274_five_axis_with_step_nc_is_parseable_and_tracks_toolframe() {
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
+            // model to read the rotary words back. Naming the constant rather than repeating
+            // its literal keeps this correct if the reference machine ever changes.
+            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
             ..Default::default()
         },
     )

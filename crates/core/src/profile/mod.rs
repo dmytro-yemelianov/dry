@@ -402,6 +402,11 @@ impl Profile {
             line_width: self.process.line_width,
             layer_height: self.process.layer_height,
             relative_e,
+            // The same field `emit_params` maps onto `EmitParams::kinematics`: the machine's rotary
+            // model is what lets the importer read A/B/C words back into a toolframe orientation.
+            // Left `None` (3-axis) by a profile that does not declare one, which is also what makes a
+            // program that *does* carry rotary words refuse rather than lift them into nothing.
+            kinematics: self.machine.five_axis,
         }
     }
 
