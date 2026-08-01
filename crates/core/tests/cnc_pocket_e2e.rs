@@ -3,6 +3,10 @@
 //! The golden under `conformance/reports/cnc/` is drift-gated like the other generated corpora
 //! (`CONTRIBUTING.md` → "Conformance, vectors and goldens"); regenerate with
 //! `UPDATE_GOLDEN=1 cargo test -p dry-core --test cnc_pocket_e2e`.
+
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
 use dry_core::{
     emit, resolve_checked, verify, CncFrame, Contracts, CutMode, EmitParams, FirmwareFlavor,
     PocketOptions, PocketShape, ResolveParams,

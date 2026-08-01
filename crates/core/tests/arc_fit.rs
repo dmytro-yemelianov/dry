@@ -4,6 +4,10 @@
 //! material, with native-arc geometric length. This pass has no FullControl oracle: it is Dry's own
 //! well-specified transform, tested directly against constructed circular and non-circular cases.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{arc_fit, emit, resolve, simulate, Design, EmitParams, ResolveParams, SegmentKind};
 
 fn design(ops: &str) -> Design {

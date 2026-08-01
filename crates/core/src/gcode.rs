@@ -316,12 +316,7 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
                     .map(|(idx, _)| *idx)
                     .unwrap_or(code.len())]
                 .trim();
-            let value = value.parse::<f64>().map_err(|e| {
-                GcodeParseError::new(
-                    source_line,
-                    format!("bad {ROBOT_WAIT} word value {value:?}: {e}"),
-                )
-            })?;
+            let value = parse_word_value(source_line, ROBOT_WAIT, value)?;
             words.push(GcodeWord { letter: 'S', value });
             i = value_end_i;
             continue;
@@ -354,12 +349,7 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
                 .map(|(idx, _)| *idx)
                 .unwrap_or(code.len());
             let value = code[value_start..token_end].trim();
-            let value = value.parse::<f64>().map_err(|e| {
-                GcodeParseError::new(
-                    source_line,
-                    format!("bad {letter} word value {value:?}: {e}"),
-                )
-            })?;
+            let value = parse_word_value(source_line, letter, value)?;
             words.push(GcodeWord { letter, value });
             continue;
         }
@@ -413,15 +403,33 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
                 format!("missing value for {letter} word"),
             ));
         }
-        let value = value.parse::<f64>().map_err(|e| {
-            GcodeParseError::new(
-                source_line,
-                format!("bad {letter} word value {value:?}: {e}"),
-            )
-        })?;
+        let value = parse_word_value(source_line, letter, value)?;
         words.push(GcodeWord { letter, value });
     }
     Ok(words)
+}
+
+/// Parse one word's numeric text, refusing anything that is not a finite number.
+///
+/// The scanner deliberately admits exponent notation (see [`is_exponent_marker`]), so `1e400`
+/// parses to `inf`; `Xnan` parses to NaN through the multi-letter token path. Both then flow
+/// straight into the IR as quantities, where `M221 S1e400` became `flow = inf` and, one
+/// `0.0 * inf` later, an `E NaN` word in emitted g-code. No machine accepts a non-finite word, so
+/// this is the ingress that refuses them — one gate for every letter (X/Y/Z/E/F/S/P/I/J/K).
+fn parse_word_value(source_line: usize, letter: char, text: &str) -> Result<f64, GcodeParseError> {
+    let value = text.parse::<f64>().map_err(|e| {
+        GcodeParseError::new(
+            source_line,
+            format!("bad {letter} word value {text:?}: {e}"),
+        )
+    })?;
+    if !value.is_finite() {
+        return Err(GcodeParseError::new(
+            source_line,
+            format!("non-finite {letter} word value {text:?}"),
+        ));
+    }
+    Ok(value)
 }
 
 fn is_exponent_marker(chars: &[(usize, char)], i: usize) -> bool {
@@ -611,7 +619,14 @@ fn classify_record(
     }
 }
 
+// Both ratio helpers are total: `parse_word_value` already refused a non-finite word, so the
+// fallback arms are unreachable from the parser — they exist so neither helper can *return* a
+// non-finite ratio if some other caller reaches them. `clamp` passes NaN through unchanged and
+// `max(0.0)` returns NaN for NaN, so neither guard is implied by the arithmetic.
 fn fan_ratio_from_s(value: f64) -> f64 {
+    if !value.is_finite() {
+        return 1.0; // the `M106` no-S default: full fan
+    }
     if value <= 1.0 {
         value.clamp(0.0, 1.0)
     } else {
@@ -620,11 +635,10 @@ fn fan_ratio_from_s(value: f64) -> f64 {
 }
 
 fn flow_ratio_from_percent(value: f64) -> f64 {
-    if value.is_finite() {
-        (value / 100.0).max(0.0)
-    } else {
-        value
+    if !value.is_finite() {
+        return 1.0; // 100%: the neutral multiplier
     }
+    (value / 100.0).max(0.0)
 }
 
 fn rounded_code(value: f64) -> Option<i32> {

@@ -8,9 +8,13 @@
 //!
 //! Default kinematics is AB, so the default emit is byte-identical to the existing behaviour.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
-    emit, import_gcode, parse_gcode_lines, resolve, Design, EmitParams, GcodeImportParams,
-    GcodeRecord, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,
+    emit, emit_stream, import_gcode, parse_gcode_lines, resolve, Design, EmitParams,
+    GcodeImportParams, GcodeRecord, Kinematics, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE,
 };
 
 fn ab() -> Kinematics {
@@ -388,4 +392,113 @@ fn test_rotary_joint_offset() {
     let g = emit(&tp, &p);
     assert!(has(&g, "A10"), "expected A10: {g:?}");
     assert!(has(&g, "B-5"), "expected B-5: {g:?}");
+}
+
+/// Resolve a single oriented move, then overwrite the toolframe orientation on every segment — the
+/// `orient` op goes through JSON, which cannot carry NaN/inf.
+fn emit_with_orientation(
+    orientation: [f64; 3],
+    kinematics: Kinematics,
+) -> Result<Vec<String>, String> {
+    let mut tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"orient","i":0.0,"j":0.0,"k":1.0},
+                {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    for segment in &mut tp.segments {
+        segment.orientation = Some(orientation);
+    }
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
+        &params(true, kinematics),
+    )
+    .map_err(|error| error.to_string())
+}
+
+/// The emitted program must depend on the tool *direction*, not on the length of the vector that
+/// carries it.
+///
+/// `Ac`/`Bc` recover the tilt as `acos(k)`, which is the true tilt only when ‖v‖ = 1: an
+/// un-normalised orientation moved the **linear** axes to the wrong point *and* reported the wrong
+/// angle (`[0, 0, 0.5]` under BC emitted `Z-8.660254 B60` for a point that had not moved), while
+/// `Ab` uses `atan2` and was already scale-invariant — so the three models disagreed on identical
+/// input.
+#[test]
+fn orientation_scale_does_not_change_the_emitted_program() {
+    for kinematics in [ab(), ac(), bc()] {
+        for direction in [
+            [0.0, 0.0, 1.0],
+            [0.6, 0.0, 0.8],
+            [0.2, 0.6, 0.76],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ] {
+            let unit = emit_with_orientation(direction, kinematics).unwrap();
+            for scale in [0.5, 2.0, 4.0, 100.0] {
+                let scaled = [
+                    direction[0] * scale,
+                    direction[1] * scale,
+                    direction[2] * scale,
+                ];
+                assert_eq!(
+                    emit_with_orientation(scaled, kinematics).unwrap(),
+                    unit,
+                    "orientation {direction:?} scaled by {scale} changed the program"
+                );
+            }
+        }
+    }
+}
+
+/// A zero or non-finite orientation carries no direction at all. `[0, 0, 0]` used to be accepted
+/// silently — `atan2(0, 0)` is 0, so `Ab` emitted rotary words claiming the tool was upright.
+#[test]
+fn directionless_orientation_is_refused() {
+    for orientation in [
+        [0.0, 0.0, 0.0],
+        [-0.0, 0.0, -0.0],
+        [f64::NAN, 0.0, 1.0],
+        [0.0, f64::INFINITY, 1.0],
+        [0.0, 0.0, f64::NEG_INFINITY],
+    ] {
+        for kinematics in [ab(), ac(), bc()] {
+            let error = emit_with_orientation(orientation, kinematics)
+                .expect_err("emit should refuse a directionless orientation");
+            assert!(
+                error.contains("must have a finite non-zero magnitude"),
+                "unexpected error for {orientation:?}: {error}"
+            );
+        }
+    }
+}
+
+/// `Kinematics::validate` existed but was never called from the emit path, so a non-finite pivot or
+/// rotary offset reached the words.
+#[test]
+fn non_finite_kinematics_offsets_are_refused_by_emit() {
+    let models = [
+        Kinematics::Ab {
+            pivot_offset: [f64::NAN, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        },
+        Kinematics::Ac {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [f64::INFINITY, 0.0],
+        },
+        Kinematics::Bc {
+            pivot_offset: [0.0, f64::NEG_INFINITY, 0.0],
+            rotary_offset: [0.0, 0.0],
+        },
+    ];
+    for model in models {
+        let error = emit_with_orientation([0.0, 0.0, 1.0], model)
+            .expect_err("emit should refuse non-finite kinematics offsets");
+        assert!(
+            error.contains("must be finite"),
+            "unexpected error: {error}"
+        );
+    }
 }

@@ -187,6 +187,32 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
     require_positive("resolve_params.print_speed", p.print_speed)?;
     require_positive("resolve_params.travel_speed", p.travel_speed)?;
     require_positive("resolve_params.dia", p.dia)?;
+    // A finite, positive diameter is not enough: the bead cross-section `π·(dia/2)²` underflows to
+    // zero below `dia ≈ 4e-162` and overflows above `dia ≈ 1.5e154`, and every extruding op divides
+    // by it (`filament = volume / area`). Zero made `Op::Deposit` yield `Length(inf)` — and
+    // `Length(NaN)` for a travel, whose zero volume becomes `0.0 / 0.0`.
+    let area = bead_area(p.dia);
+    if !(area.value().is_finite() && area.value() > 0.0) {
+        // `{:e}` for the same reason `gcode/lift.rs` uses it: `{}` never switches to exponent
+        // notation, so the subnormal `dia` that reaches this arm prints its full decimal expansion
+        // (`5e-324` gives a 407-character message).
+        return Err(ResolveError::new(format!(
+            "resolve_params.dia must give a finite non-zero bead cross-section, got {:e} for dia \
+             {:e}",
+            area.value(),
+            p.dia
+        )));
+    }
+    // The per-op `Retract`/`Unretract` distance and speed are checked positive below; these are the
+    // fallbacks those ops use when they carry none, so the same guard has to apply here or it is
+    // bypassed by omitting the field. A negative distance made `filament: Length::mm(-dist)`
+    // *positive*, which `verify` reads as an unretract — the retraction limits then never applied.
+    if let Some(distance) = p.retraction_distance {
+        require_positive("resolve_params.retraction_distance", distance)?;
+    }
+    if let Some(speed) = p.retraction_speed {
+        require_positive("resolve_params.retraction_speed", speed)?;
+    }
 
     for (idx, op) in design.ops.iter().enumerate() {
         let prefix = |field: &str| format!("ops[{idx}].{field}");
@@ -340,7 +366,10 @@ pub fn dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> Length {
             sq = sq + d * d;
         }
     }
-    sq.sqrt()
+    // A sum of squares is never negative, so the root exists for every finite input. A NaN
+    // coordinate (refused by `validate_design`, and again by the emit gate) keeps propagating as
+    // it did before `Area::sqrt` was made total, rather than collapsing to a plausible zero.
+    sq.sqrt().unwrap_or(Length(f64::NAN))
 }
 
 /// Uniform Catmull-Rom interpolation of the span `p1 → p2` (phantom neighbours `p0`, `p3`) at
@@ -363,7 +392,77 @@ pub fn catmull_rom(p0: [f64; 3], p1: [f64; 3], p2: [f64; 3], p3: [f64; 3], t: f6
 /// Lower an L1 design to an L2 toolpath after validating design and machine/material parameters.
 pub fn resolve_checked(design: &Design, p: &ResolveParams) -> Result<Toolpath, ResolveError> {
     validate_design(design, p)?;
-    Ok(resolve_unchecked(design, p))
+    let toolpath = resolve_unchecked(design, p);
+    require_finite_toolpath(&toolpath)?;
+    Ok(toolpath)
+}
+
+/// Every quantity the lowering *computes* must be finite — not merely every number it was handed.
+///
+/// `validate_design` bounds its inputs with `is_finite`, and that does not survive the arithmetic:
+/// `dist` squares its deltas, so two ops 1e200 apart give `Length(inf)` from schema-valid JSON
+/// (`Area::sqrt` returns `Some` for `inf`, since `inf >= 0.0`). That is the same seam H1.2 closed in
+/// `gcode/lift.rs` — a gate on the parsed value does not establish an invariant on the constructed
+/// one — and `resolve_*` is caller JSON on wasm and PyO3, so it is checked here as a postcondition
+/// rather than argued site by site. Checking the produced IR once is total: it holds however the
+/// lowering computes, including ops added later.
+fn require_finite_toolpath(toolpath: &Toolpath) -> Result<(), ResolveError> {
+    for (idx, s) in toolpath.segments.iter().enumerate() {
+        let check = |name: &str, value: f64| -> Result<(), ResolveError> {
+            if value.is_finite() {
+                Ok(())
+            } else {
+                Err(ResolveError::new(format!(
+                    "segments[{idx}].{name} resolved to {value}; the design is within range but the \
+                     lowering is not"
+                )))
+            }
+        };
+        for (axis, name) in ["x", "y", "z"].iter().enumerate() {
+            if let Some(v) = s.start[axis] {
+                check(&format!("start.{name}"), v.value())?;
+            }
+            if let Some(v) = s.end[axis] {
+                check(&format!("end.{name}"), v.value())?;
+            }
+        }
+        check("speed", s.speed.value())?;
+        check("length", s.length.value())?;
+        check("volume", s.volume.value())?;
+        check("filament", s.filament.value())?;
+        for (name, value) in [
+            ("width", s.width.map(|v| v.value())),
+            ("height", s.height.map(|v| v.value())),
+            ("temperature", s.temperature),
+            ("fan", s.fan),
+            ("flow", s.flow),
+            ("dwell_s", s.dwell_s),
+        ] {
+            if let Some(value) = value {
+                check(name, value)?;
+            }
+        }
+        if let Some(centre) = s.centre {
+            check("centre.x", centre[0].value())?;
+            check("centre.y", centre[1].value())?;
+        }
+        if let Some(orientation) = s.orientation {
+            for (axis, name) in ["i", "j", "k"].iter().enumerate() {
+                check(&format!("orientation.{name}"), orientation[axis])?;
+            }
+        }
+        if let Some(points) = &s.control_points {
+            for (point_idx, point) in points.iter().enumerate() {
+                for (axis, name) in ["x", "y", "z"].iter().enumerate() {
+                    check(
+                        &format!("control_points[{point_idx}].{name}"),
+                        point[axis].value(),
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Lower an L1 design to an L2 toolpath.
@@ -374,10 +473,14 @@ pub fn resolve(design: &Design, p: &ResolveParams) -> Toolpath {
     resolve_checked(design, p).expect("valid Dry resolve inputs")
 }
 
+/// The bead cross-section of the round filament: `π·(dia/2)²`.
+fn bead_area(dia: f64) -> Area {
+    let half = Length::mm(dia) / 2.0;
+    std::f64::consts::PI * (half * half)
+}
+
 fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
-    // bead cross-section of the round filament: π·(dia/2)².
-    let half = Length::mm(p.dia) / 2.0;
-    let area = std::f64::consts::PI * (half * half);
+    let area = bead_area(p.dia);
     let travel_speed = Feedrate(p.travel_speed);
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let (mut width, mut height) = (Length::ZERO, Length::ZERO);

@@ -27,17 +27,45 @@ pub struct Metrics {
     pub max_flow_rate: Flow,
 }
 
+/// The duration of a move, or `None` when it has none.
+///
+/// Two distinct cases return `None` and must not be conflated: a segment that does not move (a
+/// dwell, a channel-only or manual-g-code segment) has *no* duration to compute, while a segment
+/// that moves at a non-positive feedrate has an *undefined* one. Zero means "not stated by the
+/// source program" — motion before the first `F` inherits the machine's modal feedrate — and is the
+/// branch `Dry.Semantics.SimulateMetrics.segmentMotionTime` models exactly (`FM1.SIMULATE_METRICS`,
+/// pinned by `proofs/fixtures/simulate-metrics-refinement-v0.json`), so it keeps contributing
+/// nothing. A *negative* feedrate is outside that modelled branch (the claim excludes "invalid or
+/// zero speed behavior outside the modeled branch"); it used to yield a negative duration that was
+/// subtracted from `total_time_s`, and is now un-timeable instead. Ingress refuses it besides:
+/// see `gcode/lift.rs` and `codec/threemf.rs`.
+///
+/// A **non-finite** speed is un-timeable for the same reason, and that is an accounting change with
+/// a cost worth naming: `inf` previously divided to a zero duration and surfaced as
+/// `max_flow_rate = inf`, which `verify`'s max-flow rule failed, while `NaN` poisoned
+/// `total_time_s`. Such a segment is now simply invisible to the metrics, so it no longer trips
+/// that rule. No ingress path can produce one: the two importers build every quantity through a
+/// checked constructor, `resolve_checked` refuses a toolpath whose lowered quantities are not
+/// finite, and the binary decoder rejects the bit patterns. Reaching this arm means hand-built IR
+/// or an engine bug.
+///
+/// `resolve_checked`'s refusal is a *postcondition*, so how it refuses depends on the build profile:
+/// a design whose lowering overflows to NaN (a spline with ~1e308 control points) trips
+/// `Length::mm`'s `debug_assert` inside the lowering in a debug build and panics, where a release
+/// build reaches the postcondition and returns `Err`. Either way nothing non-finite enters the IR.
 pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
-    if s.speed == Feedrate::ZERO {
-        return None;
-    }
-    if s.length > Length::ZERO {
-        Some(s.length / s.speed)
+    let distance = if s.length > Length::ZERO {
+        s.length
     } else if s.filament != Length::ZERO {
-        Some(Length::mm(s.filament.value().abs()) / s.speed)
+        // a filament-only prime/retract is timed against the extruder axis.
+        Length::mm(s.filament.value().abs())
     } else {
-        None
+        return None; // nothing to time
+    };
+    if !s.speed.value().is_finite() || s.speed <= Feedrate::ZERO {
+        return None; // undefined duration
     }
+    Some(distance / s.speed)
 }
 
 /// Fold a streaming iterator of segments into print metrics.

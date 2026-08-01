@@ -32,7 +32,23 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
     xml.push_str("  <build>\n");
     xml.push_str("    <tp:toolpath>\n");
 
+    // `import_3mf_xml` decides whether a segment moves from the coordinate delta against a running
+    // position that starts at the origin, *not* from any length it was told. Mirror that cursor
+    // exactly, so the exporter's "does this segment move?" is the same question the importer asks.
+    // Keying on `Segment.length` instead disagrees on the first segment of a G-code import, whose
+    // start is undefined and whose IR length is therefore zero even though it moves.
+    let mut cursor = [0.0_f64; 3];
+
     for (idx, seg) in toolpath.segments.iter().enumerate() {
+        let mut moves = false;
+        for (axis, held) in cursor.iter_mut().enumerate() {
+            if let Some(end) = seg.end[axis] {
+                if end.0 != *held {
+                    moves = true;
+                }
+                *held = end.0;
+            }
+        }
         let kind_str = match seg.kind {
             SegmentKind::Line => "line",
             SegmentKind::Arc => "arc",
@@ -57,7 +73,11 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
         if let Some(z) = seg.end[2] {
             xml.push_str(&format!(" z=\"{:.4}\"", z.0));
         }
-        if seg.speed.0 > 0.0 {
+        // A moving segment must carry its feedrate even when that feedrate is zero: the importer
+        // refuses motion with no `feedrate` attribute, and a zero-speed moving segment is exactly
+        // what the G-code importer preserves for motion before the first `F` (see `gcode/lift.rs`).
+        // Writing nothing there would make dry's own export un-importable.
+        if seg.speed.0 > 0.0 || moves {
             xml.push_str(&format!(" feedrate=\"{:.1}\"", seg.speed.0));
         }
         if seg.volume.0 > 0.0 {
@@ -88,16 +108,19 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
         let trimmed = line.trim();
         if trimmed.starts_with("<tp:segment") {
             let travel = trimmed.contains("travel=\"true\"");
-            let x = parse_attr(trimmed, "x=").map(Length::mm);
-            let y = parse_attr(trimmed, "y=").map(Length::mm);
-            let z = parse_attr(trimmed, "z=").map(Length::mm);
-            let speed = parse_attr(trimmed, "feedrate=")
-                .map(Feedrate)
-                .unwrap_or(Feedrate::ZERO);
-            let volume = parse_attr(trimmed, "volume=")
+            let x = parse_length_attr(trimmed, "x=")?;
+            let y = parse_length_attr(trimmed, "y=")?;
+            let z = parse_length_attr(trimmed, "z=")?;
+            let feedrate = parse_attr(trimmed, "feedrate=")?;
+            if feedrate.is_some_and(|f| f < 0.0) {
+                return Err(ThreeMfError {
+                    message: "segment feedrate must not be negative".into(),
+                });
+            }
+            let volume = parse_attr(trimmed, "volume=")?
                 .map(Volume)
                 .unwrap_or(Volume::ZERO);
-            let temperature = parse_attr(trimmed, "temp=");
+            let temperature = parse_attr(trimmed, "temp=")?;
 
             let end_pos = [
                 x.or(current_pos[0]),
@@ -111,7 +134,29 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
                 end_pos[1].unwrap_or(Length::ZERO).0 - current_pos[1].unwrap_or(Length::ZERO).0;
             let dz =
                 end_pos[2].unwrap_or(Length::ZERO).0 - current_pos[2].unwrap_or(Length::ZERO).0;
-            let length = Length::mm((dx * dx + dy * dy + dz * dz).sqrt());
+            // `parse_length_attr` accepts only finite text, but the squared deltas can still
+            // overflow it (`x="1e308"` against an origin of zero), so the distance goes through the
+            // checked constructor too — `Length::mm` would only assert, and only in debug builds.
+            let squared = dx * dx + dy * dy + dz * dz;
+            let Some(length) = Length::try_mm(squared.sqrt()) else {
+                return Err(ThreeMfError {
+                    message: "segment length is not finite".into(),
+                });
+            };
+
+            // A segment that moves must say how fast: `export_3mf_xml` writes `feedrate` for one
+            // (including `feedrate="0.0"` when the source program never stated a feedrate), and
+            // defaulting a *missing* attribute to zero produced a move that contributed no time, no
+            // distance and no segment count to `simulate` — an invisible move.
+            let speed = match feedrate {
+                Some(f) => Feedrate(f),
+                None if length > Length::ZERO => {
+                    return Err(ThreeMfError {
+                        message: "segment has motion but no feedrate attribute".into(),
+                    })
+                }
+                None => Feedrate::ZERO,
+            };
 
             segments.push(Segment {
                 start: current_pos,
@@ -147,15 +192,44 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
     })
 }
 
-fn parse_attr(line: &str, key: &str) -> Option<f64> {
-    if let Some(pos) = line.find(key) {
-        let rest = &line[pos + key.len()..];
-        let rest = rest.trim_start_matches('"');
-        if let Some(end) = rest.find('"') {
-            return rest[..end].parse::<f64>().ok();
-        }
+fn attr_text<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    let pos = line.find(key)?;
+    let rest = line[pos + key.len()..].trim_start_matches('"');
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
+/// Read one numeric attribute: `Ok(None)` when it is absent or unparseable, an error when it is
+/// present but not finite. `"nan"` and `"inf"` parse as `f64` happily, and the value went straight
+/// into the IR.
+fn parse_attr(line: &str, key: &str) -> Result<Option<f64>, ThreeMfError> {
+    let Some(text) = attr_text(line, key) else {
+        return Ok(None);
+    };
+    match text.parse::<f64>() {
+        Ok(value) if value.is_finite() => Ok(Some(value)),
+        Ok(_) => Err(ThreeMfError {
+            message: format!("attribute {key}\"{text}\" is not finite"),
+        }),
+        Err(_) => Ok(None),
     }
-    None
+}
+
+/// Read one coordinate attribute through the checked [`Length`] constructor — this is the ingress
+/// boundary for untrusted XML, so the invariant is enforced where the quantity is *built*.
+fn parse_length_attr(line: &str, key: &str) -> Result<Option<Length>, ThreeMfError> {
+    let Some(text) = attr_text(line, key) else {
+        return Ok(None);
+    };
+    let Ok(value) = text.parse::<f64>() else {
+        return Ok(None);
+    };
+    match Length::try_mm(value) {
+        Some(length) => Ok(Some(length)),
+        None => Err(ThreeMfError {
+            message: format!("attribute {key}\"{text}\" is not a finite length"),
+        }),
+    }
 }
 
 #[cfg(test)]

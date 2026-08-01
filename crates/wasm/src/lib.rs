@@ -4,7 +4,7 @@
 //! isolated from the core cargo workspace).
 
 use dry_core::{
-    balanced_pipeline, emit, expand_features as expand_feature_program, optimize_pipeline,
+    balanced_pipeline, emit_stream, expand_features as expand_feature_program, optimize_pipeline,
     resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
     FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams, Toolpath,
     TpmsOptions,
@@ -34,6 +34,10 @@ pub fn expand_features(program_json: &str) -> Result<String, JsError> {
 /// carry the toolframe orientation in 5-axis emit. It is unrelated to the machine motion-limits
 /// `kinematics_json` OBJECT (`{max_acceleration_mm_s2,…}`) consumed by [`resolve_balanced_ir`] /
 /// [`resolve_verify`].
+///
+/// IR the emitter refuses — a non-finite word, an arc with no explicit endpoint (which
+/// `validate_design` does not require) — surfaces as a [`JsError`]. It previously came back as an
+/// empty array, which callers read as a successfully emitted zero-line program.
 #[wasm_bindgen]
 pub fn resolve_gcode(
     ops_json: &str,
@@ -46,8 +50,8 @@ pub fn resolve_gcode(
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let kinematics = Kinematics::named(rotary_axes).map_err(|e| JsError::new(&e.to_string()))?;
-    Ok(emit(
-        &tp,
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
         &EmitParams {
             relative_e,
             travel_g1_e0,
@@ -55,7 +59,8 @@ pub fn resolve_gcode(
             kinematics,
             ..EmitParams::default()
         },
-    ))
+    )
+    .map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Generate a gyroid TPMS infill design, resolve it, and emit motion g-code (a JS array of strings).
@@ -65,6 +70,8 @@ pub fn resolve_gcode(
 /// (the ab/ac/bc STRING) — see [`resolve_gcode`]; it is unrelated to the motion-limits `kinematics_json`
 /// OBJECT. The gyroid field uses `libm`, so the output differs sub-micron from the TS SDK's
 /// `Math`-based generator — there is no byte-identity contract between them.
+///
+/// IR the emitter refuses surfaces as a [`JsError`], not an empty array — see [`resolve_gcode`].
 #[wasm_bindgen]
 pub fn resolve_tpms_gcode(
     tpms_options_json: &str,
@@ -82,8 +89,8 @@ pub fn resolve_tpms_gcode(
     let design = Design { ops };
     let tp = resolve_checked(&design, &params).map_err(|e| JsError::new(&e.to_string()))?;
     let kinematics = Kinematics::named(rotary_axes).map_err(|e| JsError::new(&e.to_string()))?;
-    Ok(emit(
-        &tp,
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
         &EmitParams {
             relative_e,
             travel_g1_e0,
@@ -91,7 +98,8 @@ pub fn resolve_tpms_gcode(
             kinematics,
             ..EmitParams::default()
         },
-    ))
+    )
+    .map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Generate a TPMS infill design and return its L1 `Op` list as a JSON string (`[{"op":"move",..},..]`).

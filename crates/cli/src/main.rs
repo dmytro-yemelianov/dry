@@ -666,6 +666,73 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Remove a leftover `.dry-partial` temp file. Never fails the command over it — the program's own
+/// success/failure was already decided — but a surviving temp file is worth a warning rather than
+/// silent disposal, since e.g. a permissions problem removing it would otherwise vanish unremarked.
+fn cleanup_tmp(tmp: &str) {
+    if let Err(e) = fs::remove_file(tmp) {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            eprintln!("warning: could not remove leftover temp file {tmp}: {e}");
+        }
+    }
+}
+
+/// Write `path`'s content to a sibling `{path}.dry-partial` via `write`, flushing before returning.
+/// Does not rename into place — see [`commit_atomic`] — so a caller can stage several files before
+/// any of them touch their final path. On failure the temp file is cleaned up and never left behind.
+fn stage_atomic(
+    path: &str,
+    write: impl FnOnce(&mut std::io::BufWriter<fs::File>) -> Result<(), String>,
+) -> Result<String, String> {
+    let tmp = format!("{path}.dry-partial");
+    let file = fs::File::create(&tmp).map_err(|e| format!("cannot write {path}: {e}"))?;
+    let mut writer = std::io::BufWriter::new(file);
+    let result = write(&mut writer).and_then(|()| {
+        writer
+            .flush()
+            .map_err(|e| format!("cannot write {path}: {e}"))
+    });
+    drop(writer);
+    match result {
+        Ok(()) => Ok(tmp),
+        Err(msg) => {
+            cleanup_tmp(&tmp);
+            Err(msg)
+        }
+    }
+}
+
+/// Rename a temp file staged by [`stage_atomic`] into place at `path`.
+fn commit_atomic(tmp: &str, path: &str) -> Result<(), String> {
+    fs::rename(tmp, path).map_err(|e| format!("cannot write {path}: {e}"))
+}
+
+/// Stream a program to `path` through a sibling temporary file, renaming it into place only once
+/// the whole program is on disk.
+///
+/// `emit_stream_to_writer` writes lines as it produces them and refuses on *segment content* — a
+/// non-finite word, an endpointless arc — which it can only discover mid-program, and [`die`] exits
+/// on the spot. Streaming straight into the destination therefore leaves a truncated but
+/// syntactically valid g-code file exactly where the caller asked for a program; under RS-274 that
+/// prefix has also lost its `M9`/`M5`/`M30` postamble. Nothing appears at `path` unless the whole
+/// program emitted.
+fn write_program(
+    path: &str,
+    emit: impl FnOnce(&mut std::io::BufWriter<fs::File>) -> Result<(), String>,
+) {
+    let tmp = match stage_atomic(path, |writer| {
+        emit(writer)
+            .and_then(|()| writeln!(writer).map_err(|e| format!("cannot write {path}: {e}")))
+    }) {
+        Ok(tmp) => tmp,
+        Err(msg) => die(msg),
+    };
+    if let Err(msg) = commit_atomic(&tmp, path) {
+        cleanup_tmp(&tmp);
+        die(msg);
+    }
+}
+
 /// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
 fn require(value: Option<f64>, flag: &str) -> f64 {
     value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
@@ -903,39 +970,79 @@ fn run(cli: Cli) -> ExitCode {
                     meta: None,
                     segments: segments.clone(),
                 };
-                let step_nc_text = emit_step_nc(&toolpath, &params);
-                fs::write(&step_nc_path, step_nc_text)
-                    .unwrap_or_else(|e| die(format!("cannot write {step_nc_path}: {e}")));
+                // Render the sidecar before emitting, so a toolpath STEP-NC cannot represent is
+                // refused before anything is written — but stage it (to a temp path, not the real
+                // one) *before* the g-code emits, and commit both only at the end. A temp file at a
+                // temp path is not a machining program, so this does not reintroduce the hazard the
+                // ordering was chosen to avoid: the `.stpnc` still cannot appear at its real path
+                // before the g-code is known to be emittable, and disk-full on the sidecar is now
+                // caught before the g-code lands instead of after.
+                let step_nc_text = emit_step_nc(&toolpath, &params)
+                    .unwrap_or_else(|e| die(format!("cannot emit {step_nc_path}: {e}")));
+                let step_nc_tmp = stage_atomic(&step_nc_path, |writer| {
+                    writer
+                        .write_all(step_nc_text.as_bytes())
+                        .map_err(|e| format!("cannot write {step_nc_path}: {e}"))
+                })
+                .unwrap_or_else(|e| die(e));
                 match out {
                     Some(path) => {
-                        let out_file = fs::File::create(&path)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                        let mut writer = std::io::BufWriter::new(out_file);
-                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
+                        let gcode_tmp = stage_atomic(&path, |writer| {
+                            emit_stream_to_writer(segments.into_iter().map(Ok), &params, writer)
+                                .map_err(|e| format!("cannot emit {file}: {e}"))
+                                .and_then(|()| {
+                                    writeln!(writer)
+                                        .map_err(|e| format!("cannot write {path}: {e}"))
+                                })
+                        })
+                        .unwrap_or_else(|e| {
+                            cleanup_tmp(&step_nc_tmp);
+                            die(e)
+                        });
+                        if let Err(msg) = commit_atomic(&gcode_tmp, &path) {
+                            cleanup_tmp(&gcode_tmp);
+                            cleanup_tmp(&step_nc_tmp);
+                            die(msg);
+                        }
+                        // The g-code is now the only thing on disk that must survive: if the
+                        // sidecar's rename fails from here, `path` already holds a complete,
+                        // usable program, so exit 2 no longer means "nothing usable was written".
+                        if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
+                            cleanup_tmp(&step_nc_tmp);
+                            die(format!(
+                                "{msg} (a complete g-code program was already written to {path})"
+                            ));
+                        }
                     }
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
-                        emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                        if let Err(e) = emit_stream_to_writer(
+                            segments.into_iter().map(Ok),
+                            &params,
+                            &mut writer,
+                        ) {
+                            cleanup_tmp(&step_nc_tmp);
+                            die(format!("cannot emit {file}: {e}"));
+                        }
+                        if let Err(e) = writeln!(writer) {
+                            cleanup_tmp(&step_nc_tmp);
+                            die(format!("cannot write stdout: {e}"));
+                        }
+                        if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
+                            cleanup_tmp(&step_nc_tmp);
+                            die(format!(
+                                "{msg} (the g-code program was already printed to stdout)"
+                            ));
+                        }
                     }
                 }
             } else {
                 match out {
-                    Some(path) => {
-                        let out_file = fs::File::create(&path)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                        let mut writer = std::io::BufWriter::new(out_file);
-                        emit_stream_to_writer(stream, &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}")));
-                    }
+                    Some(path) => write_program(&path, |writer| {
+                        emit_stream_to_writer(stream, &params, writer)
+                            .map_err(|e| format!("cannot emit {file}: {e}"))
+                    }),
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();

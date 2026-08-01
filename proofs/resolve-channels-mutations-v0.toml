@@ -1,7 +1,7 @@
 schema_version = 1
 model = "resolve-channels-source-mutations-v0"
 source = "crates/core/src/resolve.rs"
-source_sha256 = "562b36b923ce698201828495508dac0d3566ca16d8eb430d5496cf126c1d8537"
+source_sha256 = "6b52f05a7433fe3cf9e1eeba74e7ccc5d4a79a86cef5d1ceb5382993535596b4"
 test = "crates/core/tests/resolve_channels_refinement.rs"
 
 [[mutation]]

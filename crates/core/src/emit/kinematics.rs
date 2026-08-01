@@ -37,13 +37,37 @@ impl Default for Kinematics {
     }
 }
 
+/// Recover the unit tool-direction vector from a toolframe orientation.
+///
+/// `None` is the identity toolframe (`[0, 0, 1]`).
+///
+/// Both transforms below assume ‖v‖ = 1: `Ac`/`Bc` recover the tilt as `acos(k)`, which is the true
+/// tilt only for a unit vector, so an un-normalised orientation silently lands the **linear** axes
+/// on the wrong point *and* reports the wrong angle — while `Ab`, which uses `atan2`, is
+/// scale-invariant and disagrees with them on identical input. Normalising once, here, is what makes
+/// the three models agree. A zero or non-finite vector carries no direction at all and is refused.
+fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
+    let v = orientation.unwrap_or([0.0, 0.0, 1.0]);
+    let magnitude = libm::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if !(magnitude.is_finite() && magnitude > 0.0) {
+        return Err(format!(
+            "orientation [{}, {}, {}] must have a finite non-zero magnitude",
+            v[0], v[1], v[2]
+        ));
+    }
+    Ok([v[0] / magnitude, v[1] / magnitude, v[2] / magnitude])
+}
+
 impl Kinematics {
     /// Convert a toolframe orientation into the two rotary words used by this model.
     ///
-    /// `None` is identity toolframe (`[0, 0, 1]`).
-    pub(crate) fn rotary_words(&self, orientation: Option<[f64; 3]>) -> [Rotary; 2] {
-        let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-        match *self {
+    /// The orientation is normalised first; see [`unit_orientation`].
+    pub(crate) fn rotary_words(
+        &self,
+        orientation: Option<[f64; 3]>,
+    ) -> Result<[Rotary; 2], String> {
+        let [i, j, k] = unit_orientation(orientation)?;
+        Ok(match *self {
             Self::Ab {
                 rotary_offset,
                 pivot_offset: _,
@@ -95,13 +119,19 @@ impl Kinematics {
                     },
                 ]
             }
-        }
+        })
     }
 
     /// Convert machine workpoint `p` in WCS to MCS machine coordinates for this kinematic model.
-    pub(crate) fn machine_position(&self, p: [f64; 3], orientation: Option<[f64; 3]>) -> [f64; 3] {
-        let [i, j, k] = orientation.unwrap_or([0.0, 0.0, 1.0]);
-        match *self {
+    ///
+    /// The orientation is normalised first; see [`unit_orientation`].
+    pub(crate) fn machine_position(
+        &self,
+        p: [f64; 3],
+        orientation: Option<[f64; 3]>,
+    ) -> Result<[f64; 3], String> {
+        let [i, j, k] = unit_orientation(orientation)?;
+        Ok(match *self {
             Self::Ab {
                 pivot_offset,
                 rotary_offset,
@@ -185,7 +215,7 @@ impl Kinematics {
 
                 [rx - lx, ry - ly, rz - lz]
             }
-        }
+        })
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -385,7 +415,9 @@ mod tests {
 
         for model in models {
             for orientation in orientations {
-                let projected = model.machine_position(point, Some(unit_vec(orientation)));
+                let projected = model
+                    .machine_position(point, Some(unit_vec(orientation)))
+                    .unwrap();
                 let projected_radius = norm(projected);
                 assert!(
                     (projected_radius - reference_radius).abs() < 1e-10,
@@ -411,7 +443,9 @@ mod tests {
         ];
 
         for orientation in orientations {
-            let projected = model.machine_position(point, Some(unit_vec(orientation)));
+            let projected = model
+                .machine_position(point, Some(unit_vec(orientation)))
+                .unwrap();
             assert_point_within_epsilon(projected, point, 1e-12);
         }
     }

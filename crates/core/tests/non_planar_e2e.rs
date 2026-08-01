@@ -3,6 +3,10 @@
 //! Exercises the full pipeline: L1 Orient ops → resolve → simulate → emit (3-axis and 5-axis AB/BC)
 //! to prove the toolframe orientation channel works end-to-end for non-planar designs.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{
     emit, resolve, resolve_checked, simulate, Design, EmitParams, Kinematics, ResolveParams,
 };
@@ -155,7 +159,8 @@ fn non_planar_emit_five_axis_bc_produces_rotary_words() {
 #[test]
 fn non_planar_step_nc_includes_toolframe() {
     let tp = resolve(&non_planar_design(), &ResolveParams::default());
-    let xml = dry_core::emit_step_nc(&tp, &EmitParams::default());
+    let xml = dry_core::emit_step_nc(&tp, &EmitParams::default())
+        .expect("a finite toolpath is representable as STEP-NC");
     // The STEP-NC output must include toolframe elements for oriented segments.
     assert!(
         xml.contains("<toolframe"),

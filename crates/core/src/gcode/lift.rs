@@ -2,7 +2,7 @@ use super::{
     parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-use crate::emit::{emit, format_number, EmitParams};
+use crate::emit::{emit_stream, format_number, EmitParams};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use std::f64::consts::{PI, TAU};
@@ -270,13 +270,15 @@ impl ImportedGcode {
                 .flat_map(|toolpath| toolpath.segments.iter().cloned())
                 .collect(),
         };
-        let emitted = emit(&flat_toolpath, params);
+        // the fallible emit entry point: a refused program must surface as an import error here, not
+        // as an empty line vector that the accounting below would read as "0 lines, all consumed".
+        let emitted = emit_toolpath_lines(&flat_toolpath, params)?;
         let mut emitted_offset = 0usize;
         let mut absolute_e_start = Length::ZERO;
         let mut span_motion_lines = Vec::with_capacity(span_toolpaths.len());
 
         for span_toolpath in span_toolpaths {
-            let span_line_count = emit(span_toolpath, params).len();
+            let span_line_count = emit_toolpath_lines(span_toolpath, params)?.len();
             let end = emitted_offset + span_line_count;
             if end > emitted.len() {
                 return Err(GcodeImportError::new(
@@ -310,21 +312,32 @@ impl ImportedGcode {
     }
 }
 
+fn emit_toolpath_lines(
+    toolpath: &Toolpath,
+    params: &EmitParams,
+) -> Result<Vec<String>, GcodeImportError> {
+    emit_stream(toolpath.segments.iter().cloned().map(Ok), params)
+        .map_err(|error| GcodeImportError::new(0, format!("emit refused the rewrite: {error}")))
+}
+
 fn modal_rewrite_prologue(
     params: &EmitParams,
     reset_flow: bool,
     absolute_e_start: Length,
 ) -> Vec<String> {
-    let mut lines = vec![
-        "G21".to_string(),
-        "G90".to_string(),
-        if params.relative_e { "M83" } else { "M82" }.to_string(),
-    ];
-    if !params.relative_e {
-        lines.push(format!("G92 E{}", format_number(absolute_e_start.value())));
-    }
-    if reset_flow {
-        lines.push("M221 S100".to_string());
+    // G21/G90 are universal; every other line here addresses a filament axis. CNC, laser and robot
+    // controllers have none, and an unknown M-code aborts the program on LinuxCNC/Fanuc — so the
+    // extruder modals are gated on the same predicate the emitter uses to decide whether to write
+    // `E` words at all.
+    let mut lines = vec!["G21".to_string(), "G90".to_string()];
+    if params.flavor.has_extruder() {
+        lines.push(if params.relative_e { "M83" } else { "M82" }.to_string());
+        if !params.relative_e {
+            lines.push(format!("G92 E{}", format_number(absolute_e_start.value())));
+        }
+        if reset_flow {
+            lines.push("M221 S100".to_string());
+        }
     }
     lines
 }
@@ -486,6 +499,14 @@ fn validate_params(params: &GcodeImportParams) -> Result<(), GcodeImportError> {
             "filament_diameter must be finite and positive",
         ));
     }
+    // A finite diameter can still square to a non-finite cross-section, which would then multiply
+    // every deposited length into a non-finite `volume`.
+    if !filament_area(params.filament_diameter).value().is_finite() {
+        return Err(GcodeImportError::new(
+            0,
+            "filament_diameter is too large to give a finite cross-section",
+        ));
+    }
     for (name, value) in [
         ("line_width", params.line_width),
         ("layer_height", params.layer_height),
@@ -523,8 +544,32 @@ fn lift_motion(
 ) -> Result<Option<Segment>, GcodeImportError> {
     let factor = unit_factor(motion.state.units);
     if let Some(f) = motion.f {
-        state.feedrate = Some(f * factor);
+        // A negative feedrate is not a slow move — it has no meaning on any machine, and it used to
+        // reach `simulate` as a *negative* duration subtracted from the total. (Non-finite values
+        // were already refused by the word scanner.)
+        if f < 0.0 {
+            return Err(GcodeImportError::new(
+                motion.source_line,
+                format!("feedrate F{f} must not be negative"),
+            ));
+        }
+        // Inches scale the word by 25.4, which overflows a finite `F` to `inf` (`G20` + `F1e307`).
+        let scaled = f * factor;
+        if !scaled.is_finite() {
+            return Err(GcodeImportError::new(
+                motion.source_line,
+                // `{f:e}` rather than `{f}`: an exponent-notation word round-trips to ~310 digits.
+                format!("feedrate F{f:e} is not finite after unit conversion"),
+            ));
+        }
+        state.feedrate = Some(scaled);
     }
+    // Zero means "not stated by this file": motion before the first `F` inherits the machine's
+    // modal feedrate, which the program does not record. It stays accepted — the program is valid
+    // on the machine — and such a move still contributes nothing to `simulate`'s metrics: that is
+    // the branch `Dry.Semantics.SimulateMetrics.segmentMotionTime` models, and an attempt to change
+    // it failed the `FM1.SIMULATE_METRICS` refinement corpus. See `engine::segment_motion_time` and
+    // the pin in `crates/core/tests/ingress_validation.rs`.
     let speed = Feedrate(state.feedrate.unwrap_or(0.0));
 
     if motion.mode == MotionMode::Dwell {
@@ -532,7 +577,7 @@ fn lift_motion(
         if dwell_s.is_none() {
             return Ok(None);
         }
-        let pos = lengths(state.pos);
+        let pos = lengths(state.pos, motion.source_line)?;
         return Ok(Some(Segment {
             start: pos,
             end: pos,
@@ -566,11 +611,19 @@ fn lift_motion(
     let filament_delta = extrusion_delta(motion, state, factor);
     let deposited = filament_delta.max(0.0) * state.flow;
     let filament = if filament_delta < 0.0 {
-        Length::mm(filament_delta)
+        checked_mm(filament_delta, motion.source_line, "extrusion")?
     } else {
-        Length::mm(deposited)
+        checked_mm(deposited, motion.source_line, "extrusion")?
     };
-    let volume = filament_area * Length::mm(deposited);
+    // Both factors are finite by here, but their product need not be: a huge `M221` flow ratio
+    // scales a modest `E` into a length that overflows once multiplied by the cross-section.
+    let volume = filament_area * checked_mm(deposited, motion.source_line, "extrusion")?;
+    if !volume.value().is_finite() {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            format!("deposited volume is not finite ({})", volume.value()),
+        ));
+    }
     let travel = motion.mode == MotionMode::Rapid || motion.e.is_none();
     let flow = if state.flow == 1.0 {
         None
@@ -583,26 +636,31 @@ fn lift_motion(
             SegmentKind::Line,
             None,
             false,
-            Length::mm(point_dist(start, end)),
+            checked_mm(point_dist(start, end), motion.source_line, "move length")?,
         ),
         MotionMode::ClockwiseArc | MotionMode::CounterClockwiseArc => {
             let clockwise = motion.mode == MotionMode::ClockwiseArc;
             let arc = arc_geometry(motion, start, end, factor, clockwise)?;
             (
                 SegmentKind::Arc,
-                Some([Length::mm(arc.centre[0]), Length::mm(arc.centre[1])]),
+                Some([
+                    checked_mm(arc.centre[0], motion.source_line, "arc centre I")?,
+                    checked_mm(arc.centre[1], motion.source_line, "arc centre J")?,
+                ]),
                 clockwise,
-                Length::mm(arc.length),
+                checked_mm(arc.length, motion.source_line, "arc length")?,
             )
         }
         MotionMode::Dwell => unreachable!("handled above"),
     };
 
+    let start_lengths = lengths(start, motion.source_line)?;
+    let end_lengths = lengths(end, motion.source_line)?;
     state.pos = end;
 
     Ok(Some(Segment {
-        start: lengths(start),
-        end: lengths(end),
+        start: start_lengths,
+        end: end_lengths,
         travel,
         speed,
         length,
@@ -658,11 +716,23 @@ fn extrusion_delta(motion: &super::MotionRecord, state: &mut LiftState, factor: 
 fn apply_g92(line: &ParsedGcodeLine, state: &mut LiftState) -> Result<(), GcodeImportError> {
     let factor = unit_factor(line.state_after.units);
     for word in &line.words {
+        // `G92` writes the position directly, so an inch conversion that overflows would seed every
+        // later move with a non-finite origin. Refuse it here, where the source line is known.
+        let scaled = word.value * factor;
+        if matches!(word.letter, 'X' | 'Y' | 'Z' | 'E') && !scaled.is_finite() {
+            return Err(GcodeImportError::new(
+                line.source_line,
+                format!(
+                    "G92 {}{:e} is not finite after unit conversion",
+                    word.letter, word.value
+                ),
+            ));
+        }
         match word.letter {
-            'X' => state.pos[0] = Some(word.value * factor),
-            'Y' => state.pos[1] = Some(word.value * factor),
-            'Z' => state.pos[2] = Some(word.value * factor),
-            'E' => state.e = word.value * factor,
+            'X' => state.pos[0] = Some(scaled),
+            'Y' => state.pos[1] = Some(scaled),
+            'Z' => state.pos[2] = Some(scaled),
+            'E' => state.e = scaled,
             _ => {}
         }
     }
@@ -678,12 +748,31 @@ fn apply_process(command: ProcessCommand, state: &mut LiftState) {
     }
 }
 
-fn lengths(pos: [Option<f64>; 3]) -> [Option<Length>; 3] {
-    [
-        pos[0].map(Length::mm),
-        pos[1].map(Length::mm),
-        pos[2].map(Length::mm),
-    ]
+/// Build a [`Length`] from a value the importer *computed*, refusing a non-finite result.
+///
+/// The word scanner rejects a non-finite word, but the arithmetic between it and the IR can still
+/// overflow a finite one: `G20` scales every coordinate by 25.4, and `point_dist` squares the
+/// deltas. `Length::mm` only *asserts* finiteness (and only in debug builds), so an overflow here
+/// would panic a debug consumer and put `Length(inf)` in the IR of a release one — this is the
+/// ingress-side enforcement that assertion documents.
+fn checked_mm(value: f64, source_line: usize, what: &str) -> Result<Length, GcodeImportError> {
+    Length::try_mm(value).ok_or_else(|| {
+        GcodeImportError::new(source_line, format!("{what} is not finite ({value})"))
+    })
+}
+
+fn lengths(
+    pos: [Option<f64>; 3],
+    source_line: usize,
+) -> Result<[Option<Length>; 3], GcodeImportError> {
+    const AXES: [&str; 3] = ["coordinate X", "coordinate Y", "coordinate Z"];
+    let mut out = [None; 3];
+    for (axis, value) in pos.iter().enumerate() {
+        if let Some(value) = value {
+            out[axis] = Some(checked_mm(*value, source_line, AXES[axis])?);
+        }
+    }
+    Ok(out)
 }
 
 fn point_dist(a: [Option<f64>; 3], b: [Option<f64>; 3]) -> f64 {
@@ -950,6 +1039,19 @@ mod tests {
 
     /// The RS-274 frame belongs to the program, not to a span: a caller handing a cnc profile's
     /// `EmitParams` straight to the rewrite path must not get a preamble spliced into every span.
+    ///
+    /// The same applies to the *modal* prologue the emitter synthesises: `M83`/`M82`/`G92 E`/`M221`
+    /// address a filament axis that an RS-274 controller does not have, and an unknown M-code aborts
+    /// the program on LinuxCNC/Fanuc. Asserting only on the frame lines let that regression pass
+    /// unseen.
+    ///
+    /// **Scope: emitter-synthesised lines only.** `splice_motion_spans` copies every source line
+    /// *outside* a motion span through verbatim — that is this function's contract — so a Marlin
+    /// source's own `M104 S210`/`M106`/`M221 S90` still reaches an RS-274 rewrite. The fixture below
+    /// carries `M104 S210` and the output retains it; the assertions are worded to let it through on
+    /// purpose. Filtering that echo fights the source-preserving contract and is a separate
+    /// decision — what is pinned here is only that the *emitter* contributes no filament-axis modal
+    /// of its own.
     #[test]
     fn source_preserving_emit_never_splices_the_cnc_frame() {
         let imported = import_gcode_with_map(
@@ -970,12 +1072,54 @@ mod tests {
         let lines = imported
             .emit_source_preserving(&imported.toolpath, &framed)
             .unwrap();
+        // Non-vacuity: every assertion below is negative, so an empty `lines` would satisfy all of
+        // them. Pin that the rewrite actually produced the span's motion first.
+        assert!(
+            lines.iter().any(|line| line == "G0 F9000 X0 Y0 Z0.2"),
+            "the rewritten span lost its motion: {lines:?}"
+        );
         for frame_line in ["G21 G17 G90", "G54", "T1 M6", "S10000 M3", "M8"] {
             assert!(
                 !lines.iter().any(|line| line == frame_line),
                 "frame line {frame_line:?} spliced into a rewritten span: {lines:?}"
             );
         }
+        // No filament-axis modal *synthesised by the emitter* reaches an RS-274 program either.
+        // Source lines echoed through from outside the motion spans are out of scope (see above):
+        // this fixture's own `M104 S210` survives, and these patterns are exact enough not to catch
+        // an echoed `M221 S90` — only the `M221 S100` the emitter would write itself.
+        for line in &lines {
+            assert!(
+                !(line == "M83"
+                    || line == "M82"
+                    || line == "M221 S100"
+                    || line.starts_with("G92 E")),
+                "extruder modal {line:?} spliced into an RS-274 span: {lines:?}"
+            );
+        }
+        // and no motion line carries an E word
+        assert!(
+            !lines.iter().any(|line| line
+                .split(' ')
+                .any(|word| word.starts_with('E') && word.len() > 1)),
+            "E word in an RS-274 rewrite: {lines:?}"
+        );
+        // the same rewrite under absolute E must not reintroduce `M82`/`G92 E`
+        let absolute = imported
+            .emit_source_preserving(
+                &imported.toolpath,
+                &EmitParams {
+                    relative_e: false,
+                    ..framed.clone()
+                },
+            )
+            .unwrap();
+        assert!(
+            !absolute
+                .iter()
+                .any(|line| line == "M82" || line.starts_with("G92 E")),
+            "absolute-E modal spliced into an RS-274 span: {absolute:?}"
+        );
         // and the rewrite still lines up with the unframed params
         assert_eq!(
             lines,

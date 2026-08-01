@@ -1,6 +1,10 @@
 //! Conformance: Dry G-code round-trip parser gate.
 //! Parses Marlin, Klipper, and Duet flavor G-code to Toolpath IR, and re-emits to match original G-code byte-for-byte.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, import_gcode, EmitParams, GcodeImportParams};
 use serde::Deserialize;
 use std::fs;

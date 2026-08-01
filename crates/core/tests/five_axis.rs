@@ -3,6 +3,10 @@
 //! (`A = atan2(j, hypot(i, k))`, `B = atan2(i, k)`); the test remains valid for a single default
 //! AB-path check, while profile/flag overrides are validated elsewhere.
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use dry_core::{emit, resolve, Design, EmitParams, ResolveParams};
 
 fn design(ops: &str) -> Design {

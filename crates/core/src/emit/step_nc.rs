@@ -4,10 +4,24 @@
 //! conservative and schema-light: the goal is to provide an explicit, machine-independent intent
 //! artifact alongside G-code emission while the CNC/STEP-NC backend is being standardised.
 
+use crate::emit::format_number_checked as checked;
 use crate::ir::{SegmentKind, Toolpath};
 
 /// Emit a small STEP-NC-inspired XML intent document from a resolved toolpath.
-pub fn emit_step_nc(tp: &Toolpath, _params: &crate::emit::EmitParams) -> String {
+///
+/// # Errors
+///
+/// Refuses a toolpath carrying a non-finite quantity, for the same reason the g-code emitter does:
+/// `format_number` is `format!("{v:.6}")` plus trimming, so NaN/inf leave as the well-formed
+/// attribute values `NaN`/`inf` and the document is a machining program a downstream consumer will
+/// read as intent. The whole document is refused rather than written with a nonsense value in it.
+///
+/// This gate is wider than the g-code one: `<toolframe>` is written for every oriented segment,
+/// not only under a five-axis model, so a value the g-code path drops still reaches this file.
+pub fn emit_step_nc(
+    tp: &Toolpath,
+    _params: &crate::emit::EmitParams,
+) -> Result<String, crate::codec::CodecError> {
     let mut out = String::new();
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str(
@@ -28,7 +42,7 @@ pub fn emit_step_nc(tp: &Toolpath, _params: &crate::emit::EmitParams) -> String 
                 let secs = seg.dwell_s.unwrap_or_default();
                 out.push_str(&format!(
                     "      <workingstep id=\"ws-{index}\" type=\"pause\" duration_s=\"{}\"/>\n",
-                    super::format_number(secs)
+                    checked(secs, "dwell")?
                 ));
             }
             SegmentKind::ManualGcode if seg.manual_gcode.is_some() => {
@@ -50,34 +64,34 @@ pub fn emit_step_nc(tp: &Toolpath, _params: &crate::emit::EmitParams) -> String 
                 out.push_str(&format!(
                     "        <motion kind=\"{}\" speed=\"{}\">\n",
                     motion,
-                    super::format_number(seg.speed.value())
+                    checked(seg.speed.value(), "speed")?
                 ));
                 out.push_str(&format!(
                     "          <start x=\"{}\" y=\"{}\" z=\"{}\"/>\n",
-                    super::format_number(start[0]),
-                    super::format_number(start[1]),
-                    super::format_number(start[2])
+                    checked(start[0], "start x")?,
+                    checked(start[1], "start y")?,
+                    checked(start[2], "start z")?
                 ));
                 out.push_str(&format!(
                     "          <end x=\"{}\" y=\"{}\" z=\"{}\"/>\n",
-                    super::format_number(end[0]),
-                    super::format_number(end[1]),
-                    super::format_number(end[2])
+                    checked(end[0], "end x")?,
+                    checked(end[1], "end y")?,
+                    checked(end[2], "end z")?
                 ));
 
                 if let Some([i, j, k]) = seg.orientation {
                     out.push_str(&format!(
                         "          <toolframe i=\"{}\" j=\"{}\" k=\"{}\"/>\n",
-                        super::format_number(i),
-                        super::format_number(j),
-                        super::format_number(k)
+                        checked(i, "toolframe i")?,
+                        checked(j, "toolframe j")?,
+                        checked(k, "toolframe k")?
                     ));
                 }
                 if let Some([cx, cy]) = seg.centre {
                     out.push_str(&format!(
                         "          <arc centre_x=\"{}\" centre_y=\"{}\"/>\n",
-                        super::format_number(cx.value()),
-                        super::format_number(cy.value())
+                        checked(cx.value(), "arc centre_x")?,
+                        checked(cy.value(), "arc centre_y")?
                     ));
                 }
                 out.push_str("        </motion>\n");
@@ -98,7 +112,7 @@ pub fn emit_step_nc(tp: &Toolpath, _params: &crate::emit::EmitParams) -> String 
     out.push_str("    </workingsteps>\n");
     out.push_str("  </program>\n");
     out.push_str("</stepnc>\n");
-    out
+    Ok(out)
 }
 
 fn axis_values(values: [Option<crate::units::Length>; 3], previous: [f64; 3]) -> [f64; 3] {

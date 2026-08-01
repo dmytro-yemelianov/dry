@@ -26,11 +26,22 @@ impl<'a> Reader<'a> {
         let b = self.take(4)?;
         Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
     }
+    /// Read one IEEE-754 double, refusing NaN and the infinities.
+    ///
+    /// The columns store raw `to_le_bytes`/`from_le_bytes` bit patterns, so *every* bit pattern
+    /// decoded to a quantity — `00 00 00 00 00 00 F8 7F` in the `ex` column produced `Length(NaN)`.
+    /// `DecodeLimits` bounds sizes, never values, and hostile input is explicitly in this decoder's
+    /// threat model. Note the asymmetry: the JSON codec *cannot* express these values (serde_json
+    /// rejects the bare `NaN`/`Infinity` literals), so JSON round-trips were always safe — only the
+    /// binary format was exposed. `None` slots hold a `0.0` placeholder, so this rejects nothing an
+    /// encoder ever wrote for a finite toolpath.
     pub(super) fn f64(&mut self) -> Result<f64, CodecError> {
         let b = self.take(8)?;
-        Ok(f64::from_le_bytes([
-            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
-        ]))
+        let value = f64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]);
+        if !value.is_finite() {
+            return Err(CodecError::NonFinite);
+        }
+        Ok(value)
     }
     pub(super) fn bits(&mut self, n: usize) -> Result<Vec<bool>, CodecError> {
         let bytes = self.take(n.div_ceil(8))?;

@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "9a897107413ac32d372e23a2579616200ac94e70d80a4fa6d18b75a324c00001"
+      "sha256": "96b4b2e3a7aaa5ad98876a7ecf1698914f7df49271d5a51270ac7236fcf3568e"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",

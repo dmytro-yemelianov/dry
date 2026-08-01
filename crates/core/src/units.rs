@@ -105,9 +105,33 @@ quantity!(
 );
 
 impl Length {
+    /// A length in millimetres.
+    ///
+    /// The IR carries only finite quantities: every ingress path (binary codec, G-code import,
+    /// `ResolveParams`, 3MF) rejects non-finite input, and `emit` refuses it at the output boundary.
+    /// A non-finite value reaching here is therefore an engine *bug*, not hostile input — it trips
+    /// the assertion in debug builds and is still caught by the emit gate in release ones. Boundary
+    /// code that handles untrusted numbers must use [`Length::try_mm`] instead.
+    ///
+    /// "Untrusted" covers *computed* values, not only parsed ones. Rejecting a non-finite input word
+    /// does not establish this invariant on its own: unit conversion and distance arithmetic
+    /// overflow finite inputs (`G20` scales by 25.4, `point_dist` squares the deltas), so an ingress
+    /// path must build every quantity through the checked constructor, not merely validate what it
+    /// read. The assertion below documents an invariant; it does not create one.
     #[inline]
     pub fn mm(value: f64) -> Length {
+        debug_assert!(value.is_finite(), "Length::mm({value}) is not finite");
         Length(value)
+    }
+    /// The checked constructor: `None` for a non-finite value. This is the ingress-side
+    /// counterpart to [`Length::mm`].
+    #[inline]
+    pub fn try_mm(value: f64) -> Option<Length> {
+        if value.is_finite() {
+            Some(Length(value))
+        } else {
+            None
+        }
     }
     /// Euclidean hypotenuse of two lengths (a length).
     #[inline]
@@ -122,10 +146,16 @@ impl Length {
 }
 
 impl Area {
-    /// The side length of the square with this area (a length).
+    /// The side length of the square with this area, or `None` when there is no such square — a
+    /// negative (or non-finite) area has no real root, and returning `Length(NaN)` for one put a
+    /// non-finite quantity into the IR from a trivially constructible input.
     #[inline]
-    pub fn sqrt(self) -> Length {
-        Length(libm::sqrt(self.0))
+    pub fn sqrt(self) -> Option<Length> {
+        if self.0 >= 0.0 {
+            Some(Length(libm::sqrt(self.0)))
+        } else {
+            None
+        }
     }
 }
 
@@ -216,7 +246,7 @@ mod tests {
         // Volume ÷ Area = Length (the filament feedstock length)
         assert_eq!(Volume(12.0) / Area(6.0), Length::mm(2.0));
         // Area square-root is a Length
-        assert_eq!(Area(9.0).sqrt(), Length::mm(3.0));
+        assert_eq!(Area(9.0).sqrt(), Some(Length::mm(3.0)));
         // Length ÷ Feedrate = Time in SECONDS (feedrate is mm/min, so ×60)
         assert_eq!(Length::mm(100.0) / Feedrate(1000.0), Time(6.0));
         // Volume ÷ Time = Flow (mm³/s)
@@ -226,6 +256,22 @@ mod tests {
         // hypot / atan2 carry the right dimensions
         assert_eq!(Length::mm(3.0).hypot(Length::mm(4.0)), Length::mm(5.0));
         assert_eq!(Length::mm(0.0).atan2(Length::mm(1.0)), Angle(0.0));
+    }
+
+    #[test]
+    fn the_checked_constructor_refuses_non_finite_lengths() {
+        assert_eq!(Length::try_mm(0.2), Some(Length::mm(0.2)));
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(Length::try_mm(bad), None);
+        }
+    }
+
+    #[test]
+    fn area_square_root_is_total() {
+        // a negative area has no side length — it used to yield `Length(NaN)`.
+        assert_eq!(Area(-1.0).sqrt(), None);
+        assert_eq!(Area(f64::NAN).sqrt(), None);
+        assert_eq!(Area::ZERO.sqrt(), Some(Length::ZERO));
     }
 
     #[test]

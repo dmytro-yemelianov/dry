@@ -49,8 +49,10 @@ pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
+#[allow(deprecated)]
+pub use emit::emit;
 pub use emit::{
-    emit, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
+    emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
     Kinematics, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};

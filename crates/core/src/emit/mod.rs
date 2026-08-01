@@ -15,10 +15,11 @@ mod step_nc;
 #[cfg(test)]
 mod tests;
 
+#[allow(deprecated)]
+pub use self::gcode::emit;
 pub(crate) use self::gcode::num as format_number;
-pub use self::gcode::{
-    emit, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
-};
+pub(crate) use self::gcode::num_checked as format_number_checked;
+pub use self::gcode::{emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor};
 pub use self::kinematics::{Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 pub use self::spline::SplineFlatteningIterator;
 pub use self::step_nc::emit_step_nc;

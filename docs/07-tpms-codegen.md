@@ -1,7 +1,8 @@
 # TPMS Code Generator
 
 Dry now includes a TPMS contour code generator in `sdk/ts/src/generators/tpms.ts` and browser examples
-in `web/tpms.js`. It is a toolpath generator, not a mesh/STL exporter: each Z layer is sampled from an
+in `web/tpms-engine.js` (which delegates Op generation to the Rust engine over wasm). It is a toolpath
+generator, not a mesh/STL exporter: each Z layer is sampled from an
 implicit TPMS field, sliced with marching squares, stitched into polylines, and emitted as Dry L1 ops.
 
 The equation set follows the common nodal approximations used by nTop's TPMS equation reference and the
@@ -65,6 +66,18 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
 - `samplesPerCell` controls XY contour resolution; higher values improve fidelity and increase op count.
 - `layerHeight` controls Z sampling and resulting print height; the default is 0.28 mm and `beadHeight`
   defaults to the same value so previewed layers do not show artificial vertical gaps.
+- **Every layer declares the bead height it occupies.** `resolve` reads `Op::Geometry`'s height as
+  deposited volume, so a layer that does not span the nominal `layerHeight` — a layer inserted by
+  `adaptive`, or the top layer clamped to the block height — emits a fresh `Op::Geometry` for the gap
+  it really occupies. `beadHeight` is preserved as a *ratio* (`gap × beadHeight / layerHeight`), so a
+  deliberate squish survives on every layer; a nominal-height layer declares exactly the configured
+  `beadHeight`, and so does the first layer, which has nothing beneath it to measure against (`z0` is
+  the nozzle Z, not a guaranteed plate gap). A layer that follows one or more layers which traced no
+  contour also declares the nominal bead rather than the Z it spans: nothing was deposited across the
+  skipped layers, so the nozzle lays one ordinary bead onto whatever is below rather than a
+  layers-tall column into air. A top-layer remainder below 1% of `layerHeight` is a slicing artifact
+  rather than a printable layer and is merged into the layer below, which keeps the block's full
+  height without a second bead for it.
 - `adaptive` inserts extra Z slices in intervals that are too tall or change contour topology/length
   sharply. `adaptiveMinLayerHeight`, `adaptiveMaxLayerHeight`, and the delta thresholds bound this pass.
 - `maxFieldSamples` is a preflight budget for marching-squares work. It rejects runaway combinations of

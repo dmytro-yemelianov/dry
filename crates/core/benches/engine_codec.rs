@@ -2,6 +2,10 @@
 //! (`simulate` / `verify` / `emit` / `trace`). Run locally with `cargo bench -p dry-core`; the CI
 //! `bench` job builds these to keep them from bit-rotting (`docs/13-performance-and-scale.md`).
 
+// These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
+// in-tree call sites use, and refusing the whole program is part of what is under test here.
+#![allow(deprecated)]
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dry_core::{
     emit, simulate, trace_summary, verify, Contracts, EmitParams, Feedrate, Length, Segment,

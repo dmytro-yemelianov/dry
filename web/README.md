@@ -28,13 +28,13 @@ The left panel has a **thumbnail Source gallery**. `Gallery design` loads author
 fullcontrol.xyz-only examples, and the remaining oracle gallery, with provenance links on every design;
 `Printable star lattice` generates the `M1`..`M4` star-polygon lattice families from live alpha/strut/layer/process
 controls using the public Colab print-walk recipe; and `TPMS infill volume` generates implicit-field
-contour infill with surface, cell, sampling, layer, adaptive slicing, perimeter and path-mode controls.
-TPMS generation defaults to conservative `safe arcs G2/G3`: local contour spans are fit to native
-circular arcs only when they stay inside tolerance, otherwise they remain `G1` moves. The `linear G1`
-mode keeps the original fully segmented output, and Marlin `G5` splines stay a future dialect-specific
-emitter target rather than a default TPMS representation. A browser-side resolution budget keeps
-oversized settings failing fast with an error instead of running a huge marching-squares job. All three
-sources feed the same viewer, g-code, metrics, optimize and verify panels.
+contour infill with surface, cell, sampling, layer, adaptive slicing and perimeter controls, Op
+generation delegated to the Rust engine over wasm (`tpms-engine.js`) so it is byte-identical to the
+native CLI and other SDKs. The engine's TPMS generator only ever emits `G1` moves — there is no
+`pathMode` control and no `safe arcs G2/G3`/arc-fitting option surface for TPMS, since the engine has
+no arc-fitting equivalent to delegate to. A browser-side resolution budget keeps oversized settings
+failing fast with an error instead of running a huge marching-squares job. All three sources feed the
+same viewer, g-code, metrics, optimize and verify panels.
 
 A **Printer** selector applies profile metadata to the resolver defaults (`print_speed`,
 `travel_speed`, filament diameter), verifier presets (flow, temperature, bounds, speed range), and
@@ -62,7 +62,7 @@ The gallery spans line moves, a continuous star, native G2/G3 arcs, a rounded re
 arcs), an infill panel (perimeter + zig-zag), a 10-layer tower (with travels between layers), the
 ~120-segment spiral vase, a non-planar cone vase, the collinear comb, four research lattice examples
 generated from the star-polygon families in `lattice-research.js`, and TPMS contour examples generated
-from implicit fields in `tpms.js` with safe G2/G3 arc fitting enabled by default.
+by the Rust engine over wasm (`tpms-engine.js`), byte-identical to the native CLI and other SDKs.
 
 The design picker is a **grouped thumbnail card gallery** with the old `<select>` retained as an
 accessible/state fallback. The current design's **tags** (e.g. `arc`, `multi-layer`, `non-planar`, `3D`,
@@ -171,7 +171,7 @@ cd .. && python3 -m http.server
 | `designs.js` | data-driven demo gallery definitions, each `{ label, group, tags, params, defaults, build, ops }` (square, star, arcs, rounded rect, infill panel, layered tower, spiral & cone vase, collinear comb, research lattices, TPMS, …) |
 | `fullcontrol-gallery.generated.js` | git-ignored browser-safe Dry L1 reconstructions for all 28 FullControl-backed fixtures; regenerated and inventory-validated by `generate-fullcontrol-gallery.mjs` during `build.sh` |
 | `lattice-research.js` | browser-side star-polygon lattice generator for the `M1`..`M4` families; emits Dry L1 ops from alpha, unit-cell count, layer count and process settings |
-| `tpms.js` | browser-side implicit TPMS contour generator: gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P; defaults to printable 0.28 mm layers, optional adaptive bad-zone Z slicing, conservative G2/G3 arc fitting with G1 fallback, and a preflight resolution budget |
+| `tpms-engine.js` | TPMS surface metadata (gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch S/Y, F-RD, Lidinoid, Split P) plus `tpmsOps()`, which delegates Op generation to the Rust engine over wasm (`tpms_ops_json`) — byte-identical to the native CLI, Python SDK, and TS SDK; no browser-only `pathMode`/arc-fitting option surface |
 | `templates.js` | Blockly **starter templates** `{ label, group, tags, build }` — loadable block designs (square, polygon, star, rounded square, S-curve spline, spiral, zig-zag, layered tower, twisted vase) using the parametric blocks |
 | `patterns.js` | pure pattern generators shared by Blockly macros and no-browser regressions, currently the compact vase helix generator |
 | `blocks-regression.mjs` | Node static regression checks for the Blockly authoring surface and template XML |

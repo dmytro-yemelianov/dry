@@ -32,6 +32,27 @@ const DEFAULT_ADAPTIVE_MAX_POINT_DELTA: f64 = 0.45;
 const DEFAULT_ADAPTIVE_MAX_DEPTH: u32 = 4;
 /// Field-sample budget guardrail for interactive/untrusted use.
 const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
+/// The top base layer is clamped to the block height, so it gets whatever Z remains. A remainder
+/// below this fraction of the nominal layer height is a slicing artifact rather than a printable
+/// layer (1% of a 0.2 mm layer is 2 µm) and is merged into the layer below instead of stacked on it.
+///
+/// It stays a slicing rule now that every layer declares the height it occupies, because an honest
+/// declaration does not make a degenerate layer emittable. The remainder has no lower bound, and
+/// when it is smaller than half the coordinate step (`1 / QUANTUM`, so 5e-7 mm) the appended top Z
+/// *rounds onto the Z of the layer below*: the two layers land at the same coordinate, the gap is
+/// `0.0`, the declaration is `0.0`, and `resolve` refuses the whole program (`require_positive`,
+/// `crates/core/src/resolve.rs` — `height must be > 0`). That needs a block height off the layer
+/// grid to reach — measured with this constant deleted, `cellSize 12.0000003, layerHeight 2.0`
+/// emits declared heights `[2.0, 0.0]` and is refused. A layer height with a sub-step remainder is
+/// *not* a trigger (`layerHeight 1.99999995` on a 12 mm block emits `[1.99999995, 2.0]` and
+/// resolves): every intermediate Z is rounded as it is pushed, so `zs.last()` already equals
+/// `height` and the clamp branch never runs. Well above that floor the layer is still a full
+/// re-trace of the contour beneath it at a bead no machine can lay down, so refusing to stack it is
+/// a slicing decision, not a numeric compensation. Redistributing the remainder across all layers
+/// instead (which would make this constant unnecessary) is the principled alternative and was
+/// considered and declined for #187 — it is a slicing-policy change, not a declaration fix.
+/// Pinned at both boundaries by `the_degenerate_top_layer_threshold_is_one_percent`.
+const DEGENERATE_TOP_LAYER_FRACTION: f64 = 0.01;
 
 /// A triply-periodic minimal surface, selecting which nodal field [`Tpms`] slices. The JSON wire form
 /// is kebab-case (matching the TS SDK), e.g. `"schwarz-p"` or `"fischer-koch-s"`. Each formula is a
@@ -50,6 +71,24 @@ pub enum Surface {
     Frd,
     Lidinoid,
     SplitP,
+}
+
+impl Surface {
+    /// The kebab-case wire name, so an error quotes the surface the way the caller spelled it.
+    fn wire_name(self) -> &'static str {
+        match self {
+            Surface::Gyroid => "gyroid",
+            Surface::SchwarzP => "schwarz-p",
+            Surface::SchwarzD => "schwarz-d",
+            Surface::Iwp => "iwp",
+            Surface::Neovius => "neovius",
+            Surface::FischerKochS => "fischer-koch-s",
+            Surface::FischerKochY => "fischer-koch-y",
+            Surface::Frd => "frd",
+            Surface::Lidinoid => "lidinoid",
+            Surface::SplitP => "split-p",
+        }
+    }
 }
 
 /// Options for [`tpms_ops`] / [`tpms_design`]. Every field is optional; an omitted field takes the
@@ -186,6 +225,11 @@ struct LayerSlice {
     path_count: usize,
     point_count: usize,
     length: f64,
+    /// Contours stitched for this layer *before* the `min_path_length` filter, kept so a program that
+    /// emits nothing can name whichever option emptied it (see [`Tpms::reject_vacuous`]).
+    raw_path_count: usize,
+    /// Length of the longest pre-filter contour, so the rejection can say what to lower the filter to.
+    longest_raw_length: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -322,9 +366,16 @@ impl Tpms {
         let perimeter_inset = positive_or_zero(
             "perimeterInset",
             options.perimeter_inset.unwrap_or(bead_width),
-        )?
-        .min((width / 2.0 - EPS).max(0.0))
-        .min((depth / 2.0 - EPS).max(0.0));
+        )?;
+        // ADR 0002 §4: refuse, do not clamp. The old `.min((width/2 - EPS).max(0.0))` turned an
+        // oversized inset into a rectangle spanning 2e-9 mm — 44 zero-length extrusions presented as
+        // a perimeter wall. The inset is only read when `perimeter` is on, so only gate it there.
+        if perimeter && (2.0 * perimeter_inset >= width || 2.0 * perimeter_inset >= depth) {
+            return Err(TpmsError::new(format!(
+                "perimeterInset {perimeter_inset} collapses the perimeter rectangle: it must be \
+                 < half of both width ({width}) and depth ({depth})"
+            )));
+        }
 
         Ok(Tpms {
             surface,
@@ -418,7 +469,7 @@ impl Tpms {
         }
     }
 
-    fn emit(&self) -> Vec<Op> {
+    fn emit(&self) -> Result<Vec<Op>, TpmsError> {
         let mut ops = vec![
             Op::Geometry {
                 width: Some(self.bead_width),
@@ -436,9 +487,54 @@ impl Tpms {
         }
 
         let slices = self.build_layer_slices();
+        self.reject_vacuous(&slices)?;
         let mut previous_local: Option<Point> = None;
+        // `resolve` reads `Op::Geometry`'s height as the deposited bead (`length × width × height ×
+        // flow`), so the declaration has to track the gap each layer actually occupies — on every
+        // path, not just the adaptive one. Adaptive refinement is the loud case (measured gaps of
+        // [0.05, 0.1, 0.2, 0.4] against a single `height: 0.4` is 8x over-extrusion on the thinnest
+        // layer), but the clamped top layer is the common one: at the generator defaults it spans
+        // 0.2 mm and used to declare 0.28. No verifier can see either, because the IR records the
+        // wrong bead self-consistently. A uniform job still declares once, so the common path only
+        // gains the one op its clamped layer needs — at a `layerHeight` on the 1e-6 mm coordinate
+        // grid. One off it (e.g. 1/3) makes the quantized gap alternate, so most layers re-declare:
+        // 2463 -> 2488 ops on a 12 mm block. That is honest, and a tolerance to suppress it would
+        // reintroduce the declared-vs-actual divergence this tracking exists to remove.
+        let mut previous_z: Option<f64> = None;
+        let mut skipped_since_deposit = false;
+        let mut declared_height = self.bead_height;
         for slice in slices {
-            let z = self.z0 + slice.z_local;
+            let z = round(self.z0 + slice.z_local);
+            // A layer with no contours emits nothing (as before), so it is also not the layer the
+            // next bead rests on — the gap is measured against the last layer that deposited, and
+            // the skip is remembered because a gap that spans nothing deposited is not a bead.
+            if !self.perimeter && slice.paths.is_empty() {
+                skipped_since_deposit = true;
+                continue;
+            }
+            if let Some(previous) = previous_z {
+                // The gap is only a bead height when it is material actually stacked beneath. When
+                // the intervening layers traced nothing, the nozzle still lays one bead onto
+                // whatever is below — it does not extrude a layer-tall column into air — so such a
+                // layer declares the nominal bead (`self.bead_height` is exactly what
+                // `declared_bead_height` yields for a nominal gap). Measured at `neovius,
+                // isoLevel 1.0, layerHeight 0.2`: the layer after fifteen empty ones spans 3.2 mm,
+                // and declaring the span inflated the job 47.27 -> 56.73 mm of filament (+20%).
+                let declared = if skipped_since_deposit {
+                    self.bead_height
+                } else {
+                    self.declared_bead_height(round(z - previous))
+                };
+                if declared != declared_height {
+                    ops.push(Op::Geometry {
+                        width: Some(self.bead_width),
+                        height: Some(declared),
+                    });
+                    declared_height = declared;
+                }
+            }
+            previous_z = Some(z);
+            skipped_since_deposit = false;
             if self.perimeter {
                 let rect_local = rectangle_path(self.width, self.depth, self.perimeter_inset);
                 let rect: Vec<Point> = rect_local.iter().map(|p| self.to_world(*p)).collect();
@@ -453,7 +549,62 @@ impl Tpms {
             }
         }
         ops.push(Op::Extruder { on: false });
-        ops
+        Ok(ops)
+    }
+
+    /// The bead height to declare for a layer that occupies `gap` mm of Z.
+    ///
+    /// `beadHeight` is preserved as a *ratio* rather than as an absolute: a layer that occupies half
+    /// the nominal `layerHeight` declares half the configured bead. That keeps a deliberate squish
+    /// (`beadHeight` ≠ `layerHeight`, a documented option — `docs/07-tpms-codegen.md`) alive on every
+    /// layer instead of discarding it from the second one onward, which is what declaring the raw gap
+    /// did: `layerHeight 0.4, beadHeight 0.5, adaptive` emitted declared heights `[0.5, 0.2]`.
+    ///
+    /// A nominal-height layer therefore declares exactly the configured `beadHeight` — including the
+    /// first emitted layer, which is not a special case but the same rule applied to its nominal
+    /// gap. It has no layer beneath it to measure against, `resolve` has no first-layer convention of
+    /// its own to match, and `z0` is the nozzle Z rather than a guaranteed plate gap, so deriving a
+    /// gap from `z0` would be inventing a convention.
+    fn declared_bead_height(&self, gap: f64) -> f64 {
+        if gap == self.layer_height {
+            self.bead_height
+        } else {
+            round(gap * self.bead_height / self.layer_height)
+        }
+    }
+
+    /// Refuse an option set that traces no contour on any layer (ADR 0002 §4: refuse, never silently
+    /// emit nothing). Such a program resolves, verifies with zero findings and simulates to zero
+    /// volume — a file that heats the nozzle and prints nothing. The `resolve` postcondition cannot
+    /// see it: an empty toolpath is perfectly finite.
+    ///
+    /// A perimeter deposits material on its own, so it exempts the program from the check.
+    fn reject_vacuous(&self, slices: &[LayerSlice]) -> Result<(), TpmsError> {
+        if self.perimeter || slices.iter().any(|s| s.path_count > 0) {
+            return Ok(());
+        }
+        // Which option emptied the program is decided by the pre-filter contour count, not guessed:
+        // contours that existed and were dropped implicate `minPathLength`; no contours at all means
+        // `isoLevel` sits outside this surface's field range (which is surface-dependent, so a
+        // computed check beats a per-surface table).
+        let raw: usize = slices.iter().map(|s| s.raw_path_count).sum();
+        if raw > 0 {
+            let longest = slices
+                .iter()
+                .map(|s| s.longest_raw_length)
+                .fold(0.0_f64, f64::max);
+            return Err(TpmsError::new(format!(
+                "minPathLength {} dropped all {raw} contours (longest was {longest}), so the \
+                 program would deposit no material. Lower minPathLength or raise samplesPerCell.",
+                self.min_path_length
+            )));
+        }
+        Err(TpmsError::new(format!(
+            "isoLevel {} is outside the {} field's range: no layer traces a contour, so the program \
+             would deposit no material.",
+            self.iso_level,
+            self.surface.wire_name()
+        )))
     }
 
     /// Map a layer-local point (origin at the slice's lower-left) into world coordinates.
@@ -491,7 +642,18 @@ impl Tpms {
             z += self.layer_height;
         }
         if self.height > EPS && (zs[zs.len() - 1] - self.height).abs() > EPS {
-            zs.push(round(self.height));
+            let last = zs.len() - 1;
+            // The clamped top layer gets whatever Z remains. When that remainder is a sliver —
+            // `cellSize: 12, cellsZ: 1, layerHeight: 1.9999` leaves 0.6 µm — stacking it puts two
+            // layers 0.0006 mm apart, each extruding a full 1.9999 mm bead. Merge it into the layer
+            // below instead: the block still reaches its full height, without a second bead for it.
+            if last > 0
+                && self.height - zs[last] < DEGENERATE_TOP_LAYER_FRACTION * self.layer_height
+            {
+                zs[last] = round(self.height);
+            } else {
+                zs.push(round(self.height));
+            }
         }
         zs
     }
@@ -521,11 +683,20 @@ impl Tpms {
 
     fn build_layer(&self, z_local: f64) -> LayerSlice {
         let segments = self.marching_squares_layer(z_local);
-        let paths: Vec<Path> = stitch_segments(&segments)
+        let stitched: Vec<Path> = stitch_segments(&segments)
             .into_iter()
-            .filter(|p| p.points.len() >= 2 && path_length(&p.points) >= self.min_path_length)
+            .filter(|p| p.points.len() >= 2)
             .collect();
-        layer_slice(z_local, paths)
+        let raw_path_count = stitched.len();
+        let longest_raw_length = stitched
+            .iter()
+            .map(|p| path_length(&p.points))
+            .fold(0.0_f64, f64::max);
+        let paths: Vec<Path> = stitched
+            .into_iter()
+            .filter(|p| path_length(&p.points) >= self.min_path_length)
+            .collect();
+        layer_slice(z_local, paths, raw_path_count, longest_raw_length)
     }
 
     fn marching_squares_layer(&self, z_local: f64) -> Vec<Seg2> {
@@ -645,7 +816,12 @@ fn assert_budget(
     )))
 }
 
-fn layer_slice(z_local: f64, paths: Vec<Path>) -> LayerSlice {
+fn layer_slice(
+    z_local: f64,
+    paths: Vec<Path>,
+    raw_path_count: usize,
+    longest_raw_length: f64,
+) -> LayerSlice {
     let point_count = paths.iter().map(|p| p.points.len()).sum();
     let length = paths.iter().map(|p| path_length(&p.points)).sum();
     LayerSlice {
@@ -653,6 +829,8 @@ fn layer_slice(z_local: f64, paths: Vec<Path>) -> LayerSlice {
         path_count: paths.len(),
         point_count,
         length,
+        raw_path_count,
+        longest_raw_length,
         paths,
     }
 }
@@ -877,7 +1055,7 @@ fn distance(a: Point, b: Point) -> f64 {
 
 /// Build the selected TPMS infill as an L1 op list, returning a structured error for invalid options.
 pub fn try_tpms_ops(options: &TpmsOptions) -> Result<Vec<Op>, TpmsError> {
-    Ok(Tpms::resolve(options)?.emit())
+    Tpms::resolve(options)?.emit()
 }
 
 /// Build the selected TPMS infill as an L1 op list.
@@ -917,6 +1095,479 @@ mod tests {
             cells_z: Some(1),
             ..Default::default()
         }
+    }
+
+    /// Pair each emitted layer's Z with the bead height declared for it, walking the op stream the
+    /// way `resolve` does: `Op::Geometry` is a sticky channel, so every move carries the last one
+    /// seen. Only the first move of each layer is recorded.
+    fn declared_bead_heights_by_layer(ops: &[Op]) -> Vec<(f64, f64)> {
+        let mut height: Option<f64> = None;
+        let mut out: Vec<(f64, f64)> = Vec::new();
+        for op in ops {
+            match op {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => height = Some(*h),
+                Op::Move { z: Some(z), .. } => {
+                    let h = height.expect("a geometry op must precede the first move");
+                    if out.last().is_none_or(|&(prev_z, _)| prev_z != *z) {
+                        out.push((*z, h));
+                    }
+                }
+                _ => {}
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn adaptive_layers_declare_the_bead_height_they_occupy() {
+        // Measured before the fix: one `Op::Geometry { height: 0.4 }` against actual layer gaps of
+        // [0.05, 0.1, 0.2, 0.4] — an 8x over-extrusion on the thinnest layer. `resolve.rs` reads the
+        // declared height as deposited volume (`length × width × height × flow`), so the IR records
+        // a self-consistent lie that no verifier can catch.
+        let options = TpmsOptions {
+            cells_x: Some(1),
+            cells_y: Some(1),
+            cells_z: Some(1),
+            samples_per_cell: Some(8),
+            layer_height: Some(0.4),
+            adaptive: Some(true),
+            adaptive_min_layer_height: Some(0.05),
+            adaptive_max_length_delta: Some(0.01),
+            adaptive_max_point_delta: Some(0.01),
+            ..Default::default()
+        };
+        let ops = try_tpms_ops(&options).expect("valid adaptive options");
+
+        let declared = declared_bead_heights_by_layer(&ops);
+        for w in declared.windows(2) {
+            let (z_prev, _) = w[0];
+            let (z, height) = w[1];
+            let gap = z - z_prev;
+            assert!(
+                (height - gap).abs() <= 1e-9,
+                "layer at z={z} spans {gap} but declares bead height {height}"
+            );
+        }
+        assert!(
+            declared.len() > 2,
+            "the fixture must actually refine: {declared:?}"
+        );
+        // The refinement must really be non-uniform, or the assertion above is vacuous.
+        let gaps: Vec<f64> = declared.windows(2).map(|w| w[1].0 - w[0].0).collect();
+        let (lo, hi) = gaps
+            .iter()
+            .fold((f64::MAX, 0.0_f64), |(lo, hi), &g| (lo.min(g), hi.max(g)));
+        assert!(
+            hi - lo > 1e-6,
+            "the fixture must produce varying layer gaps, got {lo}..{hi}"
+        );
+    }
+
+    #[test]
+    fn a_uniform_non_adaptive_job_declares_one_bead_height() {
+        // The common path must not churn: when the block height is an exact multiple of the layer
+        // height there is no clamped remainder, so a uniform-gap job keeps exactly one
+        // `Op::Geometry`. (`cellSize 12 / layerHeight 0.25` divides exactly; the 0.28 default does
+        // not — that case is `a_clamped_top_layer_declares_the_gap_it_occupies`.)
+        let layer_height = 0.25;
+        let options = TpmsOptions {
+            layer_height: Some(layer_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let geometry: Vec<&Op> = ops
+            .iter()
+            .filter(|o| matches!(o, Op::Geometry { .. }))
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "a uniform non-adaptive job must declare its bead once, got {geometry:?}"
+        );
+        assert!(
+            matches!(geometry[0], Op::Geometry { height: Some(h), .. }
+                if (*h - layer_height).abs() < 1e-12),
+            "the single declaration must be the layer height, got {:?}",
+            geometry[0]
+        );
+    }
+
+    #[test]
+    fn a_clamped_top_layer_declares_the_gap_it_occupies() {
+        // The top base layer is clamped to the block height, so it gets whatever Z remains — and the
+        // per-layer declaration used to be gated on `adaptive`, so a non-adaptive job declared the
+        // full `layerHeight` for it. Measured at the generator defaults (`cellSize 12`,
+        // `layerHeight 0.28`): the top layer spans 0.2 mm and declared 0.28 (1.40x). The residual was
+        // not bounded at 40% — `DEGENERATE_TOP_LAYER_FRACTION` merges only sub-1% remainders, so the
+        // worst surviving case is ~100x, measured at `layerHeight 0.5997` (gap 0.006, declared
+        // 0.5997 — 99.95x).
+        for (layer_height, expected_top_gap) in [(DEFAULT_LAYER_HEIGHT, 0.24), (0.5997, 0.006)] {
+            let options = TpmsOptions {
+                layer_height: Some(layer_height),
+                ..small_cell()
+            };
+            let ops = try_tpms_ops(&options).expect("valid options");
+            let declared = declared_bead_heights_by_layer(&ops);
+            for w in declared.windows(2) {
+                let (z_prev, _) = w[0];
+                let (z, height) = w[1];
+                let gap = round(z - z_prev);
+                assert!(
+                    (height - gap).abs() <= 1e-9,
+                    "layerHeight {layer_height}: layer at z={z} spans {gap} but declares bead \
+                     height {height}"
+                );
+            }
+            // The fixture must really clamp, or the loop above is satisfied by uniformity alone.
+            let (top_z, top_height) = *declared.last().expect("layers were emitted");
+            let (below_z, _) = declared[declared.len() - 2];
+            assert!(
+                (round(top_z - below_z) - expected_top_gap).abs() <= 1e-9,
+                "layerHeight {layer_height}: expected a clamped top gap of {expected_top_gap}, got \
+                 {} (z {below_z} -> {top_z})",
+                top_z - below_z
+            );
+            assert!(
+                (top_height - expected_top_gap).abs() <= 1e-9,
+                "layerHeight {layer_height}: the clamped top layer must declare {expected_top_gap}, \
+                 got {top_height}"
+            );
+            // Exactly one extra declaration: the initial one plus the clamped layer's.
+            let geometry = ops
+                .iter()
+                .filter(|o| matches!(o, Op::Geometry { .. }))
+                .count();
+            assert_eq!(
+                geometry, 2,
+                "layerHeight {layer_height}: a clamped job declares twice, got {geometry}"
+            );
+        }
+    }
+
+    #[test]
+    fn bead_height_is_preserved_as_a_ratio_on_every_layer() {
+        // `beadHeight` is a documented public option and deliberate squish is a legitimate use, but
+        // declaring the raw gap discarded it from the second layer onward: measured
+        // `layerHeight 0.4, beadHeight 0.5, adaptive, adaptiveMinLayerHeight 0.2` emitted declared
+        // heights [0.5, 0.2] — the 1.25x squish silently became 0.5x on every layer after the first.
+        let layer_height = 0.4;
+        let bead_height = 0.5;
+        let squish = bead_height / layer_height;
+        let options = TpmsOptions {
+            samples_per_cell: Some(8),
+            layer_height: Some(layer_height),
+            bead_height: Some(bead_height),
+            adaptive: Some(true),
+            adaptive_min_layer_height: Some(0.2),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let declared = declared_bead_heights_by_layer(&ops);
+        for w in declared.windows(2) {
+            let (z_prev, _) = w[0];
+            let (z, height) = w[1];
+            let gap = round(z - z_prev);
+            assert!(
+                (height - gap * squish).abs() <= 1e-6,
+                "layer at z={z} spans {gap} and must declare {} at a {squish}x squish, got {height}",
+                gap * squish
+            );
+        }
+        // The first layer has no gap beneath it, so it declares the configured bead as-is.
+        assert!(
+            (declared[0].1 - bead_height).abs() <= 1e-12,
+            "the first layer must declare the configured beadHeight, got {}",
+            declared[0].1
+        );
+        // The fixture must actually refine below the nominal layer height, or every declaration is
+        // just `beadHeight` and the ratio is untested.
+        let gaps: Vec<f64> = declared
+            .windows(2)
+            .map(|w| round(w[1].0 - w[0].0))
+            .collect();
+        assert!(
+            gaps.iter().any(|g| *g < layer_height - 1e-9),
+            "the fixture must produce sub-nominal gaps, got {gaps:?}"
+        );
+
+        // The adaptive fixture above is not what a user with a squish setting actually hits: the
+        // common case is a plain job whose top layer is clamped. `layerHeight 0.28,
+        // beadHeight 0.35` (a 1.25x squish) leaves a 0.24 mm top gap, which must declare 0.30 —
+        // the same ratio — rather than 0.24 (the raw gap) or 0.35 (the nominal bead).
+        let options = TpmsOptions {
+            layer_height: Some(0.28),
+            bead_height: Some(0.35),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let clamped: Vec<f64> = ops
+            .iter()
+            .filter_map(|o| match o {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => Some(*h),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            clamped.len(),
+            2,
+            "a clamped squished job declares the nominal bead and the clamped one: {clamped:?}"
+        );
+        assert!(
+            (clamped[0] - 0.35).abs() <= 1e-12 && (clamped[1] - 0.30).abs() <= 1e-12,
+            "layerHeight 0.28 / beadHeight 0.35 must declare [0.35, 0.30], got {clamped:?}"
+        );
+    }
+
+    #[test]
+    fn a_nominal_layer_declares_the_configured_bead_bit_for_bit() {
+        // `declared_bead_height`'s `gap == layer_height` arm is an exactness guard, not a policy
+        // case: without it a nominal layer's declaration goes through `round`, which can land a
+        // hair off the configured `beadHeight` and churn a spurious second `Op::Geometry` on a job
+        // that has only nominal gaps. `layerHeight 0.25` divides `cellSize 12` exactly, so every
+        // gap is nominal; `beadHeight 1/3` is not representable at the 1e-6 quantum, so `round`
+        // yields 0.333333 against a configured 0.3333333333333333. With the guard the job declares
+        // once (3231 ops); replacing it with `false` gives two declarations (3232).
+        let bead_height = 0.3333333333333333_f64;
+        let options = TpmsOptions {
+            layer_height: Some(0.25),
+            bead_height: Some(bead_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let geometry: Vec<f64> = ops
+            .iter()
+            .filter_map(|o| match o {
+                Op::Geometry {
+                    height: Some(h), ..
+                } => Some(*h),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "every gap is nominal, so an unrepresentable beadHeight must still declare once, got \
+             {geometry:?}"
+        );
+        assert_eq!(
+            geometry[0], bead_height,
+            "the declaration must be the configured beadHeight bit for bit, not a rounded copy"
+        );
+    }
+
+    #[test]
+    fn a_layer_after_skipped_layers_declares_the_nominal_bead_not_the_span() {
+        // A layer that traces no contour emits nothing and does not advance `previous_z`, so the
+        // next depositing layer's gap spans every skipped layer. Ungating the declaration made that
+        // the default-path behaviour: measured at `neovius, isoLevel 1.0, layerHeight 0.2`, the
+        // layer at z=7.8 follows fifteen empty ones and spans 3.2 mm, so it declared 3.2 — a 16x
+        // bead, worth +20% of filament through `resolve_checked` (47.2735 -> 56.7330 mm).
+        //
+        // The gap is only a bead height when it is material actually stacked beneath. Nothing was
+        // deposited across the skipped layers, so the nozzle lays one ordinary bead onto whatever
+        // is below rather than a 3.2 mm column into air: such a layer declares the nominal bead.
+        let layer_height = 0.2;
+        let options = TpmsOptions {
+            surface: Some(Surface::Neovius),
+            iso_level: Some(1.0),
+            layer_height: Some(layer_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let declared = declared_bead_heights_by_layer(&ops);
+
+        // The fixture must really skip layers, or every assertion below is satisfied by uniformity.
+        let spanning: Vec<(f64, f64)> = declared
+            .windows(2)
+            .filter(|w| round(w[1].0 - w[0].0) > layer_height + 1e-9)
+            .map(|w| (w[1].0, round(w[1].0 - w[0].0)))
+            .collect();
+        assert_eq!(
+            spanning,
+            vec![(7.8, 3.2)],
+            "the fixture must leave exactly one 3.2 mm gap of skipped layers, got {spanning:?} \
+             from {:?}",
+            declared.iter().map(|(z, _)| *z).collect::<Vec<_>>()
+        );
+
+        // No layer may declare more than the nominal bead: the spanning one declares nominal, and
+        // every other gap is nominal or the clamped remainder.
+        for &(z, height) in &declared {
+            assert!(
+                height <= layer_height + 1e-9,
+                "layer at z={z} declares {height}, above the nominal {layer_height}"
+            );
+        }
+        let (span_z, span_height) = *declared
+            .iter()
+            .find(|(z, _)| *z == 7.8)
+            .expect("the spanning layer is emitted");
+        assert!(
+            (span_height - layer_height).abs() <= 1e-12,
+            "the layer at z={span_z} follows skipped layers and must declare the nominal \
+             {layer_height}, got {span_height}"
+        );
+        // With every gap either nominal or spanned-but-nominal, the job declares exactly once.
+        let geometry: Vec<&Op> = ops
+            .iter()
+            .filter(|o| matches!(o, Op::Geometry { .. }))
+            .collect();
+        assert_eq!(
+            geometry.len(),
+            1,
+            "skipped layers must not add declarations, got {geometry:?}"
+        );
+    }
+
+    #[test]
+    fn the_degenerate_top_layer_threshold_is_one_percent() {
+        // `DEGENERATE_TOP_LAYER_FRACTION` survives H1.6 as a slicing rule (an honest declaration
+        // does not make a degenerate layer emittable), so its boundary is load-bearing and pinned
+        // here from both sides. `layerHeight 2.0` against a block of 12.018 leaves 0.9% — merged;
+        // 12.022 leaves 1.1% — stacked. Anything that moves the constant fails one of the two.
+        let base_zs = |cell_size: f64| {
+            let options = TpmsOptions {
+                cell_size: Some(cell_size),
+                layer_height: Some(2.0),
+                ..small_cell()
+            };
+            Tpms::resolve(&options)
+                .expect("valid options")
+                .base_layer_zs()
+        };
+
+        let merged = base_zs(12.018);
+        assert_eq!(
+            merged.len(),
+            7,
+            "a 0.9% remainder must merge into the layer below, got {merged:?}"
+        );
+        assert!(
+            (merged[6] - 12.018).abs() <= 1e-9 && (merged[5] - 10.0).abs() <= 1e-9,
+            "the merged block must still reach its full height in one 2.018 mm step: {merged:?}"
+        );
+
+        let stacked = base_zs(12.022);
+        assert_eq!(
+            stacked.len(),
+            8,
+            "a 1.1% remainder is a layer, not an artifact, and must be stacked: {stacked:?}"
+        );
+        assert!(
+            (stacked[7] - 12.022).abs() <= 1e-9 && (stacked[6] - 12.0).abs() <= 1e-9,
+            "the stacked top layer must sit 0.022 mm above the one below: {stacked:?}"
+        );
+    }
+
+    #[test]
+    fn a_sliver_top_layer_is_merged_not_stacked() {
+        // `base_layer_zs` unconditionally appended a final layer at exactly `height`. With
+        // cellSize 12, cellsZ 1, layerHeight 1.9999 that put two layers 0.6 µm apart, both
+        // extruding a full 1.9999 mm bead.
+        let layer_height = 1.9999;
+        let options = TpmsOptions {
+            layer_height: Some(layer_height),
+            ..small_cell()
+        };
+        let ops = try_tpms_ops(&options).expect("valid options");
+        let declared = declared_bead_heights_by_layer(&ops);
+        let zs: Vec<f64> = declared.iter().map(|(z, _)| *z).collect();
+        for w in zs.windows(2) {
+            assert!(
+                w[1] - w[0] > 0.01 * layer_height,
+                "layers at {} and {} are a sliver apart: {zs:?}",
+                w[0],
+                w[1]
+            );
+        }
+        // Merging must not shorten the block: the top layer still caps it at z0 + height.
+        assert!(
+            zs.last().is_some_and(|z| (z - (0.2 + 12.0)).abs() < 1e-6),
+            "the block must still reach its full height: {zs:?}"
+        );
+        // Merging makes the absorbing layer taller than nominal, so it must declare the enlarged
+        // gap: 12.0 - 9.9995 = 2.0005, not the 1.9999 it was configured with.
+        let (top_z, top_height) = *declared.last().expect("layers were emitted");
+        let (below_z, _) = declared[declared.len() - 2];
+        assert!(
+            (top_height - round(top_z - below_z)).abs() <= 1e-9
+                && (top_height - 2.0005).abs() <= 1e-9,
+            "the merged top layer spans {} and must declare it, got {top_height}",
+            top_z - below_z
+        );
+    }
+
+    #[test]
+    fn iso_level_outside_the_field_range_is_rejected() {
+        // The gyroid saturates at ±1.5, so nothing at or beyond that traces a contour. Every one of
+        // these used to return `Ok` with 4 ops and no moves: a program that heats the nozzle,
+        // verifies clean, and prints nothing.
+        for iso in [1.5_f64, 5.0, 1e6, -1e6] {
+            let options = TpmsOptions {
+                iso_level: Some(iso),
+                ..small_cell()
+            };
+            let err = try_tpms_ops(&options).expect_err(&format!(
+                "isoLevel {iso} must be refused, not emitted empty"
+            ));
+            assert!(
+                err.to_string().contains("isoLevel"),
+                "message must name the option: {err}"
+            );
+            // A message that blames the wrong option is worse than none: nothing was filtered here,
+            // there were no contours to filter.
+            assert!(
+                !err.to_string().contains("minPathLength"),
+                "message must not blame the filter when no contour existed: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn min_path_length_that_filters_every_path_is_rejected() {
+        let options = TpmsOptions {
+            min_path_length: Some(1e9),
+            ..small_cell()
+        };
+        let err = try_tpms_ops(&options)
+            .expect_err("a minPathLength above the contour scale must be refused");
+        assert!(
+            err.to_string().contains("minPathLength"),
+            "message must name the option that actually dropped the contours: {err}"
+        );
+        // The iso level is fine here — contours were traced and then filtered away.
+        assert!(
+            !err.to_string().contains("isoLevel"),
+            "message must not blame the iso level when contours were traced: {err}"
+        );
+    }
+
+    #[test]
+    fn perimeter_inset_collapsing_the_rectangle_is_rejected() {
+        let options = TpmsOptions {
+            perimeter: Some(true),
+            perimeter_inset: Some(1e9),
+            ..small_cell()
+        };
+        let err = try_tpms_ops(&options)
+            .expect_err("an inset >= width/2 must be refused, not clamped to a 2e-9 rectangle");
+        assert!(
+            err.to_string().contains("perimeterInset"),
+            "message must name the option: {err}"
+        );
+    }
+
+    #[test]
+    fn a_valid_job_still_deposits_material() {
+        let ops = try_tpms_ops(&small_cell()).expect("default options are valid");
+        assert!(
+            ops.iter().any(|o| matches!(o, Op::Move { .. })),
+            "control: valid options must still emit moves"
+        );
     }
 
     #[test]
