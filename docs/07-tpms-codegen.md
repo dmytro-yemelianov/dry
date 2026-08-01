@@ -80,16 +80,37 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
   height without a second bead for it.
 - `adaptive` inserts extra Z slices in intervals that are too tall or change contour topology/length
   sharply. `adaptiveMinLayerHeight`, `adaptiveMaxLayerHeight`, and the delta thresholds bound this pass.
+  `adaptiveMaxDepth` (default 4, maximum 16) bounds the **bisection depth**: refinement halves an
+  interval, so the depth is an exponent, and one base interval carries at most `2^depth - 1` inserted
+  layers.
 - `maxFieldSamples` is a preflight budget for marching-squares work. It rejects runaway combinations of
   large `cellsX/Y/Z`, high `samplesPerCell`, small `layerHeight`, and adaptive slicing before generation
-  starts; set it to `Infinity` only for trusted offline jobs.
+  starts.
+  - **`0` means unlimited**, and is what the TS SDK encodes `Infinity` as (JSON has no `Infinity`
+    literal). Set it for trusted offline jobs only.
+  - **Negative and `NaN` are refused.** They previously disabled the budget silently, which was
+    reachable from the raw-JSON path wasm and PyO3 both use.
+  - The budget charges adaptive slicing by its bisection depth, not by `adaptiveMinLayerHeight`.
+    Charging the minimum over-counted 15× at the defaults, so enabling `adaptive` could refuse a job
+    that was legal without it.
 - `perimeter` adds a rectangular single-wall loop on every layer so the generated contours can be
-  previewed as bounded infill inside a printable volume.
+  previewed as bounded infill inside a printable volume. `perimeterInset` defaults to `beadWidth`, and
+  is refused when it would leave a rectangle narrower than the 1e-6 mm emission grid in either axis —
+  such a "wall" is a run of coincident zero-length extrusions, not geometry. On a block narrower than
+  two beads the default alone trips this, and the message says so rather than naming a knob you did
+  not set.
 - Path stitching is graph-based on quantized segment endpoints, followed by nearest-neighbor path ordering
   to reduce travels.
 
 ## Limits
 
+- **The vacuity check is a structural test, not a magnitude one, and does not promise a *useful*
+  amount of material.** It refuses an option set that traces no surviving contour at all. It does not
+  refuse one that survives by a hair: `split-p` at `isoLevel 1.75` with `minPathLength 0` is accepted
+  and deposits 0.021 mm of extrusion over the whole part — functionally the same "prints nothing"
+  outcome. Tightening the predicate toward a minimum extruded length would make the engine's
+  acceptance depend on a magnitude threshold, which [ADR 0002](adr/0002-numeric-ingress-and-emission-gates.md)
+  §2 deliberately declines to adopt. Stated here rather than left as an implied guarantee.
 - This is contour-sliced single-wall surface printing. It does not yet generate volumetric TPMS sheet
   thickness, solid/skeletal offsets, support strategy, or exact porosity targeting.
 - Ambiguous marching-squares cells are resolved by the cell-center sign. This is deterministic but not a
