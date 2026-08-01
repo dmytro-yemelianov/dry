@@ -24,6 +24,16 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   `verify` reported clean. Jobs relying on a sub-grid "perimeter" were producing nothing.
 
 ### Fixed
+- **TPMS: no surface emits a coincident extruding move any more (H1.4 T3).** The path dedupe compared
+  points against a 1e-7 threshold while emission rounds coordinates to the 1e-6 grid, so points up to
+  five times further apart than the threshold still collapsed onto a single emitted coordinate — an
+  extruding move from a point to itself. Measured at *default* options: `schwarz-d` at
+  `samplesPerCell 8` produced 4, `fischer-koch-y` 3 across two resolutions, `neovius` 1. Deduplication
+  now happens against the grid the points are actually emitted on, so the property holds by
+  construction, and a path whose points all land on one coordinate is dropped rather than emitted as a
+  travel followed by an extruder-on with no move. `conformance/gallery/gyroid_infill.json` is
+  unchanged: the defect is surface- and resolution-dependent and gyroid at the fixture's options never
+  had a collapsing pair.
 - **TPMS: the adaptive field-sample budget no longer over-estimates by 15×.** It charged every base
   interval as if it refined all the way to `adaptiveMinLayerHeight`, ignoring `adaptiveMaxDepth` — the
   actual limiter at the defaults. Measured 2001 layers estimated against 133 actual, so turning

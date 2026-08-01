@@ -1107,10 +1107,47 @@ fn orient_path(path: &Path, cursor: Option<Point>) -> Path {
     }
 }
 
+/// The 1e-6 grid key a point will actually be emitted on. Two points sharing a key are the same
+/// coordinate in the output, whatever their exact `f64` values were.
+fn emitted_key(p: Point, z: f64) -> (i64, i64, i64) {
+    (
+        (p.x * QUANTUM).round() as i64,
+        (p.y * QUANTUM).round() as i64,
+        (z * QUANTUM).round() as i64,
+    )
+}
+
 fn append_path(ops: &mut Vec<Op>, points: &[Point], z: f64) {
-    let Some((start, rest)) = points.split_first() else {
+    // Deduplicate against the grid the points are *emitted* on, not against a separate tolerance.
+    // `dedupe_consecutive` upstream drops points closer than 1e-7, but `move_op` rounds to 1e-6, so
+    // two points up to five times further apart than that threshold still collapse onto one emitted
+    // coordinate — an extruding move from a point to itself. Measured at *default* options on
+    // schwarz-d (4), fischer-koch-y (3) and neovius (1). It is the same root cause as the pocket
+    // generator's `I0 J0` arc: a dedupe threshold that does not match the emission quantum.
+    //
+    // Doing it here rather than by raising the upstream threshold keeps `path_length` — which
+    // `minPathLength` filters on — measuring real geometry, and makes the property hold by
+    // construction for whatever produces the points.
+    let mut keys = Vec::with_capacity(points.len());
+    let mut kept: Vec<Point> = Vec::with_capacity(points.len());
+    for &p in points {
+        let key = emitted_key(p, z);
+        if keys.last() == Some(&key) {
+            continue;
+        }
+        keys.push(key);
+        kept.push(p);
+    }
+
+    // A path whose points all land on one grid coordinate deposits nothing; emitting it would be a
+    // travel followed by an extruder-on with no move — the vacuous shape ADR 0002 §4 refuses.
+    let Some((start, rest)) = kept.split_first() else {
         return;
     };
+    if rest.is_empty() {
+        return;
+    }
+
     ops.push(Op::Extruder { on: false });
     ops.push(move_op(*start, z));
     ops.push(Op::Extruder { on: true });
@@ -1700,6 +1737,71 @@ mod tests {
         };
         let msg = try_tpms_ops(&options).unwrap_err().to_string();
         assert!(msg.contains("Lower minPathLength"), "{msg}");
+    }
+
+    /// No emitted extruding move may start and end on the same coordinate.
+    ///
+    /// The dedupe threshold was 1e-7 while `move_op` rounds to 1e-6, so points up to five times
+    /// further apart than the threshold still collapsed onto one emitted coordinate. Measured at
+    /// **default** options before the fix: schwarz-d spc=8 -> 4, fischer-koch-y spc=4 -> 1 and
+    /// spc=12 -> 2, neovius spc=12 -> 1. Same root cause as the pocket generator's `I0 J0` arc.
+    ///
+    /// This sweeps every surface rather than the one the bug was found on, because the defect was
+    /// surface- and resolution-dependent and a single-fixture test would have missed 9 of 10.
+    #[test]
+    fn no_surface_emits_a_coincident_extruding_move_at_default_options() {
+        const SURFACES: [&str; 10] = [
+            "gyroid",
+            "schwarz-p",
+            "schwarz-d",
+            "iwp",
+            "neovius",
+            "fischer-koch-s",
+            "fischer-koch-y",
+            "frd",
+            "lidinoid",
+            "split-p",
+        ];
+
+        let mut checked = 0;
+        for surface in SURFACES {
+            for spc in [4u32, 8, 12] {
+                let json = format!(
+                    r#"{{"surface":"{surface}","cellSize":12,"cellsX":1,"cellsY":1,"cellsZ":1,
+                        "samplesPerCell":{spc}}}"#
+                );
+                let options: TpmsOptions = serde_json::from_str(&json).unwrap();
+                let Ok(ops) = try_tpms_ops(&options) else {
+                    continue;
+                };
+                checked += 1;
+
+                let mut extruding = false;
+                let mut previous: Option<(i64, i64, i64)> = None;
+                for op in &ops {
+                    match op {
+                        Op::Extruder { on } => extruding = *on,
+                        Op::Move { x, y, z } => {
+                            let key = (
+                                (x.unwrap_or(0.0) * QUANTUM).round() as i64,
+                                (y.unwrap_or(0.0) * QUANTUM).round() as i64,
+                                (z.unwrap_or(0.0) * QUANTUM).round() as i64,
+                            );
+                            assert!(
+                                !(extruding && previous == Some(key)),
+                                "[{surface} spc={spc}] extruding move from {key:?} to itself"
+                            );
+                            previous = Some(key);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        assert!(
+            checked >= 25,
+            "only {checked} configurations were reachable"
+        );
     }
 
     #[test]
