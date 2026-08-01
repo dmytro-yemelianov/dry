@@ -4,13 +4,36 @@
       "rule": "junction-velocity",
       "severity": "warning",
       "segment": 1,
-      "message": "junction Δv 25.0 mm/s exceeds square-corner velocity 20.0"
+      "message": "junction Δv 55.9 mm/s exceeds square-corner velocity 20.0"
     },
     {
       "rule": "peak-acceleration",
       "severity": "error",
-      "segment": 2,
+      "segment": 3,
       "message": "arc centripetal accel 10000 mm/s² exceeds max 500"
     }
-  ]
+  ],
+  "segments_inspected": 4,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "peak-acceleration",
+    "junction-velocity",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "monotonic_z": false,
+    "kinematics": {
+      "max_acceleration_mm_s2": 500.0,
+      "max_junction_velocity_mm_s": 20.0
+    }
+  }
 }

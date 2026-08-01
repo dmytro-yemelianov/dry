@@ -460,6 +460,80 @@ async fn verify_garbage_body_returns_422_input_invalid() {
     assert!(json["error"].is_string());
 }
 
+/// H1.2 narrowed acceptance at the g-code ingress: a word that parses to a non-finite value, and a
+/// negative feedrate, are refused rather than carried into the IR. Each is a `GcodeImportError`
+/// value rather than a panic, so this surface must map them to the same 422 `input-invalid`
+/// envelope every other bad-input path uses.
+///
+/// The distinction that matters is 422 vs 500. A 500 would say "the engine broke" for input the
+/// engine deliberately and correctly refused — it would page an operator, and it would hide a
+/// working guard behind what looks like a crash. ADR 0002 recorded that none of the H1 rejections
+/// had ever been checked from a binding surface (#192); this is that check for this surface.
+#[tokio::test]
+async fn verify_maps_h1_ingress_rejections_to_422_input_invalid() {
+    let _allow = EnvVarGuard::set("ALLOWED_REGISTRY_HOST", LOOPBACK_HOST);
+
+    for (case, gcode) in [
+        // M221 S1e400 parses to +inf; before H1.2 the flow ratio was detected as non-finite and
+        // then returned anyway, so `0.0 * inf = NaN` reached the extrusion of every later segment.
+        (
+            "flow-percent overflow",
+            "G28\nG1 X0 Y0 Z0.2 F1500\nM221 S1e400\nG1 X10 Y0 E1\n",
+        ),
+        (
+            "non-finite coordinate word",
+            "G28\nG1 X0 Y0 Z0.2 F1500\nG1 X1e400 Y0 E1\n",
+        ),
+        (
+            "negative feedrate",
+            "G28\nG1 X0 Y0 Z0.2 F-100\nG1 X10 Y0 E1\n",
+        ),
+    ] {
+        let (status, bytes) =
+            run_via_handler(gcode.as_bytes().to_vec(), fixture_profile_text()).await;
+        let json: Value = serde_json::from_slice(&bytes).unwrap();
+
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "[{case}] a deliberate engine refusal must not surface as a server error: {json}"
+        );
+        assert_eq!(json["stage"], "input-invalid", "[{case}] {json}");
+        assert!(json["error"].is_string(), "[{case}] {json}");
+    }
+}
+
+/// H1.3 gave `Report` three coverage fields, and this surface re-serializes the struct verbatim, so
+/// they must reach an HTTP consumer. Without them a caller cannot tell a clean program from one
+/// that was never inspected — `findings: []` is equally true of both.
+#[tokio::test]
+async fn verify_report_states_the_coverage_behind_its_findings() {
+    let _allow = EnvVarGuard::set("ALLOWED_REGISTRY_HOST", LOOPBACK_HOST);
+    let gcode = std::fs::read(fixture_gcode_path()).unwrap();
+
+    let (status, bytes) = run_via_handler(gcode, fixture_profile_text()).await;
+    let json: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(status, StatusCode::OK, "{json}");
+
+    assert!(
+        json["segments_inspected"].as_u64().is_some_and(|n| n > 0),
+        "a report over a real fixture must say it inspected something: {json}"
+    );
+    let rules: Vec<&str> = json["rules_evaluated"]
+        .as_array()
+        .expect("rules_evaluated present")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    for expected in ["continuity", "segment-length", "arc-length"] {
+        assert!(
+            rules.contains(&expected),
+            "{expected} missing from {rules:?}"
+        );
+    }
+    assert!(json["contracts"].is_object(), "{json}");
+}
+
 /// Fix 2: the body-stream/limit path must return the same 422 `input-invalid` envelope every other
 /// `Stage::InputInvalid` failure uses, not a bare 400. `MAX_BODY_BYTES` is overridden via env var
 /// (read at router-build time in `app()`) so this test can install a tiny cap without recompiling.

@@ -62,11 +62,66 @@ fn base() -> Segment {
     }
 }
 
-fn tp(segments: Vec<Segment>) -> Toolpath {
+/// A non-printing move from `from` to `to`, used to stitch the rule probes below into a real path.
+fn connecting_travel(from: [Option<Length>; 3], to: [Option<Length>; 3]) -> Segment {
+    let d =
+        |k: usize| to[k].unwrap_or(Length::ZERO).value() - from[k].unwrap_or(Length::ZERO).value();
+    let (dx, dy, dz) = (d(0), d(1), d(2));
+    Segment {
+        start: from,
+        end: to,
+        travel: true,
+        speed: Feedrate(6000.0),
+        length: Length::mm((dx * dx + dy * dy + dz * dz).sqrt()),
+        volume: Volume(0.0),
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        ..base()
+    }
+}
+
+/// A toolpath taken exactly as written, with no stitching — for cases whose subject *is* a gap.
+fn tp_raw(segments: Vec<Segment>) -> Toolpath {
     Toolpath {
         version: 0,
         meta: None,
         segments,
+    }
+}
+
+/// Build a toolpath from a list of rule probes, inserting a travel wherever consecutive probes do not
+/// meet.
+///
+/// Each case below is a bag of independent probes spread from `base()`, so every one of them ran
+/// `(0,0,0.2) → (10,0,0.2)`: as written they described a path that teleported 10 mm backwards between
+/// every pair. H1.3's `continuity` rule says so, correctly — the emitter writes endpoints only, so
+/// each of those gaps is a move the machine makes and no rule inspected.
+///
+/// Stitching with travels rather than relocating the probes keeps every probe's own geometry, bead and
+/// channels exactly as the fixture author wrote them, so each case still exercises the rules it was
+/// built for. It also preserves the `kinematics` case's deliberately non-contiguous arc: a travel
+/// resets junction tracking, which is precisely the property that fixture exists to pin.
+fn tp(segments: Vec<Segment>) -> Toolpath {
+    let mut out: Vec<Segment> = Vec::with_capacity(segments.len() * 2);
+    let mut pos: Option<[Option<Length>; 3]> = None;
+    for s in segments {
+        if let Some(p) = pos {
+            let meets = (0..3).all(|k| match (p[k], s.start[k]) {
+                (Some(a), Some(b)) => (a.value() - b.value()).abs() <= 1e-9,
+                _ => true,
+            });
+            if !meets {
+                out.push(connecting_travel(p, s.start));
+            }
+        }
+        pos = Some(s.end);
+        out.push(s);
+    }
+    Toolpath {
+        version: 0,
+        meta: None,
+        segments: out,
     }
 }
 
@@ -136,28 +191,34 @@ fn cases() -> Vec<Case> {
     let contracts_case = Case {
         name: "contracts",
         toolpath: tp(vec![
-            // out of build volume
+            // out of build volume (length matches the endpoints it actually spans)
             Segment {
                 end: [
                     Some(Length::mm(500.0)),
                     Some(Length::mm(0.0)),
                     Some(Length::mm(0.2)),
                 ],
+                length: Length::mm(500.0),
                 ..base()
             },
-            // flow over the ceiling (vol 8 over ~0.1s)
+            // flow over the ceiling (vol 8 over ~0.1s). `filament` is scaled with `volume` so the
+            // feedstock cross-section stays base()'s 0.8/0.33; overriding one without the other made
+            // the probe claim two different filament diameters in one program.
             Segment {
                 speed: Feedrate(6000.0),
                 volume: Volume(8.0),
+                filament: Length::mm(3.3),
                 ..base()
             },
             // feedrate out of range (flow kept under the ceiling)
             Segment {
                 speed: Feedrate(12000.0),
                 volume: Volume(0.4),
+                filament: Length::mm(0.165),
                 ..base()
             },
-            // Z decreases
+            // Z decreases. The 0.2 mm drop makes the move 10.002 mm long, not 10 — a ramp is longer
+            // than its own XY run.
             Segment {
                 start: [
                     Some(Length::mm(0.0)),
@@ -169,6 +230,7 @@ fn cases() -> Vec<Case> {
                     Some(Length::mm(0.0)),
                     Some(Length::mm(0.2)),
                 ],
+                length: Length::mm(100.04_f64.sqrt()),
                 ..base()
             },
             // cold extrusion
@@ -194,12 +256,12 @@ fn cases() -> Vec<Case> {
         toolpath: tp(vec![
             // extrude (clears the retracted flag)
             base(),
-            // long travel without a retraction
+            // long travel without a retraction (50 mm spanned, so 50 mm declared)
             Segment {
                 travel: true,
                 volume: Volume(0.0),
                 filament: Length::mm(0.0),
-                length: Length::mm(40.0),
+                length: Length::mm(50.0),
                 end: [
                     Some(Length::mm(50.0)),
                     Some(Length::mm(0.0)),
@@ -207,13 +269,26 @@ fn cases() -> Vec<Case> {
                 ],
                 ..base()
             },
-            // retraction that is too long
+            // retraction that is too long. Extruder-only, so the machine does not move: start == end.
+            // Inheriting base()'s 0 -> 10 endpoints while declaring length 0 made these probes emit a
+            // 10 mm move at retraction feedrate, which is the same defect H1.3's probe found frozen
+            // into conformance/vectors/retract_unretract.
             Segment {
                 travel: false,
                 volume: Volume(0.0),
                 filament: Length::mm(-8.0),
                 length: Length::mm(0.0),
                 speed: Feedrate(1000.0),
+                start: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
                 ..base()
             },
             // retraction that is too fast
@@ -223,6 +298,16 @@ fn cases() -> Vec<Case> {
                 filament: Length::mm(-2.0),
                 length: Length::mm(0.0),
                 speed: Feedrate(2500.0),
+                start: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
                 ..base()
             },
         ]),
@@ -349,6 +434,87 @@ fn cases() -> Vec<Case> {
         full: true,
     };
 
+    // --- wellformedness: continuity, negative-quantity, bead-volume (H1.3). ---
+    //
+    // Built with `tp_raw` rather than `tp`, because the whole point of the first probe is a gap that
+    // `tp`'s stitching would helpfully repair away.
+    let wellformedness = Case {
+        name: "wellformedness",
+        toolpath: tp_raw(vec![
+            // a normal move, so there is a position to be discontinuous from
+            base(),
+            // starts 10 mm from where the previous move ended: the emitter writes endpoints only, so
+            // the machine cuts straight across the gap and no other rule inspects that path
+            Segment {
+                start: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                ..base()
+            },
+            // a negative length: outside the IR's own type contract, so no contract can excuse it
+            Segment {
+                start: [
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(40.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                length: Length::mm(-10.0),
+                ..base()
+            },
+            // deposits half the material its own bead geometry implies (10 x 0.4 x 0.2 = 0.8 mm³).
+            // `filament` is scaled with it so this probe trips `bead-volume` alone.
+            Segment {
+                start: [
+                    Some(Length::mm(40.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                volume: Volume(0.4),
+                filament: Length::mm(0.165),
+                ..base()
+            },
+            // consumes feedstock at a different cross-section from every earlier move on this tool:
+            // one of the two segments misstates how much material it lays down, and the IR alone
+            // cannot say which. Bead geometry is left consistent so this trips only that rule.
+            Segment {
+                start: [
+                    Some(Length::mm(50.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(60.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                filament: Length::mm(0.5),
+                ..base()
+            },
+        ]),
+        contracts: Contracts {
+            bead_volume_tolerance: Some(0.05),
+            ..Contracts::default()
+        },
+        full: false,
+    };
+
     vec![
         non_finite,
         structural,
@@ -357,6 +523,7 @@ fn cases() -> Vec<Case> {
         first_layer,
         kinematics_case,
         unmodeled,
+        wellformedness,
     ]
 }
 

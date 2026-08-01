@@ -1866,16 +1866,25 @@ fn run(cli: Cli) -> ExitCode {
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else if report.findings.is_empty() {
-                println!("verify: {file} — OK (no findings)");
+                // Say what the pass covered, not just that it found nothing: "OK" over zero segments,
+                // or under the structural rules alone, is a much weaker statement than "OK" under a
+                // full machine profile, and the two used to print identically.
+                println!(
+                    "verify: {file} — OK (no findings; {} segment(s) inspected, {} rule(s) in force)",
+                    report.segments_inspected,
+                    report.rules_evaluated.len()
+                );
             } else {
                 for f in &report.findings {
                     let seg = f.segment.map(|i| format!(" seg {i}")).unwrap_or_default();
                     println!("  [{:?}] {}{seg}: {}", f.severity, f.rule, f.message);
                 }
                 println!(
-                    "verify: {file} — {} finding(s), {} error(s)",
+                    "verify: {file} — {} finding(s), {} error(s); {} segment(s) inspected, {} rule(s) in force",
                     report.findings.len(),
-                    report.error_count()
+                    report.error_count(),
+                    report.segments_inspected,
+                    report.rules_evaluated.len()
                 );
             }
             if report.ok() {

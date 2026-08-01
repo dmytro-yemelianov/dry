@@ -6,5 +6,22 @@
       "segment": 0,
       "message": "verbatim manual G-code is emitted without semantic verification"
     }
-  ]
+  ],
+  "segments_inspected": 1,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ],
+  "contracts": {
+    "monotonic_z": false
+  }
 }

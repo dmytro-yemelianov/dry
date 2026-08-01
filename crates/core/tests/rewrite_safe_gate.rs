@@ -100,10 +100,11 @@ fn safe_rejected_when_arc_fit_breaks_bounds() {
     let input = tp(arc_run_over_top());
     let contracts = bounds_below_arc_top();
     // Sanity: the input itself is in-bounds (all chord endpoints have y ≤ 4.33).
-    assert!(
-        dry_core::verify(&input, &contracts).ok(),
-        "the chord run must start in-bounds"
-    );
+    let baseline = dry_core::verify(&input, &contracts);
+    assert!(baseline.ok(), "the chord run must start in-bounds");
+    // ...and that the in-bounds claim is non-vacuous: `bounds` is the rule this whole gate turns on,
+    // so a contract that silently failed to supply it would make the sanity check meaningless.
+    assert!(baseline.evaluated(dry_core::RuleId::Bounds));
     let result = apply_safe_gated(&input, &contracts);
     assert!(
         !result.accepted,

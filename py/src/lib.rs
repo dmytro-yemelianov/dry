@@ -305,6 +305,9 @@ fn resolve_verify(
             first_layer_height_range,
         )?,
         first_layer_speed_range: build_range("first_layer_speed_range", first_layer_speed_range)?,
+        // `bead-volume` is opt-in and has no kwarg on this entry point yet; the always-on structural
+        // rules apply here regardless.
+        bead_volume_tolerance: None,
         kinematics,
     };
 

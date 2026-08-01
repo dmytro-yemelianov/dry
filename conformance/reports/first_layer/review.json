@@ -1,16 +1,16 @@
 {
   "file": null,
   "profile": null,
-  "segments": 2,
+  "segments": 3,
   "metrics": {
-    "total_time_s": 0.6000000000000001,
+    "total_time_s": 0.7,
     "print_time_s": 0.6000000000000001,
-    "travel_time_s": 0.0,
+    "travel_time_s": 0.1,
     "extruding_distance": 20.0,
-    "travel_distance": 0.0,
+    "travel_distance": 10.0,
     "extruded_volume": 1.6,
     "filament_length": 0.66,
-    "segment_count": 2,
+    "segment_count": 3,
     "max_flow_rate": 4.0
   },
   "findings": [
@@ -24,7 +24,7 @@
     {
       "rule": "first-layer-speed",
       "severity": "warning",
-      "segment": 1,
+      "segment": 2,
       "source_line": null,
       "message": "first layer speed 3000.000 mm/min is outside the range [500.000, 2000.000]"
     }

@@ -1084,6 +1084,22 @@ mod tests {
                 .unwrap_or_else(|e| panic!("{mode:?}: slot must resolve cleanly: {e:?}"));
             let report = crate::verify::verify(&tp, &crate::verify::Contracts::default());
             assert!(report.ok(), "{mode:?}: slot must verify clean: {report:?}");
+            // State what "clean" covers here: this claim is geometric, so name the rules that carry
+            // it rather than leaning on `ok()`, which is also true of a pass that inspected nothing.
+            assert!(report.segments_inspected > 0, "{mode:?}: nothing inspected");
+            for rule in [
+                crate::verify::RuleId::Continuity,
+                crate::verify::RuleId::SegmentLength,
+                crate::verify::RuleId::ArcLength,
+                crate::verify::RuleId::NegativeQuantity,
+                crate::verify::RuleId::FilamentConsistency,
+            ] {
+                assert!(
+                    report.evaluated(rule),
+                    "{mode:?}: {} was not in force",
+                    rule.as_str()
+                );
+            }
             let cut: Vec<_> = tp
                 .segments
                 .iter()

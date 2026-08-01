@@ -318,6 +318,10 @@ pub fn resolve_verify(
             first_layer_height_range,
         )?,
         first_layer_speed_range: build_range("first_layer_speed_range", first_layer_speed_range)?,
+        // `bead-volume` is opt-in and has no argument on this entry point yet; the always-on
+        // structural rules (continuity, segment-length, arc-length, negative-quantity,
+        // filament-consistency) apply here regardless of what is passed.
+        bead_volume_tolerance: None,
         kinematics,
     };
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;

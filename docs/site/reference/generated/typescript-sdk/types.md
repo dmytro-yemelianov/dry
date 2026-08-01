@@ -331,6 +331,9 @@ Verification result containing all findings emitted by enabled rules.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `findings` | `Finding[]` | Yes | Declared in the public API. |
+| `segments_inspected` | `number` | No | How many segments the pass actually inspected. |
+| `rules_evaluated` | `string[]` | No | The rule ids that were in force. |
+| `contracts` | `Record&lt;string, unknown&gt;` | No | The limits the toolpath was checked against. |
 
 
 ## `RESOLVE_PARAMS`

@@ -9,7 +9,7 @@
 #![allow(deprecated)]
 use dry_core::{
     emit, resolve_checked, verify, CncFrame, Contracts, CutMode, EmitParams, FirmwareFlavor,
-    PocketOptions, PocketShape, ResolveParams,
+    PocketOptions, PocketShape, ResolveParams, RuleId,
 };
 
 fn opts() -> PocketOptions {
@@ -67,6 +67,19 @@ fn pocket_emits_a_framed_parseable_rs274_program() {
     let tp = resolve_checked(&design, &ResolveParams::default()).unwrap();
     let report = verify(&tp, &Contracts::default());
     assert!(report.ok(), "clean verify: {report:?}");
+    // A gap in a milling path is a full-depth cut across the part at cutting feed, not a missing
+    // bead, so `continuity` carries more of this acceptance claim than it would on a printer. Pin
+    // the coverage explicitly: `ok()` alone would also hold if nothing had been inspected.
+    assert!(report.segments_inspected > 0, "verify inspected nothing");
+    for rule in [
+        RuleId::Continuity,
+        RuleId::SegmentLength,
+        RuleId::ArcLength,
+        RuleId::NegativeQuantity,
+        RuleId::FilamentConsistency,
+    ] {
+        assert!(report.evaluated(rule), "{} was not in force", rule.as_str());
+    }
 
     let params = EmitParams {
         flavor: FirmwareFlavor::Rs274,

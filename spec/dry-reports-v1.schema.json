@@ -57,12 +57,47 @@
         "max_flow_rate": { "type": "number" }
       }
     },
+    "Contracts": {
+      "description": "The limits a toolpath was verified against. An absent field disables that check.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+        },
+        "max_flow": { "type": "number" },
+        "speed_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "monotonic_z": { "type": "boolean" },
+        "min_temp": { "type": "number" },
+        "max_retraction_distance": { "type": "number" },
+        "max_retraction_speed": { "type": "number" },
+        "max_travel_without_retract": { "type": "number" },
+        "first_layer_height_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "first_layer_speed_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "bead_volume_tolerance": { "type": "number" },
+        "kinematics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_acceleration_mm_s2": { "type": "number" },
+            "max_junction_velocity_mm_s": { "type": "number" }
+          }
+        }
+      }
+    },
     "VerifyReport": {
+      "description": "A verification result. `findings` alone cannot distinguish a clean pass from a vacuous one, so a report also states how much it inspected (`segments_inspected`), which rules were in force (`rules_evaluated`), and against what limits (`contracts`). All three are optional: reports written before Dry 0.5 carry only `findings` and remain valid.",
       "type": "object",
       "additionalProperties": false,
       "required": ["findings"],
       "properties": {
-        "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } }
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } },
+        "segments_inspected": { "type": "integer", "minimum": 0 },
+        "rules_evaluated": { "type": "array", "items": { "type": "string" } },
+        "contracts": { "$ref": "#/$defs/Contracts" }
       }
     },
     "ReviewReport": {

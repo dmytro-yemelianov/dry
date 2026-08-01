@@ -4,7 +4,7 @@
 
 use dry_core::{
     import_gcode, resolve, resolve_checked, verify, Contracts, Design, GcodeImportParams,
-    ResolveParams, SegmentKind, Severity,
+    ResolveParams, RuleId, SegmentKind, Severity,
 };
 
 fn design_json(ops: &str) -> Design {
@@ -28,6 +28,17 @@ fn a_clean_toolpath_has_no_findings() {
         report.findings
     );
     assert_eq!(report.findings.len(), 0);
+    // "Clean" is a claim about coverage as much as about findings: this square is checked by the
+    // full structural set, not merely by the five rules Contracts::default() reached before H1.3.
+    assert_eq!(report.segments_inspected, tp.segments.len());
+    for rule in [
+        RuleId::Continuity,
+        RuleId::SegmentLength,
+        RuleId::NegativeQuantity,
+        RuleId::FilamentConsistency,
+    ] {
+        assert!(report.evaluated(rule), "{} was not in force", rule.as_str());
+    }
 }
 
 // Moves outside the declared build volume are flagged (one finding per offending segment), as Errors.

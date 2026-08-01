@@ -121,10 +121,14 @@ fn specs() -> Vec<Spec> {
         frozen: false,
         emit: Some(EmitParams::default()),
         ir: tp(vec![
+            // A clockwise quarter turn ending where the G3 begins. Starting this arc at (10,0) —
+            // directly below the centre — meant a *clockwise* traverse to (20,10) swept 270 degrees,
+            // 47.12 mm, while the segment declared the 15.71 mm of the quarter arc. The emitted
+            // `G2 I0 J10` cut the long way round and every metric billed the short one.
             Segment {
                 start: [
                     Some(Length::mm(10.0)),
-                    Some(Length::mm(0.0)),
+                    Some(Length::mm(20.0)),
                     Some(Length::mm(0.2)),
                 ],
                 end: [
@@ -215,6 +219,10 @@ fn specs() -> Vec<Spec> {
         frozen: false,
         emit: Some(EmitParams::default()),
         ir: tp(vec![
+            // Extruder-only: the machine does not move, so start == end. Inheriting base()'s
+            // 0 -> 10 endpoints while declaring length 0 made the emitter write
+            // `G1 F1800 X10 Y0 Z0.2 E-2` — a 10 mm move at retraction feedrate — while metrics.json
+            // recorded zero distance travelled.
             Segment {
                 travel: false,
                 speed: Feedrate(1800.0),
@@ -222,6 +230,11 @@ fn specs() -> Vec<Spec> {
                 volume: Volume(0.0),
                 filament: Length::mm(-2.0),
                 kind: SegmentKind::Retract,
+                end: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
                 ..base()
             },
             Segment {
@@ -231,6 +244,11 @@ fn specs() -> Vec<Spec> {
                 volume: Volume(0.0),
                 filament: Length::mm(2.0),
                 kind: SegmentKind::Unretract,
+                end: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
                 ..base()
             },
         ]),
@@ -242,6 +260,9 @@ fn specs() -> Vec<Spec> {
         feature_tags: &["deposit"],
         frozen: false,
         emit: Some(EmitParams::default()),
+        // "Stationary" has to mean it: inheriting base()'s 0 -> 10 endpoints made the emitter write
+        // `G1 F600 X10 Y0 Z0.2 E0.02`, a 10 mm move, while metrics.json claimed zero distance and a
+        // total time of 0.002 s for a move that takes a full second at F600.
         ir: tp(vec![Segment {
             travel: false,
             speed: Feedrate(600.0),
@@ -249,6 +270,11 @@ fn specs() -> Vec<Spec> {
             volume: Volume(0.05),
             filament: Length::mm(0.02),
             kind: SegmentKind::Deposit,
+            end: [
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
             ..base()
         }]),
     });

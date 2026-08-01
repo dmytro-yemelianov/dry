@@ -1,16 +1,16 @@
 {
   "file": null,
   "profile": null,
-  "segments": 3,
+  "segments": 4,
   "metrics": {
-    "total_time_s": 0.6157079632679491,
+    "total_time_s": 0.7186642646778191,
     "print_time_s": 0.6157079632679491,
-    "travel_time_s": 0.0,
+    "travel_time_s": 0.10295630140987001,
     "extruding_distance": 21.5707963267949,
-    "travel_distance": 0.0,
+    "travel_distance": 10.295630140987,
     "extruded_volume": 2.4000000000000004,
     "filament_length": 0.99,
-    "segment_count": 3,
+    "segment_count": 4,
     "max_flow_rate": 50.92958178940652
   },
   "findings": [
@@ -19,12 +19,12 @@
       "severity": "warning",
       "segment": 1,
       "source_line": null,
-      "message": "junction Δv 25.0 mm/s exceeds square-corner velocity 20.0"
+      "message": "junction Δv 55.9 mm/s exceeds square-corner velocity 20.0"
     },
     {
       "rule": "peak-acceleration",
       "severity": "error",
-      "segment": 2,
+      "segment": 3,
       "source_line": null,
       "message": "arc centripetal accel 10000 mm/s² exceeds max 500"
     }

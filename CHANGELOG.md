@@ -9,6 +9,41 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### BREAKING
+- **`verify` gained six rules, five of them always active, so a toolpath that was previously reported
+  clean may now report errors (H1.3).** Each states a property no Dry producer can violate, so the only
+  reports that turn red were already describing a program that does not match its own IR:
+  - `continuity` (error) — a segment must start where the previous one ended, per axis, within
+    `1e-6 mm` absolute below 1 mm and relative above. An undefined (`null`) axis inherits and never
+    counts as a violation; `manual_gcode` resets the tracked position rather than being compared.
+    This matters because the emitter writes endpoints only: a gap produces **no repositioning move**,
+    so the machine cuts a straight line across it along a path no other rule inspects.
+  - `segment-length` (error) — for straight or stationary primitives, declared `length` must equal the
+    distance between the segment's own endpoints, same tolerance. `arc` and `spline` are excluded.
+  - `arc-length` (error) — an arc's `length` must equal `hypot(radius × swept_angle, Δz)`, same
+    tolerance.
+  - `negative-quantity` (error) — `length`, `volume` and `speed` must not be negative, and `width` /
+    `height` must be positive when present. Negative `filament` is a retraction and is excluded.
+  - `filament-consistency` (**warning for one minor release**, then error) — `volume / filament` is the
+    feedstock cross-section and must be constant per `tool`, within relative `1e-6`. It ships as a
+    warning because multi-diameter or multi-material IR is unusual but not ill-formed and no in-tree
+    producer emits any; the promotion to error will be its own breaking entry.
+  - `bead-volume` (error) — opt-in via `process.bead_volume_tolerance`, so it breaks nobody. It is not
+    always active because `coasting` and `arc_fit` both break `volume = length × width × height × flow`
+    by design.
+- **`VerifyReport` gained `segments_inspected`, `rules_evaluated` and `contracts`.** This is additive to
+  `spec/dry-reports-v1.schema.json` — amended in place rather than forked to v2 — and reports written by
+  older engines still validate, because the new properties are not `required`. It is nonetheless
+  breaking for any consumer validating against the *previous* published schema text, since
+  `VerifyReport` is `additionalProperties: false`.
+- **`junction-velocity` now measures the vector velocity change** `‖v_b·t̂_b − v_a·t̂_a‖` across a
+  junction, using the same arc-aware tangents `optimize::adaptive_speed` uses, instead of the scalar
+  feedrate difference `|v_b − v_a|`. The rule id, severity (warning) and gating contract are unchanged.
+  The new measure strictly generalises the old one — with equal tangents it reduces to `|v_b − v_a|` —
+  so nothing that fired before stops firing, but a constant-speed 90° corner now fires where it
+  previously could not. Reported magnitudes change: the kinematics conformance report moves from
+  `Δv 25.0` to `55.9` with an unchanged finding set.
+
 ### Added
 - **CNC pocket/profile → RS-274 (P5.3):** a contour-parallel pocket/profile generator for rectangles
   and circles (`dry_core::pocket_design`/`try_pocket_design`, `dry generate pocket --cut-mode

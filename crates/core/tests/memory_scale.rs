@@ -53,18 +53,34 @@ fn peak_delta() -> usize {
     PEAK.load(Relaxed).saturating_sub(BASELINE.load(Relaxed))
 }
 
+/// X coordinate at the *start* of segment `i`: a 1 mm-per-step triangle wave over `[0, 200]`.
+///
+/// These fixtures measure peak working set, so the coordinates only ever needed to stay bounded —
+/// which they did with `i % 200`. But that wrapped 200 → 0 between consecutive segments, so the path
+/// teleported 200 mm every 200 segments (100 times in the 20k case). Since the emitter writes
+/// endpoints only, each wrap is a 200 mm cut straight across the part, and H1.3's `continuity` rule
+/// now says so. A serpentine keeps the coordinates just as bounded while describing a path a machine
+/// could actually run, and every segment is still exactly 1 mm long.
+fn serpentine_x(i: usize) -> f64 {
+    let phase = i % 400;
+    if phase <= 200 {
+        phase as f64
+    } else {
+        (400 - phase) as f64
+    }
+}
+
 fn big_toolpath(n: usize) -> Toolpath {
     let mut segments = Vec::with_capacity(n);
     for i in 0..n {
-        let x = (i % 200) as f64;
         segments.push(Segment {
             start: [
-                Some(Length::mm(x)),
+                Some(Length::mm(serpentine_x(i))),
                 Some(Length::mm(0.0)),
                 Some(Length::mm(0.2)),
             ],
             end: [
-                Some(Length::mm(x + 1.0)),
+                Some(Length::mm(serpentine_x(i + 1))),
                 Some(Length::mm(0.0)),
                 Some(Length::mm(0.2)),
             ],
@@ -105,12 +121,19 @@ fn streaming_peak(dry1: &[u8]) -> usize {
 }
 
 /// Peak working set when streaming a DRY1 archive through `verify_stream` (input bytes are baseline).
-fn verify_streaming_peak(dry1: &[u8]) -> usize {
+fn verify_streaming_peak(dry1: &[u8], expected_segments: usize) -> usize {
     let cursor = Cursor::new(dry1.to_vec());
     reset_peak();
     let (_v, _m, iter) = decode_any_streaming(cursor).unwrap();
     let report = verify_stream(iter, &Contracts::default()).unwrap();
-    assert!(report.ok());
+    assert!(report.ok(), "findings: {:?}", report.findings);
+    // The subject of this test is peak working set, not soundness — but `ok()` alone is also true of
+    // a pass that inspected nothing, so a decoder that silently yielded zero segments would clear the
+    // memory bar trivially. Pin the coverage the `ok()` above is claiming.
+    assert_eq!(
+        report.segments_inspected, expected_segments,
+        "verify_stream did not see every segment"
+    );
     peak_delta()
 }
 
@@ -145,16 +168,16 @@ impl Iterator for StreamedSegmentSource {
             return None;
         }
         self.remaining -= 1;
-        let x = (self.phase % 200) as f64;
+        let i = self.phase;
         self.phase += 1;
         Some(Ok(Segment {
             start: [
-                Some(Length::mm(x)),
+                Some(Length::mm(serpentine_x(i))),
                 Some(Length::mm(0.0)),
                 Some(Length::mm(0.2)),
             ],
             end: [
-                Some(Length::mm(x + 1.0)),
+                Some(Length::mm(serpentine_x(i + 1))),
                 Some(Length::mm(0.0)),
                 Some(Length::mm(0.2)),
             ],
@@ -188,8 +211,8 @@ fn dry1_streaming_is_bounded_memory() {
 
     let stream_n = streaming_peak(&dry1_n);
     let stream_2n = streaming_peak(&dry1_2n);
-    let verify_n = verify_streaming_peak(&dry1_n);
-    let verify_2n = verify_streaming_peak(&dry1_2n);
+    let verify_n = verify_streaming_peak(&dry1_n, n);
+    let verify_2n = verify_streaming_peak(&dry1_2n, 2 * n);
     let mat_n = materialize_peak(&dry1_n);
     let mat_2n = materialize_peak(&dry1_2n);
 

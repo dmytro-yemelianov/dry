@@ -185,6 +185,12 @@ pub struct ProcessProfile {
     /// Allowed speed range `[min, max]` (mm/min) for the first layer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_layer_speed_range: Option<[f64; 2]>,
+    /// Relative tolerance for the `bead-volume` rule (`volume ≈ length·width·height·flow`).
+    ///
+    /// Opt-in: two `optimize` passes break the identity by design and imported IR takes `volume` from
+    /// `E` while the bead comes from a user-supplied constant, so it cannot be checked always-on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bead_volume_tolerance: Option<f64>,
 }
 
 /// A profile parse or validation error.
@@ -362,6 +368,7 @@ impl Profile {
             max_travel_without_retract: self.process.max_travel_without_retraction,
             first_layer_height_range: self.process.first_layer_height_range,
             first_layer_speed_range: self.process.first_layer_speed_range,
+            bead_volume_tolerance: self.process.bead_volume_tolerance,
             kinematics: self.machine.kinematics.as_ref().map(|k| {
                 crate::verify::KinematicContracts {
                     max_acceleration_mm_s2: k.max_acceleration_mm_s2,
