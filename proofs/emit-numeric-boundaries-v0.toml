@@ -1,0 +1,54 @@
+schema_version = 1
+model = "emit-numeric-boundaries-v0"
+scope = "The binary64 boundary of the tolerance-bearing predicate in crates/core/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the emitted rotary and linear words."
+numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
+
+[[source]]
+path = "crates/core/src/emit/kinematics.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "57dbec64924d317243c4b06db506a293a154a4eb00779a3ad3e15f146447fca0"
+
+# ---------------------------------------------------------------------------------------------
+# The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in
+# `emit/kinematics.rs` is an exact comparison (`magnitude > 0.0`, `is_finite`) or a total function of
+# the normalised direction, so nothing else here carries an epsilon.
+#
+# This inventory is separate from `verify-numeric-boundaries-v0` on purpose: that one declares itself
+# scoped to `verify.rs`, and an emit-side epsilon has a different input domain (a *direction*, not a
+# coordinate) and a different failure mode (wasted rotary motion, not a missed finding).
+# ---------------------------------------------------------------------------------------------
+
+[[boundary]]
+id = "FM1.F64.EMIT.ROTARY.SINGULAR_CONE"
+title = "The C axis is held, not recomputed, where the tool direction stops determining it"
+rust_symbol = "resolve_c"
+source_path = "crates/core/src/emit/kinematics.rs"
+source_anchor = "const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;"
+inputs = ["Segment.orientation", "Kinematics::Ac", "Kinematics::Bc"]
+operation = "On the normalised tool direction [i, j, k]: when hypot(i, j) > 1e-9 the C joint is atan2(j, i) and the emitter's RotaryState records it; otherwise the recorded value is reused unchanged. The resolved C feeds both the rotary word and machine_position, so a line's linear and rotary halves always describe one machine state. RotaryState is seeded at 0 (the identity), which is what a program starting inside the cone emitted before this predicate existed."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "The direction is already normalised by unit_orientation, so hypot(i, j) is the sine of the tilt from +Z and lies in [0, 1] regardless of the caller's vector length.",
+  "The emitter formats rotary words with {v:.6} degrees, so a direction change below 1e-6 degrees cannot appear in the emitted program.",
+  "Ac and Bc are the only models with a C axis; Ab is left untouched and does not advance the state.",
+]
+exclusions = [
+  "Ab's analogous singularity: B = atan2(i, k) is equally undetermined with the tool along ±Y (i = k = 0), and is not addressed here.",
+  "Tilts in (1e-9, ~1e-8], where acos(k) has already collapsed to exactly 0 for a unit direction but C is still recomputed. Closing that needs the tilt recovered as atan2(hypot(i, j), k) rather than acos(k), which changes Ac/Bc more broadly than this predicate.",
+  "Rotary words inside a ManualGcode segment, which the emitter passes through verbatim and which therefore cannot advance or be constrained by the tracked C.",
+  "Whether the held C is reachable on a given machine: the rule states only that the program stops commanding a rotation that carries no direction.",
+]
+next_obligation = "Keep this at or below the tilt whose worst-case substituted direction error, 2*asin(eps), stays under the emitter's 1e-6 degree word resolution. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+  "crates/core/src/emit/gcode.rs",
+  "crates/core/tests/five_axis_singular_cone.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.LIMIT.TOOL_DIRECTION_COMPONENT",
+  "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.SINGULAR_CONE_SIN_TILT",
+  "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.HELD_C_TOOL_DIRECTION_ERROR_RAD",
+]

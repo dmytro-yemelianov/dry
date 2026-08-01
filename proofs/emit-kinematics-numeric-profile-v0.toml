@@ -1,0 +1,92 @@
+schema_version = 1
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
+model = "emit-kinematics-binary64-v0"
+status = "provisional"
+contract = "runtime-enforced"
+rust_toolchain = "1.88.0"
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+# Unlike the verify profile, this one *depends* on the libm contract rather than restating it: the
+# predicate's own input is `hypot`, and the joints it guards are `atan2` and `acos`. The 1-ulp trig
+# assumption is what makes "hypot(i, j) is the sine of the tilt" a usable statement here.
+[libm]
+crate = "libm"
+version = "0.2.16"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+source_tag = "libm-v0.2.16"
+source_commit = "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d"
+trig_accuracy_basis = "upstream-mpfr-test-policy"
+trig_max_ulp = 1
+trig_contract_status = "imported-assumption"
+
+# ---------------------------------------------------------------------------------------------
+# Limits
+# ---------------------------------------------------------------------------------------------
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.LIMIT.TOOL_DIRECTION_COMPONENT"
+quantity = "Absolute value of any component of the tool-direction vector the singular-cone predicate compares"
+lower = -1.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "runtime"
+rationale = """
+Enforced, not assumed: `unit_orientation` normalises every orientation before the predicate sees it \
+and refuses a zero or non-finite vector outright, so each component lies in [-1, 1] by construction \
+and `hypot(i, j)` is exactly the sine of the tilt from +Z. That is what lets the epsilon below be a \
+single *dimensionless* number rather than one that would have to scale with the caller's vector \
+length — the failure this normalisation already fixed once, when `Ac`/`Bc` recovered the tilt as \
+`acos(k)` from an un-normalised vector and disagreed with `Ab` on identical input.
+"""
+boundary_ids = ["FM1.F64.EMIT.ROTARY.SINGULAR_CONE"]
+
+# ---------------------------------------------------------------------------------------------
+# Budgets — SINGULAR_CONE_SIN_TILT is pinned against emit/kinematics.rs by
+# validate_emit_implementation_values so the constant cannot be retuned without updating this file.
+# ---------------------------------------------------------------------------------------------
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.SINGULAR_CONE_SIN_TILT"
+metric = "Sine of the tool tilt at or below which C is treated as undetermined and held"
+unit = "dimensionless"
+status = "policy"
+ceiling = 1e-9
+boundary_ids = ["FM1.F64.EMIT.ROTARY.SINGULAR_CONE"]
+rationale = """
+Chosen so the policy can never change a word the emitted program is able to express: substituting \
+any C for the computed one moves the tool direction by at most `2*asin(hypot(i, j))` radians, which \
+at 1e-9 is 1.15e-7 degrees against a `{v:.6}` word resolution of 1e-6 degrees. Recorded as `policy` \
+rather than `bounded` because it is a threshold on the *input*, not a measured error — the measured \
+error it implies is the budget below. The rejected alternative was testing `i == 0.0 && j == 0.0`: \
+measured on the built engine, an orientation of `[-1e-17, 0, 1]` leaves that test by the strictest \
+possible margin and emitted `C180 B0`, dragging the linear axes from `X20` to `X-20`. A zero test is \
+not a smaller epsilon, it is a broken one. The rejected alternative in the other direction was ~1e-8, \
+where `acos(k)` has already collapsed to 0 for a unit direction; it covers more but its 1.15e-6 \
+degree worst case exceeds what a word can print, so the policy would start altering geometry.
+"""
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+  "crates/core/src/emit/gcode.rs",
+  "crates/core/tests/five_axis_singular_cone.rs",
+]
+next_obligation = "Re-derive if the emitter's word precision changes, or if Ac/Bc stop recovering the tilt with acos(k); the excluded (1e-9, 1e-8] band closes with the latter."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.HELD_C_TOOL_DIRECTION_ERROR_RAD"
+metric = "Worst-case angle between the tool direction a segment carries and the direction its emitted rotary words describe, when C is held"
+unit = "radian"
+status = "bounded"
+ceiling = 2e-9
+boundary_ids = ["FM1.F64.EMIT.ROTARY.SINGULAR_CONE"]
+rationale = """
+The two candidate directions at tilt `h = hypot(i, j)` lie on a circle of radius `h` about ±Z, so the \
+angle between them is at most `2*asin(h)` — attained when the held C is 180 degrees from the computed \
+one. At the cone boundary that is `2*asin(1e-9)`, which rounds to exactly 2e-9 in binary64. Measured \
+rather than only argued: `holding_c_inside_the_cone_stays_below_the_emitted_word_resolution` walks \
+the cone boundary at 10-degree steps with the held C forced to the worst case and checks the measured \
+separation against this ceiling.
+"""
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+]
+next_obligation = "Recompute as 2*asin(eps) whenever SINGULAR_CONE_SIN_TILT changes; the two move together."

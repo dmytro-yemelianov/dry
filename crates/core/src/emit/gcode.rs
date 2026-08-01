@@ -1,3 +1,4 @@
+use super::kinematics::RotaryState;
 use super::{Kinematics, SplineFlatteningIterator};
 use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
@@ -192,6 +193,9 @@ where
     let letters = ['X', 'Y', 'Z'];
 
     let mut prog_pos = [0.0; 3];
+    // The C axis is history-dependent inside the singular cone; see `RotaryState`. Threaded exactly
+    // like `prog_pos` above: advanced once per motion segment, untouched by dwells and manual g-code.
+    let mut rotary_state = RotaryState::default();
 
     let frame = match (p.flavor, &p.cnc_frame) {
         (FirmwareFlavor::Rs274, Some(f)) => Some(*f),
@@ -318,13 +322,24 @@ where
             prev_speed = Some(s.speed);
         }
 
-        // Determine target linear axes (in machine joint coordinates if five_axis is true).
-        let target_axes = if p.five_axis {
-            p.kinematics
-                .machine_position(end_prog, s.orientation)
-                .map_err(crate::codec::CodecError::Other)?
+        // 5-axis: resolve this segment's rotary joints once, advancing the C-axis state. The linear
+        // words below, the rotary words further down and the arc offsets all read these same angles
+        // — a held C that reached only one of them would describe two different machine states on
+        // one line.
+        let joints = if p.five_axis {
+            Some(
+                p.kinematics
+                    .resolve_joints(s.orientation, &mut rotary_state)
+                    .map_err(crate::codec::CodecError::Other)?,
+            )
         } else {
-            end_prog
+            None
+        };
+
+        // Determine target linear axes (in machine joint coordinates if five_axis is true).
+        let target_axes = match joints {
+            Some(joints) => p.kinematics.machine_position(end_prog, joints),
+            None => end_prog,
         };
 
         for (i, &letter) in letters.iter().enumerate() {
@@ -345,11 +360,8 @@ where
 
         // 5-axis: emit the two rotary words (degrees) from the toolframe orientation under the chosen
         // kinematics, each only when it changes. In 3-axis mode the orientation is dropped entirely.
-        if p.five_axis {
-            let rotaries = p
-                .kinematics
-                .rotary_words(s.orientation)
-                .map_err(crate::codec::CodecError::Other)?;
+        if let Some(joints) = joints {
+            let rotaries = p.kinematics.rotary_words(joints);
             let prev = prev_rotary.unwrap_or([f64::NAN, f64::NAN]);
             for (r, &pv) in rotaries.iter().zip(prev.iter()) {
                 if r.value != pv {
@@ -363,17 +375,13 @@ where
             let [cx_prog, cy_prog] = s.centre.unwrap();
             let [sx_prog, sy_prog, sz_prog] = start_prog;
 
-            let (i_val, j_val) = if p.five_axis {
+            let (i_val, j_val) = if let Some(joints) = joints {
                 // I/J is an incremental start→centre offset, so both points must be transformed
                 // under the orientation the arc itself is executed at.
-                let start_mcs = p
-                    .kinematics
-                    .machine_position(start_prog, s.orientation)
-                    .map_err(crate::codec::CodecError::Other)?;
+                let start_mcs = p.kinematics.machine_position(start_prog, joints);
                 let centre_mcs = p
                     .kinematics
-                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], s.orientation)
-                    .map_err(crate::codec::CodecError::Other)?;
+                    .machine_position([cx_prog.value(), cy_prog.value(), sz_prog], joints);
                 (centre_mcs[0] - start_mcs[0], centre_mcs[1] - start_mcs[1])
             } else {
                 (

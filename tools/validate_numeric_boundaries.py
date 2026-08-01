@@ -24,10 +24,12 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 ROOT = Path(__file__).resolve().parents[1]
 FEATURE_MODEL = "feature-numeric-boundaries-v0"
 VERIFY_MODEL = "verify-numeric-boundaries-v0"
+EMIT_MODEL = "emit-numeric-boundaries-v0"
 EXPECTED_SCHEMA_ID = "https://dry.dev/schemas/numeric-boundaries-v1.schema.json"
 EXPECTED_PROFILE_SCHEMA_ID = "https://dry.dev/schemas/numeric-profile-v1.schema.json"
 FEATURE_PROFILE_ID = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 VERIFY_PROFILE_ID = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
+EMIT_PROFILE_ID = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 # Alias: the feature-specific policy tables and implementation check below are written against
 # this name and are not shared with any other model.
 EXPECTED_PROFILE_ID = FEATURE_PROFILE_ID
@@ -140,6 +142,21 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR": "LENGTH_TOLERANCE",
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR": "FILAMENT_RATIO_TOLERANCE",
 }
+EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs"}
+EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
+EMIT_LIMITS = {
+    f"{EMIT_PROFILE_ID}.LIMIT.TOOL_DIRECTION_COMPONENT",
+}
+EMIT_BUDGETS = {
+    f"{EMIT_PROFILE_ID}.BUDGET.SINGULAR_CONE_SIN_TILT",
+    f"{EMIT_PROFILE_ID}.BUDGET.HELD_C_TOOL_DIRECTION_ERROR_RAD",
+}
+# Only the singular-cone threshold is a Rust constant. HELD_C_TOOL_DIRECTION_ERROR_RAD is derived
+# from it (2*asin(eps)) and lives in the profile alone, so there is nothing to pin it against here;
+# the Rust test named in its evidence is what measures it.
+EMIT_IMPLEMENTATION_TOLERANCES = {
+    f"{EMIT_PROFILE_ID}.BUDGET.SINGULAR_CONE_SIN_TILT": "SINGULAR_CONE_SIN_TILT",
+}
 
 
 class ModelSpec(NamedTuple):
@@ -180,6 +197,17 @@ MODELS: dict[str, ModelSpec] = {
         budgets=VERIFY_BUDGETS,
         implementation_check=lambda profile, errors: (
             validate_verify_implementation_values(profile, errors)
+        ),
+    ),
+    EMIT_MODEL: ModelSpec(
+        profile_id=EMIT_PROFILE_ID,
+        profile_path="proofs/emit-kinematics-numeric-profile-v0.toml",
+        sources=EMIT_SOURCES,
+        boundaries=EMIT_BOUNDARIES,
+        limits=EMIT_LIMITS,
+        budgets=EMIT_BUDGETS,
+        implementation_check=lambda profile, errors: (
+            validate_emit_implementation_values(profile, errors)
         ),
     ),
 }
@@ -504,17 +532,21 @@ def validate_boundaries(
 
 
 
-def validate_verify_implementation_values(
-    profile: dict[str, Any], errors: list[str]
+def pin_tolerance_constants(
+    source_path: str,
+    tolerances: dict[str, str],
+    profile: dict[str, Any],
+    errors: list[str],
 ) -> None:
-    """Pin the published tolerance budgets against the constants in `verify.rs`.
+    """Check each published tolerance budget against the `f64` constant it names in Rust.
 
-    This is what makes the profile an assurance artifact rather than a description. ADR 0001 requires
+    This is what makes a profile an assurance artifact rather than a description. ADR 0001 requires
     a tolerance-bearing predicate to *name* its epsilon; naming it is only load-bearing if the name
-    cannot drift from the code. Retuning `CONTINUITY_TOLERANCE_MM` without updating the budget here
-    now fails the formal-assurance job.
+    cannot drift from the code. Retuning the constant without updating the budget fails the
+    formal-assurance job.
     """
-    source = (ROOT / "crates/core/src/verify.rs").read_text(encoding="utf-8")
+    label = Path(source_path).name
+    source = (ROOT / source_path).read_text(encoding="utf-8")
     raw_budgets = profile.get("budget")
     budgets = (
         {
@@ -526,12 +558,12 @@ def validate_verify_implementation_values(
         else {}
     )
 
-    for budget_id, constant in sorted(VERIFY_IMPLEMENTATION_TOLERANCES.items()):
+    for budget_id, constant in sorted(tolerances.items()):
         match = re.search(
             r"const " + re.escape(constant) + r": f64 = ([0-9.eE+-]+);", source
         )
         if match is None:
-            errors.append(f"cannot find {constant} in verify.rs")
+            errors.append(f"cannot find {constant} in {label}")
             continue
         implementation_value = float(match.group(1))
         budget = budgets.get(budget_id)
@@ -545,8 +577,32 @@ def validate_verify_implementation_values(
         if float(ceiling) != implementation_value:
             errors.append(
                 f"{budget_id}: ceiling {ceiling} does not match {constant} "
-                f"= {implementation_value} in verify.rs"
+                f"= {implementation_value} in {label}"
             )
+
+
+def validate_verify_implementation_values(
+    profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Pin the published tolerance budgets against the constants in `verify.rs`."""
+    pin_tolerance_constants(
+        "crates/core/src/verify.rs",
+        VERIFY_IMPLEMENTATION_TOLERANCES,
+        profile,
+        errors,
+    )
+
+
+def validate_emit_implementation_values(
+    profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Pin the singular-cone epsilon against the constant in `emit/kinematics.rs`."""
+    pin_tolerance_constants(
+        "crates/core/src/emit/kinematics.rs",
+        EMIT_IMPLEMENTATION_TOLERANCES,
+        profile,
+        errors,
+    )
 
 
 def validate_expected_ids(
