@@ -134,10 +134,17 @@ fn reference_five_axis_emission_is_parseable_and_importable() {
     assert!(g.iter().any(|line| line.contains("B90")));
     assert!(g.iter().any(|line| line.contains("C90")));
 
+    // "importable" has to mean the orientation survives, or the name outruns the assertions: this
+    // used to import with `relative_e: false` and no kinematic model, and pass while every segment
+    // came back with `orientation: None`. The model is an import input for the same reason it is an
+    // emit input — `B`+`C` words alone do not say which machine wrote them. Round-trip fidelity is
+    // pinned properly in `tests/five_axis_import.rs`; this asserts the reference machine's program
+    // is importable *with its toolframe intact*.
     let imported = import_gcode(
         &g.join("\n"),
         &GcodeImportParams {
             relative_e: false,
+            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
             ..GcodeImportParams::default()
         },
     )
@@ -147,6 +154,19 @@ fn reference_five_axis_emission_is_parseable_and_importable() {
         .segments
         .iter()
         .all(|segment| segment.speed.0 > 0.0));
+    for (segment, expected) in imported
+        .segments
+        .iter()
+        .zip([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    {
+        let [i, j, k] = segment.orientation.expect("imported toolframe orientation");
+        assert!(
+            (i - expected[0]).abs() < 1e-7
+                && (j - expected[1]).abs() < 1e-7
+                && (k - expected[2]).abs() < 1e-7,
+            "expected {expected:?}, imported [{i}, {j}, {k}]"
+        );
+    }
 }
 
 #[test]

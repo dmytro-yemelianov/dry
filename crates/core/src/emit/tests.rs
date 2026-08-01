@@ -622,10 +622,17 @@ fn test_rs274_output_with_five_axis_is_parseable_and_importable() {
     assert!(gcode.contains("B90"));
     assert!(gcode.contains("C90"));
 
+    // The program carries B/C words, so import needs the model they were posted for. Before the
+    // orientation round-trip landed, these two tests passed while the importer silently discarded
+    // every rotary word: the name said "importable" and the behaviour dropped the orientation.
     let imported = import_gcode(
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            kinematics: Some(Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            }),
             ..Default::default()
         },
     )
@@ -732,10 +739,17 @@ fn test_robot_krl_output_with_five_axis_is_parseable_and_importable() {
     assert!(gcode.contains("C0"));
     assert!(gcode.contains("C90"));
 
+    // The program carries B/C words, so import needs the model they were posted for. Before the
+    // orientation round-trip landed, these two tests passed while the importer silently discarded
+    // every rotary word: the name said "importable" and the behaviour dropped the orientation.
     let imported = import_gcode(
         &gcode,
         &GcodeImportParams {
             relative_e: false,
+            kinematics: Some(Kinematics::Bc {
+                pivot_offset: [0.0, 0.0, 0.0],
+                rotary_offset: [0.0, 0.0],
+            }),
             ..Default::default()
         },
     )

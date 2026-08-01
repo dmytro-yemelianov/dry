@@ -2,7 +2,7 @@ use super::{
     parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-use crate::emit::{emit_stream, format_number, EmitParams};
+use crate::emit::{emit_stream, format_number, EmitParams, Kinematics};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use std::f64::consts::{PI, TAU};
@@ -19,6 +19,18 @@ pub struct GcodeImportParams {
     pub line_width: Option<f64>,
     pub layer_height: Option<f64>,
     pub relative_e: bool,
+    /// The rotary kinematics the program was posted for, when it carries rotary words.
+    ///
+    /// `A`/`B`/`C` words do not say which model produced them — `A` plus `B` could be [`Kinematics::Ab`],
+    /// `A` plus `C` could be [`Kinematics::Ac`] — so the model is an import *input*, sourced from a
+    /// profile's `machine.five_axis` exactly as [`EmitParams::kinematics`] is. `None` is the 3-axis
+    /// default: a program with no rotary words imports unchanged, and one that states them is refused
+    /// rather than lifted with its orientation silently dropped (ADR 0002 §4).
+    ///
+    /// **The linear words are read as written.** Under a model whose `machine_position` is not the
+    /// identity, `emit` writes X/Y/Z in machine coordinates, and the importer does not undo that
+    /// transform: only the toolframe orientation round-trips, not the point it is applied at.
+    pub kinematics: Option<Kinematics>,
 }
 
 impl Default for GcodeImportParams {
@@ -29,6 +41,7 @@ impl Default for GcodeImportParams {
             line_width: None,
             layer_height: None,
             relative_e: false,
+            kinematics: None,
         }
     }
 }
@@ -351,6 +364,10 @@ struct LiftState {
     fan: Option<f64>,
     flow: f64,
     tool: Option<u32>,
+    /// Last commanded `A`/`B`/`C` word in degrees, in that order. Rotary words are modal like the
+    /// linear axes: `emit` writes one only when it changes, so a segment's orientation comes from the
+    /// running state, not from the words on its own line.
+    rotary: [Option<f64>; 3],
 }
 
 impl Default for LiftState {
@@ -363,6 +380,7 @@ impl Default for LiftState {
             fan: None,
             flow: 1.0,
             tool: None,
+            rotary: [None, None, None],
         }
     }
 }
@@ -445,9 +463,14 @@ where
         source_line_segments.push(None);
         match &line.record {
             GcodeRecord::Motion(motion) => {
-                if let Some(segment) =
-                    lift_motion(motion, filament_area, width, height, &mut state)?
-                {
+                if let Some(segment) = lift_motion(
+                    motion,
+                    filament_area,
+                    width,
+                    height,
+                    params.kinematics,
+                    &mut state,
+                )? {
                     let segment_idx = segments.len();
                     segments.push(segment);
                     segment_source_lines.push(motion.source_line);
@@ -507,6 +530,14 @@ fn validate_params(params: &GcodeImportParams) -> Result<(), GcodeImportError> {
             "filament_diameter is too large to give a finite cross-section",
         ));
     }
+    // The rotary inverse is infallible *given* finite offsets, exactly as `emit_stream` validates the
+    // model once before the forward map. A NaN offset would otherwise reach the IR as a NaN
+    // orientation, which is the ingress this validates against.
+    if let Some(kinematics) = params.kinematics {
+        kinematics
+            .validate()
+            .map_err(|error| GcodeImportError::new(0, format!("kinematics {error}")))?;
+    }
     for (name, value) in [
         ("line_width", params.line_width),
         ("layer_height", params.layer_height),
@@ -535,11 +566,100 @@ fn unit_factor(units: UnitMode) -> f64 {
     }
 }
 
+/// Apply this line's rotary words to the modal rotary state and read back the toolframe orientation.
+///
+/// The words alone do not identify the machine: `A`+`B` is [`Kinematics::Ab`], but `A`+`C` is
+/// [`Kinematics::Ac`] and `B`+`C` is [`Kinematics::Bc`], and all three write the same letters a
+/// tilting head does. So the model is supplied by the caller and everything else follows from it —
+/// which two letters are axes, and how the pair inverts to a unit vector.
+///
+/// Three ways a program can fail to name an orientation, all refused rather than guessed
+/// (ADR 0002 §4 — the alternative is a segment that confidently claims the wrong tool direction):
+///
+/// - rotary words with no model: nothing says whether `A20 C30` is `Ac` or a machine Dry cannot model;
+/// - a rotary word the model has no axis for (`C` under `Ab`);
+/// - only one of the model's two axes ever commanded — the other is at whatever the machine was left
+///   at, which the program does not record. A partially known pose is not a direction vector, and
+///   there is no "unknown" slot in `orientation` to put it in (unlike a linear axis, which the IR
+///   carries as `None`).
+///
+/// A program with no rotary words at all is the 3-axis case: `None`, the identity toolframe.
+fn lift_orientation(
+    motion: &super::MotionRecord,
+    kinematics: Option<Kinematics>,
+    state: &mut LiftState,
+) -> Result<Option<[f64; 3]>, GcodeImportError> {
+    const LETTERS: [char; 3] = ['A', 'B', 'C'];
+    let words = [motion.a, motion.b, motion.c];
+    for (slot, value) in words.iter().enumerate() {
+        if let Some(value) = value {
+            state.rotary[slot] = Some(*value);
+        }
+    }
+    if state.rotary.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    let seen = || {
+        LETTERS
+            .iter()
+            .zip(state.rotary)
+            .filter(|(_, value)| value.is_some())
+            .map(|(letter, _)| letter.to_string())
+            .collect::<Vec<_>>()
+            .join("/")
+    };
+    let Some(kinematics) = kinematics else {
+        return Err(GcodeImportError::new(
+            motion.source_line,
+            format!(
+                "rotary word {} carries a toolframe orientation, but no kinematic model was supplied \
+                 to read it with: set GcodeImportParams::kinematics (a profile's machine.five_axis)",
+                seen()
+            ),
+        ));
+    };
+    let axes = kinematics.rotary_letters();
+    // A word the model has no axis for is diagnosed first: it says the *model* is wrong for this
+    // program, which subsumes the missing-axis report the same line would otherwise produce.
+    for (slot, letter) in LETTERS.iter().enumerate() {
+        if let (false, Some(value)) = (axes.contains(letter), state.rotary[slot]) {
+            return Err(GcodeImportError::new(
+                motion.source_line,
+                format!(
+                    "rotary word {letter}{value} is not an axis of the {}{} kinematic model",
+                    axes[0], axes[1]
+                ),
+            ));
+        }
+    }
+    let mut values = [0.0; 2];
+    for (index, letter) in axes.iter().enumerate() {
+        let slot = LETTERS
+            .iter()
+            .position(|candidate| candidate == letter)
+            .expect("a model's rotary axes are A, B or C");
+        values[index] = state.rotary[slot].ok_or_else(|| {
+            GcodeImportError::new(
+                motion.source_line,
+                format!(
+                    "the program states rotary word {} but never {letter}, so the {}{} pose is \
+                     only half known",
+                    seen(),
+                    axes[0],
+                    axes[1]
+                ),
+            )
+        })?;
+    }
+    Ok(Some(kinematics.orientation_from_rotary_words(values)))
+}
+
 fn lift_motion(
     motion: &super::MotionRecord,
     filament_area: Area,
     width: Option<Length>,
     height: Option<Length>,
+    kinematics: Option<Kinematics>,
     state: &mut LiftState,
 ) -> Result<Option<Segment>, GcodeImportError> {
     let factor = unit_factor(motion.state.units);
@@ -571,6 +691,9 @@ fn lift_motion(
     // it failed the `FM1.SIMULATE_METRICS` refinement corpus. See `engine::segment_motion_time` and
     // the pin in `crates/core/tests/ingress_validation.rs`.
     let speed = Feedrate(state.feedrate.unwrap_or(0.0));
+    // Ahead of the dwell branch: a rotary word on any motion line updates the modal state, and a
+    // dwell carries the machine's pose the same way it already carries speed/temperature/fan/tool.
+    let orientation = lift_orientation(motion, kinematics, state)?;
 
     if motion.mode == MotionMode::Dwell {
         let dwell_s = motion.s.or_else(|| motion.p.map(|p| p / 1000.0));
@@ -597,7 +720,7 @@ fn lift_motion(
             tool: state.tool,
             dwell_s,
             manual_gcode: None,
-            orientation: None,
+            orientation,
             control_points: None,
         }));
     }
@@ -677,7 +800,7 @@ fn lift_motion(
         tool: state.tool,
         dwell_s: None,
         manual_gcode: None,
-        orientation: None,
+        orientation,
         control_points: None,
     }))
 }

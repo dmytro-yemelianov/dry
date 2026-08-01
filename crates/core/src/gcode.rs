@@ -14,6 +14,20 @@ pub use lift::{
 
 use std::io::{BufRead, BufReader, Read};
 
+// KRL command tokens (`PTP`/`LIN`/`CIRC`/`WAIT`) are lifted into single-letter pseudo-words so the
+// classifier can treat them like G-codes.
+//
+// `CIRC`'s marker is deliberately **not** a word letter: it used to be `'A'`, which is also the
+// rotary word of a 5-axis program, so every `G1 X.. A.. B..` line was classified as a clockwise arc
+// and then refused by the importer as an arc with no I/J centre. `@` cannot come from a source line
+// — [`parse_words`] only ever pushes ASCII-uppercase letters — so the two channels cannot collide.
+// `Q`/`L`/`W` are real RS-274 word letters and carry the same latent collision; leaving them is a
+// deliberate scope call, not a claim that they are safe.
+const ROBOT_PT: char = 'Q';
+const ROBOT_LIN: char = 'L';
+const ROBOT_CIRC: char = '@';
+const ROBOT_WAIT: char = 'W';
+
 /// Linear-axis distance mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DistanceMode {
@@ -105,6 +119,12 @@ pub struct MotionRecord {
     pub i: Option<f64>,
     pub j: Option<f64>,
     pub k: Option<f64>,
+    /// Rotary words in **degrees**, as written. Which two of them the machine actually has — and how
+    /// they map back to a toolframe orientation — is a property of the kinematic model, not of the
+    /// program: see [`GcodeImportParams::kinematics`].
+    pub a: Option<f64>,
+    pub b: Option<f64>,
+    pub c: Option<f64>,
     pub f: Option<f64>,
     pub s: Option<f64>,
     pub p: Option<f64>,
@@ -115,10 +135,16 @@ pub struct MotionRecord {
 pub enum GcodeRecord {
     Empty,
     Comment,
-    Motion(MotionRecord),
+    /// Boxed because `MotionRecord` is far larger than every sibling variant, and this enum is
+    /// collected into a `Vec` with one entry per source line. Clippy's `large_enum_variant` fires
+    /// otherwise, and this repo's discipline is to fix that structurally rather than `#[allow]` it.
+    Motion(Box<MotionRecord>),
     State(StateCommand),
     Process(ProcessCommand),
-    Other { letter: char, value: f64 },
+    Other {
+        letter: char,
+        value: f64,
+    },
 }
 
 /// A parsed source line. `raw` is preserved without the trailing newline.
@@ -266,11 +292,6 @@ fn strip_checksum(code: &str) -> &str {
 }
 
 fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodeParseError> {
-    const ROBOT_PT: char = 'Q';
-    const ROBOT_LIN: char = 'L';
-    const ROBOT_CIRC: char = 'A';
-    const ROBOT_WAIT: char = 'W';
-
     let mut words = Vec::new();
     let mut i = 0;
     let chars: Vec<(usize, char)> = code.char_indices().collect();
@@ -448,11 +469,6 @@ fn classify_record(
     words: &[GcodeWord],
     state: &mut GcodeModalState,
 ) -> GcodeRecord {
-    const ROBOT_PT: char = 'Q';
-    const ROBOT_LIN: char = 'L';
-    const ROBOT_CIRC: char = 'A';
-    const ROBOT_WAIT: char = 'W';
-
     if words.is_empty() {
         return GcodeRecord::Empty;
     }
@@ -563,7 +579,11 @@ fn classify_record(
         state.feedrate = Some(feedrate);
     }
 
-    let has_axis_motion_words = ['X', 'Y', 'Z', 'E', 'I', 'J', 'K']
+    // A rotary word is motion: on a 5-axis machine `A30` after a `G1` re-points the tool without
+    // moving a linear axis. Leaving `A`/`B`/`C` out here would not merely drop that line — the
+    // importer carries the rotary words modally, so a dropped one would leave every *later* segment
+    // claiming the previous orientation.
+    let has_axis_motion_words = ['X', 'Y', 'Z', 'E', 'I', 'J', 'K', 'A', 'B', 'C']
         .into_iter()
         .any(|letter| word_value(words, letter).is_some());
     let has_dwell_words = explicit_motion == Some(MotionMode::Dwell)
@@ -590,8 +610,19 @@ fn classify_record(
         } else {
             word_value(words, 'J')
         };
+        // On a KRL `CIRC` line `C`/`D` are the arc centre offsets, already consumed as `i`/`j` above;
+        // reading `C` as a rotary word there would spend the same word twice.
+        let (a, b, c) = if robot_arc {
+            (None, None, None)
+        } else {
+            (
+                word_value(words, 'A'),
+                word_value(words, 'B'),
+                word_value(words, 'C'),
+            )
+        };
 
-        return GcodeRecord::Motion(MotionRecord {
+        return GcodeRecord::Motion(Box::new(MotionRecord {
             source_line,
             mode,
             state: *state,
@@ -602,10 +633,13 @@ fn classify_record(
             i,
             j,
             k: word_value(words, 'K'),
+            a,
+            b,
+            c,
             f,
             s: word_value(words, 'S'),
             p: word_value(words, 'P'),
-        });
+        }));
     }
 
     if let Some(command) = state_record {
