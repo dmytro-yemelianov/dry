@@ -9,7 +9,7 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) a
 - Registered claims: **39**.
 - Abstract status: `proved` 39.
 - Numeric status: `bounded` 12, `pending` 2, `not-applicable` 25.
-- Implementation-refinement status: `checked` 13, `pending` 18, `not-applicable` 8.
+- Implementation-refinement status: `checked` 13, `pending` 19, `not-applicable` 7.
 - Implementation-scoped claims meeting all registry gates: **7/7**.
 - Normative clause links: **39/39** claims across **12** stable clauses.
 
@@ -54,7 +54,7 @@ The Lean release gate is reproducible with `lake build --wfail`. The job count p
 | `FM1.DEPOSITION.MODEL.SEMANTICS` | [`DRY.DEPOSITION.MATH_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.SIMULATE_METRICS.MODEL.SEMANTICS` | [`DRY.REPORT.METRICS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.SIMULATE_METRICS.NATIVE.REFINE.CORPUS` | [`DRY.REPORT.METRICS_V1`](../../docs/assurance/02-normative-clauses.md) | `implementation` | [`Dry.Tests.SimulateMetricsFixtures.simulateMetricsFixtureChecks`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean) | `simulate-metrics-refinement-v0` | `observational` | `proved` | `not-applicable` | `checked` |
-| `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` | [`DRY.REPORT.VERIFIER_RULES_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` | [`DRY.REPORT.VERIFIER_RULES_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `pending` |
 | `FM1.OPTIMIZATION.MODEL.SEMANTICS` | [`DRY.OPTIMIZATION.OBSERVATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.CODEC_INVERSE.MODEL.SEMANTICS` | [`DRY.IR.CODEC_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.CAPABILITY.MODEL.SEMANTICS` | [`DRY.CAPABILITY.MATCHING_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
@@ -68,7 +68,7 @@ These are derived from explicit `pending` statuses; they are not failures of the
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
 
-### Rust refinement pending (18)
+### Rust refinement pending (19)
 
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
@@ -88,6 +88,7 @@ These are derived from explicit `pending` statuses; they are not failures of the
 - `FM1.DIMENSION.COMMUTATIVE` — Dimension composition is commutative
 - `FM1.DIMENSION.DEPOSITION` — The deposition volume equation is dimensionally valid
 - `FM1.UNIT.NORMALIZE_CONVERT` — Converting units and then normalizing preserves canonical value
+- `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` — The abstract exact-rational core verifier predicates imply their modeled inequalities
 
 ## Claim evidence and boundaries
 
@@ -1011,7 +1012,7 @@ Native Rust simulate over exact-rational segment traces agrees with Lean simulat
 The abstract exact-rational core verifier predicates imply their modeled inequalities
 
 - Scope/relation: `abstract` / `exact`.
-- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `pending`.
 - Spec profile: `v0.4`; `Executable Lean verifier predicate soundness semantics` → `Lean proof model for verifier rule soundness`.
 - Normative clause: `DRY.REPORT.VERIFIER_RULES_V1` — Verifier rules are explicit, located, and coverage-aware.
 - Numeric domain: Exact rational bounds, speeds, flows, and Z elevations.
@@ -1029,6 +1030,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 - Refinement of these abstract predicates against crates/core/src/verify.rs.
 - Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.
 - Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.
+- The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified.
 
 ### `FM1.OPTIMIZATION.MODEL.SEMANTICS`
 

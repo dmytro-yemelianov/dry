@@ -49,8 +49,16 @@ def zeroMetrics : Metrics :=
 def maxRat (a b : ℚ) : ℚ :=
   if a ≤ b then b else a
 
+-- `≤ 0`, not `= 0`: at `speed = -60` the old guard fell through to the `else` branch and produced a
+-- **negative duration**, which then flowed into `totalTime`. Rust rejects a negative feedrate at
+-- ingress (H1.2), so no native run can reach that branch — but the model defined it, which is the
+-- divergence H1.5 recorded (#191). Widening the guard removes the branch rather than leaving the two
+-- sides disagreeing about a case only one of them admits.
+--
+-- No-op for the existing refinement corpus: its speeds are 60, 30, 0, 30, 0, 30 and {40, 25, 20, 0},
+-- with no negative case, so `FM1.SIMULATE_METRICS.NATIVE.REFINE.CORPUS` is untouched by the change.
 def segmentMotionTime (seg : Segment) : Option ℚ :=
-  if seg.speed = 0 then none
+  if seg.speed ≤ 0 then none
   else if seg.length > 0 then
     some (seg.length / seg.speed * 60)
   else if seg.filament ≠ 0 then
