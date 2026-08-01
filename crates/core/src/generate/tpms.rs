@@ -641,6 +641,12 @@ impl Tpms {
     ///
     /// A perimeter deposits material on its own, so it exempts the program from the check.
     fn reject_vacuous(&self, slices: &[LayerSlice]) -> Result<(), TpmsError> {
+        // Scope, stated so it is not over-credited (#189): this is a *structural* test — does any
+        // contour survive — not a magnitude one. It does not promise a useful amount of material:
+        // `split-p` at `isoLevel 1.75` with `minPathLength 0` passes here and deposits 0.021 mm over
+        // the whole part. Requiring a minimum extruded length would make acceptance depend on a
+        // magnitude threshold, which ADR 0002 §2 declines to adopt. Documented in `docs/07`.
+        //
         // The perimeter exemption is conditional on the rectangle actually having length. It used to
         // short-circuit on `self.perimeter` alone, so a perimeter of literally zero length exempted
         // the whole program from the vacuity check (#189). The span gate in `resolve` now refuses

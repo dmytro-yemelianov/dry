@@ -104,6 +104,13 @@ const ops = tpmsOps({ surface: 'frd', cellsX: 1, cellsY: 1, cellsZ: 1 });
 
 ## Limits
 
+- **The vacuity check is a structural test, not a magnitude one, and does not promise a *useful*
+  amount of material.** It refuses an option set that traces no surviving contour at all. It does not
+  refuse one that survives by a hair: `split-p` at `isoLevel 1.75` with `minPathLength 0` is accepted
+  and deposits 0.021 mm of extrusion over the whole part — functionally the same "prints nothing"
+  outcome. Tightening the predicate toward a minimum extruded length would make the engine's
+  acceptance depend on a magnitude threshold, which [ADR 0002](adr/0002-numeric-ingress-and-emission-gates.md)
+  §2 deliberately declines to adopt. Stated here rather than left as an implied guarantee.
 - This is contour-sliced single-wall surface printing. It does not yet generate volumetric TPMS sheet
   thickness, solid/skeletal offsets, support strategy, or exact porosity targeting.
 - Ambiguous marching-squares cells are resolved by the cell-center sign. This is deterministic but not a
