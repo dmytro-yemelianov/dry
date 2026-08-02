@@ -145,6 +145,14 @@ enum PrinterCmd {
 }
 
 #[derive(Subcommand)]
+enum LicenseAction {
+    /// Verify and store a license token (argument: token string or a file containing it).
+    Activate { token_or_file: String },
+    /// Show the active license, its tier and expiry state.
+    Status,
+}
+
+#[derive(Subcommand)]
 enum AuthCmd {
     /// Sign in with Dry Cloud's device authorization flow.
     Login,
@@ -227,6 +235,11 @@ enum GenerateCmd {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Manage the commercial license (activate a token, show status).
+    License {
+        #[command(subcommand)]
+        action: LicenseAction,
+    },
     /// Authenticate with Dry Cloud.
     Auth {
         #[command(subcommand)]
@@ -667,6 +680,135 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Production license-signing keys, installed by the release key ceremony. The placeholder
+/// `prod-1` entry of all-zero bytes never verifies a real signature, which is the correct
+/// behavior until that ceremony runs (see the release runbook).
+const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[("prod-1", [0u8; 32])];
+
+/// The verification keys `resolve_license`/`activate` accept: production keys always, plus the
+/// committed TEST key when running a debug build or when explicitly opted in via
+/// `DRY_LICENSE_ALLOW_TEST_KEY=1` — keeping release binaries from trusting it silently.
+fn license_keys() -> Vec<(&'static str, [u8; 32])> {
+    let mut keys: Vec<(&'static str, [u8; 32])> = PRODUCTION_KEYS.to_vec();
+    let allow_test = cfg!(debug_assertions)
+        || std::env::var("DRY_LICENSE_ALLOW_TEST_KEY").is_ok_and(|v| v == "1");
+    if allow_test {
+        keys.push((dry_license::TEST_KEY_ID, dry_license::TEST_VERIFYING_KEY));
+    }
+    keys
+}
+
+/// Where an activated license token is stored. `XDG_CONFIG_HOME` is honored first — this is
+/// also what makes CLI tests hermetic on macOS, where `dirs::config_dir()` ignores that
+/// variable — falling back to the platform config dir, then a temp dir as a last resort.
+fn license_config_path() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(dirs::config_dir)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("dry").join("license.token")
+}
+
+fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// The result of resolving a license from the environment/config file: either a verified
+/// license (possibly in its grace period) or evaluation mode, optionally with a reason.
+enum LicenseResolution {
+    Licensed(dry_license::VerifiedLicense),
+    Eval { warning: Option<String> },
+}
+
+/// Resolve the active license: `DRY_LICENSE` env var first, then the stored token file at
+/// [`license_config_path`]. Never exits — any parse/signature/expiry problem falls back to
+/// evaluation mode with an explanatory warning, per the spec's "never a hard exit from a
+/// report command" rule.
+fn resolve_license() -> LicenseResolution {
+    let token = match std::env::var("DRY_LICENSE") {
+        Ok(t) if !t.trim().is_empty() => Some(t),
+        _ => std::fs::read_to_string(license_config_path()).ok(),
+    };
+    let Some(token) = token else {
+        return LicenseResolution::Eval { warning: None };
+    };
+    let keys = license_keys();
+    match dry_license::verify_token(&token, &keys, now_unix()) {
+        Ok(v) => match v.state {
+            dry_license::LicenseState::Expired => LicenseResolution::Eval {
+                warning: Some(format!(
+                    "license for {} expired {} (past the 14-day grace) — running in evaluation mode",
+                    v.payload.licensee, v.payload.expires
+                )),
+            },
+            _ => LicenseResolution::Licensed(v),
+        },
+        Err(e) => LicenseResolution::Eval {
+            warning: Some(format!("{e} — running in evaluation mode")),
+        },
+    }
+}
+
+fn run_license(action: LicenseAction) -> ExitCode {
+    match action {
+        LicenseAction::Activate { token_or_file } => {
+            let token = match std::fs::read_to_string(&token_or_file) {
+                Ok(contents) => contents,
+                Err(_) => token_or_file,
+            };
+            let token = token.trim();
+            let keys = license_keys();
+            let verified = dry_license::verify_token(token, &keys, now_unix())
+                .unwrap_or_else(|e| die(e.to_string()));
+            let path = license_config_path();
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .unwrap_or_else(|e| die(format!("cannot create {}: {e}", parent.display())));
+            }
+            fs::write(&path, token)
+                .unwrap_or_else(|e| die(format!("cannot write {}: {e}", path.display())));
+            println!(
+                "activated: {} ({}) expires {}",
+                verified.payload.licensee, verified.payload.tier, verified.payload.expires
+            );
+            ExitCode::SUCCESS
+        }
+        LicenseAction::Status => {
+            match resolve_license() {
+                LicenseResolution::Licensed(v) => {
+                    println!("licensee:  {}", v.payload.licensee);
+                    println!("tier:      {}", v.payload.tier);
+                    println!("machines:  {}", v.payload.machines);
+                    println!("expires:   {}", v.payload.expires);
+                    match v.state {
+                        dry_license::LicenseState::Grace { days_left } => {
+                            eprintln!(
+                                "warning: license is in its grace period ({days_left} day(s) left)"
+                            );
+                            println!("state:     grace ({days_left} day(s) left)");
+                        }
+                        dry_license::LicenseState::Valid => println!("state:     valid"),
+                        dry_license::LicenseState::Expired => unreachable!(
+                            "resolve_license() maps Expired to LicenseResolution::Eval"
+                        ),
+                    }
+                }
+                LicenseResolution::Eval { warning } => {
+                    if let Some(w) = &warning {
+                        eprintln!("warning: {w}");
+                    }
+                    println!("mode:      evaluation");
+                    println!("           see https://dry-public-docs.pages.dev/pricing to purchase a license");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
 /// Remove a leftover `.dry-partial` temp file. Never fails the command over it — the program's own
 /// success/failure was already decided — but a surviving temp file is worth a warning rather than
 /// silent disposal, since e.g. a permissions problem removing it would otherwise vanish unremarked.
@@ -841,6 +983,7 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 
 fn run(cli: Cli) -> ExitCode {
     match cli.cmd {
+        Cmd::License { action } => run_license(action),
         Cmd::Auth { command, cloud_url } => {
             let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
             match command {

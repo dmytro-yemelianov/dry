@@ -19,6 +19,7 @@ moonraker = ["dep:dry-moonraker"]
 
 [dependencies]
 dry-core = { path = "../core" }
+dry-license = { path = "../license" }
 dry-llm = { path = "../llm", optional = true }
 dry-moonraker = { path = "../moonraker", optional = true }
 clap = { version = "4", features = ["derive"] }

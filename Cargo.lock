@@ -355,6 +355,7 @@ dependencies = [
  "clap",
  "dirs",
  "dry-core",
+ "dry-license",
  "dry-llm",
  "dry-moonraker",
  "serde_json",
