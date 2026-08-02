@@ -41,16 +41,25 @@ fn resolve_checked_rejects_invalid_physical_inputs() {
 ///
 /// This does not hold for free. `serde_json`'s default float parser is accurate only to within 1 ULP;
 /// the bit-exact one is behind its `float_roundtrip` feature, which `crates/core/Cargo.toml` therefore
-/// enables. Each value below is a real `resolve` output (the segment lengths and deposited volumes of
-/// `conformance/vectors/five_axis_drape`) and each one decoded to the wrong neighbouring double before
-/// that feature was turned on — so if the feature is ever dropped, this fires here rather than as an
-/// unexplained corpus drift.
+/// enables. Every value below is a real `resolve` output (a segment length or deposited volume of
+/// `conformance/vectors/five_axis_drape`), and **three of them** — the first three — decode to the
+/// wrong neighbouring double on a stock `serde_json`; the last two are already exact there and are
+/// kept as the controls that show the first three are not an artefact of how the case is built.
+///
+/// The measurement, run against a scratch crate on default-feature `serde_json` 1: of the 70 numeric
+/// literals in `input.json` (30 of them non-integral), exactly these three misparse —
+/// `1.5484185480676727` → `…8700` (exact `…86ff`), `11.045361017187261` → `…aa47` (exact `…aa48`),
+/// `1.2727922061357855` → `…4f6c` (exact `…4f6b`). One misparsed literal is enough to break the
+/// vector, so the feature is required, not an optimisation — and if it is ever dropped, this fires
+/// here rather than as an unexplained corpus drift.
 #[test]
 fn json_floats_round_trip_bit_exactly() {
     for value in [
+        // misparsed without `float_roundtrip`
         11.045361017187261_f64,
         1.5484185480676727,
         1.2727922061357855,
+        // already exact without it — controls, not witnesses
         8.602325267042627,
         0.8265829478963671,
     ] {

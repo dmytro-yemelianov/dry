@@ -14,8 +14,9 @@
 #![allow(deprecated)]
 
 use dry_core::{
-    emit, resolve_checked, simulate, verify, Contracts, Design, EmitParams, Feedrate, Length, Meta,
-    Op, ResolveParams, Segment, SegmentKind, Toolpath, Volume,
+    emit, import_gcode, resolve_checked, simulate, verify, Contracts, Design, EmitParams, Feedrate,
+    GcodeImportParams, Kinematics, Length, Meta, Op, ResolveParams, Segment, SegmentKind, Toolpath,
+    Volume, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -107,8 +108,16 @@ const DOME_RADIUS_MM: f64 = 25.0;
 /// on a perfect square it is exact on every platform. That keeps the whole vector — surface points and
 /// surface normals alike — free of any accumulated-rounding provenance question, and it is why
 /// `the_drape_vector_normals_are_exactly_unit` can assert bit-exact unit length rather than a
-/// tolerance. The sequence spirals in towards the apex: the polar tilt falls monotonically to zero
-/// while the azimuth rises monotonically, so both rotary axes move in one direction only.
+/// tolerance.
+///
+/// The sequence spirals in towards the apex: the polar tilt off `+Z` falls monotonically —
+/// `53.130°, 36.870°, 16.260°, 0°` — while the azimuth rises — `36.870°, 53.130°, 90°`, and is
+/// **undefined** at the fourth point, which *is* the apex. Across the four oriented moves that makes
+/// both `Ab` rotary words non-increasing (`A: 28.685, 28.685, 16.260, 0`; `B: 46.848, 24.228, 0, 0`),
+/// but the program as a whole is *not* monotone in either: it opens with the travel's `A0 B0`
+/// identity toolframe, so the first oriented move steps both axes up before that descent begins.
+/// `the_drape_vector_gcode_carries_the_rotary_words` asserts the committed words, whichever way they
+/// run; this comment only says what shape to expect.
 const DOME_SAMPLES_MM: [(f64, f64); 5] = [
     (20.0, 9.0),
     (16.0, 12.0),
@@ -453,16 +462,29 @@ fn specs() -> Vec<Spec> {
         design: Some(drape),
         description: "A five-point path draped over a 25 mm dome: each extruding move carries the \
                       dome's outward surface normal at its destination as the toolframe orientation, \
-                      so both rotary axes sweep monotonically and the last move ends pointing +Z. \
-                      NOT oracle-backed — FullControl is 3-axis, so nothing outside Dry produces this \
-                      path. What backs it: the IR is `resolve`'s own output for the committed \
-                      `design.json` (not hand-written), the orientations are the closed-form sphere \
-                      normal `point / radius` at integer lattice points where that is exactly unit in \
-                      binary64, and `metrics.json` / `expected.gcode` are this engine's `simulate` / \
-                      `emit`. Complements `five_axis`, which is a single IR-authored segment of \
-                      constant orientation: this one changes orientation four times, so it pins the \
-                      emit-a-rotary-word-only-when-it-changes rule, and it mixes an unoriented travel \
-                      with oriented extrusion.",
+                      and the last move ends pointing +Z. NOT oracle-backed — FullControl is 3-axis, \
+                      so nothing outside Dry produces this path. What backs it: the IR is `resolve`'s \
+                      own output for the committed `design.json` (not hand-written), the orientations \
+                      are the closed-form sphere normal `point / radius` at integer lattice points \
+                      where that is exactly unit in binary64, and `metrics.json` / `expected.gcode` \
+                      are this engine's `simulate` / `emit`. Complements `five_axis`, which is a \
+                      single IR-authored segment of constant orientation: this one changes \
+                      orientation four times, so it pins the emit-a-rotary-word-only-when-it-changes \
+                      rule (three A words and three B words for four oriented moves). Three \
+                      disclosures. (1) The leading `G0` is an *unoriented* travel, but the emitter \
+                      reads an absent orientation as the +Z identity, so the frozen `A0 B0` on that \
+                      line is indistinguishable from an explicit +Z — the round-trip loses the \
+                      distinction and `the_drape_vector_gcode_round_trips_back_to_orientations` pins \
+                      that loss rather than papering over it. (2) `emit_params.kinematics` is the \
+                      `Ab` library default, which is also what every binding's `rotary_axes` \
+                      defaults to; the CLI and `verify` instead default to the `Bc` \
+                      REFERENCE_FIVE_AXIS_MACHINE, and that program is pinned in \
+                      `the_drape_vector_emits_on_the_reference_machine` rather than here, because \
+                      under `Bc` the linear words are machine coordinates and two of the four \
+                      oriented moves collapse onto the same point. (3) On the reference machine's \
+                      *limits* this path is reachable and in-envelope but too fast: at 900 mm/min it \
+                      demands ~8200 °/min of B on the first oriented move against a 3600 °/min axis, \
+                      which `verify` reports as `rotary-feed`.",
         feature_tags: &[
             "orientation",
             "five-axis",
@@ -681,6 +703,22 @@ fn spec_vectors_match_or_update() {
     eprintln!("spec vectors: {} vectors checked", specs.len());
 }
 
+/// The committed `five_axis_drape/expected.gcode`, or `None` when there is nothing stable to read.
+///
+/// `spec_vectors_match_or_update` rewrites this file with a non-atomic `fs::write` under
+/// `UPDATE_VECTORS=1`, and it runs in the same thread-parallel binary as its readers — so under that
+/// flag a reader can observe a half-written file and fail for a reason that has nothing to do with
+/// the engine. In update mode the corpus is being *authored*, not checked, so the drift assertions
+/// step aside; the very next run without the flag makes them again.
+fn committed_drape_gcode() -> Option<String> {
+    if update_mode() {
+        eprintln!("UPDATE_VECTORS: skipping the five_axis_drape g-code assertions while rewriting");
+        return None;
+    }
+    let path = vectors_dir().join("five_axis_drape/expected.gcode");
+    Some(fs::read_to_string(&path).expect("five_axis_drape/expected.gcode exists"))
+}
+
 /// The dome normals are unit vectors *exactly*, not within a tolerance.
 ///
 /// This is the reason the sample offsets are integer lattice points of the sphere: `verify`'s
@@ -695,8 +733,14 @@ fn the_drape_vector_normals_are_exactly_unit() {
     }
 }
 
-/// Every extruding segment of the drape vector carries the dome normal at the point it ends on, and
-/// the toolpath draws no `verify` finding — including none from `orientation-not-unit`.
+/// Every extruding segment of the drape vector carries the dome normal at the point it ends on.
+///
+/// The `verify` pass at the end is deliberately the *empty* contract, and what it establishes is
+/// correspondingly narrow: it runs the always-on structural rules (`finite`, `bead`, `continuity`,
+/// `orientation-not-unit`, …) and nothing else. `Contracts::default()` leaves `rotary: None`, which
+/// switches all three machine-level 5-axis rules off — so this test asserts that fact rather than
+/// leaving a reader to infer coverage that is not there. The rules themselves are exercised on this
+/// same IR by `the_drape_vector_meets_the_reference_machine`.
 #[test]
 fn the_drape_vector_segments_carry_the_dome_normal() {
     let ir = resolve_checked(&dome_drape_design(), &ResolveParams::default())
@@ -722,22 +766,152 @@ fn the_drape_vector_segments_carry_the_dome_normal() {
     let report = verify(&ir, &Contracts::default());
     assert!(
         report.findings.is_empty(),
-        "the drape vector must verify clean: {:?}",
+        "the drape vector must draw no structural finding: {:?}",
         report.findings
+    );
+    assert_eq!(report.segments_inspected, ir.segments.len());
+    for rule in ROTARY_RULES {
+        assert!(
+            !report.rules_evaluated.iter().any(|r| r == rule),
+            "`{rule}` is a machine rule and cannot run on an empty contract, but it is listed as \
+             evaluated — a clean report here would then be claiming coverage it does not have"
+        );
+    }
+}
+
+/// The three machine-level 5-axis rules, in catalog order.
+const ROTARY_RULES: [&str; 3] = ["rotary-travel", "rotary-feed", "orientation-reachability"];
+
+/// The drape judged against the reference 5-axis machine's *limits* — the check the empty contract
+/// above cannot make.
+///
+/// This is the corpus's only oriented design, so it is the natural home for the rules that judge a
+/// 5-axis program as a *machine* program rather than as well-formed IR. All three are asserted to
+/// have actually run (`rules_evaluated`), because each is silently skipped when its limit is unset
+/// and a finding-free report would otherwise be indistinguishable from a report that checked nothing.
+///
+/// The outcome is not clean, and that is the honest result rather than a fixture defect:
+///
+/// - `rotary-travel` — clean. Under `Bc` the tilt is `acos(k)`, which over this path runs
+///   `0°, 53.130°, 36.870°, 16.260°, 0°`, inside the reference `B ∈ [0, 120]°`. `C` is unconstrained.
+/// - `orientation-reachability` — clean. Every point is on a 25 mm sphere about the origin and the
+///   rotation is about that same origin, so the machine coordinates stay on that sphere, well inside
+///   the reference `[[-200, 200], [-200, 200], [-50, 300]]` envelope.
+/// - `rotary-feed` — **fires**, twice, both on segment 1. That move is 5.831 mm at 900 mm/min
+///   (0.3887 s) while `B` sweeps 53.130° and `C` sweeps 36.870°, i.e. 8201 and 5691 °/min against a
+///   3600 °/min axis. Nothing is wrong with the geometry — the reorientation is simply faster than
+///   the reference trunnion can turn, which is precisely the plan-not-geometry defect `rotary-feed`
+///   is a `Warning` for. Slowing the fixture until the rule went quiet would be tuning a fixture to
+///   pass a rule, so the fixture stays and the finding is asserted.
+#[test]
+fn the_drape_vector_meets_the_reference_machine() {
+    let ir = resolve_checked(&dome_drape_design(), &ResolveParams::default())
+        .expect("the dome-drape design resolves");
+    let report = verify(
+        &ir,
+        &Contracts {
+            rotary: Some(REFERENCE_FIVE_AXIS_LIMITS),
+            ..Contracts::default()
+        },
+    );
+
+    for rule in ROTARY_RULES {
+        assert!(
+            report.rules_evaluated.iter().any(|r| r == rule),
+            "`{rule}` did not run under REFERENCE_FIVE_AXIS_LIMITS: {:?}",
+            report.rules_evaluated
+        );
+    }
+
+    // Everything that fires must be `rotary-feed` on segment 1, one finding per rotary axis.
+    let mut axes: Vec<char> = Vec::new();
+    for finding in &report.findings {
+        assert_eq!(
+            (finding.rule.as_str(), finding.segment),
+            ("rotary-feed", Some(1)),
+            "unexpected finding: {finding:?}"
+        );
+        let letter = finding
+            .message
+            .strip_prefix("rotary axis ")
+            .and_then(|rest| rest.chars().next())
+            .expect("the rotary-feed message names its axis");
+        axes.push(letter);
+    }
+    axes.sort_unstable();
+    assert_eq!(
+        axes,
+        ['B', 'C'],
+        "expected one rotary-feed finding per axis on segment 1: {:?}",
+        report.findings
+    );
+}
+
+/// The same IR posted for the **reference** machine, which is `Bc` and not the `Ab` the committed
+/// `expected.gcode` is emitted under.
+///
+/// `EmitParams::default()` (and every binding's `rotary_axes` default) is `Ab`; the CLI's 5-axis
+/// default and `verify`'s default rotary model are `REFERENCE_FIVE_AXIS_MACHINE`, which is `Bc`. The
+/// vector freezes the `Ab` program because under `Ab` with zero offsets the head moves and the table
+/// does not, so the linear words *are* the programmed dome points and the file can be read against
+/// `input.json`; under `Bc` they are machine coordinates and the last two oriented moves both land on
+/// the apex. Rather than lose that legibility, the `Bc` program is pinned here.
+///
+/// It also pins the one behaviour only `Bc`/`Ac` can show: the final normal is exactly `+Z`, where
+/// `C = atan2(j, i)` carries no direction at all. `C` is **held** at the 90° it reached rather than
+/// swung back to `atan2(0, 0) = 0` — the singular-cone policy, which under `Ab` is unreachable
+/// because `Ab` has no `C` axis.
+#[test]
+fn the_drape_vector_emits_on_the_reference_machine() {
+    let ir = resolve_checked(&dome_drape_design(), &ResolveParams::default())
+        .expect("the dome-drape design resolves");
+    let lines = emit(
+        &ir,
+        &EmitParams {
+            five_axis: true,
+            kinematics: REFERENCE_FIVE_AXIS_MACHINE,
+            ..EmitParams::default()
+        },
+    );
+    assert_eq!(
+        lines,
+        [
+            "G0 F8000 X20 Y9 Z12 C0 B0",
+            "G1 F900 X15.36 Y19.2 Z4.52 C36.869898 B53.130102 E0.436361",
+            "G1 X8.64 Y14.4 Z18.52 C53.130102 B36.869898 E0.643758",
+            "G1 X0 Y0 Z25 C90 B16.260205 E0.826583",
+            "G1 X0 Y0 Z25 B0 E0.529166",
+        ],
+    );
+    // Said explicitly so a future edit cannot quietly reintroduce the swing: the apex move carries a
+    // B word and no C word, i.e. C stayed on 90.
+    let apex = lines.last().expect("five lines");
+    assert!(
+        apex.contains(" B0") && !apex.contains('C'),
+        "the +Z apex move must hold C rather than command it: `{apex}`"
     );
 }
 
 /// The committed `expected.gcode` really does carry the orientation into rotary words.
 ///
 /// A 5-axis vector whose g-code happened to drop the orientation would still round-trip, still hash,
-/// and still look fine — so re-derive every A/B word from the documented AB-head convention
-/// (`B = atan2(i, k)`, `A = atan2(j, hypot(i, k))`, degrees) and check the committed line against it.
+/// and still look fine, so every A/B word is recomputed here from the AB-head convention
+/// (`B = atan2(i, k)`, `A = atan2(j, hypot(i, k))`, degrees) and checked against the committed line.
+///
+/// **This is not an independent derivation.** Those two expressions are character-identical to the
+/// emitter's (`crates/core/src/emit/kinematics.rs`), so what the test establishes is that the
+/// orientation *reached the file*, at the *positions and in the modality* the emitter's
+/// write-on-change rule dictates. It cannot detect a wrong AB convention — a sign flip or an
+/// axis swap in the emitter would be reproduced here and agree. Nothing outside Dry backs this
+/// vector's g-code (see `conformance/README.md`), and no assertion in this file changes that.
+///
 /// The comparison bound is the emitter's own print precision (six decimal places, so at most 5e-7 of
 /// rounding), not a numeric tolerance in the engine.
 #[test]
 fn the_drape_vector_gcode_carries_the_rotary_words() {
-    let path = vectors_dir().join("five_axis_drape/expected.gcode");
-    let gcode = fs::read_to_string(&path).expect("five_axis_drape/expected.gcode exists");
+    let Some(gcode) = committed_drape_gcode() else {
+        return;
+    };
 
     // The A/B state the machine is in after each emitted line, modal: a word is emitted only when it
     // changes, so the expected value has to be tracked across lines, not read off one.
@@ -784,6 +958,66 @@ fn the_drape_vector_gcode_carries_the_rotary_words() {
     // j axis is the same and only the azimuth moves), and normals 3 and 4 share B = 0 (both lie in
     // the i = 0 plane). A single-segment vector cannot exercise this at all.
     assert_eq!((a_words, b_words), (3, 3), "rotary-word modality changed");
+}
+
+/// Importing the committed program back recovers the four dome normals — and shows what it loses.
+///
+/// #210 made a 5-axis emit→import round-trip possible; this is the corpus fixture that exercises it.
+/// Under `Ab` with zero offsets the machine transform is the identity, so the linear words are the
+/// programmed points and the whole path comes back.
+///
+/// The orientations come back to within ~3e-9 of the dome normals rather than bit-exactly, which is
+/// expected and is not a tolerance in the engine: `expected.gcode` prints each rotary word to six
+/// decimal places, so the round-trip is bounded below by what the file can spell, not by the inverse
+/// map's accuracy.
+///
+/// What it loses is asserted too, because it is the one property the fixture's description used to
+/// claim and the frozen bytes do not support: the leading travel has `orientation: None`, but
+/// `unit_orientation` reads an absent orientation as the `+Z` identity, so the file says `A0 B0` and
+/// the importer reads back `Some([0, 0, 1])`. An unoriented move and an explicitly-`+Z` one are
+/// indistinguishable once emitted.
+#[test]
+fn the_drape_vector_gcode_round_trips_back_to_orientations() {
+    let Some(gcode) = committed_drape_gcode() else {
+        return;
+    };
+    let imported = import_gcode(
+        &gcode,
+        &GcodeImportParams {
+            relative_e: true,
+            kinematics: Some(Kinematics::default()), // the `Ab` the vector is posted for
+            ..GcodeImportParams::default()
+        },
+    )
+    .expect("the committed 5-axis program imports");
+
+    assert_eq!(imported.segments.len(), DOME_SAMPLES_MM.len());
+    assert_eq!(
+        imported.segments[0].orientation,
+        Some([0.0, 0.0, 1.0]),
+        "the unoriented travel comes back as an explicit +Z — the emitted A0 B0 carries no record \
+         that the design left the orientation unset"
+    );
+
+    for (segment, (dx, dy)) in imported.segments[1..]
+        .iter()
+        .zip(DOME_SAMPLES_MM.iter().skip(1))
+    {
+        let (point, normal) = dome_point_and_normal(*dx, *dy);
+        let got = segment.orientation.expect("an oriented move round-trips");
+        for (k, (g, n)) in got.iter().zip(normal.iter()).enumerate() {
+            assert!(
+                (g - n).abs() <= 1e-8,
+                "at {point:?} component {k} came back {g}, the dome normal is {n}"
+            );
+        }
+        let end = segment.end.map(|axis| axis.expect("explicit endpoint").0);
+        assert_eq!(
+            end, point,
+            "the Ab head transform is the identity, so the \
+                                linear words are the programmed points"
+        );
+    }
 }
 
 /// Author the negative (must-reject / documented-failure) vectors by mutating the minimal_line

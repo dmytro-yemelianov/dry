@@ -9,6 +9,9 @@ import {
   normalizeStarPolygonAlpha,
   type Op,
   resolveGcode,
+  resolveIr,
+  resolveMetrics,
+  type ResolveParams,
   RESOLVE_PARAMS,
   starPolygonDentRadiusRatio,
   STAR_POLYGON_FAMILIES,
@@ -449,4 +452,94 @@ test('every gallery design reproduces oracle via fluent builder', () => {
     28,
     'gallery inventory must contain all 27 registry designs plus Overhang Challenge Plus',
   );
+});
+
+// ---------------------------------------------------------------------------------------------
+// Oriented (5-axis / non-planar) conformance.
+//
+// Every suite above drives `conformance/gcode` or `conformance/gallery`, which are FullControl-oracle
+// output and therefore entirely planar — so before this block the SDK's toolframe-orientation channel
+// had no TypeScript-side coverage. `conformance/vectors/five_axis_drape` is the corpus's one oriented
+// design, and it publishes its L1 op list and ResolveParams as `design.json` precisely so a package
+// built outside the engine's Cargo workspace can drive the same design and diff its own output.
+//
+// The fixture is NOT oracle-backed (see its `vector.json`): the committed g-code is the engine's own
+// `emit`. What these tests establish is native/wasm parity on the orientation path, not that the
+// rotary convention is correct.
+// ---------------------------------------------------------------------------------------------
+
+const DRAPE = path.join(CONF, 'vectors', 'five_axis_drape');
+
+function drapeJson(name: string): any {
+  return JSON.parse(fs.readFileSync(path.join(DRAPE, name), 'utf8'));
+}
+
+function drapeSetup() {
+  const design = drapeJson('design.json');
+  const emit = drapeJson('vector.json').emit_params;
+  // `kinematics` is the engine's Debug rendering, e.g. `Ab { pivot_offset: [...] }`; the binding
+  // takes the ab/ac/bc selector. Read it from the vector rather than restating it, so a regeneration
+  // under different settings fails loudly here instead of diverging in silence.
+  const rotary = String(emit.kinematics).split(' ')[0].toLowerCase();
+  assert.ok(['ab', 'ac', 'bc'].includes(rotary), `unexpected kinematics ${emit.kinematics}`);
+  assert.equal(emit.flavor, 'Marlin');
+  assert.equal(emit.five_axis, true);
+  const rotaryWord = new RegExp(`^[${rotary.toUpperCase()}]-?[\\d.]+$`);
+  return {
+    ops: design.ops as Op[],
+    params: design.resolve_params as ResolveParams,
+    emit,
+    rotary,
+    rotaryWord,
+  };
+}
+
+test('the oriented drape vector reproduces its committed 5-axis g-code', () => {
+  const { ops, params, emit, rotary, rotaryWord } = drapeSetup();
+  const expected = fs
+    .readFileSync(path.join(DRAPE, 'expected.gcode'), 'utf8')
+    .replace(/\n$/, '')
+    .split('\n');
+  const got = resolveGcode(ops, params, emit.relative_e, emit.travel_g1_e0, true, rotary);
+  assert.deepEqual(got, expected, 'five_axis_drape 5-axis g-code mismatch');
+
+  // A byte match against a file that carried no rotary words would prove nothing.
+  const words = got.flatMap((line) => line.split(' ').filter((w) => rotaryWord.test(w)));
+  assert.ok(
+    words.length >= 4,
+    `expected rotary words in the 5-axis emit, got ${JSON.stringify(got)}`,
+  );
+});
+
+test('the oriented drape vector drops its rotary words on a 3-axis emit', () => {
+  const { ops, params, emit, rotary, rotaryWord } = drapeSetup();
+  const planar = resolveGcode(ops, params, emit.relative_e, emit.travel_g1_e0, false, rotary);
+  for (const line of planar) {
+    for (const word of line.split(' ')) {
+      assert.ok(!rotaryWord.test(word), `3-axis emit carries a rotary word: ${line}`);
+    }
+  }
+});
+
+test('the oriented drape vector reproduces its committed metrics and orientations', () => {
+  const { ops, params } = drapeSetup();
+  const got: any = resolveMetrics(ops, params);
+  const want = drapeJson('metrics.json');
+  for (const [key, expected] of Object.entries(want)) {
+    // A missing key must fail, not skip: `got[key]` undefined makes every numeric comparison NaN,
+    // and `NaN > eps` is false — which is exactly how a drift gate goes vacuous.
+    assert.ok(key in got, `metrics.${key} missing from resolveMetrics output`);
+    if (typeof expected === 'number') {
+      assert.ok(Math.abs(got[key] - expected) <= 1e-9, `metrics.${key} ${got[key]} != ${expected}`);
+    } else {
+      assert.equal(got[key], expected);
+    }
+  }
+
+  const ir: any = resolveIr(ops, params);
+  const wantIr = drapeJson('input.json');
+  assert.equal(ir.segments.length, wantIr.segments.length);
+  ir.segments.forEach((seg: any, i: number) => {
+    assert.deepEqual(seg.orientation ?? null, wantIr.segments[i].orientation ?? null);
+  });
 });

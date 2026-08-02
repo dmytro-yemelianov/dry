@@ -153,10 +153,14 @@ if (JSON.stringify(drapeGot) !== JSON.stringify(drapeExpected)) {
   process.exit(1);
 }
 // A byte match against a file that happened to contain no rotary words would prove nothing, so
-// require the orientation to have actually reached the output.
-const rotaryWords = drapeGot.flatMap((line) => line.split(' ').filter((w) => /^[AB]-?[\d.]+$/.test(w)));
+// require the orientation to have actually reached the output. The letters come from the vector's
+// own selector rather than being hardcoded to A/B: an `ac`/`bc` regeneration writes a C word, and a
+// pattern that could not see it would silently stop checking anything.
+const rotaryLetters = drapeRotary.toUpperCase();
+const rotaryWord = new RegExp(`^[${rotaryLetters}]-?[\\d.]+$`);
+const rotaryWords = drapeGot.flatMap((line) => line.split(' ').filter((w) => rotaryWord.test(w)));
 if (rotaryWords.length < 4) {
-  console.error('[five_axis_drape] expected rotary A/B words in the 5-axis emit, got', drapeGot);
+  console.error(`[five_axis_drape] expected rotary ${rotaryLetters[0]}/${rotaryLetters[1]} words in the 5-axis emit, got`, drapeGot);
   process.exit(1);
 }
 // ...and the same design emitted 3-axis must drop them entirely (orientation is not representable
@@ -164,16 +168,26 @@ if (rotaryWords.length < 4) {
 const drapePlanar = dry.resolve_gcode(
   drapeOps, drapeParams, drapeEmit.relative_e, drapeEmit.travel_g1_e0, false, drapeRotary,
 );
-if (drapePlanar.some((line) => line.split(' ').some((w) => /^[AB]-?[\d.]+$/.test(w)))) {
+if (drapePlanar.some((line) => line.split(' ').some((w) => rotaryWord.test(w)))) {
   console.error('[five_axis_drape] 3-axis emit must carry no rotary words, got', drapePlanar);
   process.exit(1);
 }
 // Metrics parity against the committed metrics.json — the orientation must not perturb them.
+// A missing key is a failure, not a skip: without the `in` guard a renamed or dropped metric leaves
+// `got === undefined`, `Math.abs(undefined - want)` is NaN, and `NaN > 1e-9` is false — so the very
+// drift this gate exists to catch would sail through it.
 const drapeMetrics = JSON.parse(dry.resolve_metrics(drapeOps, drapeParams));
 const drapeExpectedMetrics = JSON.parse(fs.readFileSync(path.join(drapeDir, 'metrics.json'), 'utf8'));
 for (const [key, want] of Object.entries(drapeExpectedMetrics)) {
+  if (!(key in drapeMetrics)) {
+    console.error(`[five_axis_drape] metrics.${key} is missing from resolve_metrics output`);
+    process.exit(1);
+  }
   const got = drapeMetrics[key];
-  if (typeof want === 'number' ? Math.abs(got - want) > 1e-9 : got !== want) {
+  const mismatch = typeof want === 'number'
+    ? !(Math.abs(got - want) <= 1e-9)   // negated <= so a NaN difference fails
+    : got !== want;
+  if (mismatch) {
     console.error(`[five_axis_drape] metrics.${key} ${got} != ${want}`);
     process.exit(1);
   }

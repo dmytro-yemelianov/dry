@@ -71,6 +71,10 @@ Per-vector bundle:
 - `expected.dry0`, `expected.dry1` — binary goldens (dry-core, miniz_oxide level 8).
 - `metrics.json` — `simulate()` golden (published reference output).
 - `expected.gcode` — `emit()` golden, present only when `emit_params != null`.
+- `design.json` — the L1 `ops[]` + `resolve_params` the IR was resolved from, present only on vectors
+  authored at the design tier (added 2026-08 with `five_axis_drape`). Outside the codec contract: it
+  has no `spec/` schema and `validate_vectors.py` only sha256s it. It exists so an out-of-workspace
+  binding can drive the same design; a format-conformant reader never needs it.
 
 ## Vector set (~10 curated, clean-room)
 

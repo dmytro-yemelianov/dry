@@ -10,6 +10,16 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Added
+- **The conformance corpus carries an oriented design.** `conformance/vectors/five_axis_drape` is a
+  five-point path draped over a 25 mm dome, every extruding move holding the outward surface normal.
+  It is the corpus's first non-planar/5-axis fixture and its first authored at the **L1 design** tier:
+  it publishes a new per-vector artifact, `design.json` (the `ops[]` and `resolve_params` its IR was
+  resolved from), so a binding that builds outside the engine's Cargo workspace can drive the same
+  design and diff its own output. `web/smoke.cjs`, `sdk/ts/test/conformance.test.ts` and
+  `py/tests/test_five_axis_drape.py` all do — before this, every cross-SDK gate was planar.
+  `design.json` is **outside** the IR v0 codec contract: no `spec/` schema, and a format-conformant
+  reader never needs it (`docs/10` §9). The fixture is not oracle-backed — FullControl is 3-axis — and
+  its `description` says so, along with what does back it.
 - **The reference 5-axis machine has limits, and three rules that check them (#180 gaps 1–2).**
   `REFERENCE_FIVE_AXIS_MACHINE` described a B/C kinematic mapping and nothing else — no rotary travel,
   no rotary rate, no envelope — so "emits valid 5-axis g-code" was not a checkable claim. Profiles gain
@@ -35,6 +45,25 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   `spec/dry-profile-v1.schema.json`. As with the 0.5.0 report fields, this is breaking only for a
   consumer validating against the *previous* published schema text, since both objects are
   `additionalProperties: false`.
+
+### Changed
+- `dry-core` now enables `serde_json`'s `float_roundtrip` feature. The default parser is accurate only
+  to within 1 ULP, and 3 of the 70 numeric literals in the new vector's `input.json` decode to the
+  wrong neighbouring double without it — which the IR v0 spec's bit-exact f64 conformance rule (§9)
+  forbids. No new dependency; `crates/core/tests/ir_contracts.rs` pins it. **This changes JSON float
+  parsing for every binding that links `dry-core`** (`crates/wasm`, `crates/cloud`, `py/`,
+  `containers/verify-runner`, and `sdk/ts` through wasm): floats that previously came back one ULP off
+  now come back exact.
+- `dry_core::ResolveParams` derives `Serialize` (it was `Deserialize`-only), so a caller can publish
+  the exact parameters an IR was resolved under. Additive.
+
+### Removed
+- `dry_core::compute_triangle_normal`, `conformal_surface_z` and `offset_along_normal`, and the
+  `nonplanar` module that held them. They had no call sites outside their own unit tests and one
+  (`conformal_surface_z(x, y, f)`) was literally `f(x, y)`. For an analytic surface the normal is a
+  line of calculus the caller writes (the drape vector's is `point / radius`); the case that would
+  justify a core API is a mesh or sampled height field, and core has no mesh type. `crates/core` is
+  `publish = false`, so there is no external Rust consumer, and no binding re-exported them.
 
 ## [0.5.0] - 2026-08-01
 
