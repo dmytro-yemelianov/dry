@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dry-license-issuer",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-27",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // Secrets (LS_WEBHOOK_SECRET, SIGNING_KEY_PKCS8_B64, ADMIN_TOKEN) are
+  // deliberately absent here -- they're provisioned via `wrangler secret
+  // put` (Task 9/10's key ceremony), never committed as plaintext vars.
+  "vars": {
+    // Placeholder until Task 10's key ceremony generates and stores the
+    // real production signing key; must match the key_id paired with
+    // whatever SIGNING_KEY_PKCS8_B64 secret is actually deployed.
+    "KEY_ID": "prod-1",
+    // Maps a Lemon Squeezy variant id -> Dry tier. Populate with the real
+    // variant ids from the LS product catalog once Task 9 creates it;
+    // these placeholders are non-functional.
+    "TIER_BY_VARIANT": "{\"000000\":\"solo\",\"000001\":\"team\",\"000002\":\"pilot\"}",
+    "MAIL_FROM": "license@dry.dev",
+    "MAIL_TO_BCC": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dry-license-issuer",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "send_email": [
+    { "name": "EMAIL" }
+  ],
+  "env": {
+    // Used by vitest.config.ts (@cloudflare/vitest-pool-workers) -- keeps
+    // test-only vars (matching the committed TEST keypair's key_id, and
+    // variant ids the test webhook fixtures use) out of the production
+    // top-level config. Secrets for this env (LS_WEBHOOK_SECRET,
+    // SIGNING_KEY_PKCS8_B64, ADMIN_TOKEN) are injected as plain
+    // miniflare.bindings in vitest.config.ts, not here.
+    "test": {
+      "vars": {
+        "KEY_ID": "test-1",
+        "TIER_BY_VARIANT": "{\"100\":\"solo\",\"200\":\"team\",\"300\":\"pilot\"}",
+        "MAIL_FROM": "license@test.invalid",
+        "MAIL_TO_BCC": "owner@test.invalid"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dry-license-issuer-test",
+          "database_id": "00000000-0000-0000-0000-000000000001"
+        }
+      ],
+      "send_email": [
+        { "name": "EMAIL" }
+      ]
+    }
+  }
+}
