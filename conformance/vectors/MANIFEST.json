@@ -177,6 +177,26 @@
     },
     {
       "artifacts": {
+        "expected.dry0": "59750f0112e6179cceb967012484d6dafff1401f1084db112de3c4c3cdee7668",
+        "expected.dry1": "52bfe6f051faae16298f10028a55bce52de53041e1fc6d7ff28b1f4646e71d17",
+        "expected.gcode": "525b48244402991e587f80bba01a442eda195bcb47f2002f14ebd35da04bd2ce",
+        "input.json": "651bd2af33e429b7239a8358720e04330aca575990bc3badd5b95775f3c87b9e",
+        "metrics.json": "bae4652448d4f4dfb027629ef73e90bca6529c4f68f211303e73dfa666ac1a77",
+        "vector.json": "3bfacbadebca6f43b8c49a809b48caf253ae7c2e2d70b058698bc42631b7223d"
+      },
+      "description": "Two GRBL cutting moves carrying the spindle/laser power channel — exercises the DRY0 enc_ver 2 column, the DRY1 flag bit 19, and the S / M3 / M5 words.",
+      "feature_tags": [
+        "power",
+        "grbl",
+        "enc-ver-2"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "power_channel"
+    },
+    {
+      "artifacts": {
         "expected.dry0": "ba18b8d006e2299dce11aecaf8dc73a6e48cb55bc8f2e11dadf49980d4266b9c",
         "expected.dry1": "f3b8f8a1c2a8a8e6c480f159243ab65a3f3545dc7325997534ffb5fea9478e90",
         "expected.gcode": "f2bbaf5984f5a4e46c83beee5a5f5daff4bc97c3b554ca261c8a47bde27c5f6b",

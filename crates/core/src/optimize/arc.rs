@@ -159,6 +159,7 @@ fn fit_arc(segs: &[Segment]) -> Option<Segment> {
         fan: first.fan,
         flow: first.flow,
         tool: first.tool,
+        power: first.power,
         dwell_s: None,
         manual_gcode: None,
         orientation: first.orientation,

@@ -65,8 +65,15 @@ F_TOOL = 1 << 15
 F_ORIENTATION = 1 << 16
 F_CONTROL_POINTS = 1 << 17
 F_MANUAL_GCODE = 1 << 18
-KNOWN_FLAGS = (1 << 19) - 1
+F_POWER = 1 << 19
+KNOWN_FLAGS = (1 << 20) - 1
 LEGACY_KNOWN_FLAGS = (1 << 18) - 1
+
+# DRY0 enc_ver is the *minimum reader version* the body needs, not a monotonic stamp (spec §5.3): a
+# columnar column costs ceil(n/8) + 8n bytes even when nothing fills it, so a power-free toolpath is
+# still written at enc_ver 1. DRY1 needs no such trick — its rows are flag-described (spec §6.3).
+DRY0_ENC_BASE = 1
+DRY0_ENC_POWER = 2
 
 DRY0_MAGIC = b"DRY0"
 DRY1_MAGIC = b"DRY1"
@@ -150,6 +157,7 @@ def empty_segment() -> dict:
         "fan": None,
         "flow": None,
         "tool": None,
+        "power": None,
         "dwell_s": None,
         "manual_gcode": None,
         "orientation": None,
@@ -186,6 +194,7 @@ def canon_seg(s: dict):
         fkey(s["fan"]),
         fkey(s["flow"]),
         None if s["tool"] is None else int(s["tool"]),
+        fkey(s["power"]),
         fkey(s["dwell_s"]),
         s["manual_gcode"],
         None if s["orientation"] is None else tuple(fkey(v) for v in s["orientation"]),
@@ -246,6 +255,7 @@ def parse_json_ir(obj: dict) -> dict:
         seg["fan"] = num(s.get("fan"))
         seg["flow"] = num(s.get("flow"))
         seg["tool"] = None if s.get("tool") is None else int(s["tool"])
+        seg["power"] = num(s.get("power"))
         seg["dwell_s"] = num(s.get("dwell_s"))
         seg["manual_gcode"] = s.get("manual_gcode")
         seg["orientation"] = (
@@ -278,7 +288,7 @@ def decode_dry0(buf: bytes) -> dict:
     if h.take(4) != DRY0_MAGIC:
         raise DecodeError("bad magic (not DRY0)")
     enc = h.u8()
-    if enc not in (0, 1):
+    if enc not in (0, 1, 2):
         raise DecodeError(f"unsupported DRY0 enc_ver {enc}")
     version = h.u32()
     n = h.u32()
@@ -328,6 +338,8 @@ def decode_dry0(buf: bytes) -> dict:
             else:
                 manual.append(None)
 
+    power = _opt_col(r, n) if enc == DRY0_ENC_POWER else [None] * n
+
     dict_len = r.u32()
     kind_dict = []
     for _ in range(dict_len):
@@ -363,6 +375,7 @@ def decode_dry0(buf: bytes) -> dict:
         s["fan"] = fan[i]
         s["flow"] = flow[i]
         s["tool"] = tool[i]
+        s["power"] = power[i]
         s["dwell_s"] = dwell_s[i]
         s["manual_gcode"] = manual[i]
         s["orientation"] = orientation[i]
@@ -391,6 +404,8 @@ def _push_opt_col(out: bytearray, vals):
 def encode_dry0(ir: dict, kind_dict_override=None) -> bytes:
     segs = ir["segments"]
     n = len(segs)
+    # spec §5.3: emit the lowest layout that can carry the toolpath.
+    enc = DRY0_ENC_POWER if any(s["power"] is not None for s in segs) else DRY0_ENC_BASE
     body = bytearray()
     _push_bits(body, [s["travel"] for s in segs])
     _push_bits(body, [s["clockwise"] for s in segs])
@@ -425,6 +440,8 @@ def encode_dry0(ir: dict, kind_dict_override=None) -> bytes:
         if s["manual_gcode"] is not None:
             mg = s["manual_gcode"].encode("utf-8")
             body += struct.pack("<I", len(mg)) + mg
+    if enc == DRY0_ENC_POWER:
+        _push_opt_col(body, [s["power"] for s in segs])
 
     # kind dictionary (first-appearance order)
     order = []
@@ -452,7 +469,7 @@ def encode_dry0(ir: dict, kind_dict_override=None) -> bytes:
 
     out = bytearray()
     out += DRY0_MAGIC
-    out.append(1)
+    out.append(enc)
     out += struct.pack("<I", ir["version"])
     out += struct.pack("<I", n)
     out += struct.pack("<I", len(body))
@@ -547,6 +564,7 @@ def _decode_row(r: Reader, enc: int, known: int) -> dict:
     if flags & F_CONTROL_POINTS:
         count = r.u32()
         s["control_points"] = [[r.f64(), r.f64(), r.f64()] for _ in range(count)]
+    s["power"] = r.f64() if flags & F_POWER else None
     s["travel"] = bool(flags & F_TRAVEL)
     s["clockwise"] = bool(flags & F_CLOCKWISE)
     return s
@@ -585,6 +603,8 @@ def _encode_row(s: dict, extra_flags: int = 0) -> bytes:
         flags |= F_CONTROL_POINTS
     if s["manual_gcode"] is not None:
         flags |= F_MANUAL_GCODE
+    if s["power"] is not None:
+        flags |= F_POWER
 
     out = bytearray()
     out += struct.pack("<I", flags)
@@ -616,6 +636,8 @@ def _encode_row(s: dict, extra_flags: int = 0) -> bytes:
         out += struct.pack("<I", len(s["control_points"]))
         for p in s["control_points"]:
             out += struct.pack("<ddd", *p)
+    if s["power"] is not None:
+        out += struct.pack("<d", s["power"])
     return bytes(out)
 
 

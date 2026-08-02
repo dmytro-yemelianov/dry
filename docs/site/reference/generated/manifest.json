@@ -31,7 +31,7 @@
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
-      "sha256": "402a8602a85c60448064fd417343051ceec6c760ded7f7943dc2fd493f3dd245"
+      "sha256": "617ab1791ab331f3b68e77f357d99684aaad251d9411d3471f3486cdd35c10d2"
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",

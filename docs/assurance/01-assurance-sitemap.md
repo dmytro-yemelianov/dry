@@ -913,6 +913,7 @@ Process channels (temperature, fan, flow, tool) deterministically propagate forw
 **Exclusions**
 
 - Invalid physical input bounds, which are checked by pre-resolution validation.
+- The spindle/laser power channel, which the engine propagates the same way but the Lean semantics does not model.
 
 ### `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS`
 
@@ -936,6 +937,7 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 **Exclusions**
 
 - Arbitrary operation sequences outside the committed 6-case fixture corpus.
+- The spindle/laser power channel, which no fixture in the corpus exercises.
 
 ### `FM1.DEPOSITION.MODEL.SEMANTICS`
 

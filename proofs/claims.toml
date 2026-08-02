@@ -1252,7 +1252,8 @@ assumptions = [
   "Dwell segments inherit active process channel state."
 ]
 exclusions = [
-  "Invalid physical input bounds, which are checked by pre-resolution validation."
+  "Invalid physical input bounds, which are checked by pre-resolution validation.",
+  "The spindle/laser power channel, which the engine propagates the same way but the Lean semantics does not model."
 ]
 lean_source = "formal/Dry/Semantics/ResolveChannels.lean"
 rust_sources = [
@@ -1283,7 +1284,8 @@ assumptions = [
   "Native binary64 parsing accurately mirrors exact rational channel inputs."
 ]
 exclusions = [
-  "Arbitrary operation sequences outside the committed 6-case fixture corpus."
+  "Arbitrary operation sequences outside the committed 6-case fixture corpus.",
+  "The spindle/laser power channel, which no fixture in the corpus exercises."
 ]
 lean_source = "formal/Dry/Tests/ResolveChannelsFixtures.lean"
 rust_sources = [

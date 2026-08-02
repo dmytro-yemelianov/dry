@@ -8,7 +8,7 @@
 //! ```text
 //! header (uncompressed):
 //!   magic    "DRY0"   (4 bytes)
-//!   enc_ver  u8       (the encoding version; 1; version 0 is accepted without manual_gcode)
+//!   enc_ver  u8       (the encoding version; 0 = no manual_gcode, 1, 2 = + power)
 //!   ir_ver   u32      (Toolpath.version — the IR schema version)
 //!   n        u32      (segment count)
 //!   body_len u32      (uncompressed body length, the inflate bound)
@@ -18,11 +18,16 @@
 //!                                                     centre{x,y}
 //!   dense   f64 columns  (n×f64):  speed, length, volume, filament
 //!   channel columns  (nullable):  temperature, fan, flow, dwell_s (f64); manual_gcode (utf-8); tool (u32);
-//!                                  orientation (validity bitmap + n×3 f64)
+//!                                  orientation (validity bitmap + n×3 f64); power (f64, enc_ver 2)
 //!   kind    dictionary:  dict_len u32, [str_len u32, bytes…]…, then n×u32 indices
 //!   meta    trailer:  present u8 (0/1); if 1, a u32 length + the UTF-8 bytes of the IR header
 //!                     ([`crate::ir::Meta`]) as JSON — the reserved provenance/invariants slot.
 //! ```
+//!
+//! `enc_ver` is the **minimum reader version required**, not a monotonic stamp: a `DRY0` column costs
+//! `ceil(n/8) + 8n` bytes whether or not anything fills it, so the encoder emits the lowest layout
+//! that can carry the toolpath. A power-free toolpath is therefore still written at `enc_ver 1`, and
+//! every archive produced before the column existed is byte-for-byte reproducible.
 //!
 //! Columns store the *typed* IR quantities ([`crate::units`]) as their raw `f64` bits
 //! (`to_le_bytes`/`from_le_bytes`), so the round-trip is exact. `None` is recorded in the validity
@@ -35,6 +40,9 @@
 //! header (uncompressed):
 //!   magic       "DRY1" (4 bytes)
 //!   enc_ver     u8     (the streaming encoding version; 2; version 1 is accepted without manual_gcode)
+//!                      (`power` needs no bump here: a `DRY1` row is self-describing through its flag
+//!                       word, so the field costs nothing when unset and an older reader refuses the
+//!                       unknown bit rather than misreading the row)
 //!   ir_ver      u32
 //!   n           u32
 //!   block_size  u32
@@ -77,6 +85,10 @@ pub use self::json::JsonSegmentsIterator;
 pub(super) const MAGIC: [u8; 4] = *b"DRY0";
 pub(super) const LEGACY_ENC_VER: u8 = 0;
 pub(super) const ENC_VER: u8 = 1;
+/// `DRY0` layout carrying the `power` column. See [`columnar::try_encode`]: `enc_ver` is the
+/// *minimum reader version required*, so a toolpath with no power stays at [`ENC_VER`] and its bytes
+/// do not move.
+pub(super) const POWER_ENC_VER: u8 = 2;
 pub(super) const CHUNKED_MAGIC: [u8; 4] = *b"DRY1";
 pub(super) const LEGACY_CHUNKED_ENC_VER: u8 = 1;
 pub(super) const CHUNKED_ENC_VER: u8 = 2;

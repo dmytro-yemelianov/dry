@@ -14,7 +14,8 @@
 #![allow(deprecated)]
 
 use dry_core::{
-    emit, simulate, EmitParams, Feedrate, Length, Meta, Segment, SegmentKind, Toolpath, Volume,
+    emit, simulate, EmitParams, Feedrate, FirmwareFlavor, Length, Meta, Segment, SegmentKind,
+    Toolpath, Volume,
 };
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -64,6 +65,7 @@ fn base() -> Segment {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -316,6 +318,38 @@ fn specs() -> Vec<Spec> {
             tool: Some(1),
             ..base()
         }]),
+    });
+
+    out.push(Spec {
+        name: "power_channel",
+        description: "Two GRBL cutting moves carrying the spindle/laser power channel — exercises \
+                      the DRY0 enc_ver 2 column, the DRY1 flag bit 19, and the S / M3 / M5 words.",
+        feature_tags: &["power", "grbl", "enc-ver-2"],
+        frozen: false,
+        emit: Some(EmitParams {
+            flavor: FirmwareFlavor::Grbl,
+            ..EmitParams::default()
+        }),
+        ir: tp(vec![
+            Segment {
+                power: Some(600.0),
+                ..base()
+            },
+            Segment {
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                power: Some(300.0),
+                ..base()
+            },
+        ]),
     });
 
     out.push(Spec {

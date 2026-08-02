@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 path = "crates/core/src/verify.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "c9ef1d0801691aa3043e22fa2079c8878efa7aa057ef42b96fb28a859cfe9627"
+sha256 = "563c6577f1a74cf2c8421576c7a3c4ec71e9d24b74d563a8e7c1dc094260745b"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a

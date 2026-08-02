@@ -57,6 +57,9 @@ pub enum Op {
     Flow { ratio: f64 },
     /// Set the active tool channel.
     Tool { index: u32 },
+    /// Set the spindle/laser power channel (the target controller's `S` word value: RPM for a
+    /// spindle, PWM counts for a laser). `0.0` means commanded off.
+    Power { level: f64 },
     /// Set the toolframe orientation: the tool-direction vector `(i, j, k)` (§2). Identity is `+Z`.
     Orient { i: f64, j: f64, k: f64 },
     /// Pause in place for `seconds` (emits a `G4` dwell; adds to the simulated time).
@@ -230,6 +233,16 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
             Op::Temperature { nozzle } => require_non_negative(&prefix("nozzle"), *nozzle)?,
             Op::Fan { speed } => require_unit_interval(&prefix("speed"), *speed)?,
             Op::Flow { ratio } => require_positive(&prefix("ratio"), *ratio)?,
+            // Finite and >= 0, the same domain `Op::Temperature` gets, and for the same reason: the
+            // channel carries a commanded machine setpoint whose *ceiling* is a machine contract,
+            // not a property of the IR. A negative `S` is meaningless on every controller Dry emits
+            // for — GRBL and RS-274 both reject it — so it is refused here. Zero is legal and load-
+            // bearing: `S0` is how a program commands the laser/spindle off without leaving the
+            // channel unset, and refusing it would make "turn it off" inexpressible. There is
+            // deliberately no upper bound: the real ceiling is GRBL's `$30` / the spindle's max RPM,
+            // which lives in the machine profile (follow-up), and inventing a constant here would
+            // either clamp a valid program (ADR 0002 §4 forbids clamping) or refuse one.
+            Op::Power { level } => require_non_negative(&prefix("level"), *level)?,
             Op::Orient { i, j, k } => {
                 require_finite(&prefix("i"), *i)?;
                 require_finite(&prefix("j"), *j)?;
@@ -436,6 +449,7 @@ fn require_finite_toolpath(toolpath: &Toolpath) -> Result<(), ResolveError> {
             ("temperature", s.temperature),
             ("fan", s.fan),
             ("flow", s.flow),
+            ("power", s.power),
             ("dwell_s", s.dwell_s),
         ] {
             if let Some(value) = value {
@@ -491,6 +505,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
     let mut fan: Option<f64> = None;
     let mut flow = 1.0_f64;
     let mut tool: Option<u32> = None;
+    let mut power: Option<f64> = None;
     let mut orientation: Option<[f64; 3]> = None;
     let mut segs: Vec<Segment> = Vec::new();
 
@@ -516,6 +531,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
             Op::Fan { speed } => fan = Some(speed),
             Op::Flow { ratio } => flow = ratio,
             Op::Tool { index } => tool = Some(index),
+            Op::Power { level } => power = Some(level),
             Op::Orient { i, j, k } => orientation = Some([i, j, k]),
             Op::Dwell { seconds } => segs.push(Segment {
                 start: pos,
@@ -534,6 +550,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 fan,
                 flow: None,
                 tool,
+                power,
                 dwell_s: Some(seconds),
                 manual_gcode: None,
                 orientation,
@@ -569,6 +586,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                         fan,
                         flow: flow_field,
                         tool,
+                        power,
                         dwell_s: None,
                         manual_gcode: None,
                         orientation,
@@ -634,6 +652,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     fan,
                     flow: flow_field,
                     tool,
+                    power,
                     dwell_s: None,
                     manual_gcode: None,
                     orientation,
@@ -718,6 +737,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     fan,
                     flow: flow_field,
                     tool,
+                    power,
                     dwell_s: None,
                     manual_gcode: None,
                     orientation,
@@ -742,6 +762,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                 fan,
                 flow: None,
                 tool,
+                power,
                 dwell_s: None,
                 manual_gcode: Some(text.clone()),
                 orientation,
@@ -767,6 +788,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     fan,
                     flow: None,
                     tool,
+                    power,
                     dwell_s: None,
                     manual_gcode: None,
                     orientation,
@@ -793,6 +815,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     fan,
                     flow: None,
                     tool,
+                    power,
                     dwell_s: None,
                     manual_gcode: None,
                     orientation,
@@ -819,6 +842,7 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     fan,
                     flow: None,
                     tool,
+                    power,
                     dwell_s: None,
                     manual_gcode: None,
                     orientation,

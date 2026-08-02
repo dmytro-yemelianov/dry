@@ -56,6 +56,7 @@ fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], template: &Se
         fan: template.fan,
         flow: None,
         tool: template.tool,
+        power: template.power,
         dwell_s: None,
         manual_gcode: None,
         orientation: template.orientation,

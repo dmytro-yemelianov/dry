@@ -1,4 +1,4 @@
-//! P2.1 — the typed channel registry (temperature / fan / flow / tool) and the `Dwell` op. Channels are
+//! P2.1 — the typed channel registry (temperature / fan / flow / tool / power) and the `Dwell` op. Channels are
 //! authored as L1 ops, propagate with defaults through `resolve`, and ride each L2 segment; they are
 //! carried for `simulate`/`verify` (and the binary codec), without disturbing the motion g-code.
 
@@ -218,4 +218,103 @@ fn binary_codec_round_trips_channels() {
     );
     let back = dry_core::Toolpath::from_bytes(&tp.to_bytes()).unwrap();
     assert_eq!(back, tp);
+}
+
+#[test]
+fn power_channel_propagates_and_reaches_dwells() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"move","x":0,"y":0,"z":0.2},
+                {"op":"power","level":600},
+                {"op":"move","x":10,"y":0,"z":0.2},
+                {"op":"dwell","seconds":0.5},
+                {"op":"power","level":0},
+                {"op":"move","x":20,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    // Before the first `power` op the channel is *unset*, not zero: "never commanded" and
+    // "commanded off" are different machine states.
+    assert_eq!(tp.segments[0].power, None);
+    assert_eq!(tp.segments[1].power, Some(600.0));
+    assert_eq!(tp.segments[2].kind, SegmentKind::Dwell);
+    assert_eq!(tp.segments[2].power, Some(600.0));
+    assert_eq!(tp.segments[3].power, Some(0.0));
+}
+
+#[test]
+fn power_channel_survives_both_binary_forms_and_json() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"power","level":1200.5},
+                {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    assert_eq!(
+        dry_core::Toolpath::from_bytes(&tp.to_bytes()).unwrap(),
+        tp,
+        "DRY0 round trip"
+    );
+    assert_eq!(
+        dry_core::Toolpath::from_bytes(&tp.to_streaming_bytes()).unwrap(),
+        tp,
+        "DRY1 round trip"
+    );
+    assert_eq!(dry_core::Toolpath::from_json(&tp.to_json()).unwrap(), tp);
+
+    // The DRY0 header records the minimum reader version the body needs (spec §5.3): the power
+    // column bumps it, and a power-free toolpath must be left at the older layout.
+    assert_eq!(tp.to_bytes()[4], 2, "DRY0 enc_ver with power");
+    let plain = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    assert_eq!(plain.to_bytes()[4], 1, "DRY0 enc_ver without power");
+    // DRY1 needs no bump: the row's flag word already says whether the field is there.
+    assert_eq!(tp.to_streaming_bytes()[4], 2);
+    assert_eq!(plain.to_streaming_bytes()[4], 2);
+}
+
+#[test]
+fn power_ingress_refuses_negative_and_non_finite_levels() {
+    for bad in ["-1", "NaN", "1e400"] {
+        let json = format!(
+            r#"{{"ops":[{{"op":"power","level":{bad}}},{{"op":"move","x":1,"y":0,"z":0.2}}]}}"#
+        );
+        // serde_json rejects the literals it cannot represent; the ones it accepts must be refused
+        // by `validate_design` rather than reaching the IR.
+        let Ok(d) = serde_json::from_str::<Design>(&json) else {
+            continue;
+        };
+        let err = dry_core::resolve_checked(&d, &ResolveParams::default())
+            .expect_err("power {bad} must be refused at ingress");
+        assert!(
+            err.to_string().contains("ops[0].level"),
+            "refusal must name the offending op field, got: {err}"
+        );
+    }
+}
+
+#[test]
+fn reverse_round_trips_the_power_channel() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"power","level":600},
+                {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    let design_back = dry_core::reverse(&tp).expect("reverse");
+    let again = resolve(&design_back, &ResolveParams::default());
+    assert_eq!(
+        again.segments.last().unwrap().power,
+        tp.segments.last().unwrap().power
+    );
 }

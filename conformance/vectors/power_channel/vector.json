@@ -1,0 +1,19 @@
+{
+  "description": "Two GRBL cutting moves carrying the spindle/laser power channel — exercises the DRY0 enc_ver 2 column, the DRY1 flag bit 19, and the S / M3 / M5 words.",
+  "emit_params": {
+    "five_axis": false,
+    "flavor": "Grbl",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "power",
+    "grbl",
+    "enc-ver-2"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "power_channel"
+}

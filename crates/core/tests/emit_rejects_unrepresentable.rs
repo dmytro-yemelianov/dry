@@ -45,6 +45,7 @@ fn line_to(end: [f64; 3]) -> Segment {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,

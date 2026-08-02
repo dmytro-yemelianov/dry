@@ -65,6 +65,12 @@ impl DesignBuilder {
         self
     }
 
+    /// Sets the spindle/laser power channel (the target's `S` word value; `0.0` is commanded off).
+    pub fn power(mut self, level: f64) -> Self {
+        self.ops.push(Op::Power { level });
+        self
+    }
+
     /// Sets the toolframe orientation vector `[i, j, k]`.
     pub fn orient(mut self, i: f64, j: f64, k: f64) -> Self {
         self.ops.push(Op::Orient { i, j, k });

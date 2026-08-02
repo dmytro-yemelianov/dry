@@ -718,6 +718,16 @@ fn lift_motion(
             fan: state.fan,
             flow: None,
             tool: state.tool,
+            // The importer does not yet read `S`/`M3`/`M5` back into the power channel — the
+            // emitter writes them for GRBL, but lifting them is a parser change this slice does
+            // not make, so a g-code round trip drops the channel rather than guessing at it.
+            //
+            // Whoever does lift them must look at `emit_normalized_span_lines` first: like the
+            // `CncFrame` preamble, the GRBL power words are *program*-scoped — the `M3` fires once
+            // and the closing `M5` once — so a span emitted on its own carries a prologue and an
+            // epilogue the same span inside the whole-program stream does not, and the span line
+            // accounting there would refuse the rewrite.
+            power: None,
             dwell_s,
             manual_gcode: None,
             orientation,
@@ -798,6 +808,8 @@ fn lift_motion(
         fan: state.fan,
         flow,
         tool: state.tool,
+        // See the dwell branch: `S`/`M3`/`M5` are not lifted in this slice.
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation,

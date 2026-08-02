@@ -621,7 +621,7 @@ fn segment_numbers(s: &Segment) -> Vec<f64> {
         nums.push(cy.value());
     }
     nums.extend(
-        [s.temperature, s.fan, s.flow, s.dwell_s]
+        [s.temperature, s.fan, s.flow, s.power, s.dwell_s]
             .into_iter()
             .flatten(),
     );
@@ -1568,6 +1568,7 @@ mod tests {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: None,
@@ -1603,6 +1604,7 @@ mod tests {
             fan: None,
             flow: None,
             tool: None,
+            power: None,
             dwell_s: None,
             manual_gcode: None,
             orientation: None,
@@ -1923,6 +1925,7 @@ mod tests {
             fan: None,
             flow: None,
             tool: None,
+            power: None,
             dwell_s: None,
             manual_gcode: None,
             orientation: Some(orientation),

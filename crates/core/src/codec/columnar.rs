@@ -1,5 +1,5 @@
 use super::util::{checked_u32_len, decompress_exact, Reader};
-use super::{CodecError, DecodeLimits, ENC_VER, LEGACY_ENC_VER, MAGIC};
+use super::{CodecError, DecodeLimits, ENC_VER, LEGACY_ENC_VER, MAGIC, POWER_ENC_VER};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length, Volume};
 
@@ -73,10 +73,22 @@ fn body_push_string(out: &mut Vec<u8>, value: &str) -> Result<(), CodecError> {
 }
 
 /// Encode a toolpath to the compact columnar binary form.
+///
+/// The header's `enc_ver` records the *minimum reader version* the body needs, so it is chosen from
+/// the content rather than fixed. A `DRY0` column is dense — `ceil(n/8)` validity bits plus `n×f64`
+/// of payload whether or not a single segment fills it — so unconditionally writing the `power`
+/// column would move the bytes of every archive ever produced. Emitting [`ENC_VER`] when no segment
+/// carries power keeps those archives reproducible; [`POWER_ENC_VER`] appears only once the column
+/// has something to say.
 pub fn try_encode(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
     let segs = &tp.segments;
     let n = segs.len();
     let n_u32 = checked_u32_len(n, "segment count")?;
+    let enc_ver = if segs.iter().any(|s| s.power.is_some()) {
+        POWER_ENC_VER
+    } else {
+        ENC_VER
+    };
 
     // build the column body, then DEFLATE it (columns put like-valued data adjacent, which compresses
     // far better than row-interleaved JSON).
@@ -123,6 +135,10 @@ pub fn try_encode(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
         }
     }
     push_opt_string_col(&mut body, segs, |s| s.manual_gcode.as_deref())?;
+    // New columns append after the existing ones, so an older layout is a prefix of a newer one.
+    if enc_ver >= POWER_ENC_VER {
+        push_opt_col(&mut body, segs, |s| s.power);
+    }
 
     // kind dictionary (line/arc repeat, so this is tiny) + per-segment u32 index.
     let mut dict: Vec<SegmentKind> = Vec::new();
@@ -159,7 +175,7 @@ pub fn try_encode(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
     let compressed = miniz_oxide::deflate::compress_to_vec(&body, 8);
     let mut out = Vec::with_capacity(17 + compressed.len());
     out.extend_from_slice(&MAGIC);
-    out.push(ENC_VER);
+    out.push(enc_ver);
     out.extend_from_slice(&tp.version.to_le_bytes());
     out.extend_from_slice(&n_u32.to_le_bytes());
     out.extend_from_slice(&checked_u32_len(body.len(), "body length")?.to_le_bytes());
@@ -197,6 +213,7 @@ pub struct BinarySegmentsIterator {
     pub flow: Vec<Option<f64>>,
     pub dwell_s: Vec<Option<f64>>,
     pub manual_gcode: Vec<Option<String>>,
+    pub power: Vec<Option<f64>>,
     pub tool: Vec<Option<u32>>,
     pub orientation: Vec<Option<[f64; 3]>>,
     pub control_points: Vec<Option<Vec<[Length; 3]>>>,
@@ -254,6 +271,7 @@ impl Iterator for BinarySegmentsIterator {
             fan: self.fan[i],
             flow: self.flow[i],
             tool: self.tool[i],
+            power: self.power[i],
             dwell_s: self.dwell_s[i],
             manual_gcode: self.manual_gcode[i].clone(),
             orientation: self.orientation[i],
@@ -280,7 +298,7 @@ pub fn decode_streaming_with_limits(
         return Err(CodecError::BadMagic);
     }
     let enc = h.u8()?;
-    if enc != ENC_VER && enc != LEGACY_ENC_VER {
+    if enc != ENC_VER && enc != LEGACY_ENC_VER && enc != POWER_ENC_VER {
         return Err(CodecError::UnsupportedVersion(enc));
     }
     let version = h.u32()?;
@@ -293,9 +311,16 @@ pub fn decode_streaming_with_limits(
         limits.max_columnar_body_bytes,
     )?;
 
-    let bitmap_columns = if enc == LEGACY_ENC_VER { 19 } else { 20 };
+    // Fixed bytes per segment and validity bitmaps, per layout: enc 0 has no manual_gcode bitmap,
+    // enc 2 adds the power column (one bitmap + one f64 per segment).
+    let (fixed_per_segment, bitmap_columns) = match enc {
+        LEGACY_ENC_VER => (176, 19),
+        ENC_VER => (176, 20),
+        // POWER_ENC_VER — every other value was rejected above.
+        _ => (184, 21),
+    };
     let minimum_body_len = n
-        .checked_mul(176)
+        .checked_mul(fixed_per_segment)
         .and_then(|fixed| {
             n.div_ceil(8)
                 .checked_mul(bitmap_columns)
@@ -381,6 +406,11 @@ pub fn decode_streaming_with_limits(
         }
         values
     };
+    let power = if enc == POWER_ENC_VER {
+        r.opt_col(n)?
+    } else {
+        vec![None; n]
+    };
 
     let dict_len = r.u32()? as usize;
     limits.ensure("kind dictionary entries", dict_len, 32)?;
@@ -438,6 +468,7 @@ pub fn decode_streaming_with_limits(
         flow,
         dwell_s,
         manual_gcode,
+        power,
         tool,
         orientation,
         control_points,

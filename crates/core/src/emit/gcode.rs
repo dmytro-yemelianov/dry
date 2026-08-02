@@ -189,6 +189,13 @@ where
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
+    // The power channel, modal exactly like the feedrate: `prev_power` is the last commanded `S`,
+    // `spindle_on` whether an `M3` is outstanding. Only GRBL renders them in this slice — RS-274
+    // already commands the spindle once per program through [`CncFrame`], and interleaving a
+    // per-segment `S`/`M5` with that preamble's own `S… M3`/`M5` is a collision this slice does not
+    // open; the printer flavors have no spindle at all.
+    let mut prev_power: Option<f64> = None;
+    let mut spindle_on = false;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
@@ -231,6 +238,48 @@ where
 
     for res in segments {
         let s = res?;
+
+        // Power transitions are written ahead of whatever the segment is — a move, a dwell or a
+        // verbatim block — because `resolve` attaches the running channel to every segment alike,
+        // and a laser that changes state one segment late has already burnt the difference.
+        //
+        // `M3`, never `M4`. The same channel drives a laser and a CNC spindle, and `M4` means two
+        // incompatible things to them: dynamic (feedrate-scaled) laser power to a GRBL controller in
+        // laser mode, and *counter-clockwise rotation* to a spindle. `M3` is the one spelling that is
+        // correct under both readings. Selecting dynamic power is a machine capability (GRBL `$32`),
+        // so it belongs with the profile field, not here.
+        //
+        // `S0` is spelt `M5`, not `S0`: under `M3` a zero `S` leaves the laser *enabled* at zero
+        // power, and "enabled" is the state that burns when the controller's next command misses.
+        if p.flavor == FirmwareFlavor::Grbl {
+            if let Some(level) = s.power {
+                if prev_power != Some(level) {
+                    // Refuse first: `num` renders NaN as `NaN` and the infinities as `inf`, and the
+                    // sign tests below would route a NaN to the "negative" arm by accident.
+                    let level_text = num_checked(level, 'S')?;
+                    if level > 0.0 {
+                        let line = if spindle_on {
+                            format!("S{level_text}")
+                        } else {
+                            spindle_on = true;
+                            format!("S{level_text} M3")
+                        };
+                        write_line(writer, &mut first_line, &line)?;
+                    } else if level == 0.0 {
+                        if spindle_on {
+                            spindle_on = false;
+                            write_line(writer, &mut first_line, "M5")?;
+                        }
+                    } else {
+                        return Err(crate::codec::CodecError::Other(format!(
+                            "cannot emit negative spindle/laser power ({level})"
+                        )));
+                    }
+                    prev_power = Some(level);
+                }
+            }
+        }
+
         if s.kind == SegmentKind::ManualGcode {
             if let Some(text) = &s.manual_gcode {
                 for line in text.lines() {
@@ -414,6 +463,12 @@ where
         }
 
         write_line(writer, &mut first_line, &toks.join(" "))?;
+    }
+
+    // A program must not end with the beam or the spindle still live. `spindle_on` is only ever set
+    // by the GRBL branch above, so this fires exactly when this emitter turned it on.
+    if spindle_on {
+        write_line(writer, &mut first_line, "M5")?;
     }
 
     if let Some(f) = frame {
