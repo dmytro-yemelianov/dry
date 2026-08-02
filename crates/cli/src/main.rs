@@ -752,6 +752,46 @@ fn resolve_license() -> LicenseResolution {
     }
 }
 
+/// The eval-mode notice every report-producing command prints once to stderr when running
+/// without a license. Exact text per the license product spec — `tests/license.rs` pins it.
+const EVAL_BANNER: &str =
+    "EVALUATION — not for production gating. https://dry-public-docs.pages.dev/pricing";
+
+/// Map a resolved license to the passive stamp embedded in report envelopes (`dry_core::LicenseStamp`,
+/// Task 4). Never fails: eval mode stamps `mode: "evaluation"` with no licensee/tier.
+fn license_stamp(res: &LicenseResolution) -> dry_core::LicenseStamp {
+    match res {
+        LicenseResolution::Licensed(v) => dry_core::LicenseStamp {
+            mode: "licensed".to_string(),
+            licensee: Some(v.payload.licensee.clone()),
+            tier: Some(v.payload.tier.to_string()),
+        },
+        LicenseResolution::Eval { .. } => dry_core::LicenseStamp {
+            mode: "evaluation".to_string(),
+            licensee: None,
+            tier: None,
+        },
+    }
+}
+
+/// Emit the once-per-run stderr notice for a report-producing command: the eval banner in
+/// evaluation mode, or a grace-period warning when the active license is past its expiry but
+/// still inside the 14-day grace window. Prints nothing for a comfortably valid license.
+fn license_notice(res: &LicenseResolution) {
+    match res {
+        LicenseResolution::Eval { .. } => eprintln!("{EVAL_BANNER}"),
+        LicenseResolution::Licensed(v) => {
+            if let dry_license::LicenseState::Grace { days_left } = v.state {
+                eprintln!(
+                    "warning: license for {} is in its grace period ({days_left} day(s) left) — \
+                     see https://dry-public-docs.pages.dev/pricing to renew",
+                    v.payload.licensee
+                );
+            }
+        }
+    }
+}
+
 fn run_license(action: LicenseAction) -> ExitCode {
     match action {
         LicenseAction::Activate { token_or_file } => {
@@ -982,6 +1022,7 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 }
 
 fn run(cli: Cli) -> ExitCode {
+    let license = resolve_license();
     match cli.cmd {
         Cmd::License { action } => run_license(action),
         Cmd::Auth { command, cloud_url } => {
@@ -1396,6 +1437,8 @@ fn run(cli: Cli) -> ExitCode {
                 |segment| imported.source_line_for_segment(segment),
             );
             review.add_unmodeled_gcode(&imported);
+            review.license = Some(license_stamp(&license));
+            license_notice(&license);
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&review).unwrap());
@@ -1630,7 +1673,7 @@ fn run(cli: Cli) -> ExitCode {
                     max_applies,
                 });
             }
-            let a = assemble_explain(
+            let mut a = assemble_explain(
                 &file,
                 profile.as_deref(),
                 filament_diameter,
@@ -1643,6 +1686,8 @@ fn run(cli: Cli) -> ExitCode {
                 min_temp,
                 window_s,
             );
+            a.bundle.license = Some(license_stamp(&license));
+            license_notice(&license);
             let rendered = if json {
                 serde_json::to_string_pretty(&a.bundle).unwrap() + "\n"
             } else {
@@ -1708,7 +1753,9 @@ fn run(cli: Cli) -> ExitCode {
                 None,
                 window_s,
             );
-            let delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+            let mut delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+            delta.license = Some(license_stamp(&license));
+            license_notice(&license);
             let rendered = if json {
                 serde_json::to_string_pretty(&delta).unwrap() + "\n"
             } else {
@@ -1835,7 +1882,7 @@ fn run(cli: Cli) -> ExitCode {
                     meta: imported.toolpath.meta.clone(),
                     segments: after_segs,
                 };
-                let report = RewriteReport::build(
+                let mut report = RewriteReport::build(
                     Some(file.clone()),
                     profile_label(profile.as_ref()),
                     mode_label.to_string(),
@@ -1843,6 +1890,8 @@ fn run(cli: Cli) -> ExitCode {
                     &after_tp,
                     span_results,
                 );
+                report.license = Some(license_stamp(&license));
+                license_notice(&license);
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&report).unwrap());
@@ -1978,7 +2027,7 @@ fn run(cli: Cli) -> ExitCode {
             min_temp,
             speed_range,
             json,
-        }),
+        }, &license),
         Cmd::Verify {
             file,
             profile,
@@ -2016,8 +2065,10 @@ fn run(cli: Cli) -> ExitCode {
                     junction_velocity,
                 },
             );
-            let report = verify_stream(stream, &contracts)
+            let mut report = verify_stream(stream, &contracts)
                 .unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
+            report.license = Some(license_stamp(&license));
+            license_notice(&license);
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else if report.findings.is_empty() {
@@ -2778,7 +2829,7 @@ struct UploadArgs {
 }
 
 #[cfg(not(feature = "moonraker"))]
-fn run_upload(_: UploadArgs) -> std::process::ExitCode {
+fn run_upload(_: UploadArgs, _license: &LicenseResolution) -> std::process::ExitCode {
     die(
         "this build was compiled without moonraker support; rebuild with `cargo build --features moonraker`"
             .into(),
@@ -2786,10 +2837,19 @@ fn run_upload(_: UploadArgs) -> std::process::ExitCode {
 }
 
 #[cfg(feature = "moonraker")]
-fn run_upload(args: UploadArgs) -> std::process::ExitCode {
+fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::ExitCode {
     use std::io::Cursor;
     use std::path::Path;
     use std::time::Duration;
+
+    // License gate: refuse BEFORE any network contact, on parsed args alone.
+    if matches!(license, LicenseResolution::Eval { .. }) {
+        die(
+            "dry upload requires a license — see https://dry-public-docs.pages.dev/pricing"
+                .into(),
+        );
+    }
+    license_notice(license);
 
     let api_key = std::env::var(&args.api_key_env).ok();
     let profile = load_profile(args.profile.as_deref());

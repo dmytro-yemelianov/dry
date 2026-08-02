@@ -63,6 +63,59 @@ fn activate_stores_and_status_reads_back() {
     assert!(String::from_utf8_lossy(&st.stdout).contains("team"));
 }
 
+/// A real g-code fixture — reused from the conventions in `crates/cli/tests/cli.rs`.
+fn gcode_fixture() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../conformance/vectors/minimal_line/expected.gcode")
+}
+
+#[test]
+fn eval_review_report_is_stamped_evaluation() {
+    let out = bin()
+        .args(["review-gcode", gcode_fixture().to_str().unwrap(), "--json"])
+        .env_remove("DRY_LICENSE")
+        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-no-license"))
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["license"]["mode"], "evaluation");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
+}
+
+#[test]
+fn licensed_review_report_is_stamped_with_licensee() {
+    let out = bin()
+        .args(["review-gcode", gcode_fixture().to_str().unwrap(), "--json"])
+        .env("DRY_LICENSE", team_token().trim())
+        .env("DRY_LICENSE_ALLOW_TEST_KEY", "1")
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["license"]["mode"], "licensed");
+    assert_eq!(v["license"]["tier"], "team");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
+}
+
+#[cfg(feature = "moonraker")]
+#[test]
+fn upload_refuses_in_eval_before_any_network() {
+    let out = bin()
+        .args([
+            "upload",
+            gcode_fixture().to_str().unwrap(),
+            "--moonraker",
+            "http://127.0.0.1:1", // closed port: must NOT be contacted
+        ])
+        .env_remove("DRY_LICENSE")
+        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-no-license"))
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("requires a license"), "got: {err}");
+    assert!(!err.contains("connection"), "network was attempted: {err}");
+}
+
 #[test]
 fn garbage_token_activate_fails_cleanly() {
     let out = bin()
