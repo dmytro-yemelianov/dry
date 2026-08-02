@@ -268,6 +268,8 @@ impl ImportedGcode {
     /// their wrappers as motion, and the result would be neither g-code nor a loadable KUKA
     /// module. A profile carrying `flavor: "robot-krl"` reaches this function through
     /// `dry rewrite-gcode`, so the refusal is not hypothetical.
+    /// The spindle/laser power channel is **refused** here for the same reason, stated as a rule
+    /// rather than left to the accounting: see the guard below.
     fn emit_normalized_span_lines(
         &self,
         span_toolpaths: &[Toolpath],
@@ -279,6 +281,31 @@ impl ImportedGcode {
                 "source-preserving span rewrite is not defined for KRL: the KRL renderer emits a \
                  whole DEF/END module, which cannot be spliced into a g-code file"
                     .to_string(),
+            ));
+        }
+
+        // The replacement toolpath is caller-supplied — `import_gcode` never sets `power`, but
+        // nothing stops a caller from handing us one that does, and two things then go wrong.
+        // `modal_rewrite_prologue` restores the modals *the emitter itself* owns; it cannot restore
+        // a beam state, because `lift` does not read `S`/`M3`/`M5` back and so does not know what
+        // the preserved source lines already commanded. And a span emitted on its own closes with
+        // its own `M5`, which the flat stream does not have at that offset, so the line accounting
+        // below either desyncs (and reports an internal error) or, for some patterns, lines up by
+        // coincidence and splices a program whose beam state nobody chose. Refuse in so many words.
+        if let Some((index, level)) = span_toolpaths
+            .iter()
+            .flat_map(|toolpath| toolpath.segments.iter())
+            .enumerate()
+            .find_map(|(index, segment)| segment.power.map(|level| (index, level)))
+        {
+            return Err(GcodeImportError::new(
+                0,
+                format!(
+                    "a source-preserving rewrite cannot carry the spindle/laser power channel \
+                     (segment {index} commands S{level}): g-code import does not lift `S`/`M3`/`M5`, \
+                     so the beam state of the preserved source is unknown and a span prologue cannot \
+                     restore it — emit the whole program instead of splicing it"
+                ),
             ));
         }
         let params = &EmitParams {
@@ -357,6 +384,10 @@ fn modal_rewrite_prologue(
     // controllers have none, and an unknown M-code aborts the program on LinuxCNC/Fanuc — so the
     // extruder modals are gated on the same predicate the emitter uses to decide whether to write
     // `E` words at all.
+    //
+    // The set of modals restored here is closed by what `lift` tracks. The spindle/laser power
+    // channel is not in it, which is why `emit_normalized_span_lines` refuses a rewrite that carries
+    // one rather than emitting a span this function cannot make self-contained.
     let mut lines = vec!["G21".to_string(), "G90".to_string()];
     if params.flavor.has_extruder() {
         lines.push(if params.relative_e { "M83" } else { "M82" }.to_string());
@@ -733,6 +764,16 @@ fn lift_motion(
             fan: state.fan,
             flow: None,
             tool: state.tool,
+            // The importer does not yet read `S`/`M3`/`M5` back into the power channel — the
+            // emitter writes them for GRBL, but lifting them is a parser change this slice does
+            // not make, so a g-code round trip drops the channel rather than guessing at it.
+            //
+            // Whoever does lift them must look at `emit_normalized_span_lines` first: like the
+            // `CncFrame` preamble, the GRBL power words are *program*-scoped — the `M3` fires once
+            // and the closing `M5` once — so a span emitted on its own carries a prologue and an
+            // epilogue the same span inside the whole-program stream does not, and the span line
+            // accounting there would refuse the rewrite.
+            power: None,
             dwell_s,
             manual_gcode: None,
             orientation,
@@ -813,6 +854,8 @@ fn lift_motion(
         fan: state.fan,
         flow,
         tool: state.tool,
+        // See the dwell branch: `S`/`M3`/`M5` are not lifted in this slice.
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation,
@@ -1446,5 +1489,49 @@ mod tests {
         assert_eq!(tp.segments[1].dwell_s, Some(1.5));
         assert_eq!(tp.segments[2].kind, SegmentKind::Line);
         assert_eq!(tp.segments[2].end[0], Some(Length::mm(2.0)));
+    }
+
+    /// A source-preserving rewrite takes a **caller-supplied** replacement toolpath, so the power
+    /// channel can reach it even though `import_gcode` never produces one. It must be refused in so
+    /// many words: the modal prologue cannot restore a channel `lift` does not track, and the
+    /// per-span line accounting silently disagrees with the flat stream about the trailing `M5`
+    /// (with powers `[600, 600]` it used to fail as `internal rewrite line accounting failed`, and
+    /// with `[600, 0]` it used to *succeed* with a span whose beam state came from luck).
+    #[test]
+    fn source_preserving_emit_refuses_a_power_bearing_rewrite() {
+        let imported = import_gcode_with_map(
+            "G1 X0 Y0 Z0.2 F1500\n; a comment splits the motion into two spans\nG1 X10\n",
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(imported.motion_spans().len(), 2);
+        let grbl = EmitParams {
+            flavor: crate::emit::FirmwareFlavor::Grbl,
+            ..EmitParams::default()
+        };
+
+        for powers in [[Some(600.0), Some(600.0)], [Some(600.0), Some(0.0)]] {
+            let mut replacement = imported.toolpath.clone();
+            for (segment, power) in replacement.segments.iter_mut().zip(powers) {
+                segment.power = power;
+            }
+            let error = imported
+                .emit_source_preserving(&replacement, &grbl)
+                .expect_err("a power-bearing rewrite must be refused");
+            let text = error.to_string();
+            assert!(
+                text.contains("power channel") && text.contains("segment 0"),
+                "the refusal must name the channel and the segment, got: {text}"
+            );
+            assert!(
+                !text.contains("internal"),
+                "the refusal must not be shaped like an internal error: {text}"
+            );
+        }
+
+        // The same rewrite without the channel is unaffected.
+        imported
+            .emit_source_preserving(&imported.toolpath, &grbl)
+            .expect("a power-free rewrite still splices");
     }
 }

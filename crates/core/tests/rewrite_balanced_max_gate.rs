@@ -42,6 +42,7 @@ fn line_at(start: [f64; 3], end: [f64; 3], speed: f64) -> Segment {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,

@@ -270,6 +270,11 @@ export type Op = | { op: 'geometry'; width: number; height: number }
   | { op: 'fan'; speed: number }
   | { op: 'flow'; ratio: number }
   | { op: 'tool'; index: number }
+  /** Spindle/laser power in the target controller's `S`-word units (RPM for a spindle, PWM counts
+   * for a laser). Must be finite and >= 0; `0` means commanded off, which is distinct from never
+   * commanding the channel at all. Rendered by the `grbl` flavor; any other flavor refuses a
+   * toolpath that carries it rather than dropping the command silently. */
+  | { op: 'power'; level: number }
   | { op: 'orient'; i: number; j: number; k: number }
   | { op: 'dwell'; seconds: number }
   | { op: 'manual_gcode'; text: string }
@@ -586,6 +591,7 @@ One resolved motion or process segment in the Dry L2 IR.
 | `fan` | `number` | No | Declared in the public API. |
 | `flow` | `number` | No | Declared in the public API. |
 | `tool` | `number` | No | Declared in the public API. |
+| `power` | `number` | No | Commanded spindle/laser power (`S`-word units); `0` is commanded off, absent is never commanded. |
 | `dwell_s` | `number` | No | Declared in the public API. |
 | `manual_gcode` | `string` | No | Declared in the public API. |
 | `orientation` | `[number, number, number]` | No | Declared in the public API. |

@@ -84,6 +84,7 @@ fn to_segment(fixture: &FixtureSegment) -> Segment {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: fixture.dwell_seconds.as_ref().map(NumberOrRational::to_f64),
         manual_gcode: None,
         orientation: None,

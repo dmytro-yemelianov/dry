@@ -41,6 +41,7 @@ fn test_travel_g1_e0() {
             fan: None,
             flow: None,
             tool: None,
+            power: None,
             dwell_s: None,
             manual_gcode: None,
             orientation: None,
@@ -98,6 +99,7 @@ fn travel_arcs_emit_arc_commands_without_extrusion() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -149,6 +151,7 @@ fn test_dwell_firmware_flavors() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: Some(1.5),
         manual_gcode: None,
         orientation: None,
@@ -254,6 +257,7 @@ fn test_step_nc_emitter_is_deterministic() {
             fan: None,
             flow: None,
             tool: None,
+            power: None,
             dwell_s: None,
             manual_gcode: None,
             orientation: None,
@@ -304,6 +308,7 @@ fn test_step_nc_emitter_includes_five_axis_toolframe_intent() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: Some([0.0, 0.0, 1.0]),
@@ -334,6 +339,7 @@ fn test_step_nc_emitter_includes_five_axis_toolframe_intent() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: Some([1.0, 0.0, 0.0]),
@@ -392,6 +398,7 @@ fn test_rs274_output_is_parseable_and_importable() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -415,6 +422,7 @@ fn test_rs274_output_is_parseable_and_importable() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -438,6 +446,7 @@ fn test_rs274_output_is_parseable_and_importable() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -461,6 +470,7 @@ fn test_rs274_output_is_parseable_and_importable() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -484,6 +494,7 @@ fn test_rs274_output_is_parseable_and_importable() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: Some(0.5),
         manual_gcode: None,
         orientation: None,
@@ -560,6 +571,7 @@ fn test_rs274_output_with_five_axis_is_parseable_and_importable() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: Some([1.0, 0.0, 0.0]),
@@ -590,6 +602,7 @@ fn test_rs274_output_with_five_axis_is_parseable_and_importable() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: Some([0.0, 1.0, 0.0]),
@@ -688,6 +701,7 @@ fn robot_krl_output_is_a_kuka_module_and_is_no_longer_g_code_dry_can_import() {
             manual_gcode: None,
             orientation: Some([1.0, 0.0, 0.0]),
             control_points: None,
+            power: None,
         }],
     };
 
@@ -752,6 +766,7 @@ fn test_rs274_arc_output_is_parseable_and_importable() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: None,
@@ -782,6 +797,7 @@ fn test_rs274_arc_output_is_parseable_and_importable() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: None,
@@ -812,6 +828,7 @@ fn test_rs274_arc_output_is_parseable_and_importable() {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: Some(0.75),
                 manual_gcode: None,
                 orientation: None,
@@ -880,6 +897,7 @@ fn non_extruder_flavors_emit_no_e_words() {
             fan: None,
             flow: None,
             tool: None,
+            power: None,
             dwell_s: None,
             manual_gcode: None,
             orientation: None,
@@ -945,6 +963,7 @@ fn non_extruder_flavors_keep_travel_and_cut_moves_distinct() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -1004,6 +1023,7 @@ fn five_axis_arc_offsets_do_not_depend_on_the_preceding_orientation() {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation,
@@ -1060,4 +1080,192 @@ fn five_axis_arc_offsets_do_not_depend_on_the_preceding_orientation() {
         ij(&changed),
         "arc I/J must not change with the preceding orientation:\n  after same:    {same}\n  after changed: {changed}"
     );
+}
+
+fn power_seg(x: f64, power: Option<f64>) -> crate::ir::Segment {
+    use crate::ir::{Segment, SegmentKind};
+    use crate::units::{Feedrate, Length, Volume};
+    Segment {
+        start: [None, None, None],
+        end: [Some(Length::mm(x)), None, None],
+        travel: false,
+        speed: Feedrate(1000.0),
+        length: Length::mm(10.0),
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        power,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    }
+}
+
+/// The power channel under GRBL: `S` is modal like `F`, `M3` is written once on the first nonzero
+/// level, a return to zero is spelt `M5`, and a program never ends with the beam still live.
+#[test]
+fn grbl_power_channel_emits_modal_s_with_m3_and_m5() {
+    use super::{emit_stream, EmitParams, FirmwareFlavor};
+
+    let grbl = EmitParams {
+        flavor: FirmwareFlavor::Grbl,
+        ..EmitParams::default()
+    };
+
+    // A commanded off is spelt out even before anything of ours is on: `Some(0.0)` and `None` are
+    // different IR states, and the difference has to survive into the g-code — the controller may be
+    // live from a previous program.
+    let lines = emit_stream(
+        [
+            power_seg(1.0, Some(0.0)),
+            power_seg(2.0, Some(600.0)),
+            power_seg(3.0, Some(600.0)), // unchanged ⇒ no word, exactly like a held feedrate
+            power_seg(4.0, Some(300.0)),
+            power_seg(5.0, Some(0.0)),
+            power_seg(6.0, Some(400.0)),
+        ]
+        .map(Ok),
+        &grbl,
+    )
+    .expect("grbl power program emits");
+    assert_eq!(
+        lines,
+        vec![
+            "M5",
+            "G1 F1000 X1",
+            "S600 M3",
+            "G1 X2",
+            "G1 X3",
+            "S300",
+            "G1 X4",
+            "M5",
+            "G1 X5",
+            "S400 M3",
+            "G1 X6",
+            // the program ends with the beam on ⇒ the emitter turns it off.
+            "M5",
+        ]
+    );
+
+    // An unset channel is "not commanded": it neither starts nor stops the spindle.
+    let untouched = emit_stream([power_seg(1.0, None), power_seg(2.0, None)].map(Ok), &grbl)
+        .expect("power-free grbl program emits");
+    assert_eq!(untouched, vec!["G1 F1000 X1", "G1 X2"]);
+}
+
+/// The channel reaches metal only through GRBL. RS-274 commands the spindle once per program through
+/// `CncFrame`; the printer flavors have no spindle at all. A flavor that cannot render a commanded
+/// power **refuses** the program — dropping it silently is the vacuous emission ADR 0002 §4 forbids,
+/// and on RS-274 it would mean cutting at the frame's RPM instead of the commanded one.
+#[test]
+fn non_grbl_flavors_refuse_the_power_channel() {
+    use super::{emit_stream, EmitParams, FirmwareFlavor};
+
+    for flavor in [
+        FirmwareFlavor::Marlin,
+        FirmwareFlavor::Klipper,
+        FirmwareFlavor::Duet,
+        FirmwareFlavor::Rs274,
+        FirmwareFlavor::RobotKrl,
+    ] {
+        let params = EmitParams {
+            flavor,
+            ..EmitParams::default()
+        };
+        match emit_stream([power_seg(10.0, Some(600.0))].map(Ok), &params) {
+            Ok(lines) => panic!("{flavor:?} silently dropped the power channel: {lines:?}"),
+            Err(error) => {
+                let text = error.to_string();
+                assert!(
+                    text.contains("power channel") && text.contains("S600"),
+                    "the refusal must name the channel and the level, got: {text}"
+                );
+            }
+        }
+        // An *unset* channel is not a commanded state: those flavors still emit exactly as before.
+        let lines = emit_stream([power_seg(10.0, None)].map(Ok), &params).expect("emits");
+        for line in &lines {
+            // Token-based, not substring: a spindle command is the *word* `M3`/`M5` or `S<number>`.
+            // A substring test fails on any prose or identifier containing those letters — KRL's
+            // banner, and `$BASE`/`E6POS` in its module header — none of which commands a spindle.
+            let commands_spindle = line.split_whitespace().any(|word| {
+                word == "M3"
+                    || word == "M5"
+                    || word
+                        .strip_prefix('S')
+                        .is_some_and(|rest| rest.parse::<f64>().is_ok())
+            });
+            assert!(
+                !commands_spindle,
+                "{flavor:?} must not render the power channel: {line}"
+            );
+        }
+    }
+}
+
+/// The RS-274 refusal points at the one place that *does* command its spindle, so the conflict rule
+/// (`docs/11` §1) is discoverable from the diagnostic and not only from the docs.
+#[test]
+fn rs274_power_refusal_names_the_program_frame() {
+    use super::{emit_stream, EmitParams, FirmwareFlavor};
+
+    let error = emit_stream(
+        [power_seg(10.0, Some(600.0))].map(Ok),
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            ..EmitParams::default()
+        },
+    )
+    .expect_err("rs274 refuses a per-segment power");
+    let text = error.to_string();
+    assert!(
+        text.contains("machine.cnc") && text.contains("spindle_rpm"),
+        "the RS-274 refusal must name the program frame, got: {text}"
+    );
+}
+
+/// ADR 0002 §4: emit is the last gate before metal, so an unrepresentable power refuses the program
+/// rather than writing `SNaN` or a negative `S` a controller will read as something else.
+///
+/// The domain check runs on **every** flavor, not just the one that renders the channel: an IR file
+/// can carry a negative `power` (the L1 `validate_design` guard is not on that path), and a refusal
+/// that only fires under GRBL would let it through everywhere else.
+#[test]
+fn every_flavor_refuses_non_finite_and_negative_power() {
+    use super::{emit_stream, EmitParams, FirmwareFlavor};
+
+    for flavor in [
+        FirmwareFlavor::Grbl,
+        FirmwareFlavor::Marlin,
+        FirmwareFlavor::Klipper,
+        FirmwareFlavor::Duet,
+        FirmwareFlavor::Rs274,
+        FirmwareFlavor::RobotKrl,
+    ] {
+        let params = EmitParams {
+            flavor,
+            ..EmitParams::default()
+        };
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            match emit_stream([power_seg(10.0, Some(bad))].map(Ok), &params) {
+                Ok(lines) => panic!("{flavor:?} accepted power {bad}: {lines:?}"),
+                Err(error) => {
+                    let text = error.to_string();
+                    assert!(
+                        text.contains("finite and >= 0"),
+                        "the refusal must name the domain, got: {text}"
+                    );
+                }
+            }
+        }
+    }
 }

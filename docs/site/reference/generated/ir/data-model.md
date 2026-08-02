@@ -49,6 +49,7 @@ undefined before it is first set (e.g. the very first positioning move).
 | `fan` | number | omitted when unset | part-cooling fan (0..1) |
 | `flow` | number | omitted when unset | flow multiplier; default `1.0` is omitted |
 | `tool` | `u32` | omitted when unset | active tool index |
+| `power` | number | omitted when unset | commanded spindle/laser power, in the units the target controller's `S` word takes — RPM for a spindle, PWM counts for a laser. MUST be `≥ 0`; `0` means commanded off, which is distinct from absent (never commanded). No upper bound: the ceiling is a machine contract (GRBL `$30`, spindle max RPM), not a property of the IR |
 | `dwell_s` | number | omitted when unset | dwell duration (s); present only for `dwell` |
 | `manual_gcode` | string | omitted when unset | verbatim g-code; present only for `manualgcode` (see §10) |
 | `orientation` | `[number; 3]` | omitted when unset | tool-direction unit vector `(i,j,k)`; `null`/absent ⇒ +Z (3-axis) |

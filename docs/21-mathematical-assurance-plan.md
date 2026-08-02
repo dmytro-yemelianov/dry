@@ -345,7 +345,7 @@ Give every pass its own observation set and relation.
 | `adaptive_speed` | geometry/material exact; speeds changed only within declared kinematic/process envelope |
 | `coasting` | intentional material redistribution under a named process relation; never “exact semantics” |
 | `z_hop` | deposited trace exact; travel trace changes according to clearance policy |
-| `travel_reorder` | deposited-run multiset and each run's internal order exact; global order/travel trace intentionally changed |
+| `travel_reorder` | deposited-run multiset and each run's internal order exact; global order/travel trace intentionally changed. A *regenerated* connecting travel continues the process state of the run it follows — not of any other travel — and commands the beam off, so reordering cannot light a rapid the program authored dark |
 
 Pipeline composition is legal only when the output predicate of one pass implies the precondition of
 the next. Gated optimization must prove that rejection returns the original input and acceptance

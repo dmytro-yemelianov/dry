@@ -161,19 +161,44 @@
         "expected.gcode": "1d910202dc1ac7baf9e5f4727dc3aafb415d5c6402e211b822f8306f21874590",
         "input.json": "7bb7fcb0d194fba1bb2a6c0e77cabea59692071737d8f99f749d3d9176f0d6db",
         "metrics.json": "692dc54a5139e44d4aa5353f7dca7b6084509574b42444d6b32e07f67684d48f",
-        "vector.json": "65a0501a4613d87f0dc369d58c4102994f405e4a40f1456b3b7b99301d8407fd"
+        "vector.json": "09470661ba393c2eedaf437fac4a56d4c363331fce7c7fea2ba34ecccaf40458"
       },
-      "description": "An extruding line with every process channel set: temperature, fan, flow, tool.",
+      "description": "An extruding line with the four older process channels set: temperature, fan, flow, tool. It deliberately leaves `power` unset — this is the witness that a power-free toolpath still writes at DRY0 `enc_ver 1` (spec §5.3); the `power` channel has its own vector.",
       "feature_tags": [
         "temperature",
         "fan",
         "flow",
-        "tool"
+        "tool",
+        "enc-ver-1"
       ],
       "frozen": false,
       "has_gcode": true,
       "ir_version": 0,
       "name": "channels_full"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "11e81ab071c4de5e9e33d61d2ba310977224b1f73934149c88e57a8f079e7f4e",
+        "expected.dry1": "d84b3f43f46078cd8a4b943cc003c82ee3b4ed0f665cd81f22fce05b4535d9de",
+        "expected.gcode": "92073cf7489263453f09200ae27d806f5a345f55733b8a857b2fab9f6c6010c5",
+        "input.json": "7ad6c61327e9943486c58db82420916beef4a58519833d71714735d879669089",
+        "metrics.json": "d02fde2734c35f71caf93b837191181cf93fcb1f05abbed2b73c6f3162fba144",
+        "vector.json": "7db380cd281dab344381b03d34d22c781371c83eb1ca5b4ac5adc892ac79f499"
+      },
+      "description": "GRBL cutting moves carrying the spindle/laser power channel beside every field it is adjacent to on the wire — exercises the DRY0 enc_ver 2 column (which follows `manual_gcode`), the DRY1 row position (which follows `control_points`), flag bit 19, and the S / M3 / M5 words.",
+      "feature_tags": [
+        "power",
+        "grbl",
+        "enc-ver-2",
+        "channels",
+        "orientation",
+        "control-points",
+        "manual-gcode"
+      ],
+      "frozen": true,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "power_channel"
     },
     {
       "artifacts": {

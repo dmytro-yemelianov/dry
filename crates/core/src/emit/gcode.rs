@@ -196,13 +196,47 @@ where
     W: std::io::Write,
 {
     if p.flavor == FirmwareFlavor::RobotKrl {
-        return super::krl::emit_krl_to_writer(segments, p, writer);
+        // KRL is dispatched before the modal loop below, so it never reaches that loop's power
+        // refusal. Refuse here instead: `emit_krl_to_writer` renders a `DEF`/`END` module with no
+        // notion of a spindle or beam, so letting a power-bearing toolpath through would drop a
+        // commanded machine state on the floor — the vacuous emission ADR 0002 §4 forbids, and the
+        // exact silent-drop the generic path already refuses for every non-GRBL flavor.
+        let mut checked = Vec::new();
+        for segment in segments {
+            let segment = segment?;
+            if let Some(level) = segment.power {
+                // Domain before flavor, exactly as the modal loop below orders it: a negative or
+                // non-finite level is wrong on every target, and reporting "KRL cannot render this"
+                // for a NaN would name the wrong defect.
+                if !level.is_finite() || level < 0.0 {
+                    return Err(crate::codec::CodecError::Other(format!(
+                        "cannot emit spindle/laser power {level}: the channel must be finite and >= 0"
+                    )));
+                }
+                return Err(crate::codec::CodecError::Other(format!(
+                    "flavor {:?} cannot render the spindle/laser power channel (segment commands \
+                     S{level}); KRL addresses no spindle or beam, so emit the program for a flavor \
+                     that does",
+                    p.flavor,
+                )));
+            }
+            checked.push(Ok(segment));
+        }
+        return super::krl::emit_krl_to_writer(checked, p, writer);
     }
     let segments = SplineFlatteningIterator::new(segments.into_iter());
     let mut first_line = true;
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
+    // The power channel, modal exactly like the feedrate: `prev_power` is the last commanded `S`,
+    // `spindle_on` whether an `M3` is outstanding. Only GRBL *renders* them — RS-274 already commands
+    // the spindle once per program through [`CncFrame`], and interleaving a per-segment `S`/`M5` with
+    // that preamble's own `S… M3`/`M5` is a collision this slice does not open; the printer flavors
+    // have no spindle at all. Every other flavor therefore refuses a toolpath that carries the
+    // channel instead of dropping it silently (see the segment loop below).
+    let mut prev_power: Option<f64> = None;
+    let mut spindle_on = false;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
@@ -245,6 +279,74 @@ where
 
     for res in segments {
         let s = res?;
+
+        // Power transitions are written ahead of whatever the segment is — a move, a dwell or a
+        // verbatim block — because `resolve` attaches the running channel to every segment alike,
+        // and a laser that changes state one segment late has already burnt the difference.
+        //
+        // `M3`, never `M4`. The same channel drives a laser and a CNC spindle, and `M4` means two
+        // incompatible things to them: dynamic (feedrate-scaled) laser power to a GRBL controller in
+        // laser mode, and *counter-clockwise rotation* to a spindle. `M3` is the one spelling that is
+        // correct under both readings. Selecting dynamic power is a machine capability (GRBL `$32`),
+        // so it belongs with the profile field, not here.
+        //
+        // `S0` is spelt `M5`, not `S0`: under `M3` a zero `S` leaves the laser *enabled* at zero
+        // power, and "enabled" is the state that burns when the controller's next command misses.
+        if let Some(level) = s.power {
+            // The domain (finite, `>= 0` — `docs/10` §3.3 and `spec/dry-ir-v0.schema.json`) is
+            // checked on *every* flavor, before the question of who renders it. Checking it inside
+            // the GRBL arm would make the refusal flavor-conditional: a negative `S` reaching emit
+            // through an IR file would then be silently dropped by every other target.
+            if !level.is_finite() || level < 0.0 {
+                return Err(crate::codec::CodecError::Other(format!(
+                    "cannot emit spindle/laser power {level}: the channel must be finite and >= 0"
+                )));
+            }
+            // Only GRBL has a rendering for the channel. Every other flavor refuses rather than
+            // dropping a commanded machine state on the floor (ADR 0002 §4 — refuse, never emit
+            // vacuously): a program that says "cut at S600" and emits g-code that says nothing at
+            // all about the spindle is exactly the vacuous emission that rule forbids.
+            if p.flavor != FirmwareFlavor::Grbl {
+                return Err(crate::codec::CodecError::Other(format!(
+                    "flavor {:?} cannot render the spindle/laser power channel (segment commands \
+                     S{level}); {}",
+                    p.flavor,
+                    match p.flavor {
+                        // RS-274 does drive a spindle, but through the *program* frame: the
+                        // profile's `machine.cnc.spindle_rpm` writes one `S… M3` preamble and one
+                        // `M5` postamble. A per-segment channel would interleave with those, so the
+                        // two ways of commanding one spindle are kept mutually exclusive rather
+                        // than merged by guesswork.
+                        FirmwareFlavor::Rs274 =>
+                            "RS-274 commands the spindle once per program through the profile's \
+                             `machine.cnc` frame — set `spindle_rpm` there, or emit with `grbl`",
+                        _ => "emit with `grbl`, or resolve a design without a `power` op",
+                    }
+                )));
+            }
+            if prev_power != Some(level) {
+                let level_text = num_checked(level, 'S')?;
+                if level > 0.0 {
+                    let line = if spindle_on {
+                        format!("S{level_text}")
+                    } else {
+                        spindle_on = true;
+                        format!("S{level_text} M3")
+                    };
+                    write_line(writer, &mut first_line, &line)?;
+                } else {
+                    // A commanded zero is written even when no `M3` of ours is outstanding. The IR
+                    // distinguishes "commanded off" (`Some(0.0)`) from "never commanded" (`None`),
+                    // and that distinction only survives into g-code if the off is spelt out: the
+                    // controller may well be live from a preceding program or a manual jog, and
+                    // `M5` on an already-stopped spindle costs nothing.
+                    spindle_on = false;
+                    write_line(writer, &mut first_line, "M5")?;
+                }
+                prev_power = Some(level);
+            }
+        }
+
         if s.kind == SegmentKind::ManualGcode {
             if let Some(text) = &s.manual_gcode {
                 for line in text.lines() {
@@ -419,6 +521,12 @@ where
         }
 
         write_line(writer, &mut first_line, &toks.join(" "))?;
+    }
+
+    // A program must not end with the beam or the spindle still live. `spindle_on` is only ever set
+    // by the GRBL branch above, so this fires exactly when this emitter turned it on.
+    if spindle_on {
+        write_line(writer, &mut first_line, "M5")?;
     }
 
     if let Some(f) = frame {

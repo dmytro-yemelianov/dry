@@ -28,8 +28,13 @@ const FLAG_TOOL: u32 = 1 << 15;
 const FLAG_ORIENTATION: u32 = 1 << 16;
 const FLAG_CONTROL_POINTS: u32 = 1 << 17;
 const FLAG_MANUAL_GCODE: u32 = 1 << 18;
+const FLAG_POWER: u32 = 1 << 19;
 const LEGACY_KNOWN_SEGMENT_FLAGS: u32 = (1 << 18) - 1;
-const KNOWN_SEGMENT_FLAGS: u32 = (1 << 19) - 1;
+// `power` claims a flag bit rather than an `enc_ver`: a `DRY1` row already describes itself through
+// this word, so the field costs nothing on a row that lacks it — every power-free stream stays
+// byte-identical — and a reader built before the bit existed refuses it as an unknown flag instead
+// of misreading the row. `DRY0`, whose columns are dense, has no such escape and does bump.
+const KNOWN_SEGMENT_FLAGS: u32 = (1 << 20) - 1;
 
 fn segment_kind_tag(kind: SegmentKind) -> u8 {
     match kind {
@@ -145,6 +150,9 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) -> Result<(), CodecError> 
     if s.manual_gcode.is_some() {
         flags |= FLAG_MANUAL_GCODE;
     }
+    if s.power.is_some() {
+        flags |= FLAG_POWER;
+    }
 
     push_u32(out, flags);
     out.push(segment_kind_tag(s.kind));
@@ -188,6 +196,8 @@ fn encode_segment_row(out: &mut Vec<u8>, s: &Segment) -> Result<(), CodecError> 
             push_f64(out, point[2].value());
         }
     }
+    // Newest field last, so an older row layout is a prefix of a newer one.
+    push_opt_f64(out, s.power);
     Ok(())
 }
 
@@ -367,6 +377,7 @@ fn decode_segment_row(
         }
         Some(points)
     };
+    let power = opt_f64_from_flag(r, flags, FLAG_POWER)?;
 
     Ok(Segment {
         start,
@@ -385,6 +396,7 @@ fn decode_segment_row(
         fan,
         flow,
         tool,
+        power,
         dwell_s,
         manual_gcode,
         orientation,

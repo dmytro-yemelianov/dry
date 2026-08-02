@@ -1,5 +1,5 @@
 {
-  "description": "An extruding line with every process channel set: temperature, fan, flow, tool.",
+  "description": "An extruding line with the four older process channels set: temperature, fan, flow, tool. It deliberately leaves `power` unset — this is the witness that a power-free toolpath still writes at DRY0 `enc_ver 1` (spec §5.3); the `power` channel has its own vector.",
   "emit_params": {
     "five_axis": false,
     "flavor": "Marlin",
@@ -11,7 +11,8 @@
     "temperature",
     "fan",
     "flow",
-    "tool"
+    "tool",
+    "enc-ver-1"
   ],
   "frozen": false,
   "has_gcode": true,

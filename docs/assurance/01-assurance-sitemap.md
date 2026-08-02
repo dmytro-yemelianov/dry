@@ -913,6 +913,7 @@ Process channels (temperature, fan, flow, tool) deterministically propagate forw
 **Exclusions**
 
 - Invalid physical input bounds, which are checked by pre-resolution validation.
+- The spindle/laser power channel, which the engine propagates the same way but the Lean semantics does not model.
 
 ### `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS`
 
@@ -936,6 +937,7 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 **Exclusions**
 
 - Arbitrary operation sequences outside the committed 6-case fixture corpus.
+- The spindle/laser power channel, which no fixture in the corpus exercises.
 
 ### `FM1.DEPOSITION.MODEL.SEMANTICS`
 
@@ -1057,7 +1059,8 @@ The abstract merge constructor stores the sum of input lengths and volumes
 
 - Proof that the production merge precondition identifies geometrically collinear segments.
 - Binary64 rounding and refinement against crates/core/src/optimize/merge.rs.
-- Preservation of time, feedrate transitions, channels, orientations, source maps, or emitted target behavior.
+- Preservation of time, feedrate transitions, orientations, source maps, or emitted target behavior.
+- Preservation of the process channels across a merge: the Lean model carries no channel state, so nothing here proves that a channel change breaks a run. In the production pass that guarantee rests entirely on the exhaustively-destructured ProcessState in crates/core/src/optimize/merge.rs and on the pipeline tests in crates/core/tests/channels.rs; for the spindle/laser power channel its loss is a physical hazard (a deleted beam-off), so the gap is named here rather than folded into the general channel exclusion.
 - Pipeline composition and gating.
 
 ### `FM1.CODEC_INVERSE.MODEL.SEMANTICS`
