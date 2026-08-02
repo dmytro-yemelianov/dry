@@ -94,6 +94,7 @@ where
                                     fan: s.fan,
                                     flow: s.flow,
                                     tool: s.tool,
+                                    power: s.power,
                                     dwell_s: None,
                                     manual_gcode: None,
                                     orientation: s.orientation,

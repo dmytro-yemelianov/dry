@@ -34,12 +34,22 @@ new Design().geometry(0.6, 0.2).extruder(true)
   .spline([[10, 0, 0.2], [10, 10, 0.2], [0, 10, 0.2]]);
 ```
 
-Process channels (§3) — `temperature` / `fan` / `flow` / `tool` — and `dwell`:
+Process channels (§3) — `temperature` / `fan` / `flow` / `tool` / `power` — and `dwell`:
 
 ```ts
 new Design().geometry(0.6, 0.2).temperature(210).fan(0.5).flow(0.95).tool(0).extruder(true)
   .point(0, 0, 0.2).point(10, 0, 0.2)
   .dwell(2);   // a G4 pause
+```
+
+`power` is the spindle/laser `S` word (RPM or PWM counts; `0` is commanded off, which is not the same
+as never commanding it). Only the `grbl` flavor renders it — every other flavor refuses a toolpath
+that carries it rather than dropping the command:
+
+```ts
+new Design().geometry(0.6, 0.2).extruder(true)
+  .power(600).point(0, 0, 0.2).point(10, 0, 0.2)
+  .power(0).point(20, 0, 0.2);   // S600 M3 … M5
 ```
 
 Reusable planar L0 features expand through the Rust engine:

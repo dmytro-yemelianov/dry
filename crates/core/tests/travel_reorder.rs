@@ -129,6 +129,28 @@ fn single_run_is_unchanged() {
     assert_eq!(travel_reorder(&tp), tp);
 }
 
+/// The other half of the beam-state decision: a regenerated travel commands the beam off, but only on
+/// a toolpath that has a beam. Writing `power: Some(0.0)` unconditionally would mean *inventing* the
+/// channel on every FFF print — and `emit` refuses a toolpath carrying `power` on any flavor but GRBL
+/// rather than dropping it, so reordering an ordinary print would stop it emitting at all.
+#[test]
+fn reorder_does_not_invent_a_power_channel() {
+    let tp = resolve(&zigzag_islands(), &ResolveParams::default());
+    assert!(tp.segments.iter().all(|s| s.power.is_none()));
+    let opt = travel_reorder(&tp);
+    assert!(
+        opt.segments.iter().all(|s| s.power.is_none()),
+        "the reorder gave a power-free toolpath a beam state: {:?}",
+        opt.segments.iter().map(|s| s.power).collect::<Vec<_>>()
+    );
+    // and the default (Marlin) flavor, which has no rendering for the channel, still emits it.
+    dry_core::emit_stream(
+        opt.segments.iter().cloned().map(Ok),
+        &dry_core::EmitParams::default(),
+    )
+    .expect("a reordered FFF print must still emit");
+}
+
 #[test]
 fn travel_never_grows() {
     // the constructed case shortens, but the contract is the weaker `after <= before` for any input.

@@ -87,6 +87,7 @@ undefined before it is first set (e.g. the very first positioning move).
 | `fan` | number | omitted when unset | part-cooling fan (0..1) |
 | `flow` | number | omitted when unset | flow multiplier; default `1.0` is omitted |
 | `tool` | `u32` | omitted when unset | active tool index |
+| `power` | number | omitted when unset | commanded spindle/laser power, in the units the target controller's `S` word takes — RPM for a spindle, PWM counts for a laser. MUST be `≥ 0`; `0` means commanded off, which is distinct from absent (never commanded). No upper bound: the ceiling is a machine contract (GRBL `$30`, spindle max RPM), not a property of the IR |
 | `dwell_s` | number | omitted when unset | dwell duration (s); present only for `dwell` |
 | `manual_gcode` | string | omitted when unset | verbatim g-code; present only for `manualgcode` (see §10) |
 | `orientation` | `[number; 3]` | omitted when unset | tool-direction unit vector `(i,j,k)`; `null`/absent ⇒ +Z (3-axis) |
@@ -147,7 +148,7 @@ adjacent (a constant feedrate or bead width collapses under compression). All in
 | Offset | Field | Type | Value |
 |---|---|---|---|
 | 0 | magic | 4 bytes | `DRY0` |
-| 4 | `enc_ver` | `u8` | `1` (current); `0` legacy — accepted, has no `manual_gcode` column |
+| 4 | `enc_ver` | `u8` | `2` when the toolpath carries `power`, otherwise `1`; `0` legacy — accepted, has no `manual_gcode` column |
 | 5 | `ir_ver` | `u32` | `Toolpath.version` |
 | 9 | `n` | `u32` | segment count |
 | 13 | `body_len` | `u32` | uncompressed body length (the inflate bound) |
@@ -169,15 +170,31 @@ LE); absent entries hold a `0.0` placeholder. A **dense f64 column** is `n × f6
 7. `orientation` — nullable vec3 column: validity bitmap then `n × (3 × f64)` (absent ⇒ `[0,0,0]`)
 8. `control_points` — validity bitmap (`n` bits); then, for each *valid* segment in order:
    `u32 count`, then `count × (3 × f64)` `(x,y,z)`
-9. `manual_gcode` *(only when `enc_ver == 1`)* — validity bitmap (`n` bits); then, for each *valid*
+9. `manual_gcode` *(only when `enc_ver ≥ 1`)* — validity bitmap (`n` bits); then, for each *valid*
    segment in order: `u32 byte-length`, then that many UTF-8 bytes
-10. **kind dictionary**: `u32 dict_len`; then `dict_len ×` (`u32 str_len`, `str_len` UTF-8 bytes) using
+10. `power` *(only when `enc_ver == 2`)* — nullable f64 column
+11. **kind dictionary**: `u32 dict_len`; then `dict_len ×` (`u32 str_len`, `str_len` UTF-8 bytes) using
     the **`DRY0` dictionary strings** of §3.4; then `n × u32` dictionary indices (one per segment)
-11. **meta trailer**: `u8 present` (`0`/`1`); if `1`: `u32 json_len`, then `json_len` UTF-8 bytes of the
+12. **meta trailer**: `u8 present` (`0`/`1`); if `1`: `u32 json_len`, then `json_len` UTF-8 bytes of the
     `Meta` header serialized as JSON
 
 Note the column order differs from the row order in `DRY1` (§6.3): here `control_points` precedes
-`manual_gcode`; `manual_gcode` precedes the kind dictionary.
+`manual_gcode`; `manual_gcode` precedes the kind dictionary. New columns are **appended** to the
+segment-column run, so a lower `enc_ver`'s layout is a prefix of a higher one's.
+
+### 5.3 Choosing `enc_ver` when writing
+
+A `DRY0` column is dense: a nullable f64 column costs `ceil(n/8) + 8n` bytes whether or not any
+segment fills it. `enc_ver` therefore records the **minimum reader version the body requires**, and a
+writer **MUST** emit the lowest *currently written* layout that can carry the toolpath: `2` when at
+least one segment has `power`, `1` otherwise. A reader **MUST NOT** treat a later-produced file as
+necessarily carrying a higher `enc_ver`. This is what makes the addition of `power` cost nothing:
+every archive written before the column existed is still reproduced byte for byte.
+
+`enc_ver 0` is **read-only legacy** and is deliberately excluded from that rule: it predates the
+`manual_gcode` column, and no writer emits it even for a toolpath with no `manual_gcode`, because
+doing so would move the bytes of every `enc_ver 1` archive ever written — the opposite of what the
+rule exists to protect. `1` is the floor for a writer; `0` is only ever decoded.
 
 ## 6. `DRY1` — chunked streaming binary encoding
 
@@ -194,6 +211,16 @@ block at a time. The reference encoder uses a block size of `512` segments.
 | `n` | `u32` | total segment count |
 | `block_size` | `u32` | segments per block (MUST be ≥ 1) |
 | meta | `u8 present`; if `1`: `u32 json_len` + JSON bytes | the `Meta` header |
+
+The two containers version themselves by **different rules**, and the difference is deliberate.
+`DRY0`'s `enc_ver` is the minimum reader version the body requires (§5.3), because its columns are
+positional and dense: a reader that does not know a column cannot find the ones after it, so the only
+safe signal is a version it can compare. A `DRY1` `enc_ver` versions the **row-field vocabulary**, not
+the capability set of any particular row: rows are self-describing through their flags word, so a
+reader that does not know a field detects it directly, as an unknown flag bit, and refuses the stream
+(§6.3, §11). A `DRY1` stream carrying a field added after `enc_ver 2` therefore still stamps `2` —
+which is *not* "the minimum reader version required", and is safe only because the failure mode is a
+refusal rather than a misread. Do not carry the §5.3 reading across to this header.
 
 ### 6.2 Blocks (repeated until `n` segments are read)
 
@@ -226,11 +253,16 @@ Flag bits:
 | 6 | `end.y` | 16 | `orientation` (3×f64) |
 | 7 | `end.z` | 17 | `control_points` |
 | 8 | `width` | 18 | `manual_gcode` *(enc_ver 2 only)* |
-| 9 | `height` | | |
+| 9 | `height` | 19 | `power` *(enc_ver 2 only)* |
 
-`travel` and `clockwise` are pure flag bits (no payload). The known-flags mask is bits `0..=18`
-(`0x7FFFF`) for `enc_ver 2`, and `0..=17` (`0x3FFFF`) for legacy `enc_ver 1`. Any set bit outside the
+`travel` and `clockwise` are pure flag bits (no payload). The known-flags mask is bits `0..=19`
+(`0xFFFFF`) for `enc_ver 2`, and `0..=17` (`0x3FFFF`) for legacy `enc_ver 1`. Any set bit outside the
 mask is an error (§11).
+
+`power` claims a flag bit and does **not** bump the `DRY1` `enc_ver`, unlike the `DRY0` column (§5.3).
+A row is self-describing through its flags word, so the field costs nothing on a row that lacks it
+and every power-free stream is unchanged; a reader built before the bit existed rejects the stream as
+an unknown flag rather than misreading the row. `DRY0`'s columns are dense and have no such escape.
 
 Payload order within a row (each present only if its flag is set, except the four dense fields):
 
@@ -244,9 +276,12 @@ Payload order within a row (each present only if its flag is set, except the fou
 8. `tool` → `u32`
 9. `orientation` → 3 × f64
 10. `control_points` → `u32 count` + `count × (3 × f64)`
+11. `power` → f64
 
 Note: in `DRY1` rows `manual_gcode` precedes `tool`/`orientation`/`control_points`; in `DRY0` columns it
-follows `control_points`. Both orders are normative for their respective formats.
+follows `control_points`. Both orders are normative for their respective formats. New fields are
+appended to the row, so a row written by an older layout is a prefix of the same row written by a
+newer one.
 
 ## 7. Version semantics
 
@@ -255,8 +290,8 @@ There are **three independent version axes**. A reader **MUST NOT** conflate the
 | Axis | Field | v0 value | Legacy value still accepted |
 |---|---|---|---|
 | IR schema version | `Toolpath.version` (`ir_ver`) | `0` | — |
-| `DRY0` encoding version | header `enc_ver` | `1` | `0` (no `manual_gcode` column) |
-| `DRY1` encoding version | header `enc_ver` | `2` | `1` (no `manual_gcode`) |
+| `DRY0` encoding version | header `enc_ver` | `2` with `power`, else `1` (§5.3) | `0` (no `manual_gcode` column) |
+| `DRY1` encoding version | header `enc_ver` | `2` | `1` (no `manual_gcode`, no `power`) |
 
 The IR schema version is carried unchanged through both binary headers, so a binary file records both its
 encoding version and the IR schema version it transports.

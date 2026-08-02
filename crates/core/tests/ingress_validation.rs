@@ -38,6 +38,7 @@ fn line_to(end: [f64; 3]) -> Segment {
         fan: None,
         flow: None,
         tool: None,
+        power: None,
         dwell_s: None,
         manual_gcode: None,
         orientation: None,
@@ -477,4 +478,67 @@ fn threemf_import_rejects_a_length_that_overflows_after_parsing() {
         panic!("3MF import must refuse a length that overflows");
     };
     assert_eq!(error.to_string(), "3MF error: segment length is not finite");
+}
+
+// ---- 5: the IR path --------------------------------------------------------------------------
+
+/// `power >= 0` is normative in the IR spec (`docs/10` §3.3) and in `spec/dry-ir-v0.schema.json`,
+/// but `validate_design` only sees the *L1 op*: an IR file handed straight to `verify`/`emit` never
+/// passes through it. The reader deliberately stays a reader — a decoded `Toolpath` is not
+/// re-validated field by field — so the normative constraint is carried by the two gates that judge
+/// an IR: `verify` (a `negative-quantity` error) and `emit` (a refusal, on every flavor).
+#[test]
+fn a_negative_power_in_an_ir_file_is_refused_by_verify_and_emit() {
+    let json = r#"{"version":0,"segments":[{"start":[0.0,0.0,0.2],"end":[10.0,0.0,0.2],
+        "travel":false,"speed":1200.0,"length":10.0,"volume":0.8,"filament":0.32,
+        "width":0.4,"height":0.2,"kind":"line","power":-500.0}]}"#;
+    let toolpath = Toolpath::from_json(json).expect("the reader decodes what the schema forbids");
+    assert_eq!(toolpath.segments[0].power, Some(-500.0));
+
+    let report = dry_core::verify(&toolpath, &dry_core::Contracts::default());
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.rule == "negative-quantity")
+        .unwrap_or_else(|| panic!("verify passed a negative power: {:?}", report.findings));
+    assert!(
+        finding.message.contains("power is -500"),
+        "the finding must name the channel and the value, got: {}",
+        finding.message
+    );
+    assert!(!report.ok(), "a negative power must fail the report");
+
+    for flavor in [
+        dry_core::FirmwareFlavor::Grbl,
+        dry_core::FirmwareFlavor::Marlin,
+        dry_core::FirmwareFlavor::Rs274,
+    ] {
+        let params = dry_core::EmitParams {
+            flavor,
+            ..dry_core::EmitParams::default()
+        };
+        let error = dry_core::emit_stream(toolpath.segments.iter().cloned().map(Ok), &params)
+            .expect_err("emit must refuse a negative power on every flavor");
+        assert!(
+            error.to_string().contains("finite and >= 0"),
+            "{flavor:?}: {error}"
+        );
+    }
+}
+
+/// The companion: `0.0` is *not* a violation. It is how a program commands the beam off, and a rule
+/// that flagged it would make "turn it off" inexpressible.
+#[test]
+fn a_commanded_zero_power_is_not_a_negative_quantity() {
+    let mut toolpath = tp(vec![line_to([10.0, 0.0, 0.2])]);
+    toolpath.segments[0].power = Some(0.0);
+    let report = dry_core::verify(&toolpath, &dry_core::Contracts::default());
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|f| f.rule == "negative-quantity"),
+        "commanded-off must not be a finding: {:?}",
+        report.findings
+    );
 }

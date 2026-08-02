@@ -15,7 +15,7 @@ role = "input-domain"
 hash_mode = "slice"
 anchor_start = "pub enum Op {"
 anchor_end = "\n\n/// Intermediate samples emitted per Catmull-Rom span"
-sha256 = "44adfea38fa64d53d41e003189a369d59726c089dfc4f14234de09efb567334e"
+sha256 = "23ecc650ee759ead0f183624f4133b6c5d31a8b5190a4676aac88ab62bc3d767"
 
 [[boundary]]
 id = "FM1.F64.FEATURE.POSE.FINITE"
@@ -481,6 +481,7 @@ inputs = [
   "Op::Temperature.nozzle",
   "Op::Fan.speed",
   "Op::Flow.ratio",
+  "Op::Power.level",
   "Op::Dwell.seconds",
   "Op::Retract.{distance,speed}",
   "Op::Unretract.{distance,speed}",

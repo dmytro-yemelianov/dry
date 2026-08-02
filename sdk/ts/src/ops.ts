@@ -23,6 +23,11 @@ export type Op =
   | { op: 'fan'; speed: number }
   | { op: 'flow'; ratio: number }
   | { op: 'tool'; index: number }
+  /** Spindle/laser power in the target controller's `S`-word units (RPM for a spindle, PWM counts
+   * for a laser). Must be finite and >= 0; `0` means commanded off, which is distinct from never
+   * commanding the channel at all. Rendered by the `grbl` flavor; any other flavor refuses a
+   * toolpath that carries it rather than dropping the command silently. */
+  | { op: 'power'; level: number }
   | { op: 'orient'; i: number; j: number; k: number }
   | { op: 'dwell'; seconds: number }
   | { op: 'manual_gcode'; text: string }
@@ -92,6 +97,8 @@ export interface Segment {
   fan?: number;
   flow?: number;
   tool?: number;
+  /** Commanded spindle/laser power (`S`-word units); `0` is commanded off, absent is never commanded. */
+  power?: number;
   dwell_s?: number;
   manual_gcode?: string;
   orientation?: [number, number, number];

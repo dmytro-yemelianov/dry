@@ -46,6 +46,7 @@ fn seg(kind: SegmentKind) -> Segment {
         manual_gcode: None,
         orientation: None,
         control_points: None,
+        power: None,
     }
 }
 

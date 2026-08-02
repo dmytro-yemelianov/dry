@@ -10,7 +10,7 @@ hash_mode = "file"
 # Re-pinned for the arc-radius entry below. The reviewed diff against the previous hash is a doc
 # comment plus `const` -> `pub(crate) const` on ARC_RADIUS_TOLERANCE_MM: no predicate, no epsilon
 # value and no rule behaviour changed, and none of the four boundaries' `operation` text moved.
-sha256 = "22211e42351a221932ee707a7937eabe198c0097024f95020c50b4435076a7e4"
+sha256 = "cebe5310c99a19d5e3514b8f0b828ef75a324a8777a0e7294d1ea49e32c4e8f2"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -25,6 +25,9 @@ sha256 = "22211e42351a221932ee707a7937eabe198c0097024f95020c50b4435076a7e4"
 #
 # The remaining structural rules (`negative-quantity`, `bead-volume`) are exact comparisons against
 # zero or a caller-supplied tolerance and carry no epsilon of their own, so they have no entry here.
+# That still holds after `negative-quantity` grew the `power` channel: `power < 0.0` is the same exact
+# comparison against zero as `length`/`volume`/`speed`, introduces no tolerance, and touches none of
+# the three constants pinned below — which is the whole of what the re-pin above was reviewed for.
 # ---------------------------------------------------------------------------------------------
 
 [[boundary]]

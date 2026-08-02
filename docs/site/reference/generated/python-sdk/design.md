@@ -24,6 +24,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `fan` | `def fan(self, speed: Number) -&gt; 'Design'` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `def flow(self, ratio: Number) -&gt; 'Design'` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
 | `tool` | `def tool(self, index: int) -&gt; 'Design'` |  | Set the active tool channel. |
+| `power` | `def power(self, level: Number) -&gt; 'Design'` |  | Set the spindle/laser power channel, in the target controller's S-word units (RPM for a spindle, PWM counts for a laser). |
 | `orient` | `def orient(self, i: Number, j: Number, k: Number) -&gt; 'Design'` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). |
 | `dwell` | `def dwell(self, seconds: Number) -&gt; 'Design'` |  | Pause in place for `seconds` (emits a G4 dwell). |
 | `manual_gcode` | `def manual_gcode(self, text: str) -&gt; 'Design'` |  | Inject verbatim custom G-code. |
@@ -222,6 +223,32 @@ def tool(self, index: int) -> 'Design'
 Returns: `'Design'`
 
 Set the active tool channel.
+
+### `power`
+
+```py
+def power(self, level: Number) -> 'Design'
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `level` | `Number` |  | Yes |
+
+Returns: `'Design'`
+
+Set the spindle/laser power channel, in the target controller's S-word units
+(RPM for a spindle, PWM counts for a laser).
+
+Must be finite and >= 0. `0` commands it off, which is distinct from never setting the
+channel. Only the `grbl` flavor renders it; the others refuse a toolpath that carries it
+rather than silently dropping the command.
+
+NOTE: ``gcode()`` here always emits with the default (Marlin) flavor, so it *refuses* a
+design carrying this channel. The channel is still authored into ``ir()`` /
+``optimized_ir()`` / ``verify()``; to render it, emit through the CLI
+(``dry emit --format grbl``) or a profile whose ``firmware.flavor`` is ``grbl``.
 
 ### `orient`
 

@@ -112,8 +112,23 @@ the program with a preamble (`G21 G17 G90`, then `G5x`, `T<n> M6`, `S<rpm> M3`, 
 (`M9`, `M5`, `M30`); each optional word appears only when its key is set (see the field table above).
 All four keys are optional — an empty `"cnc": {}` still frames the program with `G21 G17 G90` / `G54` /
 `M30`, the smallest frame Dry emits; it does not set tool-length offset (`G43`), cutter compensation
-(`G40`) or feed-rate mode (`G94`). Spindle *power* is not modeled as an IR channel in
-v1, so RPM is a per-program constant, not a per-operation value.
+(`G40`) or feed-rate mode (`G94`).
+
+**`spindle_rpm` versus `Segment.power`.** There are two ways to command a spindle or a beam, and they
+are mutually exclusive by construction:
+
+- `machine.cnc.spindle_rpm` is a **per-program** constant. It is rendered only by RS-274, as one
+  `S<rpm> M3` in the preamble and one `M5` in the postamble.
+- `Segment.power` (`docs/10` §3.3) is a **per-operation** IR channel carrying the same `S` word. It is
+  rendered only by the `grbl` flavor, as a modal `S`, an `M3` on the first nonzero level and an `M5`
+  on a commanded zero (and again at end of program if the beam is still on).
+
+No flavor renders both. RS-274 **refuses** a toolpath whose segments carry `power` — merging a
+per-segment `S` into a program framed by its own `S… M3`/`M5` would take a guess at which one the
+machinist meant, and dropping it would run the job at the frame's RPM while the program asked for
+another (ADR 0002 §4: refuse, never emit vacuously). The printer flavors (`marlin`, `klipper`, `duet`)
+and `robot_krl` refuse it for the same reason: they have no rendering for it at all. A toolpath that
+carries the channel is a `grbl` program; a profile that sets `spindle_rpm` is an RS-274 one.
 
 **Versioning:** profile `version` is independent of the IR schema version. Additive optional fields are a
 minor change; removing/renaming/retyping a field or changing a default is a major change (a new
@@ -150,7 +165,7 @@ are warnings.
 | `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
 | `unmodeled-gcode` | **warning** | imported/manual G-code is preserved but is outside the verifier's semantic model | always active when present |
 | `continuity` | error | a segment starts somewhere other than where the previous one ended | always active |
-| `negative-quantity` | error | a length, volume or speed is negative, or a bead dimension is not positive | always active |
+| `negative-quantity` | error | a length, volume, speed or commanded spindle/laser power is negative, or a bead dimension is not positive | always active |
 | `segment-length` | error | a straight or stationary segment's length disagrees with its own endpoints | always active |
 | `arc-length` | error | an arc's length disagrees with its radius and swept angle | always active |
 | `filament-consistency` | **warning** | the volume-to-filament ratio changes within a single tool | always active |

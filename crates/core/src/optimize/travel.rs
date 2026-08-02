@@ -1,14 +1,17 @@
+use super::merge::{process_state, ProcessState};
 use crate::ir::{Segment, SegmentKind, Toolpath};
-use crate::units::{Length, Volume};
+use crate::units::{Feedrate, Length, Volume};
 
-/// A maximal run of consecutive extruding (non-travel) segments, together with the index of the
-/// representative leading travel segment that precedes it (if any) — that travel is rewritten to connect
-/// the run to whatever now comes before it.
+/// A maximal run of consecutive extruding (non-travel) segments, together with the leading travel
+/// segment that preceded it in the original toolpath (if any) — once the run moves, that travel is
+/// replaced by one connecting it to whatever now comes before it.
 struct Run {
     /// The extruding segments of this run, kept verbatim (their geometry/material is never touched).
     segs: Vec<Segment>,
-    /// The travel segment that preceded this run in the original toolpath, if any. Reused as the
-    /// template (speed, channels) for the rewritten connecting travel.
+    /// The travel segment that preceded this run in the original toolpath, if any. Kept verbatim when
+    /// this run stays first; otherwise it survives only as a source of the *travel feedrate* (see
+    /// [`travel_reorder`]) — never of process state, which a regenerated travel takes from the run it
+    /// now follows.
     lead_travel: Option<Segment>,
 }
 
@@ -36,29 +39,86 @@ fn point_dist(a: [Option<Length>; 3], b: [Option<Length>; 3]) -> f64 {
     libm::sqrt(sq)
 }
 
-/// Build a straight travel `Segment` from `from` to `to`, reusing `template`'s speed/channels. The move
-/// deposits nothing (volume/filament zero) and is a plain line.
-fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], template: &Segment) -> Segment {
+/// The beam state of a travel *this pass invented*: dark.
+///
+/// `None` and `Some(0.0)` are not interchangeable, and the difference is the whole hazard. `None` is
+/// "never commanded" — emit writes no word at all, so the controller keeps burning at the last `S` it
+/// was given. `Some(0.0)` is "commanded off" — GRBL writes `M5` (`docs/10` §3.3). A travel that follows
+/// a lit run must therefore *say* `Some(0.0)`: inheriting a level was what lit a 10 mm rapid at S600.
+///
+/// It must not invent the channel either. On a toolpath that never commands power, `Some(0.0)` would
+/// make every non-GRBL flavor refuse the whole program — `emit` refuses a flavor that cannot render the
+/// channel rather than dropping it (ADR 0002 §4) — so reordering an ordinary FFF print would stop it
+/// emitting, and a GRBL one would gain an `M5` for a spindle the program never mentioned. `entering` is
+/// the level the machine is at as the travel begins; the channel is sticky, so `None` there means
+/// nothing before this point in the reordered program commanded one either.
+fn beam_off(entering: Option<f64>) -> Option<f64> {
+    entering.map(|_| 0.0)
+}
+
+/// The process state a *regenerated* connecting travel carries.
+///
+/// Not some other travel's. `travel_reorder` moves whole runs around, so the only state a synthesised
+/// travel can honestly claim is the state the machine is in when it starts — whatever the run it now
+/// follows (`after`) left behind. Copying it off an arbitrary original travel reinstates a machine state
+/// from a point in the program that no longer exists.
+///
+/// Three fields are deliberately *not* continued:
+/// * `travel` — it is a rapid, whatever the run before it was doing.
+/// * `speed` — a travel moves at the travel feedrate (`travel_speed`, taken from a real travel of this
+///   toolpath); continuing the extrusion feedrate would crawl every regenerated rapid.
+/// * `flow` — it deposits nothing, so there is no deposition to scale.
+///
+/// and `power` is replaced by [`beam_off`], not continued.
+fn connecting_state(after: &Segment, travel_speed: Feedrate) -> ProcessState {
+    let mut st = process_state(after);
+    st.travel = true;
+    st.speed = travel_speed;
+    st.flow = None;
+    st.power = beam_off(st.power);
+    st
+}
+
+/// Build a straight travel `Segment` from `from` to `to` carrying `state`. The move deposits nothing
+/// (volume/filament zero) and is a plain line.
+///
+/// `state` is destructured rather than field-accessed for the same reason [`ProcessState`] destructures
+/// [`Segment`]: a channel added there fails to compile here too, so no future channel can reach a
+/// synthesised travel by whatever the nearest donor happened to hold.
+fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], state: ProcessState) -> Segment {
+    let ProcessState {
+        travel,
+        speed,
+        width,
+        height,
+        temperature,
+        fan,
+        flow,
+        tool,
+        power,
+        orientation,
+    } = state;
     Segment {
         start: from,
         end: to,
-        travel: true,
-        speed: template.speed,
+        travel,
+        speed,
         length: Length::mm(point_dist(from, to)),
         volume: Volume::ZERO,
         filament: Length::ZERO,
-        width: template.width,
-        height: template.height,
+        width,
+        height,
         kind: SegmentKind::Line,
         centre: None,
         clockwise: false,
-        temperature: template.temperature,
-        fan: template.fan,
-        flow: None,
-        tool: template.tool,
+        temperature,
+        fan,
+        flow,
+        tool,
+        power,
         dwell_s: None,
         manual_gcode: None,
-        orientation: template.orientation,
+        orientation,
         control_points: None,
     }
 }
@@ -69,8 +129,9 @@ fn make_travel(from: [Option<Length>; 3], to: [Option<Length>; 3], template: &Se
 /// A run is a maximal sequence of consecutive non-travel (extruding) segments; runs are separated by
 /// travel moves. The first run is kept fixed (it begins the print); the rest are greedily ordered by
 /// nearest-neighbour from the current end position. Connecting travels are regenerated as single
-/// straight moves. Conservative: if the toolpath contains dwells/arcs in travel position, or has 0/1
-/// runs, or any run boundary is ambiguous, it is returned unchanged.
+/// straight moves that continue the machine state of the run they follow, with the beam commanded off
+/// (see [`connecting_state`]). Conservative: if the toolpath contains dwells/arcs in travel position, or
+/// has 0/1 runs, or any run boundary is ambiguous, it is returned unchanged.
 pub fn travel_reorder(tp: &Toolpath) -> Toolpath {
     // Partition into runs separated by travels. We only reorder the simplest structure: alternating
     // optional-leading-travel + extruding-run. Anything we don't recognise (a dwell, a leading travel
@@ -114,13 +175,14 @@ pub fn travel_reorder(tp: &Toolpath) -> Toolpath {
         return tp.clone();
     }
 
-    // A representative travel speed/template: prefer any run's leading travel, else the first run's
-    // first segment. (We need *some* template for the very first connecting travel if the first run had
-    // no lead.)
-    let template = runs
+    // A representative travel feedrate: any run's leading travel (runs after the first are separated by
+    // one, so this always finds a real travel of this toolpath), else the first run's own feedrate.
+    // Feedrate is *all* a regenerated travel takes from elsewhere; its machine state comes from the run
+    // it follows (see `connecting_state`).
+    let travel_speed = runs
         .iter()
-        .find_map(|r| r.lead_travel.clone())
-        .unwrap_or_else(|| runs[0].segs[0].clone());
+        .find_map(|r| r.lead_travel.as_ref().map(|t| t.speed))
+        .unwrap_or(runs[0].segs[0].speed);
 
     // Greedy nearest-neighbour over the runs after the first. The first run is fixed.
     let mut remaining: Vec<Run> = runs.split_off(1);
@@ -149,7 +211,6 @@ pub fn travel_reorder(tp: &Toolpath) -> Toolpath {
     // Re-emit: the first run keeps its original leading travel (if any); every subsequent run gets a
     // regenerated straight travel from the previous run's end to its start.
     let mut out: Vec<Segment> = Vec::with_capacity(segs.len());
-    let mut prev_end: Option<[Option<Length>; 3]> = None;
     for (idx, run) in ordered.iter().enumerate() {
         if idx == 0 {
             // keep the first run's original leading travel verbatim (preserves the print's opening).
@@ -157,11 +218,16 @@ pub fn travel_reorder(tp: &Toolpath) -> Toolpath {
                 out.push(t.clone());
             }
         } else {
-            let from = prev_end.expect("a previous run sets the position");
-            out.push(make_travel(from, run.start(), &template));
+            // the segment the travel departs from — the previous run's last move — is both the position
+            // and the machine state it must continue from.
+            let prev = ordered[idx - 1]
+                .segs
+                .last()
+                .expect("a run holds at least one segment");
+            let state = connecting_state(prev, travel_speed);
+            out.push(make_travel(prev.end, run.start(), state));
         }
         out.extend(run.segs.iter().cloned());
-        prev_end = Some(run.end());
     }
 
     Toolpath {

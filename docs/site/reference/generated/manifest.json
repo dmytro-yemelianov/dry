@@ -7,11 +7,11 @@
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "2ac6bdbee1b79406c49f12897f1a1b7a1e7c228fde5ba484bef58e0e0a5987d4"
+      "sha256": "b2d57e0757e31d4517e43b5fdeaa84ab60939065b87ca00403f4fc35904d27b8"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "f1fe7f571ac9c9378680bd50024e4996c441c583fefe3ca52fa9c8f255be2132"
+      "sha256": "c4fc1d2a8fbf0a563da7e24938c2f73e27daba1f6274faf777f60ce7e5834515"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "a1884bfe18baa62fca55c3b1b617d95e65d7a692081905efd5627f1ef38b117c"
+      "sha256": "577d8f91659c71731da826aec1099eaf35210b772fb4fc45cb971da7a58fae96"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
@@ -31,15 +31,15 @@
     },
     "irSpec": {
       "path": "docs/10-dry-ir-v0-spec.md",
-      "sha256": "a916be5487d5555aae83acf7cf03c19f623e4b323e88be8c44299f2750943f16"
+      "sha256": "702eca051ce84680aad25766a6a07683d5eb9c730a70a9e57e77c6a38d77b31c"
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "51cf77ddd9bddbdb246e7d1c3427104e4ae5d8b03b1fc8d0c6d9c8e5286a394a"
+      "sha256": "30a9b2e57b07e5ff364af43a2376b26186d29a337c5bf1f559a0a19f950dcae2"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "96a9b62bd2d7987bca13fefbd1d79e69c0b8b79a30d335d2504db83a8e93853e"
+      "sha256": "bea40a7fc5c2d5abaf27b34c12f617015cd91246a6f6dc3d414c13dae6b96e5d"
     }
   },
   "dynamic": {

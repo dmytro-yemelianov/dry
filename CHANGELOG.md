@@ -144,6 +144,38 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   longer KRL fails there rather than agreeing with the emitter that produced it. `tools/krl_check.sh`
   also pins and verifies the ANTLR tool jar (it previously downloaded an unchecked jar into
   `$HOME/.m2`), and caches it under `$XDG_CACHE_HOME/dry`.
+
+- **A spindle/laser power channel in the IR (#181).** `Segment.power` and the `Power` L1 op carry the
+  target controller's `S` word (RPM for a spindle, PWM counts for a laser) per operation, propagated by
+  `resolve` like the other channels, carried by both binary codecs and by JSON, and authored from every
+  SDK (`.power(level)` in Python and TypeScript). The domain is **finite and `>= 0`**; `0.0` is a legal,
+  load-bearing value — "commanded off", distinct from `None` ("never commanded") — and there is no upper
+  bound, because the ceiling (GRBL `$30`, a spindle's max RPM) is a machine contract, not a property of
+  the IR. It is refused out of domain at three gates: `validate_design` (the L1 op), `verify`
+  (`negative-quantity`, which now covers `power`, for an IR file that never passes through L1), and
+  `emit` (on every flavor, not only the one that renders the channel).
+  - **Only the `grbl` flavor renders it**, as a modal `S` with `M3` on the first nonzero level, `M5` on a
+    commanded zero, and a closing `M5` if the program ends lit. Every other flavor **refuses** a toolpath
+    that carries the channel rather than dropping a commanded machine state (ADR 0002 §4). RS-274 in
+    particular commands its spindle once per program through `machine.cnc.spindle_rpm`; the two ways of
+    commanding one spindle are mutually exclusive (`docs/11` §1). The SDKs' `gcode()` emits with the
+    default (Marlin) flavor, so it refuses too — render through `dry emit --format grbl` or a `grbl`
+    profile.
+  - A source-preserving g-code rewrite (`ImportedGcode::emit_source_preserving`) refuses a replacement
+    toolpath carrying the channel: `lift` does not read `S`/`M3`/`M5` back, so the preserved source's own
+    beam state is unknown and a span prologue cannot restore it.
+  - **A travel the optimiser invents commands the beam off.** `travel_reorder` regenerates the connecting
+    travels between the runs it reorders; those moves are Dry's, not the program's, so they carry
+    `power: 0.0` — spelt out, because an unset level means "never commanded" and leaves the controller
+    burning at the last `S`. On a toolpath that never commands power the regenerated travel leaves the
+    channel unset, so an ordinary FFF print neither gains an `M5` nor becomes unemittable on the flavors
+    that refuse the channel. Everything else the travel carries (bead, temperature, fan, tool,
+    orientation) now continues from the run it follows instead of from an arbitrary original travel.
+  - No verify rule states the beam analogue of `travel-extrudes`; `docs/14` records why not.
+  - DRY0 `enc_ver` now records the **minimum reader version the body requires** (`2` only when a segment
+    carries power, `1` otherwise), so every archive written before the column existed is byte-identical.
+    DRY1 needs no bump: its rows are self-describing through flag bit 19, and an older reader refuses the
+    unknown bit rather than misreading the row.
 - **The reference 5-axis machine has limits, and three rules that check them (#180 gaps 1–2).**
   `REFERENCE_FIVE_AXIS_MACHINE` described a B/C kinematic mapping and nothing else — no rotary travel,
   no rotary rate, no envelope — so "emits valid 5-axis g-code" was not a checkable claim. Profiles gain
@@ -188,6 +220,14 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   line of calculus the caller writes (the drape vector's is `point / radius`); the case that would
   justify a core API is a mesh or sampled height field, and core has no mesh type. `crates/core` is
   `publish = false`, so there is no external Rust consumer, and no binding re-exported them.
+
+### Fixed
+- **`dry optimize --reorder-travel` no longer panics on a toolpath the pipeline grows.** The summary line
+  subtracted two `usize` segment counts in the reduction direction, but the aggressive pipeline can add
+  segments — `z_hop` replaces one travel with a lift/traverse/drop triple, `coasting` splits the tail off
+  a run — so the command aborted with "attempt to subtract with overflow" (debug) or reported a wrapped
+  `18446744073709550816` (release) instead of writing its `--out` file. Measured on **20 of the 28**
+  frozen gallery designs. The delta is now signed: `401 → 1201 segments (+800)`.
 
 ## [0.5.0] - 2026-08-01
 

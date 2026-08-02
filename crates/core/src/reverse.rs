@@ -1,7 +1,7 @@
 //! Reversing pass (`reverse(toolpath) -> Design`)
 //!
 //! Reconstructs a structured L1 `Design` operation list from an L2 resolved `Toolpath`.
-//! Channel state updates (`Temperature`, `Fan`, `Flow`, `Tool`, `Orient`) are emitted only when they change from the running state.
+//! Channel state updates (`Temperature`, `Fan`, `Flow`, `Tool`, `Power`, `Orient`) are emitted only when they change from the running state.
 
 use crate::ir::{SegmentKind, Toolpath};
 use crate::resolve::{Design, Op};
@@ -26,6 +26,7 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
     let mut current_fan: Option<f64> = None;
     let mut current_flow: f64 = 1.0;
     let mut current_tool: Option<u32> = None;
+    let mut current_power: Option<f64> = None;
     let mut current_orient: Option<[f64; 3]> = None;
 
     for (idx, seg) in toolpath.segments.iter().enumerate() {
@@ -57,6 +58,14 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
             if let Some(tool_idx) = seg.tool {
                 ops.push(Op::Tool { index: tool_idx });
                 current_tool = Some(tool_idx);
+            }
+        }
+
+        // Power channel
+        if seg.power != current_power {
+            if let Some(level) = seg.power {
+                ops.push(Op::Power { level });
+                current_power = Some(level);
             }
         }
 

@@ -1,7 +1,16 @@
+# Known gap: there is no `power-does-not-propagate` mutation, so the fifth channel `resolve` carries
+# is not covered here. It is not an oversight and it cannot be closed from this file:
+# `tools/check_resolve_channels_mutations.py` requires every mutation's `witness` to be a case id in
+# `proofs/fixtures/resolve-channels-refinement-v0.json`, and that corpus is generated from the Lean
+# model in `formal/Dry/Semantics/ResolveChannels.lean`, which does not model `power`. A mutation
+# naming any existing witness would simply survive. Closing it means teaching the Lean semantics the
+# channel and regenerating the corpus; until then the gap is recorded as an exclusion on both
+# resolve-channels claims in `proofs/claims.toml`, and the channel's propagation is covered only by
+# `crates/core/tests/channels.rs`.
 schema_version = 1
 model = "resolve-channels-source-mutations-v0"
 source = "crates/core/src/resolve.rs"
-source_sha256 = "8ceb5052ef687864ea006e7f607a502c9f86f60ec2b0edd46f574e5dae5eb1a4"
+source_sha256 = "bd69bfa379b1b323dc810e9729963f0919a258ed0ae72a6e1c062afa1308512f"
 test = "crates/core/tests/resolve_channels_refinement.rs"
 
 [[mutation]]

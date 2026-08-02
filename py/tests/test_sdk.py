@@ -89,6 +89,29 @@ def test_channels_and_dwell_author_through_the_builder():
     assert any(line == "G4 S2.5" for line in d.gcode())
 
 
+def test_power_channel_authors_onto_segments_and_survives_optimization():
+    d = (dry.Design().geometry(0.6, 0.2).extruder(True)
+         .power(600).point(0, 0, 0.2).point(10, 0, 0.2)
+         .power(0).point(20, 0, 0.2))
+    assert [s.get("power") for s in d.ir()["segments"]] == [600.0, 600.0, 0.0]
+    # the optimizer coalesces the two lit moves but must not swallow the commanded beam-off.
+    assert 0.0 in [s.get("power") for s in d.optimized_ir()["segments"]]
+
+
+def test_power_channel_is_refused_by_the_default_flavor_rather_than_dropped():
+    d = (dry.Design().geometry(0.6, 0.2).extruder(True)
+         .power(600).point(0, 0, 0.2).point(10, 0, 0.2))
+    # `gcode()` emits with the default (Marlin) flavor, which has no rendering for the channel.
+    with pytest.raises(ValueError, match="cannot render the spindle/laser power channel"):
+        d.gcode()
+
+
+def test_negative_power_is_refused_at_ingress():
+    d = dry.Design().geometry(0.6, 0.2).extruder(True).power(-1).point(0, 0, 0.2)
+    with pytest.raises(ValueError, match="level"):
+        d.ir()
+
+
 def test_toolframe_orientation_authors_onto_segments():
     d = (dry.Design().geometry(0.6, 0.2).orient(0.6, 0.0, 0.8).extruder(True)
          .point(0, 0, 0.2).point(10, 0, 0.2))

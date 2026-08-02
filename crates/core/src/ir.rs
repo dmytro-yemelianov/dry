@@ -102,6 +102,14 @@ pub struct Segment {
     /// Active tool index.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool: Option<u32>,
+    /// Commanded spindle/laser power in effect for this move, in the units the target controller's
+    /// `S` word takes — RPM for a spindle, PWM counts for a laser. One channel serves both because
+    /// `S` is the one word both dialects spell it with, and because the program-level
+    /// [`crate::emit::CncFrame::spindle_rpm`] already commands RPM: a normalised 0..1 level here
+    /// would not be commensurate with it. `0.0` is a legal value (commanded off), distinct from
+    /// `None` (never commanded).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub power: Option<f64>,
     /// Dwell duration (s) — present only for [`SegmentKind::Dwell`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dwell_s: Option<f64>,

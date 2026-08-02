@@ -1872,6 +1872,27 @@ fn rewrite_gcode_optimizes_each_motion_span_locally() {
     );
 }
 
+/// NEW-2: `--reorder-travel` runs the aggressive pipeline, which *grows* the segment count (`z_hop`
+/// replaces one travel with three, `coasting` splits the tail off a run). The summary line subtracted
+/// two `usize`s in the reduction direction, so the command panicked with "attempt to subtract with
+/// overflow" on 20 of the 28 frozen gallery designs — including this one, 401 → 1201 segments.
+#[test]
+fn optimize_reorder_travel_survives_a_pipeline_that_grows_the_toolpath() {
+    let path = fixture("gallery", "spiral_vase");
+    let out = Command::new(bin())
+        .args(["optimize", "--reorder-travel", path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(out.status.success(), "{stderr}");
+    let summary = stderr.lines().next().unwrap_or_default();
+    // the delta is signed: growth reads `+800`, not a wrapped `18446744073709550816`.
+    assert!(
+        summary.contains(" segments (+"),
+        "a growing pipeline must report a positive delta: {summary}"
+    );
+}
+
 #[test]
 fn inspect_runs_and_reports() {
     let path = fixture("gcode", "stack3");

@@ -175,6 +175,9 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
                 fan: None,
                 flow: None,
                 tool: None,
+                // 3MF carries only the temperature/fan/orientation subset of the channels; power
+                // joins flow and tool in the set this exchange format does not express.
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: None,
@@ -266,6 +269,7 @@ mod tests {
                 fan: None,
                 flow: None,
                 tool: None,
+                power: None,
                 dwell_s: None,
                 manual_gcode: None,
                 orientation: None,

@@ -228,7 +228,8 @@ conformance case.
   reverse-domain namespace.
 - A definition declares value type, dimension, default, interpolation/propagation behavior, valid range
   and target compatibility behavior.
-- Existing `temperature`, `fan`, `flow`, `tool` and orientation fields map to reserved built-in channels.
+- Existing `temperature`, `fan`, `flow`, `tool`, `power` (spindle/laser `S`) and orientation fields map
+  to reserved built-in channels.
 - Unknown channels round-trip. A backend must either consume, explicitly lower, preserve as opaque
   metadata, or reject each one.
 - The first codec representation favors correctness and deterministic ordering; columnar specialization
