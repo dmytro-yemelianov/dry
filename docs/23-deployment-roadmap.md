@@ -103,6 +103,14 @@ g-code — which is customer IP and currently has no stated handling policy at a
 *Accept:* a runbook covering the top failure modes, and a written data-handling policy for uploaded
 programs.
 
+**Partly done** — [`24-operations-and-data-handling.md`](24-operations-and-data-handling.md) states
+what happens to an uploaded program (streamed to a `/tmp` tempfile, deleted on completion, nothing
+persisted), names the three cases where that is not the whole truth (crash before `drop`, findings
+that quote customer geometry, no content classification), and gives a runbook for the three error
+stages. What remains needs decisions that are not documentation: identity, so a deletion request is
+answerable; a logging policy, decided **before** the first logger is written since findings quote
+coordinates; and a jurisdiction, which follows from D1.
+
 ## Sequencing
 
 ```
