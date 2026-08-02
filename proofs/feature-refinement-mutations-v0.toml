@@ -1,7 +1,7 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
 source = "crates/core/src/features.rs"
-source_sha256 = "7f7dcc95e61d8e44d264a557ae5d1332132d1387c26d71994135f7335486fd86"
+source_sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
 test = "crates/core/tests/feature_refinement.rs"
 
 [[mutation]]

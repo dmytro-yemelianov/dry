@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0"
 path = "crates/core/src/clothoid.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "16483734a79143af7d9a5761178f1ff79a0c61db3288cf9ee53a3c60e50cf43e"
+sha256 = "e439cc8c032383d6dcd486dc01ed61a64fa0618c9f7e60a1ec3b37b3ba940137"
 
 # The slice is `validate_design_geometry`'s clothoid arm: the one place that establishes the
 # CORNER_SOLVE assumption "the gate and the lowering run the same solve on the same numbers". The
@@ -34,6 +34,21 @@ sha256 = "6cb9866747b5e1b00b3b051a371f059cfd8e51bad97be9d7f55d42f85646a421"
 # This is a separate inventory from `feature-numeric-boundaries-v0` even though that one pins
 # `resolve.rs` too: that model is scoped to `features.rs` and pins the `Op` enum only as an input
 # domain, and its boundaries are about a planar pose transform, not about a transcendental series.
+#
+# Two gaps this inventory has and does not hide.
+#
+# 1. `claim_ids` is empty on all three entries, so nothing here reaches
+#    `docs/assurance/01-assurance-sitemap.md` — that report is generated from `proofs/claims.toml`
+#    alone and never reads a boundary inventory, so `generate_assurance_report.py --check` passing
+#    says nothing about this file. A claim needs a Lean theorem to register against, and `formal/`
+#    has no clothoid model; writing one is the work that would close this, not an edit here. The
+#    same gap exists on `emit-numeric-boundaries-v0.toml`, so it is a property of the sitemap
+#    generator rather than of this slice, and it is called out in both places rather than in
+#    neither.
+# 2. Of the four libm functions the corner solve depends on — `hypot`, `atan2`, `sqrt`, `tan` — none
+#    is covered by a named accuracy contract. `proofs/libm-0.2.16-trig-contract.md` is scoped to
+#    `sin` and `cos` over [-7, 7]. What that costs is stated on CORNER_SOLVE, measured, and carried
+#    as its next obligation.
 # ---------------------------------------------------------------------------------------------
 
 [[boundary]]
@@ -43,7 +58,7 @@ rust_symbol = "fresnel_with_terms"
 source_path = "crates/core/src/clothoid.rs"
 source_anchor = "pub const FRESNEL_SERIES_EPSILON: f64 = 1e-17;"
 inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
-operation = "Cf(t) and Sf(t) are summed from their Maclaurin series by term ratio, each stopping when |term| <= 1e-17 * |partial sum| or at a 32-term cap. A sampled spiral point is A*Cf(tau) with A = blend / (Cf(sigma) + Sf(sigma)*tan(theta)); the relative threshold is what makes the position error a fixed fraction of `blend` rather than a fixed fraction of A, which is unbounded above as the deflection shrinks."
+operation = "Cf(t) and Sf(t) are summed from their Maclaurin series by term ratio, each stopping when |term| <= 1e-17 * |partial sum| or at a hard cap of 32 iterations past the leading term, i.e. 33 terms. A sampled spiral point is A*Cf(tau) with A = blend / (Cf(sigma) + Sf(sigma)*tan(theta)); the relative threshold is what makes the position error a fixed fraction of `blend` rather than a fixed fraction of A, which is unbounded above as the deflection shrinks."
 classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = [
@@ -52,7 +67,7 @@ assumptions = [
   "The alternating terms decrease monotonically past the second one across that whole argument range, so the truncation error is bounded by the first omitted term.",
 ]
 exclusions = [
-  "Arguments above sqrt(pi). Nothing in the node produces one; a caller reaching `fresnel` directly for a longer spiral is outside this bound.",
+  "Arguments above sqrt(pi). Nothing in the node produces one; a caller reaching `fresnel` directly for a longer spiral is outside this bound. The Abramowitz & Stegun cross-check in crates/core/tests/clothoid.rs is deliberately one such caller, by exactly one ulp: the tabulated values are defined under the substitution t = u*sqrt(pi), so reproducing them needs the correctly rounded sqrt(pi) (1.772453850905516), which is the next double above the node's own maximum argument (1.7724538509055159). The two constants are kept apart in that file, and one ulp is visible in the result — 1.11e-16 and 0 at the reference point, 2.22e-16 and 1.67e-16 one ulp down.",
   "The rounding error of the summation itself, which is folded into the measured agreement with quadrature rather than analysed term by term.",
   "The accuracy of the composite-Simpson reference beyond its own arithmetic: 2^16 intervals put its truncation error far below its accumulated rounding, and the published ceiling is that rounding floor, not the series error.",
 ]
@@ -75,19 +90,32 @@ rust_symbol = "corner_blend"
 source_path = "crates/core/src/clothoid.rs"
 source_anchor = "    if blend > incoming_len {"
 inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
-operation = "Five ordered rejections, each an exact comparison: zero-length incoming leg, zero-length outgoing leg, blend exceeding either leg, deflection exactly zero, deflection exactly pi. A sixth is an is_finite test on everything the solve produced, so an overflowed corner is refused rather than reaching Length::mm. None of the six carries an epsilon, and none substitutes a nearby corner for the one supplied."
+operation = """
+Seven ordered rejections, each an exact comparison against zero or against a supplied length: \
+blend not positive (`is_nan() || <= 0.0`, so a NaN lands here rather than passing the leg \
+comparisons, which `<= 0.0` alone would let it do), \
+zero-length incoming leg, zero-length outgoing leg, blend exceeding either leg, collinear \
+codirectional legs, collinear antiparallel legs. The two collinear cases are decided on the \
+geometry — `cross == 0.0` on the unit legs, then the sign of their dot product — and not on the \
+angle, so neither can be steered by the sign a signed zero happens to carry. A final rejection is \
+an is_finite test on everything the solve produced, so an overflowed corner is refused rather than \
+reaching Length::mm. None carries an epsilon, and none substitutes a nearby corner for the one \
+supplied.
+"""
 classification = "rejected"
 numeric_status = "not-applicable"
 assumptions = [
-  "atan2 returns exactly PI for exactly antiparallel unit legs and exactly 0.0 for exactly codirectional ones, which is what makes the two angular rejections exact rather than thresholded.",
+  "For unit legs cross^2 + dot^2 == 1 to within rounding, so `cross == 0.0` forces |dot| near 1 and the sign of dot decides which collinear case applies. This is what makes the two angular rejections exact rather than thresholded, and it is arithmetic on the normalised legs — no libm function participates in either decision. The earlier version of this entry asserted instead that `atan2 returns exactly PI for exactly antiparallel unit legs`; that is false as a guard, because for an exact reversal the cross product is a *signed* zero and atan2(-0.0, -1.0) is -PI. Half of all exact reversals were admitted as a result. Measured over 720 orientations after the fix: every exact reversal is refused.",
   "Both refusals run in `validate_design_geometry` before the lowering, over the same helper and the same numbers, so a corner that lowers is exactly a corner that validated.",
+  "Of the four libm functions the solve calls — hypot for the leg lengths, atan2 for the reported deflection, sqrt for the series argument, tan for the scale A — none is covered by a named accuracy contract; proofs/libm-0.2.16-trig-contract.md is scoped to sin and cos over [-7, 7]. The rejections above do not depend on any of them. The solved *shape* does: A = blend / (Cf + Sf*tan(theta)) scales every emitted coordinate, and tan is evaluated arbitrarily close to pi/2, where it is ill-conditioned. Measured relative error in A, against a reference denominator computed as cos(delta/2)/sin(delta/2) with delta = pi - |deflection|: 8.9e-15 at delta = 1e-2, 1.3e-6 at delta = 1e-10, and 22% at delta = 1e-16, i.e. one ulp from the refusal. The last of these is why LIMIT.BUDGETED_DEFLECTION_RAD is narrower than LIMIT.DEFLECTION_RAD.",
 ]
 exclusions = [
-  "Deflections arbitrarily close to 0 or pi, which are *not* refused: both have finite solutions (a nearly straight blend, and a tight U-turn respectively), and the leg-fit check is what bounds them. Refusing a band around either endpoint would be a magnitude policy of the kind ADR 0002 section 2 rejects.",
+  "Deflections arbitrarily close to 0 or pi, which are *not* refused: both have finite solutions (a nearly straight blend, and a tight U-turn respectively), and the leg-fit check is what bounds them. Refusing a band around either endpoint would be a magnitude policy of the kind ADR 0002 section 2 rejects, and it would not work: the same near-reversal is inside the published curvature ceiling at one blend and outside it at another (measured at pi - 1e-6: 4.2e-7 with a 9.999 mm blend, 5.3e-4 with a 0.01 mm one), so no deflection band separates the two. What the node does instead is publish the band its shape budgets were measured over and say plainly that it is narrower than the interval it admits.",
+  "The accuracy of the corner outside LIMIT.BUDGETED_DEFLECTION_RAD. The corner still *closes* everywhere the node admits — the closure identity is self-consistent in A, and the measured joint gap stays at or below 1e-15 mm down to one ulp from the refusal — but its shape is not budgeted there.",
   "Whether a machine can execute the resulting corner. The rule states only that the corner exists and closes.",
   "The Z coordinate, which `resolve` interpolates along the solved XY path and which no rejection here inspects.",
 ]
-next_obligation = "If the node ever grows an asymmetric blend (different tangent lengths per leg), the single blend-versus-leg rule splits into two independent ones and this entry must list them separately, since a caller could then overrun one leg while satisfying the other."
+next_obligation = "Two. (1) If the node ever grows an asymmetric blend (different tangent lengths per leg), the single blend-versus-leg rule splits into two independent ones and this entry must list them separately, since a caller could then overrun one leg while satisfying the other. (2) hypot, atan2, sqrt and tan carry no named accuracy contract. Either extend proofs/libm-0.2.16-trig-contract.md to cover them, or reformulate A to avoid tan near pi/2 — cos(theta)/(Cf*cos(theta) + Sf*sin(theta)) is the same quantity without the pole — before this entry's shape budgets are widened to the whole admitted interval."
 evidence = [
   "crates/core/src/clothoid.rs",
   "crates/core/src/resolve.rs",
@@ -96,6 +124,7 @@ evidence = [
 claim_ids = []
 profile_entries = [
   "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.DEFLECTION_RAD",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BUDGETED_DEFLECTION_RAD",
   "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BLEND_TO_LEG_RATIO",
 ]
 
@@ -112,11 +141,13 @@ numeric_status = "bounded"
 assumptions = [
   "The Fresnel parameterisation is unit-speed, so uniform steps in tau are uniform in arc length and the chords are of equal length up to curvature; that is what makes a single relative deviation bound cover the whole blend.",
   "The blend never turns by more than 180 degrees in total, so no chord subtends more than 5.625 degrees of tangent rotation.",
+  "The two halves are generated by different code — the first from the enter frame walking tau up, the second from the exit frame walking it back down — so a deviation bound stated for the whole blend has to be measured on both. It now is: crates/core/tests/clothoid.rs walks all 32 chords and reconstructs each against its own frame, reporting the halves separately (6.808361608503092e-4 and 6.808361608264731e-4). Until this slice's review it walked the first 16 only, so half of the range the budget claimed was unmeasured.",
 ]
 exclusions = [
   "Any adaptive or tolerance-driven subdivision: there is none, and a user who needs a tighter chord must ask for a smaller blend or, in a later slice, a configurable sample count.",
   "The departure of the *straight legs* from anything, which is zero by construction — they are straight.",
   "Whether 32 chords is the right count for a given machine's look-ahead. That is a process question, not a numeric one.",
+  "Deflections outside LIMIT.BUDGETED_DEFLECTION_RAD. Both ceilings here were measured over the declared sweep, and near either end of the admitted interval the sampled polyline stops being a clothoid to any published accuracy — measured worst curvature-linearity error 2.5e2 one ulp from a reversal, against a 1e-6 ceiling. The cause is conditioning, not sampling: the whole blend shrinks below what the absolute coordinates can carry.",
 ]
 next_obligation = "If SAMPLES ever becomes configurable, the published deviation ceiling becomes a function of it and this entry must state the count it was measured at."
 evidence = [
@@ -126,6 +157,7 @@ evidence = [
 ]
 claim_ids = []
 profile_entries = [
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BUDGETED_DEFLECTION_RAD",
   "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CHORD_DEVIATION_PER_BLEND_MM",
   "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CURVATURE_LINEARITY_RELATIVE_ERROR",
   "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.JOINT_CLOSURE_MM",

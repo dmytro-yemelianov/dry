@@ -40,7 +40,9 @@
 //! `Cf`/`Sf` are the Fresnel integrals in the `t²/2` convention. [`fresnel`] evaluates them by their
 //! Maclaurin series, summed until a term falls to [`FRESNEL_SERIES_EPSILON`] *relative to the partial
 //! sum* — see that constant for why the threshold is relative and what error it buys. Every
-//! transcendental call is `libm`, so the sampled points are bit-identical on native and wasm.
+//! transcendental call is `libm`, so the sampled points are bit-identical on native and wasm —
+//! measured, not argued, by `crates/core/tests/wasm_native_math.rs`, which resolves and emits a
+//! clothoid-cornered design under Node and compares the bytes.
 //!
 //! The blend is then sampled to `2·SAMPLES` line segments and lowered in `resolve` (`resolve.rs`),
 //! so no downstream pass — codec, verify, optimize, emit — learns a new segment kind.
@@ -63,13 +65,16 @@ use crate::resolve::SAMPLES;
 /// `crates/core/tests/clothoid.rs` against an independent quadrature.
 pub const FRESNEL_SERIES_EPSILON: f64 = 1e-17;
 
-/// Hard cap on Fresnel series terms, so the loop terminates on any input including a NaN argument.
+/// Hard cap on Fresnel series iterations *past the leading term*, so the loop terminates on any
+/// input including a NaN argument. Each series therefore sums at most 33 terms — `term₀` plus this
+/// many — and that 33, not this 32, is the number `fresnel_with_terms` can report.
 ///
 /// Never reached in the op's domain: the argument is `τ ≤ √π ≈ 1.7725` (a corner cannot deflect by
 /// more than 180°), where the alternating terms fall about two decades apart and the relative
-/// threshold above is met at the 13th term. Measured, not argued —
-/// `fresnel_series_terminates_well_inside_its_cap` walks the domain and reports the worst case.
-const FRESNEL_SERIES_MAX_TERMS: usize = 32;
+/// threshold above is met by the 12th term at worst. Measured, not argued —
+/// `fresnel_series_terminates_well_inside_its_cap` walks the domain and reports both ends of the
+/// range (12 terms at τ ≈ 1.673, 2 at τ = 0; the loop body always runs once, so 1 is unreachable).
+const FRESNEL_SERIES_MAX_ITERATIONS: usize = 32;
 
 /// Why a corner blend could not be constructed. Each variant is an *exact* rejection — a comparison
 /// against zero or against a supplied length — not a tolerance test, so none of these carries an
@@ -83,12 +88,20 @@ pub enum ClothoidError {
     DegenerateOutgoingLeg,
     /// The legs are collinear and codirectional: there is no corner to blend.
     NoDeflection,
-    /// The legs are exactly antiparallel. A symmetric clothoid pair through a 180° deflection needs
-    /// an infinite tangent length, so no finite blend describes it.
+    /// The legs are antiparallel. A symmetric clothoid pair through a 180° deflection needs an
+    /// infinite tangent length, so no finite blend describes it.
     Reversal,
     /// The requested tangent length exceeds a leg, so the blend would start before the running
     /// position or end past the supplied end point. Refused rather than clamped (ADR 0002 §4).
     BlendExceedsLeg { blend: f64, leg: f64 },
+    /// The requested tangent length is not a positive number (zero, negative, or NaN).
+    ///
+    /// Unreachable from an `Op::Clothoid`: `validate_design`'s `require_positive` refuses those at
+    /// ingress, before any geometry runs. The check is here because [`corner_blend`] is a published
+    /// entry point in its own right, and without it a zero or negative `blend` returned `Ok` with a
+    /// negative `a` and a negative [`CornerBlend::length`] — contradicting that field's own
+    /// documentation, which calls it an arc length.
+    BlendNotPositive { blend: f64 },
     /// The corner has a solution over the reals but not in binary64: some produced coordinate
     /// overflowed. Refused here rather than left to `require_finite_toolpath`, so this path never
     /// hands a non-finite value to `Length::mm` — whose debug assertion ADR 0002 records as a known
@@ -116,6 +129,10 @@ impl std::fmt::Display for ClothoidError {
             ClothoidError::BlendExceedsLeg { blend, leg } => write!(
                 f,
                 "clothoid blend {blend} mm exceeds the {leg} mm leg it is consumed from"
+            ),
+            ClothoidError::BlendNotPositive { blend } => write!(
+                f,
+                "clothoid corner needs a positive tangent length, got {blend}"
             ),
             ClothoidError::NotRepresentable => write!(
                 f,
@@ -165,7 +182,7 @@ pub fn fresnel(tau: f64) -> (f64, f64) {
 /// [`fresnel`], plus how many terms each series consumed.
 ///
 /// One implementation, two entry points: the term counts exist so `crates/core/tests/clothoid.rs`
-/// can *measure* the worst-case distance to [`FRESNEL_SERIES_MAX_TERMS`] over the op's domain rather
+/// can *measure* the worst-case distance to [`FRESNEL_SERIES_MAX_ITERATIONS`] over the op's domain rather
 /// than assert a headroom nobody checked.
 pub fn fresnel_with_terms(tau: f64) -> (f64, f64, usize, usize) {
     let t4 = tau * tau * tau * tau;
@@ -174,7 +191,7 @@ pub fn fresnel_with_terms(tau: f64) -> (f64, f64, usize, usize) {
     let mut c_term = tau;
     let mut cf = c_term;
     let mut c_used = 1;
-    for n in 0..FRESNEL_SERIES_MAX_TERMS {
+    for n in 0..FRESNEL_SERIES_MAX_ITERATIONS {
         let n = n as f64;
         c_term *=
             -t4 * (4.0 * n + 1.0) / (4.0 * (2.0 * n + 1.0) * (2.0 * n + 2.0) * (4.0 * n + 5.0));
@@ -189,7 +206,7 @@ pub fn fresnel_with_terms(tau: f64) -> (f64, f64, usize, usize) {
     let mut s_term = tau * tau * tau / 6.0;
     let mut sf = s_term;
     let mut s_used = 1;
-    for n in 0..FRESNEL_SERIES_MAX_TERMS {
+    for n in 0..FRESNEL_SERIES_MAX_ITERATIONS {
         let n = n as f64;
         s_term *=
             -t4 * (4.0 * n + 3.0) / (4.0 * (2.0 * n + 2.0) * (2.0 * n + 3.0) * (4.0 * n + 7.0));
@@ -218,12 +235,35 @@ pub fn fresnel_with_terms(tau: f64) -> (f64, f64, usize, usize) {
 ///
 /// All arithmetic is planar; `resolve` adds Z on top, linear in XY arc length, exactly as it does for
 /// the helical rise of an [`crate::resolve::Op::Arc`].
+///
+/// # What this depends on numerically
+///
+/// The Fresnel series is polynomial, but the *corner* is not: `libm::hypot` sets the leg lengths,
+/// `libm::atan2` the deflection, `libm::sqrt` the argument, and `libm::tan(theta)` scales `A` and
+/// therefore every emitted coordinate. Only `sin`/`cos` carry a named accuracy contract
+/// (`proofs/libm-0.2.16-trig-contract.md`), and this function calls neither — the four it does call
+/// are named as an open obligation in `proofs/resolve-clothoid-numeric-boundaries-v0.toml`.
+///
+/// `tan` is the one that matters: as the deflection approaches 180°, `theta` approaches `pi/2`,
+/// where `tan` is ill-conditioned. The one-ulp uncertainty in `theta` becomes a relative
+/// uncertainty of about `2.2e-16 / (pi - |deflection|)` in `A`. Measured: 1.3e-6 at a thousandth of
+/// a degree from a reversal, and 22% one ulp from it. The corner is still *closed* there — the
+/// closure identity is self-consistent in `A`, and the measured joint gap stays at 1e-15 mm right
+/// down to the refusal — but its published shape budgets do not reach that far, which is why the
+/// profile names a budgeted band narrower than the admitted interval.
 pub fn corner_blend(
     start: [f64; 2],
     corner: [f64; 2],
     end: [f64; 2],
     blend: f64,
 ) -> Result<CornerBlend, ClothoidError> {
+    // First, because it is a property of `blend` alone and because that is the order the op path
+    // already runs the two checks in (`validate_design`'s `require_positive` precedes
+    // `validate_design_geometry`). The NaN arm is not redundant: `blend <= 0.0` is false for a NaN,
+    // which would then pass both leg comparisons and reach the solve.
+    if blend.is_nan() || blend <= 0.0 {
+        return Err(ClothoidError::BlendNotPositive { blend });
+    }
     let incoming = [corner[0] - start[0], corner[1] - start[1]];
     let outgoing = [end[0] - corner[0], end[1] - corner[1]];
     let incoming_len = libm::hypot(incoming[0], incoming[1]);
@@ -252,14 +292,37 @@ pub fn corner_blend(
 
     let u = [incoming[0] / incoming_len, incoming[1] / incoming_len];
     let w = [outgoing[0] / outgoing_len, outgoing[1] / outgoing_len];
-    // Signed deflection in (-pi, pi]: atan2 of the cross and dot products of the two unit legs.
-    let deflection = libm::atan2(u[0] * w[1] - u[1] * w[0], u[0] * w[0] + u[1] * w[1]);
-    if deflection == 0.0 {
-        return Err(ClothoidError::NoDeflection);
+    let cross = u[0] * w[1] - u[1] * w[0];
+    let dot = u[0] * w[0] + u[1] * w[1];
+    // Both collinear refusals are taken on the *geometry*, before any transcendental runs, and both
+    // are exact.
+    //
+    // They used to be taken on the angle, and the antiparallel one was wrong: for exactly
+    // antiparallel legs `cross` is a **signed** zero whose sign follows the legs' orientation, and
+    // `atan2(-0.0, -1.0)` is `-PI`, not `PI`. A bare `deflection == PI` therefore admitted the
+    // `-x -> +x` and `+y -> -y` reversals while refusing their mirror images, and the admitted ones
+    // lowered to a 2.8e-16 mm "blend" with `enter == exit` — a zero-radius cusp where the design
+    // asked for a curvature-continuous corner, which is the silently-different corner ADR 0002 §4
+    // forbids. `cross == 0.0` is true of both zeros, so no refusal here can be steered by the sign
+    // of a zero, and neither one depends on how `atan2` rounds near its branch cut. For unit legs
+    // `cross² + dot² == 1` to within rounding, so `cross == 0.0` forces `|dot| ≈ 1` and the sign of
+    // `dot` decides which of the two collinear cases this is.
+    if cross == 0.0 {
+        return Err(if dot < 0.0 {
+            ClothoidError::Reversal
+        } else {
+            ClothoidError::NoDeflection
+        });
     }
-    // Exactly antiparallel legs give atan2(0, -1) == PI. Near-reversals are *not* refused here: they
-    // have a finite solution with a small A, and the leg check above is what bounds them.
-    if deflection == std::f64::consts::PI {
+    // Signed deflection in (-pi, pi): atan2 of the cross and dot products of the two unit legs.
+    let deflection = libm::atan2(cross, dot);
+    // `atan2` rounds the last half-ulp of its branch cut onto ±PI itself, so legs that are merely
+    // *nearly* antiparallel can still report exactly ±PI. Refuse those too, so the deflection this
+    // function reports really does lie in the open interval its documentation and
+    // `LIMIT.DEFLECTION_RAD` both claim. Near-reversals strictly inside that interval are *not*
+    // refused: they have finite solutions, and no band around either end is excluded — see the
+    // BUDGETED_DEFLECTION_RAD limit for what is and is not measured about them.
+    if deflection.abs() == std::f64::consts::PI {
         return Err(ClothoidError::Reversal);
     }
 

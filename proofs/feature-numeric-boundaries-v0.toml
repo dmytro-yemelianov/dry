@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 path = "crates/core/src/features.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "7f7dcc95e61d8e44d264a557ae5d1332132d1387c26d71994135f7335486fd86"
+sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
 
 [[source]]
 path = "crates/core/src/resolve.rs"
@@ -267,7 +267,7 @@ classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = [
   "Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions.",
-  "Op::Clothoid.blend rides through the clothoid arm as a bit copy, not through this transform: a pose is a Z rotation plus a translation, which is rigid, so a tangent length is invariant under it and no arithmetic is applied.",
+  "Op::Clothoid.blend rides through the clothoid arm as a bit copy, not through this transform: no arithmetic is applied to it and its binary64 pattern survives placement exactly. That is a statement about the field, not about the corner, and an earlier version of this line overreached by adding 'a pose is rigid, so a tangent length is invariant under it'. The pose is rigid over the reals and not in binary64 — this transform rotates with rounded cos/sin, so the leg lengths the placed corner is measured against move by ulps while blend holds still. Measured: a corner with blend == leg == 10 mm validates unplaced and is refused at rotate_z_deg = 30, where the leg comes out as 9.999999999999998 mm. Refusing is correct; the claim of invariance was not. See LIMIT.BLEND_TO_LEG_RATIO in proofs/resolve-clothoid-numeric-profile-v0.toml and a_blend_that_exactly_fills_its_leg_is_not_pose_stable in crates/core/tests/clothoid.rs.",
 ]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]

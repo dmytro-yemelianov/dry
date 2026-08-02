@@ -171,6 +171,9 @@ CLOTHOID_BOUNDARIES = {
 CLOTHOID_LIMITS = {
     f"{CLOTHOID_PROFILE_ID}.LIMIT.FRESNEL_ARGUMENT",
     f"{CLOTHOID_PROFILE_ID}.LIMIT.DEFLECTION_RAD",
+    # The band the shape budgets were measured over, which is narrower than the interval the node
+    # admits. Registered so the two cannot be published independently of each other.
+    f"{CLOTHOID_PROFILE_ID}.LIMIT.BUDGETED_DEFLECTION_RAD",
     f"{CLOTHOID_PROFILE_ID}.LIMIT.BLEND_TO_LEG_RATIO",
 }
 CLOTHOID_BUDGETS = {
