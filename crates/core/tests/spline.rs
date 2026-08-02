@@ -115,8 +115,11 @@ fn collinear_control_points_yield_a_straight_path() {
 #[test]
 fn gradual_corner_design_emits_curved_spline_segments() {
     // A spline with a gradual cornering profile should emit a dense, visibly curved output.
-    // NOTE: this is a Catmull-Rom spline, NOT a clothoid. Curvature-linear (Euler spiral)
-    // cornering is not implemented -- see P2.1/P5.5 in docs/04-tasks.md.
+    // NOTE: this is a Catmull-Rom spline, NOT a clothoid, and the name stays as commit d47446c set
+    // it. P5.5 has since landed curvature-linear (Euler spiral) cornering as its own `Op::Clothoid`
+    // node -- see crates/core/src/clothoid.rs and crates/core/tests/clothoid.rs -- but this test does
+    // not exercise it, and renaming a spline test after a clothoid would put the name back where
+    // d47446c found it.
     let d = design(
         r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
             {"op":"move","x":0,"y":0,"z":0.2},
@@ -160,6 +163,6 @@ fn gradual_corner_design_emits_curved_spline_segments() {
             let area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
             area.abs() > 1e-6
         }),
-        "clothoid-like spline should produce non-collinear intermediate points"
+        "a gradually cornered spline should produce non-collinear intermediate points"
     );
 }

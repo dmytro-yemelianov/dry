@@ -347,6 +347,43 @@ fn expand_feature_ops(
                     clockwise: *clockwise,
                 }
             }
+            Op::Clothoid {
+                corner_x,
+                corner_y,
+                x,
+                y,
+                z,
+                blend,
+            } => {
+                require_defined_position(position, &op_path)?;
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = local.map(Some);
+                let end = transform.apply_point(local);
+                let corner = transform.apply_xy([
+                    require_finite(*corner_x, &format!("{op_path}.corner_x"))?,
+                    require_finite(*corner_y, &format!("{op_path}.corner_y"))?,
+                ]);
+                // `blend` rides through untransformed: it is copied, not recomputed, so no
+                // arithmetic touches it and its bit pattern survives placement exactly.
+                //
+                // That is *not* the same as saying the corner is invariant. The pose is rigid over
+                // the reals, but `apply_xy`/`apply_point` rotate with rounded cos/sin, so the two
+                // leg lengths the placed corner is measured against move by ulps while `blend`
+                // holds still. A corner whose blend exactly fills its leg can therefore validate
+                // unplaced and be refused after placement — measured at `rotate_z_deg = 30`, where
+                // a 10 mm leg becomes 9.999999999999998 mm and a 10 mm blend no longer fits
+                // (`a_blend_that_exactly_fills_its_leg_is_not_pose_stable`). Refusing is the right
+                // answer: the placed corner really does have a shorter leg, and admitting it would
+                // mean clamping the blend to a corner nobody asked for (ADR 0002 §4).
+                Op::Clothoid {
+                    corner_x: corner[0],
+                    corner_y: corner[1],
+                    x: Some(end[0]),
+                    y: Some(end[1]),
+                    z: Some(end[2]),
+                    blend: *blend,
+                }
+            }
             Op::Spline { points } => {
                 if !points.is_empty() {
                     require_defined_position(position, &op_path)?;

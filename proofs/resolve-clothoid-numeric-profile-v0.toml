@@ -1,0 +1,303 @@
+schema_version = 1
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0"
+model = "resolve-clothoid-binary64-v0"
+status = "provisional"
+contract = "runtime-enforced"
+rust_toolchain = "1.88.0"
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+# What this node depends on, stated in the order the dependencies actually bite.
+#
+# The *series* is polynomial — a sum of powers — so nothing in `fresnel` depends on a trig contract.
+# The *corner* is a different matter, and an earlier version of this comment got it wrong by
+# conflating the two: `libm::hypot` sets the leg lengths, `libm::atan2` the reported deflection,
+# `libm::sqrt` the series argument, and `libm::tan(theta)` scales A = blend / (Cf + Sf*tan(theta)),
+# which multiplies every emitted coordinate. The node's result depends on all four.
+#
+# None of those four is covered by a named contract. `proofs/libm-0.2.16-trig-contract.md` is scoped
+# to binary64 `sin` and `cos` for finite arguments in [-7, 7], and this node calls neither — except
+# in the composite-Simpson reference the series is measured against, which is built from both and so
+# inherits the contract for its *measurement*. Extending the contract to hypot/atan2/sqrt/tan is the
+# open obligation on FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE.
+#
+# `tan` is the one with teeth. As the deflection approaches 180 degrees theta approaches pi/2, where
+# tan is ill-conditioned: a one-ulp uncertainty in theta becomes a relative uncertainty of roughly
+# 2.2e-16 / (pi - |deflection|) in A. Measured: 8.9e-15 at 1e-2 rad from a reversal, 1.3e-6 at
+# 1e-10, and 22% one ulp from it. That is what LIMIT.BUDGETED_DEFLECTION_RAD exists to say, and the
+# two angular refusals were deliberately moved off atan2 and onto the unit legs so that at least the
+# *rejections* stand outside this dependency.
+[libm]
+crate = "libm"
+version = "0.2.16"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+source_tag = "libm-v0.2.16"
+source_commit = "dfd2203a4d6110820ad7bb65cafe1bf331a03a3d"
+trig_accuracy_basis = "upstream-mpfr-test-policy"
+trig_max_ulp = 1
+trig_contract_status = "imported-assumption"
+
+# ---------------------------------------------------------------------------------------------
+# Limits
+# ---------------------------------------------------------------------------------------------
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.FRESNEL_ARGUMENT"
+quantity = "Normalised arc length sigma = sqrt(2*theta) at which the Fresnel series is evaluated"
+lower = 0.0
+upper = 1.7724538509055159
+unit = "dimensionless"
+enforcement = "runtime"
+rationale = """
+Enforced, not assumed. `corner_blend` refuses a deflection of exactly pi and derives every argument \
+as sigma = sqrt(|deflection|) with |deflection| < pi, so the largest argument the node can hand the \
+series is sqrt of the largest double below pi — which in binary64 is the same double as \
+libm::sqrt(f64::consts::PI), 1.7724538509055159, and is therefore attained rather than merely \
+approached. That bound is what lets the series be published as `bounded` at all: the Maclaurin form \
+loses to the asymptotic form for large arguments, and the truncation-error argument below ("bounded \
+by the first omitted term") holds only where the terms are monotonically decreasing, which they are \
+throughout this interval. A caller reaching `fresnel` directly with a larger argument leaves the \
+profile. Note that the correctly rounded sqrt(pi) is 1.772453850905516, one ulp *above* this upper \
+bound; the Abramowitz & Stegun cross-check needs that constant and not this one, and the two are \
+kept as separate named constants in crates/core/tests/clothoid.rs with the relationship between \
+them pinned by `the_swept_domain_is_the_published_domain`.
+"""
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.DEFLECTION_RAD"
+quantity = "Signed deflection of a blended corner, as atan2 of the cross and dot products of the two unit legs"
+lower = -3.141592653589793
+upper = 3.141592653589793
+unit = "radian"
+enforcement = "runtime"
+rationale = """
+The open interval, both ends refused exactly, and refused on the unit legs rather than on the angle. \
+Collinear legs give `cross == 0.0` on the two unit vectors, and the sign of their dot product says \
+which case it is: codirectional has no corner, antiparallel needs an infinite tangent length. \
+Neither decision calls a libm function, and neither can be steered by the sign of a signed zero — \
+which is exactly how the earlier `deflection == PI` guard failed, since for an exact reversal the \
+cross product is a signed zero and atan2(-0.0, -1.0) is -PI. A residual `deflection.abs() == PI` \
+check follows the atan2 call, because atan2 maps the last half-ulp of its branch cut onto +-PI \
+itself and a corner that reported exactly +-PI would fall outside the interval this entry \
+publishes.
+
+Everything strictly between is admitted — including deflections one ulp from either end, which have \
+finite solutions (a blend indistinguishable from a straight line, and a tight curvature-continuous \
+U-turn respectively). No band around either endpoint is excluded: that would be a magnitude policy, \
+and ADR 0002 section 2 rejects those in favour of exact refusals plus a finiteness postcondition. \
+Admitted is not the same as budgeted, and the two are not the same interval here — see \
+LIMIT.BUDGETED_DEFLECTION_RAD.
+"""
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE"]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BUDGETED_DEFLECTION_RAD"
+quantity = "Signed deflection over which this profile's shape budgets (curvature linearity, chord deviation) were measured"
+lower = -3.12413936106985
+upper = 3.12413936106985
+unit = "radian"
+enforcement = "assumption"
+rationale = """
+Narrower than DEFLECTION_RAD on purpose, and the gap is the honest part of this entry. The node \
+admits the whole open interval; CURVATURE_LINEARITY_RELATIVE_ERROR and \
+CHORD_DEVIATION_PER_BLEND_MM were measured over +-179 degrees (+-3.12413936106985 rad), and they \
+do not hold outside it. Measured one ulp below pi: curvature-linearity relative error 2.5e2 against \
+a 1e-6 ceiling.
+
+The cause is conditioning, not sampling. A = blend / (Cf + Sf*tan(theta)) with theta -> pi/2 sends \
+the whole blend's arc length toward zero — 2.1e-13 mm at 1e-14 rad from a reversal, on 10 mm legs \
+whose coordinates have a 1.8e-15 mm ulp — so the emitted points no longer carry the shape. The same \
+happens at the other end, where A grows without bound: at a deflection of 1e-300 rad the relative \
+linearity error is 1.0.
+
+`enforcement = "assumption"` and not `"runtime"` because nothing refuses this band, and that is a \
+decision rather than an omission. A threshold on the deflection cannot separate the two cases: at a \
+deflection of pi - 1e-6 the same corner measures 4.2e-7 (inside the ceiling) with a 9.999 mm blend \
+and 5.3e-4 (outside it) with a 0.01 mm one. Any band loose enough to admit the first admits the \
+second; any band tight enough to refuse the second refuses legitimate corners — the same argument \
+ADR 0002 section 2 already made against magnitude bounds at ingress. What does hold everywhere the \
+node admits is that the corner closes: JOINT_CLOSURE_MM is met at 1e-15 mm right down to one ulp \
+from the refusal, because the closure identity is self-consistent in A.
+
+Pinned by `the_shape_budgets_do_not_reach_the_ends_of_the_admitted_interval` in \
+crates/core/tests/clothoid.rs, which asserts the *failure* so that this entry cannot quietly go \
+stale: if the node ever gets better there, that test starts failing and this band gets widened.
+"""
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE", "FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"]
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BLEND_TO_LEG_RATIO"
+quantity = "Requested tangent length divided by the shorter of the two legs it is consumed from"
+lower = 0.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "runtime"
+rationale = """
+`blend` is checked positive at ingress *and* in `corner_blend` itself — the second check is not \
+redundant, because `corner_blend` is re-exported from the crate root and without it a zero or \
+negative blend returned Ok with a negative A and a negative arc length — and checked against both \
+leg lengths, so the ratio lies in (0, 1]. The upper end is inclusive on purpose: a blend that \
+consumes a whole leg is a legitimate corner whose straight leg has zero length, and `resolve` drops \
+the empty segment rather than emitting a zero-length move. Anything above 1 is refused rather than \
+clamped — a clamped blend is a different corner from the one the design asked for, delivered \
+silently, which is exactly the failure ADR 0002 section 4 names.
+
+The inclusive upper end is not invariant under feature placement, and saying otherwise was wrong. \
+A pose is rigid over the reals but not in binary64: `apply_xy`/`apply_point` rotate with rounded \
+cos/sin, so the leg lengths move by ulps while `blend` is copied through bit-for-bit. A corner at \
+ratio exactly 1 can therefore validate unplaced and be refused after placement — measured at \
+rotate_z_deg = 30, where a 10 mm leg becomes 9.999999999999998 mm and a 10 mm blend no longer fits. \
+Refusing is correct (the placed corner really does have a shorter leg; admitting it would clamp), \
+but a design that sits exactly on this boundary is pose-sensitive and should not. Pinned by \
+`a_blend_that_exactly_fills_its_leg_is_not_pose_stable` in crates/core/tests/clothoid.rs. The \
+refusals that compare against zero rather than against a length — NoDeflection and Reversal — are \
+pose-stable, measured over 20 rotations each.
+"""
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE"]
+
+# ---------------------------------------------------------------------------------------------
+# Budgets — FRESNEL_SERIES_TERM_THRESHOLD is pinned against clothoid.rs by
+# validate_clothoid_implementation_values, so the constant cannot be retuned without updating this
+# file. Every other ceiling here is a measurement, taken over the sweep declared in
+# crates/core/tests/clothoid.rs (20 deflections from -179 to 179 degrees, 7 blends from 0.01 mm to
+# 9.999 mm against 10 mm legs) and reported by the test that guards it.
+# ---------------------------------------------------------------------------------------------
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.FRESNEL_SERIES_TERM_THRESHOLD"
+metric = "Term magnitude, relative to the partial sum, at or below which the Fresnel series stops"
+unit = "dimensionless"
+status = "policy"
+ceiling = 1e-17
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"]
+rationale = """
+A threshold on the terms, not a measured error, hence `policy`. It is *relative* because a sampled \
+point is A*Cf(tau) and A = blend / (Cf(sigma) + Sf(sigma)*tan(theta)) is unbounded above as the \
+deflection shrinks: an absolute term bound eps would give an unbounded position error A*eps, while a \
+relative one gives A*eps*Cf(tau) <= eps*blend, since A*Cf never exceeds the tangent length the \
+caller asked for. That is the whole reason the constant is written the way it is. The value sits \
+just under the binary64 relative resolution 2^-53 = 1.11e-16, so truncation is dominated by rounding \
+rather than the reverse. The rejected alternative was a fixed term count: it would have been simpler \
+but would have published a headroom nobody measured, and the count needed varies with the argument \
+(measured: 12 terms at tau = 1.673, 2 at tau = 0 — not 1, which this entry used to claim and which \
+is unreachable, because the loop body always runs once). The hard cap that backstops the threshold \
+counts iterations *past* the leading term, so the reachable maximum is 33 terms and not the 32 the \
+constant is set to; `fresnel_series_terminates_well_inside_its_cap` pins all three numbers.
+"""
+evidence = [
+  "crates/core/src/clothoid.rs",
+  "crates/core/tests/clothoid.rs",
+]
+next_obligation = "If the node ever evaluates the spiral beyond sqrt(pi), re-check that the terms still decrease monotonically before reusing this threshold; the series is not the right form for large arguments."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.FRESNEL_ABS_ERROR"
+metric = "Absolute disagreement between the truncated Fresnel series and composite-Simpson quadrature of the same integrand over the node's whole argument range"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 1e-13
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"]
+rationale = """
+Measured, at 200 arguments spanning (0, sqrt(pi)]: worst 2.26e-14 for Cf and 9.55e-15 for Sf against \
+composite Simpson at 2^16 intervals, identical in debug and release builds. The ceiling is set at \
+1e-13 to leave room for a different libm build, not because the series is thought to be that loose. \
+What this bounds honestly is the *disagreement*, not the series error: at 2^16 intervals Simpson's \
+own accumulated rounding is the larger of the two contributions, so the true series error is at most \
+this and probably far less. A second, independent check pins the same series at one point to a \
+tighter figure: against the published Fresnel integral values C(1) = 0.7798934003768228 and \
+S(1) = 0.4382591473903548 (Abramowitz & Stegun 7.3.1, under the substitution t = u*sqrt(pi)), the \
+measured errors are 1.11e-16 and exactly 0. Two references, neither of them Dry, as ADR 0002 \
+section 5 requires of any accuracy claim. Those two figures are argument-specific and were quoted \
+without saying so: they are measured at the correctly rounded sqrt(pi) = 1.772453850905516, which \
+the substitution names and which is one ulp *above* LIMIT.FRESNEL_ARGUMENT.upper. One ulp down, at \
+the node's own domain top, the same comparison gives 2.22e-16 and 1.67e-16. Both are far inside the \
+1e-13 ceiling; the point is that the reference is sharp enough for a single ulp of argument to move \
+it, so the argument has to be named.
+"""
+evidence = [
+  "crates/core/tests/clothoid.rs",
+]
+next_obligation = "Tighten with a higher-order quadrature or an extended-precision reference if the series is ever asked to carry a claim below 1e-14; today's ceiling is the reference's floor, not the implementation's."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CURVATURE_LINEARITY_RELATIVE_ERROR"
+metric = "Departure of the sampled blend's chord-angle second difference from the constant an Euler spiral predicts, relative to that constant"
+unit = "dimensionless"
+status = "bounded"
+ceiling = 1e-6
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"]
+rationale = """
+This is the budget that says the node is a clothoid and not something else. Curvature linear in arc \
+length means the tangent angle is quadratic in arc length, so uniform arc-length samples turn by an \
+arithmetic progression and the second difference of chord angles is the constant h^2/A^2. Measured \
+over the declared sweep: worst 4.29e-7, identical in debug and release. The two windows that contain \
+the joint turn are excluded and checked separately — at a symmetric curvature peak the second \
+difference is 2/3 of the constant rather than plus or minus it, and observing exactly that ratio is \
+how the test establishes the peak sits at the joint rather than one sample off it. The residual is \
+the chord-versus-tangent error of a 16-chord half, third order in the step, not a defect in the \
+spiral.
+
+This ceiling holds over LIMIT.BUDGETED_DEFLECTION_RAD, not over the whole interval the node admits. \
+Outside it the measured error reaches 2.5e2 — the sampled points stop carrying the shape once the \
+blend's arc length falls toward the ulp of the coordinates it is drawn at. That entry states the \
+gap, the cause and why no deflection threshold closes it.
+"""
+evidence = [
+  "crates/core/tests/clothoid.rs",
+]
+next_obligation = "Re-measure if SAMPLES changes: the residual is a function of the step size and this ceiling was measured at 16 chords per half. Separately, widening the measured band toward the ends of LIMIT.DEFLECTION_RAD needs the tan(theta) pole removed from the solve first (see CORNER_SOLVE's second obligation), not a larger sweep."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CHORD_DEVIATION_PER_BLEND_MM"
+metric = "Greatest perpendicular distance from the exact Euler spiral to the chord that samples it, divided by the requested tangent length"
+unit = "millimetre per millimetre"
+status = "bounded"
+ceiling = 1e-3
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"]
+rationale = """
+The only error in this node a user can see in the emitted program: what `resolve` lowers is a \
+polyline, and this is how far it departs from the curve it samples. Published per millimetre of \
+blend because the whole corner scales with the blend — a 1 mm blend and a 100 mm blend have the same \
+shape and the same relative chord error. Measured over the declared sweep at 31 interior points per \
+chord, on all 32 chords: worst 6.808361608503092e-4 over the first spiral half and \
+6.808361608264731e-4 over the second, i.e. a 3 mm blend sits within 2.0 micrometres of its spiral. \
+The two halves are reported separately because they are generated by different code — the first \
+from the enter frame, the second from the exit frame reading tau back down — and until this slice's \
+review only the first 16 chords were walked, so half of the range this metric claims was \
+unmeasured. The ceiling is 1e-3, which is also a usable rule of thumb: chord error stays under a \
+thousandth of the blend. Deliberately *not* a tolerance the code reads — the sample count is fixed, \
+as it is for a Catmull-Rom span, so a design's segment count is a function of the design and not of \
+its scale. Like the curvature ceiling, this one is stated over LIMIT.BUDGETED_DEFLECTION_RAD.
+"""
+evidence = [
+  "crates/core/tests/clothoid.rs",
+]
+next_obligation = "If SAMPLES becomes configurable, this ceiling becomes a function of it and must be republished per count."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.JOINT_CLOSURE_MM"
+metric = "Distance between the joint point reached by integrating the first spiral half forward and the same joint reached by integrating the second half backward"
+unit = "millimetre"
+status = "bounded"
+ceiling = 1e-14
+boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"]
+rationale = """
+The second half is generated as the same spiral read backwards from the exit point, not as a \
+reflection of the first, so the two halves arriving at one joint is a real closure condition and not \
+an identity — a sign error in the mirrored frame would open a visible gap in the middle of every \
+corner. Measured over the declared sweep against a joint independently reconstructed from the exit \
+side: worst 3.55e-15 mm on 10 mm legs, identical in debug and release. The related exact-symmetry \
+check on a right-angle corner (each sample is the mirror of its opposite about the bisector) \
+measures 1.18e-15 mm.
+
+Unlike the two shape budgets, this one does hold over the whole of LIMIT.DEFLECTION_RAD, and the \
+reason is worth stating: closure is the identity A*(Cf + Sf*tan(theta)) == blend, which is \
+self-consistent in A because both halves are built from the same A. So an ill-conditioned tan near \
+a reversal moves the corner's *shape* without opening its joint. Measured at pi - 1e-6 with a \
+0.01 mm blend, where the curvature budget is exceeded by more than two orders of magnitude: joint \
+gap 8.3e-25 mm, and still under 1e-14 mm one ulp from the refusal.
+"""
+evidence = [
+  "crates/core/tests/clothoid.rs",
+]
+next_obligation = "Re-measure at the scale of interest if a caller works far from the 10 mm legs used here; the quantity is an absolute length and does not scale away."

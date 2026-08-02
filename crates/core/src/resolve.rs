@@ -80,6 +80,23 @@ pub enum Op {
     /// point in `points` (a list of `[x, y, z]`, each axis `None` ⇒ inherited from the running
     /// position). Lowered to line segments in `resolve` (sampling `SAMPLES` points per span).
     Spline { points: Vec<[Option<f64>; 3]> },
+    /// A clothoid (Euler-spiral) corner blend: travel from the running position toward the corner
+    /// `(corner_x, corner_y)`, round it with a symmetric pair of Euler spirals consuming `blend` mm
+    /// of tangent length from each leg, and continue to the end point (inheriting `None` axes).
+    ///
+    /// `(corner_x, corner_y)` is a *construction* point the path never visits, exactly like
+    /// [`Op::Arc`]'s `(cx, cy)`, and Z rises linearly along the planar path the same way an arc's
+    /// helical rise does. Unlike `Spline`, this lowers straight to line segments in `resolve`
+    /// (`2·SAMPLES` for the blend plus the two straight legs), so no L2 consumer learns a new kind.
+    /// See [`crate::clothoid`] for the geometry, the design rationale and the series tolerance.
+    Clothoid {
+        corner_x: f64,
+        corner_y: f64,
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        blend: f64,
+    },
     /// Verbatim custom G-code injection.
     #[serde(rename = "manual_gcode")]
     ManualGcode { text: String },
@@ -276,6 +293,21 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
                     )?;
                 }
             }
+            Op::Clothoid {
+                corner_x,
+                corner_y,
+                x,
+                y,
+                z,
+                blend,
+            } => {
+                require_finite(&prefix("corner_x"), *corner_x)?;
+                require_finite(&prefix("corner_y"), *corner_y)?;
+                require_optional_finite(&prefix("x"), *x)?;
+                require_optional_finite(&prefix("y"), *y)?;
+                require_optional_finite(&prefix("z"), *z)?;
+                require_positive(&prefix("blend"), *blend)?;
+            }
             Op::ManualGcode { text } => {
                 if text.is_empty() {
                     return Err(ResolveError::new(format!(
@@ -337,6 +369,29 @@ fn validate_design_geometry(design: &Design) -> Result<(), ResolveError> {
                         "ops[{idx}].arc endpoint radius differs from start radius by {delta:.6} mm"
                     )));
                 }
+                pos = end;
+            }
+            Op::Clothoid {
+                corner_x,
+                corner_y,
+                x,
+                y,
+                z,
+                blend,
+            } => {
+                let start = [pos[0].unwrap_or(0.0), pos[1].unwrap_or(0.0)];
+                let corner = [*corner_x, *corner_y];
+                let end = [(*x).or(pos[0]), (*y).or(pos[1]), (*z).or(pos[2])];
+                // The same solve `resolve_unchecked` runs, on the same numbers, so a corner that
+                // lowers is exactly a corner that validates — the two cannot disagree about whether
+                // the blend fits.
+                crate::clothoid::corner_blend(
+                    start,
+                    corner,
+                    [end[0].unwrap_or(start[0]), end[1].unwrap_or(start[1])],
+                    *blend,
+                )
+                .map_err(|error| ResolveError::new(format!("ops[{idx}].clothoid: {error}")))?;
                 pos = end;
             }
             Op::Spline { points } => {
@@ -644,6 +699,110 @@ fn resolve_unchecked(design: &Design, p: &ResolveParams) -> Toolpath {
                     control_points: None,
                 });
                 pos = end;
+            }
+            Op::Clothoid {
+                corner_x,
+                corner_y,
+                x,
+                y,
+                z,
+                blend,
+            } => {
+                let start = [
+                    pos[0].map(|l| l.value()).unwrap_or(0.0),
+                    pos[1].map(|l| l.value()).unwrap_or(0.0),
+                ];
+                let corner = [corner_x, corner_y];
+                let end = [
+                    x.map(Length::mm).or(pos[0]),
+                    y.map(Length::mm).or(pos[1]),
+                    z.map(Length::mm).or(pos[2]),
+                ];
+                let end_xy = [
+                    end[0].map(|l| l.value()).unwrap_or(start[0]),
+                    end[1].map(|l| l.value()).unwrap_or(start[1]),
+                ];
+                // `validate_design_geometry` ran this exact call on these exact numbers and refused
+                // the design if it failed, and `resolve_unchecked` is private and only reachable
+                // through `resolve_checked`, which validates first. Same reasoning as the public
+                // `resolve` wrapper's own `expect`.
+                let solved = crate::clothoid::corner_blend(start, corner, end_xy, blend)
+                    .expect("clothoid corner validated by validate_design_geometry");
+
+                // The XY polyline the op walks: onto the incoming leg, through the blend, out along
+                // the outgoing leg. Z is then distributed over it linearly in XY arc length — the
+                // same convention `Op::Arc` uses for a helical rise.
+                let mut xy: Vec<[f64; 2]> = Vec::with_capacity(solved.points.len() + 2);
+                xy.push(solved.enter);
+                xy.extend_from_slice(&solved.points);
+                xy.push(end_xy);
+                let mut travelled = Vec::with_capacity(xy.len());
+                let mut cumulative = 0.0;
+                let mut previous = start;
+                for point in &xy {
+                    cumulative += libm::hypot(point[0] - previous[0], point[1] - previous[1]);
+                    travelled.push(cumulative);
+                    previous = *point;
+                }
+                let total = cumulative;
+                let last = xy.len() - 1;
+
+                let mut running = pos;
+                for (index, (point, distance)) in xy.iter().zip(travelled.iter()).enumerate() {
+                    // A zero-length step (an empty leg when the blend consumes a whole leg, or a
+                    // repeated sample) is dropped rather than emitted, matching `Op::Move`.
+                    let next = if index == last {
+                        // The last point is the commanded end, used verbatim: `from + (to - from)*1`
+                        // is not exactly `to` in binary64, and a corner blend must land on the point
+                        // it was given, not near it.
+                        end
+                    } else {
+                        let height_z = match (pos[2], end[2]) {
+                            (Some(from), Some(to)) if total > 0.0 => {
+                                Some(from + (to - from) * (distance / total))
+                            }
+                            _ => end[2],
+                        };
+                        [
+                            Some(Length::mm(point[0])),
+                            Some(Length::mm(point[1])),
+                            height_z,
+                        ]
+                    };
+                    if next == running {
+                        continue;
+                    }
+                    let length = dist(running, next);
+                    let volume = if on {
+                        length * width * height * flow
+                    } else {
+                        Volume::ZERO
+                    };
+                    segs.push(Segment {
+                        start: running,
+                        end: next,
+                        travel: !on,
+                        speed: if on { print } else { travel_speed },
+                        length,
+                        volume,
+                        filament: volume / area,
+                        width: Some(width),
+                        height: Some(height),
+                        kind: SegmentKind::Line,
+                        centre: None,
+                        clockwise: false,
+                        temperature: temp,
+                        fan,
+                        flow: flow_field,
+                        tool,
+                        dwell_s: None,
+                        manual_gcode: None,
+                        orientation,
+                        control_points: None,
+                    });
+                    running = next;
+                }
+                pos = running;
             }
             Op::Spline { ref points } => {
                 // Build the through-point sequence as raw f64 triples, resolving each `None` axis from

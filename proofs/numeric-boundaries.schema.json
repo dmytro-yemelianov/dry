@@ -20,7 +20,8 @@
       "enum": [
         "feature-numeric-boundaries-v0",
         "verify-numeric-boundaries-v0",
-        "emit-numeric-boundaries-v0"
+        "emit-numeric-boundaries-v0",
+        "resolve-clothoid-numeric-boundaries-v0"
       ]
     },
     "scope": {

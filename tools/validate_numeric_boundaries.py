@@ -25,11 +25,13 @@ ROOT = Path(__file__).resolve().parents[1]
 FEATURE_MODEL = "feature-numeric-boundaries-v0"
 VERIFY_MODEL = "verify-numeric-boundaries-v0"
 EMIT_MODEL = "emit-numeric-boundaries-v0"
+CLOTHOID_MODEL = "resolve-clothoid-numeric-boundaries-v0"
 EXPECTED_SCHEMA_ID = "https://dry.dev/schemas/numeric-boundaries-v1.schema.json"
 EXPECTED_PROFILE_SCHEMA_ID = "https://dry.dev/schemas/numeric-profile-v1.schema.json"
 FEATURE_PROFILE_ID = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 VERIFY_PROFILE_ID = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 EMIT_PROFILE_ID = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
+CLOTHOID_PROFILE_ID = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0"
 # Alias: the feature-specific policy tables and implementation check below are written against
 # this name and are not shared with any other model.
 EXPECTED_PROFILE_ID = FEATURE_PROFILE_ID
@@ -157,6 +159,35 @@ EMIT_BUDGETS = {
 EMIT_IMPLEMENTATION_TOLERANCES = {
     f"{EMIT_PROFILE_ID}.BUDGET.SINGULAR_CONE_SIN_TILT": "SINGULAR_CONE_SIN_TILT",
 }
+CLOTHOID_SOURCES = {
+    "crates/core/src/clothoid.rs",
+    "crates/core/src/resolve.rs",
+}
+CLOTHOID_BOUNDARIES = {
+    "FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES",
+    "FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE",
+    "FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING",
+}
+CLOTHOID_LIMITS = {
+    f"{CLOTHOID_PROFILE_ID}.LIMIT.FRESNEL_ARGUMENT",
+    f"{CLOTHOID_PROFILE_ID}.LIMIT.DEFLECTION_RAD",
+    # The band the shape budgets were measured over, which is narrower than the interval the node
+    # admits. Registered so the two cannot be published independently of each other.
+    f"{CLOTHOID_PROFILE_ID}.LIMIT.BUDGETED_DEFLECTION_RAD",
+    f"{CLOTHOID_PROFILE_ID}.LIMIT.BLEND_TO_LEG_RATIO",
+}
+CLOTHOID_BUDGETS = {
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.FRESNEL_SERIES_TERM_THRESHOLD",
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.FRESNEL_ABS_ERROR",
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.CURVATURE_LINEARITY_RELATIVE_ERROR",
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.CHORD_DEVIATION_PER_BLEND_MM",
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.JOINT_CLOSURE_MM",
+}
+# Only the series threshold is a Rust constant. The four measured ceilings live in the profile and are
+# guarded by the tests named in their evidence, which assert against them directly.
+CLOTHOID_IMPLEMENTATION_TOLERANCES = {
+    f"{CLOTHOID_PROFILE_ID}.BUDGET.FRESNEL_SERIES_TERM_THRESHOLD": "FRESNEL_SERIES_EPSILON",
+}
 
 
 class ModelSpec(NamedTuple):
@@ -208,6 +239,17 @@ MODELS: dict[str, ModelSpec] = {
         budgets=EMIT_BUDGETS,
         implementation_check=lambda profile, errors: (
             validate_emit_implementation_values(profile, errors)
+        ),
+    ),
+    CLOTHOID_MODEL: ModelSpec(
+        profile_id=CLOTHOID_PROFILE_ID,
+        profile_path="proofs/resolve-clothoid-numeric-profile-v0.toml",
+        sources=CLOTHOID_SOURCES,
+        boundaries=CLOTHOID_BOUNDARIES,
+        limits=CLOTHOID_LIMITS,
+        budgets=CLOTHOID_BUDGETS,
+        implementation_check=lambda profile, errors: (
+            validate_clothoid_implementation_values(profile, errors)
         ),
     ),
 }
@@ -600,6 +642,18 @@ def validate_emit_implementation_values(
     pin_tolerance_constants(
         "crates/core/src/emit/kinematics.rs",
         EMIT_IMPLEMENTATION_TOLERANCES,
+        profile,
+        errors,
+    )
+
+
+def validate_clothoid_implementation_values(
+    profile: dict[str, Any], errors: list[str]
+) -> None:
+    """Pin the Fresnel series threshold against the constant in `clothoid.rs`."""
+    pin_tolerance_constants(
+        "crates/core/src/clothoid.rs",
+        CLOTHOID_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
     )

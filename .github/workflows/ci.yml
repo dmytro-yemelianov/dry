@@ -275,6 +275,7 @@ jobs:
           python tools/validate_numeric_boundaries.py
           python tools/validate_numeric_boundaries.py proofs/verify-numeric-boundaries-v0.toml
           python tools/validate_numeric_boundaries.py proofs/emit-numeric-boundaries-v0.toml
+          python tools/validate_numeric_boundaries.py proofs/resolve-clothoid-numeric-boundaries-v0.toml
           python -m unittest discover -s tools/tests -p 'test_validate_proof_claims.py'
           python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
           python -m unittest discover -s tools/tests -p 'test_validate_spec_claim_links.py'

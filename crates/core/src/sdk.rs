@@ -129,6 +129,29 @@ impl DesignBuilder {
         self
     }
 
+    /// Adds a clothoid (Euler-spiral) corner blend around the construction corner
+    /// `(corner_x, corner_y)`, consuming `blend` mm of tangent length from each leg on the way to
+    /// `(x, y, z)`.
+    pub fn clothoid_to(
+        mut self,
+        corner_x: f64,
+        corner_y: f64,
+        x: impl Into<Option<f64>>,
+        y: impl Into<Option<f64>>,
+        z: impl Into<Option<f64>>,
+        blend: f64,
+    ) -> Self {
+        self.ops.push(Op::Clothoid {
+            corner_x,
+            corner_y,
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+            blend,
+        });
+        self
+    }
+
     /// Injects verbatim custom G-code.
     pub fn manual_gcode(mut self, text: impl Into<String>) -> Self {
         self.ops.push(Op::ManualGcode { text: text.into() });

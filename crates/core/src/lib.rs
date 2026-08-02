@@ -11,6 +11,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod clothoid;
 pub mod codec;
 pub mod compare;
 pub mod emit;
@@ -36,6 +37,7 @@ pub mod trace;
 pub mod units;
 pub mod verify;
 
+pub use clothoid::{corner_blend, fresnel, ClothoidError, CornerBlend, FRESNEL_SERIES_EPSILON};
 pub use codec::{
     decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
     decode_chunked_streaming_with_limits, decode_streaming, decode_streaming_with_limits,
