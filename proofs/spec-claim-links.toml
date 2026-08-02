@@ -84,6 +84,16 @@ source = "docs/20-dry-ir-ecosystem-implementation-plan.md"
 section = "§6.4 Capabilities and requirements; §7 Milestone D1.6"
 normative_text = "Target selection rejects requirements that exceed the selected machine and process capability profile."
 
+# Added for the TPMS option surface, which had no clause because it had no claim. The generator is the
+# only one published on all three SDKs and its option bundle is deserialized from raw JSON on two of
+# them, so the acceptance boundary is public whether or not it was ever written down.
+[[clause]]
+id = "DRY.GENERATE.TPMS_OPTIONS_V1"
+title = "The TPMS option bundle has a published domain and refuses out-of-domain values"
+source = "docs/07-tpms-codegen.md"
+section = "§Decisions; §Limits"
+normative_text = "Each TPMS generator option has a published type and domain, and an out-of-domain bundle is refused with a structured error before any geometry is produced."
+
 [[link]]
 claim_id = "FM1.TRANSFORM.COMPOSE_ACTION"
 clause_id = "DRY.FEATURE.EXPANSION_V0"
@@ -239,3 +249,7 @@ clause_id = "DRY.IR.CODEC_V0"
 [[link]]
 claim_id = "FM1.CAPABILITY.MODEL.SEMANTICS"
 clause_id = "DRY.CAPABILITY.MATCHING_V0"
+
+[[link]]
+claim_id = "FM1.GENERATE.TPMS.OPTION_ACCEPTANCE"
+clause_id = "DRY.GENERATE.TPMS_OPTIONS_V1"

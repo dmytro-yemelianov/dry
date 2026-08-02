@@ -73,6 +73,20 @@ def joined_links(paths: list[str]) -> str:
     return ", ".join(repository_link(path) for path in paths) if paths else "—"
 
 
+def theorem_reference(claim: dict[str, Any]) -> str:
+    """The Lean theorem cell, or an explicit statement that no Lean model exists.
+
+    A claim may be registered with `abstract` = `specified` / `not-applicable`; the validator then
+    forbids a theorem name, so this column has nothing to link. Printing an empty link would render
+    as an anchor to the repository root and read like a proof that is merely hard to find.
+    """
+    theorem = claim.get("theorem")
+    lean_source = claim.get("lean_source")
+    if theorem and lean_source:
+        return repository_link(lean_source, label=theorem)
+    return "— no Lean model"
+
+
 def status_counts(
     claims: list[dict[str, Any]], status_name: str
 ) -> Counter[str]:
@@ -159,10 +173,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
 
     for claim in claims:
         status = claim.get("status", {})
-        theorem = claim.get("theorem", "")
-        theorem_link = repository_link(
-            claim.get("lean_source", ""), label=theorem
-        )
+        theorem_link = theorem_reference(claim)
         clause = spec_links.get(claim.get("id", ""), {})
         clause_link = (
             repository_link(
@@ -238,8 +249,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
                 f"- Normative clause: `{clause.get('id', 'unlinked')}` — "
                 f"{clause.get('title', 'No registered clause link') }.",
                 f"- Numeric domain: {claim.get('numeric_domain', '')}.",
-                f"- Lean theorem: "
-                f"{repository_link(claim.get('lean_source', ''), label=claim.get('theorem', ''))}.",
+                f"- Lean theorem: {theorem_reference(claim)}.",
                 f"- Rust anchors: {joined_links(claim.get('rust_sources', []))}.",
                 f"- Numeric evidence: {joined_links(claim.get('numeric_evidence', []))}.",
                 f"- Refinement evidence: "

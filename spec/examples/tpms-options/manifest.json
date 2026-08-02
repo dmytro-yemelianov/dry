@@ -1,0 +1,283 @@
+{
+  "schema": "dry-tpms-options-v1",
+  "description": "Labelled TPMS option documents. `schema` is the verdict of spec/dry-tpms-options-v1.schema.json; `engine` is the verdict of dry_core::try_tpms_ops after serde_json deserialization. tools/validate_reports.py checks the schema column without dry-core; crates/core/tests/tpms_options_schema.rs checks the engine column and the quoted refusal text. Both tools also enforce the invariant that binds them: no case may be schema-invalid and engine-accepted, i.e. the schema never refuses a bundle the engine would run.",
+  "cases": [
+    {
+      "file": "cases/defaults.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "An empty bundle takes every documented default."
+    },
+    {
+      "file": "cases/minimal-block.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "The smallest legal block: one cell per axis at the minimum sample rate."
+    },
+    {
+      "file": "cases/explicit-nulls.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "serde reads an explicit null for an Option field as 'absent', so null means the documented default."
+    },
+    {
+      "file": "cases/unknown-keys-ignored.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "The engine does not set deny_unknown_fields, so unknown keys \u2014 including a mis-cased real option \u2014 are silently ignored. The schema matches that rather than refusing input the engine accepts."
+    },
+    {
+      "file": "cases/samples-per-cell-minimum.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "samplesPerCell is accepted at its documented floor of 4."
+    },
+    {
+      "file": "cases/max-field-samples-unlimited.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "0 is the documented 'unlimited' sentinel that sdk/ts encodes Infinity as; JSON has no Infinity literal."
+    },
+    {
+      "file": "cases/max-field-samples-negative-zero.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "-0.0 is not < 0.0, so the negativity guard lets it through and the budget then reads it as the unlimited sentinel. JSON Schema's minimum:0 agrees. Pinned because a negative-looking literal disabling the guardrail is surprising."
+    },
+    {
+      "file": "cases/adaptive-at-depth-cap.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "16 is the inclusive maximum bisection depth."
+    },
+    {
+      "file": "cases/adaptive-depth-over-cap-with-adaptive-off.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "MEASURED: the depth cap lives inside `if adaptive_on`, so 17 is accepted when adaptive is off. The schema applies maximum:16 only under the same condition, or it would refuse input the engine accepts."
+    },
+    {
+      "file": "cases/perimeter-inset-zero.json",
+      "schema": "valid",
+      "engine": "accepted",
+      "note": "A zero inset leaves the full block rectangle, which clears the 1e-6 mm collapse gate."
+    },
+    {
+      "file": "cases/refused-cell-size.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "cellSize must be > 0",
+      "note": "cellSize must be strictly positive."
+    },
+    {
+      "file": "cases/refused-cell-size-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "cellSize must be > 0",
+      "note": "cellSize must be strictly positive."
+    },
+    {
+      "file": "cases/refused-layer-height.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "layerHeight must be > 0",
+      "note": "layerHeight must be strictly positive."
+    },
+    {
+      "file": "cases/refused-bead-width.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "beadWidth must be > 0",
+      "note": "beadWidth must be strictly positive."
+    },
+    {
+      "file": "cases/refused-bead-height.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "beadHeight must be > 0",
+      "note": "beadHeight must be strictly positive."
+    },
+    {
+      "file": "cases/refused-nozzle-temp.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "nozzleTemp must be > 0",
+      "note": "nozzleTemp must be strictly positive."
+    },
+    {
+      "file": "cases/refused-print-speed.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "printSpeed must be > 0",
+      "note": "printSpeed must be strictly positive."
+    },
+    {
+      "file": "cases/refused-flow.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "flow must be > 0",
+      "note": "flow must be strictly positive."
+    },
+    {
+      "file": "cases/refused-z0-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "z0 must be >= 0",
+      "note": "z0 must be zero or greater."
+    },
+    {
+      "file": "cases/refused-perimeter-inset-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "perimeterInset must be >= 0",
+      "note": "perimeterInset must be zero or greater. perimeterInset is checked even when perimeter is off."
+    },
+    {
+      "file": "cases/refused-min-path-length-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "minPathLength must be >= 0",
+      "note": "minPathLength must be zero or greater."
+    },
+    {
+      "file": "cases/refused-max-field-samples-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "maxFieldSamples -1 must not be negative or NaN (use 0 for unlimited)",
+      "note": "maxFieldSamples must be zero or greater."
+    },
+    {
+      "file": "cases/refused-cells-x-zero.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "cellsX must be an integer >= 1",
+      "note": "cellsX must be at least one unit cell."
+    },
+    {
+      "file": "cases/refused-cells-y-zero.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "cellsY must be an integer >= 1",
+      "note": "cellsY must be at least one unit cell."
+    },
+    {
+      "file": "cases/refused-cells-z-zero.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "cellsZ must be an integer >= 1",
+      "note": "cellsZ must be at least one unit cell."
+    },
+    {
+      "file": "cases/refused-samples-per-cell-below-minimum.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "samplesPerCell must be an integer >= 4",
+      "note": "Marching squares needs at least 4 samples per cell."
+    },
+    {
+      "file": "cases/refused-adaptive-min-layer-height.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "adaptiveMinLayerHeight must be > 0",
+      "note": "adaptiveMinLayerHeight must be strictly positive, and is only read (and only checked) when adaptive is true."
+    },
+    {
+      "file": "cases/refused-adaptive-max-layer-height.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "adaptiveMaxLayerHeight must be > 0",
+      "note": "adaptiveMaxLayerHeight must be strictly positive, and is only read (and only checked) when adaptive is true."
+    },
+    {
+      "file": "cases/refused-adaptive-max-length-delta.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "adaptiveMaxLengthDelta must be > 0",
+      "note": "adaptiveMaxLengthDelta must be strictly positive, and is only read (and only checked) when adaptive is true."
+    },
+    {
+      "file": "cases/refused-adaptive-max-point-delta.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "adaptiveMaxPointDelta must be > 0",
+      "note": "adaptiveMaxPointDelta must be strictly positive, and is only read (and only checked) when adaptive is true."
+    },
+    {
+      "file": "cases/refused-adaptive-max-depth-over-cap.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "adaptiveMaxDepth 17 exceeds the maximum of 16",
+      "note": "Refinement bisects, so depth is an exponent; 16 is the inclusive cap."
+    },
+    {
+      "file": "cases/refused-unknown-surface.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "unknown variant `gyroidz`",
+      "note": "An unknown surface name is a deserialization error, reported as a structured failure by every binding."
+    },
+    {
+      "file": "cases/refused-cells-x-negative.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "invalid value: integer `-1`, expected u32",
+      "note": "cellsX is a u32; a negative literal fails to deserialize before the >= 1 check runs."
+    },
+    {
+      "file": "cases/refused-cell-size-wrong-type.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "invalid type: string \"12\", expected f64",
+      "note": "A wrong JSON type is a deserialization error in the engine and a type violation in the schema."
+    },
+    {
+      "file": "cases/refused-adaptive-wrong-type.json",
+      "schema": "invalid",
+      "engine": "refused",
+      "refusal": "invalid type: string \"true\", expected a boolean",
+      "note": "A string is not a boolean on either side."
+    },
+    {
+      "file": "cases/engine-only-budget-exceeded.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "TPMS resolution budget exceeded",
+      "note": "The field-sample estimate is derived from cells, samplesPerCell, cellSize and layerHeight. JSON Schema cannot compute it, so every option here is individually in domain."
+    },
+    {
+      "file": "cases/engine-only-adaptive-min-above-max.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "adaptiveMinLayerHeight must be <= adaptiveMaxLayerHeight",
+      "note": "A cross-field comparison, and a tolerance-bearing one (the engine allows a 1e-9 slack). JSON Schema expresses neither."
+    },
+    {
+      "file": "cases/engine-only-perimeter-inset-collapses.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "collapses the perimeter rectangle",
+      "note": "Whether an inset survives depends on cellSize and the cell counts, and the gate is against the 1e-6 mm emission grid."
+    },
+    {
+      "file": "cases/engine-only-iso-level-out-of-range.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "no layer traces a contour",
+      "note": "Vacuity: the iso level lies outside the field's range, so nothing is traced. Depends on the surface's actual value range."
+    },
+    {
+      "file": "cases/engine-only-min-path-length-drops-every-contour.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "dropped all",
+      "note": "Vacuity: a filter longer than every stitched contour empties the program. Depends on the traced geometry."
+    },
+    {
+      "file": "cases/engine-only-cells-x-float-spelling.json",
+      "schema": "valid",
+      "engine": "refused",
+      "refusal": "invalid type: floating point `2.0`, expected u32",
+      "note": "JSON Schema counts 2.0 as an integer; serde_json refuses any float spelling for a u32. The schema over-accepts here, which is the safe direction."
+    }
+  ]
+}

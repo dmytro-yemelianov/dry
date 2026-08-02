@@ -18,3 +18,4 @@ The machine-readable mapping is [`proofs/spec-claim-links.toml`](../../proofs/sp
 | `DRY.REPORT.VERIFIER_RULES_V1` | [`11-profiles-and-reports.md`](../11-profiles-and-reports.md) §§2, 3.1 | Explicit verifier rules and located findings |
 | `DRY.OPTIMIZATION.OBSERVATION_V0` | [`21-mathematical-assurance-plan.md`](../21-mathematical-assurance-plan.md) FM1.6 | Declared optimization observation relations |
 | `DRY.CAPABILITY.MATCHING_V0` | [`20-dry-ir-ecosystem-implementation-plan.md`](../20-dry-ir-ecosystem-implementation-plan.md) §6.4, Milestone D1.6 | Fail-closed capability matching |
+| `DRY.GENERATE.TPMS_OPTIONS_V1` | [`07-tpms-codegen.md`](../07-tpms-codegen.md) §Decisions, §Limits | Published TPMS option domain and its refusal boundary |

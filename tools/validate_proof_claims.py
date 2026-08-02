@@ -150,7 +150,13 @@ def validate_claim(
     seen_ids.add(claim_id)
 
     require_string(claim, "title", label, errors)
-    theorem = require_string(claim, "theorem", label, errors)
+    # Optional, and checked against the abstract status further down: a claim may be registered with
+    # no Lean model at all (ADR 0001 allows `abstract = "specified"` / `"not-applicable"`), and the
+    # registry has to be able to say so without inventing a theorem to point at.
+    theorem = claim.get("theorem")
+    if theorem is not None and (not isinstance(theorem, str) or not theorem.strip()):
+        errors.append(f"{label}: theorem must be a non-empty string when present")
+        theorem = None
     if theorem and not THEOREM_NAME.fullmatch(theorem):
         errors.append(f"{label}: invalid theorem name: {theorem}")
     for field in (
@@ -180,7 +186,12 @@ def validate_claim(
         claim, "refinement_evidence", label, errors
     )
 
-    lean_source = require_string(claim, "lean_source", label, errors)
+    lean_source = claim.get("lean_source")
+    if lean_source is not None and (
+        not isinstance(lean_source, str) or not lean_source.strip()
+    ):
+        errors.append(f"{label}: lean_source must be a non-empty string when present")
+        lean_source = None
     lean_path = (
         resolve_repository_path(root, lean_source, "lean_source", label, errors)
         if lean_source
@@ -218,8 +229,23 @@ def validate_claim(
     if refinement not in REFINEMENT_STATUSES:
         errors.append(f"{label}: invalid refinement status: {refinement!r}")
 
-    if abstract == "proved" and not theorem:
-        errors.append(f"{label}: a proved abstract claim requires a theorem")
+    # A theorem name is present exactly when the abstract layer is proved. Both directions matter:
+    # a `proved` claim with no theorem is unfalsifiable, and an unproved claim that still prints a
+    # theorem name in the sitemap reads as verified — the failure mode ADR 0001 exists to prevent.
+    if abstract == "proved":
+        if not theorem:
+            errors.append(f"{label}: a proved abstract claim requires a theorem")
+        if not lean_source:
+            errors.append(f"{label}: a proved abstract claim requires a lean_source")
+    else:
+        if theorem:
+            errors.append(
+                f"{label}: abstract status {abstract!r} must not register a theorem"
+            )
+        if lean_source:
+            errors.append(
+                f"{label}: abstract status {abstract!r} must not register a lean_source"
+            )
     if numeric == "bounded" and not numeric_evidence:
         errors.append(f"{label}: bounded numeric status requires numeric evidence")
     if refinement == "checked" and not refinement_evidence:
