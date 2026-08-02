@@ -54,6 +54,16 @@ manual review; they are not silently treated as motion.
 
 See [`12-releasing.md`](12-releasing.md) for install-without-source instructions.
 
+## Commercial licensing
+
+| Feature | Level |
+|---|---|
+| `dry license activate` / `dry license status`, offline Ed25519 token verification | Supported |
+| Eval mode (no license / expired past grace: full functionality, stderr banner, report stamps) | Supported |
+| `LicenseStamp` on report envelopes (`verify`, `review-gcode`, `compare`, `explain`, `rewrite-gcode`) | Supported (golden-stable: absent unless a license is active) |
+| `dry upload` license gate (refuses without a Valid/Grace license, before any network call) | Supported |
+| License-issuer Cloudflare Worker (Lemon Squeezy webhook → signed token → email + D1 audit log) | Experimental (test-mode only; no production key ceremony or live deploy yet) |
+
 ## Workflows
 
 | Workflow | Level | Guide |
