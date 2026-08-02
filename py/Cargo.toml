@@ -1,3 +1,11 @@
+# Standalone workspace root: same pattern as `../crates/wasm`, `../crates/cloud` and
+# `../containers/verify-runner` — the engine workspace (../Cargo.toml) excludes this binding crate,
+# but cargo still walks parent directories looking for an owning workspace. Without this table the
+# exclusion only holds when the checkout *is* the repository root: from a nested git worktree cargo
+# walks past it to the main checkout's manifest, whose `exclude = ["py", …]` names a different path,
+# and `cargo check` fails with "current package believes it's in a workspace when it's not".
+[workspace]
+
 [package]
 name = "dry-py"
 description = "PyO3 binding for Dry — the toolpath compiler engine, callable from Python."

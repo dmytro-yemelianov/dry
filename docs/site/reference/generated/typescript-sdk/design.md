@@ -30,6 +30,7 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `fan` | `fan(speed: number): this` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `flow(ratio: number): this` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
 | `tool` | `tool(index: number): this` |  | Set the active tool channel. |
+| `power` | `power(level: number): this` |  | Set the spindle/laser power channel, in the target controller's `S`-word units (RPM for a spindle, PWM counts for a laser). |
 | `orient` | `orient(i: number, j: number, k: number): this` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). |
 | `dwell` | `dwell(seconds: number): this` |  | Pause in place for `seconds` (emits a `G4` dwell). |
 | `manualGcode` | `manualGcode(text: string): this` |  | Inject verbatim custom G-code. |
@@ -222,6 +223,28 @@ tool(index: number): this
 Returns: `this`
 
 Set the active tool channel.
+
+### `power`
+
+```ts
+power(level: number): this
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `level` | `number` |  | Yes |
+
+Returns: `this`
+
+Set the spindle/laser power channel, in the target controller's `S`-word units (RPM for a
+spindle, PWM counts for a laser). `0` commands it off — distinct from never setting it. Only
+the `grbl` flavor renders the channel; the others refuse a toolpath that carries it.
+
+NOTE: `gcode()` here always emits with the default (Marlin) flavor, so it *refuses* a design
+carrying this channel. The channel still reaches `ir()` / `optimizedIr()` / `verify()`; to
+render it, emit through the CLI (`dry emit --format grbl`) or a `grbl` profile.
 
 ### `orient`
 

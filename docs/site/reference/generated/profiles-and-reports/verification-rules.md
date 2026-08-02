@@ -35,7 +35,7 @@ are warnings.
 | `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
 | `unmodeled-gcode` | **warning** | imported/manual G-code is preserved but is outside the verifier's semantic model | always active when present |
 | `continuity` | error | a segment starts somewhere other than where the previous one ended | always active |
-| `negative-quantity` | error | a length, volume or speed is negative, or a bead dimension is not positive | always active |
+| `negative-quantity` | error | a length, volume, speed or commanded spindle/laser power is negative, or a bead dimension is not positive | always active |
 | `segment-length` | error | a straight or stationary segment's length disagrees with its own endpoints | always active |
 | `arc-length` | error | an arc's length disagrees with its radius and swept angle | always active |
 | `filament-consistency` | **warning** | the volume-to-filament ratio changes within a single tool | always active |

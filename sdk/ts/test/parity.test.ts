@@ -109,3 +109,31 @@ test('resolveMetricsIr over a resolved IR matches the design simulate metrics', 
   // Simulating the resolved IR must reproduce the design's own simulation metrics exactly.
   assert.deepEqual(metricsFromIr, fromDesign);
 });
+
+test('the power channel authors onto segments and survives optimisation', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .extruder(true)
+    .power(600)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2)
+    .power(0)
+    .point(20, 0, 0.2);
+  assert.deepEqual(d.ir().segments.map((s) => s.power), [600, 600, 0]);
+  // the optimiser coalesces the two lit moves but must not swallow the commanded beam-off.
+  assert.ok(
+    d.optimizedIr().segments.some((s) => s.power === 0),
+    'optimisation deleted the commanded beam-off'
+  );
+});
+
+test('the default flavor refuses the power channel instead of dropping it', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .extruder(true)
+    .power(600)
+    .point(0, 0, 0.2)
+    .point(10, 0, 0.2);
+  // `gcode()` emits with the default (Marlin) flavor, which has no rendering for the channel.
+  assert.throws(() => d.gcode(), /cannot render the spindle\/laser power channel/);
+});

@@ -186,10 +186,15 @@ segment-column run, so a lower `enc_ver`'s layout is a prefix of a higher one's.
 
 A `DRY0` column is dense: a nullable f64 column costs `ceil(n/8) + 8n` bytes whether or not any
 segment fills it. `enc_ver` therefore records the **minimum reader version the body requires**, and a
-writer **MUST** emit the lowest layout that can carry the toolpath — `2` only when at least one
-segment has `power`, `1` otherwise. A reader **MUST NOT** treat a later-produced file as necessarily
-carrying a higher `enc_ver`. This is what makes the addition of `power` cost nothing: every archive
-written before the column existed is still reproduced byte for byte.
+writer **MUST** emit the lowest *currently written* layout that can carry the toolpath: `2` when at
+least one segment has `power`, `1` otherwise. A reader **MUST NOT** treat a later-produced file as
+necessarily carrying a higher `enc_ver`. This is what makes the addition of `power` cost nothing:
+every archive written before the column existed is still reproduced byte for byte.
+
+`enc_ver 0` is **read-only legacy** and is deliberately excluded from that rule: it predates the
+`manual_gcode` column, and no writer emits it even for a toolpath with no `manual_gcode`, because
+doing so would move the bytes of every `enc_ver 1` archive ever written — the opposite of what the
+rule exists to protect. `1` is the floor for a writer; `0` is only ever decoded.
 
 ## 6. `DRY1` — chunked streaming binary encoding
 
@@ -206,6 +211,16 @@ block at a time. The reference encoder uses a block size of `512` segments.
 | `n` | `u32` | total segment count |
 | `block_size` | `u32` | segments per block (MUST be ≥ 1) |
 | meta | `u8 present`; if `1`: `u32 json_len` + JSON bytes | the `Meta` header |
+
+The two containers version themselves by **different rules**, and the difference is deliberate.
+`DRY0`'s `enc_ver` is the minimum reader version the body requires (§5.3), because its columns are
+positional and dense: a reader that does not know a column cannot find the ones after it, so the only
+safe signal is a version it can compare. A `DRY1` `enc_ver` versions the **row-field vocabulary**, not
+the capability set of any particular row: rows are self-describing through their flags word, so a
+reader that does not know a field detects it directly, as an unknown flag bit, and refuses the stream
+(§6.3, §11). A `DRY1` stream carrying a field added after `enc_ver 2` therefore still stamps `2` —
+which is *not* "the minimum reader version required", and is safe only because the failure mode is a
+refusal rather than a misread. Do not carry the §5.3 reading across to this header.
 
 ### 6.2 Blocks (repeated until `n` segments are read)
 

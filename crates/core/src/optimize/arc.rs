@@ -1,3 +1,4 @@
+use super::merge::same_run_state;
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Length, Volume};
 use std::f64::consts::TAU;
@@ -21,25 +22,6 @@ fn z(p: &[Option<Length>; 3]) -> Option<f64> {
 /// very first positioning move, with an undefined start, can never be part of an arc).
 fn fully_defined(s: &Segment) -> bool {
     s.start.iter().all(Option::is_some) && s.end.iter().all(Option::is_some)
-}
-
-/// True when `b` extends `a`'s run for arc-fitting: both plain lines, contiguous (`a.end == b.start`),
-/// and sharing *all* process state (the same predicate `merge_collinear` uses, minus collinearity).
-fn same_run_state(a: &Segment, b: &Segment) -> bool {
-    a.kind == SegmentKind::Line
-        && b.kind == SegmentKind::Line
-        && a.dwell_s.is_none()
-        && b.dwell_s.is_none()
-        && a.travel == b.travel
-        && a.speed == b.speed
-        && a.width == b.width
-        && a.height == b.height
-        && a.temperature == b.temperature
-        && a.fan == b.fan
-        && a.flow == b.flow
-        && a.tool == b.tool
-        && a.orientation == b.orientation
-        && a.end == b.start
 }
 
 /// The circumcircle centre `(cx, cy)` of three points, or `None` if they are (near-)collinear (the

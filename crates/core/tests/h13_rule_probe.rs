@@ -73,13 +73,18 @@ fn probe_continuity(segments: &[Segment]) -> Vec<String> {
     hits
 }
 
-/// `negative-quantity` (§3.1): length/volume/speed < 0, width/height <= 0 when `Some`.
+/// `negative-quantity` (§3.1): length/volume/speed/power < 0, width/height <= 0 when `Some`.
 /// `filament` < 0 is a retraction and is excluded.
 fn probe_negative_quantity(segments: &[Segment]) -> Vec<String> {
     let mut hits = Vec::new();
     for (i, s) in segments.iter().enumerate() {
         if s.length.value() < 0.0 {
             hits.push(format!("seg {i}: length {} < 0", s.length.value()));
+        }
+        if let Some(p) = s.power {
+            if p < 0.0 {
+                hits.push(format!("seg {i}: power {p} < 0"));
+            }
         }
         if s.volume.value() < 0.0 {
             hits.push(format!("seg {i}: volume {} < 0", s.volume.value()));

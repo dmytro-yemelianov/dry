@@ -80,6 +80,11 @@ fn body_push_string(out: &mut Vec<u8>, value: &str) -> Result<(), CodecError> {
 /// column would move the bytes of every archive ever produced. Emitting [`ENC_VER`] when no segment
 /// carries power keeps those archives reproducible; [`POWER_ENC_VER`] appears only once the column
 /// has something to say.
+///
+/// [`LEGACY_ENC_VER`](super::LEGACY_ENC_VER) is the floor of what is *read*, not of what is written:
+/// a `manual_gcode`-free toolpath is still written at [`ENC_VER`], because dropping to `0` would move
+/// the bytes of every `enc_ver 1` archive — the very thing the content-selected version protects
+/// (spec §5.3).
 pub fn try_encode(tp: &Toolpath) -> Result<Vec<u8>, CodecError> {
     let segs = &tp.segments;
     let n = segs.len();

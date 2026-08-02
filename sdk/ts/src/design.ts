@@ -131,6 +131,20 @@ export class Design {
     return this;
   }
 
+  /**
+   * Set the spindle/laser power channel, in the target controller's `S`-word units (RPM for a
+   * spindle, PWM counts for a laser). `0` commands it off — distinct from never setting it. Only
+   * the `grbl` flavor renders the channel; the others refuse a toolpath that carries it.
+   *
+   * NOTE: `gcode()` here always emits with the default (Marlin) flavor, so it *refuses* a design
+   * carrying this channel. The channel still reaches `ir()` / `optimizedIr()` / `verify()`; to
+   * render it, emit through the CLI (`dry emit --format grbl`) or a `grbl` profile.
+   */
+  power(level: number): this {
+    this.ops.push({ op: 'power', level });
+    return this;
+  }
+
   /** Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z. */
   orient(i: number, j: number, k: number): this {
     this.ops.push({ op: 'orient', i, j, k });

@@ -301,6 +301,99 @@ fn power_ingress_refuses_negative_and_non_finite_levels() {
     }
 }
 
+/// The optimiser must never delete a commanded power transition. `merge_collinear` coalesces
+/// collinear moves that share *all* process state, so the beam-off has to be part of that state:
+/// merging `S600, S600, M5` into two moves leaves the laser lit across the move the program
+/// authored dark. End-to-end (resolve → `optimize_pipeline` → emit), not a predicate unit test,
+/// because the predicate is only reachable through the pipeline every published surface calls.
+#[test]
+fn optimize_pipeline_preserves_a_commanded_beam_off() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"power","level":600},
+                {"op":"move","x":0,"y":0,"z":0.2},
+                {"op":"move","x":10,"y":0,"z":0.2},
+                {"op":"power","level":0},
+                {"op":"move","x":20,"y":0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    let powers: Vec<Option<f64>> = tp.segments.iter().map(|s| s.power).collect();
+    assert_eq!(
+        powers,
+        vec![Some(600.0), Some(600.0), Some(0.0)],
+        "resolved power channel"
+    );
+
+    let optimized = dry_core::optimize_pipeline(&tp);
+    let optimized_powers: Vec<Option<f64>> = optimized.segments.iter().map(|s| s.power).collect();
+    assert_eq!(
+        optimized_powers,
+        vec![Some(600.0), Some(600.0), Some(0.0)],
+        "the optimiser must not merge across a power change"
+    );
+
+    let grbl = EmitParams {
+        flavor: dry_core::FirmwareFlavor::Grbl,
+        ..EmitParams::default()
+    };
+    let lines = dry_core::emit_stream(optimized.segments.iter().cloned().map(Ok), &grbl)
+        .expect("grbl emit");
+    let off = lines
+        .iter()
+        .position(|l| l == "M5")
+        .expect("the commanded beam-off must survive optimisation");
+    assert!(
+        lines[off + 1..].iter().any(|l| l.starts_with("G1 X20")),
+        "the dark move must follow the M5, not precede it:\n{lines:#?}"
+    );
+}
+
+/// The same hazard through `arc_fit`: a same-state run is what becomes one arc, and an arc carries a
+/// single power. A run that spans a power change must break into two runs, or the change is gone.
+#[test]
+fn arc_fit_does_not_swallow_a_power_change() {
+    let tp = resolve(
+        &design(
+            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
+                {"op":"power","level":600},
+                {"op":"move","x":10.0,"y":0.0,"z":0.2},
+                {"op":"move","x":9.659258262890683,"y":2.5881904510252074,"z":0.2},
+                {"op":"move","x":8.660254037844387,"y":4.999999999999999,"z":0.2},
+                {"op":"move","x":7.0710678118654755,"y":7.071067811865475,"z":0.2},
+                {"op":"power","level":0},
+                {"op":"move","x":5.000000000000001,"y":8.660254037844386,"z":0.2},
+                {"op":"move","x":2.5881904510252074,"y":9.659258262890683,"z":0.2},
+                {"op":"move","x":6.123233995736766e-16,"y":10.0,"z":0.2}]"#,
+        ),
+        &ResolveParams::default(),
+    );
+    assert_eq!(tp.segments.len(), 7, "one positioning move plus six chords");
+
+    let optimized = dry_core::optimize_pipeline(&tp);
+    let powers: Vec<Option<f64>> = optimized.segments.iter().map(|s| s.power).collect();
+    assert!(
+        powers.contains(&Some(0.0)),
+        "arc fitting deleted the beam-off: {powers:?}"
+    );
+    // The lit run and the dark run each fit their own arc; nothing spans the transition.
+    assert_eq!(
+        optimized
+            .segments
+            .iter()
+            .filter(|s| s.kind == SegmentKind::Arc)
+            .count(),
+        2,
+        "each same-power run should fit its own arc: {:?}",
+        optimized
+            .segments
+            .iter()
+            .map(|s| (s.kind, s.power))
+            .collect::<Vec<_>>()
+    );
+}
+
 #[test]
 fn reverse_round_trips_the_power_channel() {
     let tp = resolve(

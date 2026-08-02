@@ -190,10 +190,11 @@ where
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
     // The power channel, modal exactly like the feedrate: `prev_power` is the last commanded `S`,
-    // `spindle_on` whether an `M3` is outstanding. Only GRBL renders them in this slice — RS-274
-    // already commands the spindle once per program through [`CncFrame`], and interleaving a
-    // per-segment `S`/`M5` with that preamble's own `S… M3`/`M5` is a collision this slice does not
-    // open; the printer flavors have no spindle at all.
+    // `spindle_on` whether an `M3` is outstanding. Only GRBL *renders* them — RS-274 already commands
+    // the spindle once per program through [`CncFrame`], and interleaving a per-segment `S`/`M5` with
+    // that preamble's own `S… M3`/`M5` is a collision this slice does not open; the printer flavors
+    // have no spindle at all. Every other flavor therefore refuses a toolpath that carries the
+    // channel instead of dropping it silently (see the segment loop below).
     let mut prev_power: Option<f64> = None;
     let mut spindle_on = false;
     let mut e_abs = Length::ZERO;
@@ -251,32 +252,58 @@ where
         //
         // `S0` is spelt `M5`, not `S0`: under `M3` a zero `S` leaves the laser *enabled* at zero
         // power, and "enabled" is the state that burns when the controller's next command misses.
-        if p.flavor == FirmwareFlavor::Grbl {
-            if let Some(level) = s.power {
-                if prev_power != Some(level) {
-                    // Refuse first: `num` renders NaN as `NaN` and the infinities as `inf`, and the
-                    // sign tests below would route a NaN to the "negative" arm by accident.
-                    let level_text = num_checked(level, 'S')?;
-                    if level > 0.0 {
-                        let line = if spindle_on {
-                            format!("S{level_text}")
-                        } else {
-                            spindle_on = true;
-                            format!("S{level_text} M3")
-                        };
-                        write_line(writer, &mut first_line, &line)?;
-                    } else if level == 0.0 {
-                        if spindle_on {
-                            spindle_on = false;
-                            write_line(writer, &mut first_line, "M5")?;
-                        }
-                    } else {
-                        return Err(crate::codec::CodecError::Other(format!(
-                            "cannot emit negative spindle/laser power ({level})"
-                        )));
+        if let Some(level) = s.power {
+            // The domain (finite, `>= 0` — `docs/10` §3.3 and `spec/dry-ir-v0.schema.json`) is
+            // checked on *every* flavor, before the question of who renders it. Checking it inside
+            // the GRBL arm would make the refusal flavor-conditional: a negative `S` reaching emit
+            // through an IR file would then be silently dropped by every other target.
+            if !level.is_finite() || level < 0.0 {
+                return Err(crate::codec::CodecError::Other(format!(
+                    "cannot emit spindle/laser power {level}: the channel must be finite and >= 0"
+                )));
+            }
+            // Only GRBL has a rendering for the channel. Every other flavor refuses rather than
+            // dropping a commanded machine state on the floor (ADR 0002 §4 — refuse, never emit
+            // vacuously): a program that says "cut at S600" and emits g-code that says nothing at
+            // all about the spindle is exactly the vacuous emission that rule forbids.
+            if p.flavor != FirmwareFlavor::Grbl {
+                return Err(crate::codec::CodecError::Other(format!(
+                    "flavor {:?} cannot render the spindle/laser power channel (segment commands \
+                     S{level}); {}",
+                    p.flavor,
+                    match p.flavor {
+                        // RS-274 does drive a spindle, but through the *program* frame: the
+                        // profile's `machine.cnc.spindle_rpm` writes one `S… M3` preamble and one
+                        // `M5` postamble. A per-segment channel would interleave with those, so the
+                        // two ways of commanding one spindle are kept mutually exclusive rather
+                        // than merged by guesswork.
+                        FirmwareFlavor::Rs274 =>
+                            "RS-274 commands the spindle once per program through the profile's \
+                             `machine.cnc` frame — set `spindle_rpm` there, or emit with `grbl`",
+                        _ => "emit with `grbl`, or resolve a design without a `power` op",
                     }
-                    prev_power = Some(level);
+                )));
+            }
+            if prev_power != Some(level) {
+                let level_text = num_checked(level, 'S')?;
+                if level > 0.0 {
+                    let line = if spindle_on {
+                        format!("S{level_text}")
+                    } else {
+                        spindle_on = true;
+                        format!("S{level_text} M3")
+                    };
+                    write_line(writer, &mut first_line, &line)?;
+                } else {
+                    // A commanded zero is written even when no `M3` of ours is outstanding. The IR
+                    // distinguishes "commanded off" (`Some(0.0)`) from "never commanded" (`None`),
+                    // and that distinction only survives into g-code if the off is spelt out: the
+                    // controller may well be live from a preceding program or a manual jog, and
+                    // `M5` on an already-stopped spindle costs nothing.
+                    spindle_on = false;
+                    write_line(writer, &mut first_line, "M5")?;
                 }
+                prev_power = Some(level);
             }
         }
 

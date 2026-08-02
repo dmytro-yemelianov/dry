@@ -306,9 +306,11 @@ fn specs() -> Vec<Spec> {
 
     out.push(Spec {
         name: "channels_full",
-        description:
-            "An extruding line with every process channel set: temperature, fan, flow, tool.",
-        feature_tags: &["temperature", "fan", "flow", "tool"],
+        description: "An extruding line with the four older process channels set: temperature, fan, \
+                      flow, tool. It deliberately leaves `power` unset — this is the witness that a \
+                      power-free toolpath still writes at DRY0 `enc_ver 1` (spec §5.3); the `power` \
+                      channel has its own vector.",
+        feature_tags: &["temperature", "fan", "flow", "tool", "enc-ver-1"],
         frozen: false,
         emit: Some(EmitParams::default()),
         ir: tp(vec![Segment {
@@ -322,19 +324,37 @@ fn specs() -> Vec<Spec> {
 
     out.push(Spec {
         name: "power_channel",
-        description: "Two GRBL cutting moves carrying the spindle/laser power channel — exercises \
-                      the DRY0 enc_ver 2 column, the DRY1 flag bit 19, and the S / M3 / M5 words.",
-        feature_tags: &["power", "grbl", "enc-ver-2"],
-        frozen: false,
+        description: "GRBL cutting moves carrying the spindle/laser power channel beside every \
+                      field it is adjacent to on the wire — exercises the DRY0 enc_ver 2 column \
+                      (which follows `manual_gcode`), the DRY1 row position (which follows \
+                      `control_points`), flag bit 19, and the S / M3 / M5 words.",
+        feature_tags: &[
+            "power",
+            "grbl",
+            "enc-ver-2",
+            "channels",
+            "orientation",
+            "control-points",
+            "manual-gcode",
+        ],
+        frozen: true,
         emit: Some(EmitParams {
             flavor: FirmwareFlavor::Grbl,
             ..EmitParams::default()
         }),
         ir: tp(vec![
+            // Power beside the four older channels and an orientation: in a `DRY0` body the power
+            // column is last of the channels, and in a `DRY1` row the orientation bit precedes it.
             Segment {
+                temperature: Some(215.0),
+                fan: Some(0.6),
+                flow: Some(1.05),
+                tool: Some(1),
                 power: Some(600.0),
+                orientation: Some([0.0, 0.3826834, 0.9238795]),
                 ..base()
             },
+            // A spline: `control_points` is the field immediately before `power` in a `DRY1` row.
             Segment {
                 start: [
                     Some(Length::mm(10.0)),
@@ -346,7 +366,37 @@ fn specs() -> Vec<Spec> {
                     Some(Length::mm(0.0)),
                     Some(Length::mm(0.2)),
                 ],
+                kind: SegmentKind::Spline,
+                control_points: Some(vec![
+                    [Length::mm(13.0), Length::mm(4.0), Length::mm(0.2)],
+                    [Length::mm(17.0), Length::mm(4.0), Length::mm(0.2)],
+                    [Length::mm(20.0), Length::mm(0.0), Length::mm(0.2)],
+                ]),
+                length: Length::mm(12.5),
+                volume: Volume(1.0),
                 power: Some(300.0),
+                ..base()
+            },
+            // A verbatim block commanded dark: `manual_gcode` is the column immediately before
+            // `power` in a `DRY0` body, and the `M5` must precede the block it guards.
+            Segment {
+                start: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(0.0),
+                length: Length::mm(0.0),
+                volume: Volume(0.0),
+                filament: Length::mm(0.0),
+                kind: SegmentKind::ManualGcode,
+                manual_gcode: Some("M117 cut complete".to_string()),
+                power: Some(0.0),
                 ..base()
             },
         ]),

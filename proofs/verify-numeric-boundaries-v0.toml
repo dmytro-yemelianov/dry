@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 path = "crates/core/src/verify.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "563c6577f1a74cf2c8421576c7a3c4ec71e9d24b74d563a8e7c1dc094260745b"
+sha256 = "dd2a95256fc9a79fbe73fc8a6ca5c16a9e6846c5a70ad54f9b1d13c37cc48879"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -15,6 +15,9 @@ sha256 = "563c6577f1a74cf2c8421576c7a3c4ec71e9d24b74d563a8e7c1dc094260745b"
 #
 # The remaining structural rules (`negative-quantity`, `bead-volume`) are exact comparisons against
 # zero or a caller-supplied tolerance and carry no epsilon of their own, so they have no entry here.
+# That still holds after `negative-quantity` grew the `power` channel: `power < 0.0` is the same exact
+# comparison against zero as `length`/`volume`/`speed`, introduces no tolerance, and touches none of
+# the three constants pinned below — which is the whole of what the re-pin above was reviewed for.
 # ---------------------------------------------------------------------------------------------
 
 [[boundary]]

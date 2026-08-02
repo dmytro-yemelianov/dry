@@ -285,7 +285,7 @@ pub enum RuleId {
     UnmodeledGcode,
     /// A segment starts somewhere other than where the previous one ended.
     Continuity,
-    /// A quantity that cannot be negative is (length, volume, speed), or a bead dimension is ≤ 0.
+    /// A quantity that cannot be negative is (length, volume, speed, power), or a bead dimension is ≤ 0.
     NegativeQuantity,
     /// A straight or stationary segment's declared length disagrees with its own endpoints.
     SegmentLength,
@@ -434,7 +434,7 @@ impl RuleId {
                 "a segment starts somewhere other than where the previous one ended"
             }
             RuleId::NegativeQuantity => {
-                "a length, volume or speed is negative, or a bead dimension is not positive"
+                "a length, volume, speed or commanded spindle/laser power is negative, or a bead dimension is not positive"
             }
             RuleId::SegmentLength => {
                 "a straight or stationary segment's length disagrees with its own endpoints"
@@ -994,12 +994,18 @@ where
         }
 
         // --- negative quantities: outside the IR's own type contract, so no contract can excuse them ---
-        // `filament` < 0 is deliberately excluded: that is a retraction.
+        // `filament` < 0 is deliberately excluded: that is a retraction. `power` is included because
+        // the IR spec makes `>= 0` normative (`docs/10` §3.3, `spec/dry-ir-v0.schema.json`) and this
+        // is the only gate an IR file passes through — `validate_design` guards the L1 op, not a
+        // toolpath decoded from JSON or DRY0/DRY1. Zero is legal there: it is "commanded off".
         for (name, value) in [
             ("length", s.length.value()),
             ("volume", s.volume.value()),
             ("speed", s.speed.value()),
-        ] {
+        ]
+        .into_iter()
+        .chain(s.power.map(|p| ("power", p)))
+        {
             if value < 0.0 {
                 push_finding(
                     &mut r,

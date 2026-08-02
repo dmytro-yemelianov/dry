@@ -1161,7 +1161,9 @@ fn grbl_power_channel_emits_modal_s_with_m3_and_m5() {
         ..EmitParams::default()
     };
 
-    // Commanded off before anything is on: no `M5` for a spindle that was never started.
+    // A commanded off is spelt out even before anything of ours is on: `Some(0.0)` and `None` are
+    // different IR states, and the difference has to survive into the g-code — the controller may be
+    // live from a previous program.
     let lines = emit_stream(
         [
             power_seg(1.0, Some(0.0)),
@@ -1178,6 +1180,7 @@ fn grbl_power_channel_emits_modal_s_with_m3_and_m5() {
     assert_eq!(
         lines,
         vec![
+            "M5",
             "G1 F1000 X1",
             "S600 M3",
             "G1 X2",
@@ -1199,10 +1202,12 @@ fn grbl_power_channel_emits_modal_s_with_m3_and_m5() {
     assert_eq!(untouched, vec!["G1 F1000 X1", "G1 X2"]);
 }
 
-/// The channel reaches metal only through GRBL in this slice. RS-274 commands the spindle once per
-/// program through `CncFrame`; the printer flavors have no spindle at all.
+/// The channel reaches metal only through GRBL. RS-274 commands the spindle once per program through
+/// `CncFrame`; the printer flavors have no spindle at all. A flavor that cannot render a commanded
+/// power **refuses** the program — dropping it silently is the vacuous emission ADR 0002 §4 forbids,
+/// and on RS-274 it would mean cutting at the frame's RPM instead of the commanded one.
 #[test]
-fn non_grbl_flavors_ignore_the_power_channel() {
+fn non_grbl_flavors_refuse_the_power_channel() {
     use super::{emit_stream, EmitParams, FirmwareFlavor};
 
     for flavor in [
@@ -1212,14 +1217,22 @@ fn non_grbl_flavors_ignore_the_power_channel() {
         FirmwareFlavor::Rs274,
         FirmwareFlavor::RobotKrl,
     ] {
-        let lines = emit_stream(
-            [power_seg(10.0, Some(600.0))].map(Ok),
-            &EmitParams {
-                flavor,
-                ..EmitParams::default()
-            },
-        )
-        .expect("emits");
+        let params = EmitParams {
+            flavor,
+            ..EmitParams::default()
+        };
+        match emit_stream([power_seg(10.0, Some(600.0))].map(Ok), &params) {
+            Ok(lines) => panic!("{flavor:?} silently dropped the power channel: {lines:?}"),
+            Err(error) => {
+                let text = error.to_string();
+                assert!(
+                    text.contains("power channel") && text.contains("S600"),
+                    "the refusal must name the channel and the level, got: {text}"
+                );
+            }
+        }
+        // An *unset* channel is not a commanded state: those flavors still emit exactly as before.
+        let lines = emit_stream([power_seg(10.0, None)].map(Ok), &params).expect("emits");
         for line in &lines {
             assert!(
                 !line.contains("M3") && !line.contains("M5") && !line.contains('S'),
@@ -1229,26 +1242,59 @@ fn non_grbl_flavors_ignore_the_power_channel() {
     }
 }
 
-/// ADR 0002 §4: emit is the last gate before metal, so an unrepresentable power refuses the program
-/// rather than writing `SNaN` or a negative `S` a controller will read as something else.
+/// The RS-274 refusal points at the one place that *does* command its spindle, so the conflict rule
+/// (`docs/11` §1) is discoverable from the diagnostic and not only from the docs.
 #[test]
-fn grbl_refuses_non_finite_and_negative_power() {
+fn rs274_power_refusal_names_the_program_frame() {
     use super::{emit_stream, EmitParams, FirmwareFlavor};
 
-    let grbl = EmitParams {
-        flavor: FirmwareFlavor::Grbl,
-        ..EmitParams::default()
-    };
+    let error = emit_stream(
+        [power_seg(10.0, Some(600.0))].map(Ok),
+        &EmitParams {
+            flavor: FirmwareFlavor::Rs274,
+            ..EmitParams::default()
+        },
+    )
+    .expect_err("rs274 refuses a per-segment power");
+    let text = error.to_string();
+    assert!(
+        text.contains("machine.cnc") && text.contains("spindle_rpm"),
+        "the RS-274 refusal must name the program frame, got: {text}"
+    );
+}
 
-    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
-        match emit_stream([power_seg(10.0, Some(bad))].map(Ok), &grbl) {
-            Ok(lines) => panic!("emit accepted power {bad}: {lines:?}"),
-            Err(error) => {
-                let text = error.to_string();
-                assert!(
-                    text.contains("power") || text.contains("S value"),
-                    "the refusal must name the offending word, got: {text}"
-                );
+/// ADR 0002 §4: emit is the last gate before metal, so an unrepresentable power refuses the program
+/// rather than writing `SNaN` or a negative `S` a controller will read as something else.
+///
+/// The domain check runs on **every** flavor, not just the one that renders the channel: an IR file
+/// can carry a negative `power` (the L1 `validate_design` guard is not on that path), and a refusal
+/// that only fires under GRBL would let it through everywhere else.
+#[test]
+fn every_flavor_refuses_non_finite_and_negative_power() {
+    use super::{emit_stream, EmitParams, FirmwareFlavor};
+
+    for flavor in [
+        FirmwareFlavor::Grbl,
+        FirmwareFlavor::Marlin,
+        FirmwareFlavor::Klipper,
+        FirmwareFlavor::Duet,
+        FirmwareFlavor::Rs274,
+        FirmwareFlavor::RobotKrl,
+    ] {
+        let params = EmitParams {
+            flavor,
+            ..EmitParams::default()
+        };
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0] {
+            match emit_stream([power_seg(10.0, Some(bad))].map(Ok), &params) {
+                Ok(lines) => panic!("{flavor:?} accepted power {bad}: {lines:?}"),
+                Err(error) => {
+                    let text = error.to_string();
+                    assert!(
+                        text.contains("finite and >= 0"),
+                        "the refusal must name the domain, got: {text}"
+                    );
+                }
             }
         }
     }

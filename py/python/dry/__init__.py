@@ -148,6 +148,22 @@ class Design:
         self.ops.append({"op": "tool", "index": int(index)})
         return self
 
+    def power(self, level: Number) -> "Design":
+        """Set the spindle/laser power channel, in the target controller's S-word units
+        (RPM for a spindle, PWM counts for a laser).
+
+        Must be finite and >= 0. `0` commands it off, which is distinct from never setting the
+        channel. Only the `grbl` flavor renders it; the others refuse a toolpath that carries it
+        rather than silently dropping the command.
+
+        NOTE: ``gcode()`` here always emits with the default (Marlin) flavor, so it *refuses* a
+        design carrying this channel. The channel is still authored into ``ir()`` /
+        ``optimized_ir()`` / ``verify()``; to render it, emit through the CLI
+        (``dry emit --format grbl``) or a profile whose ``firmware.flavor`` is ``grbl``.
+        """
+        self.ops.append({"op": "power", "level": level})
+        return self
+
     def orient(self, i: Number, j: Number, k: Number) -> "Design":
         "Set the toolframe orientation: the tool-direction vector (i, j, k). Identity is +Z."
         self.ops.append({"op": "orient", "i": i, "j": j, "k": k})

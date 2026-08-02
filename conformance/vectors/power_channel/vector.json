@@ -1,5 +1,5 @@
 {
-  "description": "Two GRBL cutting moves carrying the spindle/laser power channel — exercises the DRY0 enc_ver 2 column, the DRY1 flag bit 19, and the S / M3 / M5 words.",
+  "description": "GRBL cutting moves carrying the spindle/laser power channel beside every field it is adjacent to on the wire — exercises the DRY0 enc_ver 2 column (which follows `manual_gcode`), the DRY1 row position (which follows `control_points`), flag bit 19, and the S / M3 / M5 words.",
   "emit_params": {
     "five_axis": false,
     "flavor": "Grbl",
@@ -10,9 +10,13 @@
   "feature_tags": [
     "power",
     "grbl",
-    "enc-ver-2"
+    "enc-ver-2",
+    "channels",
+    "orientation",
+    "control-points",
+    "manual-gcode"
   ],
-  "frozen": false,
+  "frozen": true,
   "has_gcode": true,
   "ir_version": 0,
   "name": "power_channel"

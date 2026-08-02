@@ -404,7 +404,8 @@ def _push_opt_col(out: bytearray, vals):
 def encode_dry0(ir: dict, kind_dict_override=None) -> bytes:
     segs = ir["segments"]
     n = len(segs)
-    # spec §5.3: emit the lowest layout that can carry the toolpath.
+    # spec §5.3: emit the lowest *written* layout that can carry the toolpath. enc_ver 0 is read-only
+    # legacy and is never a writer's choice, even for a manual_gcode-free toolpath.
     enc = DRY0_ENC_POWER if any(s["power"] is not None for s in segs) else DRY0_ENC_BASE
     body = bytearray()
     _push_bits(body, [s["travel"] for s in segs])
