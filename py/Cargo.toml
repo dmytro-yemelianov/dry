@@ -1,3 +1,10 @@
+# `dry-py` is excluded from the root workspace (it links libpython and is built by maturin), but
+# cargo still walks parent directories looking for an owning workspace. An empty `[workspace]` table
+# marks dry-py as its own root so it builds with `--manifest-path` even from a nested git worktree
+# (where the root's `exclude = ["py", …]` names `<repo>/py`, not `<repo>/.claude/worktrees/*/py`, so
+# the workspace claims this crate and then rejects it). The other three bindings already carry this.
+[workspace]
+
 [package]
 name = "dry-py"
 description = "PyO3 binding for Dry — the toolpath compiler engine, callable from Python."

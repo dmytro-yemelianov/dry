@@ -117,4 +117,84 @@ try {
 } catch (error) {
   // expected: the engine rejects unknown surfaces with a structured error
 }
-console.log(`wasm engine reproduced the oracle for ${checked} designs (incl spiral_vase), plus ${tpmsSurfaces.length} TPMS surfaces`);
+
+// Non-planar / toolframe orientation. Everything above this line is planar: the FullControl corpora
+// are 3-axis, so no fixture in gcodeDir or simDir carries an `orient` op and this binding's
+// orientation channel had no cross-language coverage at all. conformance/vectors/five_axis_drape is
+// the oriented design — hand-authored, NOT oracle-backed (see its vector.json) — and the native
+// engine's own output for it is committed beside it, so driving the same L1 ops through wasm and
+// diffing is a genuine native/wasm drift gate on the orientation path.
+const drapeDir = path.join(__dirname, '..', 'conformance', 'vectors', 'five_axis_drape');
+const drapeVector = JSON.parse(fs.readFileSync(path.join(drapeDir, 'vector.json'), 'utf8'));
+const drapeDesign = JSON.parse(fs.readFileSync(path.join(drapeDir, 'design.json'), 'utf8'));
+const drapeOps = JSON.stringify(drapeDesign.ops);
+const drapeParams = JSON.stringify(drapeDesign.resolve_params);
+// Take the emit settings from the vector rather than restating them: if the vector is ever
+// regenerated under different ones, this must follow it or fail loudly, never silently diverge.
+const drapeEmit = drapeVector.emit_params;
+// `kinematics` is the engine's Debug rendering, e.g. `Ab { pivot_offset: [..], rotary_offset: [..] }`;
+// the binding takes the ab/ac/bc selector string.
+const drapeRotary = String(drapeEmit.kinematics).split(' ')[0].toLowerCase();
+if (!['ab', 'ac', 'bc'].includes(drapeRotary) || drapeEmit.flavor !== 'Marlin' || !drapeEmit.five_axis) {
+  console.error('[five_axis_drape] unexpected emit_params, refusing to guess:', drapeEmit);
+  process.exit(1);
+}
+const drapeExpected = fs
+  .readFileSync(path.join(drapeDir, 'expected.gcode'), 'utf8')
+  .replace(/\n$/, '')
+  .split('\n');
+const drapeGot = dry.resolve_gcode(
+  drapeOps, drapeParams, drapeEmit.relative_e, drapeEmit.travel_g1_e0, true, drapeRotary,
+);
+if (JSON.stringify(drapeGot) !== JSON.stringify(drapeExpected)) {
+  console.error('[five_axis_drape] 5-AXIS GCODE MISMATCH');
+  console.error('  expected:', JSON.stringify(drapeExpected));
+  console.error('  got:     ', JSON.stringify(drapeGot));
+  process.exit(1);
+}
+// A byte match against a file that happened to contain no rotary words would prove nothing, so
+// require the orientation to have actually reached the output. The letters come from the vector's
+// own selector rather than being hardcoded to A/B: an `ac`/`bc` regeneration writes a C word, and a
+// pattern that could not see it would silently stop checking anything.
+const rotaryLetters = drapeRotary.toUpperCase();
+const rotaryWord = new RegExp(`^[${rotaryLetters}]-?[\\d.]+$`);
+const rotaryWords = drapeGot.flatMap((line) => line.split(' ').filter((w) => rotaryWord.test(w)));
+if (rotaryWords.length < 4) {
+  console.error(`[five_axis_drape] expected rotary ${rotaryLetters[0]}/${rotaryLetters[1]} words in the 5-axis emit, got`, drapeGot);
+  process.exit(1);
+}
+// ...and the same design emitted 3-axis must drop them entirely (orientation is not representable
+// on three axes, and the documented behaviour is to drop it, not to approximate it).
+const drapePlanar = dry.resolve_gcode(
+  drapeOps, drapeParams, drapeEmit.relative_e, drapeEmit.travel_g1_e0, false, drapeRotary,
+);
+if (drapePlanar.some((line) => line.split(' ').some((w) => rotaryWord.test(w)))) {
+  console.error('[five_axis_drape] 3-axis emit must carry no rotary words, got', drapePlanar);
+  process.exit(1);
+}
+// Metrics parity against the committed metrics.json — the orientation must not perturb them.
+// A missing key is a failure, not a skip: without the `in` guard a renamed or dropped metric leaves
+// `got === undefined`, `Math.abs(undefined - want)` is NaN, and `NaN > 1e-9` is false — so the very
+// drift this gate exists to catch would sail through it.
+const drapeMetrics = JSON.parse(dry.resolve_metrics(drapeOps, drapeParams));
+const drapeExpectedMetrics = JSON.parse(fs.readFileSync(path.join(drapeDir, 'metrics.json'), 'utf8'));
+for (const [key, want] of Object.entries(drapeExpectedMetrics)) {
+  if (!(key in drapeMetrics)) {
+    console.error(`[five_axis_drape] metrics.${key} is missing from resolve_metrics output`);
+    process.exit(1);
+  }
+  const got = drapeMetrics[key];
+  const mismatch = typeof want === 'number'
+    ? !(Math.abs(got - want) <= 1e-9)   // negated <= so a NaN difference fails
+    : got !== want;
+  if (mismatch) {
+    console.error(`[five_axis_drape] metrics.${key} ${got} != ${want}`);
+    process.exit(1);
+  }
+}
+
+console.log(
+  `wasm engine reproduced the oracle for ${checked} designs (incl spiral_vase), plus ` +
+  `${tpmsSurfaces.length} TPMS surfaces and the five_axis_drape oriented design ` +
+  `(${rotaryWords.length} rotary words, ${drapeRotary} kinematics)`,
+);

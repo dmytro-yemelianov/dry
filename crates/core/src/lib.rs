@@ -23,7 +23,6 @@ pub mod gcode;
 
 pub mod generate;
 pub mod ir;
-pub mod nonplanar;
 pub mod optimize;
 
 pub mod profile;
@@ -80,7 +79,6 @@ pub use generate::{
     TpmsError, TpmsOptions,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
-pub use nonplanar::{compute_triangle_normal, conformal_surface_z, offset_along_normal};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
     apply_safe_gated, arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline,

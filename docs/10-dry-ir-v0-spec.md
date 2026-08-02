@@ -306,6 +306,11 @@ encoding is deterministic; the reference engine's byte-stability is enforced by 
 `emit`. They are not part of the codec contract and are not required to be re-derived by a
 format-conformant reader.
 
+Some vectors also carry a `design.json` — the L1 `ops[]` and `resolve_params` their IR was resolved
+from, published so a binding built outside the engine's workspace can drive the same design and diff
+its own output against the reference. It is **outside this contract too**: it is not IR, it has no
+schema in `spec/`, and conformance neither requires nor is affected by reading it.
+
 ## 10. Known inconsistencies (normative for v0)
 
 The `ManualGcode` kind is encoded three different ways (§3.4): JSON `"manualgcode"`, `DRY0` dictionary

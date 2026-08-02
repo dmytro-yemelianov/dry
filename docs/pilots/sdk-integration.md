@@ -70,7 +70,7 @@ reader/writer:
 ```sh
 pip install -r tools/requirements.txt
 python tools/validate_vectors.py conformance/vectors
-# OK — 12 vectors validated independently (JSON + DRY0 + DRY1 …) with no dry-core.
+# OK — 13 vectors validated independently (JSON + DRY0 + DRY1 …) with no dry-core.
 ```
 
 ## Acceptance
