@@ -7,6 +7,14 @@ use serde::{Deserialize, Serialize};
 pub const TOKEN_PREFIX: &str = "DRY-LICENSE-V1";
 pub const GRACE_SECS: u64 = 14 * 24 * 60 * 60;
 
+/// TEST keypair id — the matching signing key is COMMITTED at
+/// crates/license/tests/fixtures/ and is deliberately non-secret.
+pub const TEST_KEY_ID: &str = "test-1";
+pub const TEST_VERIFYING_KEY: [u8; 32] = [
+    0xe3, 0xd3, 0x92, 0x0c, 0x08, 0xe7, 0x04, 0xcc, 0xa8, 0x18, 0x3d, 0xf6, 0x1d, 0xfe, 0x4b, 0x98,
+    0x24, 0xc4, 0x43, 0xb6, 0xab, 0x23, 0x0c, 0x20, 0x52, 0x24, 0x43, 0x20, 0x66, 0xe2, 0x44, 0x60,
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Tier {
