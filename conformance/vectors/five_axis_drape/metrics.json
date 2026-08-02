@@ -1,0 +1,11 @@
+{
+  "total_time_s": 2.1699803993960445,
+  "print_time_s": 2.1699803993960445,
+  "travel_time_s": 0.0,
+  "extruding_distance": 32.549705990940666,
+  "travel_distance": 0.0,
+  "extruded_volume": 5.85894707836932,
+  "filament_length": 2.4358671381846086,
+  "segment_count": 4,
+  "max_flow_rate": 2.7
+}

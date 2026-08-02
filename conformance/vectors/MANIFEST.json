@@ -196,6 +196,29 @@
     },
     {
       "artifacts": {
+        "design.json": "9ada51c1c609bf5860a184c7557e1b60bf89e54bfebc6590d8838e520baff5ef",
+        "expected.dry0": "970ba08f5a39a09f847f3c2fe0a02465f1c4daa1315ff12128396e233f058b11",
+        "expected.dry1": "fc5ec80c8323ac7e759ac768f94fa646716658c556ee7b3e519d155f8ba93e21",
+        "expected.gcode": "ba0402b40a319002eb58c22ea57af1b5dc9883a1fdcb5f81eb5e23b5d2bf9ea9",
+        "input.json": "2246075caf159c4b8e9c487591c63ce5e4c3eba75dc1880e427c653a51277982",
+        "metrics.json": "221c86c538f43690d795ddf69acc5a36741daeeb162471db99667ff8e7aeb3f7",
+        "vector.json": "8a1496ff0bafa6f876b830c49ee1ccea52fff3501ac19cac83a33f24433437c0"
+      },
+      "description": "A five-point path draped over a 25 mm dome: each extruding move carries the dome's outward surface normal at its destination as the toolframe orientation, so both rotary axes sweep monotonically and the last move ends pointing +Z. NOT oracle-backed — FullControl is 3-axis, so nothing outside Dry produces this path. What backs it: the IR is `resolve`'s own output for the committed `design.json` (not hand-written), the orientations are the closed-form sphere normal `point / radius` at integer lattice points where that is exactly unit in binary64, and `metrics.json` / `expected.gcode` are this engine's `simulate` / `emit`. Complements `five_axis`, which is a single IR-authored segment of constant orientation: this one changes orientation four times, so it pins the emit-a-rotary-word-only-when-it-changes rule, and it mixes an unoriented travel with oriented extrusion.",
+      "feature_tags": [
+        "orientation",
+        "five-axis",
+        "non-planar",
+        "l1-design",
+        "no-oracle"
+      ],
+      "frozen": false,
+      "has_gcode": true,
+      "ir_version": 0,
+      "name": "five_axis_drape"
+    },
+    {
+      "artifacts": {
         "expected.dry0": "69f48c7b4a39431fd5b2055f046ada564cec5725a54166670deebaf99d56e957",
         "expected.dry1": "ff238f1144748c4897cfa6a9802bf68bc607004df7e4245d26200b1306b20691",
         "expected.gcode": "1d910202dc1ac7baf9e5f4727dc3aafb415d5c6402e211b822f8306f21874590",

@@ -1,0 +1,21 @@
+{
+  "description": "A five-point path draped over a 25 mm dome: each extruding move carries the dome's outward surface normal at its destination as the toolframe orientation, so both rotary axes sweep monotonically and the last move ends pointing +Z. NOT oracle-backed — FullControl is 3-axis, so nothing outside Dry produces this path. What backs it: the IR is `resolve`'s own output for the committed `design.json` (not hand-written), the orientations are the closed-form sphere normal `point / radius` at integer lattice points where that is exactly unit in binary64, and `metrics.json` / `expected.gcode` are this engine's `simulate` / `emit`. Complements `five_axis`, which is a single IR-authored segment of constant orientation: this one changes orientation four times, so it pins the emit-a-rotary-word-only-when-it-changes rule, and it mixes an unoriented travel with oriented extrusion.",
+  "emit_params": {
+    "five_axis": true,
+    "flavor": "Marlin",
+    "kinematics": "Ab { pivot_offset: [0.0, 0.0, 0.0], rotary_offset: [0.0, 0.0] }",
+    "relative_e": true,
+    "travel_g1_e0": false
+  },
+  "feature_tags": [
+    "orientation",
+    "five-axis",
+    "non-planar",
+    "l1-design",
+    "no-oracle"
+  ],
+  "frozen": false,
+  "has_gcode": true,
+  "ir_version": 0,
+  "name": "five_axis_drape"
+}

@@ -108,7 +108,11 @@ pub struct Design {
 }
 
 /// Machine/material defaults the lowering needs (from the device profile).
-#[derive(Debug, Clone, Deserialize)]
+///
+/// `Serialize` is symmetric with the `Deserialize` (and gives the two `skip_serializing_if`
+/// attributes below something to act on) so a caller can publish the exact parameters an IR was
+/// resolved under instead of hand-mirroring the field list — `conformance/vectors/*/design.json`.
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResolveParams {
     pub print_speed: f64,
     pub travel_speed: f64,
