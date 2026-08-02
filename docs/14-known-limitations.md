@@ -75,8 +75,18 @@ Do not rely on Dry for any of these today:
   `bead`/flow findings driven by the missing geometry, not the print.
 - **The importer does not semantically model every firmware command.** Unsupported `G`/`M`/`T` commands
   are preserved byte-for-byte and reported as `unmodeled-gcode` warnings; they are never silently
-  reinterpreted as modal motion. Review those lines manually. Auto-print fails closed on these warnings
-  unless `--force` is explicit.
+  reinterpreted as modal motion. That covers an unmodeled command's *parameters* as well as its code:
+  they need not be `LETTER value` G-code words at all, so Bambu's `M1002 <name> : <value>` macros,
+  Prusa's quoted `M862.3 P "MK4"` firmware checks, version strings and base64 payloads are preserved
+  lines rather than a refused file. What still fails loudly, by design: a **modeled motion** line whose
+  words are missing or unreadable (`G1 X`, `G1 Xnope`), a modeled command carrying an unreadable number
+  (`M221 Snope`), and a word value that is not a finite number, on any command. Review the preserved
+  lines manually. Auto-print fails closed on these warnings unless `--force` is explicit.
+- **`Q`, `L` and `W` are ambiguous with the legacy KRL import dialect.** They are the `PTP`/`LIN`/`WAIT`
+  markers of the g-code-shaped KRL Dry wrote before #181, and also real RS-274 word letters
+  (`crates/core/src/gcode.rs`). A line that states its own `G`/`M`/`T` command is read as that command,
+  so Bambu's `M1006 A0 B10 L100 C37 …` is the macro it is and not a `LIN` move with a rotary pose; but a
+  bare `L100` line with nothing else on it is still read as a KRL `LIN`.
 
 ## Support boundary
 
