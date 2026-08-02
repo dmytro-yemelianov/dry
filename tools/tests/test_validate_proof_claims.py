@@ -20,18 +20,24 @@ VALIDATOR = ROOT / "tools" / "validate_proof_claims.py"
 def claim_table(
     claim_id: str,
     *,
-    theorem: str = "Dry.Geometry.PlanarTransform.apply_compose",
+    theorem: str | None = "Dry.Geometry.PlanarTransform.apply_compose",
+    lean_source: str | None = "formal/Dry/Geometry/PlanarTransform.lean",
     scope: str = "abstract",
+    abstract: str = "proved",
     numeric: str = "pending",
     refinement: str = "pending",
 ) -> str:
+    lean_lines = ""
+    if theorem is not None:
+        lean_lines += f'theorem = "{theorem}"\n        '
+    if lean_source is not None:
+        lean_lines += f'lean_source = "{lean_source}"\n        '
     return textwrap.dedent(
         f"""
         [[claim]]
         id = "{claim_id}"
         title = "Test claim"
-        theorem = "{theorem}"
-        spec_version = "test-v0"
+        {lean_lines}spec_version = "test-v0"
         source_dialect = "L0"
         target_dialect = "L1"
         relation = "exact"
@@ -39,13 +45,12 @@ def claim_table(
         numeric_domain = "Real"
         assumptions = []
         exclusions = []
-        lean_source = "formal/Dry/Geometry/PlanarTransform.lean"
         rust_sources = ["crates/core/src/features.rs"]
         numeric_evidence = []
         refinement_evidence = []
 
         [claim.status]
-        abstract = "proved"
+        abstract = "{abstract}"
         numeric = "{numeric}"
         refinement = "{refinement}"
         """
@@ -116,6 +121,38 @@ class ProofClaimValidatorTests(unittest.TestCase):
             "implementation claim requires checked refinement",
             result.stderr,
         )
+
+    def test_unmodelled_claim_without_a_theorem_is_accepted(self) -> None:
+        """A claim may record that no Lean model exists (ADR 0001 `specified`).
+
+        Before #198 the registry could not express this: `theorem` and `lean_source` were required,
+        so registering an unmodelled boundary meant pointing at a theorem that was not about it.
+        """
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.UNMODELLED",
+            theorem=None,
+            lean_source=None,
+            abstract="specified",
+        )
+        result = self.run_registry(registry)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_unproved_claim_may_not_register_a_theorem(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.UNPROVED_WITH_THEOREM", abstract="specified"
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must not register a theorem", result.stderr)
+        self.assertIn("must not register a lean_source", result.stderr)
+
+    def test_proved_claim_without_a_lean_source_is_rejected(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.PROVED_WITHOUT_SOURCE", lean_source=None
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires a lean_source", result.stderr)
 
 
 if __name__ == "__main__":

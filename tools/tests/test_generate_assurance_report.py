@@ -53,6 +53,37 @@ class AssuranceReportTests(unittest.TestCase):
             report,
         )
 
+    def test_a_claim_with_no_lean_model_says_so_instead_of_linking_nothing(self) -> None:
+        """An unmodelled claim must not render as a link to the repository root.
+
+        `repository_link("")` produces `[``](../../.)`, which reads like a theorem whose file is
+        merely mislinked. The registry now allows claims with no Lean model at all, so the report
+        has to name that state.
+        """
+        unmodelled = {
+            "id": "FM1.TEST.UNMODELLED",
+            "title": "Test claim with no Lean model",
+            "spec_version": "test-v0",
+            "source_dialect": "L0",
+            "target_dialect": "L1",
+            "relation": "rejection",
+            "scope": "abstract",
+            "numeric_domain": "Real",
+            "assumptions": [],
+            "exclusions": [],
+            "rust_sources": ["crates/core/src/features.rs"],
+            "numeric_evidence": [],
+            "refinement_evidence": [],
+            "status": {
+                "abstract": "specified",
+                "numeric": "pending",
+                "refinement": "pending",
+            },
+        }
+        report = report_module.generate_report([unmodelled])
+        self.assertIn("— no Lean model", report)
+        self.assertNotIn("](../../.)", report)
+
 
 if __name__ == "__main__":
     unittest.main()

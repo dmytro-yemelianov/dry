@@ -250,10 +250,12 @@ jobs:
       # the `core` job above.
       - name: validate public conformance vectors
         run: python tools/validate_vectors.py conformance/vectors
-      # A second dry-core-free check: every golden report (verify/review/trace) and every example
-      # profile validates against the published schemas (docs/11-profiles-and-reports.md). The Rust side
-      # (report drift gate + rule-catalog coverage) rides `cargo test --all` in the `core` job.
-      - name: validate report schemas + example profiles
+      # A second dry-core-free check: every golden report (verify/review/trace), every example
+      # profile and every labelled TPMS option bundle validates against the published schemas
+      # (docs/11-profiles-and-reports.md, docs/07-tpms-codegen.md). The Rust side (report drift gate,
+      # rule-catalog coverage, and the engine column of the TPMS corpus in
+      # `crates/core/tests/tpms_options_schema.rs`) rides `cargo test --all` in the `core` job.
+      - name: validate report schemas + example profiles + TPMS options
         run: python tools/validate_reports.py .
 
   formal-assurance:
@@ -275,6 +277,7 @@ jobs:
           python tools/validate_numeric_boundaries.py proofs/emit-numeric-boundaries-v0.toml
           python -m unittest discover -s tools/tests -p 'test_validate_proof_claims.py'
           python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
+          python -m unittest discover -s tools/tests -p 'test_validate_spec_claim_links.py'
           python -m unittest discover -s tools/tests -p 'test_generate_assurance_report.py'
           python tools/generate_assurance_report.py --check
       - name: build checked proofs with the pinned Lean/Mathlib toolchain

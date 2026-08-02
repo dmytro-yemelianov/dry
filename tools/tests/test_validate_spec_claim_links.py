@@ -6,6 +6,11 @@ import sys
 import tempfile
 import unittest
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 and earlier
+    import tomli as tomllib
+
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "tools" / "validate_spec_claim_links.py"
@@ -21,7 +26,14 @@ class SpecClaimLinkValidatorTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertRegex(result.stdout, r"\d+ claims, 12 normative clauses")
+        # Derived from the registries rather than frozen at a literal count, matching
+        # `test_validate_proof_claims.test_repository_registry_passes`: the assertion is that the
+        # validator reports what the files actually contain, not that the corpus never grows.
+        with (ROOT / "proofs" / "spec-claim-links.toml").open("rb") as handle:
+            clauses = len(tomllib.load(handle)["clause"])
+        with (ROOT / "proofs" / "claims.toml").open("rb") as handle:
+            claims = len(tomllib.load(handle)["claim"])
+        self.assertIn(f"{claims} claims, {clauses} normative clauses", result.stdout)
 
     def test_missing_claim_link_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

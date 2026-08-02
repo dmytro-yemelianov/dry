@@ -1546,3 +1546,54 @@ refinement_evidence = []
 abstract = "proved"
 numeric = "not-applicable"
 refinement = "not-applicable"
+
+# The first registry entry with no Lean model behind it. TPMS is the only generator published on all
+# three SDKs and its option bundle is deserialized from untrusted JSON on two of them, yet it appeared
+# in neither `proofs/` nor `spec/` (#198). Registering it as `abstract = "specified"` records what now
+# exists — a published JSON Schema plus a labelled corpus checked from both sides — and nothing more.
+# Writing a Lean model of the generator would be the way to reach `proved`; none exists, so no theorem
+# is registered and the validator refuses to let one be.
+[[claim]]
+id = "FM1.GENERATE.TPMS.OPTION_ACCEPTANCE"
+title = "The published TPMS option surface refuses out-of-domain values before any geometry is produced"
+spec_version = "dry-tpms-options-v1"
+source_dialect = "camelCase TPMS option bundle (the raw-JSON wasm/PyO3 ingress form)"
+target_dialect = "A validated generator configuration, or a structured refusal"
+relation = "rejection"
+scope = "abstract"
+numeric_domain = "binary64 option values and u32 counts as parsed by serde_json"
+assumptions = [
+  "The acceptance predicate is the one evaluated in Tpms::resolve before any field sampling; a refusal returns TpmsError and produces no operations.",
+  "Callers reach that predicate by deserializing a camelCase bundle with serde_json (crates/wasm, py/, and sdk/ts through the wasm binding), which ignores unknown keys and reads an explicit null as an absent field taking its documented default.",
+  "spec/dry-tpms-options-v1.schema.json is a necessary condition on that bundle, not a sufficient one: every bundle the engine accepts validates against it, and the labelled corpus is the evidence for that direction rather than for the converse.",
+  "The registry scope is `abstract` because ADR 0001 reserves `implementation` for claims that are proved, numerically bounded and refinement-checked, and this claim is none of the three. The value is a registry bucket, not an assertion that the subject matter is abstract — the subject is a Rust ingress gate."
+]
+exclusions = [
+  "Machine-checked proof of anything here. There is no Lean model of the TPMS generator; `abstract = \"specified\"` names a published JSON Schema, not a theorem, and no part of this entry may be described as formally verified.",
+  "Everything downstream of acceptance: field sampling, marching squares, contour stitching, nearest-neighbour ordering, adaptive slicing, per-layer height declaration, and the emitted geometry. This claim covers only whether an option bundle is admitted.",
+  "Sufficiency of the published schema. The cross-field adaptive min/max comparison, the derived field-sample budget, the perimeter-collapse gate and the vacuity check are engine-only refusals, labelled as such in spec/examples/tpms-options/manifest.json.",
+  "Every tolerance in the acceptance path. The adaptive min/max comparison carries a 1e-9 slack and the perimeter-collapse gate is against the 1e-6 mm emission grid; neither epsilon is published in a numeric-boundary inventory, so ADR 0001's naming requirement is unmet for both and no bound over them is claimed. No tpms numeric-boundary inventory exists.",
+  "Numeric behaviour of the budget preflight itself: estimate_layer_count and assert_budget compute the sample estimate in binary64 with libm::ceil and libm::pow, and that computation is unanalysed. This is why the numeric status is pending rather than not-applicable.",
+  "The NaN and non-finite refusals as a wire-level guarantee. Measured: serde_json rejects a NaN literal and out-of-range magnitudes such as 1e400 before the generator runs, so on the JSON ingress that wasm and PyO3 use only the negative case is reachable; those two guards protect the in-process Rust API, and no evidence here exercises a binding-level NaN path.",
+  "Binding parity. The corpus is executed against native dry-core only; crates/wasm, py/ and sdk/ts re-expose the same deserializer, build outside the workspace, and are not run by this claim's evidence.",
+  "Bundles constructed as a Rust TpmsOptions value rather than deserialized from JSON: the corpus is JSON-only."
+]
+rust_sources = [
+  "crates/core/src/generate/tpms.rs"
+]
+numeric_evidence = []
+numeric_boundaries = []
+# Listed as evidence while the status stays `pending`: these artifacts do check the Rust ingress gate
+# against the published specification, but ADR 0001 reserves `checked` for evidence that Rust refines
+# a *modeled* function, and there is no model to refine against.
+refinement_evidence = [
+  "spec/dry-tpms-options-v1.schema.json",
+  "spec/examples/tpms-options/manifest.json",
+  "tools/validate_reports.py",
+  "crates/core/tests/tpms_options_schema.rs"
+]
+
+[claim.status]
+abstract = "specified"
+numeric = "pending"
+refinement = "pending"

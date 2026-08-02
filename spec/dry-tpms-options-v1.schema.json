@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-tpms-options-v1.schema.json",
+  "title": "Dry TPMS generator options v1",
+  "description": "Schema for the camelCase TPMS option bundle (`TpmsOptions` in crates/core/src/generate/tpms.rs, documented in docs/07-tpms-codegen.md). This is the untrusted-ingress form: `crates/wasm` and `py/` both deserialize it from a raw JSON string, and `sdk/ts` serializes it. IT IS A NECESSARY CONDITION, NOT A SUFFICIENT ONE. Every document the engine accepts validates against this schema, but validating does NOT mean the engine will accept it: cross-field, derived and content-dependent refusals are listed under `$defs.engineOnlyRefusals` and are not expressible here. The direction that matters is pinned mechanically — `spec/examples/tpms-options/manifest.json` labels each example with both its schema verdict and its engine verdict, `tools/validate_reports.py` checks the schema side without dry-core, and `crates/core/tests/tpms_options_schema.rs` checks the engine side, so the schema cannot start refusing input the engine accepts. Like serde, the engine ignores unknown keys, so this schema does too; and every field is optional, with an explicit `null` meaning the same as an omitted key (the documented default).",
+  "type": "object",
+  "properties": {
+    "surface": {
+      "description": "Which triply-periodic minimal surface to slice. Omitted/null defaults to `gyroid`. Any other string is a deserialization error, not a generator refusal.",
+      "enum": [
+        "gyroid",
+        "schwarz-p",
+        "schwarz-d",
+        "iwp",
+        "neovius",
+        "fischer-koch-s",
+        "fischer-koch-y",
+        "frd",
+        "lidinoid",
+        "split-p",
+        null
+      ]
+    },
+    "isoLevel": {
+      "$ref": "#/$defs/Number",
+      "description": "Isosurface value: the contour traced is field(x,y,z) = isoLevel. Default 0. Any JSON number is in domain; a value outside the selected field's range traces nothing and is refused by the vacuity check, not by this schema."
+    },
+    "cellSize": {
+      "$ref": "#/$defs/PositiveNumber",
+      "description": "Cubic unit-cell size in mm. Default 12."
+    },
+    "cellsX": { "$ref": "#/$defs/CellCount", "description": "Unit cells along X. Default 2." },
+    "cellsY": { "$ref": "#/$defs/CellCount", "description": "Unit cells along Y. Default 2." },
+    "cellsZ": { "$ref": "#/$defs/CellCount", "description": "Unit cells along Z. Default 2." },
+    "samplesPerCell": {
+      "type": ["integer", "null"],
+      "minimum": 4,
+      "maximum": 4294967295,
+      "description": "XY marching-squares resolution per unit cell. Default 18; the engine requires >= 4."
+    },
+    "layerHeight": {
+      "$ref": "#/$defs/PositiveNumber",
+      "description": "Nominal base layer height in mm. Default 0.28."
+    },
+    "z0": {
+      "$ref": "#/$defs/NonNegativeNumber",
+      "description": "First-layer Z in mm. Default 0.2. Zero is accepted."
+    },
+    "centerX": { "$ref": "#/$defs/Number", "description": "X centre of the generated block in mm. Default 50." },
+    "centerY": { "$ref": "#/$defs/Number", "description": "Y centre of the generated block in mm. Default 50." },
+    "beadWidth": { "$ref": "#/$defs/PositiveNumber", "description": "Extrusion bead width in mm. Default 0.45." },
+    "beadHeight": {
+      "$ref": "#/$defs/PositiveNumber",
+      "description": "Extrusion bead height in mm. Defaults to the resolved `layerHeight`."
+    },
+    "nozzleTemp": { "$ref": "#/$defs/PositiveNumber", "description": "Nozzle temperature in degrees Celsius. Default 210." },
+    "printSpeed": { "$ref": "#/$defs/PositiveNumber", "description": "Print feedrate in mm/min. Default 1200." },
+    "flow": { "$ref": "#/$defs/PositiveNumber", "description": "Flow multiplier. Default 1." },
+    "phaseX": { "$ref": "#/$defs/Number", "description": "Phase offset in unit-cell periods. Default 0." },
+    "phaseY": { "$ref": "#/$defs/Number", "description": "Phase offset in unit-cell periods. Default 0." },
+    "phaseZ": { "$ref": "#/$defs/Number", "description": "Phase offset in unit-cell periods. Default 0." },
+    "perimeter": {
+      "type": ["boolean", "null"],
+      "description": "Add a single-wall rectangular perimeter around every sliced layer. Default false."
+    },
+    "perimeterInset": {
+      "$ref": "#/$defs/NonNegativeNumber",
+      "description": "Perimeter inset in mm; defaults to `beadWidth`. Non-negativity is checked whether or not `perimeter` is on; the collapse check (the surviving rectangle must span at least 1e-6 mm in both axes) runs only when `perimeter` is true and is not expressible here."
+    },
+    "minPathLength": {
+      "$ref": "#/$defs/NonNegativeNumber",
+      "description": "Drop stitched contours shorter than this. Defaults to one grid cell. Zero is accepted; a value that drops every contour is refused by the vacuity check, not by this schema."
+    },
+    "adaptive": {
+      "type": ["boolean", "null"],
+      "description": "Insert extra Z slices where intervals are tall or change topology sharply. Default false. When this is not true the engine reads none of the `adaptive*` options, so it does not validate them either — see the conditional block below."
+    },
+    "adaptiveMinLayerHeight": {
+      "$ref": "#/$defs/Number",
+      "description": "Minimum adaptive layer height in mm. Defaults to min(layerHeight, 0.14). Constrained only when `adaptive` is true."
+    },
+    "adaptiveMaxLayerHeight": {
+      "$ref": "#/$defs/Number",
+      "description": "Maximum adaptive layer height in mm. Defaults to min(layerHeight, 0.32). Constrained only when `adaptive` is true."
+    },
+    "adaptiveMaxLengthDelta": {
+      "$ref": "#/$defs/Number",
+      "description": "Maximum tolerated contour-length delta before subdivision. Default 0.35. Constrained only when `adaptive` is true."
+    },
+    "adaptiveMaxPointDelta": {
+      "$ref": "#/$defs/Number",
+      "description": "Maximum tolerated contour point-count delta before subdivision. Default 0.45. Constrained only when `adaptive` is true."
+    },
+    "adaptiveMaxDepth": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 4294967295,
+      "description": "Bisection depth for adaptive refinement. Default 4. The engine caps it at 16 — but only when `adaptive` is true, because that is the only branch that reads it. The cap is applied in the conditional block below, not here, so this schema does not refuse a value the engine accepts."
+    },
+    "maxFieldSamples": {
+      "$ref": "#/$defs/NonNegativeNumber",
+      "description": "Preflight field-sample budget. Default 6000000. `0` means UNLIMITED — the sentinel `sdk/ts` encodes `Infinity` as, since JSON has no `Infinity` literal — so `-0.0` is also accepted and also means unlimited. Negative values are refused by the engine (they used to switch the guardrail off silently). The engine additionally refuses NaN, but JSON cannot express NaN and `serde_json` refuses both `NaN` and out-of-range literals such as `1e400`, so that guard protects the in-process Rust API rather than this wire form. Whether a given budget is actually met depends on the derived sample estimate and is not expressible here."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "The engine reads and validates the adaptive knobs only inside `if adaptive_on`. Encoding these bounds unconditionally would make the schema refuse documents the engine accepts (measured: {\"adaptiveMaxDepth\":17} with `adaptive` off generates 21635 ops).",
+      "if": {
+        "type": "object",
+        "properties": { "adaptive": { "const": true } },
+        "required": ["adaptive"]
+      },
+      "then": {
+        "properties": {
+          "adaptiveMinLayerHeight": { "$ref": "#/$defs/PositiveNumber" },
+          "adaptiveMaxLayerHeight": { "$ref": "#/$defs/PositiveNumber" },
+          "adaptiveMaxLengthDelta": { "$ref": "#/$defs/PositiveNumber" },
+          "adaptiveMaxPointDelta": { "$ref": "#/$defs/PositiveNumber" },
+          "adaptiveMaxDepth": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 16
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "Number": {
+      "type": ["number", "null"],
+      "description": "Any JSON number, or null for the documented default. The engine also requires the value to be finite, but JSON has no non-finite literal and `serde_json` rejects out-of-range magnitudes such as `1e400` before the generator sees them."
+    },
+    "PositiveNumber": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Strictly positive, or null for the documented default."
+    },
+    "NonNegativeNumber": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Zero or greater, or null for the documented default."
+    },
+    "CellCount": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 4294967295,
+      "description": "A unit-cell count: a u32 of at least 1, or null for the documented default."
+    },
+    "engineOnlyRefusals": {
+      "$comment": "Documentation only; nothing $refs this. These are the refusals the engine enforces that JSON Schema cannot express, kept in the published schema so the gap is stated where the schema is read rather than only in prose.",
+      "type": "null",
+      "description": "Refusals the engine enforces that this schema does NOT: (1) `adaptiveMinLayerHeight` must be <= `adaptiveMaxLayerHeight` within 1e-9, when `adaptive` is true — a cross-field comparison; (2) the derived field-sample estimate ((nx+1)*(ny+1)*layers) must not exceed `maxFieldSamples`; (3) with `perimeter` true, the rectangle left by `perimeterInset` must span at least 1e-6 mm in both axes; (4) the option set must trace at least one surviving contour (the vacuity check), which depends on the field content, `isoLevel` and `minPathLength`; (5) integer fields must be spelled as JSON integers — `serde_json` refuses `{\"cellsX\": 2.0}` for a u32 while JSON Schema counts `2.0` as an integer; (6) a value for a field of the wrong JSON type is a deserialization error rather than a generator refusal, and this schema reports it as a schema violation instead."
+    }
+  }
+}

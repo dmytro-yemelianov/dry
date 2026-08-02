@@ -59,7 +59,6 @@
       "required": [
         "id",
         "title",
-        "theorem",
         "spec_version",
         "source_dialect",
         "target_dialect",
@@ -68,10 +67,32 @@
         "numeric_domain",
         "assumptions",
         "exclusions",
-        "lean_source",
         "rust_sources",
         "refinement_evidence",
         "status"
+      ],
+      "allOf": [
+        {
+          "$comment": "theorem and lean_source are present exactly when the abstract layer is proved. A claim whose abstract status is `specified` or `not-applicable` has no Lean model, and must not display a theorem name beside a non-proved status; a claim that is `proved` must name the theorem and the file it lives in.",
+          "if": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "object",
+                "properties": { "abstract": { "const": "proved" } },
+                "required": ["abstract"]
+              }
+            },
+            "required": ["status"]
+          },
+          "then": { "required": ["theorem", "lean_source"] },
+          "else": {
+            "properties": {
+              "theorem": false,
+              "lean_source": false
+            }
+          }
+        }
       ],
       "properties": {
         "id": {

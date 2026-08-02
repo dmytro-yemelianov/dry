@@ -1,0 +1,9 @@
+{
+  "cellsX": 1,
+  "cellsY": 1,
+  "cellsZ": 1,
+  "samplesPerCell": 6,
+  "adaptive": true,
+  "adaptiveMinLayerHeight": 0.3,
+  "adaptiveMaxLayerHeight": 0.2
+}

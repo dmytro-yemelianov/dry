@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Independent schema validator for Dry's report outputs and example profiles.
+"""Independent schema validator for Dry's report outputs, example profiles and TPMS options.
 
 Validates every golden report under `conformance/reports/` against the matching subschema in
-`spec/dry-reports-v1.schema.json`, and every example profile under `spec/examples/profiles/` against
-`spec/dry-profile-v1.schema.json`. Uses only `jsonschema` (no `dry-core`), so it independently confirms
-that the published schemas actually describe the engine's real output (see docs/11-profiles-and-reports.md).
+`spec/dry-reports-v1.schema.json`, every example profile under `spec/examples/profiles/` against
+`spec/dry-profile-v1.schema.json`, and every labelled TPMS option document under
+`spec/examples/tpms-options/` against `spec/dry-tpms-options-v1.schema.json`. Uses only `jsonschema`
+(no `dry-core`), so it independently confirms that the published schemas actually describe the
+engine's real behaviour (see docs/11-profiles-and-reports.md and docs/07-tpms-codegen.md).
 
 Usage:
     python tools/validate_reports.py [repo-root]
@@ -25,6 +27,61 @@ REPORT_KINDS = {
     "report.json": "RewriteReport",
     "explain.json": "ExplainBundle",
 }
+
+
+def validate_tpms_options(root: Path, validator_factory, errors: list[str]) -> int:
+    """Check the labelled TPMS option corpus against the published option schema.
+
+    The manifest carries two verdicts per case: the schema's and the engine's. Only the schema
+    column is checkable here (this validator never imports dry-core); the engine column is checked
+    by `crates/core/tests/tpms_options_schema.rs` against the same manifest. What this function adds
+    on top of "the schema agrees with its own labels" is the invariant that binds the two columns:
+    a case may never be schema-invalid while the engine accepts it. That is the direction which
+    would make the published schema wrong — it would refuse a bundle the engine happily runs.
+    """
+    directory = root / "spec" / "examples" / "tpms-options"
+    schema_path = root / "spec" / "dry-tpms-options-v1.schema.json"
+    if not directory.is_dir():
+        errors.append("[tpms-options] spec/examples/tpms-options is missing")
+        return 0
+    validator = validator_factory(json.loads(schema_path.read_text()))
+    manifest = json.loads((directory / "manifest.json").read_text())
+    cases = manifest.get("cases", [])
+
+    listed = set()
+    checked = 0
+    for case in cases:
+        name = case.get("file", "<unnamed>")
+        listed.add(name)
+        if case.get("schema") not in {"valid", "invalid"}:
+            errors.append(f"[tpms-options/{name}] schema verdict must be valid or invalid")
+            continue
+        if case.get("engine") not in {"accepted", "refused"}:
+            errors.append(f"[tpms-options/{name}] engine verdict must be accepted or refused")
+            continue
+        if case["schema"] == "invalid" and case["engine"] == "accepted":
+            errors.append(
+                f"[tpms-options/{name}] the schema refuses a bundle the engine accepts; the "
+                "published schema must stay a necessary condition"
+            )
+        if case["engine"] == "refused" and not case.get("refusal"):
+            errors.append(f"[tpms-options/{name}] a refused case must quote its refusal text")
+        path = directory / name
+        if not path.is_file():
+            errors.append(f"[tpms-options/{name}] listed in the manifest but missing on disk")
+            continue
+        found = sorted(validator.iter_errors(json.loads(path.read_text())), key=lambda e: list(e.path))
+        if case["schema"] == "valid" and found:
+            errors.append(f"[tpms-options/{name}] expected schema-valid: {found[0].message}")
+        elif case["schema"] == "invalid" and not found:
+            errors.append(f"[tpms-options/{name}] expected schema-invalid, but it validates")
+        else:
+            checked += 1
+
+    on_disk = {f"cases/{p.name}" for p in (directory / "cases").glob("*.json")}
+    for orphan in sorted(on_disk - listed):
+        errors.append(f"[tpms-options/{orphan}] present on disk but not listed in the manifest")
+    return checked
 
 
 def subschema(full: dict, defname: str) -> dict:
@@ -105,14 +162,16 @@ def main(argv: list[str]) -> int:
                 if ok:
                     n_reports += 1
 
+    n_tpms = validate_tpms_options(root, Draft202012Validator, errors)
+
     if errors:
         print(f"FAIL — {len(errors)} schema problem(s):", file=sys.stderr)
         for e in errors:
             print("  " + e, file=sys.stderr)
         return 1
     print(
-        f"OK — {n_reports} golden reports and {n_profiles} profiles validate against the "
-        f"published schemas with no dry-core."
+        f"OK — {n_reports} golden reports, {n_profiles} profiles and {n_tpms} labelled TPMS "
+        f"option bundles validate against the published schemas with no dry-core."
     )
     return 0
 
