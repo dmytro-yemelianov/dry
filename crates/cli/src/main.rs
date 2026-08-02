@@ -1771,11 +1771,15 @@ fn run(cli: Cli) -> ExitCode {
                     .sum()
             };
             let (travel_before, travel_after) = (travel(&tp), travel(&opt));
+            // Signed, because `--reorder-travel` can *grow* the segment count: `z_hop` replaces one
+            // travel with a lift/traverse/drop triple and `coasting` splits the tail off a run. The
+            // `usize` subtraction this replaces panicked with "attempt to subtract with overflow" on
+            // 20 of the 28 frozen gallery designs (and wrapped to ~1.8e19 in release).
+            let delta = after as i64 - before as i64;
             eprintln!(
-                "optimize: {file} — {before} → {after} segments (−{}); \
+                "optimize: {file} — {before} → {after} segments ({delta:+}); \
                  travel {travel_before:.2}mm → {travel_after:.2}mm; \
                  volume {:.4}mm^3 (Δ{:.2e}), time {:.3}s (Δ{:.2e})",
-                before - after,
                 m1.extruded_volume.value(),
                 (m1.extruded_volume.value() - m0.extruded_volume.value()).abs(),
                 m1.total_time_s.value(),

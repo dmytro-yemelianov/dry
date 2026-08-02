@@ -44,6 +44,15 @@ Do not rely on Dry for any of these today:
   the relevant limit; with no profile, only the structural rules run. The rule set targets FFF concerns
   (bounds, flow, temperature, retraction, first layer). `travel-without-retraction`, `first-layer-height`
   and `first-layer-speed` are **warnings**, not errors — a report with only these passes `verify`.
+- **No rule flags a beam lit during a travel.** `travel-extrudes` states the material analogue (a travel
+  that deposits), but nothing says the equivalent about `power`: a travel carrying `power: 600` verifies
+  clean. It is deliberately not in the always-on structural set, because that set may only hold properties
+  every producer satisfies and `resolve` does not: the channel is sticky like `temperature`, so a design
+  that says `power 600` and then repositions resolves to a lit rapid, and an always-on error rule would
+  refuse IR Dry itself produced from a legal design. The frozen corpora cannot settle it either — one of
+  50 fixtures carries the channel at all, and it has no travel segments. Closing this needs a decision
+  about whether `resolve` should force travels dark, not just a rule. Until then the property is held by
+  the optimiser's own tests (`crates/core/tests/channels.rs`), which is why it has had to be fixed twice.
 - **Profiles are intentionally small.** The v1 profile schema (`docs/11`) carries the limits the verifier
   can enforce plus import defaults — not a full slicer/material database. `firmware.flavor` is recognized
   for `marlin` / `klipper` / `duet` / `rs274` / `linuxcnc`; others fall back to Marlin-style behavior.

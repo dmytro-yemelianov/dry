@@ -29,6 +29,14 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   - A source-preserving g-code rewrite (`ImportedGcode::emit_source_preserving`) refuses a replacement
     toolpath carrying the channel: `lift` does not read `S`/`M3`/`M5` back, so the preserved source's own
     beam state is unknown and a span prologue cannot restore it.
+  - **A travel the optimiser invents commands the beam off.** `travel_reorder` regenerates the connecting
+    travels between the runs it reorders; those moves are Dry's, not the program's, so they carry
+    `power: 0.0` — spelt out, because an unset level means "never commanded" and leaves the controller
+    burning at the last `S`. On a toolpath that never commands power the regenerated travel leaves the
+    channel unset, so an ordinary FFF print neither gains an `M5` nor becomes unemittable on the flavors
+    that refuse the channel. Everything else the travel carries (bead, temperature, fan, tool,
+    orientation) now continues from the run it follows instead of from an arbitrary original travel.
+  - No verify rule states the beam analogue of `travel-extrudes`; `docs/14` records why not.
   - DRY0 `enc_ver` now records the **minimum reader version the body requires** (`2` only when a segment
     carries power, `1` otherwise), so every archive written before the column existed is byte-identical.
     DRY1 needs no bump: its rows are self-describing through flag bit 19, and an older reader refuses the
@@ -58,6 +66,14 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   `spec/dry-profile-v1.schema.json`. As with the 0.5.0 report fields, this is breaking only for a
   consumer validating against the *previous* published schema text, since both objects are
   `additionalProperties: false`.
+
+### Fixed
+- **`dry optimize --reorder-travel` no longer panics on a toolpath the pipeline grows.** The summary line
+  subtracted two `usize` segment counts in the reduction direction, but the aggressive pipeline can add
+  segments — `z_hop` replaces one travel with a lift/traverse/drop triple, `coasting` splits the tail off
+  a run — so the command aborted with "attempt to subtract with overflow" (debug) or reported a wrapped
+  `18446744073709550816` (release) instead of writing its `--out` file. Measured on **20 of the 28**
+  frozen gallery designs. The delta is now signed: `401 → 1201 segments (+800)`.
 
 ## [0.5.0] - 2026-08-01
 

@@ -394,6 +394,106 @@ fn arc_fit_does_not_swallow_a_power_change() {
     );
 }
 
+/// Three laser islands, each lit only while it cuts: every rapid between them is authored dark
+/// (`power 0` before the non-extruding move). Reordering them may not change that.
+fn dark_rapid_islands() -> Design {
+    design(
+        r#"[{"op":"geometry","width":0.6,"height":0.2},
+            {"op":"extruder","on":false},{"op":"move","x":10,"y":0,"z":0.2},
+            {"op":"power","level":600},
+            {"op":"extruder","on":true},{"op":"move","x":20,"y":0,"z":0.2},
+            {"op":"power","level":0},
+            {"op":"extruder","on":false},{"op":"move","x":50,"y":0,"z":0.2},
+            {"op":"power","level":300},
+            {"op":"extruder","on":true},{"op":"move","x":60,"y":0,"z":0.2},
+            {"op":"power","level":0},
+            {"op":"extruder","on":false},{"op":"move","x":30,"y":0,"z":0.2},
+            {"op":"power","level":300},
+            {"op":"extruder","on":true},{"op":"move","x":40,"y":0,"z":0.2}]"#,
+    )
+}
+
+/// Every rapid in an emitted GRBL program that runs with the beam lit, read off the program text the
+/// way the controller reads it: `S` sets the level, `M3` arms it, `M5` disarms it, all modal.
+fn lit_rapids(lines: &[String]) -> Vec<String> {
+    let mut level = 0.0_f64;
+    let mut armed = false;
+    let mut hits = Vec::new();
+    for line in lines {
+        for word in line.split_whitespace() {
+            match word {
+                "M3" => armed = true,
+                "M5" => armed = false,
+                w => {
+                    if let Some(rest) = w.strip_prefix('S') {
+                        level = rest.parse().expect("an S word carries a number");
+                    }
+                }
+            }
+        }
+        if line.starts_with("G0") && armed && level > 0.0 {
+            hits.push(format!("{line}   [beam armed at S{level}]"));
+        }
+    }
+    hits
+}
+
+fn grbl_lines(tp: &dry_core::Toolpath) -> Vec<String> {
+    let params = EmitParams {
+        flavor: dry_core::FirmwareFlavor::Grbl,
+        ..EmitParams::default()
+    };
+    dry_core::emit_stream(tp.segments.iter().cloned().map(Ok), &params).expect("grbl emit")
+}
+
+/// F1/NEW-1: the same hazard as the merge, reached through the pass that *synthesises* motion.
+/// `travel_reorder` regenerates every connecting travel; taking the beam state from an arbitrary
+/// original travel deleted two commanded `M5`s and commanded the laser **up** to S600 for a 10 mm
+/// rapid. A rapid the program authored dark must still be dark after the reorder.
+#[test]
+fn travel_reorder_leaves_a_dark_rapid_dark() {
+    let tp = resolve(&dark_rapid_islands(), &ResolveParams::default());
+    let before = grbl_lines(&tp);
+    assert!(
+        lit_rapids(&before).is_empty(),
+        "the authored program already cuts on a rapid; the fixture is wrong:\n{:#?}",
+        lit_rapids(&before)
+    );
+    let beam_offs = |l: &[String]| l.iter().filter(|x| x.as_str() == "M5").count();
+
+    let opt = dry_core::travel_reorder(&tp);
+    let after = grbl_lines(&opt);
+    assert!(
+        lit_rapids(&after).is_empty(),
+        "travel_reorder lit a rapid:\n{:#?}\nfull program:\n{after:#?}",
+        lit_rapids(&after)
+    );
+    assert_eq!(
+        beam_offs(&after),
+        beam_offs(&before),
+        "a commanded beam-off was deleted: {before:#?}\n→\n{after:#?}"
+    );
+}
+
+/// The same property through the pipeline the CLI's `--reorder-travel` and the bindings actually run,
+/// where `coasting` and `z_hop` also rewrite the stream around the reorder — `z_hop` in particular
+/// replaces each travel with three, copying its beam state onto all of them.
+#[test]
+fn optimize_aggressive_pipeline_leaves_a_dark_rapid_dark() {
+    let tp = resolve(&dark_rapid_islands(), &ResolveParams::default());
+    let opt = dry_core::optimize_aggressive_pipeline(&tp);
+    let after = grbl_lines(&opt);
+    assert!(
+        lit_rapids(&after).is_empty(),
+        "the aggressive pipeline lit a rapid:\n{:#?}\nfull program:\n{after:#?}",
+        lit_rapids(&after)
+    );
+    assert!(
+        after.iter().any(|l| l == "M5"),
+        "every commanded beam-off vanished:\n{after:#?}"
+    );
+}
+
 #[test]
 fn reverse_round_trips_the_power_channel() {
     let tp = resolve(

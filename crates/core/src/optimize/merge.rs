@@ -32,21 +32,25 @@ fn cross_mag(a: [f64; 3], b: [f64; 3]) -> f64 {
 /// compile here, and whoever adds it has to decide whether it is process state. Nothing else caught
 /// the `power` channel, and the consequence was physical — a resolved `[600, 600, 0]` coalesced to
 /// `[600, 600]`, leaving the beam lit across a move the program authored dark.
+///
+/// It is also what a pass that *synthesises* a segment must fill in (`travel::make_travel`), so the
+/// question "what state does this new move carry?" is asked once, in these terms, rather than by
+/// each pass copying fields off whatever donor segment is in scope.
 #[derive(PartialEq)]
-struct ProcessState {
-    travel: bool,
-    speed: Feedrate,
-    width: Option<Length>,
-    height: Option<Length>,
-    temperature: Option<f64>,
-    fan: Option<f64>,
-    flow: Option<f64>,
-    tool: Option<u32>,
-    power: Option<f64>,
-    orientation: Option<[f64; 3]>,
+pub(super) struct ProcessState {
+    pub(super) travel: bool,
+    pub(super) speed: Feedrate,
+    pub(super) width: Option<Length>,
+    pub(super) height: Option<Length>,
+    pub(super) temperature: Option<f64>,
+    pub(super) fan: Option<f64>,
+    pub(super) flow: Option<f64>,
+    pub(super) tool: Option<u32>,
+    pub(super) power: Option<f64>,
+    pub(super) orientation: Option<[f64; 3]>,
 }
 
-fn process_state(s: &Segment) -> ProcessState {
+pub(super) fn process_state(s: &Segment) -> ProcessState {
     let Segment {
         // Geometry: what the two segments' endpoints must satisfy is the caller's business
         // (contiguity here and in `arc_fit`, collinearity in `mergeable`).
