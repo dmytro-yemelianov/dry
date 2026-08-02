@@ -40,6 +40,9 @@ are warnings.
 | `arc-length` | error | an arc's length disagrees with its radius and swept angle | always active |
 | `filament-consistency` | **warning** | the volume-to-filament ratio changes within a single tool | always active |
 | `bead-volume` | error | deposited volume disagrees with `length × width × height × flow` | `process.bead_volume_tolerance` |
+| `rotary-travel` | error | a rotary axis is commanded outside its travel range | `machine.rotary.travel_deg` |
+| `rotary-feed` | **warning** | a rotary axis would have to turn faster than its rate limit to keep up with the move | `machine.rotary.max_feed_deg_min` |
+| `orientation-reachability` | error | an orientation puts the tool outside the machine's reachable envelope | `machine.rotary.envelope_mm` |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
@@ -59,6 +62,19 @@ flow` by design (`coasting` zeroes volume on the tail of an extrusion run; `arc_
 against an arc length), and imported IR takes `volume` from `E` while the bead comes from a user-supplied
 constant.
 
+The three **rotary** rules are contract-gated for the same reason the kinematic pair is: each states a
+property of a *machine*, not of the IR. A toolpath that tilts the tool 180° or reaches 400 mm out is
+perfectly well-formed — it is unreachable only on a machine that cannot do it, and no Dry producer can
+emit IR that violates a limit the IR does not carry. They resolve each segment's toolframe orientation
+through the profile's own rotary model, so the angles they judge are the angles the emitter will write; a
+segment with no orientation is the identity (+Z), exactly as the emitter reads it. Known limits, recorded
+rather than hidden: `orientation-reachability` maps segment **endpoints** only (an arc's swept interior is
+not mapped, so it under-reports rather than over-reports), and `rotary-feed` skips a segment Dry cannot
+time — a zero-length reorientation states no duration to divide by, which is a modelling gap rather than a
+machine-limit violation. `rotary-feed` is a **warning** because a controller does not refuse a rotary axis
+it cannot drive fast enough: it slows the whole synchronised move down, so what is wrong is the plan, not
+the geometry.
+
 `filament-consistency` ships at **warning** for one minor release before being promoted to error.
 Multi-diameter or multi-material IR is unusual but not ill-formed, and no in-tree producer emits any, so
 the release buys evidence rather than assuming it.
@@ -71,10 +87,10 @@ against no limits. A report therefore also carries:
 | Field | Meaning |
 |---|---|
 | `segments_inspected` | how many segments the pass saw; `0` is a vacuous pass |
-| `rules_evaluated` | the rule ids in force, in catalog order — clean under 11 is a weaker claim than clean under 24 |
+| `rules_evaluated` | the rule ids in force, in catalog order — clean under 11 is a weaker claim than clean under 27 |
 | `contracts` | the limits checked against, so "`max_flow` was checked" is distinguishable from "checked against 1e9" |
 
-With no contracts supplied, 11 of the 24 rules are evaluated and 9 of those can produce an error. All
+With no contracts supplied, 11 of the 27 rules are evaluated and 9 of those can produce an error. All
 three fields are optional in `spec/dry-reports-v1.schema.json`, so reports written by older engines
 remain valid; consumers pinned to the *previous* schema text will reject newer reports, which is recorded
 as a breaking change in the changelog.
