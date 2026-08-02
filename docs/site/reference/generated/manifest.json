@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "577d8f91659c71731da826aec1099eaf35210b772fb4fc45cb971da7a58fae96"
+      "sha256": "f3bdb08889972368800e9d9d00f4b67fe050a6af0969fc27b7edc83a6c053275"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
@@ -39,13 +39,13 @@
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "bea40a7fc5c2d5abaf27b34c12f617015cd91246a6f6dc3d414c13dae6b96e5d"
+      "sha256": "1086e4bfe81ebd653328a107ec520ca233023bae5416b8885c477155d93eae4f"
     }
   },
   "dynamic": {
     "cliHelp": {
       "command": "cargo run -q -p dry-cli -- --help",
-      "sha256": "442d7c0f12cde57302b74d720e9e72cdb0e9e69fabb5f0cc9cf74ce17dea3a54"
+      "sha256": "8959cc249381549b417ba5a693d89d8037808b5044f97a8dad2c53c5bfcccb50"
     }
   }
 }

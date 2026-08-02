@@ -18,7 +18,10 @@ fn license_status_without_license_reports_eval() {
     let out = bin()
         .args(["license", "status"])
         .env_remove("DRY_LICENSE")
-        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-no-license"))
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-no-license"),
+        )
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -52,7 +55,11 @@ fn activate_stores_and_status_reads_back() {
         .env("DRY_LICENSE_ALLOW_TEST_KEY", "1")
         .output()
         .unwrap();
-    assert!(ok.status.success(), "{}", String::from_utf8_lossy(&ok.stderr));
+    assert!(
+        ok.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ok.stderr)
+    );
     let st = bin()
         .args(["license", "status"])
         .env("XDG_CONFIG_HOME", &cfg)
@@ -74,7 +81,10 @@ fn eval_review_report_is_stamped_evaluation() {
     let out = bin()
         .args(["review-gcode", gcode_fixture().to_str().unwrap(), "--json"])
         .env_remove("DRY_LICENSE")
-        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-no-license"))
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-no-license"),
+        )
         .output()
         .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -107,7 +117,10 @@ fn upload_refuses_in_eval_before_any_network() {
             "http://127.0.0.1:1", // closed port: must NOT be contacted
         ])
         .env_remove("DRY_LICENSE")
-        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-no-license"))
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-no-license"),
+        )
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(2));
@@ -120,7 +133,10 @@ fn upload_refuses_in_eval_before_any_network() {
 fn garbage_token_activate_fails_cleanly() {
     let out = bin()
         .args(["license", "activate", "not-a-token"])
-        .env("XDG_CONFIG_HOME", std::env::temp_dir().join("dry-garbage-license"))
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-garbage-license"),
+        )
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(2));

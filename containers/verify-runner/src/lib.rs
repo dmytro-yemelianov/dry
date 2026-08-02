@@ -356,8 +356,18 @@ fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)
         .map_err(|e| (Stage::InputInvalid, e.to_string()))?;
 
     let contracts = profile.contracts();
-    let report = catch_unwind(AssertUnwindSafe(|| verify(&imported.toolpath, &contracts)))
+    let mut report = catch_unwind(AssertUnwindSafe(|| verify(&imported.toolpath, &contracts)))
         .map_err(|_| (Stage::EngineError, "dry-core verify panicked".to_string()))?;
+    // This container has no license resolution of its own (no env, no config file — see
+    // `crates/cli/src/main.rs`'s `resolve_license`), so it always stamps evaluation mode. That
+    // matches the reference composition in CI/tests, which never sets `DRY_LICENSE`; the CLI
+    // stamps every `dry verify --json` report (eval or licensed — see `license_stamp` in
+    // `crates/cli/src/main.rs`), so byte-identity requires this shim to do the same.
+    report.license = Some(dry_core::LicenseStamp {
+        mode: "evaluation".to_string(),
+        licensee: None,
+        tier: None,
+    });
 
     let json = serde_json::to_string_pretty(&report)
         .map_err(|e| (Stage::EngineError, format!("cannot serialize report: {e}")))?;

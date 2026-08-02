@@ -774,12 +774,19 @@ fn license_stamp(res: &LicenseResolution) -> dry_core::LicenseStamp {
     }
 }
 
-/// Emit the once-per-run stderr notice for a report-producing command: the eval banner in
-/// evaluation mode, or a grace-period warning when the active license is past its expiry but
-/// still inside the 14-day grace window. Prints nothing for a comfortably valid license.
+/// Emit the once-per-run stderr notice for a report-producing command: in evaluation mode, any
+/// specific reason `resolve_license` recorded (expired past grace, bad signature, unknown key
+/// id, malformed token) followed by the eval banner; absent that, just the eval banner. Also
+/// prints a grace-period warning when the active license is past its expiry but still inside the
+/// 14-day grace window. Prints nothing for a comfortably valid license.
 fn license_notice(res: &LicenseResolution) {
     match res {
-        LicenseResolution::Eval { .. } => eprintln!("{EVAL_BANNER}"),
+        LicenseResolution::Eval { warning } => {
+            if let Some(w) = warning {
+                eprintln!("warning: {w}");
+            }
+            eprintln!("{EVAL_BANNER}");
+        }
         LicenseResolution::Licensed(v) => {
             if let dry_license::LicenseState::Grace { days_left } = v.state {
                 eprintln!(
@@ -2009,25 +2016,28 @@ fn run(cli: Cli) -> ExitCode {
             min_temp,
             speed_range,
             json,
-        } => run_upload(UploadArgs {
-            file,
-            moonraker,
-            api_key_env,
-            timeout_s,
-            print,
-            force,
-            rewrite,
-            profile,
-            filament_diameter,
-            line_width,
-            layer_height,
-            max_flow,
-            bounds,
-            monotonic_z,
-            min_temp,
-            speed_range,
-            json,
-        }, &license),
+        } => run_upload(
+            UploadArgs {
+                file,
+                moonraker,
+                api_key_env,
+                timeout_s,
+                print,
+                force,
+                rewrite,
+                profile,
+                filament_diameter,
+                line_width,
+                layer_height,
+                max_flow,
+                bounds,
+                monotonic_z,
+                min_temp,
+                speed_range,
+                json,
+            },
+            &license,
+        ),
         Cmd::Verify {
             file,
             profile,
@@ -2844,10 +2854,7 @@ fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::Ex
 
     // License gate: refuse BEFORE any network contact, on parsed args alone.
     if matches!(license, LicenseResolution::Eval { .. }) {
-        die(
-            "dry upload requires a license — see https://dry-public-docs.pages.dev/pricing"
-                .into(),
-        );
+        die("dry upload requires a license — see https://dry-public-docs.pages.dev/pricing".into());
     }
     license_notice(license);
 

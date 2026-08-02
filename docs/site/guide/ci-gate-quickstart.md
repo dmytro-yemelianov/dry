@@ -100,7 +100,10 @@ jobs:
       - name: Review and gate
         env:
           DRY_LICENSE: ${{ secrets.DRY_LICENSE }}
-        run: dry review-gcode out/part.gcode --json | tee review.json
+        shell: bash
+        run: |
+          set -o pipefail
+          dry review-gcode out/part.gcode --json | tee review.json
 
       - name: Upload review report
         if: always()
@@ -111,8 +114,10 @@ jobs:
 ```
 
 `review-gcode` exits non-zero the moment an error-level finding is present, so the `Review and
-gate` step is the whole gate — no extra shell logic needed. Point `--profile` at a committed
-machine/material JSON if you want firmware-specific limits (temperature, flow, bounds) enforced
+gate` step is the whole gate. The `set -o pipefail` matters: without it, the step's exit status is
+`tee`'s (always 0), and an error-level finding would silently pass the build. Point `--profile` at
+a committed machine/material JSON if you want firmware-specific limits (temperature, flow, bounds)
+enforced
 instead of the defaults.
 
 ## 6. Gate the print itself: `dry upload --moonraker`
