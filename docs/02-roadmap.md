@@ -59,8 +59,29 @@ identical IR for the same design (cross-SDK conformance); the Dry IR spec publis
 **Deliverables:** the **toolframe** generalisation in L2 (orientation channel), non-planar authoring
 helpers, 5-axis IK lowering, and target dialects beyond FFF: CNC (RS-274 / STEP-NC intent), laser (GRBL),
 robot (one vendor). Splines/clothoids in L1; streaming for >1M segments.
+**Status (2026-08-02): all five items merged.** The gate is met with one asterisk that should not be
+lost: "emits **valid** programs" is earned for CNC — LinuxCNC `rs274` is a genuine independent
+interpreter and gates CI — and *not* for the robot target, where an external ANTLR grammar proves the
+KRL module parses but nothing has run it on a controller. The emitted banner says so.
+
 **Exit gate:** a non-planar and a 5-axis design lower + simulate + emit correctly on a reference machine
 model; a CNC and a laser target emit valid programs from the same IR.
+
+## Deployment track — from a gated engine to an operable service
+
+Runs **alongside** Phases 5 and 6, not after them: it is gated by product decisions and operational
+capability rather than by engine work, so it does not queue behind the oracle retirement.
+
+**Goal:** something a paying user can depend on. The engine is heavily gated; the product is not
+deployed, and no CI gate in this repo has ever served a request.
+
+**Deliverables:** one named service (today there are two divergent sketches — `containers/verify-runner`
+and the `crates/cloud` spike); observability; authentication, quota and revocation; a deploy pipeline
+with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a
+data-handling policy for uploaded programs, which are customer IP.
+
+**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). Note that "no hosted
+service" is a legitimate outcome — the CLI ships today — and choosing it removes most of this track.
 
 ## Phase 6 — Stand alone (retire the oracle)
 **Goal:** Dry is the product; the FullControl oracle is no longer needed.

@@ -147,8 +147,40 @@ verifier, so `emit` is the last gate.
 
 ## Immediate next 5 (if starting today)
 
-1. **H1.2 ingress validation** — the emit gate landed; close the paths that feed it before anything else.
-2. **H1.4 TPMS hardening** — the most-exposed generator silently emits empty programs and 8× over-extruded adaptive layers.
-3. **H1.3 verify strengthening** — segment continuity and material consistency; today "verify clean" certifies less than it reads.
-4. **FM1.5 refinement** — connect the deposition, simulation, and verifier models to binary64 Rust evidence. The audit found `proofs/` accurate but assuming a runtime finiteness gate that H1.1 has only now supplied; `FM1.VERIFIER_SOUNDNESS` is marked `refinement = "not-applicable"` where `"pending"` is the honest status, and `FM1.UNIT.NORMALIZE_CONVERT` names `units.rs` as its Rust source although no unit conversion lives there.
-5. **FM1.9 traceability** — assign normative clause identifiers and link them to registered claims.
+1. **Deployment readiness** — see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). The engine
+   is heavily gated and the product is not deployable: no authentication, no observability, no deploy
+   pipeline, and two divergent sketches of one service. That roadmap, not this list, is where the next
+   phase of work lives.
+2. **A "beam on during travel" verify rule, if `resolve` is changed first.** Declined during P5.4
+   with evidence: `resolve` emits a lit travel from a legal design because the channel is sticky, so
+   an always-on rule would refuse Dry's own output — and only 1 of 50 frozen toolpaths carries the
+   channel, with no travel segments, so a corpus probe would return the vacuous pass H1.3 exists to
+   expose. Closing it needs a semantics decision about whether `resolve` should force travels dark.
+3. **Op-vocabulary parity for `clothoid`** — `sdk/ts/src/ops.ts` is a closed union without it and the
+   Python builder has no `.clothoid()`, so an L1 node exists that two of the three published SDKs
+   cannot author. Landed as a disclosed gap, not an oversight.
+4. **A Lean model for the resolve channels** — `proofs/fixtures/resolve-channels-refinement-v0.json`
+   is generated from a semantics with no `power` channel, which is *why* a `power-does-not-propagate`
+   mutation cannot be added: it would survive and fail the checker. Until the model learns the
+   channel, the mutation corpus cannot defend it.
+5. **TPMS beyond option acceptance** — `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` covers only whether a
+   bundle is admitted, and explicitly excludes everything downstream: sampling, marching squares,
+   stitching, adaptive slicing, emitted geometry. The generator published on all three SDKs is
+   unmodelled past its front door.
+
+### Cleared since this list was last written
+
+**H1.1–H1.8 are closed and merged** — the emit gate, ingress validation on all five paths, six
+structural verify rules with a report that states its own coverage, TPMS hardening, binding-level
+rejection tests, and both CI blind spots.
+
+**FM1.5 is done**: `FM1.VERIFIER_SOUNDNESS` reads `refinement = "pending"` rather than asserting none
+was owed, and four numeric-boundary inventories now pin their epsilons against the Rust constants so
+a tolerance cannot be retuned without updating the artifact that names it.
+
+**FM1.9 is done**: 40 claims across 13 normative clauses, cross-linked and validated in CI.
+
+**Every Phase 5 item is merged.** P5.1, P5.2, P5.3, P5.4 (both halves) and P5.5. The exit gate is met
+with one honest asterisk: "emits **valid** programs" is earned for CNC, where LinuxCNC `rs274` is a
+genuine independent interpreter, and *not* for KRL, where an external grammar proves the module parses
+but nothing has run it on a controller. The banner says so.
