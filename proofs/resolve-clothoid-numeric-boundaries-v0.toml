@@ -1,0 +1,132 @@
+schema_version = 1
+model = "resolve-clothoid-numeric-boundaries-v0"
+scope = "The binary64 boundary of crates/core/src/clothoid.rs: the Fresnel series that evaluates the Euler spiral, the exact refusals that decide whether a corner has a symmetric clothoid blend at all, and the fixed-count sampling that turns the solved spiral into the line segments `resolve` lowers to."
+numeric_profile_id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0"
+
+[[source]]
+path = "crates/core/src/clothoid.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "16483734a79143af7d9a5761178f1ff79a0c61db3288cf9ee53a3c60e50cf43e"
+
+# The slice is `validate_design_geometry`'s clothoid arm: the one place that establishes the
+# CORNER_SOLVE assumption "the gate and the lowering run the same solve on the same numbers". The
+# `Op` enum's own shape is not re-pinned here — `feature-numeric-boundaries-v0` already pins that
+# slice as its input domain, and one pin per fact is enough.
+[[source]]
+path = "crates/core/src/resolve.rs"
+role = "input-domain"
+hash_mode = "slice"
+anchor_start = "                let start = [pos[0].unwrap_or(0.0), pos[1].unwrap_or(0.0)];"
+anchor_end = "                let mut running = ["
+sha256 = "6cb9866747b5e1b00b3b051a371f059cfd8e51bad97be9d7f55d42f85646a421"
+
+# ---------------------------------------------------------------------------------------------
+# Three boundaries, and the reason they are three rather than one.
+#
+# The node's numerics split cleanly by *what can go wrong*. The series is an approximation with an
+# error (bounded, measured against something outside Dry). The corner solve is a set of exact
+# rejections with no epsilon at all — every one of them is a comparison against zero or against a
+# supplied length — and its failure mode is a refusal, not a wrong number. The sampling is a
+# deterministic discretisation whose error is geometric and scales with the blend, and it is the only
+# one of the three a user can see in the emitted program.
+#
+# This is a separate inventory from `feature-numeric-boundaries-v0` even though that one pins
+# `resolve.rs` too: that model is scoped to `features.rs` and pins the `Op` enum only as an input
+# domain, and its boundaries are about a planar pose transform, not about a transcendental series.
+# ---------------------------------------------------------------------------------------------
+
+[[boundary]]
+id = "FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"
+title = "The Euler spiral's Fresnel integrals are summed to a relative term threshold, not an absolute one"
+rust_symbol = "fresnel_with_terms"
+source_path = "crates/core/src/clothoid.rs"
+source_anchor = "pub const FRESNEL_SERIES_EPSILON: f64 = 1e-17;"
+inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
+operation = "Cf(t) and Sf(t) are summed from their Maclaurin series by term ratio, each stopping when |term| <= 1e-17 * |partial sum| or at a 32-term cap. A sampled spiral point is A*Cf(tau) with A = blend / (Cf(sigma) + Sf(sigma)*tan(theta)); the relative threshold is what makes the position error a fixed fraction of `blend` rather than a fixed fraction of A, which is unbounded above as the deflection shrinks."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "libm::cos and libm::sin are within 1 ulp (the imported contract in proofs/libm-0.2.16-trig-contract.md). They are not used by the series itself, which is polynomial, but they are used by the composite-Simpson quadrature the series is measured against, so the measurement inherits the assumption.",
+  "The argument never exceeds sqrt(pi): a corner deflects by strictly less than 180 degrees, so theta < pi/2 and sigma = sqrt(2*theta) < sqrt(pi). The larger-argument regime, where this series loses to the asymptotic form, is unreachable from the node.",
+  "The alternating terms decrease monotonically past the second one across that whole argument range, so the truncation error is bounded by the first omitted term.",
+]
+exclusions = [
+  "Arguments above sqrt(pi). Nothing in the node produces one; a caller reaching `fresnel` directly for a longer spiral is outside this bound.",
+  "The rounding error of the summation itself, which is folded into the measured agreement with quadrature rather than analysed term by term.",
+  "The accuracy of the composite-Simpson reference beyond its own arithmetic: 2^16 intervals put its truncation error far below its accumulated rounding, and the published ceiling is that rounding floor, not the series error.",
+]
+next_obligation = "If the node ever admits a spiral longer than one turn of a corner — a standalone spiral op, or an asymmetric blend — re-derive the argument bound before reusing this series; the entry is scoped to sigma < sqrt(pi) and says so."
+evidence = [
+  "crates/core/src/clothoid.rs",
+  "crates/core/tests/clothoid.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.FRESNEL_ARGUMENT",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.FRESNEL_SERIES_TERM_THRESHOLD",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.FRESNEL_ABS_ERROR",
+]
+
+[[boundary]]
+id = "FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE"
+title = "A corner with no symmetric clothoid blend is refused exactly, never clamped into one that fits"
+rust_symbol = "corner_blend"
+source_path = "crates/core/src/clothoid.rs"
+source_anchor = "    if blend > incoming_len {"
+inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
+operation = "Five ordered rejections, each an exact comparison: zero-length incoming leg, zero-length outgoing leg, blend exceeding either leg, deflection exactly zero, deflection exactly pi. A sixth is an is_finite test on everything the solve produced, so an overflowed corner is refused rather than reaching Length::mm. None of the six carries an epsilon, and none substitutes a nearby corner for the one supplied."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = [
+  "atan2 returns exactly PI for exactly antiparallel unit legs and exactly 0.0 for exactly codirectional ones, which is what makes the two angular rejections exact rather than thresholded.",
+  "Both refusals run in `validate_design_geometry` before the lowering, over the same helper and the same numbers, so a corner that lowers is exactly a corner that validated.",
+]
+exclusions = [
+  "Deflections arbitrarily close to 0 or pi, which are *not* refused: both have finite solutions (a nearly straight blend, and a tight U-turn respectively), and the leg-fit check is what bounds them. Refusing a band around either endpoint would be a magnitude policy of the kind ADR 0002 section 2 rejects.",
+  "Whether a machine can execute the resulting corner. The rule states only that the corner exists and closes.",
+  "The Z coordinate, which `resolve` interpolates along the solved XY path and which no rejection here inspects.",
+]
+next_obligation = "If the node ever grows an asymmetric blend (different tangent lengths per leg), the single blend-versus-leg rule splits into two independent ones and this entry must list them separately, since a caller could then overrun one leg while satisfying the other."
+evidence = [
+  "crates/core/src/clothoid.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/tests/clothoid.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.DEFLECTION_RAD",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.LIMIT.BLEND_TO_LEG_RATIO",
+]
+
+[[boundary]]
+id = "FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"
+title = "The blend is lowered as a fixed 2*SAMPLES chord polyline whose departure from the spiral scales with the blend"
+rust_symbol = "corner_blend"
+source_path = "crates/core/src/clothoid.rs"
+source_anchor = "    let mut points = Vec::with_capacity(2 * SAMPLES);"
+inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "resolve::SAMPLES"]
+operation = "Each half is sampled at 16 uniform steps of the normalised arc length tau, giving 32 chords for the whole blend, and `resolve` emits them as plain SegmentKind::Line segments. The count is fixed rather than tolerance-driven, exactly as it is for a Catmull-Rom span, so the number of segments a design produces is a function of the design alone and not of its scale."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "The Fresnel parameterisation is unit-speed, so uniform steps in tau are uniform in arc length and the chords are of equal length up to curvature; that is what makes a single relative deviation bound cover the whole blend.",
+  "The blend never turns by more than 180 degrees in total, so no chord subtends more than 5.625 degrees of tangent rotation.",
+]
+exclusions = [
+  "Any adaptive or tolerance-driven subdivision: there is none, and a user who needs a tighter chord must ask for a smaller blend or, in a later slice, a configurable sample count.",
+  "The departure of the *straight legs* from anything, which is zero by construction — they are straight.",
+  "Whether 32 chords is the right count for a given machine's look-ahead. That is a process question, not a numeric one.",
+]
+next_obligation = "If SAMPLES ever becomes configurable, the published deviation ceiling becomes a function of it and this entry must state the count it was measured at."
+evidence = [
+  "crates/core/src/clothoid.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/tests/clothoid.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CHORD_DEVIATION_PER_BLEND_MM",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.CURVATURE_LINEARITY_RELATIVE_ERROR",
+  "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0.BUDGET.JOINT_CLOSURE_MM",
+]

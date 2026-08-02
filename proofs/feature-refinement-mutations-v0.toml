@@ -1,7 +1,7 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
 source = "crates/core/src/features.rs"
-source_sha256 = "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946"
+source_sha256 = "7f7dcc95e61d8e44d264a557ae5d1332132d1387c26d71994135f7335486fd86"
 test = "crates/core/tests/feature_refinement.rs"
 
 [[mutation]]
@@ -60,11 +60,21 @@ new = '''
 id = "arc-end-before-start"
 witness = "arc-requires-local-start-before-end"
 description = "Validate an arc endpoint before its required local start."
+# The two lines this reorders are byte-identical in the `Op::Clothoid` arm that P5.5 added, so the
+# snippet now carries the arc arm's own `clockwise,` field to stay uniquely anchored. The mutated
+# bytes are unchanged; only the context that locates them grew. The clothoid arm's equivalent
+# ordering is deliberately *not* mutation-covered — the Lean refinement corpus has no clothoid op, so
+# there is no witness fixture to kill such a mutation — and is pinned instead by
+# `a_clothoid_in_a_feature_needs_a_defined_local_start` in crates/core/tests/clothoid.rs.
 old = '''
+                clockwise,
+            } => {
                 require_defined_position(position, &op_path)?;
                 let local = inherit_point([*x, *y, *z], position, &op_path)?;
 '''
 new = '''
+                clockwise,
+            } => {
                 let local = inherit_point([*x, *y, *z], position, &op_path)?;
                 require_defined_position(position, &op_path)?;
 '''

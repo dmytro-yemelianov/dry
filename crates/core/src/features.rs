@@ -347,6 +347,34 @@ fn expand_feature_ops(
                     clockwise: *clockwise,
                 }
             }
+            Op::Clothoid {
+                corner_x,
+                corner_y,
+                x,
+                y,
+                z,
+                blend,
+            } => {
+                require_defined_position(position, &op_path)?;
+                let local = inherit_point([*x, *y, *z], position, &op_path)?;
+                position = local.map(Some);
+                let end = transform.apply_point(local);
+                let corner = transform.apply_xy([
+                    require_finite(*corner_x, &format!("{op_path}.corner_x"))?,
+                    require_finite(*corner_y, &format!("{op_path}.corner_y"))?,
+                ]);
+                // `blend` rides through untransformed: the pose is a Z rotation plus a translation,
+                // which is rigid, so a tangent length is invariant under it. It is copied, not
+                // recomputed — no arithmetic touches it.
+                Op::Clothoid {
+                    corner_x: corner[0],
+                    corner_y: corner[1],
+                    x: Some(end[0]),
+                    y: Some(end[1]),
+                    z: Some(end[2]),
+                    blend: *blend,
+                }
+            }
             Op::Spline { points } => {
                 if !points.is_empty() {
                     require_defined_position(position, &op_path)?;

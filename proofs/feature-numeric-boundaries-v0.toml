@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 path = "crates/core/src/features.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946"
+sha256 = "7f7dcc95e61d8e44d264a557ae5d1332132d1387c26d71994135f7335486fd86"
 
 [[source]]
 path = "crates/core/src/resolve.rs"
@@ -15,7 +15,7 @@ role = "input-domain"
 hash_mode = "slice"
 anchor_start = "pub enum Op {"
 anchor_end = "\n\n/// Intermediate samples emitted per Catmull-Rom span"
-sha256 = "94b2d41616553450eff0a993815244b6e33f79458e0bed05a8737c959ba784e9"
+sha256 = "44adfea38fa64d53d41e003189a369d59726c089dfc4f14234de09efb567334e"
 
 [[boundary]]
 id = "FM1.F64.FEATURE.POSE.FINITE"
@@ -52,11 +52,11 @@ profile_entries = [
 
 [[boundary]]
 id = "FM1.F64.FEATURE.COORDINATE.INHERIT"
-title = "Move, arc-end and spline coordinates are inherited without arithmetic and then checked finite"
+title = "Move, arc-end, spline and clothoid-end coordinates are inherited without arithmetic and then checked finite"
 rust_symbol = "inherit_point"
 source_path = "crates/core/src/features.rs"
 source_anchor = "let value = point[axis].or(position[axis]).ok_or_else(|| {"
-inputs = ["Op::Move.{x,y,z}", "Op::Arc.{x,y,z}", "Op::Spline.points[*][*]", "running local position"]
+inputs = ["Op::Move.{x,y,z}", "Op::Arc.{x,y,z}", "Op::Spline.points[*][*]", "Op::Clothoid.{x,y,z}", "running local position"]
 operation = "Select the supplied coordinate or the prior local coordinate; reject missing and non-finite values."
 classification = "exact-in-range"
 numeric_status = "bounded"
@@ -257,15 +257,18 @@ profile_entries = [
 
 [[boundary]]
 id = "FM1.F64.FEATURE.APPLY.POINT"
-title = "Moves, arc endpoints and spline controls receive a rounded planar point transform"
+title = "Moves, arc endpoints, spline controls and clothoid end points receive a rounded planar point transform"
 rust_symbol = "Transform::apply_point"
 source_path = "crates/core/src/features.rs"
 source_anchor = "fn apply_point(self, point: [f64; 3]) -> [f64; 3] {"
-inputs = ["finite inherited Move point", "finite inherited Arc endpoint", "finite inherited Spline control point", "Transform coefficients and translation"]
+inputs = ["finite inherited Move point", "finite inherited Arc endpoint", "finite inherited Spline control point", "finite inherited Clothoid end point", "Transform coefficients and translation"]
 operation = "Apply a planar vector rotation and add XYZ translation."
 classification = "interval-bounded"
 numeric_status = "bounded"
-assumptions = ["Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions."]
+assumptions = [
+  "Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions.",
+  "Op::Clothoid.blend rides through the clothoid arm as a bit copy, not through this transform: a pose is a Z rotation plus a translation, which is rigid, so a tangent length is invariant under it and no arithmetic is applied.",
+]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
 next_obligation = "Generalize the selected nested cardinal corpus to every tree-application premise, prove output finiteness and tighten the conservative 2^31 mm XY ceiling."
@@ -299,11 +302,11 @@ profile_entries = [
 
 [[boundary]]
 id = "FM1.F64.FEATURE.APPLY.ARC.CENTER"
-title = "Arc centres receive a rounded planar point transform"
+title = "Arc centres and clothoid corners receive a rounded planar point transform"
 rust_symbol = "Transform::apply_xy"
 source_path = "crates/core/src/features.rs"
 source_anchor = "fn apply_xy(self, point: [f64; 2]) -> [f64; 2] {"
-inputs = ["Op::Arc.cx", "Op::Arc.cy", "Transform coefficients and XY translation"]
+inputs = ["Op::Arc.cx", "Op::Arc.cy", "Op::Clothoid.corner_x", "Op::Clothoid.corner_y", "Transform coefficients and XY translation"]
 operation = "Two planar multiply-add/subtract expressions rotate and translate the centre."
 classification = "interval-bounded"
 numeric_status = "bounded"
@@ -386,13 +389,13 @@ profile_entries = [
 
 [[boundary]]
 id = "FM1.F64.FEATURE.ARC.CENTER.FINITE"
-title = "Arc-centre fields reject non-finite values before transform arithmetic"
+title = "Arc-centre and clothoid-corner fields reject non-finite values before transform arithmetic"
 rust_symbol = "expand_feature_ops"
 source_path = "crates/core/src/features.rs"
 source_anchor = '''require_finite(*cx, &format!("{op_path}.cx"))?,
                     require_finite(*cy, &format!("{op_path}.cy"))?,'''
-inputs = ["Op::Arc.cx", "Op::Arc.cy"]
-operation = "After local-start and endpoint validation, check cx then cy with is_finite; the first non-finite field returns ExpandError."
+inputs = ["Op::Arc.cx", "Op::Arc.cy", "Op::Clothoid.corner_x", "Op::Clothoid.corner_y"]
+operation = "After local-start and endpoint validation, check cx then cy with is_finite; the first non-finite field returns ExpandError. Op::Clothoid.{corner_x,corner_y} take the same ordered gate through the same helper."
 classification = "rejected"
 numeric_status = "not-applicable"
 assumptions = ["Rust f64::is_finite classifies NaN and both infinities as non-finite."]
@@ -487,7 +490,10 @@ operation = "Clone the Op value; feature expansion performs no floating-point ar
 classification = "pass-through"
 numeric_status = "not-applicable"
 assumptions = ["The complete Op enum in crates/core/src/resolve.rs is pinned as an input-domain source."]
-exclusions = ["Validity, units, range checks and downstream resolver arithmetic for these payloads."]
+exclusions = [
+  "Validity, units, range checks and downstream resolver arithmetic for these payloads.",
+  "Op::Clothoid, reviewed against this list when the pinned Op enum gained it: it is geometric, so it has its own transformed arm rather than reaching the clone, and its numerics are covered by FM1.F64.FEATURE.APPLY.POINT and FM1.F64.FEATURE.APPLY.ARC.CENTER.",
+]
 exact_envelope = ["Every cloned f64 payload preserves its binary64 bit pattern."]
 next_obligation = "Review and update this list whenever the pinned Op enum changes."
 evidence = []

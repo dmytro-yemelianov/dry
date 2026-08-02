@@ -62,8 +62,11 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         self.assertIn("profile 9 limits/17 budgets", result.stdout)
 
     def test_source_hash_drift_is_rejected(self) -> None:
+        # Read the pinned digest rather than spelling it out: a literal here goes stale every time
+        # features.rs is touched, and a stale literal turns the corruption into a no-op.
+        document = tomllib.loads(self.repository_inventory())
         contents = self.repository_inventory().replace(
-            "e97355ff5d0e03095ae5d9b2e2305bdfe0e466e4fe312650018fdcbd8e514946",
+            document["source"][0]["sha256"],
             "0" * 64,
             1,
         )

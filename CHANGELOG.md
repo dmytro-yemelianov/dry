@@ -20,6 +20,37 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   `design.json` is **outside** the IR v0 codec contract: no `spec/` schema, and a format-conformant
   reader never needs it (`docs/10` §9). The fixture is not oracle-backed — FullControl is 3-axis — and
   its `description` says so, along with what does back it.
+
+- **A clothoid (Euler-spiral) corner blend in L1 (#182, P5.5).** The new `Op::Clothoid` rounds the
+  corner at an XY construction vertex with a symmetric pair of Euler spirals, consuming a `blend`
+  tangent length from each leg:
+  `{"op":"clothoid","corner_x":20,"corner_y":0,"x":20,"y":20,"z":0.2,"blend":4}`. Curvature is linear
+  in arc length through the whole blend and zero where it meets each straight leg, so the corner is
+  curvature-continuous — which a circular fillet is not, and which a Catmull-Rom spline only
+  approximates.
+  - **A standalone op whose geometry is a corner blend**, rather than a blend parameter on `Op::Move`.
+    A parameter would need lookahead, which `resolve`'s single forward pass and
+    `validate_design_geometry`'s matching walk do not have, and would change the wire form of the op
+    every design already uses. The rationale is written out in `crates/core/src/clothoid.rs`.
+  - It carries the same field shape as `Op::Arc` on purpose: an XY construction point the path never
+    visits, an end point that inherits unset axes from the running position, and a Z that rises
+    linearly along the planar path.
+  - **Nothing downstream learns a new kind.** `resolve` lowers the node to `2·SAMPLES` plain
+    `SegmentKind::Line` segments plus its two straight legs, so the IR, both binary codecs, `verify`,
+    `optimize` and every emitter are unchanged, and `spec/dry-ir-v0.schema.json` is untouched.
+  - **Degenerate corners are refused, never clamped** (ADR 0002 §4): a zero-length leg, a zero
+    deflection, an exact 180° reversal, a blend longer than the leg it is consumed from, and a corner
+    whose solve overflows binary64. The last one is refused inside the solve rather than left to
+    `require_finite_toolpath`, so this path never hands a non-finite coordinate to `Length::mm`.
+  - **The series tolerance is published** as the fourth numeric-boundary inventory,
+    `proofs/resolve-clothoid-numeric-boundaries-v0.toml` with
+    `proofs/resolve-clothoid-numeric-profile-v0.toml` (three boundaries, three limits, five budgets).
+    `FRESNEL_SERIES_EPSILON` is pinned against the Rust constant by
+    `tools/validate_numeric_boundaries.py`, so retuning it fails CI. The measured ceilings — Fresnel
+    agreement with independent quadrature, curvature linearity, chord deviation per mm of blend, and
+    joint closure — are each guarded by the test that measured them.
+  - Rust authoring: `DesignBuilder::clothoid_to`. **Not yet in the Python or TypeScript builders** —
+    both SDKs can author the node only as raw op JSON until a parity slice adds a typed method.
 - **The reference 5-axis machine has limits, and three rules that check them (#180 gaps 1–2).**
   `REFERENCE_FIVE_AXIS_MACHINE` described a B/C kinematic mapping and nothing else — no rotary travel,
   no rotary rate, no envelope — so "emits valid 5-axis g-code" was not a checkable claim. Profiles gain
