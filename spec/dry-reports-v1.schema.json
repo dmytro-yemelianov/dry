@@ -85,7 +85,56 @@
             "max_acceleration_mm_s2": { "type": "number" },
             "max_junction_velocity_mm_s": { "type": "number" }
           }
+        },
+        "rotary": {
+          "description": "Rotary-axis limits and reachable workspace of a 5-axis machine. `model` is the rotary mapping the orientations were resolved through — the same one the emitter uses — and is always echoed so the angles in a finding can be reproduced.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model"],
+          "properties": {
+            "model": { "$ref": "#/$defs/Kinematics" },
+            "travel_deg": {
+              "description": "Per-axis rotary travel [min,max] in degrees, keyed by axis letter. An absent axis is unconstrained.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "a": { "$ref": "#/$defs/Range" },
+                "b": { "$ref": "#/$defs/Range" },
+                "c": { "$ref": "#/$defs/Range" }
+              }
+            },
+            "max_rotary_feed_deg_min": { "type": "number" },
+            "envelope_mm": {
+              "description": "[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]] in mm, in MACHINE coordinates (after the rotation is applied) — not the build volume.",
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "$ref": "#/$defs/Range" }
+            }
+          }
         }
+      }
+    },
+    "Range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
+    "Kinematics": {
+      "description": "A 5-axis rotary model: which two rotary axes carry the toolframe orientation, plus mechanical offsets.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pivot_offset", "rotary_offset"],
+      "properties": {
+        "type": { "type": "string", "enum": ["ab", "ac", "bc"] },
+        "pivot_offset": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number" }
+        },
+        "rotary_offset": { "$ref": "#/$defs/Range" }
       }
     },
     "VerifyReport": {

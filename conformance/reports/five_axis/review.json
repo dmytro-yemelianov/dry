@@ -1,0 +1,40 @@
+{
+  "file": null,
+  "profile": null,
+  "segments": 5,
+  "metrics": {
+    "total_time_s": 27.5,
+    "print_time_s": 20.5,
+    "travel_time_s": 7.0,
+    "extruding_distance": 40.0,
+    "travel_distance": 70.0,
+    "extruded_volume": 3.2,
+    "filament_length": 1.32,
+    "segment_count": 5,
+    "max_flow_rate": 8.0
+  },
+  "findings": [
+    {
+      "rule": "rotary-feed",
+      "severity": "warning",
+      "segment": 1,
+      "source_line": null,
+      "message": "rotary axis B must sweep 90.000° in 0.1000 s, a rate of 54000 °/min over the limit of 3600"
+    },
+    {
+      "rule": "rotary-travel",
+      "severity": "error",
+      "segment": 2,
+      "source_line": null,
+      "message": "rotary axis B is commanded to 180.000°, outside its travel range [0, 120]°"
+    },
+    {
+      "rule": "orientation-reachability",
+      "severity": "error",
+      "segment": 4,
+      "source_line": null,
+      "message": "at C0.000 B90.000 the point [100, 0, 0.2] sits at machine Z = -100.000, outside the reachable envelope [-50, 300]"
+    }
+  ],
+  "error_count": 2
+}

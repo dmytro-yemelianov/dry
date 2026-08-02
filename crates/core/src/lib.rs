@@ -53,7 +53,7 @@ pub use compare::{
 pub use emit::emit;
 pub use emit::{
     emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
-    Kinematics, REFERENCE_FIVE_AXIS_MACHINE,
+    Kinematics, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
@@ -89,7 +89,7 @@ pub use optimize::{
 };
 pub use profile::{
     import_klipper, FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineKinematics,
-    MachineProfile, MaterialProfile, ProcessProfile, Profile, ProfileError,
+    MachineProfile, MachineRotary, MaterialProfile, ProcessProfile, Profile, ProfileError,
 };
 pub use recommend::{
     apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
@@ -109,5 +109,6 @@ pub use trace::{
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
     catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
-    Contracts, Finding, KinematicContracts, Report, Rule, RuleId, Severity,
+    Contracts, Finding, KinematicContracts, Report, RotaryContracts, RotaryTravelRanges, Rule,
+    RuleId, Severity,
 };

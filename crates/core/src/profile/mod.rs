@@ -6,7 +6,7 @@
 use crate::emit::{CncFrame, EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
-use crate::verify::Contracts;
+use crate::verify::{Contracts, RotaryContracts, RotaryTravelRanges};
 use serde::{Deserialize, Serialize};
 
 pub mod klipper;
@@ -116,6 +116,30 @@ pub struct MachineProfile {
     /// (RS-274 renderer, Task 5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cnc: Option<CncFrame>,
+    /// What the rotary axes of the `five_axis` machine can actually do: their travel, their rate, and
+    /// the workspace the tool has to stay inside once the rotation is applied. Absent leaves the three
+    /// rotary verifier rules unevaluated — a 5-axis model with no stated limits can judge nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotary: Option<MachineRotary>,
+}
+
+/// Rotary-axis limits and reachable workspace for a 5-axis machine.
+///
+/// Optional and additive, and independent of `five_axis`: the model says how an orientation *maps* onto
+/// rotary words, this says which of those words the machine can reach.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct MachineRotary {
+    /// Per-axis travel `[min, max]` in degrees, keyed by axis letter (`a`/`b`/`c`). An axis with no
+    /// range is unconstrained — an axis that turns continuously has no travel limit to state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub travel_deg: Option<RotaryTravelRanges>,
+    /// Maximum rate for any rotary axis, in deg/min.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_feed_deg_min: Option<f64>,
+    /// The reachable workspace `[[x_lo, x_hi], [y_lo, y_hi], [z_lo, z_hi]]` in mm, in **machine**
+    /// coordinates. Distinct from `build_volume`, which is in programmed workpiece coordinates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub envelope_mm: Option<[[f64; 2]; 3]>,
 }
 
 /// Deterministic kinematic limits used to shape cornering speed in `balanced` mode.
@@ -302,6 +326,19 @@ impl Profile {
                 .validate()
                 .map_err(|error| ProfileError::new(format!("machine.five_axis {error}")))?;
         }
+        if let Some(rotary) = &self.machine.rotary {
+            if let Some(travel) = &rotary.travel_deg {
+                for (axis, range) in [("a", travel.a), ("b", travel.b), ("c", travel.c)] {
+                    validate_range(&format!("machine.rotary.travel_deg.{axis}"), range)?;
+                }
+            }
+            validate_positive("machine.rotary.max_feed_deg_min", rotary.max_feed_deg_min)?;
+            if let Some(envelope) = rotary.envelope_mm {
+                for (axis, range) in ["X", "Y", "Z"].into_iter().zip(envelope) {
+                    validate_range(&format!("machine.rotary.envelope_mm {axis}"), Some(range))?;
+                }
+            }
+        }
         if let Some(cnc) = &self.machine.cnc {
             if let Some(wcs) = cnc.wcs {
                 if !(54..=59).contains(&wcs) {
@@ -374,6 +411,19 @@ impl Profile {
                     max_acceleration_mm_s2: k.max_acceleration_mm_s2,
                     max_junction_velocity_mm_s: k.max_junction_velocity_mm_s,
                 }
+            }),
+            // The rotary rules resolve orientations through the model the *emitter* would use for this
+            // profile, which is `five_axis` when it names one and the reference machine otherwise —
+            // the same fallback `emit_params` applies, so verify and emit cannot disagree about which
+            // angles a toolframe produces.
+            rotary: self.machine.rotary.as_ref().map(|r| RotaryContracts {
+                model: self
+                    .machine
+                    .five_axis
+                    .unwrap_or(REFERENCE_FIVE_AXIS_MACHINE),
+                travel_deg: r.travel_deg,
+                max_rotary_feed_deg_min: r.max_feed_deg_min,
+                envelope_mm: r.envelope_mm,
             }),
         }
     }
@@ -583,6 +633,88 @@ mod tests {
 
         let resolve = profile.resolve_params();
         assert_eq!(resolve.dia, 1.75);
+    }
+
+    #[test]
+    fn rotary_limits_lower_into_contracts_under_the_profile_s_own_model() {
+        let profile = Profile::from_json(
+            r#"{
+              "version": 1,
+              "machine": {
+                "five_axis": "ac",
+                "rotary": {
+                  "travel_deg": {"a": [0, 110]},
+                  "max_feed_deg_min": 5400,
+                  "envelope_mm": [[-300, 300], [-300, 300], [-60, 400]]
+                }
+              }
+            }"#,
+        )
+        .unwrap();
+
+        let rotary = profile
+            .contracts()
+            .rotary
+            .expect("machine.rotary produces a rotary contract");
+        // The model comes from `five_axis`, not from the reference default, so the A word this
+        // profile's travel range constrains is the A word its own machine would emit.
+        assert_eq!(rotary.model, Kinematics::named("ac").unwrap());
+        assert_eq!(rotary.travel_deg.unwrap().range('A'), Some([0.0, 110.0]));
+        assert_eq!(rotary.travel_deg.unwrap().range('B'), None);
+        assert_eq!(rotary.max_rotary_feed_deg_min, Some(5400.0));
+        assert_eq!(rotary.envelope_mm.unwrap()[2], [-60.0, 400.0]);
+    }
+
+    #[test]
+    fn rotary_limits_default_to_the_same_model_emit_would_use() {
+        let profile = Profile::from_json(
+            r#"{"version":1,"machine":{"rotary":{"travel_deg":{"b":[0,120]}}}}"#,
+        )
+        .unwrap();
+        let rotary = profile.contracts().rotary.unwrap();
+        assert_eq!(rotary.model, profile.emit_params().kinematics);
+        assert_eq!(rotary.model, REFERENCE_FIVE_AXIS_MACHINE);
+    }
+
+    #[test]
+    fn a_profile_without_rotary_limits_evaluates_no_rotary_rule() {
+        let profile = Profile::from_json(r#"{"version":1,"machine":{"five_axis":"bc"}}"#).unwrap();
+        let contracts = profile.contracts();
+        assert!(
+            contracts.rotary.is_none(),
+            "a 5-axis model with no stated limits can judge nothing, and must not pretend to"
+        );
+        for rule in [
+            crate::verify::RuleId::RotaryTravel,
+            crate::verify::RuleId::RotaryFeed,
+            crate::verify::RuleId::OrientationReachability,
+        ] {
+            assert!(!rule.is_evaluated(&contracts));
+        }
+    }
+
+    #[test]
+    fn rotary_validation_rejects_bad_values() {
+        for (needle, json) in [
+            (
+                "machine.rotary.travel_deg.b",
+                r#"{"version":1,"machine":{"rotary":{"travel_deg":{"b":[120,0]}}}}"#,
+            ),
+            (
+                "machine.rotary.max_feed_deg_min",
+                r#"{"version":1,"machine":{"rotary":{"max_feed_deg_min":0}}}"#,
+            ),
+            (
+                "machine.rotary.envelope_mm Z",
+                r#"{"version":1,"machine":{"rotary":{"envelope_mm":[[0,1],[0,1],[9,0]]}}}"#,
+            ),
+        ] {
+            let err = Profile::from_json(json).unwrap_err();
+            assert!(
+                err.to_string().contains(needle),
+                "expected {needle} error, got: {err}"
+            );
+        }
     }
 
     #[test]

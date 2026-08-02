@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 path = "crates/core/src/emit/kinematics.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "57dbec64924d317243c4b06db506a293a154a4eb00779a3ad3e15f146447fca0"
+sha256 = "fd09ca3524609fffd2a87e934decc015f7642e7bc39de574105663a1b08138c1"
 
 # ---------------------------------------------------------------------------------------------
 # The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in

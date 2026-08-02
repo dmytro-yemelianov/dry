@@ -142,7 +142,7 @@ export interface Report {
    * Optional so reports produced by engines older than Dry 0.5 stay assignable to this type.
    */
   segments_inspected?: number;
-  /** The rule ids that were in force. "Clean under 11 rules" is a weaker claim than under 24. */
+  /** The rule ids that were in force. "Clean under 11 rules" is a weaker claim than under 27. */
   rules_evaluated?: string[];
   /** The limits the toolpath was checked against. */
   contracts?: Record<string, unknown>;

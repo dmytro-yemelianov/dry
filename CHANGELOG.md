@@ -9,6 +9,33 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **The reference 5-axis machine has limits, and three rules that check them (#180 gaps 1–2).**
+  `REFERENCE_FIVE_AXIS_MACHINE` described a B/C kinematic mapping and nothing else — no rotary travel,
+  no rotary rate, no envelope — so "emits valid 5-axis g-code" was not a checkable claim. Profiles gain
+  an optional `machine.rotary` block (`travel_deg` per axis letter, `max_feed_deg_min`, `envelope_mm` in
+  *machine* coordinates), and `dry_core::REFERENCE_FIVE_AXIS_LIMITS` is a worked set of them for the
+  reference machine. **Those numbers are illustrative, not any real machine's datasheet**, and nothing
+  applies them implicitly: a profile with no `machine.rotary` block is unaffected.
+  - `rotary-travel` (error, gated on `machine.rotary.travel_deg`) — a rotary word outside its axis's
+    travel range.
+  - `rotary-feed` (**warning**, gated on `machine.rotary.max_feed_deg_min`) — the rotary sweep a segment
+    asks for, over the segment's own motion time, exceeds the axis rate. A warning because a controller
+    does not refuse: it slows the whole synchronised move down, so the plan is wrong, not the geometry.
+  - `orientation-reachability` (error, gated on `machine.rotary.envelope_mm`) — the machine position an
+    orientation implies, through the same transform the emitter applies, is outside the reachable
+    envelope. Distinct from `bounds`, which checks programmed workpiece coordinates.
+
+  All three are **contract-gated, never always-on**: each states a property of a machine, not of the IR,
+  so no 3-axis report changes and every existing golden is byte-identical. They resolve orientations
+  through the profile's own `machine.five_axis` model (the reference machine when it names none — the
+  same fallback `emit_params` uses), so the angles judged are the angles the emitter writes.
+- `Contracts` gained an optional `rotary` object and the rule catalog went 24 → 27, both additive in
+  `spec/dry-reports-v1.schema.json`; `machine.five_axis` and `machine.rotary` are documented in
+  `spec/dry-profile-v1.schema.json`. As with the 0.5.0 report fields, this is breaking only for a
+  consumer validating against the *previous* published schema text, since both objects are
+  `additionalProperties: false`.
+
 ## [0.5.0] - 2026-08-01
 
 ### BREAKING

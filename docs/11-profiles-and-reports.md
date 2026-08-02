@@ -33,6 +33,10 @@ schema validates the canonical names.
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
 | `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
+| `machine` | `five_axis` | `"ab"` / `"ac"` / `"bc"`, or an object with `type` + `pivot_offset` + `rotary_offset` | — | how a toolframe orientation maps onto two rotary words; absent ⇒ the reference B/C machine |
+| `machine` | `rotary.travel_deg` | `{a?,b?,c?}` of `[min,max]` degrees | — | per-axis rotary travel; an absent axis is unconstrained |
+| `machine` | `rotary.max_feed_deg_min` | deg/min > 0 | — | maximum rate for any rotary axis |
+| `machine` | `rotary.envelope_mm` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | — | reachable workspace in **machine** coordinates (not the build volume) |
 | `machine` | `cnc.wcs` | integer 54–59 | — | work offset, emitted as `G54`…`G59`; absent ⇒ `G54` |
 | `machine` | `cnc.tool` | integer ≥ 0 | — | emits `T<n> M6`; absent ⇒ no tool change |
 | `machine` | `cnc.spindle_rpm` | RPM > 0 | — | emits `S<rpm> M3`, and `M5` at program end; absent ⇒ neither |
@@ -52,8 +56,9 @@ schema validates the canonical names.
 
 Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive
 fields are finite and `> 0`; range fields are finite with a non-negative lower bound; when present, both
-`machine.kinematics` fields are finite and `> 0`; when present, `machine.cnc.wcs` is in `54..=59` and
-`machine.cnc.spindle_rpm` is finite and `> 0`. A profile maps to verifier **contracts** (§2), import
+`machine.kinematics` fields are finite and `> 0`; when present, every `machine.rotary` range is finite
+with `lo ≤ hi` and `max_feed_deg_min` is finite and `> 0`; when present, `machine.cnc.wcs` is in `54..=59`
+and `machine.cnc.spindle_rpm` is finite and `> 0`. A profile maps to verifier **contracts** (§2), import
 params, resolve params and emit params.
 
 **`machine.kinematics`** is a small, optional, **firmware-agnostic** motion model: a max acceleration and a
@@ -75,6 +80,29 @@ max junction / square-corner velocity. It has two optional numeric fields:
 Kinematic limits feed the `balanced` optimisation pipeline but are *not* enforced by the core verifier
 (they are gated in the rewrite process). Pressure-advance and input-shaper models are deliberately out of
 scope for v1.
+
+**`machine.rotary`** is what the 5-axis machine named by `machine.five_axis` can actually *do*, as opposed
+to how it maps an orientation onto words. It is optional and additive, and it is what the three rotary
+rules (§2) are gated on — a 5-axis model with no stated limits can judge nothing, so absent leaves all
+three unevaluated rather than silently passing.
+
+- `travel_deg` — per-axis travel `[min, max]` in degrees, keyed by axis letter (`a`/`b`/`c`), matching the
+  letters the chosen model emits. An axis with no range is unconstrained: an axis that turns continuously
+  has no travel limit to state, and a range wide enough that it can never fire would be a vacuous limit.
+  A limit is only meaningful when it is tighter than the mapping's own image — under `bc`, for instance,
+  the tilt word is `acos(k)`, which already lands in `[0, 180]`.
+- `max_feed_deg_min` — the maximum rate for any rotary axis. The rotary words are written on the same line
+  as the linear endpoint, so a reorientation and the move it rides on share one duration; this is the
+  limit that duration is checked against.
+- `envelope_mm` — the reachable workspace in **machine** coordinates, i.e. after the orientation has been
+  resolved into rotary motion. This is *not* `build_volume`: `bounds` checks the programmed workpiece
+  coordinates, `orientation-reachability` checks where the rotation actually puts the tool.
+
+The orientations are resolved through the profile's own `five_axis` model, falling back to the same
+reference B/C machine `emit_params` falls back to — so verify and emit cannot disagree about which angles
+a toolframe produces. `dry_core::REFERENCE_FIVE_AXIS_LIMITS` is a worked set of limits for that machine;
+its numbers are illustrative rather than any real machine's datasheet, and nothing applies them
+implicitly.
 
 **`machine.cnc`** is the optional RS-274 **program frame** — the work offset, tool change, spindle and
 coolant state that a controller needs around the motion. It flows verbatim into `EmitParams::cnc_frame`
@@ -127,6 +155,9 @@ are warnings.
 | `arc-length` | error | an arc's length disagrees with its radius and swept angle | always active |
 | `filament-consistency` | **warning** | the volume-to-filament ratio changes within a single tool | always active |
 | `bead-volume` | error | deposited volume disagrees with `length × width × height × flow` | `process.bead_volume_tolerance` |
+| `rotary-travel` | error | a rotary axis is commanded outside its travel range | `machine.rotary.travel_deg` |
+| `rotary-feed` | **warning** | a rotary axis would have to turn faster than its rate limit to keep up with the move | `machine.rotary.max_feed_deg_min` |
+| `orientation-reachability` | error | an orientation puts the tool outside the machine's reachable envelope | `machine.rotary.envelope_mm` |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
@@ -146,6 +177,19 @@ flow` by design (`coasting` zeroes volume on the tail of an extrusion run; `arc_
 against an arc length), and imported IR takes `volume` from `E` while the bead comes from a user-supplied
 constant.
 
+The three **rotary** rules are contract-gated for the same reason the kinematic pair is: each states a
+property of a *machine*, not of the IR. A toolpath that tilts the tool 180° or reaches 400 mm out is
+perfectly well-formed — it is unreachable only on a machine that cannot do it, and no Dry producer can
+emit IR that violates a limit the IR does not carry. They resolve each segment's toolframe orientation
+through the profile's own rotary model, so the angles they judge are the angles the emitter will write; a
+segment with no orientation is the identity (+Z), exactly as the emitter reads it. Known limits, recorded
+rather than hidden: `orientation-reachability` maps segment **endpoints** only (an arc's swept interior is
+not mapped, so it under-reports rather than over-reports), and `rotary-feed` skips a segment Dry cannot
+time — a zero-length reorientation states no duration to divide by, which is a modelling gap rather than a
+machine-limit violation. `rotary-feed` is a **warning** because a controller does not refuse a rotary axis
+it cannot drive fast enough: it slows the whole synchronised move down, so what is wrong is the plan, not
+the geometry.
+
 `filament-consistency` ships at **warning** for one minor release before being promoted to error.
 Multi-diameter or multi-material IR is unusual but not ill-formed, and no in-tree producer emits any, so
 the release buys evidence rather than assuming it.
@@ -158,10 +202,10 @@ against no limits. A report therefore also carries:
 | Field | Meaning |
 |---|---|
 | `segments_inspected` | how many segments the pass saw; `0` is a vacuous pass |
-| `rules_evaluated` | the rule ids in force, in catalog order — clean under 11 is a weaker claim than clean under 24 |
+| `rules_evaluated` | the rule ids in force, in catalog order — clean under 11 is a weaker claim than clean under 27 |
 | `contracts` | the limits checked against, so "`max_flow` was checked" is distinguishable from "checked against 1e9" |
 
-With no contracts supplied, 11 of the 24 rules are evaluated and 9 of those can produce an error. All
+With no contracts supplied, 11 of the 27 rules are evaluated and 9 of those can produce an error. All
 three fields are optional in `spec/dry-reports-v1.schema.json`, so reports written by older engines
 remain valid; consumers pinned to the *previous* schema text will reject newer reports, which is recorded
 as a breaking change in the changelog.

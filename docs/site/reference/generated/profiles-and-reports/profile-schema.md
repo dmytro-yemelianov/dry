@@ -20,6 +20,10 @@ schema validates the canonical names.
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
 | `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
+| `machine` | `five_axis` | `"ab"` / `"ac"` / `"bc"`, or an object with `type` + `pivot_offset` + `rotary_offset` | — | how a toolframe orientation maps onto two rotary words; absent ⇒ the reference B/C machine |
+| `machine` | `rotary.travel_deg` | `{a?,b?,c?}` of `[min,max]` degrees | — | per-axis rotary travel; an absent axis is unconstrained |
+| `machine` | `rotary.max_feed_deg_min` | deg/min > 0 | — | maximum rate for any rotary axis |
+| `machine` | `rotary.envelope_mm` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | — | reachable workspace in **machine** coordinates (not the build volume) |
 | `machine` | `cnc.wcs` | integer 54–59 | — | work offset, emitted as `G54`…`G59`; absent ⇒ `G54` |
 | `machine` | `cnc.tool` | integer ≥ 0 | — | emits `T<n> M6`; absent ⇒ no tool change |
 | `machine` | `cnc.spindle_rpm` | RPM > 0 | — | emits `S<rpm> M3`, and `M5` at program end; absent ⇒ neither |
@@ -39,8 +43,9 @@ schema validates the canonical names.
 
 Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive
 fields are finite and `> 0`; range fields are finite with a non-negative lower bound; when present, both
-`machine.kinematics` fields are finite and `> 0`; when present, `machine.cnc.wcs` is in `54..=59` and
-`machine.cnc.spindle_rpm` is finite and `> 0`. A profile maps to verifier **contracts** (§2), import
+`machine.kinematics` fields are finite and `> 0`; when present, every `machine.rotary` range is finite
+with `lo ≤ hi` and `max_feed_deg_min` is finite and `> 0`; when present, `machine.cnc.wcs` is in `54..=59`
+and `machine.cnc.spindle_rpm` is finite and `> 0`. A profile maps to verifier **contracts** (§2), import
 params, resolve params and emit params.
 
 **`machine.kinematics`** is a small, optional, **firmware-agnostic** motion model: a max acceleration and a
@@ -62,6 +67,29 @@ max junction / square-corner velocity. It has two optional numeric fields:
 Kinematic limits feed the `balanced` optimisation pipeline but are *not* enforced by the core verifier
 (they are gated in the rewrite process). Pressure-advance and input-shaper models are deliberately out of
 scope for v1.
+
+**`machine.rotary`** is what the 5-axis machine named by `machine.five_axis` can actually *do*, as opposed
+to how it maps an orientation onto words. It is optional and additive, and it is what the three rotary
+rules (§2) are gated on — a 5-axis model with no stated limits can judge nothing, so absent leaves all
+three unevaluated rather than silently passing.
+
+- `travel_deg` — per-axis travel `[min, max]` in degrees, keyed by axis letter (`a`/`b`/`c`), matching the
+  letters the chosen model emits. An axis with no range is unconstrained: an axis that turns continuously
+  has no travel limit to state, and a range wide enough that it can never fire would be a vacuous limit.
+  A limit is only meaningful when it is tighter than the mapping's own image — under `bc`, for instance,
+  the tilt word is `acos(k)`, which already lands in `[0, 180]`.
+- `max_feed_deg_min` — the maximum rate for any rotary axis. The rotary words are written on the same line
+  as the linear endpoint, so a reorientation and the move it rides on share one duration; this is the
+  limit that duration is checked against.
+- `envelope_mm` — the reachable workspace in **machine** coordinates, i.e. after the orientation has been
+  resolved into rotary motion. This is *not* `build_volume`: `bounds` checks the programmed workpiece
+  coordinates, `orientation-reachability` checks where the rotation actually puts the tool.
+
+The orientations are resolved through the profile's own `five_axis` model, falling back to the same
+reference B/C machine `emit_params` falls back to — so verify and emit cannot disagree about which angles
+a toolframe produces. `dry_core::REFERENCE_FIVE_AXIS_LIMITS` is a worked set of limits for that machine;
+its numbers are illustrative rather than any real machine's datasheet, and nothing applies them
+implicitly.
 
 **`machine.cnc`** is the optional RS-274 **program frame** — the work offset, tool change, spindle and
 coolant state that a controller needs around the motion. It flows verbatim into `EmitParams::cnc_frame`
