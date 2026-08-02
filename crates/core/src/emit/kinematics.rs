@@ -23,10 +23,52 @@ pub enum Kinematics {
 }
 
 /// Reference machine model used for the 5-axis task: B/C rotary axes with zero offsets.
+///
+/// The offsets stay zero deliberately: a zero-pivot table is the one configuration whose forward
+/// transform is exactly a rotation about the WCS origin, so every emitted 5-axis program is
+/// reproducible without a machine-specific calibration. What the model does *not* carry is any
+/// limit — see [`REFERENCE_FIVE_AXIS_LIMITS`] for those.
 pub const REFERENCE_FIVE_AXIS_MACHINE: Kinematics = Kinematics::Bc {
     pivot_offset: [0.0, 0.0, 0.0],
     rotary_offset: [0.0, 0.0],
 };
+
+/// The limits of the reference 5-axis machine: what its rotary axes can reach, how fast they can get
+/// there, and where the tool tip is allowed to end up.
+///
+/// **These numbers are illustrative, not sourced from any real machine's datasheet.** Dry does not
+/// ship a model of a specific trunnion mill, and inventing a plausible-looking spec sheet would claim
+/// an authority these values do not have. They are chosen to be *representative in shape* — a tilt
+/// that runs out before the table can turn the part upside down, a rotary rate slower than the linear
+/// axes, a cube-ish envelope — so that the rules gated on them are exercised against something with
+/// the right character. Any real deployment supplies its own `machine.rotary` block, and this constant
+/// is never applied implicitly: nothing in `Profile::contracts` reads it.
+///
+/// The specific choices, and what each one is doing:
+///
+/// - `travel_deg.b = [0, 120]`. Under [`Kinematics::Bc`] the tilt word is `acos(k)`, so `B` is already
+///   confined to `[0, 180]` by construction; a limit is only meaningful when it is *tighter* than
+///   that. 120° is the honest shape of a trunnion: it can tip the work well past vertical but cannot
+///   flip it over, so `B = 180` (tool pointing at −Z) is out of reach.
+/// - `travel_deg.c` is absent. `C = atan2(j, i)` already lands in `(−180, 180]`, and a continuously
+///   rotating C axis has no travel limit to state — an absent axis is unconstrained, which is the
+///   truthful encoding, and a `[−360, 360]` that can never fire would be a vacuous limit.
+/// - `max_rotary_feed_deg_min = 3600` (60 °/s). Slower than the linear axes, which is what makes a
+///   synchronised reorientation the constraint rather than the linear feed.
+/// - `envelope_mm` is the *machine*-coordinate box the tool tip must stay inside once the rotation is
+///   applied. Deliberately not symmetric in Z: the head can lift well above the table but only a
+///   little below it, which is the geometry that makes tilting a far-out point unreachable.
+pub const REFERENCE_FIVE_AXIS_LIMITS: crate::verify::RotaryContracts =
+    crate::verify::RotaryContracts {
+        model: REFERENCE_FIVE_AXIS_MACHINE,
+        travel_deg: Some(crate::verify::RotaryTravelRanges {
+            a: None,
+            b: Some([0.0, 120.0]),
+            c: None,
+        }),
+        max_rotary_feed_deg_min: Some(3600.0),
+        envelope_mm: Some([[-200.0, 200.0], [-200.0, 200.0], [-50.0, 300.0]]),
+    };
 
 impl Default for Kinematics {
     fn default() -> Self {
@@ -467,9 +509,13 @@ impl Serialize for Kinematics {
 }
 
 /// One emitted rotary word: its letter and its value in **degrees**.
+///
+/// `pub(crate)` fields rather than `pub(super)`: `verify` reads the same words the emitter writes, so
+/// the rotary rules judge the program that will actually be produced rather than a second derivation
+/// of it.
 pub(crate) struct Rotary {
-    pub(super) letter: char,
-    pub(super) value: f64,
+    pub(crate) letter: char,
+    pub(crate) value: f64,
 }
 
 #[cfg(test)]

@@ -323,6 +323,9 @@ pub fn resolve_verify(
         // filament-consistency) apply here regardless of what is passed.
         bead_volume_tolerance: None,
         kinematics,
+        // Rotary limits are machine facts that arrive with a profile; this entry point takes loose
+        // arguments and has no profile, so the three rotary rules stay unevaluated here.
+        rotary: None,
     };
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let report = verify(&tp, &contracts);

@@ -309,6 +309,9 @@ fn resolve_verify(
         // rules apply here regardless.
         bead_volume_tolerance: None,
         kinematics,
+        // Rotary limits are machine facts that arrive with a profile; this entry point takes loose
+        // kwargs and has no profile, so the three rotary rules stay unevaluated here.
+        rotary: None,
     };
 
     let tp = resolve_checked(&design, &params).map_err(|e| PyValueError::new_err(e.to_string()))?;

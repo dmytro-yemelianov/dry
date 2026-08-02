@@ -59,6 +59,58 @@
             }
           }
         },
+        "five_axis": {
+          "description": "The rotary model that maps a toolframe orientation onto two rotary words: the string \"ab\"/\"ac\"/\"bc\", or an object naming the same type plus mechanical offsets. Absent means the reference B/C machine.",
+          "oneOf": [
+            { "type": "string", "enum": ["ab", "ac", "bc"] },
+            {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "enum": ["ab", "ac", "bc"] },
+                "pivot_offset": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": { "type": "number" }
+                },
+                "rotary_offset": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": { "type": "number" }
+                }
+              }
+            }
+          ]
+        },
+        "rotary": {
+          "type": "object",
+          "description": "What the rotary axes of the `five_axis` machine can actually do. Optional and additive; absent leaves the rotary-travel, rotary-feed and orientation-reachability rules unevaluated.",
+          "properties": {
+            "travel_deg": {
+              "type": "object",
+              "description": "Per-axis rotary travel [min,max] in degrees, keyed by axis letter. An axis with no range is unconstrained.",
+              "properties": {
+                "a": { "$ref": "#/$defs/Range" },
+                "b": { "$ref": "#/$defs/Range" },
+                "c": { "$ref": "#/$defs/Range" }
+              }
+            },
+            "max_feed_deg_min": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Maximum rate for any rotary axis, in deg/min."
+            },
+            "envelope_mm": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "$ref": "#/$defs/Range" },
+              "description": "[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]] in mm, in MACHINE coordinates (after the rotation is applied). Distinct from build_volume, which is in programmed workpiece coordinates."
+            }
+          }
+        },
         "cnc": {
           "type": "object",
           "description": "CNC work-coordinate/tool/spindle/coolant frame, flowed verbatim into EmitParams::cnc_frame. Read only by the RS-274 renderer: absent, or under any other firmware flavor, emitted g-code is unchanged. Every key is optional.",
@@ -130,6 +182,12 @@
     "end_gcode": { "$ref": "#/$defs/GcodeProcedure" }
   },
   "$defs": {
+    "Range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
     "GcodeProcedure": {
       "description": "A start/end procedure as a single multi-line string or an array of command lines.",
       "oneOf": [

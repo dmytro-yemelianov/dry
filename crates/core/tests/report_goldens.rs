@@ -10,7 +10,7 @@ use dry_core::{
     apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary, verify,
     Contracts, ExplainReports, Feedrate, KinematicContracts, Length, OptimizeMode, Profile,
     ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport,
-    Volume,
+    Volume, REFERENCE_FIVE_AXIS_LIMITS,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -515,6 +515,112 @@ fn cases() -> Vec<Case> {
         full: false,
     };
 
+    // --- five_axis: rotary-travel, rotary-feed, orientation-reachability (#180 gaps 1-2). ---
+    //
+    // Judged against `REFERENCE_FIVE_AXIS_LIMITS` — B/C table, tilt limited to 120°, 3 600 °/min of
+    // rotary rate, and a machine envelope whose Z floor is only 50 mm below the table.
+    //
+    // `tp_raw` rather than `tp`: the stitching travels `tp` inserts carry no orientation, which under a
+    // 5-axis model is the identity (+Z) and therefore a rotary transition of its own — the probes below
+    // are hand-stitched instead so each one trips exactly the rule it was written for. Each probe's
+    // *other* two rotary quantities are deliberately kept inside their limits, which is what makes the
+    // three rules separable here rather than one three-headed finding.
+    let five_axis = Case {
+        name: "five_axis",
+        toolpath: tp_raw(vec![
+            // 0: vertical tool, nothing to say. Establishes the rotary position the next probe moves
+            //    from — without it, probe 1 would be the first oriented segment and have no Δ.
+            Segment {
+                orientation: Some([0.0, 0.0, 1.0]),
+                ..base()
+            },
+            // 1: swings the tool to +X (B: 0° → 90°) inside a 10 mm move at 6000 mm/min — 0.1 s for
+            //    90°, i.e. 54 000 °/min against a 3 600 °/min axis. Tilt itself is legal, and at
+            //    x ≤ 20 the tilted point stays in the envelope, so only `rotary-feed` fires.
+            Segment {
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(6000.0),
+                orientation: Some([1.0, 0.0, 0.0]),
+                ..base()
+            },
+            // 2: asks for the tool to point straight down — B = acos(-1) = 180°, past the 120° the
+            //    trunnion reaches. Slowed to 60 mm/min so the same 90° of sweep takes 10 s and does
+            //    not also trip the rate limit: only `rotary-travel` fires.
+            Segment {
+                start: [
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(60.0),
+                orientation: Some([0.0, 0.0, -1.0]),
+                ..base()
+            },
+            // 3: a travel back to vertical and out to x = 100. 70 mm at 600 mm/min is 7 s for the
+            //    180° unwind (1 543 °/min), and an untilted point is its own machine position, so this
+            //    move is clean under all three rules.
+            Segment {
+                start: [
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(100.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                travel: true,
+                speed: Feedrate(600.0),
+                length: Length::mm(70.0),
+                volume: Volume(0.0),
+                filament: Length::ZERO,
+                width: None,
+                height: None,
+                orientation: Some([0.0, 0.0, 1.0]),
+                ..base()
+            },
+            // 4: the same 90° tilt as probe 1, at the same legal rate as probe 2 — but 100 mm out in
+            //    X, where tilting the table swings the point to Z = -100 in machine coordinates, below
+            //    the -50 floor. Reachability is a property of the point and the orientation together,
+            //    and this is the probe that shows it: nothing about the tilt alone is out of range.
+            Segment {
+                start: [
+                    Some(Length::mm(100.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                end: [
+                    Some(Length::mm(110.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.2)),
+                ],
+                speed: Feedrate(60.0),
+                orientation: Some([1.0, 0.0, 0.0]),
+                ..base()
+            },
+        ]),
+        contracts: Contracts {
+            rotary: Some(REFERENCE_FIVE_AXIS_LIMITS),
+            ..Contracts::default()
+        },
+        full: true,
+    };
+
     vec![
         non_finite,
         structural,
@@ -524,6 +630,7 @@ fn cases() -> Vec<Case> {
         kinematics_case,
         unmodeled,
         wellformedness,
+        five_axis,
     ]
 }
 

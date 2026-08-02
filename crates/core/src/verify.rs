@@ -10,6 +10,7 @@
 //!    **bounds**; the volumetric **flow** stays under a ceiling; the feedrate stays within a **speed**
 //!    range; **Z is monotonic** (non-decreasing) when required (e.g. vase mode).
 
+use crate::emit::RotaryState;
 use crate::engine::segment_motion_time;
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::optimize::get_tangents;
@@ -68,6 +69,10 @@ pub struct Contracts {
     /// Kinematic limits for the peak-acceleration / junction-velocity rules. `None` disables them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kinematics: Option<KinematicContracts>,
+    /// Rotary-axis limits and reachable workspace for the rotary-travel / rotary-feed /
+    /// orientation-reachability rules. `None` disables all three.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotary: Option<RotaryContracts>,
 }
 
 /// Kinematic limits checked by the `peak-acceleration` (arc centripetal) and `junction-velocity`
@@ -78,6 +83,86 @@ pub struct KinematicContracts {
     pub max_acceleration_mm_s2: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_junction_velocity_mm_s: Option<f64>,
+}
+
+/// The rotary model used when a `rotary` contract names none.
+///
+/// The same machine `Profile::emit_params` falls back to, on purpose: the rotary rules check the words
+/// the *emitter* would write, so a verify default that disagreed with the emit default would be
+/// checking a program nobody is going to run.
+fn reference_rotary_model() -> crate::emit::Kinematics {
+    crate::emit::REFERENCE_FIVE_AXIS_MACHINE
+}
+
+/// Rotary-axis limits checked by the `rotary-travel`, `rotary-feed` and `orientation-reachability`
+/// rules. An unset field disables its check.
+///
+/// All three are contract-gated rather than structural because each states a property of a **machine**,
+/// not of the IR: a toolpath that tilts 180° or reaches 400 mm out is perfectly well-formed, and is
+/// unreachable only on a machine that cannot do it. There is no Dry producer that can emit IR violating
+/// these, which is exactly the H1.3 test for "not always-on".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RotaryContracts {
+    /// The rotary model the toolframe orientation is resolved through — the same mapping and the same
+    /// two axis letters the emitter uses, so the angles checked are the angles that will be written.
+    #[serde(default = "reference_rotary_model")]
+    pub model: crate::emit::Kinematics,
+    /// Per-axis rotary travel in degrees, keyed by the axis letter the model emits. An axis with no
+    /// range is unconstrained.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub travel_deg: Option<RotaryTravelRanges>,
+    /// Maximum rate for **any** rotary axis, in deg/min.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_rotary_feed_deg_min: Option<f64>,
+    /// The reachable workspace as `[[x_lo, x_hi], [y_lo, y_hi], [z_lo, z_hi]]` (mm) in **machine**
+    /// coordinates — i.e. after the orientation has been resolved into rotary motion. This is not the
+    /// build volume: `bounds` checks the programmed (workpiece) coordinates, this checks where the
+    /// rotation actually puts the tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub envelope_mm: Option<[[f64; 2]; 3]>,
+}
+
+impl Default for RotaryContracts {
+    fn default() -> Self {
+        RotaryContracts {
+            model: reference_rotary_model(),
+            travel_deg: None,
+            max_rotary_feed_deg_min: None,
+            envelope_mm: None,
+        }
+    }
+}
+
+/// Rotary travel ranges `[min, max]` in degrees, one per axis letter. An absent axis is unconstrained.
+///
+/// Keyed by letter rather than by position so a range cannot silently be read against the wrong axis
+/// when the model changes: `Bc` emits `C` then `B`, `Ab` emits `A` then `B`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct RotaryTravelRanges {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub a: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub b: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub c: Option<[f64; 2]>,
+}
+
+impl RotaryTravelRanges {
+    /// The range constraining `letter`, or `None` when that axis is unconstrained.
+    pub fn range(&self, letter: char) -> Option<[f64; 2]> {
+        match letter {
+            'A' => self.a,
+            'B' => self.b,
+            'C' => self.c,
+            _ => None,
+        }
+    }
+
+    /// Whether any axis is constrained at all. An all-empty table checks nothing, so the rule it gates
+    /// is not evaluated and does not appear in `rules_evaluated`.
+    pub fn any_set(&self) -> bool {
+        self.a.is_some() || self.b.is_some() || self.c.is_some()
+    }
 }
 
 /// A user-facing contract configuration parse error.
@@ -210,6 +295,12 @@ pub enum RuleId {
     FilamentConsistency,
     /// Deposited volume disagrees with the bead geometry (`length·width·height·flow`).
     BeadVolume,
+    /// A commanded rotary word is outside its axis's travel range.
+    RotaryTravel,
+    /// A rotary axis would have to turn faster than its rate limit to keep up with the move.
+    RotaryFeed,
+    /// The machine position an orientation implies is outside the machine's reachable envelope.
+    OrientationReachability,
 }
 
 /// One rule's catalog entry.
@@ -222,7 +313,7 @@ pub struct Rule {
 
 impl RuleId {
     /// Every rule, in catalog order.
-    pub const ALL: [RuleId; 24] = [
+    pub const ALL: [RuleId; 27] = [
         RuleId::Finite,
         RuleId::TravelExtrudes,
         RuleId::Bead,
@@ -247,6 +338,9 @@ impl RuleId {
         RuleId::ArcLength,
         RuleId::FilamentConsistency,
         RuleId::BeadVolume,
+        RuleId::RotaryTravel,
+        RuleId::RotaryFeed,
+        RuleId::OrientationReachability,
     ];
 
     /// The stable kebab-case wire id.
@@ -276,6 +370,9 @@ impl RuleId {
             RuleId::ArcLength => "arc-length",
             RuleId::FilamentConsistency => "filament-consistency",
             RuleId::BeadVolume => "bead-volume",
+            RuleId::RotaryTravel => "rotary-travel",
+            RuleId::RotaryFeed => "rotary-feed",
+            RuleId::OrientationReachability => "orientation-reachability",
         }
     }
 
@@ -292,6 +389,10 @@ impl RuleId {
             | RuleId::FirstLayerSpeed
             | RuleId::JunctionVelocity
             | RuleId::UnmodeledGcode
+            // The controller does not refuse a rotary axis it cannot drive fast enough — it slows the
+            // whole synchronised move down. The program still runs and still cuts the commanded path;
+            // what is wrong is the plan, not the geometry. Same character as `junction-velocity`.
+            | RuleId::RotaryFeed
             // Ships as a warning for one minor release before promotion to error (design §8):
             // multi-diameter / multi-material IR is unusual but not ill-formed, and no in-tree
             // producer makes any, so we have no evidence either way yet.
@@ -345,6 +446,13 @@ impl RuleId {
             RuleId::BeadVolume => {
                 "deposited volume disagrees with the bead geometry (length x width x height x flow)"
             }
+            RuleId::RotaryTravel => "a rotary axis is commanded outside its travel range",
+            RuleId::RotaryFeed => {
+                "a rotary axis would have to turn faster than its rate limit to keep up with the move"
+            }
+            RuleId::OrientationReachability => {
+                "an orientation puts the tool outside the machine's reachable envelope"
+            }
         }
     }
 
@@ -386,6 +494,18 @@ impl RuleId {
                 .kinematics
                 .as_ref()
                 .is_some_and(|k| k.max_junction_velocity_mm_s.is_some()),
+            RuleId::RotaryTravel => c.rotary.as_ref().is_some_and(|r| {
+                r.travel_deg
+                    .as_ref()
+                    .is_some_and(RotaryTravelRanges::any_set)
+            }),
+            RuleId::RotaryFeed => c
+                .rotary
+                .as_ref()
+                .is_some_and(|r| r.max_rotary_feed_deg_min.is_some()),
+            RuleId::OrientationReachability => {
+                c.rotary.as_ref().is_some_and(|r| r.envelope_mm.is_some())
+            }
         }
     }
 }
@@ -763,12 +883,22 @@ where
     let mut prev_print_end: Option<[Option<Length>; 3]> = None;
     let mut prev_speed_mm_s: Option<f64> = None;
     let mut prev_exit_tangent: Option<[f64; 3]> = None;
+    // The C axis is history-dependent inside the singular cone, so the angles the emitter will
+    // actually write depend on what came before. Threaded here exactly as `emit_stream` threads it —
+    // advanced once per motion segment, untouched by dwells and manual g-code — because a rotary
+    // limit checked against a *differently* resolved C would be judging a program nobody emits. That
+    // is the `junction-velocity` mistake: two names, two quantities.
+    let mut rotary_state = RotaryState::default();
     // For continuity: the machine position after the previous segment, per axis. An axis stays at its
     // last defined value ("inherit"), which is what both `resolve` and the emitter do.
     let mut tracked_pos: [Option<Length>; 3] = [None; 3];
     // For filament-consistency: the first volume/filament ratio observed for each tool.
     let mut tool_ratio: std::collections::BTreeMap<Option<u32>, f64> =
         std::collections::BTreeMap::new();
+    // For rotary-feed: the rotary words the previous segment left the axes on, in the order the model
+    // emits them. `None` before the first segment the model could resolve, and again after verbatim
+    // G-code, which may drive the rotary axes to somewhere we cannot know.
+    let mut prev_rotary: Option<[f64; 2]> = None;
 
     for (i, segment) in segments.into_iter().enumerate() {
         let s = segment?;
@@ -1249,6 +1379,119 @@ where
                 prev_exit_tangent = None;
             }
         }
+
+        // --- rotary / 5-axis checks ---
+        //
+        // All three resolve the segment's toolframe orientation through the *same* `Kinematics` the
+        // emitter uses, so what is judged here is the program that will be written rather than a
+        // second derivation of it. An absent orientation is the identity (+Z), exactly as
+        // `Kinematics::rotary_words` reads it — a 3-axis segment under a 5-axis model still commands
+        // rotary words, and the emitter still writes them when they change.
+        //
+        // An orientation the model cannot resolve at all (zero or non-finite) is skipped: `finite` and
+        // `orientation-not-unit` already say so, and a second finding on the same defect would only
+        // dilute the first.
+        if let Some(rot) = &c.rotary {
+            if s.kind == SegmentKind::ManualGcode {
+                prev_rotary = None;
+            } else if let Ok(joints) = rot.model.resolve_joints(s.orientation, &mut rotary_state) {
+                {
+                    let words = rot.model.rotary_words(joints);
+                    if let Some(travel) = &rot.travel_deg {
+                        for w in words.iter() {
+                            if let Some([lo, hi]) = travel.range(w.letter) {
+                                if w.value < lo || w.value > hi {
+                                    push_finding(
+                                        &mut r,
+                                        RuleId::RotaryTravel,
+                                        Some(i),
+                                        format!(
+                                            "rotary axis {} is commanded to {:.3}°, outside its \
+                                             travel range [{lo}, {hi}]°",
+                                            w.letter, w.value
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    // The rotary axes turn *during* this move: the emitter writes the rotary words on
+                    // the same line as the linear endpoint, so the sweep and the motion share one
+                    // duration. A segment Dry cannot time (zero length and no filament, or a
+                    // non-positive feedrate) states no duration to divide by and is skipped — recorded
+                    // rather than guessed at, because a zero-time reorientation is a modelling gap
+                    // rather than a machine-limit violation.
+                    if let (Some(max_rate), Some(prev), Some(time)) = (
+                        rot.max_rotary_feed_deg_min,
+                        prev_rotary,
+                        segment_motion_time(&s),
+                    ) {
+                        let minutes = time.value() / 60.0;
+                        if minutes > 0.0 {
+                            for (w, from) in words.iter().zip(prev) {
+                                let sweep = (w.value - from).abs();
+                                let rate = sweep / minutes;
+                                if rate > max_rate {
+                                    push_finding(
+                                        &mut r,
+                                        RuleId::RotaryFeed,
+                                        Some(i),
+                                        format!(
+                                            "rotary axis {} must sweep {sweep:.3}° in {:.4} s, a rate \
+                                             of {rate:.0} °/min over the limit of {max_rate:.0}",
+                                            w.letter,
+                                            time.value()
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    prev_rotary = Some([words[0].value, words[1].value]);
+
+                    // Reachability: where the rotation actually puts the tool. `bounds` checks the
+                    // programmed workpiece coordinates; this checks the machine coordinates the same
+                    // transform the emitter applies produces from them. Endpoints only — an arc's
+                    // swept interior is not mapped, so this under-reports rather than over-reports.
+                    if let Some(env) = rot.envelope_mm {
+                        'rotary_points: for point in [s.start, s.end] {
+                            let (Some(x), Some(y), Some(z)) = (point[0], point[1], point[2]) else {
+                                continue; // an undefined axis inherits; no position is asserted
+                            };
+                            let p = [x.value(), y.value(), z.value()];
+                            let machine = rot.model.machine_position(p, joints);
+                            for (k, value) in machine.iter().enumerate() {
+                                if *value < env[k][0] || *value > env[k][1] {
+                                    let [wa, wb] = &words;
+                                    push_finding(
+                                        &mut r,
+                                        RuleId::OrientationReachability,
+                                        Some(i),
+                                        format!(
+                                            "at {}{:.3} {}{:.3} the point [{}, {}, {}] sits at \
+                                             machine {} = {value:.3}, outside the reachable envelope \
+                                             [{}, {}]",
+                                            wa.letter,
+                                            wa.value,
+                                            wb.letter,
+                                            wb.value,
+                                            p[0],
+                                            p[1],
+                                            p[2],
+                                            axis[k],
+                                            env[k][0],
+                                            env[k][1]
+                                        ),
+                                    );
+                                    break 'rotary_points; // one reachability finding per segment
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(r)
 }
@@ -1544,6 +1787,7 @@ mod tests {
                 "unmodeled-gcode",
                 // Staged: promoted to Error one minor release after landing (design §8).
                 "filament-consistency",
+                "rotary-feed",
             ]
         );
     }
@@ -1588,7 +1832,7 @@ mod tests {
             9,
             "error-severity always-on rules: {can_fail:?}"
         );
-        assert_eq!(RuleId::ALL.len(), 24);
+        assert_eq!(RuleId::ALL.len(), 27);
     }
 
     #[test]
@@ -1609,17 +1853,238 @@ mod tests {
                 max_acceleration_mm_s2: Some(500.0),
                 max_junction_velocity_mm_s: Some(8.0),
             }),
+            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
         };
         assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
 
         // The point of `rules_evaluated`: "clean" under 11 rules is a different claim from "clean"
-        // under 24, and until H1.3 the two reports were byte-identical.
+        // under 27, and until H1.3 the two reports were byte-identical.
         let tp = Toolpath {
             version: 0,
             meta: None,
             segments: Vec::new(),
         };
         assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 11);
-        assert_eq!(verify(&tp, &c).rules_evaluated.len(), 24);
+        assert_eq!(verify(&tp, &c).rules_evaluated.len(), 27);
+    }
+
+    /// A rotary contract that states a limit but not the one a rule needs must leave that rule
+    /// *unevaluated*, not silently passing: an all-empty travel table checks no axis.
+    #[test]
+    fn rotary_rules_are_evaluated_only_where_a_limit_is_supplied() {
+        let travel_only = Contracts {
+            rotary: Some(RotaryContracts {
+                travel_deg: Some(RotaryTravelRanges {
+                    b: Some([0.0, 120.0]),
+                    ..RotaryTravelRanges::default()
+                }),
+                ..RotaryContracts::default()
+            }),
+            ..Contracts::default()
+        };
+        assert!(RuleId::RotaryTravel.is_evaluated(&travel_only));
+        assert!(!RuleId::RotaryFeed.is_evaluated(&travel_only));
+        assert!(!RuleId::OrientationReachability.is_evaluated(&travel_only));
+
+        let empty_table = Contracts {
+            rotary: Some(RotaryContracts {
+                travel_deg: Some(RotaryTravelRanges::default()),
+                ..RotaryContracts::default()
+            }),
+            ..Contracts::default()
+        };
+        assert!(!RuleId::RotaryTravel.is_evaluated(&empty_table));
+    }
+
+    /// A single extruding move at `speed`, carrying `orientation`, from `x0` to `x0 + 10` at z = 0.2.
+    fn oriented_move(x0: f64, orientation: [f64; 3], speed_mm_min: f64) -> Segment {
+        Segment {
+            start: [
+                Some(Length::mm(x0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            end: [
+                Some(Length::mm(x0 + 10.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.2)),
+            ],
+            speed: Feedrate(speed_mm_min),
+            length: Length::mm(10.0),
+            volume: Volume(0.8),
+            filament: Length::mm(0.33),
+            width: Some(Length::mm(0.4)),
+            height: Some(Length::mm(0.2)),
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            travel: false,
+            temperature: Some(210.0),
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: Some(orientation),
+            control_points: None,
+        }
+    }
+
+    fn tp_of(segments: Vec<Segment>) -> Toolpath {
+        Toolpath {
+            version: 0,
+            meta: None,
+            segments,
+        }
+    }
+
+    fn rules_fired(report: &Report, rule: RuleId) -> Vec<&Finding> {
+        report
+            .findings
+            .iter()
+            .filter(|f| f.rule == rule.as_str())
+            .collect()
+    }
+
+    /// Under the reference machine, a tool pointing at −Z asks the B axis for `acos(-1)` = 180°, which
+    /// is past the 120° the trunnion can tilt. A tool pointing at +X asks for 90°, which is not.
+    #[test]
+    fn tilt_beyond_the_reference_trunnion_is_a_rotary_travel_error() {
+        let c = Contracts {
+            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            ..Contracts::default()
+        };
+
+        let over = verify(
+            &tp_of(vec![oriented_move(0.0, [0.0, 0.0, -1.0], 600.0)]),
+            &c,
+        );
+        let fired = rules_fired(&over, RuleId::RotaryTravel);
+        assert_eq!(
+            fired.len(),
+            1,
+            "expected one finding, got {:?}",
+            over.findings
+        );
+        assert_eq!(fired[0].severity, Severity::Error);
+
+        let within = verify(&tp_of(vec![oriented_move(0.0, [1.0, 0.0, 0.0], 600.0)]), &c);
+        assert!(
+            rules_fired(&within, RuleId::RotaryTravel).is_empty(),
+            "90 degrees of tilt is inside [0, 120]: {:?}",
+            within.findings
+        );
+    }
+
+    /// The rotary axes turn during the move, so the same 90° reorientation is fine over ten seconds
+    /// and impossible over a tenth of one. Nothing about the *geometry* differs between the two.
+    #[test]
+    fn a_reorientation_faster_than_the_axis_can_turn_is_a_rotary_feed_warning() {
+        let c = Contracts {
+            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            ..Contracts::default()
+        };
+        let vertical = oriented_move(0.0, [0.0, 0.0, 1.0], 600.0);
+
+        // 10 mm at 6000 mm/min = 0.1 s for 90° → 54 000 °/min, far over the 3 600 °/min limit.
+        let fast = verify(
+            &tp_of(vec![
+                vertical.clone(),
+                oriented_move(10.0, [1.0, 0.0, 0.0], 6000.0),
+            ]),
+            &c,
+        );
+        let fired = rules_fired(&fast, RuleId::RotaryFeed);
+        assert_eq!(
+            fired.len(),
+            1,
+            "expected one finding, got {:?}",
+            fast.findings
+        );
+        assert_eq!(fired[0].severity, Severity::Warning);
+        assert_eq!(fired[0].segment, Some(1));
+
+        // The same 90° at 60 mm/min takes 10 s → 540 °/min, well inside the limit.
+        let slow = verify(
+            &tp_of(vec![vertical, oriented_move(10.0, [1.0, 0.0, 0.0], 60.0)]),
+            &c,
+        );
+        assert!(
+            rules_fired(&slow, RuleId::RotaryFeed).is_empty(),
+            "540 deg/min is inside the limit: {:?}",
+            slow.findings
+        );
+    }
+
+    /// Reachability is a property of the point *and* the orientation together: tilting the table 90°
+    /// swings a point 100 mm out in X down to Z = −100 in machine coordinates, below the reference
+    /// machine's −50 floor. The identical orientation 10 mm from the origin is fine.
+    #[test]
+    fn tilting_a_far_out_point_below_the_table_is_an_orientation_reachability_error() {
+        let c = Contracts {
+            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            ..Contracts::default()
+        };
+
+        let unreachable = verify(
+            &tp_of(vec![oriented_move(100.0, [1.0, 0.0, 0.0], 60.0)]),
+            &c,
+        );
+        let fired = rules_fired(&unreachable, RuleId::OrientationReachability);
+        assert_eq!(
+            fired.len(),
+            1,
+            "one finding per segment, got {:?}",
+            unreachable.findings
+        );
+        assert_eq!(fired[0].severity, Severity::Error);
+
+        let reachable = verify(&tp_of(vec![oriented_move(0.0, [1.0, 0.0, 0.0], 60.0)]), &c);
+        assert!(
+            rules_fired(&reachable, RuleId::OrientationReachability).is_empty(),
+            "a point near the origin stays inside the envelope: {:?}",
+            reachable.findings
+        );
+    }
+
+    /// The whole point of gating: a 3-axis report must be unchanged. The same toolpath that trips all
+    /// three rotary rules under the reference limits produces none of them under no rotary contract,
+    /// and none of the three appear in `rules_evaluated`.
+    #[test]
+    fn no_rotary_contract_means_no_rotary_findings() {
+        let tp = tp_of(vec![
+            oriented_move(0.0, [0.0, 0.0, 1.0], 600.0),
+            oriented_move(10.0, [0.0, 0.0, -1.0], 6000.0),
+            oriented_move(100.0, [1.0, 0.0, 0.0], 60.0),
+        ]);
+        let with_limits = verify(
+            &tp,
+            &Contracts {
+                rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+                ..Contracts::default()
+            },
+        );
+        for rule in [
+            RuleId::RotaryTravel,
+            RuleId::RotaryFeed,
+            RuleId::OrientationReachability,
+        ] {
+            assert!(
+                !rules_fired(&with_limits, rule).is_empty(),
+                "{} should fire under the reference limits: {:?}",
+                rule.as_str(),
+                with_limits.findings
+            );
+        }
+
+        let bare = verify(&tp, &Contracts::default());
+        for rule in [
+            RuleId::RotaryTravel,
+            RuleId::RotaryFeed,
+            RuleId::OrientationReachability,
+        ] {
+            assert!(rules_fired(&bare, rule).is_empty());
+            assert!(!bare.evaluated(rule));
+        }
     }
 }
