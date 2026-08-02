@@ -46,6 +46,23 @@ same idea is how `web/tpms.js` happened.
 *Accept:* one named service, one deployment target, the other removed or explicitly marked a spike in
 its own README.
 
+**Half done, and the half that was reversible.** `crates/cloud` now carries a README saying plainly
+that it is an archived feasibility spike, not a product surface: it returns timing JSON rather than a
+`Report`, it answered a sizing question in July 2026 (a 128 MB Workers isolate could not hold the raw
+body *plus* dry-core's ~43–50x import blowup), and that answer is why `containers/verify-runner`
+streams to a tempfile in a 6 GiB container instead. It is kept building in CI so the evidence cannot
+rot, and marked "do not build on it".
+
+**The decision itself is still open, deliberately.** Naming `verify-runner` as *the shape a service
+would take* is not the same as deciding there will be one. "No hosted service" remains a live and
+legitimate answer: the CLI ships today, has an installed base, and as of #220 carries an SBOM and
+signed provenance. Choosing it deletes D2 through D5 entirely.
+
+What is now unblocked either way: D2's first question — **what may a log contain** — can be answered
+against one service shape rather than two. See
+[`24-operations-and-data-handling.md`](24-operations-and-data-handling.md), which notes that findings
+quote coordinates and feedrates, so the answer is not "everything".
+
 ### D2 — Nothing is observable (M)
 
 `grep -rl "tracing\|opentelemetry" crates/ containers/` returns nothing outside build artifacts. A
