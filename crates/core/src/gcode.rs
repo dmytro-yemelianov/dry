@@ -27,8 +27,10 @@ use std::io::{BufRead, BufReader, Read};
 // rotary word of a 5-axis program, so every `G1 X.. A.. B..` line was classified as a clockwise arc
 // and then refused by the importer as an arc with no I/J centre. `@` cannot come from a source line
 // — [`parse_words`] only ever pushes ASCII-uppercase letters — so the two channels cannot collide.
-// `Q`/`L`/`W` are real RS-274 word letters and carry the same latent collision; leaving them is a
-// deliberate scope call, not a claim that they are safe.
+// `Q`/`L`/`W` are real RS-274 word letters and carry the same latent collision. It is *narrowed*, not
+// closed: [`classify_record`] promotes a KRL marker to a command only on a line that states no
+// G/M/T command of its own, so `M1006 ... L100 ...` is the macro it is, but a bare `L100` line with
+// nothing else on it still reads as `LIN`.
 const ROBOT_PT: char = 'Q';
 const ROBOT_LIN: char = 'L';
 const ROBOT_CIRC: char = '@';
@@ -269,7 +271,26 @@ fn parse_line(
     state: &mut GcodeModalState,
 ) -> Result<ParsedGcodeLine, GcodeParseError> {
     let (code, comment) = split_comment(raw);
-    let words = parse_words(source_line, strip_checksum(code))?;
+    let code = strip_checksum(code);
+    // Classification comes before tokenization. Whether Dry models a line is a property of the
+    // line's *command*, not of whether its parameters happen to scan as `LETTER value` words: a
+    // vendor macro (`M1002 set_gcode_claim_speed_level : 5`) and a firmware capability check
+    // (`M862.3 P "MK4"`) are ordinary lines of the file they came from, and refusing to tokenize
+    // them used to abort the whole import — before the "preserved byte-for-byte and reported as
+    // `unmodeled-gcode`" contract could ever apply to them. So an unmodeled line's parameters are
+    // scanned leniently: what scans becomes words, and what does not leaves the command word alone
+    // to carry the line into [`GcodeRecord::Other`], with `raw` preserving the text verbatim.
+    //
+    // [`line_dialect`] is evaluated only when the scan fails, which is equivalent to running it
+    // first: on a line that scans, the strict word list is what a lenient scan would have produced
+    // anyway, and no dialect widens what the scanner accepts.
+    let words = match parse_words(source_line, code) {
+        Ok(words) => words,
+        Err(failure) => match recovered_command(line_dialect(code), &failure) {
+            Some(command) => vec![command],
+            None => return Err(failure.into_error()),
+        },
+    };
     let record = if words.is_empty() && comment.is_some() {
         GcodeRecord::Comment
     } else {
@@ -297,7 +318,136 @@ fn strip_checksum(code: &str) -> &str {
     code.split_once('*').map_or(code, |(prefix, _)| prefix)
 }
 
-fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodeParseError> {
+/// Why the word scanner stopped, so [`parse_line`] can tell "this is not the dialect Dry models"
+/// from "this is the dialect Dry models and the number is unusable".
+///
+/// The distinction is the whole boundary: the first is a *classification* statement about a line and
+/// may be answered by preserving the line verbatim; the second is a *value-domain* refusal and is
+/// never recovered from, on any command (see [`parse_word_value`]).
+#[derive(Debug)]
+enum ScanFailure {
+    /// A word letter with no value — `M84 E`, `M221 S`. Firmware shorthand for a flag, and never a
+    /// number: it says the line is not the modeled numeric form of its command.
+    FlagWord(GcodeParseError),
+    /// Text that is not a `LETTER value` word at all: a bareword, a quoted string, a `:`, base64,
+    /// a version string, a numeric literal that is not one.
+    NotAWord(GcodeParseError),
+    /// A word scanned, and its value is outside the domain the IR admits. The H1.2 ingress gate.
+    BadValue(GcodeParseError),
+}
+
+impl ScanFailure {
+    fn into_error(self) -> GcodeParseError {
+        match self {
+            ScanFailure::FlagWord(error)
+            | ScanFailure::NotAWord(error)
+            | ScanFailure::BadValue(error) => error,
+        }
+    }
+}
+
+/// How strictly a source line's words must scan, decided from its leading command.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum LineDialect {
+    /// The motion dialect: `G0`–`G4`, the KRL pseudo-commands, and a bare modal continuation
+    /// (`X5.5Y-2.25E1e-3`). Every word here is lifted into the IR, so nothing about one may be
+    /// guessed — `G1 X` and `G1 Xnope` stay hard errors.
+    ///
+    /// A line whose leading token is not a recognizable command falls here too: "unrecognizable"
+    /// must never be the way a line buys leniency.
+    Motion,
+    /// A non-motion command whose word *values* the importer reads: `G92 E0`, `M104 S210`, `T0`.
+    Modeled(GcodeWord),
+    /// A command Dry does not model. It survives as text and is reported through `unmodeled-gcode`;
+    /// its parameters are the vendor's dialect, not Dry's, and are not policed as G-code words.
+    Unmodeled(GcodeWord),
+}
+
+/// The command word to keep when a line's scan is allowed to degrade, or `None` to fail the import.
+fn recovered_command(dialect: LineDialect, failure: &ScanFailure) -> Option<GcodeWord> {
+    match (dialect, failure) {
+        // H1.2 is unconditional: a word that scanned to a non-finite number is refused whatever
+        // command carries it. Recovering here would reopen the ingress the check exists to close.
+        (_, ScanFailure::BadValue(_)) | (LineDialect::Motion, _) => None,
+        // `M221 S` (Bambu pushes the soft-endstop status with a flag) is not `M221 S100`. The flag
+        // says so syntactically, so the line degrades to its command rather than aborting the file
+        // — but `M221 Snope` is still the modeled form with an unusable number, and still fails.
+        (LineDialect::Modeled(command), ScanFailure::FlagWord(_)) => Some(command),
+        (LineDialect::Modeled(_), ScanFailure::NotAWord(_)) => None,
+        (LineDialect::Unmodeled(command), _) => Some(command),
+    }
+}
+
+fn line_dialect(code: &str) -> LineDialect {
+    let Some(command) = leading_command(code) else {
+        return LineDialect::Motion;
+    };
+    match (command.letter, rounded_code(command.value)) {
+        ('G', Some(0..=4)) => LineDialect::Motion,
+        // The non-motion commands `classify_record` reads words from, plus the mode commands whose
+        // effect the importer carries modally. Keep in step with `classify_record`.
+        ('G', Some(20 | 21 | 90 | 91 | 92))
+        | ('M', Some(82 | 83 | 104 | 106 | 107 | 109 | 221))
+        | ('T', Some(_)) => LineDialect::Modeled(command),
+        ('G' | 'M', _) => LineDialect::Unmodeled(command),
+        // Not a command: a modal continuation, which is motion.
+        _ => LineDialect::Motion,
+    }
+}
+
+/// Scan the line's leading command word without tokenizing the rest of the line.
+///
+/// `None` means the line does not begin with a single-letter `LETTER value` word — a modal
+/// continuation, a KRL keyword (`PTP`), or something malformed. All of those keep the strict
+/// dialect.
+fn leading_command(code: &str) -> Option<GcodeWord> {
+    let chars: Vec<(usize, char)> = code.char_indices().collect();
+    let mut i = 0;
+    let first = scan_leading_word(code, &chars, &mut i)?;
+    // `N42 G1 X1` — the line number is not the command.
+    if first.letter == 'N' {
+        return scan_leading_word(code, &chars, &mut i);
+    }
+    Some(first)
+}
+
+fn scan_leading_word(code: &str, chars: &[(usize, char)], i: &mut usize) -> Option<GcodeWord> {
+    while chars.get(*i).is_some_and(|(_, c)| c.is_ascii_whitespace()) {
+        *i += 1;
+    }
+    let (_, letter) = *chars.get(*i)?;
+    if !letter.is_ascii_alphabetic() {
+        return None;
+    }
+    // A multi-letter token is a KRL keyword or a malformed word, never a G/M/T command.
+    if chars
+        .get(*i + 1)
+        .is_some_and(|(_, c)| c.is_ascii_alphabetic())
+    {
+        return None;
+    }
+    let value_start = chars.get(*i + 1).map(|(idx, _)| *idx)?;
+    *i += 1;
+    // The same value extent `parse_words` uses, so the two cannot disagree about where a word ends.
+    while *i < chars.len() {
+        let (_, next) = chars[*i];
+        if next.is_ascii_whitespace() {
+            break;
+        }
+        if next.is_ascii_alphabetic() && !is_exponent_marker(chars, *i) {
+            break;
+        }
+        *i += 1;
+    }
+    let value_end = chars.get(*i).map(|(idx, _)| *idx).unwrap_or(code.len());
+    let value = code[value_start..value_end].trim().parse::<f64>().ok()?;
+    value.is_finite().then_some(GcodeWord {
+        letter: letter.to_ascii_uppercase(),
+        value,
+    })
+}
+
+fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, ScanFailure> {
     let mut words = Vec::new();
     let mut i = 0;
     let chars: Vec<(usize, char)> = code.char_indices().collect();
@@ -309,20 +459,20 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
         }
         if !c.is_ascii_alphabetic() {
             if !c.is_ascii_digit() && !matches!(c, '.' | '-' | '+') {
-                return Err(GcodeParseError::new(
+                return Err(ScanFailure::NotAWord(GcodeParseError::new(
                     source_line,
                     format!("expected word letter, found {c:?}"),
-                ));
+                )));
             }
 
             if words
                 .last()
                 .is_none_or(|word: &GcodeWord| word.letter != ROBOT_WAIT)
             {
-                return Err(GcodeParseError::new(
+                return Err(ScanFailure::NotAWord(GcodeParseError::new(
                     source_line,
                     format!("expected word letter, found {c:?}"),
-                ));
+                )));
             }
 
             let value_start = chars[i].0;
@@ -396,39 +546,14 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
         let value_end = chars.get(i).map(|(idx, _)| *idx).unwrap_or(code.len());
         let value = code[value_start..value_end].trim();
         if value.is_empty() {
-            // Some unmodeled firmware commands use parameter letters as flags (`G28 X Y`).
-            // Preserve those commands for review without weakening validation of modeled motion
-            // such as the invalid `G1 X`.
-            let unmodeled_command = words.first().is_some_and(|command: &GcodeWord| {
-                !matches!(
-                    (command.letter, command.value),
-                    (
-                        'G',
-                        0.0 | 1.0 | 2.0 | 3.0 | 4.0 | 20.0 | 21.0 | 90.0 | 91.0 | 92.0
-                    ) | (
-                        'M',
-                        82.0 | 83.0
-                            | 104.0
-                            | 106.0
-                            | 107.0
-                            | 109.0
-                            | 140.0
-                            | 190.0
-                            | 204.0
-                            | 205.0
-                            | 220.0
-                            | 221.0
-                    ) | ('T', _)
-                )
-            });
-            if unmodeled_command {
-                words.push(GcodeWord { letter, value: 0.0 });
-                continue;
-            }
-            return Err(GcodeParseError::new(
+            // Firmware commands use parameter letters as flags (`G28 X Y`, `M84 E`, `M221 S`).
+            // Whether that is legal is [`line_dialect`]'s call, not the scanner's: the caller keeps
+            // the flagged line as its command when the command is one Dry does not read words from,
+            // and fails the import when it is modeled motion such as the invalid `G1 X`.
+            return Err(ScanFailure::FlagWord(GcodeParseError::new(
                 source_line,
                 format!("missing value for {letter} word"),
-            ));
+            )));
         }
         let value = parse_word_value(source_line, letter, value)?;
         words.push(GcodeWord { letter, value });
@@ -443,18 +568,22 @@ fn parse_words(source_line: usize, code: &str) -> Result<Vec<GcodeWord>, GcodePa
 /// straight into the IR as quantities, where `M221 S1e400` became `flow = inf` and, one
 /// `0.0 * inf` later, an `E NaN` word in emitted g-code. No machine accepts a non-finite word, so
 /// this is the ingress that refuses them — one gate for every letter (X/Y/Z/E/F/S/P/I/J/K).
-fn parse_word_value(source_line: usize, letter: char, text: &str) -> Result<f64, GcodeParseError> {
+///
+/// The two failures are reported apart because only one of them is recoverable: text that is not a
+/// number says nothing about any command, while a number outside the IR's domain is refused on
+/// every command, modeled or not ([`recovered_command`]).
+fn parse_word_value(source_line: usize, letter: char, text: &str) -> Result<f64, ScanFailure> {
     let value = text.parse::<f64>().map_err(|e| {
-        GcodeParseError::new(
+        ScanFailure::NotAWord(GcodeParseError::new(
             source_line,
             format!("bad {letter} word value {text:?}: {e}"),
-        )
+        ))
     })?;
     if !value.is_finite() {
-        return Err(GcodeParseError::new(
+        return Err(ScanFailure::BadValue(GcodeParseError::new(
             source_line,
             format!("non-finite {letter} word value {text:?}"),
-        ));
+        )));
     }
     Ok(value)
 }
@@ -480,7 +609,8 @@ fn classify_record(
     }
 
     let mut explicit_motion = None;
-    let mut robot_arc = false;
+    let mut krl_motion = None;
+    let mut krl_arc = false;
     let mut state_record = None;
     let mut process_record = None;
     let mut other = None;
@@ -524,22 +654,14 @@ fn classify_record(
             ('G', Some(92)) => {
                 state_record = Some(StateCommand::SetPosition);
             }
-            (ROBOT_PT, _) => {
-                explicit_motion = Some(MotionMode::Linear);
-                state.motion = explicit_motion;
-            }
-            (ROBOT_LIN, _) => {
-                explicit_motion = Some(MotionMode::Linear);
-                state.motion = explicit_motion;
-            }
+            // The KRL markers are collected apart from `explicit_motion` and only promoted below,
+            // once the whole line is known: three of the four are also real RS-274 word letters.
+            (ROBOT_PT | ROBOT_LIN, _) => krl_motion = Some(MotionMode::Linear),
             (ROBOT_CIRC, _) => {
-                explicit_motion = Some(MotionMode::ClockwiseArc);
-                state.motion = explicit_motion;
-                robot_arc = true;
+                krl_motion = Some(MotionMode::ClockwiseArc);
+                krl_arc = true;
             }
-            (ROBOT_WAIT, _) => {
-                explicit_motion = Some(MotionMode::Dwell);
-            }
+            (ROBOT_WAIT, _) => krl_motion = Some(MotionMode::Dwell),
             ('M', Some(82)) => {
                 state.extrusion_mode = ExtrusionMode::Absolute;
                 state_record = Some(StateCommand::ExtrusionMode(ExtrusionMode::Absolute));
@@ -552,7 +674,7 @@ fn classify_record(
                 if let Some(temp) = word_value(words, 'S').or_else(|| word_value(words, 'R')) {
                     process_record = Some(ProcessCommand::NozzleTemperature(temp));
                 } else {
-                    other = Some(('M', word.value));
+                    other.get_or_insert(('M', word.value));
                 }
             }
             ('M', Some(106)) => {
@@ -566,17 +688,43 @@ fn classify_record(
                 if let Some(percent) = word_value(words, 'S') {
                     process_record = Some(ProcessCommand::Flow(flow_ratio_from_percent(percent)));
                 } else {
-                    other = Some(('M', word.value));
+                    other.get_or_insert(('M', word.value));
                 }
             }
             ('T', Some(tool)) if tool >= 0 => {
                 process_record = Some(ProcessCommand::Tool(tool as u32));
             }
             ('N', _) => {}
+            // The *first* G/M command names the line, so `unmodeled-gcode` reports the command a
+            // reader has to go and look up. Bambu's `M1006 A0 B10 L100 C37 D10 M60 E37 F10 N60`
+            // carries a second `M` word as a macro argument, and naming the line "M60" would send
+            // that reader to a spindle-coolant code that is not there.
             (letter @ ('G' | 'M'), _) => {
-                other = Some((letter, word.value));
+                other.get_or_insert((letter, word.value));
             }
             _ => {}
+        }
+    }
+
+    // A KRL marker is a *command* only on a line that states no G/M/T command of its own. `Q`, `L`
+    // and `W` are real RS-274 word letters as well as the `PTP`/`LIN`/`WAIT` markers (see
+    // [`ROBOT_PT`]), so a firmware macro that happens to use one is not a KRL move: Bambu's
+    // `M1006 A0 B10 L100 C37 D10 M60 E37 F10 N60` — a macro that plays a note — scanned as a `LIN`
+    // with a rotary pose and 37 mm of extrusion, which then refused the whole file for lack of a
+    // kinematic model to read `A`/`B`/`C` with. This is the `G28 X Y` rule ("the line's own command
+    // owns it") applied to the KRL channel; it narrows the collision rather than closing it, since a
+    // bare `L100` line still has nothing else to go on.
+    let krl_motion = if state_record.is_none() && other.is_none() && process_record.is_none() {
+        krl_motion
+    } else {
+        None
+    };
+    let robot_arc = krl_arc && krl_motion.is_some();
+    if let Some(mode) = krl_motion {
+        explicit_motion = Some(mode);
+        // `WAIT` is not a motion mode to inherit, exactly as `G4` is not.
+        if mode != MotionMode::Dwell {
+            state.motion = explicit_motion;
         }
     }
 
@@ -824,6 +972,128 @@ mod tests {
         let err = parse_gcode_lines("G1 Xnope\n").unwrap_err();
         assert_eq!(err.source_line, 1);
         assert!(err.message.contains("X word"));
+    }
+
+    /// A command Dry does not model owns its own parameter syntax. These four constructs are all
+    /// present in stock OrcaSlicer output for the two most common printer ecosystems, and each one
+    /// used to abort the whole import at the tokenizer — before the "preserved and reported as
+    /// `unmodeled-gcode`" contract could apply to the line carrying it.
+    #[test]
+    fn unmodeled_commands_survive_parameters_that_are_not_gcode_words() {
+        for (source, expected) in [
+            // Bambu macro pseudo-command: `M1002 <bareword> : <number>`.
+            ("M1002 set_gcode_claim_speed_level : 5\n", 1002.0),
+            // Prusa firmware checks: a quoted string, with and without a space before the quote.
+            ("M862.3 P \"MK4\"\n", 862.3),
+            ("M862.6 P\"Input shaper\"\n", 862.6),
+            // A firmware version string, and an AMS payload in base64.
+            ("M115 U5.0.0-RC+11963\n", 115.0),
+            ("M624 AQAAAAAAAAA=\n", 624.0),
+        ] {
+            let lines = parse_gcode_lines(source)
+                .unwrap_or_else(|e| panic!("{source:?} must import, got {e}"));
+            assert_eq!(
+                lines[0].record,
+                GcodeRecord::Other {
+                    letter: 'M',
+                    value: expected
+                },
+                "{source:?}"
+            );
+            assert_eq!(lines[0].raw, source.trim_end(), "raw must be verbatim");
+        }
+    }
+
+    /// A flag word is not a number, so it says the line is not the modeled numeric form of its
+    /// command — including on a command Dry does read words from. Bambu pushes and pops the
+    /// soft-endstop status with `M221 S`/`M221 R`, which is not the `M221 S100` flow multiplier.
+    #[test]
+    fn a_flag_word_makes_a_modeled_command_unmodeled_rather_than_failing() {
+        let lines = parse_gcode_lines("M221 S100\nM221 S\nM221 R\nM84 E\n").unwrap();
+        assert_eq!(
+            lines[0].record,
+            GcodeRecord::Process(ProcessCommand::Flow(1.0))
+        );
+        for line in &lines[1..3] {
+            assert_eq!(
+                line.record,
+                GcodeRecord::Other {
+                    letter: 'M',
+                    value: 221.0
+                }
+            );
+        }
+        assert_eq!(
+            lines[3].record,
+            GcodeRecord::Other {
+                letter: 'M',
+                value: 84.0
+            }
+        );
+    }
+
+    /// The motion dialect keeps failing loudly: a modeled move's words all reach the IR, so a
+    /// missing or unreadable one is corruption, not a vendor extension. A bare modal continuation
+    /// counts as motion — an unrecognizable line must never buy leniency by being unrecognizable.
+    #[test]
+    fn motion_words_are_still_refused_when_they_are_not_numbers() {
+        for source in [
+            "G1 X\n",
+            "G1 Xnope\n",
+            "G1 X10 Y\n",
+            "G0 Z\"up\"\n",
+            "G2 X1 Y1 I\n",
+            "G4 P\n",
+            "G1 X0 Y0 F900\nX5.5 Y\n",
+            "G92 Enope\n",
+            // A modeled command with an unreadable *number* is still the modeled form.
+            "M221 Snope\n",
+            "M104 S\"hot\"\n",
+        ] {
+            assert!(
+                parse_gcode_lines(source).is_err(),
+                "{source:?} must stay a hard parse error"
+            );
+        }
+    }
+
+    /// H1.2's word-level finiteness gate is a value-domain refusal, not a statement about which
+    /// dialect a line belongs to, so no command recovers from a word that scans to a non-finite
+    /// number. (A word *after* the point where an unmodeled line stops scanning is neither checked
+    /// nor lifted — the line becomes its command alone, so no value from it reaches the IR.)
+    #[test]
+    fn a_non_finite_word_is_refused_on_modeled_and_unmodeled_commands_alike() {
+        for source in [
+            "M221 S1e400\n",
+            "G1 X1e400\n",
+            "M1002 S1e400\n",
+            "M900 K1e400\n",
+        ] {
+            let error = parse_gcode_lines(source)
+                .expect_err(&format!("{source:?} must be refused"))
+                .message;
+            assert!(
+                error.contains("non-finite"),
+                "expected a non-finite refusal for {source:?}, got {error}"
+            );
+        }
+    }
+
+    /// The command that owns the line is the leading one, found before tokenizing: a checksummed
+    /// line number does not become the command, and a KRL keyword is not a G/M command at all.
+    #[test]
+    fn the_leading_command_is_found_past_a_line_number() {
+        let lines = parse_gcode_lines("N42 M1002 judge_flag : 1*38\n").unwrap();
+        assert_eq!(
+            lines[0].record,
+            GcodeRecord::Other {
+                letter: 'M',
+                value: 1002.0
+            }
+        );
+        assert_eq!(lines[0].raw, "N42 M1002 judge_flag : 1*38");
+        // `PTP`/`LIN`/`CIRC`/`WAIT` are motion, so a malformed one is still refused.
+        assert!(parse_gcode_lines("PTP X10 Y\n").is_err());
     }
 
     #[test]
