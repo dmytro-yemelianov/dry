@@ -200,6 +200,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Provenance attestation is signed with a short-lived OIDC identity and recorded in the public
+      # Rekor transparency log; `id-token` mints that identity and `attestations` writes the result.
+      # Neither grants access to anything else, and no long-lived signing key exists to leak.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -213,6 +218,52 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS
           echo "--- release assets ---"; ls -l
+      # An SBOM per release, in CycloneDX, from the committed lockfiles. Generated from
+      # `Cargo.lock`/`package-lock.json` rather than by scanning the built binaries, so it describes
+      # exactly the dependency set the `--locked` builds above resolved.
+      - name: install SBOM tooling
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+      - name: generate SBOM
+        run: |
+          set -euo pipefail
+          cargo cyclonedx --format json --all --spec-version 1.5
+          # One document for the whole release rather than one per crate: a consumer verifying a
+          # downloaded tarball wants the artifact's dependency set, not the workspace's topology.
+          python3 - <<'PY_SBOM'
+          import json, pathlib
+          # Exclude build output: cargo-cyclonedx writes beside each Cargo.toml, but a stale
+          # document under target/ would silently join the merge.
+          docs = sorted(
+              p for p in pathlib.Path(".").rglob("*.cdx.json") if "target" not in p.parts
+          )
+          if not docs:
+              raise SystemExit("cargo-cyclonedx produced no documents")
+          merged, seen = None, set()
+          for d in docs:
+              doc = json.loads(d.read_text())
+              if merged is None:
+                  merged = doc
+                  merged["components"] = []
+              for c in doc.get("components", []):
+                  key = (c.get("name"), c.get("version"))
+                  if key not in seen:
+                      seen.add(key)
+                      merged["components"].append(c)
+          merged["components"].sort(key=lambda c: (c.get("name") or "", c.get("version") or ""))
+          pathlib.Path("dist/SBOM.cdx.json").write_text(json.dumps(merged, indent=2) + "\n")
+          print(f"merged {len(docs)} document(s), {len(merged['components'])} unique components")
+          PY_SBOM
+          cd dist && sha256sum SBOM.cdx.json >> SHA256SUMS
+
+      # Signed, verifiable provenance for every published asset. `SHA256SUMS` alone says the files
+      # match a list this same workflow wrote; an attestation says *which workflow, at which commit,
+      # from which repository* produced them, and a consumer can check that without trusting the
+      # release page. Closes part of D6 in docs/23-deployment-roadmap.md.
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
+        with:
+          subject-path: dist/*
+
       - name: create release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
