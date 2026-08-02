@@ -34,7 +34,7 @@ Options:
           - gcode:     Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile)
           - rs274:     Emit existing CNC/RS-274 output
           - grbl:      Emit GRBL (laser) output
-          - robot-krl: Emit KRL-style robot output
+          - robot-krl: Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md)
 
           [default: gcode]
 

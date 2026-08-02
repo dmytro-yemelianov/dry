@@ -15,6 +15,13 @@ Do not rely on Dry for any of these today:
 - **Production CNC / laser / robot output.** Production readiness is still **FFF-first**: CNC/laser/robot
   targets are not yet production-ready, although RS-274 output and prototype STEP-NC intent export are now
   available via `--format rs274` and `--step-nc`.
+  - **`--format krl` has never been run on a KUKA controller or simulator.** It emits a real
+    `DEF`/`END` module and `tools/krl_check.sh` parses it with an external KRL grammar, but that is a
+    syntax check, not an execution: nothing here establishes that a KRC will load it, that the poses
+    are reachable, or that the motion is what was intended. No free KRL execution environment exists
+    to test against. `PTP` velocity (`$VEL_AXIS[]`) is not set, and the default identity `$TOOL` puts
+    the TCP at the flange, so the emitted coordinates ignore tool length until a real `$TOOL` is
+    supplied. Full boundary: [`22-krl-emit.md`](22-krl-emit.md).
 - **A complete non-planar / 5-axis workflow.** The toolframe orientation is a first-class IR property and
   5-axis rotary emission exists, but there is no kinematics validation, collision/singularity handling, or
   real-machine gating. Treat 5-axis as experimental.

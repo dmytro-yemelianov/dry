@@ -17,6 +17,12 @@ use std::io::{BufRead, BufReader, Read};
 // KRL command tokens (`PTP`/`LIN`/`CIRC`/`WAIT`) are lifted into single-letter pseudo-words so the
 // classifier can treat them like G-codes.
 //
+// **Nothing emits this dialect any more.** It is the g-code-shaped KRL Dry wrote before #181; the
+// KRL renderer now produces a real `DEF`/`END` module of `{E6POS: ...}` aggregates, which this
+// scanner cannot read and does not try to (`DEF` scans as a `D` word and the parse fails loudly).
+// The lifting is kept because it still reads programs written in the old dialect; it is an import
+// path with no matching export, not a round-trip.
+//
 // `CIRC`'s marker is deliberately **not** a word letter: it used to be `'A'`, which is also the
 // rotary word of a 5-axis program, so every `G1 X.. A.. B..` line was classified as a clockwise arc
 // and then refused by the importer as an arc with no I/J centre. `@` cannot come from a source line

@@ -9,6 +9,37 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Changed
+- **`emit --format krl` now writes a KUKA module instead of substituted g-code words (#181), and
+  what "valid" means for it is no longer circular.** The old output was `G0`/`G1`/`G2` with
+  `PTP`/`LIN`/`CIRC` swapped in, `F` swapped for `V`, and RS-274 `I`/`J` arc offsets swapped for a
+  **Dry-invented** `C`/`D` pair: no `DEF`/`END`, no `$VEL`, no `$TOOL`/`$BASE`, no `E6POS`, and a
+  bare `WAIT` that is not the KRL dwell keyword. It is now a `DEF`/`END` module with a pinned
+  `$TOOL`/`$BASE`, modal `$VEL.CP` in m/s, `{E6POS: ...}` poses carrying ZYX-Euler `A`/`B`/`C`,
+  `WAIT SEC`, and a `CIRC` in the real auxiliary-point form. Full rationale, the BNF, and every
+  convention's source: `docs/22-krl-emit.md`.
+  - **The output is structurally well-formed per the BNF in `docs/22-krl-emit.md` and has never been
+    executed on a KUKA controller or simulator.** "Valid" was previously asserted only against Dry's
+    own g-code parser, which proves that Dry agrees with itself and nothing else. `tools/krl_check.sh`
+    replaces that with an **external** oracle — the ANTLR `kuka/krl.g4` grammar from
+    `antlr/grammars-v4` (LGPL, from the arXiv:1009.5004 reverse-engineering study), fetched at a
+    pinned commit with its SHA-256 checked, wired the way `tools/linuxcnc_check.sh` wires `rs274`
+    (including treating "parsed cleanly but contains no motion instruction" as a rejection). It
+    rejects the previous release's KRL output on line 1. No free KRL *execution* environment exists
+    — OfficeLite is proprietary and Windows-only — and no claim here depends on one.
+  - `CIRC` now carries arc direction. The old `C`/`D` centre offsets were identical for a clockwise
+    arc and its counter-clockwise twin; the auxiliary point at the swept-angle midpoint is not.
+  - Arcs a three-point `CIRC` cannot describe are **refused**, not approximated: a helix
+    (`start.Z ≠ end.Z`), an exact full turn, a zero radius. So is a CP move with a non-positive
+    feedrate, and a `Kinematics` model carrying machine-tool pivot/rotary offsets, which have no
+    meaning for a TCP pose in `$BASE`.
+  - **Breaking for KRL consumers**: the output is no longer g-code and Dry's own g-code importer
+    refuses it. `dry rewrite-gcode` with a `robot-krl` profile now errors instead of splicing robot
+    lines into a g-code file. `EmitParams` gains a `krl_frame` field (`Deserialize`-defaulted, so
+    JSON callers are unaffected; a Rust caller writing an exhaustive struct literal must add it).
+  - Frozen golden at `conformance/reports/robot/reference-five-axis.src`
+    (`UPDATE_GOLDEN=1 cargo test -p dry-core --test krl_program_structure`).
+
 ### Added
 - **The conformance corpus carries an oriented design.** `conformance/vectors/five_axis_drape` is a
   five-point path draped over a 25 mm dome, every extruding move holding the outward surface normal.

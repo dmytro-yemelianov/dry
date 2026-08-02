@@ -1,0 +1,14 @@
+DEF dry ( )
+;  Emitted by dry. Structure checked against an external KRL grammar
+;  (tools/krl_check.sh); never run on a KUKA controller or simulator.
+;  PTP speed is $VEL_AXIS[] (percent of maximum), which dry does not set.
+  $TOOL = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}
+  $BASE = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}
+  PTP {E6POS: X 10.0, Y 0.0, Z 5.0, A 0.0, B 0.0, C 180.0}
+  $VEL.CP = 0.02
+  LIN {E6POS: X 20.0}
+  CIRC {E6POS: X 27.071068, Y 2.928932, Z 5.0}, {E6POS: X 30.0, Y 10.0, B 36.869898}
+  WAIT SEC 1.5
+  $VEL.CP = 0.01
+  LIN {E6POS: Y 20.0, A -90.0, B 90.0}
+END

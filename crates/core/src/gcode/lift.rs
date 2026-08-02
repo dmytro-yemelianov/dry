@@ -261,11 +261,26 @@ impl ImportedGcode {
     /// every per-span stream, so the line accounting below would desync and each splice would
     /// carry a duplicate frame. Callers may hand us a profile's `EmitParams` verbatim, so the
     /// invariant is enforced here rather than left to every caller.
+    ///
+    /// KRL has no such escape and is refused outright. Its renderer emits a whole `DEF`/`END`
+    /// module rather than a list of motion lines, so there is nothing here to splice: the
+    /// per-span emissions would each be a complete program, the accounting below would count
+    /// their wrappers as motion, and the result would be neither g-code nor a loadable KUKA
+    /// module. A profile carrying `flavor: "robot-krl"` reaches this function through
+    /// `dry rewrite-gcode`, so the refusal is not hypothetical.
     fn emit_normalized_span_lines(
         &self,
         span_toolpaths: &[Toolpath],
         params: &EmitParams,
     ) -> Result<Vec<Vec<String>>, GcodeImportError> {
+        if params.flavor == crate::emit::FirmwareFlavor::RobotKrl {
+            return Err(GcodeImportError::new(
+                0,
+                "source-preserving span rewrite is not defined for KRL: the KRL renderer emits a \
+                 whole DEF/END module, which cannot be spliced into a g-code file"
+                    .to_string(),
+            ));
+        }
         let params = &EmitParams {
             cnc_frame: None,
             ..params.clone()

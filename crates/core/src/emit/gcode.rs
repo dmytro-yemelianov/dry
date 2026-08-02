@@ -46,6 +46,13 @@ pub struct EmitParams {
     /// Firmware/dialect flavor: marlin, klipper, duet, rs274, grbl, robot_krl.
     #[serde(default)]
     pub flavor: FirmwareFlavor,
+    /// The `DEF` wrapper and `$TOOL`/`$BASE`/`$APO` frame the KRL renderer pins ahead of the motion.
+    ///
+    /// Read only when `flavor` is [`FirmwareFlavor::RobotKrl`]. Unlike [`Self::cnc_frame`] this is
+    /// not optional: a KRL file without a `DEF`/`END` wrapper is not a module at all, so the
+    /// default (identity `$TOOL`/`$BASE`, exact positioning) is a frame, not the absence of one.
+    #[serde(default)]
+    pub krl_frame: super::KrlFrame,
     /// CNC work-coordinate/tool/spindle/coolant frame emitted ahead of motion by the RS-274 renderer
     /// (Task 5). Additive and optional: absent leaves existing g-code output byte-identical.
     ///
@@ -114,6 +121,7 @@ impl Default for EmitParams {
             kinematics: Kinematics::default(),
             flavor: FirmwareFlavor::default(),
             cnc_frame: None,
+            krl_frame: super::KrlFrame::default(),
         }
     }
 }
@@ -147,7 +155,7 @@ pub(crate) fn num_checked(
     Ok(num(v))
 }
 
-fn write_line<W: std::io::Write>(
+pub(super) fn write_line<W: std::io::Write>(
     writer: &mut W,
     first: &mut bool,
     line: &str,
@@ -175,6 +183,9 @@ fn write_line<W: std::io::Write>(
 /// that prefix is missing its `M9`/`M5`/`M30` postamble while still parsing as a valid program.
 /// A caller streaming to a file must not leave the partial output where the program belongs —
 /// write to a temporary path and rename only on `Ok`, or unlink on `Err`.
+///
+/// [`FirmwareFlavor::RobotKrl`] is not a g-code dialect and is dispatched to [`super::krl`] before
+/// any word is formed; everything below is the RS-274/FFF family.
 pub fn emit_stream_to_writer<I, W>(
     segments: I,
     p: &EmitParams,
@@ -184,6 +195,9 @@ where
     I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
     W: std::io::Write,
 {
+    if p.flavor == FirmwareFlavor::RobotKrl {
+        return super::krl::emit_krl_to_writer(segments, p, writer);
+    }
     let segments = SplineFlatteningIterator::new(segments.into_iter());
     let mut first_line = true;
     let mut pos: [Option<Length>; 3] = [None, None, None];
@@ -256,7 +270,16 @@ where
                         format!("G4 S{secs_text}")
                     }
                     FirmwareFlavor::Grbl => format!("G4 P{secs_text}"),
-                    FirmwareFlavor::RobotKrl => format!("WAIT {secs_text}"),
+                    // Unreachable: the dispatch at the top of this function sends KRL to its own
+                    // renderer. The arm keeps the match exhaustive over `FirmwareFlavor` and refuses
+                    // rather than inventing a dwell, so a future path that reaches here says so
+                    // instead of writing `G4` into a robot program.
+                    FirmwareFlavor::RobotKrl => {
+                        return Err(crate::codec::CodecError::Other(
+                            "KRL reached the g-code renderer: dwell has no g-code form here"
+                                .to_string(),
+                        ))
+                    }
                 };
                 write_line(writer, &mut first_line, &cmd)?;
             }
@@ -291,16 +314,7 @@ where
             ));
         }
         let has_e_word = !s.travel || s.filament != Length::ZERO;
-        let is_robot = p.flavor == FirmwareFlavor::RobotKrl;
-        let cmd = if is_robot {
-            if is_arc {
-                "CIRC"
-            } else if s.travel && !p.travel_g1_e0 && !has_e_word {
-                "PTP"
-            } else {
-                "LIN"
-            }
-        } else if is_arc {
+        let cmd = if is_arc {
             if s.clockwise {
                 "G2"
             } else {
@@ -314,11 +328,7 @@ where
         let mut toks = vec![cmd.to_string()];
 
         if prev_speed != Some(s.speed) {
-            if is_robot {
-                toks.push(format!("V{}", num_checked(s.speed.value(), 'V')?));
-            } else {
-                toks.push(format!("F{}", num_checked(s.speed.value(), 'F')?));
-            }
+            toks.push(format!("F{}", num_checked(s.speed.value(), 'F')?));
             prev_speed = Some(s.speed);
         }
 
@@ -389,13 +399,8 @@ where
                     (cy_prog - Length::mm(sy_prog)).value(),
                 )
             };
-            if p.flavor == FirmwareFlavor::RobotKrl {
-                toks.push(format!("C{}", num_checked(i_val, 'C')?));
-                toks.push(format!("D{}", num_checked(j_val, 'D')?));
-            } else {
-                toks.push(format!("I{}", num_checked(i_val, 'I')?));
-                toks.push(format!("J{}", num_checked(j_val, 'J')?));
-            }
+            toks.push(format!("I{}", num_checked(i_val, 'I')?));
+            toks.push(format!("J{}", num_checked(j_val, 'J')?));
         }
 
         if !p.flavor.has_extruder() {

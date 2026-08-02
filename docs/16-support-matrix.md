@@ -40,7 +40,8 @@ manual review; they are not silently treated as motion.
 | FFF g-code (3-axis) | Supported |
 | FFF 5-axis / non-planar (rotary emit, toolframe) | Experimental (no kinematics/collision validation) |
 | CNC RS-274 (`emit --format rs274`) | Experimental (rect/circle pocket+profile via `dry generate pocket`; RS-274 program frame from `machine.cnc`; no spindle/laser power channel; not validated against a physical controller) |
-| GRBL / KRL robot (`emit --format`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; `dry generate pocket` output emits as bare motion — no program frame, and no spindle/laser power channel; never validated against a real controller) |
+| GRBL laser (`emit --format grbl`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; no spindle/laser power channel, so it is not yet a *laser* target; never validated against a real controller) |
+| KUKA KRL robot (`emit --format krl`) | Experimental (a real `DEF`/`END` module with `$TOOL`/`$BASE`/`$VEL.CP`, `E6POS` poses and ZYX-Euler `A`/`B`/`C`, structurally checked against an **external** KRL grammar via `tools/krl_check.sh` — but **never run on a controller or simulator**; no `PTP` velocity, no power channel, no profile/SDK plumbing. See [`22-krl-emit.md`](22-krl-emit.md)) |
 
 ## Platforms (release artifacts)
 
