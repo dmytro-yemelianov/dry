@@ -95,7 +95,9 @@ pub use recommend::{
     apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
     ExecutableAction, ExecutionResult, MetricSnapshot, Recommendation, Verdict,
 };
-pub use report::{LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport};
+pub use report::{
+    LicenseStamp, LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport,
+};
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };

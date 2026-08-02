@@ -33,6 +33,11 @@ pub struct ExplainBundle {
     pub reports: ExplainReports,
     /// The curated instruction block to send to an LLM alongside `reports`.
     pub prompt: String,
+    /// The licensing mode this bundle was produced under, when the caller stamped one
+    /// (see [`crate::LicenseStamp`]) — never set by the engine.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<crate::report::LicenseStamp>,
 }
 
 /// The guardrail sentence every bundle's prompt carries — the LLM may *suggest* changes, but `dry`
@@ -55,6 +60,7 @@ pub fn build_explain_bundle(
         profiled,
         reports,
         prompt,
+        license: None,
     }
 }
 

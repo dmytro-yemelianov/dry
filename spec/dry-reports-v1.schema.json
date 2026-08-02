@@ -121,6 +121,17 @@
       "maxItems": 2,
       "items": { "type": "number" }
     },
+    "LicenseStamp": {
+      "description": "Which licensing mode produced a report. Stamped by the CLI, never by the engine: reports the engine builds carry no `license` key at all, so the property is optional everywhere it appears and older reports stay valid.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "description": "`licensed` or `evaluation`" },
+        "licensee": { "type": "string" },
+        "tier": { "type": "string" }
+      }
+    },
     "Kinematics": {
       "description": "A 5-axis rotary model: which two rotary axes carry the toolframe orientation, plus mechanical offsets.",
       "type": "object",
@@ -146,7 +157,8 @@
         "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } },
         "segments_inspected": { "type": "integer", "minimum": 0 },
         "rules_evaluated": { "type": "array", "items": { "type": "string" } },
-        "contracts": { "$ref": "#/$defs/Contracts" }
+        "contracts": { "$ref": "#/$defs/Contracts" },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     },
     "ReviewReport": {
@@ -159,7 +171,8 @@
         "segments": { "type": "integer", "minimum": 0 },
         "metrics": { "$ref": "#/$defs/Metrics" },
         "findings": { "type": "array", "items": { "$ref": "#/$defs/LocatedFinding" } },
-        "error_count": { "type": "integer", "minimum": 0 }
+        "error_count": { "type": "integer", "minimum": 0 },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     },
     "TraceWindow": {
@@ -452,7 +465,8 @@
         "segment_count_after": { "type": "integer", "minimum": 0 },
         "metrics_before": { "$ref": "#/$defs/Metrics" },
         "metrics_after": { "$ref": "#/$defs/Metrics" },
-        "spans": { "type": "array", "items": { "$ref": "#/$defs/RewriteSpanResult" } }
+        "spans": { "type": "array", "items": { "$ref": "#/$defs/RewriteSpanResult" } },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     },
     "ExplainReports": {
@@ -474,7 +488,8 @@
         "profile": { "type": ["string", "null"] },
         "profiled": { "type": "boolean" },
         "reports": { "$ref": "#/$defs/ExplainReports" },
-        "prompt": { "type": "string" }
+        "prompt": { "type": "string" },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     }
   }

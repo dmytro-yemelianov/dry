@@ -552,6 +552,11 @@ pub struct Report {
     /// The contracts the toolpath was checked against.
     #[serde(default)]
     pub contracts: Contracts,
+    /// The licensing mode this report was produced under, when the caller stamped one
+    /// (see [`crate::LicenseStamp`]) — never set by the engine.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<crate::report::LicenseStamp>,
 }
 
 impl Report {

@@ -8,9 +8,9 @@
 
 use dry_core::{
     apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary, verify,
-    Contracts, ExplainReports, Feedrate, KinematicContracts, Length, OptimizeMode, Profile,
-    ReviewReport, RewriteReport, RewriteSpanResult, Segment, SegmentKind, Toolpath, TraceReport,
-    Volume, REFERENCE_FIVE_AXIS_LIMITS,
+    CompareDelta, Contracts, ExplainBundle, ExplainReports, Feedrate, KinematicContracts, Length,
+    LicenseStamp, OptimizeMode, Profile, Report, ReviewReport, RewriteReport, RewriteSpanResult,
+    Segment, SegmentKind, Toolpath, TraceReport, Volume, REFERENCE_FIVE_AXIS_LIMITS,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -954,6 +954,84 @@ fn explain_bundle_golden_matches_or_update() {
         bundle_json.as_bytes(),
         update,
     );
+}
+
+/// The license stamp is passive and absent by default, so the committed goldens must be unaffected by
+/// it: every stamped envelope has to parse from bytes that carry no `license` key, report no stamp, and
+/// re-serialize to exactly those bytes again. That round-trip is the no-drift guarantee — if the serde
+/// attributes on the new field are ever wrong (a missing `skip_serializing_if` or `default`), one of
+/// these five assertions fails before any golden is rewritten.
+#[test]
+fn license_stamp_is_absent_from_unstamped_goldens() {
+    let dir = reports_dir();
+    let read =
+        |rel: &str| fs::read_to_string(dir.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
+
+    // One committed golden per envelope that carries the optional stamp.
+    let review_text = read("structural/review.json");
+    let verify_text = read("structural/verify.json");
+    let rewrite_text = read("rewrite_safe/report.json");
+    let explain_text = read("explain/explain.json");
+    let compare_text = read("compare/expected.json");
+
+    for (name, text) in [
+        ("structural/review.json", &review_text),
+        ("structural/verify.json", &verify_text),
+        ("rewrite_safe/report.json", &rewrite_text),
+        ("explain/explain.json", &explain_text),
+        ("compare/expected.json", &compare_text),
+    ] {
+        assert!(
+            !text.contains("\"license\""),
+            "{name} must carry no license stamp"
+        );
+    }
+
+    // Typed round-trip: parse (proving the field is optional on the wire), assert no stamp, re-emit.
+    macro_rules! round_trip {
+        ($ty:ty, $name:literal, $text:expr) => {{
+            let parsed: $ty = serde_json::from_str(&$text).unwrap();
+            assert!(parsed.license.is_none(), "{} parsed a stamp", $name);
+            assert_eq!(
+                serde_json::to_string_pretty(&parsed).unwrap(),
+                $text.trim_end(),
+                "{} drifted when re-serialized with the license field present",
+                $name
+            );
+        }};
+    }
+    round_trip!(ReviewReport, "structural/review.json", review_text);
+    round_trip!(Report, "structural/verify.json", verify_text);
+    round_trip!(RewriteReport, "rewrite_safe/report.json", rewrite_text);
+    round_trip!(ExplainBundle, "explain/explain.json", explain_text);
+    round_trip!(CompareDelta, "compare/expected.json", compare_text);
+}
+
+/// A stamped report still serializes the stamp — the field is skipped only when it is `None`.
+#[test]
+fn license_stamp_serializes_when_present() {
+    let mut review: ReviewReport = serde_json::from_str(
+        &fs::read_to_string(reports_dir().join("structural/review.json")).unwrap(),
+    )
+    .unwrap();
+    review.license = Some(LicenseStamp {
+        mode: "licensed".to_string(),
+        licensee: Some("Test Co".to_string()),
+        tier: Some("team".to_string()),
+    });
+    let json: serde_json::Value = serde_json::to_value(&review).unwrap();
+    assert_eq!(json["license"]["mode"], "licensed");
+    assert_eq!(json["license"]["licensee"], "Test Co");
+    assert_eq!(json["license"]["tier"], "team");
+
+    // Evaluation stamps carry no licensee/tier, and those two skip rather than emit null.
+    review.license = Some(LicenseStamp {
+        mode: "evaluation".to_string(),
+        licensee: None,
+        tier: None,
+    });
+    let json: serde_json::Value = serde_json::to_value(&review).unwrap();
+    assert_eq!(json["license"], serde_json::json!({ "mode": "evaluation" }));
 }
 
 #[test]
