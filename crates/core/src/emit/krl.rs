@@ -15,16 +15,17 @@
 //!
 //! ```text
 //! program        ::= "DEF" name "(" ")" NL comment* frame_setup statement* "END" NL
-//! frame_setup    ::= tool_line base_line apo_line?
+//! frame_setup    ::= tool_line base_line
 //! tool_line      ::= "$TOOL" "=" frame NL
 //! base_line      ::= "$BASE" "=" frame NL
+//! statement      ::= apo_line | vel_line | motion | dwell
 //! apo_line       ::= "$APO.CDIS" "=" real NL
-//! statement      ::= vel_line | motion | dwell | passthrough
 //! vel_line       ::= "$VEL.CP" "=" real NL
 //! motion         ::= ptp | lin | circ
 //! ptp            ::= "PTP" pose NL
 //! lin            ::= "LIN" pose approx? NL
 //! circ           ::= "CIRC" pose "," pose approx? NL
+//! dwell          ::= "WAIT" "SEC" real NL
 //! approx         ::= "C_DIS"
 //! pose           ::= "{" "E6POS" ":" component ("," component)* "}"
 //! component      ::= ("X"|"Y"|"Z"|"A"|"B"|"C") real
@@ -34,8 +35,15 @@
 //! name           ::= (letter|"_") (letter|digit|"_"){0,23}
 //! ```
 //!
+//! Two placement rules the grammar above does not express: `apo_line` is written at most once per
+//! program and only immediately before the first `lin`/`circ`, and `vel_line` only immediately
+//! before a `lin`/`circ` whose velocity differs from the last one written. Both exist so that no
+//! line states machine state that no instruction goes on to reference (ADR 0002 §4).
+//!
 //! Every production above is a subset of the external grammar's, which is what
 //! `tools/krl_check.sh` actually enforces; this listing is what Dry *intends* to stay inside.
+//! There is no passthrough production: [`SegmentKind::ManualGcode`] carries *g-code*
+//! (`spec/dry-ir-v0.schema.json`), which is not KRL, and is refused rather than copied through.
 //!
 //! # Conventions, and where they come from
 //!
@@ -75,10 +83,12 @@
 //! controller was last told. The emitted banner says so in the program itself.
 //!
 //! **Approximation.** `$APO.CDIS` plus `C_DIS` on the instruction is the only blending Dry emits,
-//! and only when the caller supplies [`KrlFrame::approx_mm`]. Absent it, every motion is exact
-//! positioning and no `$APO` line is written at all: setting an approximation distance that no
-//! instruction references would be a vacuous emission (ADR 0002 §4). `PTP` approximation is a
-//! different pair (`C_PTP` with `$APO.CPTP` in percent) and is not emitted.
+//! and only when the caller supplies [`KrlFrame::approx_mm`] *and* the program goes on to contain a
+//! CP instruction that carries `C_DIS`. Absent either, every motion is exact positioning and no
+//! `$APO` line is written at all: setting an approximation distance that no instruction references
+//! would be a vacuous emission (ADR 0002 §4), which is why the line is written lazily at the first
+//! `LIN`/`CIRC` rather than in the frame prologue. `PTP` approximation is a different pair
+//! (`C_PTP` with `$APO.CPTP` in percent) and is not emitted.
 //!
 //! **`CIRC`.** Dry previously wrote a `CIRC … C<i> D<j>` centre offset, which is not KRL — it was
 //! an RS-274 `I`/`J` pair under two spare letters. Real KRL takes an **auxiliary point** and an end
@@ -114,6 +124,13 @@ const MM_PER_MIN_PER_M_PER_S: f64 = 60_000.0;
 /// Not a tolerance and not tunable policy: `1e-12 m/s` is `6e-8 mm/min`, an order of magnitude below
 /// the `1e-6 mm/min` that [`num_checked`]'s `{v:.6}` can print on the g-code side. Anything coarser
 /// would let two feedrates the rest of the emitter can tell apart collapse to one `$VEL.CP`.
+///
+/// It does set one refusal boundary, so it is stated here rather than left to be inferred: a
+/// feedrate below half an ulp of this resolution — `3e-8 mm/min`, i.e. `5e-13 m/s` — rounds to the
+/// literal `0.0`, and [`vel_cp`] refuses it for that reason. The predicate is exact (the formatted
+/// literal either is zero or is not), so it carries no epsilon of its own; like the g-code side's
+/// `{v:.6}` coordinate resolution it is a *format* constant that a `proofs/` entry records as an
+/// assumption rather than as a budget.
 const VEL_CP_DECIMALS: usize = 12;
 
 /// The model the orientation is resolved through. `Bc` with zero offsets *is* the KUKA ZYX-Euler
@@ -129,9 +146,16 @@ const ORIENTATION_MODEL: Kinematics = Kinematics::Bc {
 /// In the program rather than only in the docs on purpose: the file is what reaches an operator, and
 /// the two things it must not let them assume are that this has run somewhere and that `PTP` speed
 /// is under control.
-const BANNER: [&str; 3] = [
-    ";  Emitted by dry. Structure checked against an external KRL grammar",
-    ";  (tools/krl_check.sh); never run on a KUKA controller or simulator.",
+///
+/// It says *checkable with*, not *checked against*. The emitter runs no grammar; `tools/krl_check.sh`
+/// is a separate command, and the only file in this repository that has been through it is the
+/// golden. A banner asserting a check that did not run on the program carrying it would be exactly
+/// the circular claim this target's rewrite exists to remove.
+const BANNER: [&str; 5] = [
+    ";  Emitted by dry: never run on a KUKA controller or simulator.",
+    ";  The structure of THIS program has not been checked either -- dry emits KRL,",
+    ";  it does not parse it. tools/krl_check.sh checks a file against an external",
+    ";  KRL grammar that nobody here wrote.",
     ";  PTP speed is $VEL_AXIS[] (percent of maximum), which dry does not set.",
 ];
 
@@ -261,7 +285,10 @@ fn real(v: f64, word: impl std::fmt::Display) -> Result<String, CodecError> {
 /// Format `$VEL.CP` in m/s from a mm/min feedrate, refusing a value KRL cannot execute.
 ///
 /// A `$VEL.CP` of zero or less is not a slow move, it is a controller fault, and `emit` is the last
-/// gate before a machine (ADR 0002 §4).
+/// gate before a machine (ADR 0002 §4). Two guards, because one is not enough: the first is on the
+/// *input*, the second on the *literal about to be written*. A feedrate of `1e-8 mm/min` is finite
+/// and positive and still prints as `0.0` at [`VEL_CP_DECIMALS`], so checking only the input let the
+/// exact line this function exists to prevent reach the program.
 fn vel_cp(mm_per_min: f64) -> Result<String, CodecError> {
     if !(mm_per_min.is_finite() && mm_per_min > 0.0) {
         return Err(CodecError::Other(format!(
@@ -274,6 +301,14 @@ fn vel_cp(mm_per_min: f64) -> Result<String, CodecError> {
         VEL_CP_DECIMALS,
         mm_per_min / MM_PER_MIN_PER_M_PER_S
     );
+    // Exact, not a tolerance: the question is whether the emitted characters denote zero.
+    if s.parse::<f64>().is_ok_and(|v| v == 0.0) {
+        return Err(CodecError::Other(format!(
+            "cannot emit $VEL.CP from a feedrate of {mm_per_min} mm/min: in m/s it rounds to 0 at \
+             the {VEL_CP_DECIMALS} decimal places KRL path velocity is written with, and \
+             $VEL.CP = 0 is a controller fault"
+        )));
+    }
     let s = s.trim_end_matches('0');
     Ok(if s.ends_with('.') {
         format!("{s}0")
@@ -396,18 +431,15 @@ where
         &mut first_line,
         &format!("  $BASE = {}", frame_literal(&frame.base, "$BASE")?),
     )?;
-    if let Some(mm) = frame.approx_mm {
-        write_line(
-            writer,
-            &mut first_line,
-            &format!("  $APO.CDIS = {}", real(mm, "$APO.CDIS")?),
-        )?;
-    }
+    // `$APO.CDIS` is *not* written here. See the loop below: it goes out lazily, at the first CP
+    // instruction that will carry `C_DIS`, so a PTP-only or dwell-only program never states an
+    // approximation distance nothing references (ADR 0002 §4).
     let approx = if frame.approx_mm.is_some() {
         " C_DIS"
     } else {
         ""
     };
+    let mut apo_written = false;
 
     // Tracked exactly as the g-code renderer tracks them: `prog_pos` is the programmed point an
     // unstated axis inherits, `pos` is the last value actually written (a KRL aggregate omits what
@@ -422,15 +454,17 @@ where
     for res in segments {
         let s = res?;
         if s.kind == SegmentKind::ManualGcode {
-            // Passed through verbatim, as every other flavor does. Nothing here can tell whether the
-            // text is KRL; `tools/krl_check.sh` is what surfaces a g-code line smuggled into a robot
-            // program, which is one of the things an external grammar is for.
-            if let Some(text) = &s.manual_gcode {
-                for line in text.lines() {
-                    write_line(writer, &mut first_line, line)?;
-                }
-            }
-            continue;
+            // Not passed through. Every other flavor copies this field verbatim because every other
+            // flavor *is* g-code, and the IR defines the field as verbatim g-code
+            // (`spec/dry-ir-v0.schema.json`, `docs/10-dry-ir-v0-spec.md`). Copying g-code into a
+            // DEF/END module produces a file that is neither, and nothing here can rewrite it —
+            // which is precisely the "cannot faithfully represent" case ADR 0002 §4 says to refuse.
+            return Err(CodecError::Other(
+                "manualgcode segment cannot be emitted as KRL: the IR field is verbatim g-code, \
+                 which is not a KRL statement, and copying it through would put g-code lines \
+                 inside a DEF/END module. Remove the passthrough or emit a g-code flavor."
+                    .to_string(),
+            ));
         }
 
         if s.kind == SegmentKind::Dwell {
@@ -441,6 +475,18 @@ where
                 write_line(writer, &mut first_line, &format!("  WAIT SEC {secs_text}"))?;
             }
             continue;
+        }
+
+        // Every g-code flavor refuses a non-finite feedrate on a rapid as well as on a feed move,
+        // because it writes an `F` word on both. KRL writes no speed at all ahead of a `PTP`
+        // (`$VEL_AXIS[]` governs it), so without this the value would leave no trace and the gate
+        // would be narrower here than everywhere else. `emit` is the last gate (ADR 0002 §4), so it
+        // refuses the same IR the other flavors refuse.
+        if !s.speed.value().is_finite() {
+            return Err(CodecError::Other(format!(
+                "cannot emit a motion segment with a feedrate of {} mm/min: the value is not finite",
+                s.speed.value()
+            )));
         }
 
         let mut start_prog = prog_pos;
@@ -470,18 +516,6 @@ where
         let has_e_word = !s.travel || s.filament != Length::ZERO;
         let is_ptp = !is_arc && s.travel && !p.travel_g1_e0 && !has_e_word;
 
-        // `$VEL.CP` governs CP motion only, so it is written ahead of LIN/CIRC and never ahead of a
-        // PTP whose speed it would not control. The modal comparison is against the last value
-        // *written*, so a PTP between two equal-speed CP moves does not force a restatement.
-        if !is_ptp && prev_speed != Some(s.speed) {
-            write_line(
-                writer,
-                &mut first_line,
-                &format!("  $VEL.CP = {}", vel_cp(s.speed.value())?),
-            )?;
-            prev_speed = Some(s.speed);
-        }
-
         let abc = if p.five_axis {
             let joints = ORIENTATION_MODEL
                 .resolve_joints(s.orientation, &mut rotary_state)
@@ -500,7 +534,16 @@ where
             let explicit = s.end[i].is_some();
             let changed = pos[i].is_none_or(|v| v != end_prog[i]);
             let force = is_arc && i < 2;
-            if explicit && (changed || force) {
+            // Character for character the rule in `super::gcode`, so a component the g-code
+            // renderer states is a component this one states. The five-axis branch is the one that
+            // matters: `changed && !explicit` is an axis inheriting a *different* value from the
+            // segment's own `start`, and dropping it walks the arm to the wrong place.
+            let emit_axis = if p.five_axis {
+                changed || explicit
+            } else {
+                explicit && (changed || force)
+            };
+            if emit_axis {
                 components.push(format!("{letter} {}", real(end_prog[i], letter)?));
                 pos[i] = Some(end_prog[i]);
             }
@@ -515,19 +558,21 @@ where
             prev_abc = Some(abc);
         }
         if components.is_empty() {
-            // Nothing moved and nothing turned. G-code can say that with a bare `G1`; an empty KRL
-            // aggregate is a syntax error, so restate the programmed components instead of dropping
-            // a segment the caller asked for.
-            for (i, &letter) in letters.iter().enumerate() {
-                if s.end[i].is_some() {
-                    components.push(format!("{letter} {}", real(end_prog[i], letter)?));
-                }
-            }
-        }
-        if components.is_empty() {
+            // Nothing moved and nothing turned. G-code can say that with a bare `G1`, and an
+            // aggregate restating the pose the robot is already at looked like the KRL equivalent —
+            // it is not. It is a fabricated instruction: a zero-distance move, carrying `C_DIS`
+            // when blending is on, that the IR never asked for. The two segments of
+            // `conformance/vectors/retract_unretract` produced one each.
+            //
+            // The content such a segment does carry is filament or volume, and a KRL program has no
+            // axis for either — a retract, an unretract and a stationary deposit are all
+            // unrepresentable here, not merely unmoving. Refused rather than skipped: ADR 0002 §4
+            // says do not silently emit nothing.
             return Err(CodecError::Other(
-                "motion segment states no endpoint on any axis: a KRL instruction needs at least \
-                 one pose component, and there is nothing here to write"
+                "motion segment commands no pose a KRL instruction could state: every axis it \
+                 names already holds the value it asks for, and filament and volume are not KRL \
+                 quantities. A retract, an unretract or a stationary deposit has nothing left to \
+                 emit on this target."
                     .to_string(),
             ));
         }
@@ -547,6 +592,32 @@ where
         } else {
             format!("  LIN {}{approx}", pose_literal(&components))
         };
+
+        // Both modal lines go out only now, with the instruction that reads them in hand. `$VEL.CP`
+        // governs CP motion only, so it never precedes a `PTP` whose speed it would not control;
+        // `$APO.CDIS` precedes the first CP instruction and no other. Writing either earlier would
+        // state machine state that the rest of the program might never reference — the vacuity
+        // ADR 0002 §4 rules out, and the reason a segment that emits no instruction now leaves no
+        // `$VEL.CP` behind either. The velocity comparison is against the last value *written*, so
+        // a PTP between two equal-speed CP moves does not force a restatement.
+        if !is_ptp {
+            if let (Some(mm), false) = (frame.approx_mm, apo_written) {
+                write_line(
+                    writer,
+                    &mut first_line,
+                    &format!("  $APO.CDIS = {}", real(mm, "$APO.CDIS")?),
+                )?;
+                apo_written = true;
+            }
+            if prev_speed != Some(s.speed) {
+                write_line(
+                    writer,
+                    &mut first_line,
+                    &format!("  $VEL.CP = {}", vel_cp(s.speed.value())?),
+                )?;
+                prev_speed = Some(s.speed);
+            }
+        }
         write_line(writer, &mut first_line, &line)?;
     }
 
@@ -568,10 +639,19 @@ where
 /// - a **zero radius**.
 ///
 /// Not checked here: whether `|end − centre|` agrees with `|start − centre|`. That is a
-/// tolerance-bearing question and `verify` already owns it, as the `arc-radius` rule with its
-/// published `ARC_RADIUS_TOLERANCE_MM`; duplicating it would put a second, unpublished epsilon in
-/// the emitter. An arc that fails that rule emits an auxiliary point on the *start* radius, and the
-/// circle KUKA fits through the three points is then not the circle the IR described.
+/// tolerance-bearing question, and its epsilon is `verify::ARC_RADIUS_TOLERANCE_MM` — one
+/// constant, applied by `resolve`'s L1 gate and by `verify`'s `arc-radius` rule, and published as
+/// `FM1.F64.VERIFY.ARC_RADIUS` in `proofs/verify-numeric-boundaries-v0.toml`. Re-applying it here
+/// would be a third application on a third input domain, which under ADR 0001 needs a boundary
+/// entry of its own; this renderer defers instead.
+///
+/// **What the deferral does not buy.** `dry emit` never runs the verifier (ADR 0002 §1), so on the
+/// emit path nothing checks this at all unless the caller also ran `dry verify`. An arc that fails
+/// the rule emits an auxiliary point on the *start* radius, and the circle KUKA fits through the
+/// three points is then not the circle the IR described. This is the target where that is
+/// unrecoverable: RS-274 keeps the IR's own centre in `I`/`J`, so a downstream interpreter can still
+/// see the contradiction, whereas a refitted three-point circle carries no trace of it. Recorded in
+/// `docs/22-krl-emit.md` § "What this still does not do" rather than closed.
 fn circ_auxiliary_point(
     s: &crate::ir::Segment,
     start_prog: [f64; 3],
@@ -645,6 +725,20 @@ mod tests {
         assert!(vel_cp(0.0).is_err());
         assert!(vel_cp(-1.0).is_err());
         assert!(vel_cp(f64::NAN).is_err());
+    }
+
+    /// A feedrate that survives the input guard but not the format is still refused, because
+    /// `$VEL.CP = 0.0` is the line the guard exists to prevent and it is the *output* that reaches
+    /// the controller.
+    #[test]
+    fn a_feedrate_that_rounds_to_zero_is_refused_not_printed_as_zero() {
+        // Half an ulp of 1e-12 m/s is 5e-13 m/s, i.e. 3e-8 mm/min.
+        for below in [1e-8, 2.9e-8, f64::MIN_POSITIVE] {
+            let err = vel_cp(below).unwrap_err().to_string();
+            assert!(err.contains("rounds to 0"), "{below}: {err}");
+        }
+        // Just above the boundary it still prints something non-zero.
+        assert_eq!(vel_cp(6e-8).unwrap(), "0.000000000001");
     }
 
     #[test]

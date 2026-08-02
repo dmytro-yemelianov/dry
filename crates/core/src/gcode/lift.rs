@@ -1310,6 +1310,27 @@ mod tests {
         assert_eq!(lines[11], "G1 X20 E2");
     }
 
+    /// A `robot-krl` profile reaching the source-preserving rewrite is refused, not spliced.
+    ///
+    /// Reachable from `dry rewrite-gcode --profile '{"firmware":{"flavor":"robot-krl"}}'`. Each
+    /// per-span emission would be a whole `DEF`/`END` module, so splicing them into a g-code file
+    /// produces neither a g-code program nor a loadable KUKA one.
+    #[test]
+    fn a_krl_flavor_refuses_the_source_preserving_rewrite() {
+        let imported =
+            import_gcode_with_map("G1 X0 Y0 Z0.2 F1200\nG1 X10\n", &Default::default()).unwrap();
+        let err = imported
+            .emit_source_preserving(
+                &imported.toolpath,
+                &EmitParams {
+                    flavor: crate::emit::FirmwareFlavor::RobotKrl,
+                    ..EmitParams::default()
+                },
+            )
+            .expect_err("a KRL flavor must not reach the splice");
+        assert!(format!("{err}").contains("not defined for KRL"), "{err}");
+    }
+
     #[test]
     fn span_splice_allows_motion_count_changes() {
         let imported = import_gcode_with_map(

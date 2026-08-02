@@ -116,11 +116,18 @@ fn emitted_text_is_wrapped_in_a_def_end_module_with_a_pinned_frame() {
     assert_eq!(lines[0], "DEF dry ( )");
     assert_eq!(*lines.last().unwrap(), "END");
     assert!(
-        lines[1..4].iter().all(|l| l.starts_with(';')),
+        lines[1..6].iter().all(|l| l.starts_with(';')),
         "the banner must state that this has never run on a controller: {:?}",
-        &lines[1..4]
+        &lines[1..6]
     );
     assert!(program.contains("never run on a KUKA controller or simulator"));
+    // The banner may say the structure is *checkable*, never that it was checked: the emitter runs
+    // no grammar, and `tools/krl_check.sh` has only ever been run over the golden.
+    assert!(
+        program.contains("has not been checked") && program.contains("tools/krl_check.sh"),
+        "{program}"
+    );
+    assert!(!program.contains("Structure checked against"), "{program}");
 
     let tool = lines.iter().position(|l| l.contains("$TOOL")).unwrap();
     let base = lines.iter().position(|l| l.contains("$BASE")).unwrap();
@@ -298,32 +305,176 @@ fn kinematic_offsets_that_a_robot_pose_cannot_carry_are_refused() {
 
 /// `$APO` is emitted only when there is an approximation distance to state, and then every CP
 /// instruction references it. Setting one with nothing referencing it would be vacuous.
+///
+/// The three negative cases are the whole point: `approx_mm` alone is not enough, because a program
+/// with no `LIN`/`CIRC` in it has nothing to blend. Asserting only the single-`LIN` case is what let
+/// `$APO.CDIS` ship into PTP-only and dwell-only programs.
 #[test]
 fn apo_and_c_dis_appear_together_or_not_at_all() {
-    let segments = vec![Segment {
+    let blended = |segments: Vec<Segment>| {
+        emit_krl(
+            segments,
+            &EmitParams {
+                krl_frame: KrlFrame {
+                    approx_mm: Some(1.5),
+                    ..KrlFrame::default()
+                },
+                ..krl(false)
+            },
+        )
+        .unwrap()
+    };
+    let cp_move = vec![Segment {
         end: [mm(10.0), mm(0.0), mm(0.0)],
         ..seg(SegmentKind::Line)
     }];
 
-    let exact = emit_krl(segments.clone(), &krl(false)).unwrap();
+    let exact = emit_krl(cp_move.clone(), &krl(false)).unwrap();
     assert!(
         !exact.contains("$APO") && !exact.contains("C_DIS"),
         "{exact}"
     );
 
-    let blended = emit_krl(
-        segments,
-        &EmitParams {
-            krl_frame: KrlFrame {
-                approx_mm: Some(1.5),
-                ..KrlFrame::default()
-            },
-            ..krl(false)
+    let with_cp = blended(cp_move);
+    assert!(with_cp.contains("  $APO.CDIS = 1.5\n"), "{with_cp}");
+    assert!(with_cp.contains("} C_DIS\n"), "{with_cp}");
+
+    // PTP-only: `C_PTP`/`$APO.CPTP` is the pair that would blend a joint move, and dry emits
+    // neither, so a `$APO.CDIS` here would be referenced by nothing.
+    let ptp_only = blended(vec![
+        Segment {
+            end: [mm(10.0), mm(0.0), mm(0.0)],
+            travel: true,
+            ..seg(SegmentKind::Line)
         },
+        Segment {
+            start: [mm(10.0), mm(0.0), mm(0.0)],
+            end: [mm(20.0), mm(0.0), mm(0.0)],
+            travel: true,
+            ..seg(SegmentKind::Line)
+        },
+    ]);
+    assert!(
+        !ptp_only.contains("$APO") && !ptp_only.contains("C_DIS"),
+        "{ptp_only}"
+    );
+
+    // Dwell-only: no motion instruction at all.
+    let dwell_only = blended(vec![Segment {
+        dwell_s: Some(1.0),
+        ..seg(SegmentKind::Dwell)
+    }]);
+    assert!(!dwell_only.contains("$APO"), "{dwell_only}");
+
+    // And when both kinds are present the `$APO` line lands with the CP move, after the PTP.
+    let mixed = blended(vec![
+        Segment {
+            end: [mm(10.0), mm(0.0), mm(0.0)],
+            travel: true,
+            ..seg(SegmentKind::Line)
+        },
+        Segment {
+            start: [mm(10.0), mm(0.0), mm(0.0)],
+            end: [mm(20.0), mm(0.0), mm(0.0)],
+            ..seg(SegmentKind::Line)
+        },
+    ]);
+    let lines: Vec<&str> = mixed.lines().collect();
+    let ptp = lines.iter().position(|l| l.starts_with("  PTP ")).unwrap();
+    let apo = lines.iter().position(|l| l.contains("$APO")).unwrap();
+    let lin = lines.iter().position(|l| l.starts_with("  LIN ")).unwrap();
+    assert!(ptp < apo && apo < lin, "{mixed}");
+    assert_eq!(mixed.matches("$APO").count(), 1, "{mixed}");
+}
+
+/// A `manualgcode` segment is refused, not copied through.
+///
+/// The IR defines the field as verbatim *g-code* (`spec/dry-ir-v0.schema.json`,
+/// `docs/10-dry-ir-v0-spec.md`), so its content is provably not a KRL statement. Copying it produced
+/// a `DEF`/`END` module with `M117 hello` in the middle of it, which the external grammar rejects
+/// (`line 7:5 no viable alternative at input 'M117hello'`) — the emitter must not write a file whose
+/// only defence is a check nobody ran.
+#[test]
+fn a_manual_gcode_passthrough_is_refused_rather_than_copied_into_the_module() {
+    let err = emit_krl(
+        vec![
+            Segment {
+                end: [mm(10.0), mm(0.0), mm(0.0)],
+                ..seg(SegmentKind::Line)
+            },
+            Segment {
+                manual_gcode: Some("M117 hello".to_string()),
+                ..seg(SegmentKind::ManualGcode)
+            },
+        ],
+        &krl(false),
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("manualgcode segment cannot be emitted as KRL"),
+        "{err}"
+    );
+}
+
+/// A segment that commands no pose change is refused, not restated as a duplicate instruction.
+///
+/// Restating the pose the robot is already at fabricated a zero-distance move the IR never asked
+/// for — and, with blending on, one carrying `C_DIS`, i.e. an approximation request on zero
+/// distance. Both segments of `conformance/vectors/retract_unretract` produced one.
+#[test]
+fn a_segment_that_moves_nothing_is_refused_rather_than_restated() {
+    let at = |x: f64| Segment {
+        start: [mm(x), mm(0.0), mm(0.2)],
+        end: [mm(x), mm(0.0), mm(0.2)],
+        filament: Length::mm(-2.0),
+        ..seg(SegmentKind::Retract)
+    };
+    // The first segment still states its endpoint: nothing has been written yet, so every component
+    // differs from what the controller is known to hold. The second has nothing left to say.
+    let err = emit_krl(vec![at(0.0), at(0.0)], &krl(false)).unwrap_err();
+    assert!(err.contains("commands no pose"), "{err}");
+    assert!(err.contains("not KRL quantities"), "{err}");
+
+    // Same refusal for a segment naming no axis at all — one rule, not two.
+    let err = emit_krl(
+        vec![
+            Segment {
+                end: [mm(10.0), mm(0.0), mm(0.0)],
+                ..seg(SegmentKind::Line)
+            },
+            Segment {
+                filament: Length::mm(2.0),
+                ..seg(SegmentKind::Unretract)
+            },
+        ],
+        &krl(false),
+    )
+    .unwrap_err();
+    assert!(err.contains("commands no pose"), "{err}");
+}
+
+/// Five-axis linear words are chosen by exactly the g-code renderer's rule, so an axis that
+/// *changed* is stated whether or not this segment named it.
+///
+/// The dropped case: `start: [50, 0, 0]`, `end: [null, 10, null]`. X inherits 50 from the segment's
+/// own start, which the emitter has not written yet — `rs274` emits `X50`, and a KRL module that
+/// omitted it walked the arm 40 mm to the wrong place.
+#[test]
+fn five_axis_states_an_axis_that_changed_even_when_the_segment_did_not_name_it() {
+    let program = emit_krl(
+        vec![Segment {
+            start: [mm(50.0), mm(0.0), mm(0.0)],
+            end: [None, mm(10.0), None],
+            orientation: Some([0.0, 0.0, 1.0]),
+            ..seg(SegmentKind::Line)
+        }],
+        &krl(true),
     )
     .unwrap();
-    assert!(blended.contains("  $APO.CDIS = 1.5\n"), "{blended}");
-    assert!(blended.contains("} C_DIS\n"), "{blended}");
+    assert_eq!(
+        motion_lines(&program),
+        ["  LIN {E6POS: X 50.0, Y 10.0, Z 0.0, A 0.0, B 0.0, C 180.0}"]
+    );
 }
 
 /// A frame that reached the emitter without passing through a profile is still validated.
@@ -426,4 +577,37 @@ fn a_cp_move_with_a_non_positive_feedrate_is_refused() {
     )
     .unwrap_err();
     assert!(err.contains("$VEL.CP"), "{err}");
+}
+
+/// A feedrate that is positive and finite but too small to print is refused too — because
+/// `$VEL.CP = 0.0` is a controller fault whether it arrived as a zero or as a rounding.
+#[test]
+fn a_cp_move_whose_feedrate_rounds_to_zero_is_refused() {
+    let program = emit_krl(
+        vec![Segment {
+            end: [mm(10.0), None, None],
+            speed: dry_core::Feedrate(1e-8),
+            ..seg(SegmentKind::Line)
+        }],
+        &krl(false),
+    );
+    let err = program.unwrap_err();
+    assert!(err.contains("rounds to 0"), "{err}");
+}
+
+/// A `PTP` carries no speed word, but IR whose feedrate is not finite is still refused — the gate is
+/// the same width here as on every g-code flavor.
+#[test]
+fn a_rapid_with_a_non_finite_feedrate_is_refused_even_though_ptp_states_no_speed() {
+    let err = emit_krl(
+        vec![Segment {
+            end: [mm(1.0), None, None],
+            travel: true,
+            speed: dry_core::Feedrate(f64::NAN),
+            ..seg(SegmentKind::Line)
+        }],
+        &krl(false),
+    )
+    .unwrap_err();
+    assert!(err.contains("not finite"), "{err}");
 }

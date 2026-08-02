@@ -127,6 +127,7 @@ VERIFY_BOUNDARIES = {
     "FM1.F64.VERIFY.CONTINUITY.GAP",
     "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
     "FM1.F64.VERIFY.FILAMENT_RATIO",
+    "FM1.F64.VERIFY.ARC_RADIUS",
 }
 VERIFY_LIMITS = {
     f"{VERIFY_PROFILE_ID}.LIMIT.COMPARED_COORDINATE_MM",
@@ -135,6 +136,7 @@ VERIFY_BUDGETS = {
     f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM",
     f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR",
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
+    f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
 }
 # The tolerance constants this profile publishes, checked against verify.rs so a constant cannot be
 # retuned without updating the assurance artifact that names it. That pin is the whole point of the
@@ -143,6 +145,7 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM": "CONTINUITY_TOLERANCE_MM",
     f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR": "LENGTH_TOLERANCE",
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR": "FILAMENT_RATIO_TOLERANCE",
+    f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR": "ARC_RADIUS_TOLERANCE_MM",
 }
 EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs"}
 EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
@@ -623,15 +626,45 @@ def pin_tolerance_constants(
             )
 
 
+def require_single_definition(
+    constants: set[str], owner: str, errors: list[str]
+) -> None:
+    """Fail if a pinned epsilon is defined more than once anywhere in `crates/core`.
+
+    The pin above reads one file. A second `const` of the same name elsewhere would sit outside it
+    and could be retuned on its own — which is how `ARC_RADIUS_TOLERANCE_MM` came to exist twice,
+    unregistered, while an emitter comment called it published. Callers that want the epsilon import
+    it from its owner.
+    """
+    for path in sorted((ROOT / "crates/core/src").rglob("*.rs")):
+        source = path.read_text(encoding="utf-8")
+        for constant in sorted(constants):
+            hits = len(
+                re.findall(r"const " + re.escape(constant) + r"\s*:", source)
+            )
+            relative = path.relative_to(ROOT).as_posix()
+            if hits and relative != owner:
+                errors.append(
+                    f"{constant} is defined in {relative} as well as {owner}: a pinned "
+                    "epsilon must have one definition, imported rather than restated"
+                )
+            elif hits > 1:
+                errors.append(f"{constant} is defined {hits} times in {owner}")
+
+
 def validate_verify_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
     """Pin the published tolerance budgets against the constants in `verify.rs`."""
+    owner = "crates/core/src/verify.rs"
     pin_tolerance_constants(
-        "crates/core/src/verify.rs",
+        owner,
         VERIFY_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
+    )
+    require_single_definition(
+        set(VERIFY_IMPLEMENTATION_TOLERANCES.values()), owner, errors
     )
 
 

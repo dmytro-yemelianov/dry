@@ -382,6 +382,27 @@ jobs:
       - name: rs274 accepts the emitted CNC programs
         run: tools/linuxcnc_check.sh
 
+  krl:
+    name: krl (external grammar accepts the robot goldens)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: install the ANTLR runtime and a JRE
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends default-jre-headless
+          python3 -m pip install --break-system-packages 'antlr4-python3-runtime==4.13.2'
+      # The KRL half of the same argument as `linuxcnc` above: the grammar is
+      # `kuka/krl.g4` from antlr/grammars-v4, which nobody here wrote and nobody here
+      # can quietly relax. Without this job `UPDATE_GOLDEN=1 cargo test -p dry-core
+      # --test krl_program_structure` could make the robot corpus stop being KRL with
+      # nothing noticing — the emitter and the golden would simply agree with each other.
+      # A parse is not an execution: no KRC or simulator is involved, and none exists to
+      # run this against (docs/22-krl-emit.md).
+      - name: the external KRL grammar accepts the emitted robot programs
+        run: tools/krl_check.sh
+
   security:
     name: dependency security audit
     runs-on: ubuntu-latest

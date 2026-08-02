@@ -10,6 +10,11 @@
 
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
+// The L1 arc gate below and `verify`'s `arc-radius` rule are one policy, so they are one constant:
+// `verify` owns the definition and this is that epsilon, not a second copy of its value. Published
+// as `FM1.F64.VERIFY.ARC_RADIUS` in `proofs/verify-numeric-boundaries-v0.toml`, which pins the
+// definition — a copy here would be outside that pin and could be retuned apart from it.
+use crate::verify::ARC_RADIUS_TOLERANCE_MM;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::TAU;
 
@@ -116,7 +121,6 @@ pub enum Op {
 
 /// Intermediate samples emitted per Catmull-Rom span (between consecutive through-points).
 pub const SAMPLES: usize = 16;
-const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
 
 /// A design: an ordered list of L1 ops.
 #[derive(Debug, Clone, Default, Deserialize)]

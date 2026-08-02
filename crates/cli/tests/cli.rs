@@ -708,8 +708,10 @@ fn emit_krl_flag_uses_krl_output_mode() {
         String::from_utf8(krl.stdout).unwrap(),
         concat!(
             "DEF dry ( )\n",
-            ";  Emitted by dry. Structure checked against an external KRL grammar\n",
-            ";  (tools/krl_check.sh); never run on a KUKA controller or simulator.\n",
+            ";  Emitted by dry: never run on a KUKA controller or simulator.\n",
+            ";  The structure of THIS program has not been checked either -- dry emits KRL,\n",
+            ";  it does not parse it. tools/krl_check.sh checks a file against an external\n",
+            ";  KRL grammar that nobody here wrote.\n",
             ";  PTP speed is $VEL_AXIS[] (percent of maximum), which dry does not set.\n",
             "  $TOOL = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}\n",
             "  $BASE = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}\n",
@@ -883,12 +885,14 @@ fn emit_krl_five_axis_writes_zyx_euler_angles_into_every_pose() {
 
     let program = String::from_utf8(out.stdout).unwrap();
     // Tool axis along +X, then along +Y. KUKA A is the rotation about Z and B the tilt from +Z,
-    // so the poses are (A 0, B 90) then (A 90, B 90); C is the pinned 180 deg roll.
+    // so the poses are (A 0, B 90) then (A 90, B 90); C is the pinned 180 deg roll. Under
+    // `--five-axis` every axis the segment names is restated, exactly as the g-code renderer
+    // restates them (crates/core/src/emit/gcode.rs), so the second pose repeats X and Z.
     assert_eq!(
         krl_motion_lines(&program),
         [
             "  LIN {E6POS: X 10.0, Y 0.0, Z 0.0, A 0.0, B 90.0, C 180.0}",
-            "  LIN {E6POS: Y 10.0, A 90.0}",
+            "  LIN {E6POS: X 10.0, Y 10.0, Z 0.0, A 90.0}",
         ],
         "{program}"
     );

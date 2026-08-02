@@ -16,7 +16,8 @@
 #
 # The grammar is fetched at check time (pinned commit + SHA-256) rather than vendored:
 # it is LGPL and this repository is proprietary, and a copy in-tree would be a copy we
-# could edit.
+# could edit. The ANTLR tool jar is pinned and checksummed the same way, and cached under
+# $XDG_CACHE_HOME/dry rather than in the Maven repository layout.
 #
 # Defaults to every .src under conformance/reports/robot/. Runnable locally:
 #   tools/krl_check.sh                        # check the robot goldens
@@ -27,7 +28,9 @@
 #   pip install 'antlr4-python3-runtime==4.13.2'
 #   # macOS: brew install openjdk   (/usr/bin/java is a stub with no JRE behind it)
 #   # Debian/Ubuntu/CI: apt-get install -y default-jre-headless
-# Override the discovered pieces with JAVA_BIN, ANTLR4_JAR and DRY_PYTHON.
+# Override the discovered pieces with JAVA_BIN, ANTLR4_JAR and DRY_PYTHON. An ANTLR4_JAR
+# still has to match the pinned SHA-256 -- a jar this script did not choose is a parser
+# generator this script did not choose.
 #
 # Exit: 0 all files accepted, 1 one or more rejected, 2 usage or environment error.
 set -euo pipefail
@@ -41,13 +44,29 @@ GRAMMAR_SHA256="b4797b2480bcf9ebe35c55338dfe4935ba759112600f77e3c7a5bce18f037d9e
 GRAMMAR_URL="https://raw.githubusercontent.com/antlr/grammars-v4/${GRAMMAR_COMMIT}/kuka/krl.g4"
 ANTLR_VERSION="4.13.2"
 ANTLR_URL="https://repo1.maven.org/maven2/org/antlr/antlr4/${ANTLR_VERSION}/antlr4-${ANTLR_VERSION}-complete.jar"
+# The jar generates and hosts the parser, so an unverified one defeats the oracle completely --
+# checking the grammar's bytes and then handing them to an arbitrary compiler proves nothing.
+# Cross-checked against Maven Central's own published .sha1 for this artifact
+# (7df86c341abb175a0f4b76a7845074cc45f82ff8) before being recorded here; Maven publishes no .sha256.
+ANTLR_SHA256="eae2dfa119a64327444672aff63e9ec35a20180dc5b8090b7a6ab85125df4d76"
+# Not $HOME/.m2: writing an artifact this script fetched into the Maven repository layout puts it
+# where other tools resolve dependencies from, and it is not Maven's to populate.
+ANTLR_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/dry/antlr"
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
 
 verbose=0
 files=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --verbose) verbose=1; shift ;;
-    -h|--help) sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,33p' "${BASH_SOURCE[0]}" | sed -n 's/^# \{0,1\}//p'; exit 0 ;;
     -*) echo "unknown option '$1'" >&2; exit 2 ;;
     *) files+=("$1"); shift ;;
   esac
@@ -99,11 +118,7 @@ if ! curl -sSfL -o "$grammar" "$GRAMMAR_URL"; then
   echo "could not fetch the KRL grammar from $GRAMMAR_URL" >&2
   exit 2
 fi
-if command -v sha256sum >/dev/null 2>&1; then
-  got="$(sha256sum "$grammar" | cut -d' ' -f1)"
-else
-  got="$(shasum -a 256 "$grammar" | cut -d' ' -f1)"
-fi
+got="$(sha256_of "$grammar")"
 if [ "$got" != "$GRAMMAR_SHA256" ]; then
   echo "KRL grammar checksum mismatch: expected $GRAMMAR_SHA256, got $got" >&2
   echo "the pinned commit's content changed, or the download was tampered with; refusing to run" >&2
@@ -111,14 +126,26 @@ if [ "$got" != "$GRAMMAR_SHA256" ]; then
 fi
 
 # --- the ANTLR tool ---------------------------------------------------------------
-jar="${ANTLR4_JAR:-$HOME/.m2/repository/org/antlr/antlr4/${ANTLR_VERSION}/antlr4-${ANTLR_VERSION}-complete.jar}"
+jar="${ANTLR4_JAR:-$ANTLR_CACHE/antlr4-${ANTLR_VERSION}-complete.jar}"
 if [ ! -f "$jar" ]; then
   mkdir -p "$(dirname "$jar")"
-  if ! curl -sSfL -o "$jar" "$ANTLR_URL"; then
+  # Download to a sibling and move only once the checksum holds, so an interrupted or tampered
+  # fetch never leaves something the next run would trust because it is already on disk.
+  if ! curl -sSfL -o "$jar.part" "$ANTLR_URL"; then
     echo "could not fetch the ANTLR tool from $ANTLR_URL; set ANTLR4_JAR to a local copy" >&2
-    rm -f "$jar"
+    rm -f "$jar.part"
     exit 2
   fi
+  mv "$jar.part" "$jar"
+fi
+got="$(sha256_of "$jar")"
+if [ "$got" != "$ANTLR_SHA256" ]; then
+  echo "ANTLR tool checksum mismatch for $jar" >&2
+  echo "  expected $ANTLR_SHA256" >&2
+  echo "  got      $got" >&2
+  echo "the jar generates and hosts the parser, so running an unpinned one would make the check" >&2
+  echo "meaningless; refusing to run. Delete it to re-fetch, or update ANTLR_SHA256 deliberately." >&2
+  exit 2
 fi
 
 gen="$WORK/gen"

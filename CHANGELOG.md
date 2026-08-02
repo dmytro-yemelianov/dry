@@ -25,20 +25,44 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
     `antlr/grammars-v4` (LGPL, from the arXiv:1009.5004 reverse-engineering study), fetched at a
     pinned commit with its SHA-256 checked, wired the way `tools/linuxcnc_check.sh` wires `rs274`
     (including treating "parsed cleanly but contains no motion instruction" as a rejection). It
-    rejects the previous release's KRL output on line 1. No free KRL *execution* environment exists
-    — OfficeLite is proprietary and Windows-only — and no claim here depends on one.
+    rejects the previous release's KRL output on line 1, and it now runs in CI as the `krl` job.
+    **What it checks is the goldens, not every emitted program**: the emitter runs no grammar, so the
+    banner Dry writes into each file says the structure is *checkable with* `tools/krl_check.sh`, not
+    that it was checked. No free KRL *execution* environment exists — OfficeLite is proprietary and
+    Windows-only — and no claim here depends on one.
   - `CIRC` now carries arc direction. The old `C`/`D` centre offsets were identical for a clockwise
     arc and its counter-clockwise twin; the auxiliary point at the swept-angle midpoint is not.
   - Arcs a three-point `CIRC` cannot describe are **refused**, not approximated: a helix
-    (`start.Z ≠ end.Z`), an exact full turn, a zero radius. So is a CP move with a non-positive
-    feedrate, and a `Kinematics` model carrying machine-tool pivot/rotary offsets, which have no
-    meaning for a TCP pose in `$BASE`.
+    (`start.Z ≠ end.Z`), an exact full turn, a zero radius. So are: a CP move with a non-positive
+    feedrate **or one whose feedrate would print as `$VEL.CP = 0.0`** (below `3e-8 mm/min`, which is
+    half an ulp of the 12 decimals the variable is written to); **any** motion segment with a
+    non-finite feedrate, including a `PTP`, which states no speed at all and previously slipped
+    through; a `manualgcode` segment, whose content is g-code by definition and is no longer copied
+    into the module; a segment that **commands no pose change**, which used to restate the pose the
+    robot was already at and so fabricated a zero-distance move (carrying `C_DIS` when blending was
+    on) — in practice this means IR with retracts, unretracts or stationary deposits after the first
+    move cannot be emitted as KRL, since a KRL program has no filament axis; and a `Kinematics` model
+    carrying machine-tool pivot/rotary offsets, which have no meaning for a TCP pose in `$BASE`.
+  - `$APO.CDIS` is now written lazily, immediately before the first `LIN`/`CIRC`, instead of in the
+    frame prologue. A PTP-only or dwell-only program with `approx_mm` set used to state a blending
+    distance no instruction referenced — the vacuity ADR 0002 §4 rules out. `$VEL.CP` likewise goes
+    out only with the instruction it governs.
+  - Under `--five-axis`, linear components are chosen by exactly the g-code renderer's rule
+    (`changed || explicit`). The KRL renderer had used the 3-axis rule, which silently dropped an
+    axis that *changed* without being named — `start: [50, 0, 0], end: [null, 10, null]` emitted no
+    `X` where `rs274` emits `X50`. Five-axis KRL poses are correspondingly more explicit, and the
+    golden moved.
   - **Breaking for KRL consumers**: the output is no longer g-code and Dry's own g-code importer
     refuses it. `dry rewrite-gcode` with a `robot-krl` profile now errors instead of splicing robot
     lines into a g-code file. `EmitParams` gains a `krl_frame` field (`Deserialize`-defaulted, so
     JSON callers are unaffected; a Rust caller writing an exhaustive struct literal must add it).
   - Frozen golden at `conformance/reports/robot/reference-five-axis.src`
     (`UPDATE_GOLDEN=1 cargo test -p dry-core --test krl_program_structure`).
+  - **Not** closed, and now recorded as a limitation rather than deferred to a check that does not
+    run: arc-radius consistency. `dry emit` runs no verifier, so an arc whose endpoint is off its
+    radius reaches a KRL `CIRC` unchecked, and a three-point `CIRC` keeps no trace of the IR centre
+    the way RS-274's `I`/`J` does. Also unwritten: `INI`/`BAS(#INITMOV,0)`, so `$ACC.CP`, `$ORI_TYPE`
+    and `$APO.CPTP` stay at whatever the previous program set.
 
 ### Added
 - **The conformance corpus carries an oriented design.** `conformance/vectors/five_axis_drape` is a
@@ -106,6 +130,20 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
     `sdk/ts/src/ops.ts` declares `Op` as a closed union and `tsc` rejects an unlisted `op` tag. Both
     wait on a parity slice. `resolve::Op` is also not `#[non_exhaustive]`, so adding this variant is
     a breaking change for any out-of-tree Rust code that matches the enum exhaustively.
+
+- **`arc-radius`'s epsilon is published, and defined once.** `ARC_RADIUS_TOLERANCE_MM` is a
+  tolerance-bearing predicate's epsilon that predated H1.3 and was never registered under ADR 0001 —
+  and it existed as two independent `1e-6` literals, in `verify.rs` and `resolve.rs`, neither pinned.
+  It is now one `pub(crate)` constant in `verify.rs` that `resolve.rs` imports, published as the
+  boundary `FM1.F64.VERIFY.ARC_RADIUS` with the budget
+  `FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.ARC_RADIUS_RELATIVE_ERROR` pinned against it.
+  `tools/validate_numeric_boundaries.py` additionally fails if any pinned epsilon gains a second
+  definition anywhere in `crates/core`, so the collapse cannot silently come apart. **No rule
+  behaviour changed**; the value is the same 1e-6 in the same hybrid form.
+- **The external KRL grammar check runs in CI** (`krl` job), so a regenerated robot golden that is no
+  longer KRL fails there rather than agreeing with the emitter that produced it. `tools/krl_check.sh`
+  also pins and verifies the ANTLR tool jar (it previously downloaded an unchecked jar into
+  `$HOME/.m2`), and caches it under `$XDG_CACHE_HOME/dry`.
 - **The reference 5-axis machine has limits, and three rules that check them (#180 gaps 1–2).**
   `REFERENCE_FIVE_AXIS_MACHINE` described a B/C kinematic mapping and nothing else — no rotary travel,
   no rotary rate, no envelope — so "emits valid 5-axis g-code" was not a checkable claim. Profiles gain
