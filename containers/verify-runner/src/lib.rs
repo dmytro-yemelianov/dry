@@ -363,6 +363,12 @@ fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)
     // matches the reference composition in CI/tests, which never sets `DRY_LICENSE`; the CLI
     // stamps every `dry verify --json` report (eval or licensed — see `license_stamp` in
     // `crates/cli/src/main.rs`), so byte-identity requires this shim to do the same.
+    //
+    // Product decision: this is deliberate, not a gap to close here. The runner mirrors the
+    // CLI's unlicensed output byte-for-byte; cloud-side licensing is out of scope while the
+    // cloud surface is an archived spike (see `crates/cloud/README.md`). A future paid cloud
+    // surface must stamp the report from the dispatching layer (the service that knows which
+    // customer/license issued the request), not from this container.
     report.license = Some(dry_core::LicenseStamp {
         mode: "evaluation".to_string(),
         licensee: None,

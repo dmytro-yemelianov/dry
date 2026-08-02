@@ -94,6 +94,8 @@ jobs:
           ver=$(curl -fsSL https://api.github.com/repos/dmytro-yemelianov/dry/releases/latest \
             | grep -m1 '"tag_name"' | cut -d'"' -f4)
           curl -fsSLO "https://github.com/dmytro-yemelianov/dry/releases/download/${ver}/dry-${ver#v}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLO "https://github.com/dmytro-yemelianov/dry/releases/download/${ver}/SHA256SUMS"
+          grep "x86_64-unknown-linux-gnu.tar.gz" SHA256SUMS | sha256sum -c -
           tar xzf "dry-${ver#v}-x86_64-unknown-linux-gnu.tar.gz"
           echo "$PWD/dry-${ver#v}-x86_64-unknown-linux-gnu" >> "$GITHUB_PATH"
 
@@ -117,8 +119,7 @@ jobs:
 gate` step is the whole gate. The `set -o pipefail` matters: without it, the step's exit status is
 `tee`'s (always 0), and an error-level finding would silently pass the build. Point `--profile` at
 a committed machine/material JSON if you want firmware-specific limits (temperature, flow, bounds)
-enforced
-instead of the defaults.
+enforced instead of the defaults.
 
 ## 6. Gate the print itself: `dry upload --moonraker`
 

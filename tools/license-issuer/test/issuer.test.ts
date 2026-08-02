@@ -185,6 +185,45 @@ describe("POST /webhook/lemonsqueezy", () => {
     expect(payload.expires_unix - payload.issued_unix).toBe(365 * 24 * 60 * 60 + 3 * 24 * 60 * 60);
   });
 
+  it("escapes an HTML-hostile licensee name in the emailed html body", async () => {
+    const response = await postWebhook(
+      orderCreatedEvent({
+        orderId: "order-xss",
+        email: "victim@example.com",
+        name: "<img src=x onerror=1>",
+        variantId: 200,
+      }),
+    );
+    expect(response.status).toBe(200);
+
+    expect(testEnv.EMAIL.send).toHaveBeenCalledTimes(1);
+    const message = vi.mocked(testEnv.EMAIL.send).mock.calls[0][0] as { html: string };
+    expect(message.html).not.toContain("<img src=x onerror=1>");
+    expect(message.html).toContain("&lt;img src=x onerror=1&gt;");
+  });
+
+  it("a retried order_created for an already-issued order is a no-op: one D1 row, one email", async () => {
+    const event = orderCreatedEvent({
+      orderId: "order-retry",
+      email: "retry@example.com",
+      name: "Retry Co",
+      variantId: 200,
+    });
+
+    const first = await postWebhook(event);
+    expect(first.status).toBe(200);
+    const second = await postWebhook(event);
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as { ok: boolean; duplicate?: boolean };
+    expect(secondBody.duplicate).toBe(true);
+
+    const rows = await testEnv.DB.prepare("SELECT * FROM licenses WHERE order_id = ?")
+      .bind("order-retry")
+      .all();
+    expect(rows.results).toHaveLength(1);
+    expect(testEnv.EMAIL.send).toHaveBeenCalledTimes(1);
+  });
+
   it("subscription_payment_success maps through the same issuance path", async () => {
     const event = {
       meta: { event_name: "subscription_payment_success" },

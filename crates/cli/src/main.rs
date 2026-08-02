@@ -685,13 +685,19 @@ fn die(msg: String) -> ! {
 /// behavior until that ceremony runs (see the release runbook).
 const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[("prod-1", [0u8; 32])];
 
-/// The verification keys `resolve_license`/`activate` accept: production keys always, plus the
-/// committed TEST key when running a debug build or when explicitly opted in via
-/// `DRY_LICENSE_ALLOW_TEST_KEY=1` — keeping release binaries from trusting it silently.
+/// The verification keys `resolve_license`/`activate` accept: production keys always, plus —
+/// in debug builds only, and only with the explicit `DRY_LICENSE_ALLOW_TEST_KEY=1` opt-in — the
+/// committed TEST key.
+///
+/// Decision: release binaries trust only `PRODUCTION_KEYS`, full stop, regardless of any env
+/// var. The committed test key (and its fixture tokens under `crates/license/tests/fixtures/`)
+/// only ever verifies in a debug build with the explicit opt-in; there is no way to make a
+/// release binary accept it. Testing licensing behavior against a release binary requires a
+/// real key from the release key ceremony (see the release runbook) — not this fixture.
 fn license_keys() -> Vec<(&'static str, [u8; 32])> {
     let mut keys: Vec<(&'static str, [u8; 32])> = PRODUCTION_KEYS.to_vec();
     let allow_test = cfg!(debug_assertions)
-        || std::env::var("DRY_LICENSE_ALLOW_TEST_KEY").is_ok_and(|v| v == "1");
+        && std::env::var("DRY_LICENSE_ALLOW_TEST_KEY").is_ok_and(|v| v == "1");
     if allow_test {
         keys.push((dry_license::TEST_KEY_ID, dry_license::TEST_VERIFYING_KEY));
     }

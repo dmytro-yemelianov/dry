@@ -129,6 +129,50 @@ fn upload_refuses_in_eval_before_any_network() {
     assert!(!err.contains("connection"), "network was attempted: {err}");
 }
 
+/// The test key must never be trusted without the explicit opt-in, even in a debug build:
+/// a valid test-signed token with `DRY_LICENSE_ALLOW_TEST_KEY` unset still falls back to
+/// evaluation mode (with a warning), not silently-implied trust from `cfg!(debug_assertions)`.
+#[test]
+fn test_key_not_trusted_without_explicit_opt_in() {
+    let out = bin()
+        .args(["license", "status"])
+        .env("DRY_LICENSE", team_token().trim())
+        .env_remove("DRY_LICENSE_ALLOW_TEST_KEY")
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("evaluation"), "got: {s}");
+}
+
+/// A malformed `DRY_LICENSE` on a report command falls back to evaluation mode, printing a
+/// `warning:` line naming the parse failure *before* the eval banner — same wording contract
+/// as `garbage_token_activate_fails_cleanly` for `license activate`, but for the report path.
+#[test]
+fn malformed_license_warns_before_eval_banner_on_report_command() {
+    let out = bin()
+        .args(["review-gcode", gcode_fixture().to_str().unwrap(), "--json"])
+        .env("DRY_LICENSE", "garbage")
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-malformed-license"),
+        )
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    let warning_pos = err
+        .find("warning:")
+        .unwrap_or_else(|| panic!("no warning line: {err}"));
+    assert!(err.contains("malformed"), "got: {err}");
+    let banner_pos = err
+        .find("EVALUATION")
+        .unwrap_or_else(|| panic!("no eval banner: {err}"));
+    assert!(
+        warning_pos < banner_pos,
+        "warning must precede eval banner: {err}"
+    );
+}
+
 #[test]
 fn garbage_token_activate_fails_cleanly() {
     let out = bin()

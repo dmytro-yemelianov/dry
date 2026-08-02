@@ -94,7 +94,20 @@ async function insertLicense(env: Env, payload: LicensePayload, orderId: string 
     .run();
 }
 
+/** Escapes the five HTML-significant characters. `payload.licensee` is buyer-controlled
+ * (Lemon Squeezy's `user_name` / the admin-issue body), so it must never be interpolated into
+ * the email's `html` body unescaped. */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 async function emailLicense(env: Env, payload: LicensePayload, token: string): Promise<void> {
+  const licenseeHtml = escapeHtml(payload.licensee);
   await env.EMAIL.send({
     to: payload.email,
     from: { email: env.MAIL_FROM, name: "Dry License" },
@@ -105,7 +118,7 @@ async function emailLicense(env: Env, payload: LicensePayload, token: string): P
       `Your Dry license token (tier: ${payload.tier}, expires ${payload.expires}):\n\n${token}\n\n` +
       `Save it with: dry license activate ${token}\n`,
     html:
-      `<p>Hi ${payload.licensee},</p>` +
+      `<p>Hi ${licenseeHtml},</p>` +
       `<p>Your Dry license token (tier: ${payload.tier}, expires ${payload.expires}):</p>` +
       `<pre>${token}</pre>` +
       `<p>Save it with: <code>dry license activate ${token}</code></p>`,
@@ -217,11 +230,23 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       console.warn(`license-issuer: unmapped ${eventName} event ${event.data?.id ?? "?"}`);
       return jsonResponse({ ok: true, skipped: true });
     }
+    const orderId = extractOrderId(event);
+    // Idempotency: Lemon Squeezy retries webhook delivery on anything short of a prompt 2xx.
+    // A retry for an order we've already issued a (non-revoked) license for must not mint a
+    // second license + send a second email -- short-circuit before insertLicense/emailLicense.
+    if (orderId !== undefined) {
+      const existing = await env.DB.prepare("SELECT id FROM licenses WHERE order_id = ? AND revoked = 0")
+        .bind(orderId)
+        .first();
+      if (existing) {
+        return jsonResponse({ ok: true, duplicate: true });
+      }
+    }
     await issueLicense(env, {
       licensee: customer.name,
       email: customer.email,
       tier,
-      orderId: extractOrderId(event),
+      orderId,
     });
     return jsonResponse({ ok: true });
   }

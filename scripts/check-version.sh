@@ -21,6 +21,8 @@ cargo_ver="$(awk '/^\[workspace.package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(
 py_ver="$(awk '/^\[project\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/py/pyproject.toml")"
 py_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/py/Cargo.toml")"
 wasm_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/crates/wasm/Cargo.toml")"
+cloud_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/crates/cloud/Cargo.toml")"
+verify_runner_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/containers/verify-runner/Cargo.toml")"
 ts_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/sdk/ts/package.json" | head -1)"
 ts_lock_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/sdk/ts/package-lock.json" | head -1)"
 
@@ -39,6 +41,8 @@ check "Cargo workspace" "$cargo_ver"
 check "py/pyproject.toml" "$py_ver"
 check "py/Cargo.toml" "$py_cargo_ver"
 check "crates/wasm/Cargo.toml" "$wasm_cargo_ver"
+check "crates/cloud/Cargo.toml" "$cloud_cargo_ver"
+check "containers/verify-runner/Cargo.toml" "$verify_runner_cargo_ver"
 check "sdk/ts/package.json" "$ts_ver"
 check "sdk/ts/package-lock.json" "$ts_lock_ver"
 
