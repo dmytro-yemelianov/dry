@@ -575,7 +575,13 @@ impl Report {
     }
 }
 
-const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
+/// Relative tolerance for `arc-radius`: how far `|end − centre|` may differ from `|start − centre|`
+/// before the two contradict each other.
+///
+/// The single definition in the tree. `resolve` applies the same epsilon at the L1 gate and imports
+/// it from here rather than restating it — two literals could be retuned apart, and the published
+/// boundary `FM1.F64.VERIFY.ARC_RADIUS` can only pin one of them.
+pub(crate) const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;
 
 /// Per-axis continuity tolerance (mm), applied by the hybrid rule below.
 ///

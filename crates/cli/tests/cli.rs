@@ -39,6 +39,19 @@ fn fixture(corpus: &str, name: &str) -> PathBuf {
         .join(format!("../../conformance/{corpus}/{name}.json"))
 }
 
+/// The `PTP`/`LIN`/`CIRC` lines of a KRL module, in order.
+///
+/// Counted by prefix rather than by feeding the program to Dry's g-code parser, which is what these
+/// tests used to do: a KRL module is not g-code and the parser refuses it outright. What that
+/// round-trip demonstrated was only that Dry's emitter and Dry's parser agreed — see
+/// `tools/krl_check.sh` for the check that involves a grammar nobody here wrote.
+fn krl_motion_lines(program: &str) -> Vec<&str> {
+    program
+        .lines()
+        .filter(|l| l.starts_with("  PTP ") || l.starts_with("  LIN ") || l.starts_with("  CIRC "))
+        .collect()
+}
+
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     use std::io::Read as _;
 
@@ -546,7 +559,7 @@ fn emit_profile_linuxcnc_flavor_is_implicit_rs274_with_step_nc() {
 }
 
 #[test]
-fn emit_profile_robot_krl_flavor_is_robot_motion_style() {
+fn emit_profile_robot_krl_flavor_emits_a_kuka_module() {
     let path = fixture("vectors/five_axis", "input");
     let profile_path = std::env::temp_dir().join(format!(
         "dry-cli-emit-profile-robot-krl-{}-{}.json",
@@ -585,35 +598,14 @@ fn emit_profile_robot_krl_flavor_is_robot_motion_style() {
         "robot-krl profile should imply robot-motion emit (without --format)"
     );
 
-    let gcode = String::from_utf8(out.stdout).unwrap();
-    let parsed = parse_gcode_lines(&gcode).unwrap();
-    let motion_count = parsed
-        .iter()
-        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
-        .count();
-    assert_eq!(motion_count, 1);
+    let program = String::from_utf8(out.stdout).unwrap();
+    assert!(program.starts_with("DEF dry ( )\n"), "{program}");
+    assert!(program.trim_end().ends_with("\nEND"), "{program}");
+    assert_eq!(krl_motion_lines(&program).len(), 1, "{program}");
     assert!(
-        gcode.contains("LIN") || gcode.contains("PTP"),
-        "profile-driven robot flavor should emit robot command verbs"
-    );
-    assert!(
-        !gcode.contains("G4 P") && !gcode.contains("G1 ") && !gcode.contains("G0 "),
+        !program.contains("G4 P") && !program.contains("G1 ") && !program.contains("G0 "),
         "robot profile should not emit RS-274 / GRBL words"
     );
-
-    let imported = import_gcode(
-        &gcode,
-        &GcodeImportParams {
-            relative_e: false,
-            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
-            // model to read the rotary words back. Naming the constant rather than repeating
-            // its literal keeps this correct if the reference machine ever changes.
-            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(imported.segments.len(), 1);
 
     let _ = std::fs::remove_file(profile_path);
 }
@@ -710,17 +702,30 @@ fn emit_krl_flag_uses_krl_output_mode() {
         .unwrap();
     assert!(krl.status.success(), "dry emit --format krl should succeed");
 
+    // A whole module, not a bare motion line. The travel becomes a PTP, which carries no
+    // `$VEL.CP` because that variable does not govern a joint move (crates/core/src/emit/krl.rs).
     assert_eq!(
-        String::from_utf8(krl.stdout).unwrap().trim(),
-        "PTP V1500 X10",
-        "krl output should be robot-motion style"
+        String::from_utf8(krl.stdout).unwrap(),
+        concat!(
+            "DEF dry ( )\n",
+            ";  Emitted by dry: never run on a KUKA controller or simulator.\n",
+            ";  The structure of THIS program has not been checked either -- dry emits KRL,\n",
+            ";  it does not parse it. tools/krl_check.sh checks a file against an external\n",
+            ";  KRL grammar that nobody here wrote.\n",
+            ";  PTP speed is $VEL_AXIS[] (percent of maximum), which dry does not set.\n",
+            "  $TOOL = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}\n",
+            "  $BASE = {X 0.0, Y 0.0, Z 0.0, A 0.0, B 0.0, C 0.0}\n",
+            "  PTP {E6POS: X 10.0}\n",
+            "END\n",
+        ),
+        "krl output should be a DEF/END module"
     );
 
     let _ = std::fs::remove_file(path);
 }
 
 #[test]
-fn emit_krl_output_is_parseable_and_importable() {
+fn emit_krl_output_is_one_kuka_instruction_per_segment() {
     let path = std::env::temp_dir().join(format!(
         "dry-cli-krl-{}-{}.json",
         std::process::id(),
@@ -806,33 +811,17 @@ fn emit_krl_output_is_parseable_and_importable() {
         .unwrap();
     assert!(out.status.success(), "emit --format krl should succeed");
 
-    let gcode = String::from_utf8(out.stdout).unwrap();
-    let parsed = parse_gcode_lines(&gcode).unwrap();
-    let motion_count = parsed
-        .iter()
-        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
-        .count();
-    assert_eq!(
-        motion_count, 5,
-        "KRL emit should produce one motion record per segment"
-    );
-
-    let imported = import_gcode(
-        &gcode,
-        &GcodeImportParams {
-            relative_e: false,
-            ..GcodeImportParams::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(imported.segments.len(), 5);
-    assert_eq!(imported.segments.last().unwrap().kind, SegmentKind::Dwell);
+    let program = String::from_utf8(out.stdout).unwrap();
+    // Four moves and a dwell. The dwell is a `WAIT SEC`, not a motion instruction, so it is
+    // counted separately rather than folded into the motion count the way g-code lets it be.
+    assert_eq!(krl_motion_lines(&program).len(), 4, "{program}");
+    assert!(program.contains("  WAIT SEC 0.5\n"), "{program}");
 
     let _ = std::fs::remove_file(path);
 }
 
 #[test]
-fn emit_krl_five_axis_with_bc_kinematics_is_parseable_and_importable() {
+fn emit_krl_five_axis_writes_zyx_euler_angles_into_every_pose() {
     let path = std::env::temp_dir().join(format!(
         "dry-cli-krl-five-axis-{}-{}.json",
         std::process::id(),
@@ -894,34 +883,19 @@ fn emit_krl_five_axis_with_bc_kinematics_is_parseable_and_importable() {
         "dry emit --format krl --five-axis should succeed"
     );
 
-    let gcode = String::from_utf8(out.stdout).unwrap();
-    let parsed = parse_gcode_lines(&gcode).unwrap();
-    let motion_count = parsed
-        .iter()
-        .filter(|line| matches!(line.record, GcodeRecord::Motion(_)))
-        .count();
+    let program = String::from_utf8(out.stdout).unwrap();
+    // Tool axis along +X, then along +Y. KUKA A is the rotation about Z and B the tilt from +Z,
+    // so the poses are (A 0, B 90) then (A 90, B 90); C is the pinned 180 deg roll. Under
+    // `--five-axis` every axis the segment names is restated, exactly as the g-code renderer
+    // restates them (crates/core/src/emit/gcode.rs), so the second pose repeats X and Z.
     assert_eq!(
-        motion_count, 2,
-        "KRL five-axis output should produce motion records for each segment"
+        krl_motion_lines(&program),
+        [
+            "  LIN {E6POS: X 10.0, Y 0.0, Z 0.0, A 0.0, B 90.0, C 180.0}",
+            "  LIN {E6POS: X 10.0, Y 10.0, Z 0.0, A 90.0}",
+        ],
+        "{program}"
     );
-    assert!(gcode.contains("C0"));
-    assert!(gcode.contains("C90"));
-
-    let imported = import_gcode(
-        &gcode,
-        &GcodeImportParams {
-            relative_e: false,
-            // `--five-axis` posts for REFERENCE_FIVE_AXIS_MACHINE, so import needs the same
-            // model to read the rotary words back. Naming the constant rather than repeating
-            // its literal keeps this correct if the reference machine ever changes.
-            kinematics: Some(REFERENCE_FIVE_AXIS_MACHINE),
-            ..GcodeImportParams::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(imported.segments.len(), 2);
-    assert_eq!(imported.segments[0].kind, SegmentKind::Line);
-    assert_eq!(imported.segments[1].kind, SegmentKind::Line);
 
     let _ = std::fs::remove_file(path);
 }

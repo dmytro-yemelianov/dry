@@ -10,8 +10,9 @@ use dry_core::{
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
     trace_summary_with_sources, try_pocket_design, verify, verify_stream, Contracts, CutMode,
-    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, OptimizeMode, PocketOptions,
-    PocketShape, Profile, RewriteReport, RewriteSpanResult, Toolpath, REFERENCE_FIVE_AXIS_MACHINE,
+    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, KrlFrame, OptimizeMode,
+    PocketOptions, PocketShape, Profile, RewriteReport, RewriteSpanResult, Toolpath,
+    REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -36,7 +37,7 @@ enum EmitOutputFormat {
     Rs274,
     /// Emit GRBL (laser) output.
     Grbl,
-    /// Emit KRL-style robot output.
+    /// Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md).
     #[value(alias = "krl")]
     RobotKrl,
 }
@@ -960,6 +961,10 @@ fn run(cli: Cli) -> ExitCode {
                 kinematics,
                 flavor,
                 cnc_frame: profile.as_ref().and_then(|p| p.emit_params().cnc_frame),
+                // Not wired from `profile`: the profile schema has no KRL block yet, so the
+                // program name and $TOOL/$BASE stay at the emitter's documented defaults
+                // (see crates/core/src/emit/krl.rs).
+                krl_frame: KrlFrame::default(),
             };
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
@@ -1626,6 +1631,9 @@ fn run(cli: Cli) -> ExitCode {
                     .map(|p| p.emit_params().flavor)
                     .unwrap_or(FirmwareFlavor::Marlin),
                 cnc_frame: None,
+                // Unused on this path: `emit_source_preserving_spans` refuses a KRL flavor
+                // outright, because a DEF/END module is not a spliceable motion span.
+                krl_frame: KrlFrame::default(),
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -2685,6 +2693,9 @@ fn run_upload(args: UploadArgs) -> std::process::ExitCode {
                 .map(|p| p.emit_params().flavor)
                 .unwrap_or(FirmwareFlavor::Marlin),
             cnc_frame: None,
+            // Unused on this path: `emit_source_preserving_spans` refuses a KRL flavor outright,
+            // because a DEF/END module is not a spliceable motion span.
+            krl_frame: KrlFrame::default(),
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();

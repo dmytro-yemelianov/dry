@@ -210,15 +210,19 @@ fn test_dwell_firmware_flavors() {
     );
     assert_eq!(gcode_grbl[0], "G4 P1.5");
 
-    // KRL prototype uses a conservative `WAIT` dwell keyword.
-    let gcode_krl = emit(
+    // KRL is `WAIT SEC <s>`, inside the DEF/END module its renderer always writes. The bare
+    // `WAIT 1.5` this used to assert is not KRL at all — the external grammar
+    // (`tools/krl_check.sh`) rejects it with "no viable alternative at input 'WAIT1.5'".
+    let krl = emit(
         &tp,
         &EmitParams {
             flavor: FirmwareFlavor::RobotKrl,
             ..EmitParams::default()
         },
     );
-    assert_eq!(gcode_krl[0], "WAIT 1.5");
+    assert_eq!(krl.first().map(String::as_str), Some("DEF dry ( )"));
+    assert!(krl.iter().any(|l| l == "  WAIT SEC 1.5"), "{krl:?}");
+    assert_eq!(krl.last().map(String::as_str), Some("END"));
 }
 
 #[test]
@@ -642,76 +646,52 @@ fn test_rs274_output_with_five_axis_is_parseable_and_importable() {
 }
 
 #[test]
-fn test_robot_krl_output_with_five_axis_is_parseable_and_importable() {
+fn robot_krl_output_is_a_kuka_module_and_is_no_longer_g_code_dry_can_import() {
     use super::{emit, EmitParams, FirmwareFlavor, Kinematics};
-    use crate::gcode::{import_gcode, parse_gcode_lines, GcodeImportParams};
+    use crate::gcode::parse_gcode_lines;
     use crate::ir::{Segment, SegmentKind, Toolpath};
     use crate::units::{Feedrate, Length, Volume};
 
+    // This test used to be `test_robot_krl_output_with_five_axis_is_parseable_and_importable`, and
+    // what it proved was that Dry's own g-code parser could read Dry's own g-code-shaped KRL —
+    // which is circular, and was only ever possible because the output was not KRL. Real KRL is a
+    // `DEF`/`END` module of `{E6POS: ...}` aggregates. The g-code importer cannot read that, and
+    // this test now pins that fact so nobody restores a round-trip by regressing the emitter.
+    // What replaces the round-trip as evidence: `crates/core/tests/krl_program_structure.rs` for
+    // the structure, and `tools/krl_check.sh` — an external grammar nobody here wrote — for the
+    // syntax. Neither is a controller.
     let tp = Toolpath {
         version: 0,
         meta: None,
-        segments: vec![
-            Segment {
-                start: [None, None, None],
-                end: [
-                    Some(Length::mm(10.0)),
-                    Some(Length::mm(0.0)),
-                    Some(Length::mm(0.0)),
-                ],
-                travel: false,
-                speed: Feedrate(1200.0),
-                length: Length::mm(10.0),
-                volume: Volume::ZERO,
-                filament: Length::ZERO,
-                width: None,
-                height: None,
-                kind: SegmentKind::Line,
-                centre: None,
-                clockwise: false,
-                temperature: None,
-                fan: None,
-                flow: None,
-                tool: None,
-                dwell_s: None,
-                manual_gcode: None,
-                orientation: Some([1.0, 0.0, 0.0]),
-                control_points: None,
-            },
-            Segment {
-                start: [
-                    Some(Length::mm(10.0)),
-                    Some(Length::mm(0.0)),
-                    Some(Length::mm(0.0)),
-                ],
-                end: [
-                    Some(Length::mm(10.0)),
-                    Some(Length::mm(10.0)),
-                    Some(Length::mm(0.0)),
-                ],
-                travel: false,
-                speed: Feedrate(1200.0),
-                length: Length::mm(10.0),
-                volume: Volume::ZERO,
-                filament: Length::ZERO,
-                width: None,
-                height: None,
-                kind: SegmentKind::Line,
-                centre: None,
-                clockwise: false,
-                temperature: None,
-                fan: None,
-                flow: None,
-                tool: None,
-                dwell_s: None,
-                manual_gcode: None,
-                orientation: Some([0.0, 1.0, 0.0]),
-                control_points: None,
-            },
-        ],
+        segments: vec![Segment {
+            start: [None, None, None],
+            end: [
+                Some(Length::mm(10.0)),
+                Some(Length::mm(0.0)),
+                Some(Length::mm(0.0)),
+            ],
+            travel: false,
+            speed: Feedrate(1200.0),
+            length: Length::mm(10.0),
+            volume: Volume::ZERO,
+            filament: Length::ZERO,
+            width: None,
+            height: None,
+            kind: SegmentKind::Line,
+            centre: None,
+            clockwise: false,
+            temperature: None,
+            fan: None,
+            flow: None,
+            tool: None,
+            dwell_s: None,
+            manual_gcode: None,
+            orientation: Some([1.0, 0.0, 0.0]),
+            control_points: None,
+        }],
     };
 
-    let gcode = emit(
+    let program = emit(
         &tp,
         &EmitParams {
             flavor: FirmwareFlavor::RobotKrl,
@@ -725,38 +705,19 @@ fn test_robot_krl_output_with_five_axis_is_parseable_and_importable() {
     )
     .join("\n");
 
-    let parsed = parse_gcode_lines(&gcode).unwrap();
-    let parsed_motion_count = parsed
-        .iter()
-        .filter(|line| matches!(line.record, crate::gcode::GcodeRecord::Motion(_)))
-        .count();
-    assert_eq!(
-        parsed_motion_count, 2,
-        "all emitted RobotKRL lines should parse as motion"
+    // The tool axis lies in the XY plane along +X: A = atan2(0, 1) = 0, B = acos(0) = 90.
+    assert!(
+        program.contains("  LIN {E6POS: X 10.0, Y 0.0, Z 0.0, A 0.0, B 90.0, C 180.0}"),
+        "{program}"
     );
 
-    assert!(gcode.contains("B90"));
-    assert!(gcode.contains("C0"));
-    assert!(gcode.contains("C90"));
-
-    // The program carries B/C words, so import needs the model they were posted for. Before the
-    // orientation round-trip landed, these two tests passed while the importer silently discarded
-    // every rotary word: the name said "importable" and the behaviour dropped the orientation.
-    let imported = import_gcode(
-        &gcode,
-        &GcodeImportParams {
-            relative_e: false,
-            kinematics: Some(Kinematics::Bc {
-                pivot_offset: [0.0, 0.0, 0.0],
-                rotary_offset: [0.0, 0.0],
-            }),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    assert_eq!(imported.segments.len(), 2);
-    assert_eq!(imported.segments[0].kind, SegmentKind::Line);
-    assert_eq!(imported.segments[1].kind, SegmentKind::Line);
+    // And the g-code parser refuses it outright rather than lifting anything: `DEF` scans as a `D`
+    // word with the value `EF`. A KRL module is not g-code, and the failure is loud.
+    let err = parse_gcode_lines(&program).expect_err(
+        "a KRL module must not parse as g-code; if it does the emitter has regressed to word \
+         substitution",
+    );
+    assert!(format!("{err}").contains("bad D word"), "{err}");
 }
 
 #[test]

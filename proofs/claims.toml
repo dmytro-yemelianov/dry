@@ -1434,6 +1434,7 @@ numeric_boundaries = [
   "FM1.F64.VERIFY.CONTINUITY.GAP",
   "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
   "FM1.F64.VERIFY.FILAMENT_RATIO",
+  "FM1.F64.VERIFY.ARC_RADIUS",
 ]
 refinement_evidence = []
 

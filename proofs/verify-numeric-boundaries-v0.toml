@@ -1,17 +1,27 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the three tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency) from Segment inputs through Report findings."
+scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon is defined in verify.rs and imported by crates/core/src/resolve.rs, so its L1 gate is the same constant and is covered by the same pin."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
 path = "crates/core/src/verify.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "c9ef1d0801691aa3043e22fa2079c8878efa7aa057ef42b96fb28a859cfe9627"
+# Re-pinned for the arc-radius entry below. The reviewed diff against the previous hash is a doc
+# comment plus `const` -> `pub(crate) const` on ARC_RADIUS_TOLERANCE_MM: no predicate, no epsilon
+# value and no rule behaviour changed, and none of the four boundaries' `operation` text moved.
+sha256 = "22211e42351a221932ee707a7937eabe198c0097024f95020c50b4435076a7e4"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
-# tolerance-bearing predicate is `approximate` and its epsilon must be *named*. These are the three.
+# tolerance-bearing predicate is `approximate` and its epsilon must be *named*. Those are the first
+# three entries below.
+#
+# The fourth, `arc-radius`, predates H1.3 and was left unregistered when they landed. P5.4 found the
+# gap the hard way: `crates/core/src/emit/krl.rs` declined to re-check arc-radius consistency on the
+# grounds that verify owned it "with its published epsilon", and no such publication existed. The
+# entry is that publication. Registering it also gave the constant a single definition -- resolve.rs
+# had carried a second literal of the same value, outside any pin.
 #
 # The remaining structural rules (`negative-quantity`, `bead-volume`) are exact comparisons against
 # zero or a caller-supplied tolerance and carry no epsilon of their own, so they have no entry here.
@@ -104,4 +114,36 @@ evidence = [
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
+]
+
+[[boundary]]
+id = "FM1.F64.VERIFY.ARC_RADIUS"
+title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
+rust_symbol = "arc_radius_error"
+source_path = "crates/core/src/verify.rs"
+source_anchor = "pub(crate) const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;"
+inputs = ["Segment.start", "Segment.end", "Segment.centre", "Op::Arc.cx", "Op::Arc.cy"]
+operation = "With r0 = hypot(start - centre) and r1 = hypot(end - centre), both required > 0: fire when |r0 - r1| > 1e-6 * max(r0, r1, 1). Applied twice on the same constant - by verify's `arc-radius` rule on a Segment, and by resolve's L1 gate on an Op::Arc, which imports the constant rather than restating it. An arc with an undefined start or end X/Y is reported as missing geometry instead, and is not measured by this predicate."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "The two radii are computed by the same hypot on the same centre, so the predicate compares a producer against itself and not two derivations.",
+  "Hybrid form (absolute below 1 mm, relative above) for the reason recorded on COMPARED_COORDINATE_MM: at large coordinates the binary64 spacing alone exceeds a fixed 1e-6 mm.",
+  "resolve.rs imports the constant from verify.rs, so the pin below covers the L1 gate as well as the rule. A second literal there would be outside this entry.",
+]
+exclusions = [
+  "The emit path. `dry emit` runs no verifier (ADR 0002 §1) and no emitter re-applies this epsilon, so IR loaded straight from disk reaches a program without this check. It matters most for `emit/krl.rs`: a KRL CIRC is refitted through three points and keeps no trace of the IR centre, where RS-274 preserves it in I/J and leaves the contradiction visible downstream.",
+  "Which of the two radii is the intended one. The rule states only that the IR contradicts itself; it does not choose a repair, and nothing clamps.",
+  "Arcs whose start or end X/Y is undefined, which fail an earlier structural check rather than this one.",
+]
+next_obligation = "If any emitter starts applying this epsilon, that application has a different input domain (an emitted pose, not an IR quantity) and needs its own boundary in the emit inventory rather than an extension of this one."
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/resolve.rs",
+  "crates/core/src/emit/krl.rs",
+]
+claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.COMPARED_COORDINATE_MM",
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
 ]

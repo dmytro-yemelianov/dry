@@ -261,11 +261,26 @@ impl ImportedGcode {
     /// every per-span stream, so the line accounting below would desync and each splice would
     /// carry a duplicate frame. Callers may hand us a profile's `EmitParams` verbatim, so the
     /// invariant is enforced here rather than left to every caller.
+    ///
+    /// KRL has no such escape and is refused outright. Its renderer emits a whole `DEF`/`END`
+    /// module rather than a list of motion lines, so there is nothing here to splice: the
+    /// per-span emissions would each be a complete program, the accounting below would count
+    /// their wrappers as motion, and the result would be neither g-code nor a loadable KUKA
+    /// module. A profile carrying `flavor: "robot-krl"` reaches this function through
+    /// `dry rewrite-gcode`, so the refusal is not hypothetical.
     fn emit_normalized_span_lines(
         &self,
         span_toolpaths: &[Toolpath],
         params: &EmitParams,
     ) -> Result<Vec<Vec<String>>, GcodeImportError> {
+        if params.flavor == crate::emit::FirmwareFlavor::RobotKrl {
+            return Err(GcodeImportError::new(
+                0,
+                "source-preserving span rewrite is not defined for KRL: the KRL renderer emits a \
+                 whole DEF/END module, which cannot be spliced into a g-code file"
+                    .to_string(),
+            ));
+        }
         let params = &EmitParams {
             cnc_frame: None,
             ..params.clone()
@@ -1293,6 +1308,27 @@ mod tests {
         assert_eq!(lines[6], "G92 E0");
         assert_eq!(lines[10], "G92 E1");
         assert_eq!(lines[11], "G1 X20 E2");
+    }
+
+    /// A `robot-krl` profile reaching the source-preserving rewrite is refused, not spliced.
+    ///
+    /// Reachable from `dry rewrite-gcode --profile '{"firmware":{"flavor":"robot-krl"}}'`. Each
+    /// per-span emission would be a whole `DEF`/`END` module, so splicing them into a g-code file
+    /// produces neither a g-code program nor a loadable KUKA one.
+    #[test]
+    fn a_krl_flavor_refuses_the_source_preserving_rewrite() {
+        let imported =
+            import_gcode_with_map("G1 X0 Y0 Z0.2 F1200\nG1 X10\n", &Default::default()).unwrap();
+        let err = imported
+            .emit_source_preserving(
+                &imported.toolpath,
+                &EmitParams {
+                    flavor: crate::emit::FirmwareFlavor::RobotKrl,
+                    ..EmitParams::default()
+                },
+            )
+            .expect_err("a KRL flavor must not reach the splice");
+        assert!(format!("{err}").contains("not defined for KRL"), "{err}");
     }
 
     #[test]

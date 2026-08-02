@@ -1,6 +1,6 @@
 schema_version = 1
 model = "emit-numeric-boundaries-v0"
-scope = "The binary64 boundary of the tolerance-bearing predicate in crates/core/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the emitted rotary and linear words."
+scope = "The binary64 boundary of the tolerance-bearing predicate in crates/core/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the words its two consumers emit - the rotary and linear words of crates/core/src/emit/gcode.rs, and the KUKA A/B angles of crates/core/src/emit/krl.rs. Only kinematics.rs is hash-pinned below: the consumers are recorded as evidence, so a consumer drifting off resolve_c is caught by its own tests and not by this file."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 
 [[source]]
@@ -12,7 +12,15 @@ sha256 = "fd09ca3524609fffd2a87e934decc015f7642e7bc39de574105663a1b08138c1"
 # ---------------------------------------------------------------------------------------------
 # The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in
 # `emit/kinematics.rs` is an exact comparison (`magnitude > 0.0`, `is_finite`) or a total function of
-# the normalised direction, so nothing else here carries an epsilon.
+# the normalised direction, so nothing else here carries an epsilon. The same holds of the KRL
+# renderer's own refusals (`!= 0.0`, `> 0.0`, "does the formatted literal denote zero"): all exact,
+# none an epsilon, so none registered here.
+#
+# What is pinned is `emit/kinematics.rs` alone. `gcode.rs` and `krl.rs` consume `resolve_c` and are
+# listed as evidence, not as `[[source]]`, so this file does not detect a consumer drifting away
+# from the predicate -- their own tests do (`tests/five_axis_singular_cone.rs`,
+# `tests/krl_program_structure.rs`). Stated because the previous `scope` read as though the whole
+# emit path were under the pin.
 #
 # This inventory is separate from `verify-numeric-boundaries-v0` on purpose: that one declares itself
 # scoped to `verify.rs`, and an emit-side epsilon has a different input domain (a *direction*, not a
@@ -33,6 +41,7 @@ assumptions = [
   "The direction is already normalised by unit_orientation, so hypot(i, j) is the sine of the tilt from +Z and lies in [0, 1] regardless of the caller's vector length.",
   "The emitter formats rotary words with {v:.6} degrees, so a direction change below 1e-6 degrees cannot appear in the emitted program.",
   "Ac and Bc are the only models with a C axis; Ab is left untouched and does not advance the state.",
+  "The KRL renderer (crates/core/src/emit/krl.rs) is a second consumer of this predicate: it resolves every pose through Bc with zero offsets, because that model is the KUKA ZYX-Euler decomposition with the roll pinned, and the C word it holds becomes the emitted KUKA A angle. Its angle format is the same num_checked {v:.6}, so the resolution assumption above carries over unchanged. It does not use machine_position -- an E6POS is a TCP pose in $BASE, not a point in a rotated table frame -- so only the rotary half of the operation applies there.",
 ]
 exclusions = [
   "Ab's analogous singularity: B = atan2(i, k) is equally undetermined with the tool along ±Y (i = k = 0), and is not addressed here.",
@@ -44,6 +53,7 @@ next_obligation = "Keep this at or below the tilt whose worst-case substituted d
 evidence = [
   "crates/core/src/emit/kinematics.rs",
   "crates/core/src/emit/gcode.rs",
+  "crates/core/src/emit/krl.rs",
   "crates/core/tests/five_axis_singular_cone.rs",
 ]
 claim_ids = []

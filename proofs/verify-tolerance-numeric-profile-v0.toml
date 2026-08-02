@@ -42,6 +42,7 @@ there and the rule would fire on correct output.
 boundary_ids = [
   "FM1.F64.VERIFY.CONTINUITY.GAP",
   "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
+  "FM1.F64.VERIFY.ARC_RADIUS",
 ]
 
 # ---------------------------------------------------------------------------------------------
@@ -115,3 +116,26 @@ evidence = [
   "crates/core/src/optimize/arc.rs",
 ]
 next_obligation = "Revisit when the IR carries a filament diameter, which would let the rule check the cross-section rather than only its constancy."
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.ARC_RADIUS_RELATIVE_ERROR"
+metric = "Relative disagreement between an arc's start radius and its end radius about the stated centre"
+unit = "relative"
+status = "bounded"
+ceiling = 1e-6
+boundary_ids = ["FM1.F64.VERIFY.ARC_RADIUS"]
+rationale = """
+The same 1e-6 as the length budget, and for the same reason: both compare a distance the producer \
+computed against a distance the producer computed, so the tolerance absorbs binary64 rounding in \
+`hypot` and nothing else. Applied in hybrid form (absolute below 1 mm, relative above) per \
+COMPARED_COORDINATE_MM. The reason this entry exists separately from the others is worth recording: \
+the constant predates H1.3 and shipped unregistered, duplicated as a second literal in `resolve.rs`, \
+and an emitter comment then justified declining a check of its own by calling the epsilon \
+*published* when it was not. Publishing it and collapsing the duplicate is what makes that \
+justification true. Nothing about the rule's behaviour changed.
+"""
+evidence = [
+  "crates/core/src/verify.rs",
+  "crates/core/src/resolve.rs",
+]
+next_obligation = "Re-derive if either radius stops being computed by the same hypot on the same centre. An emit-side application would need its own budget: the input domain there is an emitted pose, not an IR quantity."
