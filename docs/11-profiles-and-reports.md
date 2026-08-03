@@ -284,9 +284,10 @@ golden to gate it.
 `trace` is a `TraceSummary`: totals plus fixed-duration `windows`, each carrying its segment range and —
 for imported G-code — its source-line range (`source_line_start`/`source_line_end`, omitted when absent).
 
-**Layer linkage and analytics are opt-in** (`dry_core::trace_summary_with_analytics`). Without them
-`layers` is `[]` and the `analytics` key is **absent** (not `null`) — which is what keeps every committed
-`trace.json` golden byte-identical. With them the same document gains:
+**Layer linkage and analytics are opt-in** (`dry_core::trace_summary_with_analytics`, CLI
+`dry trace-gcode FILE --analytics`). Without them `layers` is `[]` and the `analytics` key is **absent**
+(not `null`) — which is what keeps every committed `trace.json` golden byte-identical. With them the same
+document gains:
 
 - `layers` — one entry per layer, with the field set a `TraceWindow` has minus the time bounds, plus a
   half-open `[segment_start, segment_end)` range. The layers **partition** the segment range:
@@ -314,9 +315,12 @@ with equality when Z is non-decreasing and each level is one contiguous run
 forensics owns that estimate, and the two reports sit side by side in one `explain` bundle.
 
 The summary also serialises to **two CSV relations** at two grains — `to_csv()` (one row per window) and
-`layers_to_csv()` (one row per layer). Both have a fixed column set that does not vary with the source
-map or the analytics flag; aggregate analytics stay JSON-only, because denormalising an aggregate across
-every row (or varying the columns with a flag) breaks the one thing a tabular consumer needs.
+`layers_to_csv()` (one row per layer), reachable from the CLI as `dry trace-gcode FILE --format csv` /
+`--format layers-csv` (`--format layers-csv` implies `--analytics`, since the analytics pass is the only
+producer of layer rows). Both have a fixed column set that does not vary with the source map or the
+analytics flag; aggregate analytics stay JSON-only, because denormalising an aggregate across every row
+(or varying the columns with a flag) breaks the one thing a tabular consumer needs. Supplying
+`--flow-outlier-k` without `--analytics` (or `--format layers-csv`) is a usage error (exit 2).
 
 ### 3.4 `rewrite-gcode --json` → `RewriteReport`
 
@@ -516,9 +520,9 @@ only after manual review.
 ### 3.9 `ReviewBatch` — one envelope over many files
 
 The batch envelope is a committed wire shape (`$def` `ReviewBatch`, golden
-`conformance/reports/review_batch/review-batch.json`) built by `dry_core::ReviewBatch::build`. The
-`dry review-batch` command that emits it is **not shipped yet** — this section documents the contract the
-engine already publishes, not a command you can run today.
+`conformance/reports/review_batch/review-batch.json`) built by `dry_core::ReviewBatch::build` and emitted
+by `dry review-batch FILES… [--files-from FILE|-] [--profile P] [--json] [--out FILE]` (see
+[`15-cli-cookbook.md`](15-cli-cookbook.md)).
 
 ```json
 {
@@ -546,6 +550,13 @@ engine already publishes, not a command you can run today.
   `BTreeMap`), so two runs over the same inputs diff cleanly. `files` counts files carrying the rule at
   least once — a rule twice in one file is one file and two findings.
 - The licence is stamped **once**, on the envelope; nested reports carry no stamp.
+
+**Exit codes:** `0` every file inspected and passed; `1` every file inspected, at least one `failed`;
+`2` at least one file `errored` (or a usage error) — `2` outranks `1`, because an incomplete batch is
+neither a pass nor a trustworthy gate. `--files-from FILE` reads newline-separated paths (`-` for
+stdin), appended after any positional paths — the point being a fleet that exceeds `ARG_MAX`. No dedup
+and no per-flag contract overrides: a fleet gates against a `--profile`; one-off limit tweaks are
+`review-gcode`'s job.
 
 <!-- docs-gen:end profiles-reports-core -->
 ## 4. Stability & conformance

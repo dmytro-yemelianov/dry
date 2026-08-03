@@ -23,6 +23,15 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   passed/failed/errored verdicts. Schema: nine additive `$defs` in `spec/dry-reports-v1.schema.json`
   plus two new goldens wired into `tools/validate_reports.py`; no `$def` or golden changed, and no new
   dependency. The `trace-gcode --analytics` and `review-batch` CLI surfaces land separately.
+- **`dry trace-gcode --analytics` / `--format` and `dry review-batch` (P3.5, CLI half).**
+  `trace-gcode` gains `--analytics` (wires `trace_summary_with_analytics`), `--flow-outlier-k` (usage
+  error without `--analytics`/`--format layers-csv`), and `--format json|csv|layers-csv`; the default
+  invocation is unchanged. `dry review-batch FILES… [--files-from FILE|-] [--profile P] [--json]
+  [--out FILE]` reviews a batch sequentially into a `ReviewBatch` envelope — an unreadable/unimportable
+  file becomes an `errored` result rather than aborting the run, license-stamped once on the envelope.
+  Exit `0` all clean, `1` any file gates, `2` any file errored (outranks `1`) or on a usage error.
+
+
 
 ## [0.6.0] - 2026-08-03
 

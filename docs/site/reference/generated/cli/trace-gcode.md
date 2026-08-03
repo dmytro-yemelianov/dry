@@ -27,6 +27,12 @@ Options:
           Optional layer height in mm to attach to extruding segments
       --window-s <WINDOW_S>
           Fixed trace window duration in seconds [default: 5]
+      --analytics
+          Also compute layer linkage and higher-level statistics (`trace.layers`, `trace.analytics`)
+      --flow-outlier-k <FLOW_OUTLIER_K>
+          Multiple of the window-peak p50 above which a window is flagged. Requires `--analytics`
+      --format <FORMAT>
+          Output shape: the full JSON report, the per-window CSV, or the per-layer CSV. `layers-csv` implies `--analytics`, since the analytics pass is the only producer of rows [default: json] [possible values: json, csv, layers-csv]
   -h, --help
           Print help
 ```

@@ -1741,6 +1741,357 @@ fn trace_gcode_outputs_windowed_source_mapped_json() {
     assert!((json["trace"]["total_time_s"].as_f64().unwrap() - 10.0).abs() < 1e-9);
 }
 
+fn sliced_sample() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/sliced-sample.gcode")
+}
+
+#[test]
+fn trace_gcode_default_format_is_unchanged() {
+    // The default invocation stays byte-identical to today's: no `layers`/`analytics` keys.
+    let out = Command::new(bin())
+        .args(["trace-gcode", sliced_sample().to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["trace"]["layers"].as_array().unwrap().len(), 0);
+    assert!(json["trace"].get("analytics").is_none());
+}
+
+#[test]
+fn trace_gcode_analytics_flag_adds_layers_and_analytics() {
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--window-s",
+            "1",
+            "--analytics",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let layers = json["trace"]["layers"].as_array().unwrap();
+    assert_eq!(layers.len(), 2, "sliced-sample.gcode has two layers");
+    assert!(json["trace"]["analytics"].is_object());
+    assert!(json["trace"]["analytics"]["layer_stats"]["layer_count"] == 2);
+}
+
+#[test]
+fn trace_gcode_format_csv_matches_to_csv_header() {
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--format",
+            "csv",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8(out.stdout).unwrap();
+    let mut lines = text.lines();
+    assert_eq!(
+        lines.next().unwrap(),
+        "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,max_feedrate_mm_min,max_flow_mm3_s"
+    );
+    assert!(lines.next().is_some(), "at least one window row");
+}
+
+#[test]
+fn trace_gcode_format_layers_csv_implies_analytics() {
+    // No `--analytics` flag — `--format layers-csv` is the only producer of rows and implies it.
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--format",
+            "layers-csv",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = String::from_utf8(out.stdout).unwrap();
+    let mut lines = text.lines();
+    assert_eq!(
+        lines.next().unwrap(),
+        "layer_index,z_mm,segment_start,segment_end,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,filament_mm,max_feedrate_mm_min,max_flow_mm3_s"
+    );
+    assert_eq!(lines.count(), 2, "two layer rows");
+}
+
+#[test]
+fn trace_gcode_flow_outlier_k_without_analytics_is_a_usage_error() {
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--flow-outlier-k",
+            "3.0",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--flow-outlier-k"));
+}
+
+/// Fixtures for the `review-batch` tests: one clean file, one gating file (bounds violation via
+/// a tiny profile, mirroring `review_gcode_uses_profile_contracts_and_import_defaults`), plus a
+/// path that doesn't exist.
+struct BatchFixtures {
+    dir: PathBuf,
+    clean: PathBuf,
+    gating: PathBuf,
+    missing: PathBuf,
+    profile: PathBuf,
+}
+
+impl BatchFixtures {
+    fn new(tag: &str) -> Self {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "dry-cli-review-batch-{tag}-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let clean = dir.join("clean.gcode");
+        std::fs::write(&clean, "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X1 Y0 E0.05 F1200\n").unwrap();
+
+        let gating = dir.join("gating.gcode");
+        std::fs::write(&gating, "M83\nG1 X0 Y0 Z0.2 F9000\nG1 X10 E0.1 F1200\n").unwrap();
+
+        let profile = dir.join("profile.json");
+        std::fs::write(
+            &profile,
+            r#"{
+              "version": 1,
+              "name": "batch-bench",
+              "machine": {
+                "build_volume": [[0, 5], [0, 5], [0, 1]],
+                "feedrate_range": [1, 5000]
+              },
+              "material": {
+                "filament_diameter": 1.75,
+                "max_volumetric_flow_mm3_s": 100
+              },
+              "process": {
+                "line_width": 0.45,
+                "layer_height": 0.2
+              }
+            }"#,
+        )
+        .unwrap();
+
+        let missing = dir.join("does-not-exist.gcode");
+
+        BatchFixtures {
+            dir,
+            clean,
+            gating,
+            missing,
+            profile,
+        }
+    }
+}
+
+impl Drop for BatchFixtures {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+#[test]
+fn review_batch_exit_2_when_a_file_cannot_be_inspected() {
+    let f = BatchFixtures::new("exit2");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            f.gating.to_str().unwrap(),
+            f.missing.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "an unreadable file must win over a gating one"
+    );
+
+    let batch: Value = serde_json::from_slice(&out.stdout).expect("valid ReviewBatch JSON");
+    assert_eq!(batch["files_total"], 3);
+    assert_eq!(batch["files_passed"], 1);
+    assert_eq!(batch["files_failed"], 1);
+    assert_eq!(batch["files_errored"], 1);
+    let results = batch["results"].as_array().unwrap();
+    assert_eq!(results.len(), 3, "the missing file did not abort the run");
+    assert_eq!(results[0]["status"], "passed");
+    assert!(results[0]["review"].is_object());
+    assert_eq!(results[1]["status"], "failed");
+    assert_eq!(results[2]["status"], "errored");
+    assert!(results[2]["error"]
+        .as_str()
+        .unwrap()
+        .contains("does-not-exist.gcode"));
+    assert!(results[2]["review"].is_null());
+    assert!(!batch["findings_by_rule"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn review_batch_exit_1_when_every_file_is_inspected_but_one_fails() {
+    let f = BatchFixtures::new("exit1");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            f.gating.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let batch: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(batch["files_errored"], 0);
+    assert_eq!(batch["files_failed"], 1);
+}
+
+#[test]
+fn review_batch_exit_0_when_every_file_passes() {
+    let f = BatchFixtures::new("exit0");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let batch: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(batch["files_total"], 1);
+    assert_eq!(batch["files_passed"], 1);
+}
+
+#[test]
+fn review_batch_files_from_stdin_matches_positional() {
+    let f = BatchFixtures::new("filesfrom");
+    let positional = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(positional.status.success());
+
+    let mut child = Command::new(bin())
+        .args([
+            "review-batch",
+            "--files-from",
+            "-",
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        use std::io::Write as _;
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(f.clean.to_str().unwrap().as_bytes())
+            .unwrap();
+    }
+    let via_stdin = child.wait_with_output().unwrap();
+    assert!(
+        via_stdin.status.success(),
+        "{}",
+        String::from_utf8_lossy(&via_stdin.stderr)
+    );
+
+    let a: Value = serde_json::from_slice(&positional.stdout).unwrap();
+    let b: Value = serde_json::from_slice(&via_stdin.stdout).unwrap();
+    assert_eq!(a["files_total"], b["files_total"]);
+    assert_eq!(a["files_passed"], b["files_passed"]);
+    assert_eq!(
+        a["results"][0]["review"]["metrics"],
+        b["results"][0]["review"]["metrics"]
+    );
+}
+
+#[test]
+fn review_batch_human_output_lists_each_file_and_a_rule_breakdown() {
+    let f = BatchFixtures::new("human");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            f.gating.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("review-batch: 2 file(s)"), "{text}");
+    assert!(text.contains("PASS"), "{text}");
+    assert!(text.contains("FAIL"), "{text}");
+    assert!(text.contains("by rule:"), "{text}");
+    assert!(text.contains("bounds"), "{text}");
+}
+
+#[test]
+fn review_batch_out_writes_json_to_file() {
+    let f = BatchFixtures::new("out");
+    let out_file = f.dir.join("batch.json");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            f.clean.to_str().unwrap(),
+            "--profile",
+            f.profile.to_str().unwrap(),
+            "--json",
+            "--out",
+            out_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(out.stdout.is_empty(), "written to --out, not stdout");
+    let text = std::fs::read_to_string(&out_file).unwrap();
+    let batch: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(batch["files_total"], 1);
+}
+
 #[test]
 fn rewrite_gcode_preserves_non_motion_source_lines() {
     let stamp = SystemTime::now()
