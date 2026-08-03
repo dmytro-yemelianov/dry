@@ -89,6 +89,7 @@ slice_orca() {
   mkdir -p "$out"
   "$ORCA_BIN" \
     --datadir "$out/datadir" \
+    --logfile "$out/orca-native.log" \
     --load-settings "$machine;$process" \
     --load-filaments "$filament" \
     --slice 1 --outputdir "$out" \
