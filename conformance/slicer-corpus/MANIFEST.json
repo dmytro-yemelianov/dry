@@ -33,7 +33,7 @@
       "filament_profile": "Bambu PLA Basic @BBL X1C",
       "firmware_flavor": null,
       "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
-      "sha256": "9d1d27abce97b1abff207e7697e17ca0445e55d39eb29871a534ddee6b1afeaa"
+      "sha256": "247b15b6908c85081b91b277f7b1c1688cba41d08e8935a3cb6020f4c16cf5bd"
     },
     {
       "file": "bridge__orca-bambu-x1c-pla.gcode",

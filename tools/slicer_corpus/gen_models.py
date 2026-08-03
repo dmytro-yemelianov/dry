@@ -7,7 +7,7 @@ Writes 6 small parametric binary STL files into an output directory (default:
 
     cube               20 mm cube                                  baseline/control
     cylinder           48-segment cylinder, dia 15 x 15mm           curved-wall arc-fitting
-    overhang_wedge     20x20x15mm ramped wedge (45/60/70 deg)       overhang without supports
+    overhang_wedge     ~29x20x15mm ramped wedge (45/60/70 deg)      overhang without supports
     bridge             30x10x10mm two piers + unsupported span      bridging
     thin_wall_tower    dia 10 x 30mm hollow tube, single perimeter  thin-wall
     vase_cone          dia 20->10 x 25mm tapered frustum            continuous-Z spiral shell
@@ -195,23 +195,50 @@ def model_cylinder(segments: int = 48) -> list[Triangle]:
 
 
 def model_overhang_wedge() -> list[Triangle]:
-    # Three ramp segments dropping 5 mm each at overhang angles (from
+    # Three ramp segments climbing 5 mm each at overhang angles (from
     # vertical) of 45/60/70 deg, horizontal run scaled to fit a 20 mm
     # footprint; see the design doc §2 and this file's module docstring.
+    #
+    # The footprint must *widen* with Z (narrow at the build plate, wide at
+    # the top) for this to actually be an overhang -- each layer has to
+    # extend past the layer below it, unsupported. A ramp that narrows with
+    # Z (wide base, tapering to a point) is a self-supporting incline
+    # instead: every layer sits entirely within the footprint of the one
+    # below it, so no slicer ever needs to bridge or flag it. (Previously
+    # this profile ran top-to-bottom `(0,15)->(x1,10)->(x2,5)->(x3,0)`,
+    # i.e. narrowing with height -- measured against the frozen slice this
+    # produced zero `; FEATURE: Overhang wall` blocks. See
+    # `docs/25-slicer-corpus-baseline.md` for the measurement.)
+    #
+    # A pure widen-to-a-point-at-the-bed profile (the first attempt at this
+    # fix) is *also* wrong the other way: the Z=0 cross-section collapses to
+    # a single line with zero contact area, which OrcaSlicer refuses to
+    # slice at all ("found slicing or export error", no first layer to
+    # print onto). `foot` gives the base a small flat, full-Y-length
+    # contact patch at Z=0 so the model is both printable and a genuine
+    # overhang -- the ramp still widens monotonically with Z above it.
+    # Runs are *not* scaled down to fit a 20 mm budget: scaling shrinks the
+    # horizontal run without shrinking `dz`, which flattens the effective
+    # angle-from-vertical of every segment (e.g. the previous scale factor
+    # turned the intended 45/60/70 deg into an actual ~36/52/64 deg -- below
+    # OrcaSlicer's own overhang-detection threshold for the first two
+    # segments). Unscaled, the footprint is a few mm wider than 20 mm, but
+    # the angles are the ones the docstring claims, which is what actually
+    # matters for exercising overhang detection.
+    foot = 2.0
     dz = 5.0
     runs = [dz * math.tan(math.radians(a)) for a in (45.0, 60.0, 70.0)]
-    scale = 20.0 / sum(runs)
-    runs = [r * scale for r in runs]
-    x0 = 0.0
+    x0 = foot
     x1 = x0 + runs[0]
     x2 = x1 + runs[1]
     x3 = x2 + runs[2]
     profile = [
-        (0.0, 15.0),
-        (x1, 10.0),
-        (x2, 5.0),
-        (x3, 0.0),
         (0.0, 0.0),
+        (x0, 0.0),
+        (x1, 5.0),
+        (x2, 10.0),
+        (x3, 15.0),
+        (0.0, 15.0),
     ]
     return extrude(profile, 0.0, 20.0, axis=1)
 

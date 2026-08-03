@@ -1,7 +1,7 @@
 # Slicer corpus baseline
 
 **Status:** implemented · 2026-08-03 (extended with `trace-gcode`, exit codes, wall time and line-level
-evidence · 2026-08-03)
+evidence · 2026-08-03; `overhang_wedge` re-frozen and finding classifications corrected after review · 2026-08-03)
 **Scope:** `conformance/slicer-corpus/` (7 committed files) x {`dry review-gcode --json`,
 `dry trace-gcode --window-s 10`}, with and without a matching `spec/examples/profiles/` profile — 28 runs
 total (7 files x 2 commands x 2 profile modes).
@@ -64,6 +64,32 @@ Cura's application-level quality-profile stack supplies it, and a bare `CuraEngi
 does not load that stack. Per the design's fallback clause, the corpus ships without CuraEngine rather
 than blocking on it.
 
+### `overhang_wedge`: the shipped model did not exercise an overhang, and has been re-frozen
+
+The originally-committed `overhang_wedge` STL swept a profile that **narrowed** with height
+(`(0,15)->(x1,10)->(x2,5)->(x3,0)`, footprint widest at the build plate, tapering to a point at the top)
+— every layer sat entirely within the footprint of the layer below it, which is a self-supporting
+incline, not an overhang: no layer ever needs to bridge or print past unsupported space below it.
+Measured against the original frozen slice, X span went 24.21 mm at Z=0.20 down to 0.94 mm at Z=13.20,
+and the file contained zero `; FEATURE: Overhang wall` blocks (`bridge__orca-bambu-x1c-pla` is the only
+file with any: 4).
+
+`tools/slicer_corpus/gen_models.py`'s `model_overhang_wedge` now sweeps a profile that **widens** with
+height instead, with a small (2 mm) flat foot at the build plate so the model still has contact area to
+print onto — a bare taper-to-a-point at Z=0 is unprintable (OrcaSlicer refuses to slice it: "found
+slicing or export error", no first layer to bond to). The ramp segments are also no longer scaled down
+to fit a fixed 20 mm footprint budget: that scaling shrank the horizontal run without shrinking the
+per-segment height, which flattened the intended 45/60/70 deg (from vertical) down to an actual
+~36/52/64 deg — below OrcaSlicer's own overhang-detection threshold for the shallowest two segments.
+Unscaled, the model's footprint is ~29 mm wide (not 20 mm) but the angles are the ones the design
+intends. The re-sliced file now produces 25 `; FEATURE: Overhang wall` blocks and still imports cleanly
+under both commands, in both profile modes (exit codes and wall times below are current).
+
+This changed the STL and its slice, so `conformance/slicer-corpus/overhang_wedge__orca-bambu-x1c-pla.gcode`
+has been re-frozen (new sha256 in `MANIFEST.json`) and every count and table below that touches this file
+reflects the new content — this is not the same 7-file corpus byte-for-byte as the original baseline run,
+only the same 7 model/slicer/profile combinations.
+
 ## Method
 
 For each of the 7 committed files, ran `dry review-gcode --json <file>` and
@@ -91,10 +117,10 @@ file) — 28 runs total, built from the release CLI (`cargo build -p dry-cli --r
 | `cylinder__orca-bambu-x1c-pla` | review-gcode | bambu-x1c-pla | 1 | 0.019 |
 | `cylinder__orca-bambu-x1c-pla` | trace-gcode | none | 0 | 0.014 |
 | `cylinder__orca-bambu-x1c-pla` | trace-gcode | bambu-x1c-pla | 0 | 0.014 |
-| `overhang_wedge__orca-bambu-x1c-pla` | review-gcode | none | 0 | 0.013 |
+| `overhang_wedge__orca-bambu-x1c-pla` | review-gcode | none | 0 | 0.010 |
 | `overhang_wedge__orca-bambu-x1c-pla` | review-gcode | bambu-x1c-pla | 1 | 0.013 |
-| `overhang_wedge__orca-bambu-x1c-pla` | trace-gcode | none | 0 | 0.010 |
-| `overhang_wedge__orca-bambu-x1c-pla` | trace-gcode | bambu-x1c-pla | 0 | 0.010 |
+| `overhang_wedge__orca-bambu-x1c-pla` | trace-gcode | none | 0 | 0.008 |
+| `overhang_wedge__orca-bambu-x1c-pla` | trace-gcode | bambu-x1c-pla | 0 | 0.008 |
 | `thin_wall_tower__orca-bambu-x1c-pla` | review-gcode | none | 0 | 0.018 |
 | `thin_wall_tower__orca-bambu-x1c-pla` | review-gcode | bambu-x1c-pla | 1 | 0.023 |
 | `thin_wall_tower__orca-bambu-x1c-pla` | trace-gcode | none | 0 | 0.017 |
@@ -107,8 +133,13 @@ file) — 28 runs total, built from the release CLI (`cargo build -p dry-cli --r
 Wall times are single-shot and dominated by process startup at this file size (327-880 KB); none of the
 28 runs took more than 27 ms. `review-gcode`'s exit code is `1` in every matched-profile run and `0` in
 every no-profile run — exactly what `error_count` predicts (§"Per-rule finding counts, matched profile"
-below): every profile-dependent rule that fires does so at `severity: "error"`, and `review-gcode` exits
-non-zero whenever `error_count > 0`. `trace-gcode` has no findings/severity concept (it only summarizes
+below): every one of the 7 files has at least one **error**-severity finding once a profile is supplied
+(`bounds`, `max-flow` and `retraction-speed` fire as errors in every file; `retraction-distance` fires as
+an error in the Prusa file only), and `review-gcode` exits non-zero whenever `error_count > 0`. Not every
+profile-dependent rule is an error, though: `junction-velocity` and `first-layer-speed` are **warnings**
+(matching `docs/11-profiles-and-reports.md`'s severity table), so their large occurrence counts below do
+not, by themselves, affect the exit code — it is the error-severity rules alone that flip it to `1`.
+`trace-gcode` has no findings/severity concept (it only summarizes
 motion into fixed windows) and exits `0` in all 14 of its runs, profiled or not. Every one of the 28 runs
 produced a well-formed JSON document (no parse failure, no panic) — **all 7 files import cleanly under
 both commands, in both profile modes.**
@@ -125,7 +156,7 @@ printer families (Bambu X1C, Prusa MK4), not the fix's own unit tests.
 
 | Rule | Total occurrences | Classification |
 |---|---|---|
-| `unmodeled-gcode` | 8,943 | **expected-import-artifact** |
+| `unmodeled-gcode` | 9,210 | **expected-import-artifact** |
 | `travel-extrudes` | 130 (21 x 6 Bambu files + 4 Prusa) | **expected-import-artifact** |
 
 Both rules fire with no `--profile` at all — they depend only on the g-code and the importer/verifier's
@@ -155,22 +186,24 @@ own defaults, never on a profile's limits.
 
 | Rule | Total occurrences | Classification |
 |---|---|---|
-| `unmodeled-gcode` | 8,943 | expected-import-artifact (unchanged, profile-independent) |
+| `unmodeled-gcode` | 9,210 | expected-import-artifact (unchanged, profile-independent) |
 | `travel-extrudes` | 130 | expected-import-artifact (unchanged, profile-independent) |
-| `junction-velocity` | 28,912 | **profile-mismatch** |
-| `retraction-speed` | 3,456 | **profile-mismatch** |
-| `max-flow` | 1,735 | **profile-mismatch** |
+| `junction-velocity` | 31,306 | **profile-mismatch** (warning severity — see §"Import success" above) |
+| `retraction-speed` | 3,566 | **profile-mismatch** |
+| `max-flow` | 1,810 | **mixed — see below, not uniformly profile-mismatch** |
 | `bounds` | 571 | **profile-mismatch** |
-| `first-layer-speed` | 1,216 | **profile-mismatch** |
+| `first-layer-speed` | 1,562 | **profile-mismatch** (warning severity — see §"Import success" above) |
 | `retraction-distance` | 1 | **profile-mismatch** |
 
-Every profile-dependent rule that fires is a **profile-mismatch**, not a true-positive, and not
-coincidentally: `bambu-x1c-pla.json` and `prusa-mk4-pla.json` are deliberately authored as **conservative
-safe-verifier baselines**, not reproductions of the vendor slicer's own tuned speed/flow/retraction
-settings (see the profiles' provenance notes in
-`docs/superpowers/specs/2026-08-03-slicer-corpus-and-profiles-design.md` §4). Concretely:
+Every profile-dependent rule that fires is either a **profile-mismatch** or a documented
+**expected-import-artifact**; none is a true-positive. Six of the seven rules above are profile-mismatch,
+not coincidentally: `bambu-x1c-pla.json` and `prusa-mk4-pla.json` are deliberately authored as
+**conservative safe-verifier baselines**, not reproductions of the vendor slicer's own tuned
+speed/flow/retraction settings (see the profiles' provenance notes in
+`docs/superpowers/specs/2026-08-03-slicer-corpus-and-profiles-design.md` §4). `max-flow` is the
+exception — see its own bullet below, which is not a profile-mismatch story. Concretely:
 
-- **`junction-velocity`** (28,912 occurrences, the largest count by far) — the profile's
+- **`junction-velocity`** (31,306 occurrences, the largest count by far) — the profile's
   `max_junction_velocity_mm_s: 8` is an explicitly conservative estimate (no vendor publishes a
   square-corner-velocity figure for either printer); real Bambu/Prusa cornering behavior at print speed
   routinely exceeds it (`junction Δv 105.0 mm/s exceeds square-corner velocity 8.0` is typical, e.g.
@@ -181,9 +214,24 @@ settings (see the profiles' provenance notes in
 - **`retraction-speed`** — profile ceilings (1800 mm/min Bambu, 2100 mm/min Prusa) are conservative PLA
   defaults; actual slicer output retracts faster (`3000 mm/min` typical, e.g. line 1342
   `G1 X89.221 Y85.939 E-.43004` under a modal `F3000` set earlier in the same retract/wipe sequence).
-- **`max-flow`** — profile ceilings (21 mm3/s Bambu, 15 mm3/s Prusa) are conservative; the slicer's own
-  purge-tower priming bursts exceed them (observed up to ~84 mm3/s on a purge move — line 937's
-  `G0 X240 E15 F8400`, the same line flagged `travel-extrudes` above — far above any sustained print flow).
+- **`max-flow`** — this rule's 1,810 occurrences are **not** predominantly the profile-mismatch story
+  the other rules tell, and the classification in an earlier draft of this doc ("the slicer's own
+  purge-tower priming bursts") does not survive its own data. Measured across all 7 files: 1,722 of
+  1,810 findings are on `G1`/`G0` lines carrying an `E` word and **no** `X`/`Y` — stationary retract/prime
+  moves, not purge-tower travel — and of those, 1,685 sit at exactly 72.16 mm³/s (a `G1 E.8 F1800` /
+  `G1 E-0.8 F1800` de-retract/retract pair recurring per-layer through the whole print, e.g.
+  `cube__orca-bambu-x1c-pla.gcode` line 1278) and the rest at 60.13 mm³/s (`F1500` variant, e.g. the same
+  file's line 980). 72.16 mm³/s exceeds any physically plausible ceiling for these machines (the X1C's
+  published max flow is ~32 mm3/s), so "the profile is stricter than the slicer's real behavior" does not
+  hold here the way it does for `junction-velocity`/`retraction-speed`/`bounds`/`first-layer-speed`: this
+  is the verifier's flow formula (`filament area x segment speed`) applied to a move that deposits
+  nothing, an **expected-import-artifact**, now documented in
+  [`docs/14-known-limitations.md`](14-known-limitations.md). Only the remaining 88 findings sit on
+  moves with real `X`/`Y` displacement, and of those only 7 (one ~84-96 mm³/s purge-tower burst per file,
+  e.g. `cube__orca-bambu-x1c-pla.gcode` line 937's `G0 X240 E15 F8400`, the same line flagged
+  `travel-extrudes` above) are the purge-tower-flow story the profile-mismatch framing describes; the
+  rest are ordinary print moves at a profile-ceiling-exceeding but not obviously-wrong flow, closer to a
+  genuine profile-mismatch than an artifact but not further broken down here.
 - **`bounds`** — every Bambu file reports the identical 93 occurrences of `Y = 265 is outside the build
   volume [0, 256]`: line 721, `G1 Y265 F3000`, is the slicer's purge/prime-tower g-code moving the
   toolhead to `Y=265`, 9 mm past the profile's 256 mm nominal build-volume figure (the X1C's *published*
@@ -191,10 +239,16 @@ settings (see the profiles' provenance notes in
   Authoring the profile from the wrong reference number (nominal build volume vs. usable slicer working
   area) is exactly a profile-authoring gap, not a defect in the g-code.
 - **`first-layer-speed`** — profile ranges (600-3000 mm/min) are conservative; observed values (e.g.
-  6300 mm/min) are typical of the slicer's fast first-layer purge/skirt moves, not the actual part's
-  first layer. Concretely, line 1380 (`G1 F6300`) sets the modal feed a "Bottom surface" feature block
-  inherits at line 1381 (`G1 X108.581 Y88.959 E.03027`) — a first-layer bottom-surface fill move, not a
-  travel or purge move, printing faster than the profile's conservative first-layer ceiling.
+  6300 mm/min) are the slicer's real first-layer *part* speed, not a purge/skirt move. All 124/124
+  `first-layer-speed` findings in both `cube__orca-bambu-x1c-pla` and `cube__orca-prusa-mk4-pla` fall
+  inside the `; FEATURE: Bottom surface` block (source lines 1378-1554 in the Bambu file) — none of them are
+  travel, purge or skirt moves. Concretely, line 1380 (`G1 F6300`) sets the modal feed a "Bottom surface"
+  feature block inherits at line 1381 (`G1 X108.581 Y88.959 E.03027`), a first-layer bottom-surface fill
+  move for the part itself, printing faster than the profile's conservative first-layer ceiling. The
+  profile-mismatch classification still holds — a real first-layer part speed exceeding a deliberately
+  conservative range is exactly what "the profile is stricter than the slicer's tuned settings" predicts
+  — but the earlier characterization of these moves as purge/skirt rather than the part's own first
+  layer was wrong and is corrected here.
 - **`retraction-distance`** — a single occurrence, Prusa only (`cube__orca-prusa-mk4-pla.gcode` line 51,
   `G1 E-2 F2400 ; retraction`, a 2 mm retract against the profile's 1 mm ceiling); same
   conservative-profile pattern.
@@ -220,7 +274,7 @@ through a second command path, not just `review-gcode`.
 | `cube__orca-bambu-x1c-pla` | 12,318 | 11,496 | 657.3 | 555.5 | 101.9 | 84.18 | 66 |
 | `cube__orca-prusa-mk4-pla` | 10,351 | 9,910 | 877.3 | 830.5 | 46.8 | 96.21 | 88 |
 | `cylinder__orca-bambu-x1c-pla` | 13,865 | 13,353 | 515.2 | 418.6 | 96.6 | 84.18 | 52 |
-| `overhang_wedge__orca-bambu-x1c-pla` | 5,773 | 5,145 | 500.7 | 403.0 | 97.7 | 84.18 | 51 |
+| `overhang_wedge__orca-bambu-x1c-pla` | 10,149 | 9,038 | 531.8 | 431.6 | 100.2 | 84.18 | 54 |
 | `thin_wall_tower__orca-bambu-x1c-pla` | 15,328 | 14,483 | 879.7 | 778.4 | 101.3 | 84.18 | 88 |
 | `vase_cone__orca-bambu-x1c-pla` | 22,959 | 22,160 | 771.3 | 672.2 | 99.2 | 86.99 | 78 |
 
@@ -243,9 +297,14 @@ corpus, only the findings-producing command is profile-sensitive.
 The H1 tokenizer fix closed the exact gap the prior probe found: 7/7 genuine OrcaSlicer files (2 printer
 families) now import cleanly under **both** `review-gcode --json` and `trace-gcode --window-s 10`, in
 both profile modes (28/28 runs, exit codes and wall time in the Method table above), versus 0/4 pre-fix.
-Every remaining finding is either a documented, profile-independent import artifact (`unmodeled-gcode`, `travel-extrudes` — both already named in
-`docs/14-known-limitations.md`) or a profile-mismatch stemming from this corpus's deliberately
-conservative example profiles, not a defect in the vendor g-code. The Voron/Klipper and CuraEngine rows
+Every remaining finding is either a documented, profile-independent import artifact
+(`unmodeled-gcode`, `travel-extrudes`, and now the majority of `max-flow` — all three named in
+`docs/14-known-limitations.md`), or a profile-mismatch stemming from this corpus's deliberately
+conservative example profiles, not a defect in the vendor g-code — with `max-flow`'s minority of
+genuinely profile-mismatch findings (the ~84-96 mm³/s purge-tower burst, one per file) the one
+exception to "every profile-dependent rule is uniformly one bucket." `overhang_wedge` has been
+re-frozen so it actually exercises the overhang stress case its name claims (see above); the counts in
+this document are against that corrected file. The Voron/Klipper and CuraEngine rows
 did not ship; both are root-caused and recorded (`conformance/slicer-corpus/MANIFEST.json`,
 `conformance/slicer-corpus/README.md`) rather than silently dropped, and the corpus is explicitly a
 7-file, 2-combination seed for a future pilot corpus, not the 10-50-job corpus itself.

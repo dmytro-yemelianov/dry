@@ -46,6 +46,13 @@ is a **7-file, 2-combination sample**, not the 10-50-job pilot corpus `docs/09-c
 describes — it is the seed a real customer pilot's corpus would be built from. See
 `docs/25-slicer-corpus-baseline.md` for the full baseline write-up and per-rule finding classification.
 
+**`overhang_wedge` was re-frozen** (`tools/slicer_corpus/gen_models.py`): the originally-committed model
+tapered to a point going up, which is a self-supporting incline, not an overhang, and it produced zero
+`; FEATURE: Overhang wall` blocks. The generator now sweeps a profile that widens with height instead
+(with a small flat foot at the build plate so it still has contact area to slice at all), and the
+re-sliced file produces 25 `Overhang wall` blocks. See `docs/25-slicer-corpus-baseline.md`
+§"`overhang_wedge`: the shipped model did not exercise an overhang" for the measurement.
+
 ## Regeneration
 
 ```
