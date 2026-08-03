@@ -126,6 +126,152 @@ impl ReviewReport {
     }
 }
 
+/// The outcome of one file in a batch review.
+///
+/// `passed` is *inspected and `error_count == 0`* — warnings do not fail a file, which is the same rule
+/// `review-gcode`'s own exit code uses. `errored` is the file that could not be inspected at all, and it
+/// is a distinct verdict rather than a failure: an incomplete batch is neither a pass nor a trustworthy
+/// gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BatchStatus {
+    Passed,
+    Failed,
+    Errored,
+}
+
+/// One file's entry in a [`ReviewBatch`]: either the [`ReviewReport`] it produced, or why it produced
+/// none. Exactly one of `review` / `error` is `Some`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchFileResult {
+    pub file: String,
+    pub status: BatchStatus,
+    /// Present iff the file was inspected. The nested report is an ordinary [`ReviewReport`], not a
+    /// batch-specific shape, so a single-file review and a batch entry are the same document.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<ReviewReport>,
+    /// Present iff the file was not inspected — the read/import error's own message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl BatchFileResult {
+    /// An inspected file. The status follows from the report's `error_count`.
+    pub fn inspected(file: String, review: ReviewReport) -> Self {
+        let status = if review.error_count > 0 {
+            BatchStatus::Failed
+        } else {
+            BatchStatus::Passed
+        };
+        BatchFileResult {
+            file,
+            status,
+            review: Some(review),
+            error: None,
+        }
+    }
+
+    /// A file that could not be read or imported: recorded, never fatal to the batch.
+    pub fn errored(file: String, error: String) -> Self {
+        BatchFileResult {
+            file,
+            status: BatchStatus::Errored,
+            review: None,
+            error: Some(error),
+        }
+    }
+}
+
+/// Per-rule roll-up across a batch.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleTally {
+    /// Stable kebab-case rule id (see [`crate::RuleId`]).
+    pub rule: String,
+    /// Total `error`-severity findings for this rule across the batch.
+    pub errors: usize,
+    /// Total `warning`-severity findings for this rule across the batch.
+    pub warnings: usize,
+    /// How many files carry at least one finding for this rule (a rule twice in one file counts one
+    /// file, two findings).
+    pub files: usize,
+}
+
+/// The `review-batch` report: one envelope over N files, each nesting an unmodified [`ReviewReport`].
+///
+/// The licence is stamped once, on the envelope; nested reports carry no stamp. Exit-code semantics
+/// live with the CLI, but the three counts below are what it decides on: any `files_errored` outranks
+/// any `files_failed`, because "do not trust this verdict" is a different fact from "this file is
+/// unsafe".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewBatch {
+    pub files_total: usize,
+    pub files_passed: usize,
+    pub files_failed: usize,
+    pub files_errored: usize,
+    /// Profile label, once for the batch (every file is reviewed against the same one).
+    pub profile: Option<String>,
+    /// Per-rule roll-up, ascending by rule id — derived from a `BTreeMap`, so the order is
+    /// deterministic and diffable between runs.
+    pub findings_by_rule: Vec<RuleTally>,
+    /// One entry per input path, in input order. No dedup: a path listed twice is reviewed twice.
+    pub results: Vec<BatchFileResult>,
+    /// The licensing mode this report was produced under, when the caller stamped one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<LicenseStamp>,
+}
+
+impl ReviewBatch {
+    /// Aggregate per-file outcomes into the batch envelope. Pure: the caller does the I/O.
+    pub fn build(profile: Option<String>, results: Vec<BatchFileResult>) -> Self {
+        let count = |want: BatchStatus| results.iter().filter(|r| r.status == want).count();
+        let (files_passed, files_failed, files_errored) = (
+            count(BatchStatus::Passed),
+            count(BatchStatus::Failed),
+            count(BatchStatus::Errored),
+        );
+
+        let mut tallies: std::collections::BTreeMap<&str, (usize, usize, usize)> =
+            std::collections::BTreeMap::new();
+        for result in &results {
+            let Some(review) = result.review.as_ref() else {
+                continue;
+            };
+            let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+            for finding in &review.findings {
+                let entry = tallies.entry(finding.rule.as_str()).or_default();
+                match finding.severity {
+                    Severity::Error => entry.0 += 1,
+                    Severity::Warning => entry.1 += 1,
+                }
+                if seen.insert(finding.rule.as_str()) {
+                    entry.2 += 1;
+                }
+            }
+        }
+        let findings_by_rule = tallies
+            .into_iter()
+            .map(|(rule, (errors, warnings, files))| RuleTally {
+                rule: rule.to_string(),
+                errors,
+                warnings,
+                files,
+            })
+            .collect();
+
+        ReviewBatch {
+            files_total: results.len(),
+            files_passed,
+            files_failed,
+            files_errored,
+            profile,
+            findings_by_rule,
+            results,
+            license: None,
+        }
+    }
+}
+
 /// The `trace-gcode` report: a windowed motion/time-series summary for a file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraceReport {
@@ -209,5 +355,150 @@ impl RewriteReport {
             spans,
             license: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::Metrics;
+
+    fn located(rule: &str, severity: Severity) -> LocatedFinding {
+        LocatedFinding {
+            rule: rule.to_string(),
+            severity,
+            segment: Some(0),
+            source_line: None,
+            message: "probe".to_string(),
+        }
+    }
+
+    fn review(file: &str, findings: Vec<LocatedFinding>) -> ReviewReport {
+        let error_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Error)
+            .count();
+        ReviewReport {
+            file: Some(file.to_string()),
+            profile: None,
+            segments: 3,
+            metrics: Metrics::default(),
+            findings,
+            error_count,
+            license: None,
+        }
+    }
+
+    #[test]
+    fn a_files_status_follows_its_error_count_not_its_warnings() {
+        let warned = BatchFileResult::inspected(
+            "warned.gcode".into(),
+            review("warned.gcode", vec![located("bead", Severity::Warning)]),
+        );
+        assert_eq!(warned.status, BatchStatus::Passed);
+        let failed = BatchFileResult::inspected(
+            "failed.gcode".into(),
+            review("failed.gcode", vec![located("max-flow", Severity::Error)]),
+        );
+        assert_eq!(failed.status, BatchStatus::Failed);
+    }
+
+    #[test]
+    fn exactly_one_of_review_and_error_is_present() {
+        for result in [
+            BatchFileResult::inspected("a.gcode".into(), review("a.gcode", vec![])),
+            BatchFileResult::errored("b.gcode".into(), "cannot import".into()),
+        ] {
+            assert_ne!(result.review.is_some(), result.error.is_some());
+        }
+    }
+
+    #[test]
+    fn the_envelope_counts_each_verdict_separately() {
+        let batch = ReviewBatch::build(
+            Some("voron24-abs".into()),
+            vec![
+                BatchFileResult::inspected("a.gcode".into(), review("a.gcode", vec![])),
+                BatchFileResult::inspected(
+                    "b.gcode".into(),
+                    review("b.gcode", vec![located("max-flow", Severity::Error)]),
+                ),
+                BatchFileResult::errored("c.gcode".into(), "unsupported word at line 12".into()),
+            ],
+        );
+        assert_eq!(batch.files_total, 3);
+        assert_eq!(batch.files_passed, 1);
+        assert_eq!(batch.files_failed, 1);
+        assert_eq!(batch.files_errored, 1);
+        assert_eq!(batch.profile.as_deref(), Some("voron24-abs"));
+        // Input order is preserved; the errored file carries no report.
+        assert_eq!(
+            batch.results.iter().map(|r| r.status).collect::<Vec<_>>(),
+            vec![
+                BatchStatus::Passed,
+                BatchStatus::Failed,
+                BatchStatus::Errored
+            ]
+        );
+    }
+
+    #[test]
+    fn a_rule_twice_in_one_file_counts_one_file_and_two_findings() {
+        let batch = ReviewBatch::build(
+            None,
+            vec![
+                BatchFileResult::inspected(
+                    "a.gcode".into(),
+                    review(
+                        "a.gcode",
+                        vec![
+                            located("max-flow", Severity::Error),
+                            located("max-flow", Severity::Error),
+                            located("bead", Severity::Warning),
+                        ],
+                    ),
+                ),
+                BatchFileResult::inspected(
+                    "b.gcode".into(),
+                    review("b.gcode", vec![located("bead", Severity::Warning)]),
+                ),
+                // An errored file contributes no findings at all.
+                BatchFileResult::errored("c.gcode".into(), "cannot read".into()),
+            ],
+        );
+        // Ascending by rule id, derived from a BTreeMap — deterministic and diffable.
+        assert_eq!(
+            batch
+                .findings_by_rule
+                .iter()
+                .map(|t| (t.rule.as_str(), t.errors, t.warnings, t.files))
+                .collect::<Vec<_>>(),
+            vec![("bead", 0, 2, 2), ("max-flow", 2, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn an_empty_batch_aggregates_to_zeroes() {
+        let batch = ReviewBatch::build(None, Vec::new());
+        assert_eq!(batch.files_total, 0);
+        assert!(batch.findings_by_rule.is_empty());
+        assert!(batch.results.is_empty());
+    }
+
+    #[test]
+    fn the_batch_status_wire_form_is_lowercase_and_the_optionals_skip() {
+        let json = serde_json::to_value(BatchFileResult::errored(
+            "c.gcode".into(),
+            "cannot read".into(),
+        ))
+        .unwrap();
+        assert_eq!(json["status"], "errored");
+        assert!(
+            json.get("review").is_none(),
+            "an absent report skips, never null"
+        );
+        let json = serde_json::to_value(ReviewBatch::build(None, Vec::new())).unwrap();
+        assert!(json.get("license").is_none());
+        assert_eq!(json["profile"], serde_json::Value::Null);
     }
 }

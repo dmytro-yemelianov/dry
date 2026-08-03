@@ -96,7 +96,8 @@ pub use recommend::{
     ExecutableAction, ExecutionResult, MetricSnapshot, Recommendation, Verdict,
 };
 pub use report::{
-    LicenseStamp, LocatedFinding, ReviewReport, RewriteReport, RewriteSpanResult, TraceReport,
+    BatchFileResult, BatchStatus, LicenseStamp, LocatedFinding, ReviewBatch, ReviewReport,
+    RewriteReport, RewriteSpanResult, RuleTally, TraceReport,
 };
 pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
@@ -104,8 +105,9 @@ pub use resolve::{
 pub use reverse::{reverse, ReverseError};
 pub use sdk::DesignBuilder;
 pub use trace::{
-    trace_summary, trace_summary_with_sources, LayerTraceLinkage, TraceError, TraceSummary,
-    TraceWindow,
+    trace_summary, trace_summary_with_analytics, trace_summary_with_sources, LayerStats,
+    LayerTraceLinkage, Percentiles, PhaseStats, TraceAnalytics, TraceAnalyticsOptions, TraceError,
+    TraceSummary, TraceWindow, WindowOutliers,
 };
 
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};

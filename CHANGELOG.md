@@ -9,6 +9,21 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **Trace analytics and the batch-review envelope in `dry-core` (P3.5, engine half).**
+  `trace_summary_with_analytics` fills in `TraceSummary::layers` — declared since P3 and never written —
+  as a *partition* of the segment range keyed on extruding Z, and adds an optional `analytics` block:
+  phase-split time-weighted statistics, exact nearest-rank percentiles over segment / window-peak /
+  layer populations, `travel_time_ratio`, and a flow-outlier window list that is an observation with no
+  rule id, no severity and no effect on any exit code. `TraceSummary::layers_to_csv()` joins `to_csv()`
+  as the second CSV relation. `trace_summary` / `trace_summary_with_sources` keep their exact signatures
+  and output, so every committed trace and explain golden is byte-identical (`analytics` skips when
+  absent; `layers` stays empty without the new entry point). `dry_core::ReviewBatch` aggregates per-file
+  `ReviewReport`s — nested unmodified — into a batch envelope with per-rule tallies and
+  passed/failed/errored verdicts. Schema: nine additive `$defs` in `spec/dry-reports-v1.schema.json`
+  plus two new goldens wired into `tools/validate_reports.py`; no `$def` or golden changed, and no new
+  dependency. The `trace-gcode --analytics` and `review-batch` CLI surfaces land separately.
+
 ## [0.6.0] - 2026-08-03
 
 ### Added

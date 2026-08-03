@@ -246,9 +246,10 @@ as a breaking change in the changelog.
 ## 3. Report outputs
 
 Every deterministic envelope below is a stable JSON contract with a `$def` of its own in
-`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `TraceReport`, `ForensicsReport`,
-`RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6, §3.8) are not in
-the schema and not drift-gated — model output is non-deterministic, so there is no golden to gate it.
+`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `ReviewBatch`, `TraceReport`,
+`ForensicsReport`, `RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6,
+§3.8) are not in the schema and not drift-gated — model output is non-deterministic, so there is no
+golden to gate it.
 
 ### 3.1 `verify --json` → `VerifyReport`
 
@@ -282,6 +283,40 @@ the schema and not drift-gated — model output is non-deterministic, so there i
 
 `trace` is a `TraceSummary`: totals plus fixed-duration `windows`, each carrying its segment range and —
 for imported G-code — its source-line range (`source_line_start`/`source_line_end`, omitted when absent).
+
+**Layer linkage and analytics are opt-in** (`dry_core::trace_summary_with_analytics`). Without them
+`layers` is `[]` and the `analytics` key is **absent** (not `null`) — which is what keeps every committed
+`trace.json` golden byte-identical. With them the same document gains:
+
+- `layers` — one entry per layer, with the field set a `TraceWindow` has minus the time bounds, plus a
+  half-open `[segment_start, segment_end)` range. The layers **partition** the segment range:
+  `layers[0].segment_start == 0` (a prime prologue is attributed, not orphaned), each layer's
+  `segment_end` is the next one's `segment_start`, the last ends at `segment_count` (so is a wipe
+  epilogue), and `Σ layer.print_time_s == trace.print_time_s`. A break is keyed on the first *extruding*
+  move whose Z differs by more than 1 µm, and the run of non-extruding moves before it (the Z lift and
+  the approach travel) belongs to the layer being **entered** — where a slicer's own `;LAYER:` marker
+  puts them. A travel-only file, or one with no extruding Z, yields `layers: []`.
+- `analytics` — phase-split time-weighted statistics (`print` / `travel`), order statistics over
+  per-window *peaks*, per-layer aggregates, `travel_time_ratio`, and a `flow_outliers` list of windows
+  whose peak flow exceeds `k ×` the published `window_flow_mm3_s.p50`. Every percentile uses one
+  nearest-rank (inverse-CDF, lower) definition, so each is a value that actually occurred; `p50` is the
+  median under that definition, which **differs from `ForensicsReport`'s `median`** (that one averages
+  the two middle values on an even count). `windows_considered` / `segments_considered` are published so
+  a statistic over almost nothing is not indistinguishable from one over a whole print.
+  `flow_outliers` is an **observation, never a gate**: no rule id, no severity, no effect on any exit
+  code.
+
+**`trace.layers` and `forensics.layers.layer_count` count different things, deliberately.** A trace layer
+is a *pass* in execution order, so a re-visited Z (an ironing pass, a non-monotonic vase) is a second
+entry; forensics counts *distinct Z levels*. Hence `trace.layers.len() >= forensics.layers.layer_count`,
+with equality when Z is non-decreasing and each level is one contiguous run
+(`crates/core/tests/trace_analytics.rs` pins both directions). Trace publishes no layer *height* —
+forensics owns that estimate, and the two reports sit side by side in one `explain` bundle.
+
+The summary also serialises to **two CSV relations** at two grains — `to_csv()` (one row per window) and
+`layers_to_csv()` (one row per layer). Both have a fixed column set that does not vary with the source
+map or the analytics flag; aggregate analytics stay JSON-only, because denormalising an aggregate across
+every row (or varying the columns with a flag) breaks the one thing a tabular consumer needs.
 
 ### 3.4 `rewrite-gcode --json` → `RewriteReport`
 
@@ -477,6 +512,40 @@ rationale for that judgment. Token usage and cost (optional, `null` for unknown-
 informational. **This envelope is NOT drift-gated** — model output is non-deterministic, so it is
 advisory only. Use it to understand the forensic delta qualitatively; apply any measured improvements
 only after manual review.
+
+### 3.9 `ReviewBatch` — one envelope over many files
+
+The batch envelope is a committed wire shape (`$def` `ReviewBatch`, golden
+`conformance/reports/review_batch/review-batch.json`) built by `dry_core::ReviewBatch::build`. The
+`dry review-batch` command that emits it is **not shipped yet** — this section documents the contract the
+engine already publishes, not a command you can run today.
+
+```json
+{
+  "files_total": 3,
+  "files_passed": 1,
+  "files_failed": 1,
+  "files_errored": 1,
+  "profile": "voron24-abs",
+  "findings_by_rule": [ { "rule": "max-flow", "errors": 2, "warnings": 0, "files": 1 } ],
+  "results": [
+    { "file": "a.gcode", "status": "passed", "review": { … } },
+    { "file": "c.gcode", "status": "errored", "error": "cannot import: unsupported word at line 12" }
+  ]
+}
+```
+
+- Each entry **nests an unmodified `ReviewReport`** (§3.2) — a batch entry and a single-file review are
+  the same document, so no consumer needs a second shape.
+- `status` is `passed` (inspected, `error_count == 0` — warnings do not fail a file, the same rule
+  `review-gcode`'s exit code uses), `failed` (inspected, at least one error-severity finding) or
+  `errored` (**could not be inspected at all**). Exactly one of `review` / `error` is present.
+- `errored` is a third verdict rather than a failure on purpose: an incomplete batch is neither a pass
+  nor a trustworthy gate, and "do not trust this verdict" is a different fact from "this file is unsafe".
+- `results` is in input order with no dedup; `findings_by_rule` is ascending by rule id (derived from a
+  `BTreeMap`), so two runs over the same inputs diff cleanly. `files` counts files carrying the rule at
+  least once — a rule twice in one file is one file and two findings.
+- The licence is stamped **once**, on the envelope; nested reports carry no stamp.
 
 <!-- docs-gen:end profiles-reports-core -->
 ## 4. Stability & conformance
