@@ -17,7 +17,7 @@ are warnings.
 | Rule id | Severity | Triggers when… | Enabled by |
 |---|---|---|---|
 | `finite` | error | a quantity is NaN or infinite | always |
-| `travel-extrudes` | error | a travel (non-printing) move deposits material | always |
+| `travel-extrudes` | **warning** | a travel (non-printing) move deposits material | always |
 | `bead` | error | an extruding move has a non-positive bead width or height | always |
 | `orientation-not-unit` | error | the toolframe orientation vector is not unit length | always |
 | `arc-radius` | error | an arc's endpoint radius disagrees with its start radius | always |
@@ -74,6 +74,23 @@ time — a zero-length reorientation states no duration to divide by, which is a
 machine-limit violation. `rotary-feed` is a **warning** because a controller does not refuse a rotary axis
 it cannot drive fast enough: it slows the whole synchronised move down, so what is wrong is the plan, not
 the geometry.
+
+`travel-extrudes` stays always-on but is a **warning**, because it states a disagreement inside the IR
+rather than an unsafe program. `travel` is a *classification*: every travel `resolve` and `optimize`
+produce carries `volume = 0`, so from a Dry design the flag is an assertion the producer cannot break —
+error severity only ever gated **imported and hand-authored** IR, where the flag is *inferred*. For
+imported G-code the inference is "`G0`, or no `E` word", and `G0` is not a "do not extrude" command on the
+firmware these programs run: Marlin, Klipper and RepRapFirmware execute `G0` as an ordinary coordinated
+move and honour an `E` word in it. OrcaSlicer's stock start G-code writes its purge/prime lines that way
+in the Bambu X1C and Prusa MK4 profiles alike, so stock output trips the rule 4–21 times per file while
+commanding exactly what its author intended — and as an error it failed `dry review-gcode` on every one
+of them. What the finding does state
+is still worth reporting: a move counted as travel while depositing corrupts travel-derived accounting
+(travel time and distance in `simulate`, and `travel-without-retraction`, itself a warning). Severity is
+**not** scoped to provenance even though the IR header records `imported-from-gcode`, because
+`verify_stream` cannot see the header — the same bytes would verify differently through `dry verify` than
+through `dry review-gcode`, the report echoes `contracts` but not `meta` so the difference would be
+invisible, and a producer-declared field must not choose the severity the verifier assigns it.
 
 `filament-consistency` ships at **warning** for one minor release before being promoted to error.
 Multi-diameter or multi-material IR is unusual but not ill-formed, and no in-tree producer emits any, so

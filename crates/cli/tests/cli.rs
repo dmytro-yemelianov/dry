@@ -1457,6 +1457,99 @@ fn review_gcode_reports_unmodeled_commands_in_json() {
     }));
 }
 
+/// Stock OrcaSlicer output for a Bambu X1C or a Prusa MK4 used to abort `review-gcode` and
+/// `trace-gcode` on the vendor macros in the machine start g-code — a hard exit before any report,
+/// on 4/4 measured files. Both constructs are here, with the moves they used to hide.
+#[test]
+fn review_and_trace_gcode_survive_vendor_macros_in_slicer_start_gcode() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let input = std::env::temp_dir().join(format!(
+        "dry-cli-slicer-dialect-{}-{stamp}.gcode",
+        std::process::id()
+    ));
+    std::fs::write(
+        &input,
+        "M1002 set_gcode_claim_speed_level : 5\n\
+         M221 S; push soft endstop status\n\
+         M1006 A0 B10 L100 C37 D10 M60 E37 F10 N60\n\
+         M862.3 P \"MK4\" ; printer model check\n\
+         M862.6 P\"Input shaper\" ; FW feature check\n\
+         M115 U5.0.0-RC+11963\n\
+         M83\n\
+         G1 X0 Y0 F600\n\
+         G1 X100 E1 F600\n",
+    )
+    .unwrap();
+
+    let review = Command::new(bin())
+        .args(["review-gcode", input.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let trace = Command::new(bin())
+        .args([
+            "trace-gcode",
+            input.to_str().unwrap(),
+            "--window-s",
+            "5",
+            "--line-width",
+            "0.45",
+            "--layer-height",
+            "0.2",
+        ])
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_file(&input);
+
+    assert!(
+        review.status.success(),
+        "review-gcode failed on slicer start g-code: {}",
+        String::from_utf8_lossy(&review.stderr)
+    );
+    assert!(
+        trace.status.success(),
+        "trace-gcode failed on slicer start g-code: {}",
+        String::from_utf8_lossy(&trace.stderr)
+    );
+
+    let report: Value = serde_json::from_slice(&review.stdout).expect("valid ReviewReport JSON");
+    // The two real moves are recovered, and `M1006 ... L100 ... E37 ...` is not one of them.
+    assert_eq!(report["segments"], 2);
+    let unmodeled: Vec<(u64, String)> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|finding| finding["rule"] == "unmodeled-gcode")
+        .map(|finding| {
+            (
+                finding["source_line"].as_u64().unwrap(),
+                finding["message"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let expected = [
+        (1, "M1002"),
+        (2, "M221"),
+        (3, "M1006"),
+        (4, "M862.3"),
+        (5, "M862.6"),
+        (6, "M115"),
+    ];
+    assert_eq!(unmodeled.len(), expected.len(), "{unmodeled:?}");
+    for ((line, message), (want_line, want_command)) in unmodeled.iter().zip(expected) {
+        assert_eq!(*line, want_line);
+        assert!(
+            message.starts_with(&format!("{want_command} is preserved")),
+            "line {line} should be reported as {want_command}: {message}"
+        );
+    }
+
+    let trace: Value = serde_json::from_slice(&trace.stdout).expect("valid trace JSON");
+    assert_eq!(trace["trace"]["segment_count"], 2);
+}
+
 #[test]
 #[cfg(feature = "moonraker")]
 fn upload_print_without_profile_is_blocked_before_network_io() {

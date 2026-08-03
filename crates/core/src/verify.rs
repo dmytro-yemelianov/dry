@@ -243,8 +243,8 @@ pub enum Severity {
 /// The closed set of verification rule ids. This is the single source of truth for the rule vocabulary,
 /// each rule's default [`Severity`], and its one-line summary — the rule catalog (`docs/11`) and the
 /// report schema (`spec/dry-reports-v1.schema.json`) are derived from it. A rule is **error** unless it
-/// is a process/quality advisory (stringing, first-layer adhesion) rather than a machine-safety or
-/// geometric-validity violation.
+/// is a process/quality advisory (stringing, first-layer adhesion, an IR classification the controller
+/// does not act on) rather than a machine-safety or geometric-validity violation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuleId {
     /// A quantity is non-finite (NaN/inf).
@@ -389,6 +389,33 @@ impl RuleId {
             | RuleId::FirstLayerSpeed
             | RuleId::JunctionVelocity
             | RuleId::UnmodeledGcode
+            // `travel` is a *classification*, and this rule states that the classification disagrees
+            // with the deposited volume — not that anything unsafe happens. Three facts settle the
+            // severity, all of them about who sets the flag:
+            //
+            //  - No in-tree producer can violate it. Every travel `resolve` and `optimize` emit
+            //    carries `Volume::ZERO`, so `travel: true` from Dry is an *assertion*, and error
+            //    severity never gated Dry-authored IR at all — only imported and hand-authored IR,
+            //    where the flag is *inferred*.
+            //  - For imported G-code the inference is `G0 || no E word` (`gcode::lift`), and `G0` is
+            //    not a "do not extrude" command on the firmware these programs run: Marlin, Klipper
+            //    and RepRapFirmware execute `G0` as an ordinary coordinated move and honour an `E`
+            //    word in it. OrcaSlicer's stock start G-code relies on exactly that to write its
+            //    purge/prime lines — in the Bambu X1C profile and the Prusa MK4 one alike — so stock
+            //    output trips this rule 4-21 times per file while commanding precisely what its
+            //    author intended.
+            //  - What the finding *does* buy is real but advisory: a move counted as travel while
+            //    depositing corrupts travel-derived accounting (travel time/distance in `simulate`,
+            //    and `travel-without-retraction`, itself a warning). That is process/quality
+            //    character, which is the criterion this doc comment already states for warning.
+            //
+            // Severity is deliberately *not* scoped to provenance, even though `Toolpath.meta`
+            // records `imported-from-gcode`: `verify_stream` cannot see `meta` by construction, so
+            // the same bytes would verify differently through `dry verify` than through
+            // `dry review-gcode`; `Report` echoes `contracts` but not `meta`, so the difference
+            // would be invisible in the report; and `meta` is producer-declared, so keying severity
+            // off it would let an input choose the severity the verifier assigns it.
+            | RuleId::TravelExtrudes
             // The controller does not refuse a rotary axis it cannot drive fast enough — it slows the
             // whole synchronised move down. The program still runs and still cuts the commanded path;
             // what is wrong is the plan, not the geometry. Same character as `junction-velocity`.
@@ -1794,6 +1821,10 @@ mod tests {
         assert_eq!(
             warnings,
             vec![
+                // The IR's travel flag disagreeing with its deposited volume is a modelling
+                // inconsistency, not an unsafe program: see `default_severity` for why it is a
+                // warning globally rather than only for imported IR.
+                "travel-extrudes",
                 "travel-without-retraction",
                 "first-layer-height",
                 "first-layer-speed",
@@ -1835,7 +1866,9 @@ mod tests {
             "the always-on structural set changed"
         );
 
-        // Of those, the ones that can flip `ok()`. Before H1.3 this was 5 of 18.
+        // Of those, the ones that can flip `ok()`. Before H1.3 this was 5 of 18; H1.3 took it to 9 of
+        // 11, and downgrading `travel-extrudes` to a warning takes it to 8 — a rule leaving this
+        // count is the same decision as one joining it.
         let can_fail: Vec<&str> = evaluated
             .iter()
             .copied()
@@ -1843,7 +1876,7 @@ mod tests {
             .collect();
         assert_eq!(
             can_fail.len(),
-            9,
+            8,
             "error-severity always-on rules: {can_fail:?}"
         );
         assert_eq!(RuleId::ALL.len(), 27);

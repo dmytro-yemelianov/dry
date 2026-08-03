@@ -10,6 +10,26 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Changed
+- **`travel-extrudes` is now a warning rather than an error — `dry review-gcode` no longer fails on stock
+  slicer output.** A notable change under `docs/11` §2 ("changing a rule's default severity is a notable
+  change called out in release notes"). OrcaSlicer's stock start G-code writes its purge/prime lines as
+  `G0` moves carrying an `E` word, which the importer classifies as travel (`G0`, or no `E` word) while
+  the volume it lifts from `E` is positive — so every real file tried tripped the rule (21×, 21×, 4×, 4×
+  across four OrcaSlicer files, Bambu X1C and Prusa MK4 profiles) and exited `1` with nothing else
+  failing: `travel-extrudes` was the *only* error rule firing on any of them. `G0` is
+  not a "do not extrude" command on Marlin, Klipper or RepRapFirmware: they execute it as an ordinary
+  coordinated move and honour the `E`, so the programs were commanding exactly what their authors
+  intended. The rule stays **always-on** and every finding is still located and counted; what changes is
+  that it no longer gates. Also lost, and recorded in `docs/14`: travel-derived accounting still
+  mis-attributes such a move (`simulate` travel time/distance, `travel-without-retraction`), and the
+  `balanced`/`max` rewrite gate can no longer reject a span on it — inert in practice, since no pipeline
+  pass can turn a clean segment into a depositing travel and on imported input the rule already fired
+  *before* the rewrite. Severity is deliberately **not** scoped to provenance even though the IR header
+  records `imported-from-gcode`: `verify_stream` cannot see the header (so the same bytes would verify
+  differently through `dry verify` than through `dry review-gcode`), `Report` echoes `contracts` but not
+  `meta` (so the difference would be invisible in the report), and a producer-declared field must not
+  choose the severity the verifier assigns it. Goldens `conformance/reports/structural/verify.json` and
+  `.../review.json` change by the severity string and `error_count` 5 → 4; nothing else moves.
 - **`emit --format krl` now writes a KUKA module instead of substituted g-code words (#181), and
   what "valid" means for it is no longer circular.** The old output was `G0`/`G1`/`G2` with
   `PTP`/`LIN`/`CIRC` swapped in, `F` swapped for `V`, and RS-274 `I`/`J` arc offsets swapped for a

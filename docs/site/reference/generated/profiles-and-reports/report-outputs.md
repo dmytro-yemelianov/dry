@@ -94,10 +94,13 @@ e.g. `balanced` is rejected on a span where `adaptive_speed` would scale a junct
 `speed_range` minimum (a new `speed` error), and `max` is rejected on a span where `z_hop`'s lowering
 move would violate a `monotonic_z` contract (a new `monotonic-z` error). Contracts come from the
 `--profile` (a profile maps to contracts via §2); with no profile the gate has no machine contracts and
-only the always-on structural invariants (`finite`, `bead`, `arc-radius`, `travel-extrudes`,
-`orientation-not-unit`) can reject a span, so a stderr warning is printed. The legacy ungated `--optimize`
-/ `--optimize --reorder-travel` flags are unchanged and run the geometry / aggressive pipelines without
-the gate.
+only the always-on structural invariants (`finite`, `bead`, `arc-radius`, `orientation-not-unit`) can
+reject a span, so a stderr warning is printed. `travel-extrudes` left that list when it became a warning
+(§2), which costs the gate nothing: no pipeline pass can turn a clean segment into a depositing travel
+(`z_hop` inserts travels at `volume = 0`, `merge_collinear` and `arc_fit` only combine segments that agree
+on the flag), and on imported G-code the rule already fires *before* the rewrite, so it was never a *new*
+rule there either. The legacy ungated `--optimize` / `--optimize --reorder-travel` flags are unchanged and
+run the geometry / aggressive pipelines without the gate.
 
 ### 3.5 `explain --json` → `ExplainBundle`
 
