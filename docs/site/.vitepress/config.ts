@@ -98,7 +98,6 @@ export default defineConfig({
       { text: 'Cloud', link: '/cloud/' },
       { text: 'Reference', link: '/reference/' },
       { text: 'Market', link: '/marketing/' },
-      { text: 'Pricing', link: '/pricing' },
       { text: 'Licensing', link: '/licensing' },
       ...(!publicDocumentationBuild ? [{ text: 'Gallery', link: '/gallery/' }] : []),
     ],
