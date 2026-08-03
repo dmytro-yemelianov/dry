@@ -1798,9 +1798,56 @@ fn trace_gcode_format_csv_matches_to_csv_header() {
     let mut lines = text.lines();
     assert_eq!(
         lines.next().unwrap(),
-        "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,max_feedrate_mm_min,max_flow_mm3_s"
+        "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,filament_mm,max_feedrate_mm_min,max_flow_mm3_s"
     );
     assert!(lines.next().is_some(), "at least one window row");
+}
+
+/// The window CSV shows no analytics, so `--analytics` beside `--format csv` must not change a byte —
+/// and the CLI skips the analytics pass entirely rather than computing and discarding it.
+#[test]
+fn trace_gcode_format_csv_is_unchanged_by_the_analytics_flag() {
+    let plain = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--format",
+            "csv",
+        ])
+        .output()
+        .unwrap();
+    let with = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--format",
+            "csv",
+            "--analytics",
+        ])
+        .output()
+        .unwrap();
+    assert!(plain.status.success() && with.status.success());
+    assert_eq!(
+        plain.stdout, with.stdout,
+        "--format csv output must be byte-identical with and without --analytics"
+    );
+}
+
+#[test]
+fn trace_gcode_rejects_a_non_positive_flow_outlier_k() {
+    let out = Command::new(bin())
+        .args([
+            "trace-gcode",
+            sliced_sample().to_str().unwrap(),
+            "--analytics",
+            "--flow-outlier-k",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("flow-outlier k"), "{stderr}");
 }
 
 #[test]
@@ -2090,6 +2137,36 @@ fn review_batch_out_writes_json_to_file() {
     let text = std::fs::read_to_string(&out_file).unwrap();
     let batch: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(batch["files_total"], 1);
+}
+
+/// A batch with nothing in it is a usage error, not an empty pass: `0` from `review-batch` means
+/// "every file was inspected and passed", and no file is not the same claim.
+#[test]
+fn review_batch_with_no_files_is_a_usage_error() {
+    let out = Command::new(bin()).args(["review-batch"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("no files given"), "{stderr}");
+}
+
+/// An unreadable `--files-from` is a usage error (exit 2), unlike an unreadable *input* file — which
+/// becomes an `errored` result and never aborts the batch. The list itself is the run's instructions:
+/// without it there is no batch to report on.
+#[test]
+fn review_batch_unreadable_files_from_is_a_usage_error() {
+    let f = BatchFixtures::new("filesfrom-missing");
+    let missing_list = f.dir.join("no-such-list.txt");
+    let out = Command::new(bin())
+        .args([
+            "review-batch",
+            "--files-from",
+            missing_list.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("no-such-list.txt"), "{stderr}");
 }
 
 #[test]

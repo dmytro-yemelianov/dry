@@ -54,10 +54,14 @@ document gains:
   half-open `[segment_start, segment_end)` range. The layers **partition** the segment range:
   `layers[0].segment_start == 0` (a prime prologue is attributed, not orphaned), each layer's
   `segment_end` is the next one's `segment_start`, the last ends at `segment_count` (so is a wipe
-  epilogue), and `Σ layer.print_time_s == trace.print_time_s`. A break is keyed on the first *extruding*
-  move whose Z differs by more than 1 nm, and the run of non-extruding moves before it (the Z lift and
-  the approach travel) belongs to the layer being **entered** — where a slicer's own `;LAYER:` marker
-  puts them. A travel-only file, or one with no extruding Z, yields `layers: []`.
+  epilogue), and `Σ layer.print_time_s` agrees with `trace.print_time_s` — up to floating-point
+  summation reordering, since grouping the same addends by layer changes the order and f64 addition is
+  not associative. That is what the tests assert (`1e-9` relative, in
+  `crates/core/src/trace.rs::layers_partition_the_segment_range` and the golden test), so it is what the
+  document promises: agreement to that tolerance, not bit equality. A break is keyed on the first
+  *extruding* move whose Z differs by more than the echoed `analytics.layer_z_epsilon_mm` (default
+  1 nm), and the run of non-extruding moves before it (the Z lift and the approach travel) belongs to the
+  layer being **entered** — where a slicer's own `;LAYER:` marker puts them.
 - `analytics` — phase-split time-weighted statistics (`print` / `travel`), order statistics over
   per-window *peaks*, per-layer aggregates, `travel_time_ratio`, and a `flow_outliers` list of windows
   whose peak flow exceeds `k ×` the published `window_flow_mm3_s.p50`. Every percentile uses one
@@ -66,7 +70,23 @@ document gains:
   the two middle values on an even count). `windows_considered` / `segments_considered` are published so
   a statistic over almost nothing is not indistinguishable from one over a whole print.
   `flow_outliers` is an **observation, never a gate**: no rule id, no severity, no effect on any exit
-  code.
+  code. Both tolerances are echoed in the output — `flow_outliers.k` and `layer_z_epsilon_mm` — so a
+  consumer never has to know which defaults the producer compiled in; `layer_z_epsilon_mm` sits on the
+  envelope rather than inside `layer_stats` because it is echoed even when it produced no layers.
+- A `PhaseStats` block excludes a segment whose feedrate or flow was non-finite from its totals, its
+  means, and the affected percentile channel, and counts it in `nonfinite_samples`. This is a wire-format
+  requirement: JSON has no NaN, so a non-finite total would serialise as `null` against a schema
+  `number`. Only `segments` counts those segments — so `print.segments + travel.segments` is still
+  `moving_segment_count`, while the phase totals can fall short of the `trace` totals beside them, which
+  keep propagating non-finite values unchanged.
+
+**An empty `layers` means "no Z-keyed layers", not "no data".** Layers are keyed on the Z of *extruding*
+moves (`!travel` and depositing volume), so three populations legitimately produce `[]`: a summary from a
+plain `trace_summary*` entry point (no `--analytics`); a toolpath with no extruding move at all —
+travel-only, and equally **subtractive or laser** work, where cutting moves deposit nothing; and an
+**XY-only** toolpath whose extruding moves never carry a Z (2D laser/CNC, where the importer leaves Z
+undefined until a `Z` word appears). In every one of those cases the windows, totals and maxima are fully
+populated and only the layer relation (and `analytics.layer_stats`) is absent.
 
 **`trace.layers` and `forensics.layers.layer_count` count different things, deliberately.** A trace layer
 is a *pass* in execution order, so a re-visited Z (an ironing pass, a non-monotonic vase) is a second
@@ -78,10 +98,13 @@ forensics owns that estimate, and the two reports sit side by side in one `expla
 The summary also serialises to **two CSV relations** at two grains — `to_csv()` (one row per window) and
 `layers_to_csv()` (one row per layer), reachable from the CLI as `dry trace-gcode FILE --format csv` /
 `--format layers-csv` (`--format layers-csv` implies `--analytics`, since the analytics pass is the only
-producer of layer rows). Both have a fixed column set that does not vary with the source map or the
-analytics flag; aggregate analytics stay JSON-only, because denormalising an aggregate across every row
-(or varying the columns with a flag) breaks the one thing a tabular consumer needs. Supplying
-`--flow-outlier-k` without `--analytics` (or `--format layers-csv`) is a usage error (exit 2).
+producer of layer rows). Each relation carries every measure of its grain — including `filament_mm`, so
+the two are comparable column for column — and neither varies with the source map or the analytics flag;
+aggregate analytics stay JSON-only, because denormalising an aggregate across every row (or varying the
+columns with a flag) breaks the one thing a tabular consumer needs. Plain `--format csv` shows nothing
+the analytics pass produces, so the CLI skips that pass there: the window CSV is byte-identical with and
+without `--analytics`. Supplying `--flow-outlier-k` without `--analytics` (or `--format layers-csv`) is a
+usage error (exit 2).
 
 ### 3.4 `rewrite-gcode --json` → `RewriteReport`
 
@@ -304,7 +327,11 @@ by `dry review-batch FILES… [--files-from FILE|-] [--profile P] [--json] [--ou
   the same document, so no consumer needs a second shape.
 - `status` is `passed` (inspected, `error_count == 0` — warnings do not fail a file, the same rule
   `review-gcode`'s exit code uses), `failed` (inspected, at least one error-severity finding) or
-  `errored` (**could not be inspected at all**). Exactly one of `review` / `error` is present.
+  `errored` (**could not be inspected at all**). Exactly one of `review` / `error` is present, and the
+  pairing with `status` is enforced by the schema rather than only promised here: the `BatchFileResult`
+  `$def` is a `oneOf` over *inspected* (`passed`/`failed` with a `review`, no `error`) and *not
+  inspected* (`errored` with an `error`, no `review`), so a document carrying both, neither, or the
+  wrong `status` for its payload fails validation.
 - `errored` is a third verdict rather than a failure on purpose: an incomplete batch is neither a pass
   nor a trustworthy gate, and "do not trust this verdict" is a different fact from "this file is unsafe".
 - `results` is in input order with no dedup; `findings_by_rule` is ascending by rule id (derived from a

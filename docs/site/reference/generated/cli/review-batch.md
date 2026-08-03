@@ -4,6 +4,8 @@
 
 Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch`
 
+<LiveExample src="verify" :outputs='["verify"]' />
+
 ## Help
 
 ```text

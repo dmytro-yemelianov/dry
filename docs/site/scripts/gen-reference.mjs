@@ -507,6 +507,7 @@ const cliSampleByCommand = new Map([
   ['simulate', 'simulate'],
   ['trace-gcode', 'simulate'],
   ['review-gcode', 'verify'],
+  ['review-batch', 'verify'],
   ['verify', 'verify'],
   ['explain', 'verify'],
   ['compare', 'verify'],

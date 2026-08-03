@@ -181,7 +181,7 @@
       "enum": ["passed", "failed", "errored"]
     },
     "BatchFileResult": {
-      "description": "One file's entry in a ReviewBatch. Exactly one of `review` / `error` is present; the nested report is an ordinary ReviewReport, not a batch-specific shape.",
+      "description": "One file's entry in a ReviewBatch. Exactly one of `review` / `error` is present — enforced by the `oneOf` below rather than left to prose — and `status` follows from which one: an inspected file is `passed`/`failed` and carries a report, a file that could not be inspected at all is `errored` and carries the error message. The nested report is an ordinary ReviewReport, not a batch-specific shape.",
       "type": "object",
       "additionalProperties": false,
       "required": ["file", "status"],
@@ -190,7 +190,21 @@
         "status": { "$ref": "#/$defs/BatchStatus" },
         "review": { "$ref": "#/$defs/ReviewReport" },
         "error": { "type": "string", "description": "the read/import error's own message" }
-      }
+      },
+      "oneOf": [
+        {
+          "title": "inspected",
+          "required": ["review"],
+          "not": { "required": ["error"] },
+          "properties": { "status": { "enum": ["passed", "failed"] } }
+        },
+        {
+          "title": "not inspected",
+          "required": ["error"],
+          "not": { "required": ["review"] },
+          "properties": { "status": { "const": "errored" } }
+        }
+      ]
     },
     "RuleTally": {
       "description": "Per-rule roll-up across a batch. `files` counts files carrying at least one finding for the rule — a rule twice in one file counts one file and two findings.",
@@ -303,7 +317,11 @@
         "max_feedrate_mm_min": { "type": "number" },
         "max_flow_mm3_s": { "type": "number" },
         "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } },
-        "layers": { "type": "array", "items": { "$ref": "#/$defs/LayerTraceLinkage" } },
+        "layers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LayerTraceLinkage" },
+          "description": "layers are keyed on the Z of extruding moves, and an empty array means \"this toolpath has no Z-keyed layers\" rather than \"the layer data is missing\": it is empty unless the producer asked for analytics (`trace-gcode --analytics`), and empty even then for a toolpath with no extruding move (travel-only, or subtractive/laser work that deposits nothing) or whose extruding moves carry no Z at all (2D XY-only work). The windows and totals are fully populated in every one of those cases"
+        },
         "analytics": { "$ref": "#/$defs/TraceAnalytics" }
       }
     },
@@ -357,7 +375,7 @@
       }
     },
     "PhaseStats": {
-      "description": "Time-weighted statistics over the moving segments of one phase (print or travel); dwell time is excluded. The percentiles exclude non-finite sample values and count them in `nonfinite_samples`; the totals and time-weighted means do not filter them. A null percentile block means no finite-valued sample carried weight — a phase with no motion has no percentiles, and 0.0 would be indistinguishable from a real stall.",
+      "description": "Time-weighted statistics over the moving segments of one phase (print or travel); dwell time is excluded. A segment whose feedrate or flow was non-finite is counted in `nonfinite_samples` and excluded from the totals and the means (which share one population) and from whichever percentile channel was non-finite — so every number here is a real `number`, never the `null` a non-finite f64 would serialize as. Only `segments` counts those segments, which is why `print.segments + travel.segments` still equals the summary's `moving_segment_count` while the phase totals can fall short of the summary's own totals (those keep propagating non-finite values). A null percentile block means no finite-valued sample carried weight — a phase with no motion has no percentiles, and 0.0 would be indistinguishable from a real stall.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -421,6 +439,7 @@
         "window_feedrate_mm_min",
         "flow_outliers",
         "layer_stats",
+        "layer_z_epsilon_mm",
         "travel_time_ratio",
         "windows_considered",
         "segments_considered"
@@ -434,6 +453,11 @@
         },
         "flow_outliers": { "$ref": "#/$defs/WindowOutliers" },
         "layer_stats": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/LayerStats" }] },
+        "layer_z_epsilon_mm": {
+          "type": "number",
+          "minimum": 0,
+          "description": "the Z tolerance the layer partition ran with, echoed from the options the way flow_outliers.k is — so both tolerances in the document are self-describing. Echoed unconditionally, including when it produced no layers at all"
+        },
         "travel_time_ratio": {
           "type": ["number", "null"],
           "description": "travel motion time / total motion time, in [0,1]; null when nothing moved"

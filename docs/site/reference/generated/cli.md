@@ -61,7 +61,7 @@ Options:
 | [`import-gcode`](/reference/generated/cli/import-gcode) | [Lower to the Dry IR](/guide/lower) | Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation |
 | [`review-gcode`](/reference/generated/cli/review-gcode) | [Verify](/guide/verify) | Review slicer G-code directly, reporting metrics and contract findings with source line numbers |
 | [`trace-gcode`](/reference/generated/cli/trace-gcode) | [Simulate](/guide/simulate) | Summarize slicer G-code as fixed-window motion/time-series JSON |
-| [`review-batch`](/reference/generated/cli/review-batch) |  | Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch` |
+| [`review-batch`](/reference/generated/cli/review-batch) | [Verify](/guide/verify) | Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch` |
 | [`forensics-gcode`](/reference/generated/cli/forensics-gcode) | [Verify](/guide/verify) | Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags |
 | [`explain`](/reference/generated/cli/explain) | [Verify](/guide/verify) | Assemble an offline LLM-explanation bundle (trace + forensics + verify + a curated prompt) |
 | [`compare`](/reference/generated/cli/compare) | [Verify](/guide/verify) | Diff two analysed g-code files: settings, time/flow, and safety findings (A → B) |

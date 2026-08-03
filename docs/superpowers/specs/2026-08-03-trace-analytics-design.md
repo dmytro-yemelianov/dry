@@ -20,9 +20,11 @@ higher-level statistical features.*
    committed golden stay byte-identical (§4). CLI: `dry trace-gcode --analytics` (§5).
 3. **Batch review** — a new `dry review-batch FILES…` subcommand (not a variadic `review-gcode`),
    emitting a `ReviewBatch` envelope that nests unmodified `ReviewReport`s. Exit `0` all clean, `1` any
-   file gates, `2` any file could not be inspected — `2` wins over `1` (§6). Schema: nine additive
-   `$defs` across the slice (four of them for the batch), two new goldens and two
-   `validate_reports.py` rows; no existing `$def` or golden changes (§7).
+   file gates, `2` any file could not be inspected — `2` wins over `1` (§6). Schema: nine new `$defs`
+   across the slice (four of them for the batch), two new goldens and two `validate_reports.py` rows.
+   Additive for every envelope except `LayerTraceLinkage`, whose `required` grows 7 → 13 — safe only
+   because nothing has ever produced a `layers` entry, and named as the exception rather than folded into
+   "additive" (§7). No committed golden changes (§4.2).
 4. **Parquet/Arrow — deferred**, explicitly. CSV + JSON are this slice's export boundary, and this
    slice *wires up* the CSV writer that currently has no call sites (§8).
 5. **Not in scope** — before/after trace diffing (§9.1, including why it must come after layer
@@ -92,9 +94,15 @@ state what a number is for, it is not in the set.
 ### 3.1 One percentile definition, used everywhere
 
 ```
-Given samples (vᵢ, wᵢ) with wᵢ ≥ 0 and W = Σwᵢ > 0, sorted ascending by v with a STABLE sort:
+Given samples (vᵢ, wᵢ) with vᵢ finite, wᵢ ≥ 0 and W = Σwᵢ finite and > 0, sorted ascending by v with a
+STABLE sort:
     quantile(p) = the first vᵢ whose cumulative Σ_{j≤i} wⱼ ≥ p·W        for p ∈ (0, 1]
 ```
+
+`wᵢ ≥ 0` and "`W` finite" are exactly what the implementation checks (`percentiles`, `trace.rs`), not a
+loosening of it: every caller in fact supplies a strictly positive weight (motion seconds, or `1` per
+window/layer), and a zero-weight sample would still occupy a rank — so it can be `min`/`max` while no
+quantile target selects it. The module doc states the same preconditions, in the same words.
 
 This is the nearest-rank (inverse-CDF, lower) definition. Consequences, all deliberate:
 
@@ -117,7 +125,15 @@ This is the nearest-rank (inverse-CDF, lower) definition. Consequences, all deli
 - **Non-finite samples are excluded and counted**, never silently folded into a NaN percentile.
   `trace` runs no verifier, `Contracts` has a `finite` rule that nothing forces here, and
   `conformance/reports/non_finite/` exists precisely because such toolpaths are reachable. Each stats
-  block carries `nonfinite_samples: usize`. Existing totals keep today's behaviour unchanged.
+  block carries `nonfinite_samples: usize`. **A `PhaseStats` excludes such a segment from its totals and
+  means as well**, and the reason is the wire format rather than statistics: JSON has no NaN, `serde_json`
+  writes a non-finite `f64` as `null`, and the schema types those totals as `number` — so one NaN volume
+  would make the whole report invalid. Only `segments` counts them, which keeps
+  `print.segments + travel.segments == moving_segment_count`. `TraceSummary`'s *own* totals are untouched
+  and keep today's propagate-everything behaviour, so the phase totals and the summary totals disagree
+  exactly when `nonfinite_samples > 0`. The percentiles filter per channel (a finite feedrate beside a
+  NaN flow is still a real observation); the totals share one population and so drop the segment whenever
+  either channel is non-finite.
 - **`W == 0` yields `None`, not zero.** A phase with no motion has no percentiles; reporting `0.0`
   would be indistinguishable from a real stall.
 
@@ -130,11 +146,12 @@ pub struct Percentiles { pub min: f64, pub p50: f64, pub p95: f64, pub max: f64 
 /// Time-weighted statistics over the moving segments of one phase (print or travel).
 /// Dwell time is excluded: a dwell has no feedrate and no flow.
 pub struct PhaseStats {
-    pub segments: usize,          // segments in this phase with motion_s > 0
+    pub segments: usize,          // segments in this phase with motion_s > 0, non-finite ones included
+    // Totals over the same segments EXCLUDING any counted in `nonfinite_samples` (§3.1).
     pub time_s: f64,
     pub distance_mm: f64,
     pub volume_mm3: f64,
-    /// Σ(v·t)/Σt. `None` when `time_s == 0`.
+    /// Σ(v·t)/Σt over the totals' population. `None` when `time_s == 0`.
     pub mean_feedrate_mm_min: Option<f64>,
     pub mean_flow_mm3_s: Option<f64>,
     /// Time-weighted percentiles. `None` when no finite-valued sample carries weight.
@@ -285,12 +302,14 @@ pub struct LayerStats {
 - **Segments:** one pass. `timing()` (`trace.rs:199-214`) already computes `motion_s` and
   `flow_mm3_s`; the analytics pass consumes those values in the loop that already exists — no second
   traversal, no recomputation.
-- **Percentile ledger:** one scratch `Vec` of `{feedrate, flow, seconds, travel}` sized by moving
-  segment count (32 bytes/segment), sorted twice (once per metric) and dropped before returning.
-  `trace_summary` already requires a materialised `&Toolpath` — at ~200+ bytes per `Segment` the scratch
-  is well under a tenth of what the caller is already holding, and it does not change the memory class
-  (§4.4). This is the one allocation in the design proportional to N, and it is called out rather than
-  buried.
+- **Percentile ledger:** **four** scratch `Vec<{value, weight}>` — feedrate and flow, once per phase, at
+  16 bytes a sample. Each moving segment pushes one sample into two of them (its phase's), so the total is
+  ~32 bytes per moving segment; a segment with a non-finite value in one channel pushes into one, so the
+  vectors can be shorter than the segment count. Each is sorted **once** (four sorts, one per published
+  percentile block) and all four are dropped before returning. `trace_summary` already requires a
+  materialised `&Toolpath` — at ~200+ bytes per `Segment` the scratch is well under a tenth of what the
+  caller is already holding, and it does not change the memory class (§4.4). These are the allocations in
+  the design proportional to N, and they are called out rather than buried.
 - **Windows:** two extra O(W) passes — one to build the peak ledger and take p50, one to flag
   outliers. The outlier flag is *inherently* second-pass: it references a median of all windows. The
   design says "one pass over segments, two cheap passes over the window vector" and does not claim
@@ -319,6 +338,9 @@ pub struct TraceAnalytics {
     pub window_feedrate_mm_min: Option<Percentiles>,
     pub flow_outliers: WindowOutliers,
     pub layer_stats: Option<LayerStats>,
+    /// The layer tolerance, echoed the way `flow_outliers.k` is — on the envelope, so the
+    /// empty-`layers` case still says which tolerance produced nothing.
+    pub layer_z_epsilon_mm: f64,
     /// travel motion time / total motion time, in [0,1]. `None` when nothing moved.
     pub travel_time_ratio: Option<f64>,
     pub windows_considered: usize,
@@ -366,7 +388,9 @@ committed bytes; seven `trace.json` goldens plus the nested trace in `explain.js
   brief forbids. Chosen: one switch turns on layers *and* analytics together; `docs/11` §3.3 states
   that `layers` is empty without it, so the emptiness is documented behaviour rather than a bug
   report waiting to happen.
-- Adding fields to `LayerTraceLinkage` cannot drift anything, because no golden holds an instance.
+- Adding fields to `LayerTraceLinkage` cannot drift anything, because no golden holds an instance. That
+  same fact is what makes growing its `required` list safe, which is the one place this slice is not
+  strictly additive (§7).
 - `TraceWindow` is **not** modified. An early sketch put a `flow_outlier: bool` on each window; that
   needs an `is_false` skip helper, spreads one statistic across W objects, and edits the most
   widely-validated `$def` in the schema. The outlier list lives in `WindowOutliers` instead.
@@ -375,8 +399,12 @@ New golden coverage is *added* rather than existing goldens changed (§7).
 
 ### 4.3 CSV: two relations, stable columns
 
-`to_csv()` keeps its current header and column set byte-for-byte (it is now reachable, §5, so its
-output becomes a contract). A second method covers the second grain:
+`to_csv()` becomes a contract the moment it becomes reachable (§5) — and that is the moment to fix its
+column set, not after: it gains the `filament_mm` column it was missing (the window already accrues it,
+and `layers_to_csv` publishes it), so the two relations carry every measure of their grain and are
+comparable column for column. Nothing consumed the old header — the method had **no call sites at all**
+before this slice — so widening it now costs nothing and later would be a breaking change. A second
+method covers the second grain:
 
 ```rust
 impl TraceSummary {
@@ -412,11 +440,15 @@ dry trace-gcode FILE [--profile P] [--filament-diameter D] [--line-width W] [--l
 - `--analytics` runs `trace_summary_with_analytics`, so the JSON gains `trace.layers` and
   `trace.analytics`.
 - `--flow-outlier-k` sets `TraceAnalyticsOptions::flow_outlier_k`; supplying it without `--analytics`
-  is a usage error (exit 2) rather than a silently ignored flag. `layer_z_epsilon_mm` gets no flag —
-  no caller has a reason to move it, and it is echoed nowhere, so it stays a library option.
+  is a usage error (exit 2) rather than a silently ignored flag. `layer_z_epsilon_mm` gets no flag — no
+  caller has a reason to move it, so it stays a library option — but it *is* echoed in the output
+  (`analytics.layer_z_epsilon_mm`), the way `flow_outliers.k` is: a tolerance that shaped the document
+  should be readable from the document.
 - `--format csv` prints `to_csv()`; `--format layers-csv` prints `layers_to_csv()` and **implies**
   `--analytics`, since the analytics pass is the only producer of rows. That implication is the one
-  place a format flag changes what is computed, and it beats printing a bare header.
+  place a format flag changes what is computed, and it beats printing a bare header. The converse also
+  holds: plain `--format csv` shows nothing the analytics pass produces, so `--analytics` beside it
+  skips the pass rather than computing and discarding it — the window CSV is byte-identical either way.
 - No `--out`: shell redirection covers it, and `trace-gcode` has never had one.
 - Exit code stays 0 on success regardless of outliers. Trace is descriptive; gates are `verify` /
   `review-gcode` / `review-batch`.
@@ -537,21 +569,37 @@ review-batch: 3 file(s), profile voron24-abs
   by rule: bead 1 warning(s) in 1 file(s); max-flow 2 error(s) in 1 file(s)
 ```
 
-Sequential, one line per file as it completes, so a long batch shows progress. No parallelism: a pool
-means a new dependency and either a nondeterministic result order or a reordering buffer. A farm that
-does not need the aggregate can still `xargs -P` over `review-gcode`.
+Sequential, one line per file in input order. The block is rendered **once, after the batch finishes**,
+from the completed envelope — `render_batch_human(&batch)` — so nothing is printed while the batch runs
+and a long batch shows no progress. Streaming a line as each file completes would mean printing from the
+review loop instead of from the envelope; it is a legitimate follow-up, and it is deliberately not what
+ships here, so neither the doc comment nor this section may claim it. No parallelism either: a pool means
+a new dependency and either a nondeterministic result order or a reordering buffer. A farm that does not
+need the aggregate can still `xargs -P` over `review-gcode`.
 
 ## 7. Schema and validator coverage
 
 `spec/dry-reports-v1.schema.json` is `additionalProperties: false` on every object, so the schema edits
 are **mandatory in the same commit** — an analytics-carrying document is invalid until they land.
 
-Additive `$defs`: `Percentiles`, `PhaseStats`, `WindowOutliers`, `LayerStats`, `TraceAnalytics`,
-`BatchStatus`, `RuleTally`, `BatchFileResult`, `ReviewBatch`.
-Additive properties: `TraceSummary.analytics` (**not** in `required`); the new
-`LayerTraceLinkage` fields (in `required` — safe because no document has ever contained an instance,
-§4.2, so nothing previously valid becomes invalid); `source_line_start`/`source_line_end` optional
-there, mirroring `TraceWindow`.
+**"Additive" holds for every envelope except one, and the exception is named rather than glossed.** Nine
+new `$defs`: `Percentiles`, `PhaseStats`, `WindowOutliers`, `LayerStats`, `TraceAnalytics`,
+`BatchStatus`, `RuleTally`, `BatchFileResult`, `ReviewBatch` — new `$defs` cannot invalidate anything,
+including the `oneOf` inside `BatchFileResult` that enforces *exactly one of `review` / `error`* (and its
+pairing with `status`) instead of leaving it to prose. Additive properties: `TraceSummary.analytics`
+(**not** in `required`); `source_line_start`/`source_line_end` on `LayerTraceLinkage`, optional there,
+mirroring `TraceWindow`.
+
+The exception: **`LayerTraceLinkage.required` grows from 7 entries to 13** — `dwell_time_s`,
+`extruding_distance_mm`, `travel_distance_mm`, `filament_mm`, `max_feedrate_mm_min`, `max_flow_mm3_s`.
+A `required` list that grows is *not* additive in general: it can invalidate a document that used to
+validate. It is safe here for a specific, checkable reason rather than by convention — **no document has
+ever held a `layers` entry.** `TraceSummary.layers` had no producer at all before this slice (§1), all
+seven committed `trace.json` goldens and the trace nested in `explain.json` carry `"layers": []`, and no
+fixture or binding constructs one. There is nothing outside this repo that could hold an instance either,
+because nothing could ever emit one. And every instance the emitter now writes carries all 13, so the
+schema is not merely satisfiable but exactly describes the producer. Any *later* field added to
+`LayerTraceLinkage` no longer has this excuse and must be optional.
 Unchanged: `TraceWindow`, `TraceReport`, `ReviewReport`, `Metrics`, `Contracts`, `VerifyReport`,
 `CompareDelta`, `ExplainBundle`. The schema's top-level `description`, which enumerates the report kinds
 and the `$def` each output validates against, gains `ReviewBatch` (`review-batch`).

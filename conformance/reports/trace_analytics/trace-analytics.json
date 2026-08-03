@@ -319,6 +319,7 @@
         },
         "slowest_layer_index": 0
       },
+      "layer_z_epsilon_mm": 1e-6,
       "travel_time_ratio": 0.023358672356938844,
       "windows_considered": 10,
       "segments_considered": 14

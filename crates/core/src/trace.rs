@@ -6,9 +6,14 @@
 //! over window peaks, over layers — uses one definition:
 //!
 //! ```text
-//! Given samples (vᵢ, wᵢ) with wᵢ > 0 and W = Σwᵢ > 0, sorted ascending by v with a STABLE sort:
+//! Given samples (vᵢ, wᵢ) with vᵢ finite, wᵢ ≥ 0 and W = Σwᵢ finite and > 0, sorted ascending by v
+//! with a STABLE sort:
 //!     quantile(p) = the first vᵢ whose cumulative Σ_{j≤i} wⱼ ≥ p·W        for p ∈ (0, 1]
 //! ```
+//!
+//! `wᵢ ≥ 0` is what the code accepts, not merely what it is given: every caller here supplies a
+//! strictly positive weight (motion seconds, or `1` per window/layer), and a zero-weight sample would
+//! still occupy a rank — so it can be `min`/`max` while no quantile target ever selects it.
 //!
 //! This is the nearest-rank (inverse-CDF, lower) definition, and the consequences are deliberate:
 //!
@@ -25,10 +30,34 @@
 //!   samples never permute, the partial sums inside a tie group are fixed, and the whole computation
 //!   is a function of segment order alone. The arithmetic is `+`, `*`, `/` and comparison only.
 //! - **Non-finite sample values are excluded and counted** (`nonfinite_samples`), never folded into
-//!   a NaN percentile. Totals and time-weighted means keep the engine's existing behaviour and do
-//!   propagate them.
+//!   a NaN percentile. A [`PhaseStats`] excludes such a segment from its totals and time-weighted
+//!   means too, for a reason that is about the wire format rather than about statistics: `serde_json`
+//!   writes a non-finite `f64` as `null`, and `spec/dry-reports-v1.schema.json` types those totals as
+//!   `number`, so one NaN volume would make the whole report schema-invalid. The [`TraceSummary`]
+//!   totals are untouched by this and keep the engine's existing propagate-everything behaviour, so
+//!   the two disagree exactly when `nonfinite_samples > 0`.
 //! - **An empty population yields `None`, not zero** — a phase with no motion has no percentiles,
 //!   and `0.0` would be indistinguishable from a real stall.
+//!
+//! # Layers
+//!
+//! [`TraceSummary::layers`] is keyed on the Z of **extruding** moves — a segment with
+//! `!travel && volume > 0` that carries a `Z` (`end[2]`, else `start[2]`); the break rule itself is
+//! documented on the partitioner. Three populations therefore yield `layers: []`, and the empty
+//! vector means "this
+//! toolpath has no Z-keyed layers", never "the layer data is missing":
+//!
+//! - a toolpath with no extruding move at all — travel-only, and equally a subtractive or laser
+//!   toolpath, where cutting moves deposit no volume;
+//! - an **XY-only** toolpath whose extruding moves never carry a Z (2D laser/CNC work, where the
+//!   importer leaves `start[2]`/`end[2]` as `None` until a `Z` word appears) — there is nothing to
+//!   key on, and inventing one layer spanning the file would be a claim the geometry does not make;
+//! - any summary from [`trace_summary`] / [`trace_summary_with_sources`], which do not run the layer
+//!   pass at all (this is the ordinary case, and it is what keeps the committed goldens
+//!   byte-identical).
+//!
+//! Windows, totals and maxima are fully populated in all three cases: only the layer relation and
+//! [`TraceAnalytics::layer_stats`] are absent.
 
 use crate::engine::segment_motion_time;
 use crate::ir::{Segment, Toolpath};
@@ -60,7 +89,9 @@ pub struct TraceSummary {
     pub max_flow_mm3_s: f64,
     pub windows: Vec<TraceWindow>,
     /// Per-layer segment ranges and aggregates. Populated only by
-    /// [`trace_summary_with_analytics`]; the plain entry points leave it empty.
+    /// [`trace_summary_with_analytics`]; the plain entry points leave it empty, as does a toolpath
+    /// with no Z-keyed extruding move — see [Layers](self#layers) for what an empty vector does and
+    /// does not mean.
     pub layers: Vec<LayerTraceLinkage>,
     /// Higher-level statistics, present only when the caller asked for them via
     /// [`trace_summary_with_analytics`].
@@ -122,21 +153,29 @@ pub struct Percentiles {
 /// worth four bytes of JSON.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhaseStats {
-    /// Segments in this phase with `motion_s > 0`.
+    /// Segments in this phase with `motion_s > 0`, *including* the ones counted in
+    /// `nonfinite_samples` — so `print.segments + travel.segments` is the summary's
+    /// `moving_segment_count`.
     pub segments: usize,
+    /// Totals over this phase, **excluding** every segment counted in `nonfinite_samples`. The
+    /// exclusion is a wire-format requirement, not a statistical preference: `serde_json` writes a
+    /// non-finite `f64` as `null` and the schema types these as `number`, so one NaN volume would
+    /// make the report invalid. [`TraceSummary`]'s own totals keep propagating non-finite values, so
+    /// the two disagree exactly when `nonfinite_samples > 0`.
     pub time_s: f64,
     pub distance_mm: f64,
     pub volume_mm3: f64,
-    /// `Σ(v·t)/Σt` over every segment in the phase. `None` when `time_s == 0`. Unlike the
-    /// percentiles, this does *not* filter non-finite samples — it is a total, and totals keep the
-    /// engine's existing behaviour.
+    /// `Σ(v·t)/Σt` over the same population as the totals above (non-finite samples excluded, so the
+    /// denominator is this block's `time_s`). `None` when `time_s == 0`.
     pub mean_feedrate_mm_min: Option<f64>,
     pub mean_flow_mm3_s: Option<f64>,
     /// Time-weighted percentiles. `None` when no finite-valued sample carries weight.
     pub feedrate_mm_min: Option<Percentiles>,
     pub flow_mm3_s: Option<Percentiles>,
-    /// Segments in the phase whose feedrate or flow was non-finite, and therefore excluded from the
-    /// percentiles above.
+    /// Segments in the phase whose feedrate *or* flow was non-finite. Each is excluded from the
+    /// totals and the means (which share one population), and from whichever percentile channel was
+    /// non-finite — a finite feedrate beside a NaN flow is still a real observation. Only `segments`
+    /// counts them.
     pub nonfinite_samples: usize,
 }
 
@@ -185,6 +224,13 @@ pub struct TraceAnalytics {
     pub flow_outliers: WindowOutliers,
     /// `None` when there is no layer to aggregate (see [`TraceSummary::layers`]).
     pub layer_stats: Option<LayerStats>,
+    /// The Z tolerance the layer partition ran with, echoed from the options the way
+    /// [`WindowOutliers::k`] is — the two tolerances in this document are both self-describing, so a
+    /// consumer never has to know which defaults the producer compiled in. On the envelope rather
+    /// than inside [`LayerStats`] because it is echoed unconditionally: it is exactly the empty
+    /// `layers` case (see the [module docs](self)) where a reader most needs to know the tolerance
+    /// that produced nothing.
+    pub layer_z_epsilon_mm: f64,
     /// travel motion time / total motion time, in `[0,1]`. `None` when nothing moved.
     pub travel_time_ratio: Option<f64>,
     /// How many windows the window statistics were computed over — a p50 over three windows is not a
@@ -291,14 +337,21 @@ impl TraceSummary {
         }
     }
 
-    /// Formats the windowed trace time-series as CSV records for tabular analysis / Parquet export.
+    /// Formats the windowed trace time-series as CSV records for tabular analysis / Parquet export —
+    /// one row per window, the first of the summary's two CSV relations (see [`Self::layers_to_csv`]
+    /// for the second).
+    ///
+    /// The column set is every [`TraceWindow`] measure, `filament_mm` included, which is what keeps
+    /// the two relations comparable at their two grains. Like `layers_to_csv`, the source-line range
+    /// is deliberately not a column: the columns must not vary with whether the caller supplied a
+    /// source map.
     pub fn to_csv(&self) -> String {
         let mut out = String::from(
-            "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,max_feedrate_mm_min,max_flow_mm3_s\n",
+            "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,filament_mm,max_feedrate_mm_min,max_flow_mm3_s\n",
         );
         for w in &self.windows {
             out.push_str(&format!(
-                "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}\n",
+                "{},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}\n",
                 w.index,
                 w.start_time_s,
                 w.end_time_s,
@@ -308,6 +361,7 @@ impl TraceSummary {
                 w.extruding_distance_mm,
                 w.travel_distance_mm,
                 w.extruded_volume_mm3,
+                w.filament_mm,
                 w.max_feedrate_mm_min,
                 w.max_flow_mm3_s
             ));
@@ -425,8 +479,9 @@ struct WeightedSample {
 
 /// Order statistics over `(value, weight)` samples — the definition in the [module docs](self).
 ///
-/// The caller filters non-finite values and non-positive weights out first (and counts the non-finite
-/// ones), so every sample reaching here carries real weight.
+/// The caller filters non-finite values out first (and counts them). Weights are only required to be
+/// non-negative and to sum to a finite positive `W`, which is what this function checks; every caller
+/// here in fact supplies a positive weight.
 fn percentiles(samples: &mut [WeightedSample]) -> Option<Percentiles> {
     let total: f64 = samples.iter().map(|s| s.weight).sum();
     // A population with no weight — or one whose weight is not a usable number — has no percentiles.
@@ -489,14 +544,21 @@ struct PhaseAccum {
 impl PhaseAccum {
     fn add(&mut self, feedrate: f64, flow: f64, seconds: f64, distance_mm: f64, volume_mm3: f64) {
         self.segments += 1;
-        self.time_s += seconds;
-        self.distance_mm += distance_mm;
-        self.volume_mm3 += volume_mm3;
-        self.feedrate_time += feedrate * seconds;
-        self.flow_time += flow * seconds;
-        if !feedrate.is_finite() || !flow.is_finite() {
+        if feedrate.is_finite() && flow.is_finite() {
+            self.time_s += seconds;
+            self.distance_mm += distance_mm;
+            self.volume_mm3 += volume_mm3;
+            self.feedrate_time += feedrate * seconds;
+            self.flow_time += flow * seconds;
+        } else {
+            // A non-finite total would serialize as `null` against a `number` in the schema, so the
+            // whole sample stays out of the totals — and out of the means with it: a NaN numerator
+            // over a finite denominator is still a NaN. The totals share one population, so a
+            // non-finite value in *either* channel excludes the segment from all of them.
             self.nonfinite_samples += 1;
         }
+        // The percentiles filter per channel: a finite feedrate is a real observation even when the
+        // flow beside it is not.
         if feedrate.is_finite() {
             self.feedrate.push(WeightedSample {
                 value: feedrate,
@@ -545,7 +607,8 @@ struct LayerAccum {
 
 impl LayerAccum {
     /// Accrue one segment, on exactly the terms [`trace_summary_with_sources`] accrues its own totals
-    /// — which is what makes `Σ layer.print_time_s == summary.print_time_s` hold.
+    /// — which is what makes `Σ layer.print_time_s` and `summary.print_time_s` agree, to within the
+    /// reordering f64 addition suffers from being non-associative (the tests pin `1e-9` relative).
     fn add_segment(
         &mut self,
         segment: &Segment,
@@ -827,6 +890,7 @@ fn build_analytics(
             window_indices,
         },
         layer_stats: layer_stats(&summary.layers),
+        layer_z_epsilon_mm: options.layer_z_epsilon_mm,
         travel_time_ratio,
         windows_considered: considered.len(),
         segments_considered,
@@ -1276,7 +1340,7 @@ mod tests {
             5.0,
         );
         let print = &summary.analytics.as_ref().unwrap().print;
-        assert_eq!(print.segments, 3);
+        assert_eq!(print.segments, 3, "`segments` counts every moving segment");
         assert_eq!(print.nonfinite_samples, 2);
         let flow = print.flow_mm3_s.unwrap();
         assert!(flow.min.is_finite() && flow.max.is_finite());
@@ -1284,11 +1348,89 @@ mod tests {
             (flow.min, flow.p50, flow.p95, flow.max),
             (1.2, 1.2, 1.2, 1.2)
         );
-        // Feedrates are all finite and unaffected.
-        assert!(print.feedrate_mm_min.unwrap().max.is_finite());
-        // Totals and time-weighted means are *not* filtered — they keep the engine's behaviour, which
-        // is why the §3.2 cross-check invariant is not asserted for a case like this one.
-        assert!(!print.mean_flow_mm3_s.unwrap().is_finite());
+        // The percentiles filter per channel, so the two finite feedrates beside the non-finite flows
+        // are still real observations.
+        assert_eq!(print.feedrate_mm_min.unwrap().max, 600.0);
+
+        // The totals and the means exclude the two non-finite samples entirely: one segment's worth of
+        // 100 mm / 10 s / 12 mm³, and a mean flow of exactly 1.2 rather than a NaN.
+        assert_eq!(
+            (print.time_s, print.distance_mm, print.volume_mm3),
+            (10.0, 100.0, 12.0)
+        );
+        assert_eq!(print.mean_flow_mm3_s.unwrap(), 1.2);
+        assert_eq!(print.mean_feedrate_mm_min.unwrap(), 600.0);
+        assert!(
+            summary.extruded_volume_mm3.is_nan(),
+            "the summary's own totals still propagate, so the two disagree here by design"
+        );
+    }
+
+    #[test]
+    fn a_nan_segment_never_puts_a_null_in_the_phase_totals() {
+        // The whole reason the totals filter: `serde_json` writes a non-finite f64 as `null`, and
+        // `spec/dry-reports-v1.schema.json` types every one of these as `number`.
+        let nan_volume = Segment {
+            volume: Volume(f64::NAN),
+            ..segment(100.0, 600.0, false, 12.0)
+        };
+        // A travel segment too, so both phases have a population and their means are real numbers —
+        // an empty phase's mean is `None`, which is also `null` on the wire and would prove nothing.
+        let summary = analytics_of(
+            &tp(vec![
+                segment(10.0, 600.0, false, 1.2),
+                segment(5.0, 6000.0, true, 0.0),
+                nan_volume,
+            ]),
+            5.0,
+        );
+        let json = serde_json::to_value(summary.analytics.as_ref().unwrap()).unwrap();
+        for phase in ["print", "travel"] {
+            for field in [
+                "time_s",
+                "distance_mm",
+                "volume_mm3",
+                "mean_feedrate_mm_min",
+                "mean_flow_mm3_s",
+            ] {
+                assert!(
+                    json[phase][field].is_number(),
+                    "{phase}.{field} serialized as {} — a schema `number` cannot be null",
+                    json[phase][field]
+                );
+            }
+        }
+        assert_eq!(json["print"]["nonfinite_samples"], 1);
+    }
+
+    #[test]
+    fn the_layer_epsilon_is_echoed_the_way_the_outlier_k_is() {
+        // Both tolerances are self-describing in the output, so a consumer never has to know which
+        // defaults the producer compiled in — and the echo survives the case where it produced no
+        // layers at all.
+        let options = TraceAnalyticsOptions {
+            flow_outlier_k: 3.0,
+            layer_z_epsilon_mm: 5e-4,
+        };
+        let summary =
+            trace_summary_with_analytics(&three_layer_path(), 5.0, &[], &options).unwrap();
+        let a = summary.analytics.as_ref().unwrap();
+        assert_eq!(a.layer_z_epsilon_mm, 5e-4);
+        assert_eq!(a.flow_outliers.k, 3.0);
+
+        let travel_only = trace_summary_with_analytics(
+            &tp(vec![segment(50.0, 6000.0, true, 0.0)]),
+            5.0,
+            &[],
+            &options,
+        )
+        .unwrap();
+        let a = travel_only.analytics.as_ref().unwrap();
+        assert!(a.layer_stats.is_none());
+        assert_eq!(
+            a.layer_z_epsilon_mm, 5e-4,
+            "echoed on the envelope, so the empty-layers case still says what tolerance ran"
+        );
     }
 
     /// Three monotonic layers, each entered over a lift travel.
@@ -1383,6 +1525,23 @@ mod tests {
         let summary = analytics_of(&tp(vec![segment(50.0, 6000.0, true, 0.0)]), 5.0);
         assert!(summary.layers.is_empty(), "there is no Z to key on");
         assert!(summary.analytics.as_ref().unwrap().layer_stats.is_none());
+    }
+
+    #[test]
+    fn an_xy_only_path_has_no_layers_but_keeps_every_other_number() {
+        // 2D laser/CNC work: the extruding moves carry no Z at all (the importer leaves Z `None` until
+        // a `Z` word appears), so there is nothing to key a layer on. `layers: []` here means "no
+        // Z-keyed layers", not "no data" — which is why the totals are asserted alongside.
+        let mut flat = segment(100.0, 600.0, false, 12.0);
+        flat.start[2] = None;
+        flat.end[2] = None;
+        let summary = analytics_of(&tp(vec![flat]), 5.0);
+        assert!(summary.layers.is_empty());
+        let a = summary.analytics.as_ref().unwrap();
+        assert!(a.layer_stats.is_none());
+        assert_eq!(a.print.segments, 1);
+        assert_eq!(summary.windows.len(), 2);
+        assert_eq!(summary.extruded_volume_mm3, 12.0);
     }
 
     #[test]
@@ -1502,6 +1661,30 @@ mod tests {
         with.analytics = None;
         with.layers.clear();
         assert_eq!(plain, with);
+    }
+
+    #[test]
+    fn the_windows_csv_carries_every_window_measure() {
+        // `to_csv` is published for the first time by this slice, so its column set becomes a contract
+        // here: every `TraceWindow` measure, `filament_mm` included, and no source-line columns (they
+        // would vary with whether the caller supplied a source map).
+        let summary = analytics_of(&three_layer_path(), 5.0);
+        let csv = summary.to_csv();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(
+            lines[0],
+            "window_index,start_time_s,end_time_s,print_time_s,travel_time_s,dwell_time_s,extruding_distance_mm,travel_distance_mm,extruded_volume_mm3,filament_mm,max_feedrate_mm_min,max_flow_mm3_s"
+        );
+        assert_eq!(lines.len(), summary.windows.len() + 1);
+        for row in &lines[1..] {
+            assert_eq!(row.split(',').count(), 12);
+        }
+        // The one relation both grains share: the summary's filament total is the column's sum.
+        let filament: f64 = lines[1..]
+            .iter()
+            .map(|row| row.split(',').nth(9).unwrap().parse::<f64>().unwrap())
+            .sum();
+        assert!((filament - summary.filament_mm).abs() < 1e-6);
     }
 
     #[test]

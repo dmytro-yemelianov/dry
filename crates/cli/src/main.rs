@@ -1577,6 +1577,11 @@ fn run(cli: Cli) -> ExitCode {
             if flow_outlier_k.is_some() && !analytics_requested {
                 die("--flow-outlier-k requires --analytics (or --format layers-csv)".to_string());
             }
+            // Plain `--format csv` renders windows only — no layer rows, no analytics block — so
+            // `--analytics` beside it would compute a whole statistical pass and discard it. Skipping
+            // it is what keeps the two invocations byte-identical *and* equally cheap; `layers-csv`
+            // and `json` both show something the pass produced, so they keep it.
+            let compute_analytics = analytics_requested && format != TraceFormatArg::Csv;
 
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
@@ -1595,7 +1600,7 @@ fn run(cli: Cli) -> ExitCode {
                 .copied()
                 .map(Some)
                 .collect();
-            let trace = if analytics_requested {
+            let trace = if compute_analytics {
                 let mut options = TraceAnalyticsOptions::default();
                 if let Some(k) = flow_outlier_k {
                     options.flow_outlier_k = k;
@@ -2596,8 +2601,11 @@ fn gcode_import_params(
     params
 }
 
-/// Human-readable `review-batch` output: a per-file line as each result completes, then the
-/// aggregate footer — `dry_core::BatchStatus`/`ReviewBatch` carry the same numbers `--json` does.
+/// Human-readable `review-batch` output, rendered **once** from the finished envelope: one line per
+/// file in input order, then the aggregate footer — `dry_core::BatchStatus`/`ReviewBatch` carry the
+/// same numbers `--json` does. Not streamed: nothing is printed until every file has been reviewed, so
+/// a long batch shows no progress. Per-file progress would mean printing from the review loop instead,
+/// which is a change to the loop rather than to this function.
 fn render_batch_human(batch: &dry_core::ReviewBatch) -> String {
     use dry_core::BatchStatus;
 
