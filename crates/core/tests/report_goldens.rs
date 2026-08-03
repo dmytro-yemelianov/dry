@@ -7,10 +7,12 @@
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
 use dry_core::{
-    apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary, verify,
-    CompareDelta, Contracts, ExplainBundle, ExplainReports, Feedrate, KinematicContracts, Length,
-    LicenseStamp, OptimizeMode, Profile, Report, ReviewReport, RewriteReport, RewriteSpanResult,
-    Segment, SegmentKind, Toolpath, TraceReport, Volume, REFERENCE_FIVE_AXIS_LIMITS,
+    apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary,
+    trace_summary_with_analytics, verify, BatchFileResult, BatchStatus, CompareDelta, Contracts,
+    ExplainBundle, ExplainReports, Feedrate, KinematicContracts, Length, LicenseStamp,
+    OptimizeMode, Profile, Report, ReviewBatch, ReviewReport, RewriteReport, RewriteSpanResult,
+    Segment, SegmentKind, Toolpath, TraceAnalyticsOptions, TraceReport, Volume,
+    REFERENCE_FIVE_AXIS_LIMITS,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -952,6 +954,149 @@ fn explain_bundle_golden_matches_or_update() {
     write_or_check(
         dir.join("explain").join("explain.json"),
         bundle_json.as_bytes(),
+        update,
+    );
+}
+
+/// Golden for `dry trace-gcode --analytics`: the layer linkage and higher-level statistics over the
+/// Cura two-layer sample. Drift-gated like the other report goldens, and validated against the
+/// `TraceReport` schema by `tools/validate_reports.py`.
+///
+/// The fixture is `examples/sliced-sample.gcode` rather than the PrusaSlicer sample the `explain`
+/// golden uses, because that one emits no `Z` word at all (only a `;Z:0.2` comment) — its
+/// `forensics.layers.layer_count` is `0` and it has no layer structure for the linkage to find. The
+/// Cura sample has two real layers, `Z0.2`/`Z0.4`. `window_s = 1.0` rather than the CLI default 5.0:
+/// the file runs ≈10 s, so 5 s windows give two windows and a degenerate percentile population, while
+/// 1 s gives ~10 windows over 2 layers — non-trivial and still a small golden.
+#[test]
+fn trace_analytics_golden_matches_or_update() {
+    let update = update_mode();
+    let dir = reports_dir();
+
+    let sample = fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/sliced-sample.gcode"),
+    )
+    .expect("cura sample exists");
+    let imported =
+        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+            .expect("import sample");
+    let source_lines: Vec<Option<usize>> = imported
+        .segment_source_lines
+        .iter()
+        .copied()
+        .map(Some)
+        .collect();
+
+    let trace = trace_summary_with_analytics(
+        &imported.toolpath,
+        1.0,
+        &source_lines,
+        &TraceAnalyticsOptions::default(),
+    )
+    .expect("trace sample");
+
+    // The invariants §3.5 documents, asserted on a real slicer file rather than only on synthetics.
+    let layers = &trace.layers;
+    assert!(!layers.is_empty(), "the Cura sample has layer structure");
+    assert_eq!(layers[0].segment_start, 0);
+    for pair in layers.windows(2) {
+        assert_eq!(pair[0].segment_end, pair[1].segment_start);
+    }
+    assert_eq!(layers.last().unwrap().segment_end, trace.segment_count);
+    let layer_print: f64 = layers.iter().map(|l| l.print_time_s).sum();
+    assert!(
+        (layer_print - trace.print_time_s).abs() <= 1e-9 * trace.print_time_s.abs(),
+        "the layer partition must account for the whole print time"
+    );
+
+    let report = TraceReport {
+        file: Some("sliced-sample.gcode".to_string()),
+        profile: None,
+        trace,
+    };
+    let report_json = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    write_or_check(
+        dir.join("trace_analytics").join("trace-analytics.json"),
+        report_json.as_bytes(),
+        update,
+    );
+}
+
+/// Golden for `dry review-batch --json`: three files — one clean, one gating, and one that could not
+/// be inspected at all — so every arm of `BatchStatus` is in the committed shape. Drift-gated like the
+/// other report goldens, and validated against the `ReviewBatch` schema by `tools/validate_reports.py`.
+///
+/// The gating file is the seeded `structural` case, so its nested `ReviewReport` is the same engine
+/// output `conformance/reports/structural/review.json` holds: a batch entry is an ordinary review
+/// report, not a batch-specific shape. The `errored` entry is hand-constructed — the CLI supplies the
+/// real import error's message there, and an OS error string is not a portable golden.
+#[test]
+fn review_batch_golden_matches_or_update() {
+    let update = update_mode();
+    let dir = reports_dir();
+    let profile = Some("batch-demo".to_string());
+
+    let mut all = cases();
+    let index = all
+        .iter()
+        .position(|c| c.name == "structural")
+        .expect("the structural case is seeded");
+    let gating = all.swap_remove(index);
+
+    let mut results = Vec::new();
+    for (file, toolpath, contracts) in [
+        ("clean.gcode", tp(vec![base()]), Contracts::default()),
+        ("structural.gcode", gating.toolpath, gating.contracts),
+    ] {
+        let report = verify(&toolpath, &contracts);
+        let review = ReviewReport::build(
+            Some(file.to_string()),
+            profile.clone(),
+            toolpath.segments.len(),
+            simulate(&toolpath),
+            &report,
+            |_| None,
+        );
+        results.push(BatchFileResult::inspected(file.to_string(), review));
+    }
+    results.push(BatchFileResult::errored(
+        "unreadable.gcode".to_string(),
+        "cannot import: unsupported word at line 12".to_string(),
+    ));
+
+    let batch = ReviewBatch::build(profile, results);
+
+    // The counts and the exit-relevant facts, pinned rather than left to the golden bytes alone.
+    assert_eq!(batch.files_total, 3);
+    assert_eq!(
+        (batch.files_passed, batch.files_failed, batch.files_errored),
+        (1, 1, 1)
+    );
+    assert_eq!(batch.results[0].status, BatchStatus::Passed);
+    assert!(
+        batch.results[0]
+            .review
+            .as_ref()
+            .unwrap()
+            .findings
+            .is_empty(),
+        "the clean file must actually be clean, or this golden proves nothing"
+    );
+    let rules: Vec<&str> = batch
+        .findings_by_rule
+        .iter()
+        .map(|t| t.rule.as_str())
+        .collect();
+    let mut sorted = rules.clone();
+    sorted.sort_unstable();
+    assert_eq!(rules, sorted, "findings_by_rule is ascending by rule id");
+
+    let batch_json = serde_json::to_string_pretty(&batch).unwrap() + "\n";
+    write_or_check(
+        dir.join("review_batch").join("review-batch.json"),
+        batch_json.as_bytes(),
         update,
     );
 }

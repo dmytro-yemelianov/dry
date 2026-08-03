@@ -9,6 +9,45 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **Trace analytics and the batch-review envelope in `dry-core` (P3.5, engine half).**
+  `trace_summary_with_analytics` fills in `TraceSummary::layers` — declared since P3 and never written —
+  as a *partition* of the segment range keyed on extruding Z, and adds an optional `analytics` block:
+  phase-split time-weighted statistics, exact nearest-rank percentiles over segment / window-peak /
+  layer populations, `travel_time_ratio`, and a flow-outlier window list that is an observation with no
+  rule id, no severity and no effect on any exit code. Both tolerances are echoed in the output
+  (`flow_outliers.k`, `layer_z_epsilon_mm`), so a consumer never has to know which defaults the producer
+  compiled in. A `PhaseStats` excludes a segment whose feedrate or flow was non-finite from its totals and
+  means as well as from the affected percentile channel, counting it in `nonfinite_samples`: JSON has no
+  NaN, so a non-finite total would serialise as `null` against a schema `number`. `TraceSummary`'s own
+  totals are unchanged and still propagate. `TraceSummary::layers_to_csv()` joins `to_csv()` as the second
+  CSV relation, and `to_csv()` — which had no call sites at all until this slice published it — gains the
+  `filament_mm` column it was missing, so both relations carry every measure of their grain.
+  `trace_summary` / `trace_summary_with_sources` keep their exact signatures and output, so every
+  committed trace and explain golden is byte-identical (`analytics` skips when absent; `layers` stays
+  empty without the new entry point). `dry_core::ReviewBatch` aggregates per-file `ReviewReport`s —
+  nested unmodified — into a batch envelope with per-rule tallies and passed/failed/errored verdicts.
+  Schema: nine new `$defs` in `spec/dry-reports-v1.schema.json` (including a `oneOf` on
+  `BatchFileResult` that *enforces* exactly one of `review` / `error` and its pairing with `status`) plus
+  two new goldens wired into `tools/validate_reports.py`. Additive for every envelope except
+  `LayerTraceLinkage`, whose `required` list grows 7 → 13: a growing `required` is not additive in
+  general, and it is safe here only because nothing has ever produced a `layers` entry (the field had no
+  producer, every committed golden carries `"layers": []`, and the emitter now always writes all 13) —
+  any later field there must be optional. No committed golden changed and no new dependency. The
+  `trace-gcode --analytics` and `review-batch` CLI surfaces land separately.
+- **`dry trace-gcode --analytics` / `--format` and `dry review-batch` (P3.5, CLI half).**
+  `trace-gcode` gains `--analytics` (wires `trace_summary_with_analytics`), `--flow-outlier-k` (usage
+  error without `--analytics`/`--format layers-csv`), and `--format json|csv|layers-csv`; the default
+  invocation is unchanged. `dry review-batch FILES… [--files-from FILE|-] [--profile P] [--json]
+  [--out FILE]` reviews a batch sequentially into a `ReviewBatch` envelope — an unreadable/unimportable
+  file becomes an `errored` result rather than aborting the run, license-stamped once on the envelope.
+  Exit `0` all clean, `1` any file gates, `2` any file errored (outranks `1`) or on a usage error.
+
+### Fixed
+- **Layer-break tolerance unit in `docs/11-profiles-and-reports.md`.** The prose said a break is keyed
+  on a Z difference of more than "1 µm"; the constant (`LAYER_Z_EPSILON_MM = 1e-6` mm) is 1 nm.
+  Regenerated the mirrored reference page and its manifest entry to match.
+
 ## [0.6.0] - 2026-08-03
 
 ### Added

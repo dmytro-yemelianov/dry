@@ -207,6 +207,47 @@ dry trace-gcode examples/part.gcode --window-s 5
 ```
 Each window carries its segment range and source-line range — see [`13`](13-performance-and-scale.md) for the streaming model.
 
+Add `--analytics` for layer linkage (`trace.layers`) plus higher-level statistics (`trace.analytics`):
+percentiles over segment/window/layer populations, `travel_time_ratio`, and a flow-outlier window list
+(an observation, never a gate — see [`11`](11-profiles-and-reports.md#33-trace-gcode--tracereport)):
+```sh
+dry trace-gcode examples/sliced-sample.gcode --window-s 1 --analytics
+dry trace-gcode examples/sliced-sample.gcode --analytics --flow-outlier-k 3.0   # default k is 2.0
+```
+`--format csv` / `--format layers-csv` print the two tabular relations instead of JSON — one row per
+window, or one row per layer (`layers-csv` implies `--analytics`, since analytics is the only producer of
+layer rows):
+```sh
+dry trace-gcode examples/sliced-sample.gcode --format csv > windows.csv
+dry trace-gcode examples/sliced-sample.gcode --format layers-csv > layers.csv
+```
+`--flow-outlier-k` without `--analytics` (or `--format layers-csv`) is a usage error (exit 2).
+
+### `review-batch` — batch review with a per-file + aggregate report
+```sh
+dry review-batch a.gcode b.gcode c.gcode --profile voron24-abs.json
+#   PASS   a.gcode     ...
+#   FAIL   b.gcode     ... 2 error(s), 1 warning(s)
+#   ERROR  c.gcode     cannot import: unsupported word at line 12
+#   --
+#   3 file(s): 1 passed, 1 failed, 1 errored
+#   by rule: max-flow 2 error(s) in 1 file(s)
+```
+`--json` emits the `ReviewBatch` envelope (each entry nests an unmodified `ReviewReport` — the same
+document `review-gcode --json` prints for one file); `--out FILE` writes the report to a file instead of
+stdout. A 50k-file farm exceeds `ARG_MAX`, so paths can also come from a file (`-` for stdin), appended
+after any positional paths:
+```sh
+find . -name '*.gcode' > files.txt
+dry review-batch --files-from files.txt --profile voron24-abs.json --json
+```
+Unlike `review-gcode`, an unreadable/unimportable file does **not** abort the run — it becomes an
+`errored` result and every other file is still reviewed. Exit `0` if every file passed, `1` if every file
+was inspected and at least one has an error-severity finding, `2` if at least one file could not be
+inspected at all (or on a usage error) — `2` outranks `1`, because an incomplete batch is neither a pass
+nor a trustworthy gate. There are no per-flag contract overrides (a fleet gates against a `--profile`;
+one-off limit tweaks are `review-gcode`'s job).
+
 ### `forensics-gcode` — infer slicer behavior (explainable)
 
 ```sh

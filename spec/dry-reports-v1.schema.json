@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-reports-v1.schema.json",
   "title": "Dry report outputs v1",
-  "description": "Schemas for Dry's report outputs (see docs/11-profiles-and-reports.md). Use the $defs by name to validate a given output: VerifyReport (verify), ReviewReport (review-gcode), TraceReport (trace-gcode), ForensicsReport (forensics-gcode), RewriteReport (rewrite-gcode), ExplainBundle (explain) and CompareDelta (compare). The `--llm` envelopes of `explain` and `compare` are deliberately absent: model output is not drift-gated, so it has no committed golden to validate.",
+  "description": "Schemas for Dry's report outputs (see docs/11-profiles-and-reports.md). Use the $defs by name to validate a given output: VerifyReport (verify), ReviewReport (review-gcode), ReviewBatch (review-batch), TraceReport (trace-gcode), ForensicsReport (forensics-gcode), RewriteReport (rewrite-gcode), ExplainBundle (explain) and CompareDelta (compare). The `--llm` envelopes of `explain` and `compare` are deliberately absent: model output is not drift-gated, so it has no committed golden to validate.",
   "$defs": {
     "Severity": {
       "type": "string",
@@ -175,6 +175,73 @@
         "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     },
+    "BatchStatus": {
+      "description": "One file's verdict in a batch review. `passed` is inspected with no error-severity finding (warnings do not fail a file); `errored` is a file that could not be inspected at all, which is a distinct verdict rather than a failure.",
+      "type": "string",
+      "enum": ["passed", "failed", "errored"]
+    },
+    "BatchFileResult": {
+      "description": "One file's entry in a ReviewBatch. Exactly one of `review` / `error` is present — enforced by the `oneOf` below rather than left to prose — and `status` follows from which one: an inspected file is `passed`/`failed` and carries a report, a file that could not be inspected at all is `errored` and carries the error message. The nested report is an ordinary ReviewReport, not a batch-specific shape.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "status"],
+      "properties": {
+        "file": { "type": "string" },
+        "status": { "$ref": "#/$defs/BatchStatus" },
+        "review": { "$ref": "#/$defs/ReviewReport" },
+        "error": { "type": "string", "description": "the read/import error's own message" }
+      },
+      "oneOf": [
+        {
+          "title": "inspected",
+          "required": ["review"],
+          "not": { "required": ["error"] },
+          "properties": { "status": { "enum": ["passed", "failed"] } }
+        },
+        {
+          "title": "not inspected",
+          "required": ["error"],
+          "not": { "required": ["review"] },
+          "properties": { "status": { "const": "errored" } }
+        }
+      ]
+    },
+    "RuleTally": {
+      "description": "Per-rule roll-up across a batch. `files` counts files carrying at least one finding for the rule — a rule twice in one file counts one file and two findings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "errors", "warnings", "files"],
+      "properties": {
+        "rule": { "type": "string" },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ReviewBatch": {
+      "description": "The `review-batch` output: one envelope over N files, each nesting an unmodified ReviewReport. The licence is stamped once here, never on the nested reports. `findings_by_rule` is ascending by rule id and `results` is in input order, both deterministic.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files_total",
+        "files_passed",
+        "files_failed",
+        "files_errored",
+        "profile",
+        "findings_by_rule",
+        "results"
+      ],
+      "properties": {
+        "files_total": { "type": "integer", "minimum": 0 },
+        "files_passed": { "type": "integer", "minimum": 0 },
+        "files_failed": { "type": "integer", "minimum": 0 },
+        "files_errored": { "type": "integer", "minimum": 0 },
+        "profile": { "type": ["string", "null"] },
+        "findings_by_rule": { "type": "array", "items": { "$ref": "#/$defs/RuleTally" } },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/BatchFileResult" } },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
+      }
+    },
     "TraceWindow": {
       "type": "object",
       "additionalProperties": false,
@@ -250,10 +317,16 @@
         "max_feedrate_mm_min": { "type": "number" },
         "max_flow_mm3_s": { "type": "number" },
         "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } },
-        "layers": { "type": "array", "items": { "$ref": "#/$defs/LayerTraceLinkage" } }
+        "layers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LayerTraceLinkage" },
+          "description": "layers are keyed on the Z of extruding moves, and an empty array means \"this toolpath has no Z-keyed layers\" rather than \"the layer data is missing\": it is empty unless the producer asked for analytics (`trace-gcode --analytics`), and empty even then for a toolpath with no extruding move (travel-only, or subtractive/laser work that deposits nothing) or whose extruding moves carry no Z at all (2D XY-only work). The windows and totals are fully populated in every one of those cases"
+        },
+        "analytics": { "$ref": "#/$defs/TraceAnalytics" }
       }
     },
     "LayerTraceLinkage": {
+      "description": "One layer's segment range and aggregates — a layer is a window whose boundary is Z instead of time, so it carries a TraceWindow's field set minus the time bounds. `segment_end` is exclusive. A layer here is a *pass* in execution order, so a re-visited Z produces a second entry; ForensicsReport.layers.layer_count counts distinct Z levels instead and is therefore ≤ this array's length.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -263,7 +336,13 @@
         "segment_end",
         "print_time_s",
         "travel_time_s",
-        "extruded_volume_mm3"
+        "extruded_volume_mm3",
+        "dwell_time_s",
+        "extruding_distance_mm",
+        "travel_distance_mm",
+        "filament_mm",
+        "max_feedrate_mm_min",
+        "max_flow_mm3_s"
       ],
       "properties": {
         "layer_index": { "type": "integer", "minimum": 0 },
@@ -272,7 +351,119 @@
         "segment_end": { "type": "integer", "minimum": 0 },
         "print_time_s": { "type": "number" },
         "travel_time_s": { "type": "number" },
-        "extruded_volume_mm3": { "type": "number" }
+        "extruded_volume_mm3": { "type": "number" },
+        "dwell_time_s": { "type": "number" },
+        "extruding_distance_mm": { "type": "number" },
+        "travel_distance_mm": { "type": "number" },
+        "filament_mm": { "type": "number" },
+        "max_feedrate_mm_min": { "type": "number" },
+        "max_flow_mm3_s": { "type": "number" },
+        "source_line_start": { "type": "integer", "minimum": 0 },
+        "source_line_end": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Percentiles": {
+      "description": "Exact order statistics under one nearest-rank (inverse-CDF, lower) definition: quantile(p) is the first value whose cumulative weight reaches p·ΣW, over samples sorted ascending. No interpolation, so every number here is a value that actually occurred. `p50` is the median under this definition, which differs from ForensicsReport's `median` (that one averages the two middle values on an even count).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "p50", "p95", "max"],
+      "properties": {
+        "min": { "type": "number" },
+        "p50": { "type": "number" },
+        "p95": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    },
+    "PhaseStats": {
+      "description": "Time-weighted statistics over the moving segments of one phase (print or travel); dwell time is excluded. A segment whose feedrate or flow was non-finite is counted in `nonfinite_samples` and excluded from the totals and the means (which share one population) and from whichever percentile channel was non-finite — so every number here is a real `number`, never the `null` a non-finite f64 would serialize as. Only `segments` counts those segments, which is why `print.segments + travel.segments` still equals the summary's `moving_segment_count` while the phase totals can fall short of the summary's own totals (those keep propagating non-finite values). A null percentile block means no finite-valued sample carried weight — a phase with no motion has no percentiles, and 0.0 would be indistinguishable from a real stall.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segments",
+        "time_s",
+        "distance_mm",
+        "volume_mm3",
+        "mean_feedrate_mm_min",
+        "mean_flow_mm3_s",
+        "feedrate_mm_min",
+        "flow_mm3_s",
+        "nonfinite_samples"
+      ],
+      "properties": {
+        "segments": { "type": "integer", "minimum": 0 },
+        "time_s": { "type": "number" },
+        "distance_mm": { "type": "number" },
+        "volume_mm3": { "type": "number" },
+        "mean_feedrate_mm_min": { "type": ["number", "null"] },
+        "mean_flow_mm3_s": { "type": ["number", "null"] },
+        "feedrate_mm_min": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
+        "flow_mm3_s": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
+        "nonfinite_samples": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "WindowOutliers": {
+      "description": "Windows whose peak flow stands out against the batch — an observation, never a gate: there is no rule id, no severity and no effect on any exit code. The reference is the already-published TraceAnalytics.window_flow_mm3_s.p50, so the threshold is reproducible from two numbers in the same document. Strictly greater than, so k = 1 on a constant-flow file flags nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["k", "threshold_mm3_s", "window_indices"],
+      "properties": {
+        "k": { "type": "number", "exclusiveMinimum": 0 },
+        "threshold_mm3_s": { "type": ["number", "null"] },
+        "window_indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "LayerStats": {
+      "description": "Order statistics over the per-layer aggregates in TraceSummary.layers (unweighted; one sample per layer).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer_count", "print_time_s", "extruded_volume_mm3", "slowest_layer_index"],
+      "properties": {
+        "layer_count": { "type": "integer", "minimum": 0 },
+        "print_time_s": { "$ref": "#/$defs/Percentiles" },
+        "extruded_volume_mm3": { "$ref": "#/$defs/Percentiles" },
+        "slowest_layer_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "greatest print_time_s; ties resolve to the lowest index"
+        }
+      }
+    },
+    "TraceAnalytics": {
+      "description": "Higher-level statistics over a TraceSummary, present only when the caller asked for them (`trace-gcode --analytics`). Window statistics are over per-window *peaks*, unweighted, over windows with duration_s > 0 — zero-duration windows carry no motion and are excluded. `windows_considered`/`segments_considered` are published rather than inferred: a statistic computed over almost nothing must not be indistinguishable from one computed over a whole print.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "print",
+        "travel",
+        "window_flow_mm3_s",
+        "window_feedrate_mm_min",
+        "flow_outliers",
+        "layer_stats",
+        "layer_z_epsilon_mm",
+        "travel_time_ratio",
+        "windows_considered",
+        "segments_considered"
+      ],
+      "properties": {
+        "print": { "$ref": "#/$defs/PhaseStats" },
+        "travel": { "$ref": "#/$defs/PhaseStats" },
+        "window_flow_mm3_s": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
+        "window_feedrate_mm_min": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }]
+        },
+        "flow_outliers": { "$ref": "#/$defs/WindowOutliers" },
+        "layer_stats": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/LayerStats" }] },
+        "layer_z_epsilon_mm": {
+          "type": "number",
+          "minimum": 0,
+          "description": "the Z tolerance the layer partition ran with, echoed from the options the way flow_outliers.k is — so both tolerances in the document are self-describing. Echoed unconditionally, including when it produced no layers at all"
+        },
+        "travel_time_ratio": {
+          "type": ["number", "null"],
+          "description": "travel motion time / total motion time, in [0,1]; null when nothing moved"
+        },
+        "windows_considered": { "type": "integer", "minimum": 0 },
+        "segments_considered": { "type": "integer", "minimum": 0 }
       }
     },
 

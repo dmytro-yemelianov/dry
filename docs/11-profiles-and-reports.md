@@ -246,9 +246,10 @@ as a breaking change in the changelog.
 ## 3. Report outputs
 
 Every deterministic envelope below is a stable JSON contract with a `$def` of its own in
-`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `TraceReport`, `ForensicsReport`,
-`RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6, §3.8) are not in
-the schema and not drift-gated — model output is non-deterministic, so there is no golden to gate it.
+`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `ReviewBatch`, `TraceReport`,
+`ForensicsReport`, `RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6,
+§3.8) are not in the schema and not drift-gated — model output is non-deterministic, so there is no
+golden to gate it.
 
 ### 3.1 `verify --json` → `VerifyReport`
 
@@ -282,6 +283,67 @@ the schema and not drift-gated — model output is non-deterministic, so there i
 
 `trace` is a `TraceSummary`: totals plus fixed-duration `windows`, each carrying its segment range and —
 for imported G-code — its source-line range (`source_line_start`/`source_line_end`, omitted when absent).
+
+**Layer linkage and analytics are opt-in** (`dry_core::trace_summary_with_analytics`, CLI
+`dry trace-gcode FILE --analytics`). Without them `layers` is `[]` and the `analytics` key is **absent**
+(not `null`) — which is what keeps every committed `trace.json` golden byte-identical. With them the same
+document gains:
+
+- `layers` — one entry per layer, with the field set a `TraceWindow` has minus the time bounds, plus a
+  half-open `[segment_start, segment_end)` range. The layers **partition** the segment range:
+  `layers[0].segment_start == 0` (a prime prologue is attributed, not orphaned), each layer's
+  `segment_end` is the next one's `segment_start`, the last ends at `segment_count` (so is a wipe
+  epilogue), and `Σ layer.print_time_s` agrees with `trace.print_time_s` — up to floating-point
+  summation reordering, since grouping the same addends by layer changes the order and f64 addition is
+  not associative. That is what the tests assert (`1e-9` relative, in
+  `crates/core/src/trace.rs::layers_partition_the_segment_range` and the golden test), so it is what the
+  document promises: agreement to that tolerance, not bit equality. A break is keyed on the first
+  *extruding* move whose Z differs by more than the echoed `analytics.layer_z_epsilon_mm` (default
+  1 nm), and the run of non-extruding moves before it (the Z lift and the approach travel) belongs to the
+  layer being **entered** — where a slicer's own `;LAYER:` marker puts them.
+- `analytics` — phase-split time-weighted statistics (`print` / `travel`), order statistics over
+  per-window *peaks*, per-layer aggregates, `travel_time_ratio`, and a `flow_outliers` list of windows
+  whose peak flow exceeds `k ×` the published `window_flow_mm3_s.p50`. Every percentile uses one
+  nearest-rank (inverse-CDF, lower) definition, so each is a value that actually occurred; `p50` is the
+  median under that definition, which **differs from `ForensicsReport`'s `median`** (that one averages
+  the two middle values on an even count). `windows_considered` / `segments_considered` are published so
+  a statistic over almost nothing is not indistinguishable from one over a whole print.
+  `flow_outliers` is an **observation, never a gate**: no rule id, no severity, no effect on any exit
+  code. Both tolerances are echoed in the output — `flow_outliers.k` and `layer_z_epsilon_mm` — so a
+  consumer never has to know which defaults the producer compiled in; `layer_z_epsilon_mm` sits on the
+  envelope rather than inside `layer_stats` because it is echoed even when it produced no layers.
+- A `PhaseStats` block excludes a segment whose feedrate or flow was non-finite from its totals, its
+  means, and the affected percentile channel, and counts it in `nonfinite_samples`. This is a wire-format
+  requirement: JSON has no NaN, so a non-finite total would serialise as `null` against a schema
+  `number`. Only `segments` counts those segments — so `print.segments + travel.segments` is still
+  `moving_segment_count`, while the phase totals can fall short of the `trace` totals beside them, which
+  keep propagating non-finite values unchanged.
+
+**An empty `layers` means "no Z-keyed layers", not "no data".** Layers are keyed on the Z of *extruding*
+moves (`!travel` and depositing volume), so three populations legitimately produce `[]`: a summary from a
+plain `trace_summary*` entry point (no `--analytics`); a toolpath with no extruding move at all —
+travel-only, and equally **subtractive or laser** work, where cutting moves deposit nothing; and an
+**XY-only** toolpath whose extruding moves never carry a Z (2D laser/CNC, where the importer leaves Z
+undefined until a `Z` word appears). In every one of those cases the windows, totals and maxima are fully
+populated and only the layer relation (and `analytics.layer_stats`) is absent.
+
+**`trace.layers` and `forensics.layers.layer_count` count different things, deliberately.** A trace layer
+is a *pass* in execution order, so a re-visited Z (an ironing pass, a non-monotonic vase) is a second
+entry; forensics counts *distinct Z levels*. Hence `trace.layers.len() >= forensics.layers.layer_count`,
+with equality when Z is non-decreasing and each level is one contiguous run
+(`crates/core/tests/trace_analytics.rs` pins both directions). Trace publishes no layer *height* —
+forensics owns that estimate, and the two reports sit side by side in one `explain` bundle.
+
+The summary also serialises to **two CSV relations** at two grains — `to_csv()` (one row per window) and
+`layers_to_csv()` (one row per layer), reachable from the CLI as `dry trace-gcode FILE --format csv` /
+`--format layers-csv` (`--format layers-csv` implies `--analytics`, since the analytics pass is the only
+producer of layer rows). Each relation carries every measure of its grain — including `filament_mm`, so
+the two are comparable column for column — and neither varies with the source map or the analytics flag;
+aggregate analytics stay JSON-only, because denormalising an aggregate across every row (or varying the
+columns with a flag) breaks the one thing a tabular consumer needs. Plain `--format csv` shows nothing
+the analytics pass produces, so the CLI skips that pass there: the window CSV is byte-identical with and
+without `--analytics`. Supplying `--flow-outlier-k` without `--analytics` (or `--format layers-csv`) is a
+usage error (exit 2).
 
 ### 3.4 `rewrite-gcode --json` → `RewriteReport`
 
@@ -477,6 +539,51 @@ rationale for that judgment. Token usage and cost (optional, `null` for unknown-
 informational. **This envelope is NOT drift-gated** — model output is non-deterministic, so it is
 advisory only. Use it to understand the forensic delta qualitatively; apply any measured improvements
 only after manual review.
+
+### 3.9 `ReviewBatch` — one envelope over many files
+
+The batch envelope is a committed wire shape (`$def` `ReviewBatch`, golden
+`conformance/reports/review_batch/review-batch.json`) built by `dry_core::ReviewBatch::build` and emitted
+by `dry review-batch FILES… [--files-from FILE|-] [--profile P] [--json] [--out FILE]` (see
+[`15-cli-cookbook.md`](15-cli-cookbook.md)).
+
+```json
+{
+  "files_total": 3,
+  "files_passed": 1,
+  "files_failed": 1,
+  "files_errored": 1,
+  "profile": "voron24-abs",
+  "findings_by_rule": [ { "rule": "max-flow", "errors": 2, "warnings": 0, "files": 1 } ],
+  "results": [
+    { "file": "a.gcode", "status": "passed", "review": { … } },
+    { "file": "c.gcode", "status": "errored", "error": "cannot import: unsupported word at line 12" }
+  ]
+}
+```
+
+- Each entry **nests an unmodified `ReviewReport`** (§3.2) — a batch entry and a single-file review are
+  the same document, so no consumer needs a second shape.
+- `status` is `passed` (inspected, `error_count == 0` — warnings do not fail a file, the same rule
+  `review-gcode`'s exit code uses), `failed` (inspected, at least one error-severity finding) or
+  `errored` (**could not be inspected at all**). Exactly one of `review` / `error` is present, and the
+  pairing with `status` is enforced by the schema rather than only promised here: the `BatchFileResult`
+  `$def` is a `oneOf` over *inspected* (`passed`/`failed` with a `review`, no `error`) and *not
+  inspected* (`errored` with an `error`, no `review`), so a document carrying both, neither, or the
+  wrong `status` for its payload fails validation.
+- `errored` is a third verdict rather than a failure on purpose: an incomplete batch is neither a pass
+  nor a trustworthy gate, and "do not trust this verdict" is a different fact from "this file is unsafe".
+- `results` is in input order with no dedup; `findings_by_rule` is ascending by rule id (derived from a
+  `BTreeMap`), so two runs over the same inputs diff cleanly. `files` counts files carrying the rule at
+  least once — a rule twice in one file is one file and two findings.
+- The licence is stamped **once**, on the envelope; nested reports carry no stamp.
+
+**Exit codes:** `0` every file inspected and passed; `1` every file inspected, at least one `failed`;
+`2` at least one file `errored` (or a usage error) — `2` outranks `1`, because an incomplete batch is
+neither a pass nor a trustworthy gate. `--files-from FILE` reads newline-separated paths (`-` for
+stdin), appended after any positional paths — the point being a fleet that exceeds `ARG_MAX`. No dedup
+and no per-flag contract overrides: a fleet gates against a `--profile`; one-off limit tweaks are
+`review-gcode`'s job.
 
 <!-- docs-gen:end profiles-reports-core -->
 ## 4. Stability & conformance

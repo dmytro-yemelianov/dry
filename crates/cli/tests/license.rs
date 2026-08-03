@@ -106,6 +106,45 @@ fn licensed_review_report_is_stamped_with_licensee() {
     assert!(!String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
 }
 
+/// `review-batch` stamps the license once, on the envelope — nested `ReviewReport`s stay
+/// unstamped (§6.2 of the trace-analytics design), the same rule `review-gcode` follows for its
+/// single report.
+#[test]
+fn eval_review_batch_is_stamped_evaluation_once_on_the_envelope() {
+    let out = bin()
+        .args(["review-batch", gcode_fixture().to_str().unwrap(), "--json"])
+        .env_remove("DRY_LICENSE")
+        .env(
+            "XDG_CONFIG_HOME",
+            std::env::temp_dir().join("dry-no-license"),
+        )
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["license"]["mode"], "evaluation");
+    assert!(v["results"][0]["review"]["license"].is_null());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
+}
+
+#[test]
+fn licensed_review_batch_is_stamped_with_licensee() {
+    let out = bin()
+        .args(["review-batch", gcode_fixture().to_str().unwrap(), "--json"])
+        .env("DRY_LICENSE", team_token().trim())
+        .env("DRY_LICENSE_ALLOW_TEST_KEY", "1")
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["license"]["mode"], "licensed");
+    assert_eq!(v["license"]["tier"], "team");
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
+}
+
 #[cfg(feature = "moonraker")]
 #[test]
 fn upload_refuses_in_eval_before_any_network() {

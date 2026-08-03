@@ -9,9 +9,10 @@ use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
-    trace_summary_with_sources, try_pocket_design, verify, verify_stream, Contracts, CutMode,
-    EmitParams, FirmwareFlavor, GcodeImportParams, Kinematics, KrlFrame, OptimizeMode,
-    PocketOptions, PocketShape, Profile, RewriteReport, RewriteSpanResult, Toolpath,
+    trace_summary_with_analytics, trace_summary_with_sources, try_pocket_design, verify,
+    verify_stream, BatchFileResult, Contracts, CutMode, EmitParams, FirmwareFlavor,
+    GcodeImportParams, Kinematics, KrlFrame, OptimizeMode, PocketOptions, PocketShape, Profile,
+    ReviewBatch, RewriteReport, RewriteSpanResult, Toolpath, TraceAnalyticsOptions,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
@@ -58,6 +59,14 @@ impl From<OptimizeModeArg> for OptimizeMode {
             OptimizeModeArg::Max => OptimizeMode::Max,
         }
     }
+}
+
+/// CLI surface for `dry trace-gcode --format`: how the trace is rendered.
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+enum TraceFormatArg {
+    Json,
+    Csv,
+    LayersCsv,
 }
 
 impl From<RotaryAxesArg> for Kinematics {
@@ -422,6 +431,48 @@ enum Cmd {
         /// Fixed trace window duration in seconds.
         #[arg(long, default_value_t = 5.0)]
         window_s: f64,
+        /// Also compute layer linkage and higher-level statistics (`trace.layers`, `trace.analytics`).
+        #[arg(long)]
+        analytics: bool,
+        /// Multiple of the window-peak p50 above which a window is flagged. Requires `--analytics`.
+        #[arg(long)]
+        flow_outlier_k: Option<f64>,
+        /// Output shape: the full JSON report, the per-window CSV, or the per-layer CSV.
+        /// `layers-csv` implies `--analytics`, since the analytics pass is the only producer of rows.
+        #[arg(long, value_enum, default_value_t = TraceFormatArg::Json)]
+        format: TraceFormatArg,
+    },
+    /// Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch`.
+    ///
+    /// Unlike `review-gcode`, an unreadable/unimportable file does not abort the run — it becomes an
+    /// `errored` result and every other file is still reviewed. Exit `0` if every file passed, `1` if
+    /// every file was inspected and at least one has an error-severity finding, `2` if at least one
+    /// file could not be inspected at all (or on a usage error) — `2` outranks `1`.
+    ReviewBatch {
+        /// G-code files to review, in order.
+        files: Vec<String>,
+        /// Also read newline-separated paths from this file (`-` for stdin), appended after `files`.
+        #[arg(long)]
+        files_from: Option<String>,
+        /// Machine/material profile JSON to supply import defaults and verifier contracts, shared by
+        /// every file in the batch.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Filament diameter in mm, used to recover deposited volume from E motion.
+        #[arg(long)]
+        filament_diameter: Option<f64>,
+        /// Assumed line width in mm for structural bead and flow checks.
+        #[arg(long)]
+        line_width: Option<f64>,
+        /// Assumed layer height in mm for structural bead and flow checks.
+        #[arg(long)]
+        layer_height: Option<f64>,
+        /// Print the `ReviewBatch` envelope as JSON.
+        #[arg(long)]
+        json: bool,
+        /// Write the output to a file instead of stdout.
+        #[arg(long)]
+        out: Option<String>,
     },
     /// Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags.
     ForensicsGcode {
@@ -1515,7 +1566,23 @@ fn run(cli: Cli) -> ExitCode {
             line_width,
             layer_height,
             window_s,
+            analytics,
+            flow_outlier_k,
+            format,
         } => {
+            // `--format layers-csv` is the only producer of layer rows, so it implies `--analytics`;
+            // supplying `--flow-outlier-k` without either is a usage error rather than a silently
+            // ignored flag.
+            let analytics_requested = analytics || format == TraceFormatArg::LayersCsv;
+            if flow_outlier_k.is_some() && !analytics_requested {
+                die("--flow-outlier-k requires --analytics (or --format layers-csv)".to_string());
+            }
+            // Plain `--format csv` renders windows only — no layer rows, no analytics block — so
+            // `--analytics` beside it would compute a whole statistical pass and discard it. Skipping
+            // it is what keeps the two invocations byte-identical *and* equally cheap; `layers-csv`
+            // and `json` both show something the pass produced, so they keep it.
+            let compute_analytics = analytics_requested && format != TraceFormatArg::Csv;
+
             let input =
                 fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
             let profile = load_profile(profile.as_deref());
@@ -1533,15 +1600,124 @@ fn run(cli: Cli) -> ExitCode {
                 .copied()
                 .map(Some)
                 .collect();
-            let trace = trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
-                .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")));
-            let report = dry_core::TraceReport {
-                file: Some(file.clone()),
-                profile: profile_label(profile.as_ref()),
-                trace,
+            let trace = if compute_analytics {
+                let mut options = TraceAnalyticsOptions::default();
+                if let Some(k) = flow_outlier_k {
+                    options.flow_outlier_k = k;
+                }
+                trace_summary_with_analytics(&imported.toolpath, window_s, &source_lines, &options)
+                    .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")))
+            } else {
+                trace_summary_with_sources(&imported.toolpath, window_s, &source_lines)
+                    .unwrap_or_else(|e| die(format!("cannot trace {file}: {e}")))
             };
-            println!("{}", serde_json::to_string_pretty(&report).unwrap());
+
+            match format {
+                TraceFormatArg::Csv => print!("{}", trace.to_csv()),
+                TraceFormatArg::LayersCsv => print!("{}", trace.layers_to_csv()),
+                TraceFormatArg::Json => {
+                    let report = dry_core::TraceReport {
+                        file: Some(file.clone()),
+                        profile: profile_label(profile.as_ref()),
+                        trace,
+                    };
+                    println!("{}", serde_json::to_string_pretty(&report).unwrap());
+                }
+            }
             ExitCode::SUCCESS
+        }
+        Cmd::ReviewBatch {
+            files,
+            files_from,
+            profile,
+            filament_diameter,
+            line_width,
+            layer_height,
+            json,
+            out,
+        } => {
+            let mut paths = files;
+            if let Some(files_from) = files_from {
+                let text = if files_from == "-" {
+                    let mut buf = String::new();
+                    std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
+                        .unwrap_or_else(|e| die(format!("cannot read stdin: {e}")));
+                    buf
+                } else {
+                    fs::read_to_string(&files_from)
+                        .unwrap_or_else(|e| die(format!("cannot read {files_from}: {e}")))
+                };
+                paths.extend(
+                    text.lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(str::to_string),
+                );
+            }
+            if paths.is_empty() {
+                die("review-batch: no files given (pass paths, or --files-from)".to_string());
+            }
+
+            let profile = load_profile(profile.as_deref());
+            let params = gcode_review_params(
+                profile.as_ref(),
+                filament_diameter,
+                line_width,
+                layer_height,
+            );
+            let profile_label = profile_label(profile.as_ref());
+
+            let mut results = Vec::with_capacity(paths.len());
+            for path in &paths {
+                let result = (|| -> Result<BatchFileResult, String> {
+                    let input =
+                        fs::File::open(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+                    let imported = import_gcode_reader_with_map(input, &params)
+                        .map_err(|e| format!("cannot import {path}: {e}"))?;
+                    let contracts =
+                        contracts_from_inputs(profile.as_ref(), ContractOverrides::default());
+                    let metrics = simulate(&imported.toolpath);
+                    let verify_report = verify(&imported.toolpath, &contracts);
+                    let mut review = dry_core::ReviewReport::build(
+                        Some(path.clone()),
+                        profile_label.clone(),
+                        imported.toolpath.segments.len(),
+                        metrics,
+                        &verify_report,
+                        |segment| imported.source_line_for_segment(segment),
+                    );
+                    review.add_unmodeled_gcode(&imported);
+                    Ok(BatchFileResult::inspected(path.clone(), review))
+                })()
+                .unwrap_or_else(|e| BatchFileResult::errored(path.clone(), e));
+                results.push(result);
+            }
+
+            let any_errored = results
+                .iter()
+                .any(|r| r.status == dry_core::BatchStatus::Errored);
+            let mut batch = ReviewBatch::build(profile_label, results);
+            batch.license = Some(license_stamp(&license));
+            license_notice(&license);
+
+            let rendered = if json {
+                serde_json::to_string_pretty(&batch).unwrap()
+            } else {
+                render_batch_human(&batch)
+            };
+            match &out {
+                Some(path) => fs::write(path, rendered + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{rendered}"),
+            }
+
+            if any_errored {
+                ExitCode::from(2)
+            } else if batch.files_failed > 0 {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Cmd::ForensicsGcode {
             file,
@@ -2423,6 +2599,81 @@ fn gcode_import_params(
         params.layer_height = Some(layer_height);
     }
     params
+}
+
+/// Human-readable `review-batch` output, rendered **once** from the finished envelope: one line per
+/// file in input order, then the aggregate footer — `dry_core::BatchStatus`/`ReviewBatch` carry the
+/// same numbers `--json` does. Not streamed: nothing is printed until every file has been reviewed, so
+/// a long batch shows no progress. Per-file progress would mean printing from the review loop instead,
+/// which is a change to the loop rather than to this function.
+fn render_batch_human(batch: &dry_core::ReviewBatch) -> String {
+    use dry_core::BatchStatus;
+
+    let mut out = String::new();
+    out.push_str(&format!("review-batch: {} file(s)", batch.files_total));
+    if let Some(label) = &batch.profile {
+        out.push_str(&format!(", profile {label}"));
+    }
+    out.push('\n');
+
+    for result in &batch.results {
+        match &result.status {
+            BatchStatus::Errored => {
+                let error = result.error.as_deref().unwrap_or("unknown error");
+                out.push_str(&format!("  ERROR  {:<12} {error}\n", result.file));
+            }
+            status => {
+                let review = result
+                    .review
+                    .as_ref()
+                    .expect("passed/failed results carry a review");
+                let tag = if *status == BatchStatus::Passed {
+                    "PASS"
+                } else {
+                    "FAIL"
+                };
+                let warnings = review.findings.len() - review.error_count;
+                let detail = if review.findings.is_empty() {
+                    "no findings".to_string()
+                } else {
+                    format!("{} error(s), {warnings} warning(s)", review.error_count)
+                };
+                out.push_str(&format!(
+                    "  {tag:<6} {:<12} {} segments, {detail}\n",
+                    result.file, review.segments
+                ));
+            }
+        }
+    }
+
+    out.push_str("  --\n");
+    out.push_str(&format!(
+        "  {} file(s): {} passed, {} failed, {} errored\n",
+        batch.files_total, batch.files_passed, batch.files_failed, batch.files_errored
+    ));
+    if !batch.findings_by_rule.is_empty() {
+        let parts: Vec<String> = batch
+            .findings_by_rule
+            .iter()
+            .map(|tally| {
+                let mut segments = Vec::new();
+                if tally.errors > 0 {
+                    segments.push(format!("{} error(s)", tally.errors));
+                }
+                if tally.warnings > 0 {
+                    segments.push(format!("{} warning(s)", tally.warnings));
+                }
+                format!(
+                    "{} {} in {} file(s)",
+                    tally.rule,
+                    segments.join(", "),
+                    tally.files
+                )
+            })
+            .collect();
+        out.push_str(&format!("  by rule: {}\n", parts.join("; ")));
+    }
+    out.trim_end().to_string()
 }
 
 fn gcode_review_params(

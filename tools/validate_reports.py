@@ -23,6 +23,10 @@ REPORT_KINDS = {
     "verify.json": "VerifyReport",
     "review.json": "ReviewReport",
     "trace.json": "TraceReport",
+    # `trace-gcode --analytics`: the same TraceReport $def, carrying the optional `analytics` block and
+    # a populated `layers` array (which the plain `trace.json` goldens deliberately leave empty).
+    "trace-analytics.json": "TraceReport",
+    "review-batch.json": "ReviewBatch",
     "forensics.json": "ForensicsReport",
     "report.json": "RewriteReport",
     "explain.json": "ExplainBundle",
