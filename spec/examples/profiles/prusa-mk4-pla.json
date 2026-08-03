@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "name": "Prusa MK4, PLA (0.4mm nozzle)",
+  "firmware": { "flavor": "marlin" },
+  "machine": {
+    "build_volume": [[0.0, 250.0], [0.0, 210.0], [0.0, 220.0]],
+    "feedrate_range": [300.0, 30000.0],
+    "kinematics": { "max_acceleration_mm_s2": 2500, "max_junction_velocity_mm_s": 8 }
+  },
+  "material": {
+    "filament_diameter": 1.75,
+    "max_volumetric_flow_mm3_s": 15.0,
+    "min_nozzle_temperature_c": 190.0
+  },
+  "process": {
+    "line_width": 0.42,
+    "layer_height": 0.2,
+    "max_retraction_distance": 1.0,
+    "max_retraction_speed": 2100.0,
+    "first_layer_height_range": [0.18, 0.3],
+    "first_layer_speed_range": [600.0, 3000.0]
+  }
+}

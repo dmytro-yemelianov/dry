@@ -38,6 +38,8 @@ the change is prospective. Customer evaluation and production use require a sepa
 | `conformance/reports/cnc/` | authored for the P5.3 CNC slice | **authored clean-room** | `UPDATE_GOLDEN=1 cargo test -p dry-core --test cnc_pocket_e2e` |
 | `spec/examples/profiles/` | authored example profiles (slice D) | **authored clean-room** | hand-maintained |
 | `examples/` | authored pilot examples (slice F) | **authored clean-room** | hand-maintained |
+| `conformance/slicer-corpus/` | genuine OrcaSlicer output (2 combinations), sliced locally from Dry-authored parametric STLs | **output-only** (no slicer/vendor code copied or shipped; same discipline as the FullControl rows) | `tools/slicer_corpus/slice_matrix.sh` |
+| `spec/examples/profiles/{bambu-x1c-pla,prusa-mk4-pla}.json` | authored from public manufacturer spec sheets, conservative where unpublished (`docs/25-slicer-corpus-baseline.md`) | **authored clean-room** | hand-maintained |
 
 "Output-only" means Dry matches the oracle's **functional output** (g-code, metrics) for interoperability
 and regression — no oracle source is copied into Dry, and the oracle is never shipped. Reserved-name

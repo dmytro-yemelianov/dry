@@ -1,0 +1,95 @@
+{
+  "authority": "descriptive evidence, not an oracle -- see README.md",
+  "generated_by": "tools/slicer_corpus/slice_matrix.sh",
+  "files": [
+    {
+      "file": "cube__orca-bambu-x1c-pla.gcode",
+      "model": "cube",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "2d60066cf8a5e828cdf6dbcc09e064838cacbe7445a62b0a4b65ab19ca87a090"
+    },
+    {
+      "file": "cylinder__orca-bambu-x1c-pla.gcode",
+      "model": "cylinder",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "58d823bd91aab89c77b2777bff434f5f0255b30b994f35809000ac6a3d58a0d4"
+    },
+    {
+      "file": "overhang_wedge__orca-bambu-x1c-pla.gcode",
+      "model": "overhang_wedge",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "9d1d27abce97b1abff207e7697e17ca0445e55d39eb29871a534ddee6b1afeaa"
+    },
+    {
+      "file": "bridge__orca-bambu-x1c-pla.gcode",
+      "model": "bridge",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "cf3e68cfdc2922fe515edafa079e226803ab780d5be41e9562d3d9ae1dc6993b"
+    },
+    {
+      "file": "thin_wall_tower__orca-bambu-x1c-pla.gcode",
+      "model": "thin_wall_tower",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "be82efa3eebf96de66fe470977d3b2f67c95c414ef9b041534b211acc208fc82"
+    },
+    {
+      "file": "vase_cone__orca-bambu-x1c-pla.gcode",
+      "model": "vase_cone",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Bambu Lab X1 Carbon 0.4 nozzle",
+      "process_profile": "0.20mm Standard @BBL X1C",
+      "filament_profile": "Bambu PLA Basic @BBL X1C",
+      "firmware_flavor": null,
+      "matching_dry_profile": "spec/examples/profiles/bambu-x1c-pla.json",
+      "sha256": "aec1dc36dee38b2dc20c6f59ae59275e18446e226e7ed2b679ed7753acc6f738"
+    },
+    {
+      "file": "cube__orca-prusa-mk4-pla.gcode",
+      "model": "cube",
+      "slicer": "OrcaSlicer 2.4.0-beta",
+      "printer_profile": "Prusa MK4 0.4 nozzle",
+      "process_profile": "0.20mm Standard @MK4",
+      "filament_profile": "Prusa Generic PLA @MK4",
+      "firmware_flavor": "marlin",
+      "matching_dry_profile": "spec/examples/profiles/prusa-mk4-pla.json",
+      "sha256": "674e6ce16fa4fbc7238af5e7ca039cceed9367c89efc64527208cf0ac7ef6426"
+    }
+  ],
+  "not_shipped": [
+    {
+      "combination": "OrcaSlicer / Voron 2.4 350 / Klipper / Generic ABS @System",
+      "status": "attempted, deferred",
+      "reason": "the bundled Voron process chain in OrcaSlicer 2.4.0-beta never sets compatible_printers on any concrete machine (inherits fdm_process_common's compatible_printers: [], i.e. compatible with no printer); working around that with a flattened, explicitly-compatible process config gets past the printer/process compatibility check but then trips a second klipper-gcode-flavor validation error ('Relative extruder addressing requires resetting the extruder position at each layer... Add G92 E0 to layer_gcode') even though the flattened machine config already carries that reset in before_layer_change_gcode -- loading raw bundled profile JSON via --load-settings does not walk the GUI's inherits-resolution path"
+    },
+    {
+      "combination": "CuraEngine 5.13.0 / custom.def.json or ultimaker_s3.def.json",
+      "status": "attempted (3x), deferred",
+      "reason": "attempt 1 (bare custom.def.json): missing CURA_ENGINE_SEARCH_PATH, extruder definitions unresolved; attempt 2 (custom.def.json + search path + explicit mesh_position_*): 'Trying to retrieve setting with no value given: roofing_layer_count'; attempt 3 (ultimaker_s3.def.json, a real bundled machine): same roofing_layer_count error -- CuraEngine's CLI does not fill every setting from its own JSON schema defaults, and the gap is normally filled by Cura's application-level quality-profile stack, which the bare CLI invocation does not load"
+    }
+  ]
+}

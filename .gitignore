@@ -53,3 +53,8 @@ __pycache__/
 # Claude Code harness worktrees (per-agent, transient)
 .claude/worktrees/
 .superpowers/
+
+# slicer-corpus regeneration output: local-only, too large to commit in bulk
+# (conformance/slicer-corpus/ holds the frozen, committed sample instead).
+tools/slicer_corpus/models/
+tools/slicer_corpus/full-corpus/

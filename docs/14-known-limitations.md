@@ -99,7 +99,10 @@ Do not rely on Dry for any of these today:
   lines rather than a refused file. What still fails loudly, by design: a **modeled motion** line whose
   words are missing or unreadable (`G1 X`, `G1 Xnope`), a modeled command carrying an unreadable number
   (`M221 Snope`), and a word value that is not a finite number, on any command. Review the preserved
-  lines manually. Auto-print fails closed on these warnings unless `--force` is explicit.
+  lines manually. Auto-print fails closed on these warnings unless `--force` is explicit. See
+  [`docs/25-slicer-corpus-baseline.md`](25-slicer-corpus-baseline.md) for what this looks like at
+  real-world volume against genuine OrcaSlicer output (`unmodeled-gcode` and `travel-extrudes` counts
+  across the committed `conformance/slicer-corpus/` files).
 - **`Q`, `L` and `W` are ambiguous with the legacy KRL import dialect.** They are the `PTP`/`LIN`/`WAIT`
   markers of the g-code-shaped KRL Dry wrote before #181, and also real RS-274 word letters
   (`crates/core/src/gcode.rs`). A line that states its own `G`/`M`/`T` command is read as that command,
