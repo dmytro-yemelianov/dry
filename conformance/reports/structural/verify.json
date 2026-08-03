@@ -2,7 +2,7 @@
   "findings": [
     {
       "rule": "travel-extrudes",
-      "severity": "error",
+      "severity": "warning",
       "segment": 0,
       "message": "travel move deposits 0.5000 mm³ (should be 0)"
     },

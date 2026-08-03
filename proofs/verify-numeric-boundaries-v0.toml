@@ -7,10 +7,19 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 path = "crates/core/src/verify.rs"
 role = "implementation"
 hash_mode = "file"
-# Re-pinned for the arc-radius entry below. The reviewed diff against the previous hash is a doc
-# comment plus `const` -> `pub(crate) const` on ARC_RADIUS_TOLERANCE_MM: no predicate, no epsilon
-# value and no rule behaviour changed, and none of the four boundaries' `operation` text moved.
-sha256 = "cebe5310c99a19d5e3514b8f0b828ef75a324a8777a0e7294d1ea49e32c4e8f2"
+# Re-pinned 2026-08-03 for the `travel-extrudes` severity change. The reviewed diff against the
+# previous hash is `RuleId::TravelExtrudes` moving into the Warning arm of `default_severity`, the
+# comment block that justifies it, one word in the `RuleId` doc comment, and two in-module tests that
+# enumerate the warning set and count the error-severity always-on rules (8, was 9).
+#
+# This *does* change rule behaviour, unlike the previous two re-pins — precisely: the severity field of
+# a `travel-extrudes` finding, and therefore `Report::ok()` / `error_count()` on IR that trips it. It
+# changes no tolerance predicate, introduces and removes no epsilon, alters no constant, and moves none
+# of the four boundaries' `operation` text: `travel-extrudes` is an exact comparison
+# (`s.travel && s.volume.value() > 0.0`), carries no tolerance of its own, and has no entry in this
+# file — the boundaries pinned below (continuity, segment/arc length, filament ratio, arc radius) are
+# untouched in both predicate and epsilon, and each still fires at Error.
+sha256 = "56997b3c402689dc005feb2bfe5a1f23db9d85a2619efbb00c2926ba7326183b"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
