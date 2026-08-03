@@ -31,6 +31,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   file becomes an `errored` result rather than aborting the run, license-stamped once on the envelope.
   Exit `0` all clean, `1` any file gates, `2` any file errored (outranks `1`) or on a usage error.
 
+### Fixed
+- **Layer-break tolerance unit in `docs/11-profiles-and-reports.md`.** The prose said a break is keyed
+  on a Z difference of more than "1 µm"; the constant (`LAYER_Z_EPSILON_MM = 1e-6` mm) is 1 nm.
+  Regenerated the mirrored reference page and its manifest entry to match.
+
 
 
 ## [0.6.0] - 2026-08-03

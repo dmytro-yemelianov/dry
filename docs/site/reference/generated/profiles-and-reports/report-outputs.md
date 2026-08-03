@@ -55,7 +55,7 @@ document gains:
   `layers[0].segment_start == 0` (a prime prologue is attributed, not orphaned), each layer's
   `segment_end` is the next one's `segment_start`, the last ends at `segment_count` (so is a wipe
   epilogue), and `Σ layer.print_time_s == trace.print_time_s`. A break is keyed on the first *extruding*
-  move whose Z differs by more than 1 µm, and the run of non-extruding moves before it (the Z lift and
+  move whose Z differs by more than 1 nm, and the run of non-extruding moves before it (the Z lift and
   the approach travel) belongs to the layer being **entered** — where a slicer's own `;LAYER:` marker
   puts them. A travel-only file, or one with no extruding Z, yields `layers: []`.
 - `analytics` — phase-split time-weighted statistics (`print` / `travel`), order statistics over
