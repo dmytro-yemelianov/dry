@@ -31,7 +31,9 @@ plainly rather than implied, per the design doc's own acceptance bar.
 
 ### Row 3 (Voron/Klipper): what was tried, and the actual root cause
 
-The prior probe (`/private/tmp/.../scratchpad/slicer-corpus/notes.md`) hit `2652: process not compatible
+The prior probe (pre-H1-fix; see PR #224 and its regression suite,
+`crates/core/tests/gcode_import_slicer_dialects.rs`, for the durable record of what it found and what
+fixed it) hit `2652: process not compatible
 with printer` on a Voron/PLA pairing and guessed at a "bundled-profile compatibility quirk." This slice
 root-caused it: **none of the Voron process files (`0.20mm Standard @Voron` -> `fdm_process_voron_common`
 -> `fdm_process_common`) ever set `compatible_printers` on a concrete machine** — the chain terminates at
@@ -130,7 +132,7 @@ file) — 28 runs total, built from the release CLI (`cargo build -p dry-cli --r
 | `vase_cone__orca-bambu-x1c-pla` | trace-gcode | none | 0 | 0.020 |
 | `vase_cone__orca-bambu-x1c-pla` | trace-gcode | bambu-x1c-pla | 0 | 0.018 |
 
-Wall times are single-shot and dominated by process startup at this file size (327-880 KB); none of the
+Wall times are single-shot and dominated by process startup at this file size (231-742 KiB); none of the
 28 runs took more than 27 ms. `review-gcode`'s exit code is `1` in every matched-profile run and `0` in
 every no-profile run — exactly what `error_count` predicts (§"Per-rule finding counts, matched profile"
 below): every one of the 7 files has at least one **error**-severity finding once a profile is supplied
@@ -148,11 +150,13 @@ both commands, in both profile modes.**
 
 **All 7 files import cleanly, in both the no-profile and matched-profile runs.** This is the concrete
 evidence that the H1 tokenizer fix (bareword `M1002 <name> : <value>` macros, quoted `M862.x P "..."`
-firmware-capability checks) closed the specific gap the prior probe found: that probe's *pre-fix* run was
-0/4 files importing at all; this run is 7/7, on genuine, unmodified vendor start g-code from the same two
-printer families (Bambu X1C, Prusa MK4), not the fix's own unit tests.
+firmware-capability checks, PR #224) closed the specific gap the prior probe found: that probe's
+*pre-fix* run was 0/4 files importing at all (the exact failures are preserved as regression cases in
+`crates/core/tests/gcode_import_slicer_dialects.rs`, not an ephemeral scratchpad note); this run is 7/7,
+on genuine, unmodified vendor start g-code from the same two printer families (Bambu X1C, Prusa MK4), not
+the fix's own unit tests.
 
-### Per-rule finding counts, no profile (7 files, 14 no-profile findings possible per file)
+### Per-rule finding counts, no profile (7 files, 14 runs: 7 review-gcode + 7 trace-gcode)
 
 | Rule | Total occurrences | Classification |
 |---|---|---|
@@ -173,8 +177,9 @@ own defaults, never on a profile's limits.
   preserves, none of which Dry's verifier models semantically — each produces one `unmodeled-gcode`
   warning at that exact `source_line`.
 - **`travel-extrudes`** — fires 21 times per Bambu file and 4 times per Prusa file, on the slicer's own
-  purge/prime-tower start g-code. `docs/14-known-limitations.md` already states this rule "fires 4-21
-  times per stock file as a warning, not a defect in the file" — this run's 4 (Prusa) and 21 (Bambu) sit
+  purge/prime-tower start g-code. `docs/11-profiles-and-reports.md` already states that stock OrcaSlicer
+  start g-code "trips the rule 4-21 times per file" in the Bambu X1C and Prusa MK4 profiles alike — this
+  run's 4 (Prusa) and 21 (Bambu) sit
   at exactly the two ends of that documented range. Concretely, `cube__orca-bambu-x1c-pla.gcode` line 936
   (`G0 E2 F300`) and line 937 (`G0 X240 E15 F8400`) are `G0` (rapid/travel) moves that nonetheless carry
   an `E` word — exactly the purge/prime-tower pattern `docs/14` names: no `X`/`Y` displacement on line
@@ -213,7 +218,12 @@ exception — see its own bullet below, which is not a profile-mismatch story. C
   anything wrong.
 - **`retraction-speed`** — profile ceilings (1800 mm/min Bambu, 2100 mm/min Prusa) are conservative PLA
   defaults; actual slicer output retracts faster (`3000 mm/min` typical, e.g. line 1342
-  `G1 X89.221 Y85.939 E-.43004` under a modal `F3000` set earlier in the same retract/wipe sequence).
+  `G1 X89.221 Y85.939 E-.43004` under a modal `F3000` set earlier in the same retract/wipe sequence). This
+  finding is intentional, not a profile defect to fix: neither vendor publishes a retraction-speed
+  capability figure (the design doc's provenance note, §4, says so explicitly), so there is no vendor
+  ceiling to raise the profile to — `1800`/`2100` are deliberately conservative estimates, the same
+  discipline used for `max_junction_velocity_mm_s`, and the resulting profile-mismatch finding against
+  faster real slicer output is the expected, by-design consequence of that choice.
 - **`max-flow`** — this rule's 1,810 occurrences are **not** predominantly the profile-mismatch story
   the other rules tell, and the classification in an earlier draft of this doc ("the slicer's own
   purge-tower priming bursts") does not survive its own data. Measured across all 7 files: 1,722 of
@@ -228,16 +238,23 @@ exception — see its own bullet below, which is not a profile-mismatch story. C
   nothing, an **expected-import-artifact**, now documented in
   [`docs/14-known-limitations.md`](14-known-limitations.md). Only the remaining 88 findings sit on
   moves with real `X`/`Y` displacement, and of those only 7 (one ~84-96 mm³/s purge-tower burst per file,
-  e.g. `cube__orca-bambu-x1c-pla.gcode` line 937's `G0 X240 E15 F8400`, the same line flagged
-  `travel-extrudes` above) are the purge-tower-flow story the profile-mismatch framing describes; the
+  at a different source line in each — e.g. `cube__orca-bambu-x1c-pla.gcode` line 940's
+  `G0 Y11 E0.700 F2100`, also flagged `travel-extrudes`) are the purge-tower-flow story the
+  profile-mismatch framing describes; the
   rest are ordinary print moves at a profile-ceiling-exceeding but not obviously-wrong flow, closer to a
   genuine profile-mismatch than an artifact but not further broken down here.
-- **`bounds`** — every Bambu file reports the identical 93 occurrences of `Y = 265 is outside the build
-  volume [0, 256]`: line 721, `G1 Y265 F3000`, is the slicer's purge/prime-tower g-code moving the
-  toolhead to `Y=265`, 9 mm past the profile's 256 mm nominal build-volume figure (the X1C's *published*
+- **`bounds`** — every Bambu file reports the identical 93 occurrences, split across 10 distinct
+  out-of-volume `Y` values from the same purge/prime-tower g-code (`Y = 259.5` through `Y = 265`, plus one
+  `Y = -3`, all against the profile's `[0, 256]` nominal build-volume figure); 37 of the 93 are the largest
+  and most common single value, `Y = 265 is outside the build volume [0, 256]`: line 721, `G1 Y265 F3000`,
+  the toolhead moving 9 mm past the profile's 256 mm nominal build-volume figure (the X1C's *published*
   build volume, which does not carve out the extra margin the vendor's own firmware reserves for purge).
   Authoring the profile from the wrong reference number (nominal build volume vs. usable slicer working
-  area) is exactly a profile-authoring gap, not a defect in the g-code.
+  area) is exactly a profile-authoring gap, not a defect in the g-code. The Prusa file has its own,
+  smaller `bounds` subset: 13 occurrences, all the identical `Y = -4 is outside the build volume [0, 210]`
+  (line 46 onward, e.g. `G1 X42 Y-4 Z5 F4800`), on the negative side of the profile's `Y` range rather
+  than the positive
+  — the same purge-move-past-the-nominal-volume pattern, mirrored at the other axis extreme.
 - **`first-layer-speed`** — profile ranges (600-3000 mm/min) are conservative; observed values (e.g.
   6300 mm/min) are the slicer's real first-layer *part* speed, not a purge/skirt move. All 124/124
   `first-layer-speed` findings in both `cube__orca-bambu-x1c-pla` and `cube__orca-prusa-mk4-pla` fall
@@ -279,14 +296,15 @@ through a second command path, not just `review-gcode`.
 | `vase_cone__orca-bambu-x1c-pla` | 22,959 | 22,160 | 771.3 | 672.2 | 99.2 | 86.99 | 78 |
 
 The max-flow peak (84.18-96.21 mm³/s) recurs across every file at almost the same value because it is the
-same purge/prime-tower burst `review-gcode`'s `max-flow` rule flags above (Bambu: line 937; Prusa:
-the equivalent purge line) — `trace-gcode`'s window summary and `review-gcode`'s per-line finding are
+same purge/prime-tower burst `review-gcode`'s `max-flow` rule flags above (Bambu: the same `G0 ... E...`
+prime move, at a source line that varies per file — e.g. line 940 in `cube__orca-bambu-x1c-pla.gcode`;
+Prusa: the equivalent purge line) — `trace-gcode`'s window summary and `review-gcode`'s per-line finding are
 reading the same underlying motion, from two different commands.
 
 **`--profile` makes no observable difference to `trace-gcode`'s output for this corpus.** A structural
 diff of the matched-profile vs. no-profile JSON for every one of the 7 files shows the only difference is
 the echoed `"profile"` name string — every trace metric (segment/window counts, times, volumes, flow) is
-byte-identical. This is expected given the importer's defaults: all three profiles used here already
+byte-identical. This is expected given the importer's defaults: both profiles used here already
 specify `filament_diameter: 1.75` (the importer's own default), and `trace-gcode` does not consume
 `line_width`/`layer_height` from the profile the way `review-gcode`'s structural checks do — so unlike
 `review-gcode`, `trace-gcode`'s numbers are useful as a profile-independent motion baseline for this
@@ -294,9 +312,11 @@ corpus, only the findings-producing command is profile-sensitive.
 
 ## Bottom line
 
-The H1 tokenizer fix closed the exact gap the prior probe found: 7/7 genuine OrcaSlicer files (2 printer
-families) now import cleanly under **both** `review-gcode --json` and `trace-gcode --window-s 10`, in
-both profile modes (28/28 runs, exit codes and wall time in the Method table above), versus 0/4 pre-fix.
+The H1 tokenizer fix (PR #224) closed the exact gap the prior probe found: 7/7 genuine OrcaSlicer files
+(2 printer families) now import cleanly under **both** `review-gcode --json` and `trace-gcode --window-s
+10`, in both profile modes (28/28 runs, exit codes and wall time in the Method table above), versus 0/4
+pre-fix — see `crates/core/tests/gcode_import_slicer_dialects.rs` for the durable regression record of
+those pre-fix failures.
 Every remaining finding is either a documented, profile-independent import artifact
 (`unmodeled-gcode`, `travel-extrudes`, and now the majority of `max-flow` — all three named in
 `docs/14-known-limitations.md`), or a profile-mismatch stemming from this corpus's deliberately

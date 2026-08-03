@@ -20,8 +20,9 @@ regression check on the importer, not a correctness check on the g-code).
 
 ## What's here
 
-9 possible slicer x profile x model combinations were designed (see the design doc §3); **2 combinations
-proved out** in practice, both OrcaSlicer:
+4 slicer x printer combinations were designed (see the design doc §3), which with the 6-model set (§2)
+gives 24 possible model-combinations; **2 of the 4 slicer x printer combinations proved out** in
+practice, both OrcaSlicer:
 
 | Combination | Models | Status |
 |---|---|---|
@@ -52,6 +53,22 @@ tapered to a point going up, which is a self-supporting incline, not an overhang
 (with a small flat foot at the build plate so it still has contact area to slice at all), and the
 re-sliced file produces 25 `Overhang wall` blocks. See `docs/25-slicer-corpus-baseline.md`
 §"`overhang_wedge`: the shipped model did not exercise an overhang" for the measurement.
+
+**Two other designed stress cases are silently unexercised by the frozen set, and are named here rather
+than left implicit:**
+
+- **`cylinder`'s curved-wall arc-fitting stress case does not fire.** Every committed file — `cylinder`
+  included — contains exactly 8 `G2`/`G3` arc moves, all in the fixed nozzle-priming loop OrcaSlicer's
+  start g-code emits regardless of model shape (same 8, same content, in every file). `cylinder`'s own
+  curved walls are sliced entirely as `G1` line segments; arc fitting is off (or not applicable) for this
+  slicer/profile pairing, so the model does not actually exercise arc-fitting import/verification the way
+  its name promises.
+- **`bridge`'s travel-without-retraction stress case does not fire either.** `travel-extrudes` reports
+  exactly 21 occurrences in `bridge__orca-bambu-x1c-pla.gcode` — identical to every other Bambu file,
+  `bridge` included nothing extra. OrcaSlicer retracts correctly before crossing `bridge`'s unsupported
+  span, so the "what happens when a slicer travels over open space without retracting" case this model
+  was designed to probe is never actually triggered by this corpus; what fires instead is only the
+  same fixed purge/prime-tower pattern common to all 6 Bambu files.
 
 ## Regeneration
 

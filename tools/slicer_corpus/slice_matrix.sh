@@ -16,7 +16,7 @@
 #
 # Combinations attempted:
 #   1. OrcaSlicer / Bambu Lab X1 Carbon / Bambu PLA Basic       -- proven, all 6 models
-#   2. OrcaSlicer / Prusa MK4 / Prusa Generic PLA                -- proven, all 6 models
+#   2. OrcaSlicer / Prusa MK4 / Prusa Generic PLA                -- proven, cube only (frozen-set budget)
 #   3. OrcaSlicer / Voron 2.4 350 / Generic ABS                  -- DEFERRED, see below
 #   4. CuraEngine / custom.def.json or ultimaker_s3.def.json     -- DEFERRED, see below
 #
@@ -62,9 +62,12 @@ MODELS_DIR="$OUTDIR/models"
 SLICES_DIR="$OUTDIR/slices"
 SCRATCH_DIR="$OUTDIR/orca-scratch"
 
-ORCA_BIN="/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer"
-ORCA_PROFILES="/Applications/OrcaSlicer.app/Contents/Resources/profiles"
-DRY_BIN="$ROOT/target/release/dry"
+# Overridable via environment for the failure-path test
+# (tools/slicer_corpus/test_slice_matrix_failure.sh); normal (non-test) invocations
+# use the defaults below.
+ORCA_BIN="${ORCA_BIN:-/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer}"
+ORCA_PROFILES="${ORCA_PROFILES:-/Applications/OrcaSlicer.app/Contents/Resources/profiles}"
+DRY_BIN="${DRY_BIN:-$ROOT/target/release/dry}"
 
 mkdir -p "$MODELS_DIR" "$SLICES_DIR"
 
@@ -82,23 +85,37 @@ fi
 
 MODELS="cube cylinder overhang_wedge bridge thin_wall_tower vase_cone"
 
+# Tracks whether any per-model slice failed, so the script can still report every
+# failure (not just the first) and exit non-zero at the end -- see below for why
+# this can't just let a nonzero OrcaSlicer exit propagate under `set -e`.
+slice_fail=0
+
 slice_orca() {
   local machine="$1" process="$2" filament="$3" tag="$4" model="$5"
   local out="$SCRATCH_DIR/$tag-$model"
   rm -rf "$out"
   mkdir -p "$out"
-  "$ORCA_BIN" \
+  # `set -euo pipefail` is active for the whole script, so a bare (unguarded)
+  # nonzero exit from OrcaSlicer here would kill the entire run before this
+  # function's own failure handling ever ran. Guarding the call in an `if`
+  # condition is what makes `-e` treat this command's exit status as
+  # "handled" instead of fatal.
+  if ! "$ORCA_BIN" \
     --datadir "$out/datadir" \
     --logfile "$out/orca-native.log" \
     --load-settings "$machine;$process" \
     --load-filaments "$filament" \
     --slice 1 --outputdir "$out" \
-    "$MODELS_DIR/$model.stl" >"$out/orca.log" 2>&1
+    "$MODELS_DIR/$model.stl" >"$out/orca.log" 2>&1; then
+    echo "  FAILED: $model / $tag (OrcaSlicer exited non-zero, see $out/orca.log)" >&2
+    return 1
+  fi
   if [ -f "$out/plate_1.gcode" ]; then
     cp "$out/plate_1.gcode" "$SLICES_DIR/${model}__${tag}.gcode"
     echo "  sliced $model -> ${model}__${tag}.gcode"
   else
-    echo "  FAILED: $model / $tag (see $out/orca.log)" >&2
+    echo "  FAILED: $model / $tag (no plate_1.gcode, see $out/orca.log)" >&2
+    return 1
   fi
 }
 
@@ -107,14 +124,16 @@ BAMBU_MACHINE="$ORCA_PROFILES/BBL/machine/Bambu Lab X1 Carbon 0.4 nozzle.json"
 BAMBU_PROCESS="$ORCA_PROFILES/BBL/process/0.20mm Standard @BBL X1C.json"
 BAMBU_FILAMENT="$ORCA_PROFILES/BBL/filament/Bambu PLA Basic @BBL X1C.json"
 for model in $MODELS; do
-  slice_orca "$BAMBU_MACHINE" "$BAMBU_PROCESS" "$BAMBU_FILAMENT" "orca-bambu-x1c-pla" "$model"
+  # `|| slice_fail=1` (not a bare call) so one model's failure doesn't kill the
+  # loop under `set -e` -- every remaining model still gets attempted.
+  slice_orca "$BAMBU_MACHINE" "$BAMBU_PROCESS" "$BAMBU_FILAMENT" "orca-bambu-x1c-pla" "$model" || slice_fail=1
 done
 
 echo "== OrcaSlicer / Prusa MK4 / Prusa Generic PLA (cube only, per the frozen-set budget) =="
 PRUSA_MACHINE="$ORCA_PROFILES/Prusa/machine/Prusa MK4 0.4 nozzle.json"
 PRUSA_PROCESS="$ORCA_PROFILES/Prusa/process/0.20mm Standard @MK4.json"
 PRUSA_FILAMENT="$ORCA_PROFILES/Prusa/filament/Prusa Generic PLA @MK4.json"
-slice_orca "$PRUSA_MACHINE" "$PRUSA_PROCESS" "$PRUSA_FILAMENT" "orca-prusa-mk4-pla" "cube"
+slice_orca "$PRUSA_MACHINE" "$PRUSA_PROCESS" "$PRUSA_FILAMENT" "orca-prusa-mk4-pla" "cube" || slice_fail=1
 
 echo "== Voron 2.4 350 / Klipper / ABS: SKIPPED (see this script's header comment) =="
 echo "== CuraEngine: SKIPPED (see this script's header comment) =="
@@ -132,8 +151,8 @@ for f in "$SLICES_DIR"/*.gcode; do
   fi
 done
 
-if [ "$fail" -ne 0 ]; then
-  echo "one or more slices failed to import -- see errors above" >&2
+if [ "$slice_fail" -ne 0 ] || [ "$fail" -ne 0 ]; then
+  echo "one or more per-model slices failed, or one or more slices failed to import -- see errors above" >&2
   exit 1
 fi
 

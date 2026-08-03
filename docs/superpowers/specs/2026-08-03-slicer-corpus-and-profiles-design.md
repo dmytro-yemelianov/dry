@@ -1,7 +1,14 @@
 # Design: slicer corpus + profile library
 
 **Date:** 2026-08-03
-**Status:** Proposed — design only, no implementation in this slice
+**Status:** Implemented — `feat/slicer-corpus-profiles` (48fb782 corpus + profiles, 7be0c29 slice_matrix.sh
+cleanup, 72aa4b6 baseline extension, 0a37762 review-finding fixes)
+
+**Deviations from design:** §1/§3/§4 scope a 9-committed-file, 4-combination matrix (Bambu, Prusa,
+Voron/Klipper, CuraEngine); what shipped is 7 files across 2 combinations (Bambu: all 6 models; Prusa:
+`cube` only). Voron/Klipper and CuraEngine were both attempted and are recorded as deferred, not
+silently dropped — see `conformance/slicer-corpus/README.md` and `docs/25-slicer-corpus-baseline.md`
+for the root cause of each.
 **Branch:** `feat/slicer-corpus-profiles`
 **Source:** `docs/09-customer-readiness.md` pilot design (a fixed 10–50 job corpus + 1–2 machine
 profiles + baseline manual review notes), `docs/14-known-limitations.md` (imported-gcode caveats),
