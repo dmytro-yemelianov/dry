@@ -2607,17 +2607,19 @@ fn emit_to_a_file_writes_the_whole_program() {
 fn slicer_corpus_files_import_cleanly() {
     let corpus_dir =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/slicer-corpus");
-    let manifest: Value = serde_json::from_str(
-        &std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap(),
-    )
-    .expect("valid slicer-corpus MANIFEST.json");
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap())
+            .expect("valid slicer-corpus MANIFEST.json");
     let files = manifest["files"].as_array().unwrap();
     assert!(!files.is_empty(), "MANIFEST.json lists no committed files");
 
     for entry in files {
         let name = entry["file"].as_str().unwrap();
         let path = corpus_dir.join(name);
-        assert!(path.is_file(), "{name} listed in MANIFEST.json but missing on disk");
+        assert!(
+            path.is_file(),
+            "{name} listed in MANIFEST.json but missing on disk"
+        );
 
         let out = Command::new(bin())
             .args(["review-gcode", path.to_str().unwrap(), "--json"])
@@ -2685,10 +2687,9 @@ fn slicer_corpus_manifest_sha256_matches_committed_files() {
 
     let corpus_dir =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/slicer-corpus");
-    let manifest: Value = serde_json::from_str(
-        &std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap(),
-    )
-    .expect("valid slicer-corpus MANIFEST.json");
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap())
+            .expect("valid slicer-corpus MANIFEST.json");
     let files = manifest["files"].as_array().unwrap();
     assert!(!files.is_empty(), "MANIFEST.json lists no committed files");
 
