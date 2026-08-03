@@ -16,7 +16,7 @@
   "findings": [
     {
       "rule": "travel-extrudes",
-      "severity": "error",
+      "severity": "warning",
       "segment": 0,
       "source_line": null,
       "message": "travel move deposits 0.5000 mm³ (should be 0)"
@@ -50,5 +50,5 @@
       "message": "declared length 10 disagrees with the arc implied by its radius and swept angle (15.034185 mm)"
     }
   ],
-  "error_count": 5
+  "error_count": 4
 }

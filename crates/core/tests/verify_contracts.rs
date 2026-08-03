@@ -154,9 +154,11 @@ fn z_decrease_is_flagged_when_monotonic_required() {
     assert_eq!(z[0].segment, Some(1));
 }
 
-// Structural invariant (always on): a travel must not deposit material.
+// Structural invariant (always on): a travel must not deposit material. Advisory, not fatal — the
+// flag disagreeing with the volume is a modelling inconsistency, and on the firmware these programs
+// run a `G0` carrying an `E` word extrudes exactly as commanded (see `RuleId::default_severity`).
 #[test]
-fn a_travel_that_extrudes_is_a_structural_error() {
+fn a_travel_that_extrudes_is_a_structural_warning() {
     // hand-build a toolpath whose travel has a non-zero volume (an internal inconsistency).
     let d = design_json(
         r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
@@ -165,7 +167,16 @@ fn a_travel_that_extrudes_is_a_structural_error() {
     let mut tp = resolve(&d, &ResolveParams::default());
     tp.segments[1].travel = true; // now a "travel" still carrying filament
     let report = verify(&tp, &Contracts::default());
-    assert!(report.findings.iter().any(|f| f.rule == "travel-extrudes"));
+    let travel: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.rule == "travel-extrudes")
+        .collect();
+    assert_eq!(travel.len(), 1);
+    assert_eq!(travel[0].severity, Severity::Warning);
+    // Reported and located, but it does not fail the gate.
+    assert!(report.ok());
+    assert_eq!(report.error_count(), 0);
 }
 
 #[test]

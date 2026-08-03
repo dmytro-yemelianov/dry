@@ -18,7 +18,9 @@ present and usable, but not gated for production · **Out of scope** = not provi
 
 “Supported” import means the documented motion/state subset is modeled and conformance-tested.
 Firmware commands outside that subset are preserved and surfaced as `unmodeled-gcode` warnings for
-manual review; they are not silently treated as motion.
+manual review; they are not silently treated as motion. This holds for vendor commands whose
+parameters are not g-code words at all — barewords, quoted strings, base64 — so stock Bambu Lab and
+Prusa start g-code imports (`docs/14-known-limitations.md` states what still fails loudly).
 
 ## File formats
 

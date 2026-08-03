@@ -16,7 +16,22 @@ hash_mode = "file"
 # serde field (skip-if-none + default) on the `Report` envelope, never set by the engine. No
 # predicate, no epsilon value, no rule behaviour and none of the boundaries' `operation` text
 # changed; the field is serialization-only and sits outside every tolerance-bearing path.
-sha256 = "31887c09b298f0034d9a9b790e5ec5258c8881aa73796d7abd35faee24b0e83d"
+#
+# Re-pinned 2026-08-03 for the `travel-extrudes` severity change (PR #224). The reviewed diff is
+# `RuleId::TravelExtrudes` moving into the Warning arm of `default_severity`, the comment block
+# that justifies it, one word in the `RuleId` doc comment, and two in-module tests that enumerate
+# the warning set and count the error-severity always-on rules (8, was 9). This *does* change rule
+# behaviour — precisely: the severity field of a `travel-extrudes` finding, and therefore
+# `Report::ok()` / `error_count()` on IR that trips it. It changes no tolerance predicate,
+# introduces and removes no epsilon, alters no constant, and moves none of the four boundaries'
+# `operation` text: `travel-extrudes` is an exact comparison
+# (`s.travel && s.volume.value() > 0.0`), carries no tolerance of its own, and has no entry in
+# this file — the boundaries pinned below (continuity, segment/arc length, filament ratio, arc
+# radius) are untouched in both predicate and epsilon, and each still fires at Error.
+#
+# Re-pinned 2026-08-03 at the merge of the two slices above: the hash below is verify.rs carrying
+# both reviewed diffs combined, with no further change.
+sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a

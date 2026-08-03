@@ -35,11 +35,11 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "cc07547f377fbff43602f95c3f19c09cf345f1851b456ff983a82d74b328bc6a"
+      "sha256": "c3d6877baa38ea85bc3c0e6fd5913040e04367674103a0961a75b5d8261be019"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "1086e4bfe81ebd653328a107ec520ca233023bae5416b8885c477155d93eae4f"
+      "sha256": "625e005ec4a4b4e2ae018809df0606cd747bc570361c2e76b6e773e437f7e970"
     }
   },
   "dynamic": {
