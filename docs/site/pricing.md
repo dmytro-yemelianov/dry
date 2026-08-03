@@ -1,5 +1,9 @@
 # Pricing
 
+> **Licensing is not open yet.** Dry is currently in a closed pilot — licenses are
+> hand-issued to pilot participants, and the checkout links below are not yet live.
+> To join the pilot, email [license@yemelianov.dev](mailto:license@yemelianov.dev?subject=Dry%20Pilot).
+
 Dry is licensed per organization, annually. There is no usage metering and no phone-home: a
 license is an offline-verified Ed25519 token, so pricing scales with who's using the CLI, not
 how many times it runs.

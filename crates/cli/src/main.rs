@@ -731,10 +731,18 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
-/// Production license-signing keys, installed by the release key ceremony. The placeholder
-/// `prod-1` entry of all-zero bytes never verifies a real signature, which is the correct
-/// behavior until that ceremony runs (see the release runbook).
-const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[("prod-1", [0u8; 32])];
+/// Production license-signing keys, installed by the release key ceremony. `prod-1` was
+/// generated 2026-08-03 (Ed25519, WebCrypto keygen; verifying key below, signing key held
+/// offline by the owner — never in this repo). Rotation: add a new key id here, keep the old
+/// entry so already-issued licenses keep verifying.
+const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[(
+    "prod-1",
+    [
+        0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41, 0x60,
+        0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03, 0x5f, 0x37,
+        0x7b, 0xcd,
+    ],
+)];
 
 /// The verification keys `resolve_license`/`activate` accept: production keys always, plus —
 /// in debug builds only, and only with the explicit `DRY_LICENSE_ALLOW_TEST_KEY=1` opt-in — the
