@@ -46,8 +46,10 @@ const allowedPublicSourceFiles = new Set([
   'docs/site/examples/optimize.ts',
   'docs/site/examples/simulate.ts',
   'docs/site/examples/verify.ts',
+  'docs/site/activate.md',
   'docs/site/index.md',
   'docs/site/licensing.md',
+  'docs/site/pricing.md',
   'public-url:/@siteData',
   ...[...documentedPreviews].map((preview) => `public-url:/${preview}`),
 ]);

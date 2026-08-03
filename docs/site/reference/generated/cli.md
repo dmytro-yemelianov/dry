@@ -14,6 +14,7 @@ Dry — toolpath compiler CLI
 Usage: dry <COMMAND>
 
 Commands:
+  license             Manage the commercial license (activate a token, show status)
   auth                Authenticate with Dry Cloud
   cloud               Run opt-in Dry Cloud operations
   printer             Query Dry's hosted printer capability graph
@@ -45,6 +46,7 @@ Options:
 
 | Command | Sample | Summary |
 | --- | --- | --- |
+| [`license`](/reference/generated/cli/license) |  | Manage the commercial license (activate a token, show status) |
 | [`auth`](/reference/generated/cli/auth) |  | Authenticate with Dry Cloud |
 | [`cloud`](/reference/generated/cli/cloud) |  | Run opt-in Dry Cloud operations |
 | [`printer`](/reference/generated/cli/printer) |  | Query Dry's hosted printer capability graph |

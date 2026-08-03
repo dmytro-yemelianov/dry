@@ -34,6 +34,12 @@ fn bin() -> &'static str {
     env!("CARGO_BIN_EXE_dry")
 }
 
+/// A committed test-signed license token (team tier) — see `crates/license/tests/fixtures/`.
+/// `upload` now refuses to run in evaluation mode, so tests that exercise it need a license.
+fn team_token() -> &'static str {
+    include_str!("../../license/tests/fixtures/js-signed-team.token")
+}
+
 fn fixture(corpus: &str, name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("../../conformance/{corpus}/{name}.json"))
@@ -270,6 +276,8 @@ fn upload_print_exits_nonzero_when_moonraker_does_not_start_the_job() {
             "--force",
             "--json",
         ])
+        .env("DRY_LICENSE", team_token().trim())
+        .env("DRY_LICENSE_ALLOW_TEST_KEY", "1")
         .output()
         .unwrap();
     server.join().unwrap();
@@ -1571,6 +1579,8 @@ fn upload_print_without_profile_is_blocked_before_network_io() {
             "http://127.0.0.1:9",
             "--print",
         ])
+        .env("DRY_LICENSE", team_token().trim())
+        .env("DRY_LICENSE_ALLOW_TEST_KEY", "1")
         .output()
         .unwrap();
     let _ = std::fs::remove_file(&input);

@@ -153,6 +153,12 @@ export interface Report {
   rules_evaluated?: string[];
   /** The limits the toolpath was checked against. */
   contracts?: Record<string, unknown>;
+  /**
+   * The passive license stamp embedded by report-producing commands (parity with
+   * `dry_core::verify::Report`'s `license` field / `dry_core::LicenseStamp`). Optional so
+   * reports produced by engines that predate the license product stay assignable to this type.
+   */
+  license?: { mode: string; licensee?: string; tier?: string };
 }
 
 /** Device defaults (the generic printer). More profiles land with the device-profile work. */

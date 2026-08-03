@@ -145,6 +145,14 @@ enum PrinterCmd {
 }
 
 #[derive(Subcommand)]
+enum LicenseAction {
+    /// Verify and store a license token (argument: token string or a file containing it).
+    Activate { token_or_file: String },
+    /// Show the active license, its tier and expiry state.
+    Status,
+}
+
+#[derive(Subcommand)]
 enum AuthCmd {
     /// Sign in with Dry Cloud's device authorization flow.
     Login,
@@ -227,6 +235,11 @@ enum GenerateCmd {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Manage the commercial license (activate a token, show status).
+    License {
+        #[command(subcommand)]
+        action: LicenseAction,
+    },
     /// Authenticate with Dry Cloud.
     Auth {
         #[command(subcommand)]
@@ -667,6 +680,188 @@ fn die(msg: String) -> ! {
     std::process::exit(2);
 }
 
+/// Production license-signing keys, installed by the release key ceremony. The placeholder
+/// `prod-1` entry of all-zero bytes never verifies a real signature, which is the correct
+/// behavior until that ceremony runs (see the release runbook).
+const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[("prod-1", [0u8; 32])];
+
+/// The verification keys `resolve_license`/`activate` accept: production keys always, plus —
+/// in debug builds only, and only with the explicit `DRY_LICENSE_ALLOW_TEST_KEY=1` opt-in — the
+/// committed TEST key.
+///
+/// Decision: release binaries trust only `PRODUCTION_KEYS`, full stop, regardless of any env
+/// var. The committed test key (and its fixture tokens under `crates/license/tests/fixtures/`)
+/// only ever verifies in a debug build with the explicit opt-in; there is no way to make a
+/// release binary accept it. Testing licensing behavior against a release binary requires a
+/// real key from the release key ceremony (see the release runbook) — not this fixture.
+fn license_keys() -> Vec<(&'static str, [u8; 32])> {
+    let mut keys: Vec<(&'static str, [u8; 32])> = PRODUCTION_KEYS.to_vec();
+    let allow_test = cfg!(debug_assertions)
+        && std::env::var("DRY_LICENSE_ALLOW_TEST_KEY").is_ok_and(|v| v == "1");
+    if allow_test {
+        keys.push((dry_license::TEST_KEY_ID, dry_license::TEST_VERIFYING_KEY));
+    }
+    keys
+}
+
+/// Where an activated license token is stored. `XDG_CONFIG_HOME` is honored first — this is
+/// also what makes CLI tests hermetic on macOS, where `dirs::config_dir()` ignores that
+/// variable — falling back to the platform config dir, then a temp dir as a last resort.
+fn license_config_path() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(dirs::config_dir)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("dry").join("license.token")
+}
+
+fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// The result of resolving a license from the environment/config file: either a verified
+/// license (possibly in its grace period) or evaluation mode, optionally with a reason.
+enum LicenseResolution {
+    Licensed(dry_license::VerifiedLicense),
+    Eval { warning: Option<String> },
+}
+
+/// Resolve the active license: `DRY_LICENSE` env var first, then the stored token file at
+/// [`license_config_path`]. Never exits — any parse/signature/expiry problem falls back to
+/// evaluation mode with an explanatory warning, per the spec's "never a hard exit from a
+/// report command" rule.
+fn resolve_license() -> LicenseResolution {
+    let token = match std::env::var("DRY_LICENSE") {
+        Ok(t) if !t.trim().is_empty() => Some(t),
+        _ => std::fs::read_to_string(license_config_path()).ok(),
+    };
+    let Some(token) = token else {
+        return LicenseResolution::Eval { warning: None };
+    };
+    let keys = license_keys();
+    match dry_license::verify_token(&token, &keys, now_unix()) {
+        Ok(v) => match v.state {
+            dry_license::LicenseState::Expired => LicenseResolution::Eval {
+                warning: Some(format!(
+                    "license for {} expired {} (past the 14-day grace) — running in evaluation mode",
+                    v.payload.licensee, v.payload.expires
+                )),
+            },
+            _ => LicenseResolution::Licensed(v),
+        },
+        Err(e) => LicenseResolution::Eval {
+            warning: Some(format!("{e} — running in evaluation mode")),
+        },
+    }
+}
+
+/// The eval-mode notice every report-producing command prints once to stderr when running
+/// without a license. Exact text per the license product spec — `tests/license.rs` pins it.
+const EVAL_BANNER: &str =
+    "EVALUATION — not for production gating. https://dry-public-docs.pages.dev/pricing";
+
+/// Map a resolved license to the passive stamp embedded in report envelopes (`dry_core::LicenseStamp`,
+/// Task 4). Never fails: eval mode stamps `mode: "evaluation"` with no licensee/tier.
+fn license_stamp(res: &LicenseResolution) -> dry_core::LicenseStamp {
+    match res {
+        LicenseResolution::Licensed(v) => dry_core::LicenseStamp {
+            mode: "licensed".to_string(),
+            licensee: Some(v.payload.licensee.clone()),
+            tier: Some(v.payload.tier.to_string()),
+        },
+        LicenseResolution::Eval { .. } => dry_core::LicenseStamp {
+            mode: "evaluation".to_string(),
+            licensee: None,
+            tier: None,
+        },
+    }
+}
+
+/// Emit the once-per-run stderr notice for a report-producing command: in evaluation mode, any
+/// specific reason `resolve_license` recorded (expired past grace, bad signature, unknown key
+/// id, malformed token) followed by the eval banner; absent that, just the eval banner. Also
+/// prints a grace-period warning when the active license is past its expiry but still inside the
+/// 14-day grace window. Prints nothing for a comfortably valid license.
+fn license_notice(res: &LicenseResolution) {
+    match res {
+        LicenseResolution::Eval { warning } => {
+            if let Some(w) = warning {
+                eprintln!("warning: {w}");
+            }
+            eprintln!("{EVAL_BANNER}");
+        }
+        LicenseResolution::Licensed(v) => {
+            if let dry_license::LicenseState::Grace { days_left } = v.state {
+                eprintln!(
+                    "warning: license for {} is in its grace period ({days_left} day(s) left) — \
+                     see https://dry-public-docs.pages.dev/pricing to renew",
+                    v.payload.licensee
+                );
+            }
+        }
+    }
+}
+
+fn run_license(action: LicenseAction) -> ExitCode {
+    match action {
+        LicenseAction::Activate { token_or_file } => {
+            let token = match std::fs::read_to_string(&token_or_file) {
+                Ok(contents) => contents,
+                Err(_) => token_or_file,
+            };
+            let token = token.trim();
+            let keys = license_keys();
+            let verified = dry_license::verify_token(token, &keys, now_unix())
+                .unwrap_or_else(|e| die(e.to_string()));
+            let path = license_config_path();
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .unwrap_or_else(|e| die(format!("cannot create {}: {e}", parent.display())));
+            }
+            fs::write(&path, token)
+                .unwrap_or_else(|e| die(format!("cannot write {}: {e}", path.display())));
+            println!(
+                "activated: {} ({}) expires {}",
+                verified.payload.licensee, verified.payload.tier, verified.payload.expires
+            );
+            ExitCode::SUCCESS
+        }
+        LicenseAction::Status => {
+            match resolve_license() {
+                LicenseResolution::Licensed(v) => {
+                    println!("licensee:  {}", v.payload.licensee);
+                    println!("tier:      {}", v.payload.tier);
+                    println!("machines:  {}", v.payload.machines);
+                    println!("expires:   {}", v.payload.expires);
+                    match v.state {
+                        dry_license::LicenseState::Grace { days_left } => {
+                            eprintln!(
+                                "warning: license is in its grace period ({days_left} day(s) left)"
+                            );
+                            println!("state:     grace ({days_left} day(s) left)");
+                        }
+                        dry_license::LicenseState::Valid => println!("state:     valid"),
+                        dry_license::LicenseState::Expired => unreachable!(
+                            "resolve_license() maps Expired to LicenseResolution::Eval"
+                        ),
+                    }
+                }
+                LicenseResolution::Eval { warning } => {
+                    if let Some(w) = &warning {
+                        eprintln!("warning: {w}");
+                    }
+                    println!("mode:      evaluation");
+                    println!("           see https://dry-public-docs.pages.dev/pricing to purchase a license");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+    }
+}
+
 /// Remove a leftover `.dry-partial` temp file. Never fails the command over it — the program's own
 /// success/failure was already decided — but a surviving temp file is worth a warning rather than
 /// silent disposal, since e.g. a permissions problem removing it would otherwise vanish unremarked.
@@ -840,7 +1035,9 @@ fn bbox(tp: &Toolpath) -> [[f64; 2]; 3] {
 }
 
 fn run(cli: Cli) -> ExitCode {
+    let license = resolve_license();
     match cli.cmd {
+        Cmd::License { action } => run_license(action),
         Cmd::Auth { command, cloud_url } => {
             let cloud_url = cloud::resolve_cloud_url(cloud_url.as_deref());
             match command {
@@ -1253,6 +1450,8 @@ fn run(cli: Cli) -> ExitCode {
                 |segment| imported.source_line_for_segment(segment),
             );
             review.add_unmodeled_gcode(&imported);
+            review.license = Some(license_stamp(&license));
+            license_notice(&license);
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&review).unwrap());
@@ -1487,7 +1686,7 @@ fn run(cli: Cli) -> ExitCode {
                     max_applies,
                 });
             }
-            let a = assemble_explain(
+            let mut a = assemble_explain(
                 &file,
                 profile.as_deref(),
                 filament_diameter,
@@ -1500,6 +1699,8 @@ fn run(cli: Cli) -> ExitCode {
                 min_temp,
                 window_s,
             );
+            a.bundle.license = Some(license_stamp(&license));
+            license_notice(&license);
             let rendered = if json {
                 serde_json::to_string_pretty(&a.bundle).unwrap() + "\n"
             } else {
@@ -1565,7 +1766,9 @@ fn run(cli: Cli) -> ExitCode {
                 None,
                 window_s,
             );
-            let delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+            let mut delta = dry_core::compare_reports(&a.bundle.reports, &b.bundle.reports);
+            delta.license = Some(license_stamp(&license));
+            license_notice(&license);
             let rendered = if json {
                 serde_json::to_string_pretty(&delta).unwrap() + "\n"
             } else {
@@ -1692,7 +1895,7 @@ fn run(cli: Cli) -> ExitCode {
                     meta: imported.toolpath.meta.clone(),
                     segments: after_segs,
                 };
-                let report = RewriteReport::build(
+                let mut report = RewriteReport::build(
                     Some(file.clone()),
                     profile_label(profile.as_ref()),
                     mode_label.to_string(),
@@ -1700,6 +1903,8 @@ fn run(cli: Cli) -> ExitCode {
                     &after_tp,
                     span_results,
                 );
+                report.license = Some(license_stamp(&license));
+                license_notice(&license);
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&report).unwrap());
@@ -1817,25 +2022,28 @@ fn run(cli: Cli) -> ExitCode {
             min_temp,
             speed_range,
             json,
-        } => run_upload(UploadArgs {
-            file,
-            moonraker,
-            api_key_env,
-            timeout_s,
-            print,
-            force,
-            rewrite,
-            profile,
-            filament_diameter,
-            line_width,
-            layer_height,
-            max_flow,
-            bounds,
-            monotonic_z,
-            min_temp,
-            speed_range,
-            json,
-        }),
+        } => run_upload(
+            UploadArgs {
+                file,
+                moonraker,
+                api_key_env,
+                timeout_s,
+                print,
+                force,
+                rewrite,
+                profile,
+                filament_diameter,
+                line_width,
+                layer_height,
+                max_flow,
+                bounds,
+                monotonic_z,
+                min_temp,
+                speed_range,
+                json,
+            },
+            &license,
+        ),
         Cmd::Verify {
             file,
             profile,
@@ -1873,8 +2081,10 @@ fn run(cli: Cli) -> ExitCode {
                     junction_velocity,
                 },
             );
-            let report = verify_stream(stream, &contracts)
+            let mut report = verify_stream(stream, &contracts)
                 .unwrap_or_else(|e| die(format!("cannot verify {file}: {e}")));
+            report.license = Some(license_stamp(&license));
+            license_notice(&license);
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else if report.findings.is_empty() {
@@ -2635,7 +2845,7 @@ struct UploadArgs {
 }
 
 #[cfg(not(feature = "moonraker"))]
-fn run_upload(_: UploadArgs) -> std::process::ExitCode {
+fn run_upload(_: UploadArgs, _license: &LicenseResolution) -> std::process::ExitCode {
     die(
         "this build was compiled without moonraker support; rebuild with `cargo build --features moonraker`"
             .into(),
@@ -2643,10 +2853,16 @@ fn run_upload(_: UploadArgs) -> std::process::ExitCode {
 }
 
 #[cfg(feature = "moonraker")]
-fn run_upload(args: UploadArgs) -> std::process::ExitCode {
+fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::ExitCode {
     use std::io::Cursor;
     use std::path::Path;
     use std::time::Duration;
+
+    // License gate: refuse BEFORE any network contact, on parsed args alone.
+    if matches!(license, LicenseResolution::Eval { .. }) {
+        die("dry upload requires a license — see https://dry-public-docs.pages.dev/pricing".into());
+    }
+    license_notice(license);
 
     let api_key = std::env::var(&args.api_key_env).ok();
     let profile = load_profile(args.profile.as_deref());

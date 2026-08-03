@@ -246,6 +246,10 @@ fn real_cli_verify_json(gcode_path: &Path, profile_path: &Path) -> Vec<u8> {
     ensure_cli_built();
     let dir = tempfile::tempdir().unwrap();
     let ir_path = dir.path().join("ir.json");
+    // Hermetic against the ambient environment: a developer with an activated license (env var
+    // or stored token file) must not turn this into a "licensed" comparison against the runner's
+    // hardcoded `evaluation` stamp. Same pattern as `crates/cli/tests/license.rs`.
+    let xdg_config_home = dir.path().join("xdg-config-home");
 
     let import_status = Command::new(cli_binary_path())
         .arg("import-gcode")
@@ -254,6 +258,8 @@ fn real_cli_verify_json(gcode_path: &Path, profile_path: &Path) -> Vec<u8> {
         .arg(profile_path)
         .arg("-o")
         .arg(&ir_path)
+        .env_remove("DRY_LICENSE")
+        .env("XDG_CONFIG_HOME", &xdg_config_home)
         .status()
         .expect("failed to run `dry import-gcode`");
     assert!(import_status.success(), "dry import-gcode failed");
@@ -264,6 +270,8 @@ fn real_cli_verify_json(gcode_path: &Path, profile_path: &Path) -> Vec<u8> {
         .arg("--profile")
         .arg(profile_path)
         .arg("--json")
+        .env_remove("DRY_LICENSE")
+        .env("XDG_CONFIG_HOME", &xdg_config_home)
         .output()
         .expect("failed to run `dry verify --json`");
     // NOT `verify_output.status.success()`: `dry verify` deliberately exits `1` (not `0`) when the

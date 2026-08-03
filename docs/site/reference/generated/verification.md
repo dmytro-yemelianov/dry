@@ -51,6 +51,7 @@ Verification result containing all findings emitted by enabled rules.
 | `segments_inspected` | `number` | No | How many segments the pass actually inspected. |
 | `rules_evaluated` | `string[]` | No | The rule ids that were in force. |
 | `contracts` | `Record&lt;string, unknown&gt;` | No | The limits the toolpath was checked against. |
+| `license` | `{ mode: string; licensee?: string; tier?: string }` | No | The passive license stamp embedded by report-producing commands (parity with `dry_core::verify::Report`'s `license` field / `dry_core::LicenseStamp`). |
 
 
 ## `Severity`

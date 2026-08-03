@@ -9,6 +9,47 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-03
+
+### Added
+- **Commercial licensing: offline Ed25519 license verification, eval mode, and an upload gate (#license-product).**
+  - `crates/license` parses and verifies the `DRY-LICENSE-V1.<payload>.<sig>` token format
+    (`verify_token`, `LicensePayload`, `Tier`, `LicenseState`, `GRACE_SECS`) against a set of
+    verifying keys — no network, no filesystem access. States are `Valid`, `Grace` (14-day window
+    past `expires_unix`) and `Expired`; a tampered, malformed or unknown-key token is treated as
+    absent rather than a hard failure.
+  - `dry license activate <token|file>` verifies and stores a token at
+    `<config_dir>/dry/license.token`; `dry license status` reports the active license, its tier and
+    expiry state. `DRY_LICENSE` (an inline token) takes precedence over the stored file.
+  - Every report-producing command (`review-gcode`, `verify`, `compare`, `explain`, `rewrite-gcode`)
+    now resolves the active license once and stamps the result on both JSON and human output via the
+    new optional `dry_core::LicenseStamp` field — `None` when no license/eval, so every committed
+    golden is byte-identical and the drift gate in `crates/core/tests/report_goldens.rs` proves it.
+    Schema: `license` is additive on `VerifyReport`, `ReviewReport`, `RewriteReport` and
+    `ExplainBundle` in `spec/dry-reports-v1.schema.json`, in no `required` array.
+  - Running without a license (or with a tampered/expired-past-grace one) is **eval mode**: full
+    functionality plus a `EVALUATION — not for production gating` stderr banner. A license in its
+    grace period prints a days-left warning on every run. Neither ever aborts a report command.
+  - `dry upload` refuses to run without a `Valid`/`Grace` license — exit 2, before any Moonraker
+    contact — pointing at the pricing page.
+  - `tools/license-issuer/`, a Cloudflare Worker, signs tokens (Ed25519 via WebCrypto, RFC 8032) from
+    Lemon Squeezy webhooks and a bearer-authed admin endpoint, records each issuance to D1, and emails
+    the token to the buyer. The base64url/signing codec is shared between the Worker and the
+    committed JS keygen/sign scripts (`tools/license-issuer/scripts/{keygen,sign}.mjs`) so they and
+    `crates/license`'s cross-stack fixture test cannot drift apart. Tested under
+    `@cloudflare/vitest-pool-workers` with a miniflare D1 and a stubbed `send_email` binding — no real
+    network, no real emails.
+  - Docs: `docs/site/pricing.md`, `docs/site/activate.md` and
+    `docs/site/guide/ci-gate-quickstart.md` cover pricing/tiers, activation, and gating CI on license
+    presence.
+- **`compare --json` now has a published schema.** `CompareDelta` (with `ScalarDelta`,
+  `StringChange`, `TimeDelta`, `SettingChange` and `FindingsDelta`) is a `$def` in
+  `spec/dry-reports-v1.schema.json`, and the committed golden
+  `conformance/reports/compare/expected.json` is now validated against it by
+  `tools/validate_reports.py` alongside the other six envelopes — it was the one report envelope the
+  independent validator never saw. The golden is unchanged; `license` is additive here too, in no
+  `required` array.
+
 ### Changed
 - **`travel-extrudes` is now a warning rather than an error — `dry review-gcode` no longer fails on stock
   slicer output.** A notable change under `docs/11` §2 ("changing a rule's default severity is a notable

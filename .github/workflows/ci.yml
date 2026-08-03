@@ -359,6 +359,23 @@ jobs:
         working-directory: containers/verify-runner
         run: cargo test --locked
 
+  license-issuer:
+    name: license-issuer (typecheck + unit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      # standalone Worker (own package-lock.json, own tsconfig), same drift risk as the
+      # other excluded surfaces (wasm/python-sdk/cloud/verify-runner) — gets its own job.
+      - name: install + typecheck + test
+        working-directory: tools/license-issuer
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
   linuxcnc:
     name: linuxcnc (reference interpreter accepts the CNC goldens)
     runs-on: ubuntu-latest

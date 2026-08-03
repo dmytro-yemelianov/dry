@@ -38,6 +38,24 @@ impl LocatedFinding {
     }
 }
 
+/// Which licensing mode produced a report, stamped onto the report envelopes by the CLI.
+///
+/// Passive data only: the engine never verifies a licence, never reads one, and never sets this — it
+/// exists here so the wire shape of a stamped report is part of the same typed contract as the rest.
+/// A report the engine built carries `None`, which serializes away entirely, so the golden reports
+/// under `conformance/reports/` are byte-identical with and without the field.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LicenseStamp {
+    /// `"licensed"` or `"evaluation"`.
+    pub mode: String,
+    /// The licensee, when running licensed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub licensee: Option<String>,
+    /// The licence tier, when running licensed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tier: Option<String>,
+}
+
 /// The `review-gcode` report: metrics plus located safety findings for an imported G-code file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewReport {
@@ -51,6 +69,10 @@ pub struct ReviewReport {
     pub findings: Vec<LocatedFinding>,
     /// Number of `error`-severity findings (warnings are not counted).
     pub error_count: usize,
+    /// The licensing mode this report was produced under, when the caller stamped one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<LicenseStamp>,
 }
 
 impl ReviewReport {
@@ -78,6 +100,7 @@ impl ReviewReport {
             metrics,
             findings,
             error_count: report.error_count(),
+            license: None,
         }
     }
 
@@ -152,6 +175,10 @@ pub struct RewriteReport {
     pub metrics_after: Metrics,
     /// The per-span accept/reject ledger, in source order.
     pub spans: Vec<RewriteSpanResult>,
+    /// The licensing mode this report was produced under, when the caller stamped one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<LicenseStamp>,
 }
 
 impl RewriteReport {
@@ -180,6 +207,7 @@ impl RewriteReport {
             metrics_before: simulate(before),
             metrics_after: simulate(after),
             spans,
+            license: None,
         }
     }
 }

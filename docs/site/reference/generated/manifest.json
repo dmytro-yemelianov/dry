@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "577d8f91659c71731da826aec1099eaf35210b772fb4fc45cb971da7a58fae96"
+      "sha256": "1a0cb2eb6e53e30dc2d2b9ea1f47c645a69fda3a766c8a706c17e29423c2a396"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
@@ -35,17 +35,17 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "5db70fb72530d12f0abc237c1866eef514a563239b5bed8d9fe60fe336fdffa4"
+      "sha256": "c3d6877baa38ea85bc3c0e6fd5913040e04367674103a0961a75b5d8261be019"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "0d20df524ec9b4150cad100d3488015b833c420fb68096f1bb14841a9dad4eb2"
+      "sha256": "625e005ec4a4b4e2ae018809df0606cd747bc570361c2e76b6e773e437f7e970"
     }
   },
   "dynamic": {
     "cliHelp": {
       "command": "cargo run -q -p dry-cli -- --help",
-      "sha256": "442d7c0f12cde57302b74d720e9e72cdb0e9e69fabb5f0cc9cf74ce17dea3a54"
+      "sha256": "8959cc249381549b417ba5a693d89d8037808b5044f97a8dad2c53c5bfcccb50"
     }
   }
 }

@@ -78,6 +78,11 @@ pub struct CompareDelta {
     /// Declared/inferred forensics settings that changed.
     pub settings: Vec<SettingChange>,
     pub findings: FindingsDelta,
+    /// The licensing mode this delta was produced under, when the caller stamped one
+    /// (see [`crate::LicenseStamp`]) — never set by the engine.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub license: Option<crate::report::LicenseStamp>,
 }
 
 /// Diff two analysed files. `before` is `<fileA>`, `after` is `<fileB>`. Pure and deterministic.
@@ -174,6 +179,7 @@ pub fn compare_reports(before: &ExplainReports, after: &ExplainReports) -> Compa
         retractions: ScalarDelta::new(bf.travel.retractions as f64, af.travel.retractions as f64),
         settings,
         findings,
+        license: None,
     }
 }
 
