@@ -42,6 +42,13 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   - Docs: `docs/site/pricing.md`, `docs/site/activate.md` and
     `docs/site/guide/ci-gate-quickstart.md` cover pricing/tiers, activation, and gating CI on license
     presence.
+- **`compare --json` now has a published schema.** `CompareDelta` (with `ScalarDelta`,
+  `StringChange`, `TimeDelta`, `SettingChange` and `FindingsDelta`) is a `$def` in
+  `spec/dry-reports-v1.schema.json`, and the committed golden
+  `conformance/reports/compare/expected.json` is now validated against it by
+  `tools/validate_reports.py` alongside the other six envelopes — it was the one report envelope the
+  independent validator never saw. The golden is unchanged; `license` is additive here too, in no
+  `required` array.
 
 ### Changed
 - **`emit --format krl` now writes a KUKA module instead of substituted g-code words (#181), and

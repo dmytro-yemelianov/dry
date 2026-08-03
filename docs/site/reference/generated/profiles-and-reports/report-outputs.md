@@ -6,7 +6,10 @@ Source: `docs/11-profiles-and-reports.md`
 
 ## 3. Report outputs
 
-All three outputs are stable JSON contracts (`spec/dry-reports-v1.schema.json`).
+Every deterministic envelope below is a stable JSON contract with a `$def` of its own in
+`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `TraceReport`, `ForensicsReport`,
+`RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6, §3.8) are not in
+the schema and not drift-gated — model output is non-deterministic, so there is no golden to gate it.
 
 ### 3.1 `verify --json` → `VerifyReport`
 
@@ -198,7 +201,9 @@ deterministic, reproducible and golden-tested (like `explain` offline). The sche
 `before`, `after`, `abs` (absolute change), and `pct` (percent change, `null` when `before == 0`).
 `settings` lists only the fields that changed (declared and inferred forensics settings). `findings`
 keyed as `"<rule>@<source_line>"` so a finding that moved lines reads as removed+added rather than
-silently unchanged. The delta itself is **drift-gated** — golden-tested against the engine.
+silently unchanged. The delta itself is **drift-gated** — golden-tested against the engine. The schema
+`$def` is `CompareDelta`; the golden lives at `conformance/reports/compare/expected.json`, generated
+from the two committed fixtures beside it.
 
 ### 3.8 `compare --llm --json` → narrative over the delta
 

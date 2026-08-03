@@ -26,6 +26,7 @@ REPORT_KINDS = {
     "forensics.json": "ForensicsReport",
     "report.json": "RewriteReport",
     "explain.json": "ExplainBundle",
+    "expected.json": "CompareDelta",
 }
 
 

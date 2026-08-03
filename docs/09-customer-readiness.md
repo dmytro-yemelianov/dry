@@ -219,7 +219,7 @@ Gate:
 
 - profile schema reference exists; ✅ [`docs/11-profiles-and-reports.md`](11-profiles-and-reports.md) + [`spec/dry-profile-v1.schema.json`](../spec/dry-profile-v1.schema.json) + example profiles
 - batch CLI is documented;
-- JSON report schema is stable; ✅ [`spec/dry-reports-v1.schema.json`](../spec/dry-reports-v1.schema.json) (verify/review/trace), drift-gated + independently validated
+- JSON report schema is stable; ✅ [`spec/dry-reports-v1.schema.json`](../spec/dry-reports-v1.schema.json) (verify/review/trace/forensics/rewrite/explain/compare), drift-gated + independently validated
 - trace output has examples; ✅ [`conformance/reports/`](../conformance/reports)
 - rewrite limitations are explicit.
 

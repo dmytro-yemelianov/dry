@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-reports-v1.schema.json",
   "title": "Dry report outputs v1",
-  "description": "Schemas for Dry's report outputs (see docs/11-profiles-and-reports.md): the verify Report, the review-gcode report, and the trace-gcode report. Use the $defs by name to validate a given output: VerifyReport, ReviewReport, TraceReport.",
+  "description": "Schemas for Dry's report outputs (see docs/11-profiles-and-reports.md). Use the $defs by name to validate a given output: VerifyReport (verify), ReviewReport (review-gcode), TraceReport (trace-gcode), ForensicsReport (forensics-gcode), RewriteReport (rewrite-gcode), ExplainBundle (explain) and CompareDelta (compare). The `--llm` envelopes of `explain` and `compare` are deliberately absent: model output is not drift-gated, so it has no committed golden to validate.",
   "$defs": {
     "Severity": {
       "type": "string",
@@ -489,6 +489,89 @@
         "profiled": { "type": "boolean" },
         "reports": { "$ref": "#/$defs/ExplainReports" },
         "prompt": { "type": "string" },
+        "license": { "$ref": "#/$defs/LicenseStamp" }
+      }
+    },
+    "ScalarDelta": {
+      "description": "before/after for a numeric metric. `pct` is `null` when `before` is zero — there is no percent change from nothing, and the delta says so rather than reporting 0 or an infinity.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after", "abs", "pct"],
+      "properties": {
+        "before": { "type": "number" },
+        "after": { "type": "number" },
+        "abs": { "type": "number", "description": "after - before" },
+        "pct": { "type": ["number", "null"] }
+      }
+    },
+    "StringChange": {
+      "description": "before/after for a categorical value; only constructed when the two differ.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "type": "string" },
+        "after": { "type": "string" }
+      }
+    },
+    "TimeDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "print", "travel"],
+      "properties": {
+        "total": { "$ref": "#/$defs/ScalarDelta" },
+        "print": { "$ref": "#/$defs/ScalarDelta" },
+        "travel": { "$ref": "#/$defs/ScalarDelta" }
+      }
+    },
+    "SettingChange": {
+      "description": "One changed forensics setting (declared or inferred), as a labelled before/after string pair. An absent value on either side renders as an em dash rather than being omitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "before", "after"],
+      "properties": {
+        "field": { "type": "string" },
+        "before": { "type": "string" },
+        "after": { "type": "string" }
+      }
+    },
+    "FindingsDelta": {
+      "description": "Verify findings added (present only in `after`) and removed (present only in `before`), each keyed `\"<rule>@<source_line>\"` — a finding that moved lines is reported as removed+added rather than silently kept.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before_count", "after_count", "added", "removed"],
+      "properties": {
+        "before_count": { "type": "integer", "minimum": 0 },
+        "after_count": { "type": "integer", "minimum": 0 },
+        "added": { "type": "array", "items": { "type": "string" } },
+        "removed": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "CompareDelta": {
+      "description": "The deterministic two-file forensic diff behind `dry compare --json` (docs/11 §3.7). `slicer` is `null` when the detected slicer is unchanged; `settings` lists only the fields that differ. `layer_count` and `retractions` are counts carried as `ScalarDelta` so every metric in the envelope has the same shape. The `--llm` narrative envelope wraps this one and is not part of this schema — model output is not drift-gated.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slicer",
+        "time",
+        "peak_flow_mm3_s",
+        "layer_count",
+        "travel_distance_mm",
+        "retractions",
+        "settings",
+        "findings"
+      ],
+      "properties": {
+        "slicer": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/StringChange" }]
+        },
+        "time": { "$ref": "#/$defs/TimeDelta" },
+        "peak_flow_mm3_s": { "$ref": "#/$defs/ScalarDelta" },
+        "layer_count": { "$ref": "#/$defs/ScalarDelta" },
+        "travel_distance_mm": { "$ref": "#/$defs/ScalarDelta" },
+        "retractions": { "$ref": "#/$defs/ScalarDelta" },
+        "settings": { "type": "array", "items": { "$ref": "#/$defs/SettingChange" } },
+        "findings": { "$ref": "#/$defs/FindingsDelta" },
         "license": { "$ref": "#/$defs/LicenseStamp" }
       }
     }

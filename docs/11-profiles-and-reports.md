@@ -2,7 +2,8 @@
 
 This is the **normative** reference for Dry's safety workflow contract: the machine/material **profile**
 schema, the **verification rule catalog** (stable ids + severities), and the **report output** shapes
-for `verify`, `review-gcode` and `trace-gcode`. The machine-readable schemas are
+for `verify`, `review-gcode`, `trace-gcode`, `forensics-gcode`, `rewrite-gcode`, `explain` and
+`compare` (§3). The machine-readable schemas are
 [`../spec/dry-profile-v1.schema.json`](../spec/dry-profile-v1.schema.json) and
 [`../spec/dry-reports-v1.schema.json`](../spec/dry-reports-v1.schema.json); worked examples are under
 [`../spec/examples/profiles/`](../spec/examples/profiles) and the golden reports under
@@ -227,7 +228,10 @@ as a breaking change in the changelog.
 
 ## 3. Report outputs
 
-All three outputs are stable JSON contracts (`spec/dry-reports-v1.schema.json`).
+Every deterministic envelope below is a stable JSON contract with a `$def` of its own in
+`spec/dry-reports-v1.schema.json`: `VerifyReport`, `ReviewReport`, `TraceReport`, `ForensicsReport`,
+`RewriteReport`, `ExplainBundle` and `CompareDelta`. The two `--llm` envelopes (§3.6, §3.8) are not in
+the schema and not drift-gated — model output is non-deterministic, so there is no golden to gate it.
 
 ### 3.1 `verify --json` → `VerifyReport`
 
@@ -419,7 +423,9 @@ deterministic, reproducible and golden-tested (like `explain` offline). The sche
 `before`, `after`, `abs` (absolute change), and `pct` (percent change, `null` when `before == 0`).
 `settings` lists only the fields that changed (declared and inferred forensics settings). `findings`
 keyed as `"<rule>@<source_line>"` so a finding that moved lines reads as removed+added rather than
-silently unchanged. The delta itself is **drift-gated** — golden-tested against the engine.
+silently unchanged. The delta itself is **drift-gated** — golden-tested against the engine. The schema
+`$def` is `CompareDelta`; the golden lives at `conformance/reports/compare/expected.json`, generated
+from the two committed fixtures beside it.
 
 ### 3.8 `compare --llm --json` → narrative over the delta
 
