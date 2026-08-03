@@ -71,6 +71,19 @@ Do not rely on Dry for any of these today:
   through `dry verify` than through `dry review-gcode`; `Report` echoes `contracts` but not `meta`, so the
   difference would be invisible in the report; and a producer-declared field must not pick the severity
   the verifier assigns it.
+- **`max-flow` scores an E-only retract/prime move as if it deposited at that rate.** The rule computes
+  flow as (filament cross-section area) x (segment speed), which is correct for an ordinary extruding
+  move but not for a retract/de-retract line that carries an `E` word and no `X`/`Y` (`G1 E.8 F1800`,
+  `G1 E-0.8 F1800`): the filament is only moving through the feed path, not being deposited on the part,
+  yet the rule reports it at `pi * (diameter/2)^2 * (F / 60)` mm3/s regardless — 72.16 mm3/s for a
+  1.75 mm filament at `F1800`, 60.13 mm3/s at `F1500`, both far above any of these machines' real
+  print-flow ceilings (the X1C's published max flow is ~32 mm3/s). Across the committed
+  `conformance/slicer-corpus/` files, this pattern accounts for the large majority of `max-flow`
+  findings against the example profiles (1,722 of 1,810, all at the profile's own filament diameter) —
+  see [`docs/25-slicer-corpus-baseline.md`](25-slicer-corpus-baseline.md) for the measurement. This is an
+  **expected-import-artifact of the verifier's flow formula**, not evidence the profile's ceiling is
+  wrong (a profile-mismatch) and not a real overflow event; a materially better max-flow rule would
+  exclude segments with no XY displacement, but nothing in the current rule catalog does.
 - **No rule flags a beam lit during a travel.** `travel-extrudes` states the material analogue (a travel
   that deposits), but nothing says the equivalent about `power`: a travel carrying `power: 600` verifies
   clean — not even as a warning, which is the remaining asymmetry now that the material rule is one. It is
@@ -99,7 +112,10 @@ Do not rely on Dry for any of these today:
   lines rather than a refused file. What still fails loudly, by design: a **modeled motion** line whose
   words are missing or unreadable (`G1 X`, `G1 Xnope`), a modeled command carrying an unreadable number
   (`M221 Snope`), and a word value that is not a finite number, on any command. Review the preserved
-  lines manually. Auto-print fails closed on these warnings unless `--force` is explicit.
+  lines manually. Auto-print fails closed on these warnings unless `--force` is explicit. See
+  [`docs/25-slicer-corpus-baseline.md`](25-slicer-corpus-baseline.md) for what this looks like at
+  real-world volume against genuine OrcaSlicer output (`unmodeled-gcode` and `travel-extrudes` counts
+  across the committed `conformance/slicer-corpus/` files).
 - **`Q`, `L` and `W` are ambiguous with the legacy KRL import dialect.** They are the `PTP`/`LIN`/`WAIT`
   markers of the g-code-shaped KRL Dry wrote before #181, and also real RS-274 word letters
   (`crates/core/src/gcode.rs`). A line that states its own `G`/`M`/`T` command is read as that command,

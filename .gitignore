@@ -53,3 +53,12 @@ __pycache__/
 # Claude Code harness worktrees (per-agent, transient)
 .claude/worktrees/
 .superpowers/
+
+# slicer-corpus regeneration output: local-only, too large to commit in bulk
+# (conformance/slicer-corpus/ holds the frozen, committed sample instead).
+tools/slicer_corpus/models/
+tools/slicer_corpus/full-corpus/
+# OrcaSlicer writes a numbered log file to the CWD it was launched from
+# unless --logfile is given; slice_matrix.sh passes --logfile, but this is
+# defense-in-depth against a stray one from a manual invocation.
+/[0-9][0-9][0-9][0-9][0-9].log

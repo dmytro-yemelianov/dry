@@ -2597,3 +2597,116 @@ fn emit_to_a_file_writes_the_whole_program() {
     let _ = std::fs::remove_file(&out);
     let _ = std::fs::remove_file(&sidecar);
 }
+
+/// The committed `conformance/slicer-corpus/` files are genuine, unmodified OrcaSlicer output — see
+/// `conformance/slicer-corpus/README.md` for why they carry no correctness authority. What *is* a
+/// regression claim: they must keep importing without a hard parse error, with or without their
+/// matching machine profile (`docs/25-slicer-corpus-baseline.md`'s basic regression claim). This test
+/// needs no slicer binary — it runs `dry review-gcode` on files already sliced and committed to disk.
+#[test]
+fn slicer_corpus_files_import_cleanly() {
+    let corpus_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/slicer-corpus");
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap())
+            .expect("valid slicer-corpus MANIFEST.json");
+    let files = manifest["files"].as_array().unwrap();
+    assert!(!files.is_empty(), "MANIFEST.json lists no committed files");
+
+    for entry in files {
+        let name = entry["file"].as_str().unwrap();
+        let path = corpus_dir.join(name);
+        assert!(
+            path.is_file(),
+            "{name} listed in MANIFEST.json but missing on disk"
+        );
+
+        let out = Command::new(bin())
+            .args(["review-gcode", path.to_str().unwrap(), "--json"])
+            .output()
+            .unwrap();
+        // Not `out.status.success()`: exit code and "imported cleanly" are different
+        // claims (the profiled branch below makes the same point) -- even with no
+        // profile, `review-gcode` can in principle exit non-zero on findings while
+        // still having produced a well-formed report. What this test actually
+        // regresses is "still produces a report" (a hard parse failure writes no
+        // JSON at all), so assert on the JSON structure directly.
+        let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+            panic!(
+                "{name} failed to import with no profile: {e}\nstderr: {}",
+                String::from_utf8_lossy(&out.stderr)
+            )
+        });
+        assert!(
+            report["findings"].is_array(),
+            "{name} with no profile: no findings array in report"
+        );
+
+        if let Some(profile) = entry["matching_dry_profile"].as_str() {
+            let profile_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(profile);
+            let out = Command::new(bin())
+                .args([
+                    "review-gcode",
+                    path.to_str().unwrap(),
+                    "--profile",
+                    profile_path.to_str().unwrap(),
+                    "--json",
+                ])
+                .output()
+                .unwrap();
+            // Not `out.status.success()`: a matched profile is expected to raise error-severity
+            // findings against these deliberately conservative example profiles
+            // (`docs/25-slicer-corpus-baseline.md`'s profile-mismatch classification), which makes
+            // `review-gcode` exit non-zero on a *successful* import. The regression claim here is
+            // "still imports and produces a report" (a hard parse failure writes no JSON at all —
+            // see the prior probe this corpus fixed), not "raises no findings".
+            let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+                panic!(
+                    "{name} failed to import with profile {profile}: {e}\nstderr: {}",
+                    String::from_utf8_lossy(&out.stderr)
+                )
+            });
+            assert!(
+                report["findings"].is_array(),
+                "{name} with profile {profile}: no findings array in report"
+            );
+        }
+    }
+}
+
+/// `MANIFEST.json`'s `sha256` field is a provenance/integrity claim ("this is the exact byte content
+/// that was reviewed and classified in `docs/25-slicer-corpus-baseline.md`") that was never actually
+/// checked by any test -- a corrupted or silently re-sliced file would pass
+/// `slicer_corpus_files_import_cleanly` above as long as it still imported. This guards the claim
+/// directly: hash every committed file and compare against its manifest entry.
+#[test]
+fn slicer_corpus_manifest_sha256_matches_committed_files() {
+    use sha2::{Digest, Sha256};
+
+    let corpus_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/slicer-corpus");
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(corpus_dir.join("MANIFEST.json")).unwrap())
+            .expect("valid slicer-corpus MANIFEST.json");
+    let files = manifest["files"].as_array().unwrap();
+    assert!(!files.is_empty(), "MANIFEST.json lists no committed files");
+
+    for entry in files {
+        let name = entry["file"].as_str().unwrap();
+        let expected = entry["sha256"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{name}: MANIFEST.json entry has no sha256 field"));
+        let path = corpus_dir.join(name);
+        let bytes = std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("{name} listed in MANIFEST.json but unreadable: {e}"));
+        let actual = format!("{:x}", Sha256::digest(&bytes));
+        assert_eq!(
+            actual, expected,
+            "{name}: committed file's sha256 does not match MANIFEST.json (file was re-sliced, \
+             corrupted, or the manifest is stale -- re-freeze deliberately if the content change \
+             was intended)"
+        );
+    }
+}

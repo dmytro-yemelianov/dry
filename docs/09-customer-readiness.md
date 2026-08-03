@@ -15,7 +15,7 @@ pilot guide, not a promise that every segment is production-ready today.
 |---|---:|---|---|
 | Algorithmic toolpath researchers | High | Python/TS authoring, exact paths, arcs, channels, simulation, byte-stable emit. | Published examples, notebooks, packaging, clearer experimental flags. |
 | Advanced makers and print labs | Medium-high | Review, verify, trace, rewrite and optimize G-code with profile-aware checks. | Easier profiles, installer, visual report, safer defaults and documentation. |
-| Post-slicer QA / farm operators | Medium-high | Source-line findings, bounds/flow/temp checks, trace summaries, binary archives. | Batch workflow, report export, profile library, CI-style integration docs. |
+| Post-slicer QA / farm operators | Medium-high | Source-line findings, bounds/flow/temp checks, trace summaries, binary archives. | Batch workflow, report export, profile library, CI-style integration docs. See [`docs/25-slicer-corpus-baseline.md`](25-slicer-corpus-baseline.md) for the real-slicer-output baseline this metric is built from. |
 | SDK integrators | Medium | Rust core plus Python/TS/wasm adapters and deterministic conformance. | Formal IR spec, semver policy, versioned release packages, integration examples. |
 | CAD/workbench plugin users | Medium | Strong compiler layer from authored paths to verified target code. | Host integration, UI workflow, CAD geometry adapters, installer story. |
 | Education and demos | Medium-high | Browser gallery, visual authoring, explainable IR pipeline, deterministic output. | Curated lessons, hosted demo, resettable examples, simpler terminology. |

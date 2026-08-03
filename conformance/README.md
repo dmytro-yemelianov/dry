@@ -7,20 +7,24 @@ for the strategy, the per-phase parity gates, and the float/determinism discipli
 
 ```
 conformance/
-  golden/      full g-code + plot for representative designs (numbers normalised)   [from the fork]
-  gcode/       per-design byte-identical Marlin/Klipper/Duet output                  [from the fork]
-  gallery/     28 fixtures: 27 registry designs + Overhang Plus metrics/g-code       [from the fork]
-  profiles/    ~695 device profiles: init data + start/end procedures                [from the fork]
-  roundtrip/   emit(parse(g)) == g fixtures + simulate-metric parity                 [from the fork]
-  vectors/     Dry IR v0 vectors: JSON + DRY0/DRY1 + metrics + g-code + design       [NOT from the fork]
-  runner/      diffs Dry output vs each corpus; native + wasm matrix                 [P0.5]
-  export.*     the one-time fork → corpora export script                             [P0.4]
+  golden/         full g-code + plot for representative designs (numbers normalised)   [from the fork]
+  gcode/          per-design byte-identical Marlin/Klipper/Duet output                  [from the fork]
+  gallery/        28 fixtures: 27 registry designs + Overhang Plus metrics/g-code       [from the fork]
+  profiles/       ~695 device profiles: init data + start/end procedures                [from the fork]
+  roundtrip/      emit(parse(g)) == g fixtures + simulate-metric parity                 [from the fork]
+  vectors/        Dry IR v0 vectors: JSON + DRY0/DRY1 + metrics + g-code + design       [NOT from the fork]
+  slicer-corpus/  genuine OrcaSlicer output on real Bambu/Prusa profiles — descriptive
+                  evidence, not an oracle; nothing here gates engine correctness          [not from the fork]
+  runner/         diffs Dry output vs each corpus; native + wasm matrix                 [P0.5]
+  export.*        the one-time fork → corpora export script                             [P0.4]
 ```
 
-**The corpora are the oracle.** Once present, every implementation task is "make corpus N pass" with a
-green diff as the definition of done. Nothing in the engine is considered correct until it matches the
-fork on these fixtures (then, in later phases, Dry goes beyond what the fork can do — non-planar, 5-axis,
-CNC/laser — where the fork is no longer an oracle and new fixtures are authored).
+**The corpora above `slicer-corpus/` are the oracle.** Once present, every implementation task is "make
+corpus N pass" with a green diff as the definition of done. Nothing in the engine is considered correct
+until it matches the fork on these fixtures (then, in later phases, Dry goes beyond what the fork can do
+— non-planar, 5-axis, CNC/laser — where the fork is no longer an oracle and new fixtures are authored).
+`slicer-corpus/` is a deliberate sibling exception to this rule — see its own README for why unmodified
+third-party slicer output carries no correctness authority here.
 
 **`vectors/` is the exception, and the home of everything the fork cannot judge.** Its seeds are
 hand-authored in typed Rust (`crates/core/tests/spec_vectors.rs`, regenerated with `UPDATE_VECTORS=1`)
