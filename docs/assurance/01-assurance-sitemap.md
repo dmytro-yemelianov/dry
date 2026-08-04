@@ -1036,6 +1036,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 - Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.
 - Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.
 - The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified.
+- Which segments each predicate is applied to. The model takes flow, retractSpeed and retractDistance as given rationals and proves only the implication; verify_stream's applicability domain -- deposition along a path of non-zero geometric length for the flow ceiling, a stationary filament move for the two retraction limits -- has no counterpart here. The 2026-08-04 pilot slice narrowed exactly that domain (an imported E-only prime line was being scored as a deposition rate, a slicer wipe as a retraction) without touching a modeled inequality, which is the sense in which this claim is silent about it.
 
 ### `FM1.OPTIMIZATION.MODEL.SEMANTICS`
 

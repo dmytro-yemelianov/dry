@@ -19,7 +19,7 @@
       "severity": "warning",
       "segment": 1,
       "source_line": null,
-      "message": "junction Δv 55.9 mm/s exceeds square-corner velocity 20.0"
+      "message": "junction turns 90.0° and is entered at 25.0 mm/s, above the 20.0 mm/s it allows at square-corner velocity 20.0"
     },
     {
       "rule": "peak-acceleration",

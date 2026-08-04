@@ -21,12 +21,6 @@
     {
       "rule": "bead-volume",
       "severity": "error",
-      "segment": 2,
-      "message": "deposited volume 0.800000 mm³ differs from the bead geometry (-0.800000 mm³ = length x width x height x flow) by more than 0.05"
-    },
-    {
-      "rule": "bead-volume",
-      "severity": "error",
       "segment": 3,
       "message": "deposited volume 0.400000 mm³ differs from the bead geometry (0.800000 mm³ = length x width x height x flow) by more than 0.05"
     },

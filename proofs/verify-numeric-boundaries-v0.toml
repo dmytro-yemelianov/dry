@@ -31,7 +31,51 @@ hash_mode = "file"
 #
 # Re-pinned 2026-08-03 at the merge of the two slices above: the hash below is verify.rs carrying
 # both reviewed diffs combined, with no further change.
-sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
+#
+# Re-pinned 2026-08-04 for the pilot false-positive slice (first real user file: a 123,613-line
+# OrcaSlicer 2.4.2 slice for a Creality Ender-3 S1, which produced 2,310 errors on a healthy print).
+# **This does change rule behaviour**, in three ways, and the file's convention is to say so
+# precisely:
+#
+#   1. `max-flow`, `bead-volume` and the two first-layer rules gained a *path* precondition, via two
+#      new helpers `traverses_path` (`s.length > 0`) and `deposits_along_path`
+#      (`!travel && traverses_path && volume > 0`). An imported E-only retract/prime line has
+#      `travel: false` and a `volume` recovered from `E` but zero geometric length, and was being
+#      scored as a deposition rate (813 identical `flow 96.211 mm³/s` errors on that one file) and as
+#      a bead against an expected volume of `0 × w × h`.
+#   2. The two retraction rules gained a *stationary* precondition (`!traverses_path`), so they judge
+#      a pure retraction rather than a slicer wipe that retracts while traversing (684 errors on that
+#      file, every one an `X Y E` move at the wipe feedrate).
+#   3. `junction-velocity` now compares `min(v_a, v_b)` against the allowed corner velocity
+#      `scv·sqrt((√2−1)·cos(φ/2)/(1−cos(φ/2)))` instead of the vector `‖v_b·t̂_b − v_a·t̂ₐ‖` against
+#      `scv` directly. Both halves live in `optimize/adaptive_speed.rs`
+#      (`junction_cos_half_angle`, `junction_velocity_limit_mm_s`), shared with `adaptive_speed`.
+#
+# **None of it is tolerance-bearing.** All three are exact comparisons: `> 0.0` and `== 0.0` on
+# `length`/`volume`/`filament`, and `>` between two velocities. No epsilon is introduced, removed or
+# retuned; no constant below changes; and none of the four boundaries' `operation` text moves —
+# `continuity`, `segment-length`/`arc-length`, `filament-consistency` and `arc-radius` are untouched in
+# both predicate and epsilon, and each still fires at Error.
+#
+# Two adjacent facts recorded because they touch pinned predicates without changing them:
+#  - `filament-consistency` deliberately keeps its own `!travel && volume > 0 && filament > 0` gate
+#    rather than adopting `deposits_along_path`. The ratio `volume/filament` is the feedstock
+#    cross-section and is exactly as valid on a zero-length prime move as on a bead, so narrowing it
+#    would lose coverage for no reason. The FILAMENT_RATIO boundary's `operation` text is verbatim what
+#    the code still does.
+#  - `junction_contiguous`'s 0.1 mm threshold is unchanged and is not an entry here (it suppresses a
+#    warning rather than raising one); it is inventoried in
+#    `proofs/verify-tolerance-numeric-profile-v0.toml`.
+#
+# One golden finding was legitimately lost and is recorded rather than worked around:
+# `conformance/reports/wellformedness/verify.json` no longer carries a `bead-volume` error on the
+# negative-length probe (segment 2), because `deposits_along_path` requires a positive length. That
+# segment still raises `negative-quantity` ("length is -10") and `segment-length`, both Error, so no
+# defect escapes; what is gone is a third report of one defect, which had been comparing a positive
+# volume against a *negative* expected bead. `> 0.0` was chosen over `!= 0.0` deliberately: it is
+# NaN-safe, so a non-finite length skips these rules instead of comparing against NaN, and `finite`
+# already reports it.
+sha256 = "ca456dbb0663e54176b8bf4051b206900e60e7c61917122d5f110a130cde7ddb"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a

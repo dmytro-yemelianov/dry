@@ -13,7 +13,7 @@
 use crate::emit::RotaryState;
 use crate::engine::segment_motion_time;
 use crate::ir::{Segment, SegmentKind, Toolpath};
-use crate::optimize::get_tangents;
+use crate::optimize::{get_tangents, junction_cos_half_angle, junction_velocity_limit_mm_s};
 use crate::resolve::{catmull_rom, SAMPLES};
 use crate::units::Length;
 use serde::{Deserialize, Serialize};
@@ -269,7 +269,7 @@ pub enum RuleId {
     ColdExtrusion,
     /// A retraction distance exceeds the limit.
     RetractionDistance,
-    /// A retraction/unretraction speed exceeds the limit.
+    /// A pure retraction/unretraction speed exceeds the limit.
     RetractionSpeed,
     /// A travel run exceeds the allowed distance without a retraction (stringing risk — advisory).
     TravelWithoutRetraction,
@@ -279,7 +279,7 @@ pub enum RuleId {
     FirstLayerSpeed,
     /// An arc's centripetal acceleration exceeds the machine's max acceleration.
     PeakAcceleration,
-    /// A junction's velocity change exceeds the machine's square-corner velocity.
+    /// A junction is entered faster than its direction change allows.
     JunctionVelocity,
     /// Verbatim or imported G-code is preserved but not semantically verified.
     UnmodeledGcode,
@@ -452,7 +452,7 @@ impl RuleId {
                 "an arc's centripetal acceleration exceeds the machine's max acceleration"
             }
             RuleId::JunctionVelocity => {
-                "a junction's velocity change exceeds the machine's square-corner velocity"
+                "a junction is entered faster than its direction change allows"
             }
             RuleId::UnmodeledGcode => {
                 "verbatim or imported G-code is preserved but not semantically verified"
@@ -637,6 +637,34 @@ fn differs_beyond(a: f64, b: f64, rel: f64) -> bool {
 /// Per-segment volumetric flow (mm³/s), or `None` for a move with no duration.
 fn flow(s: &Segment) -> Option<f64> {
     segment_motion_time(s).map(|time| (s.volume / time).value())
+}
+
+/// True when the segment traverses a path of non-zero geometric length — as opposed to a **pure
+/// filament move**, where the E axis turns while the tool stays where it is.
+///
+/// The distinction is what separates one physical act from another, and imported G-code is where it
+/// becomes load-bearing. A retract or prime line carries an `E` word and no `X`/`Y`
+/// (`G1 E1 F2400`, `G1 E-1 F3600`), so `gcode::lift` gives it `travel: false` — the flag is inferred
+/// from "`G0`, or no `E` word" — a `volume` recovered from the `E` delta, and a geometric length of
+/// zero. The filament is only moving through the feed path; nothing is laid on the part, no bead
+/// exists, and the commanded feedrate is the *filament's* speed rather than the tool's.
+///
+/// Three families of rule turn on it:
+///  - **deposition** (`max-flow`, `bead-volume`, the first-layer pair) measures a rate or a bead over
+///    a path, and has nothing to measure without one. Scoring `G1 E1 F2400` as a deposition rate
+///    reports `area × F/60` = 96.2 mm³/s for 1.75 mm filament — above every real print-flow ceiling,
+///    on a move that deposits nothing (`docs/14`).
+///  - **retraction** (`retraction-speed`, `retraction-distance`) limits the filament's own speed and
+///    distance, so it applies exactly when this is false.
+///  - **cornering** (`junction-velocity`) needs two tangents, and a zero-length move has none.
+fn traverses_path(s: &Segment) -> bool {
+    s.length.value() > 0.0
+}
+
+/// True when the segment lays material *along a path*: the domain of every deposition rule that also
+/// needs the producer's own classification to agree ([`traverses_path`] states the geometric half).
+fn deposits_along_path(s: &Segment) -> bool {
+    !s.travel && traverses_path(s) && s.volume.value() > 0.0
 }
 
 fn segment_numbers(s: &Segment) -> Vec<f64> {
@@ -917,7 +945,7 @@ where
     let mut retracted = true;
     let mut flagged_travel = false;
     // For junction-velocity: track the exit tangent and speed of the previous printing segment so we
-    // can compute the vector velocity change at contiguous junctions (reset on travel moves).
+    // can measure the direction change at contiguous junctions (reset on travel moves).
     let mut prev_print_end: Option<[Option<Length>; 3]> = None;
     let mut prev_speed_mm_s: Option<f64> = None;
     let mut prev_exit_tangent: Option<[f64; 3]> = None;
@@ -1127,10 +1155,12 @@ where
         // --- contract-driven checks ---
         if let Some(tol) = c.bead_volume_tolerance {
             // Line and Spline only: `arc_fit` sums chord volumes against an arc length, and
-            // `coasting` zeroes volume while keeping the bead, both by design.
+            // `coasting` zeroes volume while keeping the bead, both by design. A pure filament move is
+            // excluded for a third reason: its bead geometry is `length = 0`, so the identity's
+            // right-hand side is 0 and *any* volume recovered from `E` differs from it by more than a
+            // relative tolerance. There is no bead to compare against.
             let applies = matches!(s.kind, SegmentKind::Line | SegmentKind::Spline)
-                && !s.travel
-                && s.volume.value() > 0.0;
+                && deposits_along_path(&s);
             if let (true, Some(w), Some(h)) = (applies, s.width, s.height) {
                 // `flow` is omitted from the wire when exactly 1.0, so it must be defaulted.
                 let flow = s.flow.unwrap_or(1.0);
@@ -1170,7 +1200,12 @@ where
                 }
             }
         }
-        if let (Some(max), Some(f)) = (c.max_flow, flow(&s)) {
+        // A flow ceiling is a *deposition rate* limit, so it needs a path to deposit along
+        // ([`traverses_path`]). `travel` is deliberately not required to be false: OrcaSlicer writes
+        // its purge/prime lines as `G0` with an `E` word, and material pushed out at 30 mm³/s is a real
+        // flow event whether or not the producer classified the move as a travel. `travel-extrudes`
+        // reports the misclassification; this rule still reports the rate.
+        if let (Some(max), Some(f), true) = (c.max_flow, flow(&s), traverses_path(&s)) {
             if f > max {
                 push_finding(
                     &mut r,
@@ -1181,7 +1216,7 @@ where
             }
         }
         if let Some([lo, hi]) = c.speed_range {
-            if !s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0 {
+            if deposits_along_path(&s) {
                 let v = s.speed.value();
                 if v < lo || v > hi {
                     push_finding(
@@ -1223,10 +1258,29 @@ where
         }
 
         // --- retraction checks ---
+        //
+        // Both contracts limit the **filament's own** speed and distance, so both apply to a *pure*
+        // retraction or unretraction: the E axis turns while the tool stays put ([`traverses_path`] is
+        // false). That is what makes the commanded feedrate a retraction speed at all.
+        //
+        // A slicer wipe (`G1 X90.672 Y98.376 E-.11401 F3000`) retracts *while traversing*: `F` is the
+        // wipe speed and the `E` delta is a fraction of one retraction, so neither limit is measuring
+        // the quantity it names. OrcaSlicer's `retract_before_wipe` splits one retraction across both
+        // forms — the stationary part at `retraction_speed`, the remainder along the wipe — and these
+        // rules see only the stationary part. The coverage that costs is recorded in `docs/14`: a
+        // slicer that retracted entirely inside a wipe would never be distance-checked. A wipe is a
+        // different physical act and wants its own rule, not a reinterpretation of these two.
+        let stationary = !traverses_path(&s);
         let is_retract = s.filament.value() < 0.0;
-        let is_unretract =
-            s.filament.value() > 0.0 && s.length.value() == 0.0 && s.volume.value() == 0.0;
-        if is_retract || is_unretract {
+        // A pure unretract stages filament with no motion *and deposits nothing*. The `volume == 0`
+        // conjunct is not redundant with `stationary`: it is what separates a prime from a stationary
+        // **deposit** — the L1 `deposit` op lays material in place, and pinning that it is not a prime
+        // is what `verify_contracts::stationary_deposit_is_not_a_retraction_prime` exists for. For
+        // Dry-authored IR `volume` carries the distinction exactly. For imported G-code it cannot:
+        // `lift` recovers a volume from any positive `E`, so a de-retraction and a stationary deposit
+        // are the same segment, and this rule judges neither (`docs/14`).
+        let is_unretract = s.filament.value() > 0.0 && stationary && s.volume.value() == 0.0;
+        if stationary && (is_retract || is_unretract) {
             if let Some(max_speed) = c.max_retraction_speed {
                 if s.speed.value() > max_speed {
                     push_finding(
@@ -1245,7 +1299,7 @@ where
         let extrudes_material = !s.travel && s.volume.value() > 0.0;
         if is_retract {
             let dist = -s.filament.value();
-            if let Some(max_dist) = c.max_retraction_distance {
+            if let (Some(max_dist), true) = (c.max_retraction_distance, stationary) {
                 if dist > max_dist {
                     push_finding(
                         &mut r,
@@ -1257,6 +1311,9 @@ where
                     );
                 }
             }
+            // The retracted/unretracted *state* is tracked on any E-negative move, wipe included: the
+            // filament really is pulled back, and `travel-without-retraction` asks about the state, not
+            // about which form the retraction took.
             retracted = true;
         } else if is_unretract || extrudes_material {
             retracted = false;
@@ -1280,7 +1337,11 @@ where
         }
 
         // --- first-layer checks ---
-        if !s.travel && s.volume.value() > 0.0 {
+        // Both are adhesion advisories about a bead laid on the plate, so both need a bead: a pure
+        // filament move on the first layer has no height to compare and no print speed to judge — its
+        // `F` is the de-retraction rate, which is how `G1 E1 F2400` was being reported as a first-layer
+        // speed of 2400 mm/min.
+        if deposits_along_path(&s) {
             let z = s.end[2]
                 .or(s.start[2])
                 .map(Length::value)
@@ -1343,7 +1404,7 @@ where
 
         // --- kinematic checks ---
         if let Some(kin) = &c.kinematics {
-            let is_print = !s.travel && s.length.value() > 0.0 && s.volume.value() > 0.0;
+            let is_print = deposits_along_path(&s);
 
             // PeakAcceleration: centripetal acceleration of an arc must not exceed the machine max.
             // a = v² / r  where v is in mm/s and r is the arc radius in mm.
@@ -1366,17 +1427,31 @@ where
                 }
             }
 
-            // JunctionVelocity: fire when the *vector* velocity change across two contiguous
-            // printing segments exceeds the machine's square-corner velocity.
+            // JunctionVelocity: a junction may only be taken as fast as its own **direction change**
+            // allows. With `t̂ₐ` the exit tangent of the previous printing segment, `t̂_b` this
+            // segment's entry tangent, and `f = cos(φ/2)` their half-angle cosine:
             //
-            //     ‖ v_b·t̂_b − v_a·t̂_a ‖ > max_junction_velocity_mm_s
+            //     fire iff  min(v_a, v_b) > scv · sqrt((√2 − 1)·f / (1 − f))
             //
-            // Tangents come from `optimize::get_tangents`, the same arc-aware, winding-signed
-            // computation `adaptive_speed` shapes its output with, so one contract names one
-            // quantity. This strictly generalises the scalar Δv it replaces: when the tangents are
-            // equal it reduces to |v_b − v_a|, so nothing that fired before stops firing. What it
-            // adds is the constant-speed 90° corner — the case the rule is actually named for, and
-            // the one the scalar form could never see.
+            // Both halves are `optimize`'s: `junction_cos_half_angle` is the factor `adaptive_speed`
+            // shapes corners with, and `junction_velocity_limit_mm_s` turns it into the allowed corner
+            // velocity through the junction-deviation relation, calibrated so a **90° corner is allowed
+            // exactly the square-corner velocity the contract names**. One machine limit computed in one
+            // place: `adaptive_speed`'s own cap is `scv·f`, which is ≤ this limit everywhere, so a
+            // toolpath `balanced` produced always satisfies this rule.
+            //
+            // `min(v_a, v_b)` because the corner cannot be entered faster than the slower of the two
+            // commanded feedrates; firing on the faster one would report a corner the program has
+            // already slowed down for.
+            //
+            // This replaces a *scalar* `‖v_b·t̂_b − v_a·t̂ₐ‖ > scv`, which had no physical model behind
+            // its threshold: it treated a shallow deflection and a full reversal as comparable at equal
+            // Δv, where the relation above allows a shallow corner far more and a reversal none — the
+            // deficiency `docs/11` already recorded. Two consequences, both deliberate: a velocity
+            // change *along a straight line* (`f = 1`, an unbounded allowance) no longer fires, because
+            // a collinear 10 → 100 mm/s step is an acceleration question and not a cornering one; and a
+            // corner between roughly 12° and 21° at 40 mm/s with `scv = 8` stops firing, because the
+            // machine can in fact take it.
             //
             // Contiguity is still required (within 0.1 mm) so non-adjacent segments — e.g. across a
             // travel — never produce a false positive.
@@ -1389,22 +1464,18 @@ where
             ) {
                 if junction_contiguous(&prev_print_end, &s.start) {
                     if let Some((entry, _)) = tangents {
-                        let v = s.speed.value() / 60.0;
-                        let dv = libm::sqrt(
-                            (0..3)
-                                .map(|k| {
-                                    let d = v * entry[k] - pv * pt[k];
-                                    d * d
-                                })
-                                .sum::<f64>(),
-                        );
-                        if dv > max_jv {
+                        let v_junction = (s.speed.value() / 60.0).min(pv);
+                        let cos_half = junction_cos_half_angle(pt, entry);
+                        let allowed = junction_velocity_limit_mm_s(max_jv, cos_half);
+                        if v_junction > allowed {
+                            let turn_deg = 2.0 * libm::acos(cos_half.clamp(-1.0, 1.0)).to_degrees();
                             push_finding(
                                 &mut r,
                                 RuleId::JunctionVelocity,
                                 Some(i),
                                 format!(
-                                    "junction Δv {dv:.1} mm/s exceeds square-corner velocity {max_jv:.1}"
+                                    "junction turns {turn_deg:.1}° and is entered at {v_junction:.1} mm/s, \
+                                     above the {allowed:.1} mm/s it allows at square-corner velocity {max_jv:.1}"
                                 ),
                             );
                         }

@@ -1097,8 +1097,21 @@ mod tests {
         );
     }
 
+    /// An E-only prime move is *timed* — it takes 1 s to push 5 mm of filament at F300, and dropping
+    /// it from the clock would understate every program that primes. `simulate` therefore still counts
+    /// it, including in `max_flow_rate`.
+    ///
+    /// The `max-flow` **rule** does not, and that is the deliberate split this test pins. The rule
+    /// states a *deposition rate* limit, and this move deposits nothing along any path: the filament is
+    /// only travelling through the feed path (`verify::traverses_path`). Against a real Ender-3 profile
+    /// this one pattern produced 813 identical 96.211 mm³/s errors on a healthy 108k-segment print.
+    ///
+    /// The consequence is that `simulate`'s descriptive `max_flow_rate` metric and the rule now scope
+    /// differently. That is recorded in `docs/14` rather than fixed here: the metric's segment domain is
+    /// what `formal/Dry/Semantics/SimulateMetrics.lean` and its refinement corpus model, so narrowing it
+    /// is a formal-artifact change and not a verifier one.
     #[test]
-    fn e_only_prime_moves_have_duration_and_flow() {
+    fn e_only_prime_moves_are_timed_but_deposit_along_no_path() {
         let tp = import_gcode("M83\nG1 E5 F300\n", &Default::default()).unwrap();
         let metrics = simulate(&tp);
         assert_eq!(metrics.segment_count, 1);
@@ -1112,7 +1125,15 @@ mod tests {
                 ..Contracts::default()
             },
         );
-        assert!(report.findings.iter().any(|f| f.rule == "max-flow"));
+        assert!(
+            report.evaluated(crate::verify::RuleId::MaxFlow),
+            "the ceiling must be in force for the absence below to mean anything"
+        );
+        assert!(
+            !report.findings.iter().any(|f| f.rule == "max-flow"),
+            "a prime move deposits along no path: {:?}",
+            report.findings
+        );
     }
 
     #[test]
