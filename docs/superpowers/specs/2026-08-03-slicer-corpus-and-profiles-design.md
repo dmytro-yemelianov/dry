@@ -248,6 +248,62 @@ this profile's job is to be a safe verifier baseline, not a firmware-calibration
 already scopes kinematics that way: "no pressure-advance, input-shaper or firmware-specific calibration
 model"). `max_volumetric_flow_mm3_s` (15) is a conservative all-metal-hotend PLA figure.
 
+### Provenance addendum, 2026-08-04 — five limits corrected against vendor slicer profiles
+
+The **sourcing rule above assumed manufacturer spec sheets were the only available source**, and for
+square-corner velocity concluded no source existed at all. That was wrong, and the first real user file
+showed why: an OrcaSlicer `.gcode` file embeds the **entire stock printer profile** as a trailing comment
+block, so the vendor's own configured values are readable from any slice of that machine. Where a
+correction below cites a `; key = value` line, that is the *vendor slicer's stock profile for that
+printer*, which is a strictly better source than an estimate — and, for a verifier ceiling, the right one:
+a limit below what the machine's own stock profile commands turns every healthy print into an error.
+
+Five values changed. Units: OrcaSlicer states speeds in mm/s; Dry profiles state feedrates in mm/min.
+
+| Profile | Field | Was | Now | Source |
+|---|---|---|---|---|
+| `ender3-pla-marlin.json` | `process.max_retraction_speed` | 2700 | **3600** | `retraction_speed = 60` (mm/s) in the stock "Creality Ender-3 S1 0.4 nozzle" profile. `deretraction_speed = 40` (2400) is the other direction and is below the new ceiling. |
+| `ender3-pla-marlin.json` | `material.max_volumetric_flow_mm3_s` | 11.0 | **12.0** | `filament_max_volumetric_speed = 12` in the same file's filament block. |
+| `ender3-pla-marlin.json` | `process.first_layer_speed_range` | [300, 1800] | **[300, 3000]** | The stock profile's fastest first-layer feature: `initial_layer_speed = 15` (900), `initial_layer_infill_speed = 35` (2100), and the skirt at 50 mm/s (3000, observed as `;TYPE:Skirt` followed by `G1 F3000`). The ceiling admits the fastest first-layer move the vendor profile emits. |
+| `bambu-x1c-pla.json` | `machine.kinematics.max_junction_velocity_mm_s` | 8 *(estimate)* | **9** | `machine_max_jerk_x = 9,9` / `machine_max_jerk_y = 9,9` in `conformance/slicer-corpus/cube__orca-bambu-x1c-pla.gcode`. |
+| `prusa-mk4-pla.json` | `machine.kinematics.max_junction_velocity_mm_s` | 8 *(estimate)* | **10** | `machine_max_jerk_x = 10,10` / `machine_max_jerk_y = 10,10` in `conformance/slicer-corpus/cube__orca-prusa-mk4-pla.gcode`. |
+
+Marlin's classic jerk *is* the square-corner velocity the contract field means — the per-axis
+instantaneous velocity change the planner permits at a junction — so these are vendor-configured values,
+not estimates, and the "no vendor publishes a square-corner-velocity figure" note above is retired for
+these two printers. Both files also declare a junction-deviation figure
+(`machine_max_junction_deviation = 0.01`), which is the *newer* Marlin model for the same limit; converting
+it (`scv = sqrt(δ·a/(√2−1))`) gives 22 mm/s for the X1C's 20,000 mm/s² and 9.8 mm/s for the MK4's 4,000 —
+so the jerk figure is the more conservative of the two the vendor ships, and is the one taken.
+
+For the Ender-3 S1 the same conversion is instructive and is why its value did **not** move: the file
+declares `machine_max_jerk_x = 8,8` *and* `machine_max_junction_deviation = 0.013` with
+`machine_max_acceleration_x = 500`, i.e. 3.96 mm/s — so 8 is already the more permissive of the vendor's
+own two figures, and there is no case for raising it.
+
+**Deliberately not changed, with reasons**, so the absence is not read as an oversight:
+
+- **`ender3-pla-marlin.json` `build_volume` Z (250).** The pilot file's machine declares
+  `printable_height = 270`, but this profile is the generic *"Ender-style 220 bed"* example, not an
+  Ender-3 S1 profile; 250 is right for the machine it names. A machine-specific profile is a new file.
+- **`ender3-pla-marlin.json` `max_retraction_distance` (6.0).** Unprovenanced and very generous (the stock
+  profile retracts `retraction_length = 1`), but it is a *ceiling* and erring high costs coverage rather
+  than producing false errors. Tightening it needs a defensible number for what an Ender-class Bowden
+  extruder can retract without grinding, which nobody publishes.
+- **`bambu-x1c-pla.json` / `prusa-mk4-pla.json` retraction and flow limits.** Both corpus files declare
+  `retraction_speed = 30` (1800) and `retraction_length = 0.8`; the shipped ceilings (1800/2100 mm/min,
+  0.8/1.0 mm) are already at or above them, so there is nothing to correct. The 3,566 corpus
+  `retraction-speed` findings that `docs/25` attributed to conservative ceilings were **not** that — they
+  were wipe-while-retracting moves, and the verifier scope fix removed all but one.
+- **`bambu-x1c-pla.json` / `prusa-mk4-pla.json` `first_layer_speed_range` ([600, 3000]).** The same class
+  of defect exists here — `initial_layer_infill_speed = 105` on the X1C is 6,300 mm/min — but widening a
+  fixed range to admit it makes the adhesion advisory vacuous for that machine. Recorded in `docs/14`
+  instead: the rule wants a first-layer-*part*-speed notion the IR does not carry.
+- **`bambu-x1c-pla.json` / `prusa-mk4-pla.json` `build_volume`.** The 571 corpus `bounds` findings are the
+  vendor start macro moving onto the purge chute (`Y265` on the X1C, `Y-4` on the MK4), outside the
+  published printable area. Both numbers are the machines' real published volumes; widening them to admit
+  a purge move would stop `bounds` catching a genuine off-bed move. Already classified in `docs/25`.
+
 ## 5. Baseline report
 
 `docs/25-slicer-corpus-baseline.md`, following the numbered-docs convention (`24` is the last used

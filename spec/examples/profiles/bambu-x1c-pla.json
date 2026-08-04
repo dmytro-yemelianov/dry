@@ -4,7 +4,7 @@
   "machine": {
     "build_volume": [[0.0, 256.0], [0.0, 256.0], [0.0, 256.0]],
     "feedrate_range": [300.0, 30000.0],
-    "kinematics": { "max_acceleration_mm_s2": 20000, "max_junction_velocity_mm_s": 8 }
+    "kinematics": { "max_acceleration_mm_s2": 20000, "max_junction_velocity_mm_s": 9 }
   },
   "material": {
     "filament_diameter": 1.75,
