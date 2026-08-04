@@ -165,8 +165,11 @@ def test_verify_no_kinematics_no_acceleration_finding():
 
 
 def test_verify_kinematics_junction_velocity_finding():
-    """A tight max_junction_velocity_mm_s with a speed-change corner fires junction-velocity."""
-    # Two contiguous printing segments at different speeds: Δv = |100 - 50| = 50 mm/s > 25 limit.
+    """A tight max_junction_velocity_mm_s at a right-angle corner fires junction-velocity."""
+    # Two contiguous printing segments meeting at a 90° corner (+X then +Y). A right angle is allowed
+    # exactly the square-corner velocity, 25 mm/s, and is entered at min(100, 50) = 50 mm/s. It is the
+    # corner that fires, not the speed change: the same 100 → 50 step along a straight line is allowed
+    # (see crates/core/tests/verify_rule_scope.rs).
     d = (
         dry.Design()
         .geometry(0.6, 0.2)
