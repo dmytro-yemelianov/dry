@@ -75,7 +75,10 @@ hash_mode = "file"
 # volume against a *negative* expected bead. `> 0.0` was chosen over `!= 0.0` deliberately: it is
 # NaN-safe, so a non-finite length skips these rules instead of comparing against NaN, and `finite`
 # already reports it.
-sha256 = "ca456dbb0663e54176b8bf4051b206900e60e7c61917122d5f110a130cde7ddb"
+# Re-pinned again in the same slice, for one stale in-module test comment: the doc comment on
+# `junction_over_scv_is_a_junction_velocity_warning` still described the fixture in terms of the
+# scalar Delta-v it no longer measures. Comment only -- no code, no predicate, no epsilon.
+sha256 = "0f2a275564e1cd18970b71d922da279c54ef6751c6f5a7f580179439fce62345"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a

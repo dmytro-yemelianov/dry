@@ -1770,8 +1770,11 @@ mod tests {
 
     #[test]
     fn junction_over_scv_is_a_junction_velocity_warning() {
-        // Two contiguous printing segments: v0 = 600 mm/min (10 mm/s), v1 = 6000 mm/min (100 mm/s).
-        // Δv = 90 mm/s, limit = 5 mm/s → junction-velocity Warning.
+        // Two contiguous printing segments meeting at a 90° corner (+X then +Y), at v0 = 600 mm/min
+        // (10 mm/s) and v1 = 6000 mm/min (100 mm/s). A right angle is allowed exactly the square-corner
+        // velocity, 5 mm/s, and is entered at min(10, 100) = 10 → junction-velocity Warning. The corner,
+        // not the speed difference, is what fires: `verify_rule_scope.rs` pins the collinear case, where
+        // the same 10 → 100 mm/s step is allowed.
         let tp = two_segment_junction(600.0, 6000.0);
         let c = Contracts {
             kinematics: Some(KinematicContracts {
