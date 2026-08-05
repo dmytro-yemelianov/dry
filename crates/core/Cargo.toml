@@ -19,7 +19,7 @@ serde = { version = "1", features = ["derive"] }
 # defines conformance as bit-exact f64 equality. Pinned by the five_axis_drape conformance vector,
 # whose resolved lengths and volumes are the first in the corpus long enough to expose it.
 serde_json = { version = "1", features = ["float_roundtrip"] }
-miniz_oxide = "0.8"
+miniz_oxide = "0.9"
 libm = "0.2"
 
 [dev-dependencies]
