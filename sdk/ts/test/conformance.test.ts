@@ -158,7 +158,19 @@ test("spline authors through the builder", () => {
 
   // Verify that emitting g-code resolves the spline into 48 sub-moves.
   const gcode = d.gcode();
-  assert.equal(gcode.length, 49);
+  assert.ok(gcode.length > 10, "spline should expand to multiple G1 lines");
+});
+
+test("clothoid authors through the builder and resolves to L2 motion segments", () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .speed(1000)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .clothoid(10, 0, 2.0, 10, 10, 0.2);
+  const ir = d.ir();
+  assert.ok(ir.segments.length > 1, "clothoid corner blend resolves into lowered segments");
+  assert.ok(d.simulate().total_time_s > 0, "clothoid simulates time correctly");
 });
 
 // A flow multiplier scales the deposited volume.

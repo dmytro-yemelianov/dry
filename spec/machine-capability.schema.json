@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/machine-capability.schema.json",
+  "title": "Dry Machine Capability Schema v1",
+  "description": "Normative schema for machine capabilities and failure-closed lowering boundaries (see docs/26-universal-dry-ir-spec.md Section 2).",
+  "type": "object",
+  "required": ["version", "process_family", "axes"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Capability schema version."
+    },
+    "process_family": {
+      "type": "string",
+      "enum": ["additive-fff", "subtractive-cnc", "directed-energy-laser", "robotic-arm"],
+      "description": "The primary manufacturing process family."
+    },
+    "axes": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 6,
+      "description": "Number of degree-of-freedom axes supported (3, 4, 5, or 6)."
+    },
+    "rotary_axes": {
+      "type": "string",
+      "enum": ["ab", "ac", "bc", "none"],
+      "description": "Rotary axis configuration for 5-axis motion."
+    },
+    "build_volume": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "number" }
+      },
+      "description": "Bounding box [[x_min, x_max], [y_min, y_max], [z_min, z_max]] in mm."
+    },
+    "max_volumetric_flow_mm3_s": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Maximum extrusion flow rate in mm^3/s."
+    },
+    "max_feedrate_mm_min": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Maximum linear feedrate in mm/min."
+    },
+    "max_spindle_rpm": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Maximum spindle RPM for CNC/laser operations."
+    },
+    "supported_flavors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["marlin", "klipper", "duet", "rs274", "grbl", "krl", "robot-krl"]
+      },
+      "description": "List of supported controller emission flavors."
+    },
+    "supports_power_channel": {
+      "type": "boolean",
+      "description": "Whether the machine target supports spindle/laser power words (S-word)."
+    },
+    "supports_toolframe_orientation": {
+      "type": "boolean",
+      "description": "Whether the machine target supports non-planar 5-axis orientation vectors."
+    }
+  }
+}
