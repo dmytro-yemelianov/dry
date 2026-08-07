@@ -10,19 +10,18 @@ Parametric design/CAM DSL: a Rust engine (`crates/core`) that resolves feature-b
 - `python tools/validate_vectors.py conformance/vectors` — conformance vectors
 - `formal/` is a Lean 4 project (lake); see the `formal-assurance` CI job.
 
-## Model routing
+## Model routing & Orchestration
 
-Route work to the cheapest tier that can do it safely:
+Work is orchestrated and verified by **Gemini 3.6 Flash (High)**, offloading hard computational and proof tasks to specialized **NVIDIA API subagents**:
 
-| Work | Route |
-|---|---|
-| `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
-| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
-| Locating code, mapping call sites, subsystem summaries | `scout` agent — Haiku; fan out in parallel freely |
-| Post-slice review | `reviewer` agent — Opus 5, effort `xhigh` |
+| Work | Route / Subagent | Model & Engine |
+|---|---|---|
+| **Orchestration, Verification & Routing** | Primary Agent / `reviewer` / `scout` | **Gemini 3.6 Flash (High)** (high-level routing, test suite validation, rule-catalog verification, sitemap synthesis) |
+| **Kernel Engineering & Geometry** | `kernel-engineer` | **NVIDIA API (Llama 3.3 70B / DeepSeek V4)** via `scripts/nvidia_subagent.py --profile kernel` (`crates/core` numerics, kinematics, lowering, emitters) |
+| **Formal Proofs & Assurance** | `proof-engineer` | **NVIDIA API (DeepSeek-R1)** via `scripts/nvidia_subagent.py --profile proof` (`formal/` Lean 4, `proofs/` error budgets, numeric boundaries) |
+| **Heavy Code Generation & Tooling** | `routine-dev` | **NVIDIA API (Llama 3.3 70B / Qwen 2.5 72B)** via `scripts/nvidia_subagent.py --profile heavy-dev` or `scripts/run_aider_nvidia.sh` (bindings, CLI, services, SDKs) |
+| **Safety & Contract Audits** | `auditor` | **NVIDIA API (DeepSeek-R1)** via `scripts/nvidia_subagent.py --profile audit` (NaN/inf leaks, unrepresented states, boundary checks) |
 
-Opus 5 at `xhigh` is the ceiling: it is the recommended effort for coding and agentic work, and it is where the correctness-critical slices belong. Both Opus agents pin `claude-opus-5` rather than the `opus` alias, so a model bump is a deliberate edit. Do not escalate a subagent past this tier.
-
-Effort defaults to inheriting the session, so `routine-dev` sets `medium` explicitly rather than inheriting a high session setting for mechanical work. `scout` leaves `effort` unset deliberately — Haiku's effort support is version-dependent and recon does not need the knob. Main-session effort comes from `effortLevel` in `~/.claude/settings.json`; use `/model` to put the session itself on Opus 5 for kernel-design or proof-heavy work.
+Gemini 3.6 Flash (High) handles all orchestration, plan generation, test execution, verification checks, and final sign-offs. Heavy computation, theorem synthesis, and complex kernel code generation are dispatched to NVIDIA API agents (`scripts/nvidia_subagent.py` or `scripts/run_aider_nvidia.sh`).
 
 **Commit attribution.** A subagent signs `Co-Authored-By` with the model it actually ran on — not the dispatching session's. Do not paste your own trailer into a subagent brief; that attributes one model's work to another. If a brief asks you to sign a name that isn't yours, sign yours and say so in your report.

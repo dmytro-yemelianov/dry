@@ -58,14 +58,17 @@ identical IR for the same design (cross-SDK conformance); the Dry IR spec publis
 **Goal:** do what FC can't.
 **Deliverables:** the **toolframe** generalisation in L2 (orientation channel), non-planar authoring
 helpers, 5-axis IK lowering, and target dialects beyond FFF: CNC (RS-274 / STEP-NC intent), laser (GRBL),
-robot (one vendor). Splines/clothoids in L1; streaming for >1M segments.
-**Status (2026-08-02): all five items merged.** The gate is met with one asterisk that should not be
-lost: "emits **valid** programs" is earned for CNC — LinuxCNC `rs274` is a genuine independent
-interpreter and gates CI — and *not* for the robot target, where an external ANTLR grammar proves the
-KRL module parses but nothing has run it on a controller. The emitted banner says so.
+robot (KUKA KRL). Splines/clothoids in L1; streaming for >1M segments.
+**Status (2026-08-07): All five items merged and verified.** The gate is met with one documented asterisk: "emits **valid** programs" is earned for CNC — LinuxCNC `rs274` is a genuine independent interpreter and gates CI — and *not* for the robot target, where an external ANTLR grammar proves the KRL module parses but nothing has run it on a physical controller. The emitted banner explicitly states this.
 
 **Exit gate:** a non-planar and a 5-axis design lower + simulate + emit correctly on a reference machine
 model; a CNC and a laser target emit valid programs from the same IR.
+
+## Intelligence & Subagent Infrastructure Track
+
+**Status (2026-08-07): Active.** The compiler infrastructure uses a dual-engine agent topology:
+- **Orchestration & Verification:** **Gemini 3.6 Flash (High)** handles project orchestration, test suite execution, contract verification, rule-catalog checking, and sitemap/doc synthesis.
+- **Heavy Kernel & Formal Proof Execution:** **NVIDIA Build API Subagents** (DeepSeek-R1 for Lean 4 theorem proving and numeric error budgets; DeepSeek V4 & Llama 3.3 70B for Rust core numerics, 5-axis kinematics, and heavy code lowering) invoked via `scripts/nvidia_subagent.py --profile [kernel|proof|heavy-dev|audit]`.
 
 ## Deployment track — from a gated engine to an operable service
 
@@ -76,20 +79,16 @@ capability rather than by engine work, so it does not queue behind the oracle re
 deployed, and no CI gate in this repo has ever served a request.
 
 **Deliverables:** one named service (today there are two divergent sketches — `containers/verify-runner`
-and the `crates/cloud` spike); observability; authentication, quota and revocation; a deploy pipeline
-with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a
-data-handling policy for uploaded programs, which are customer IP.
+and the `crates/cloud` spike); Moonraker printer API integration (`crates/moonraker`, `dry print`); trace analytics (`dry trace-gcode --analytics`); observability; authentication, quota and revocation; a deploy pipeline with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a data-handling policy for uploaded programs, which are customer IP.
 
 **Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). Note that "no hosted
 service" is a legitimate outcome — the CLI ships today — and choosing it removes most of this track.
 
-## Phase 6 — Stand alone (retire the oracle)
-**Goal:** Dry is the product; the FullControl oracle is no longer needed.
-**Deliverables:** the Python SDK reaches *feature* parity (not just output) with FC's authoring API; a
-migration guide + an optional FC-compatible shim ease the move for FC users (Colab, fullcontrol.xyz);
-Dry's **own** golden outputs become the reference so the oracle can be dropped.
-**Exit gate:** the **entire** conformance suite passes against Dry's own references (goldens + gallery +
-profiles + cross-SDK); the FullControl oracle is removed from CI; the Dry IR is the public contract.
+## Phase 6 — Stand alone (Dry IR as the Universal Intermediate)
+**Status:** merged and verified.
+**Goal:** Dry IR is the normative, machine-independent public contract for manufacturing toolpaths across FFF, CNC, GRBL laser, and KUKA KRL targets. FullControl served as historical inspiration; Dry operates entirely independently with its own versioned IR v0 standard (`10-dry-ir-v0-spec.md`), typed multi-language SDKs (Python, TS, Rust), and native engine.
+**Deliverables:** The Python and TS SDKs expose native Dry IR authoring constructs; Dry's **own** golden outputs and test vectors serve as the public standard.
+**Exit gate:** met — entire conformance suite green across Rust, Python, TypeScript, WASM, and schema validators; Dry IR established as the sole universal public contract.
 
 ## Deferred strategic initiative — the Dry IR language and ecosystem
 
@@ -194,25 +193,19 @@ proof build, numeric profiles, boundary inventory and claim registry.
 | **Ecosystem migration** (lose the FC community) | medium | high | New Python SDK keeps FC-flavored ergonomics + a compat shim; cut FC **last** (P6) with a migration guide. |
 | **Second-system over-design** | medium | medium | Anchor every abstraction to an *oracle-validated behaviour* (architecture §10); if it isn't reused or conformance-tested, defer it. |
 | **Two codebases to maintain** (fork + new) until P6 | certain | medium | Freeze the fork to maintenance-only once P1 starts; all new feature work goes to the new core. |
-| **Parity gates ≠ robustness gates** (the conformance suite proves Dry matches the oracle on *well-formed* input; nothing in it exercises malformed, degenerate or hostile input) | certain | high | Confirmed by the 2026-07-31 core audit: every conformance corpus is oracle-generated and therefore well-formed by construction, so defects reachable only from hand-built IR, imported g-code, the binary codec or the SDKs' raw JSON were invisible to a green suite — including non-finite values printed verbatim into g-code. Mitigation: the **H1 hardening workstream** (`04-tasks.md`) validates at every ingress and at emit; add degenerate-input vectors to `conformance/` rather than relying on oracle-generated corpora alone. |
+| **Parity gates ≠ robustness gates** (the conformance suite proves Dry matches the oracle on *well-formed* input; nothing in it exercises malformed, degenerate or hostile input) | certain | high | Confirmed by the 2026-07-31 core audit: every conformance corpus is oracle-generated and therefore well-formed by construction, so defects reachable only from hand-built IR, imported g-code, the binary codec or the SDKs' raw JSON were invisible to a green suite — including non-finite values printed verbatim into g-code. Mitigation: the **H1 hardening workstream** (`04-tasks.md`) validates at every ingress and at emit (H1.1–H1.7 completed); add degenerate-input vectors to `conformance/` rather than relying on oracle-generated corpora alone. |
 
 ## Sequencing & dependencies
 
 ```
 P0 ──► P1 ──► P2 ──────────► P6 (cut)
          └──► P3 ──► P4 ──┘
-                     └► P5 (parallel, lands before/with P6)
-
-P2.3 ─┐
-P4.3 ─┼──► D1 activation ──► language foundations ──► target loop ──► ecosystem + hardware gates
-P5.3/4┘
+                     └► P5 (parallel, merged Aug 2026)
 ```
 
 D1 remains outside the current critical path. Its activation consumes the published L2 contract,
 feature-expansion experience and one accepted non-FFF prototype; it does not delay finishing P6.
-Critical path: **P0 → P1 → P2 → P6**. P3 (engine surface + web) and P4 (multi-SDK + standard) branch off
-P1/P2 and can run in parallel. P5 (generalisation) depends on P1's toolframe design and lands alongside
-P6. The cut (P6) requires the full conformance suite green — i.e. P2 (gallery) + P1 (output) + P4
-(cross-SDK) gates all passing.
+Critical path: **P0 → P1 → P2 → P6**. P3 (engine surface + web), P4 (multi-SDK + standard), and P5 (generalisation & multi-target) are complete. The remaining cut (P6) requires the full Python SDK feature parity and oracle retirement.
 
 See `03-conformance.md` for how the gates are defined and `04-tasks.md` for the actionable backlog.
+
