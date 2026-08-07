@@ -89,6 +89,14 @@ def test_channels_and_dwell_author_through_the_builder():
     assert any(line == "G4 S2.5" for line in d.gcode())
 
 
+def test_clothoid_authors_through_builder():
+    d = (dry.Design().geometry(0.6, 0.2).speed(1000).extruder(True)
+         .point(0, 0, 0.2).clothoid(10, 0, 2.0, 10, 10, 0.2))
+    ir = d.ir()
+    assert len(ir["segments"]) > 1
+    assert d.simulate()["total_time_s"] > 0
+
+
 def test_power_channel_authors_onto_segments_and_survives_optimization():
     d = (dry.Design().geometry(0.6, 0.2).extruder(True)
          .power(600).point(0, 0, 0.2).point(10, 0, 0.2)

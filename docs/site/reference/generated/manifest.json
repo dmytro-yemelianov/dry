@@ -35,7 +35,7 @@
     },
     "profilesReports": {
       "path": "docs/11-profiles-and-reports.md",
-      "sha256": "fdd3e87b72b8aa12f502d639b710db9cc77714e58fb24a9b48ba5976a1f1eeaf"
+      "sha256": "dea9fa806544c804141bed3055ecd424651d13115a0e06832a1b770021934e21"
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",

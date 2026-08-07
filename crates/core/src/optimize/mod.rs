@@ -21,9 +21,11 @@ use crate::ir::Toolpath;
 use crate::profile::MachineKinematics;
 use crate::verify::Contracts;
 
-pub(crate) use self::adaptive_speed::get_tangents;
 pub use self::adaptive_speed::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,
+};
+pub(crate) use self::adaptive_speed::{
+    get_tangents, junction_cos_half_angle, junction_velocity_limit_mm_s,
 };
 pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};

@@ -112,6 +112,7 @@ pub enum ProcessCommand {
     Fan(f64),
     Flow(f64),
     Tool(u32),
+    Power(f64),
 }
 
 /// A motion command with its modal context and source location.
@@ -662,6 +663,13 @@ fn classify_record(
                 krl_arc = true;
             }
             (ROBOT_WAIT, _) => krl_motion = Some(MotionMode::Dwell),
+            ('M', Some(3 | 4)) => {
+                let speed = word_value(words, 'S').unwrap_or(1.0);
+                process_record = Some(ProcessCommand::Power(speed));
+            }
+            ('M', Some(5)) => {
+                process_record = Some(ProcessCommand::Power(0.0));
+            }
             ('M', Some(82)) => {
                 state.extrusion_mode = ExtrusionMode::Absolute;
                 state_record = Some(StateCommand::ExtrusionMode(ExtrusionMode::Absolute));

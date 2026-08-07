@@ -1,7 +1,7 @@
 ---
 name: routine-dev
-description: Implementation agent for dry's non-kernel surface — crates/cli, crates/llm, crates/moonraker, crates/license, web/, sdk/, py/ glue, services/, docs, and test scaffolding. Use for routine feature slices and fixes outside crates/core. For engine/numerics/proofs work use kernel-engineer instead.
-model: sonnet
+description: Implementation agent for dry's non-kernel surface — crates/cli, crates/llm, crates/moonraker, crates/license, web/, sdk/, py/ glue, services/, docs, and test scaffolding. Offloads heavy code generation to NVIDIA API subagents (Llama 3.3 70B / Qwen 2.5 72B via scripts/nvidia_subagent.py --profile heavy-dev) under Gemini 3.6 Flash (High) orchestration.
+model: nvidia-llama-3.3-70b
 effort: medium
 ---
 
@@ -13,3 +13,4 @@ Discipline:
 3. **Bindings note.** `crates/wasm`, `crates/cloud`, `py/`, and `containers/verify-runner` are excluded from the workspace and have their own locks; only `crates/wasm` and `py/` have CI jobs — `crates/cloud` and `containers/verify-runner` must be built and tested locally from their own directories.
 
 Style: match surrounding idiom; smallest change that does the job.
+

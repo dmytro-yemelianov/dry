@@ -71,19 +71,55 @@ Do not rely on Dry for any of these today:
   through `dry verify` than through `dry review-gcode`; `Report` echoes `contracts` but not `meta`, so the
   difference would be invisible in the report; and a producer-declared field must not pick the severity
   the verifier assigns it.
-- **`max-flow` scores an E-only retract/prime move as if it deposited at that rate.** The rule computes
-  flow as (filament cross-section area) x (segment speed), which is correct for an ordinary extruding
-  move but not for a retract/de-retract line that carries an `E` word and no `X`/`Y` (`G1 E.8 F1800`,
-  `G1 E-0.8 F1800`): the filament is only moving through the feed path, not being deposited on the part,
-  yet the rule reports it at `pi * (diameter/2)^2 * (F / 60)` mm3/s regardless — 72.16 mm3/s for a
-  1.75 mm filament at `F1800`, 60.13 mm3/s at `F1500`, both far above any of these machines' real
-  print-flow ceilings (the X1C's published max flow is ~32 mm3/s). Across the committed
-  `conformance/slicer-corpus/` files, this pattern accounts for the large majority of `max-flow`
-  findings against the example profiles (1,722 of 1,810, all at the profile's own filament diameter) —
-  see [`docs/25-slicer-corpus-baseline.md`](25-slicer-corpus-baseline.md) for the measurement. This is an
-  **expected-import-artifact of the verifier's flow formula**, not evidence the profile's ceiling is
-  wrong (a profile-mismatch) and not a real overflow event; a materially better max-flow rule would
-  exclude segments with no XY displacement, but nothing in the current rule catalog does.
+- **`simulate`'s `max_flow_rate` metric still scores an E-only retract/prime move as a deposition rate.**
+  The `max-flow` *rule* no longer does — it requires a path to deposit along, which is what removed
+  1,722 of 1,810 corpus findings and all 813 on the first real user file (`docs/11` §2, "A pure filament
+  move is not a deposition"). The descriptive metric was deliberately left alone, so
+  `dry review-gcode` on a healthy Ender-3 file reports `max_flow_rate: 96.21` mm³/s (a `G1 E1 F2400`
+  prime) beside zero `max-flow` findings. Two reasons it is a separate slice: the metric is timed
+  correctly — a prime really does take 1/40 s and dropping it would understate every program that primes
+  — so the fix is to report the peak *deposition* rate under a new name rather than to narrow this one;
+  and the metric's segment domain is what `formal/Dry/Semantics/SimulateMetrics.lean` and
+  `proofs/fixtures/simulate-metrics-refinement-v0.json` model, so narrowing it is a formal-artifact
+  change. Until then, treat `max_flow_rate` on imported G-code as "peak filament throughput", not
+  "peak deposition rate".
+- **Neither retraction rule can see a retraction that happens while the tool moves.** Both require a
+  stationary filament move, because that is the only case in which the commanded feedrate *is* the
+  filament's speed. Two real patterns therefore go unjudged. (a) A **wipe-while-retracting**
+  (`G1 X90.672 Y98.376 E-.11401` under a modal `F3000`): OrcaSlicer's `retract_before_wipe = 70%` splits
+  one 1 mm retraction into a stationary part and a wipe remainder, so `retraction-distance` measures 0.7 mm
+  of a 1 mm retraction, and a slicer configured to retract entirely inside a wipe would never be
+  distance-checked at all. (b) A **retract combined with a Z lift** (`G1 Z0.6 E-1 F3600`), where the true
+  filament speed is not `F` but `F·|ΔE|/|ΔXYZ|` and can be several times higher — so the honest rule is
+  one that computes the filament's own speed from the E-to-motion ratio, not a reinterpretation of these
+  two. The pilot file contains 684 of pattern (a) and none of (b); both are recorded rather than
+  guessed at.
+- **An imported de-retraction is not speed-judged.** `retraction-speed` covers a pure *unretract* only
+  when it deposits nothing, and `gcode::lift` recovers a volume from any positive `E` — which makes an
+  imported `G1 E1 F6000` byte-identical in IR shape to a legitimate stationary L1 `deposit` (material laid
+  in place). The rule is an **error**, so the ambiguity is resolved toward not gating a legal program.
+  Closing it needs the importer to record which act the `E` word performed; pinned as
+  `retraction_speed_cannot_see_an_imported_unretract` in `crates/core/tests/verify_rule_scope.rs`.
+- **`junction-velocity` is high-volume on real slicer output at any defensible square-corner velocity,
+  and that is a property of the print, not of the rule.** The rule now measures the right quantity — the
+  direction change at the junction, turned into an allowed corner velocity by the junction-deviation
+  relation, calibrated so a 90° corner is allowed exactly `scv` (`docs/11` §1). On the first real user
+  file (108,533 segments, Ender-3 S1, `scv = 8`, the vendor's own `machine_max_jerk_x = 8`) that took the
+  count from 41,112 to 33,539 warnings. It does **not** make it small, and raising `scv` will not either:
+  measured on the same file, `scv = 4` → 42,119, `scv = 8` → 33,539, `scv = 10` → 29,719,
+  `scv = 20` → 18,830. The reason is in the geometry: 33,236 of that file's 90,897 printing junctions turn
+  by more than 20°, and at the commanded 40–60 mm/s every one of them is above its cornering limit. Every
+  firmware planner slows down at each, which is why the print is healthy. So a per-junction finding is a
+  **plan-fidelity advisory** (the same character as `rotary-feed`: the controller obeys, the plan was
+  optimistic), it is a Warning and never gates, and its useful form is aggregate — "this program commands
+  N corners above the machine's cornering limit, costing an estimated T seconds" — which is a reporting
+  change, not a rule change. Do not read a large `junction-velocity` count as a defect in the g-code.
+- **No rule asks whether a velocity change along a straight line is achievable.** `junction-velocity`
+  used to fire on a collinear speed step (its old measure was a scalar Δv), which read as coverage but was
+  a cornering limit reporting an acceleration question. It no longer does. `peak-acceleration` evaluates
+  arcs only, so a collinear 10 → 100 mm/s step in a distance too short to accelerate through is currently
+  unchecked. Closing it needs a trapezoidal-planning predicate over consecutive segments, which is a new
+  rule rather than a widening of either existing one.
 - **No rule flags a beam lit during a travel.** `travel-extrudes` states the material analogue (a travel
   that deposits), but nothing says the equivalent about `power`: a travel carrying `power: 600` verifies
   clean — not even as a warning, which is the remaining asymmetry now that the material rule is one. It is

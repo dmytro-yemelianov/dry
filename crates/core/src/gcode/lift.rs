@@ -410,6 +410,7 @@ struct LiftState {
     fan: Option<f64>,
     flow: f64,
     tool: Option<u32>,
+    power: Option<f64>,
     /// Last commanded `A`/`B`/`C` word in degrees, in that order. Rotary words are modal like the
     /// linear axes: `emit` writes one only when it changes, so a segment's orientation comes from the
     /// running state, not from the words on its own line.
@@ -426,6 +427,7 @@ impl Default for LiftState {
             fan: None,
             flow: 1.0,
             tool: None,
+            power: None,
             rotary: [None, None, None],
         }
     }
@@ -764,16 +766,7 @@ fn lift_motion(
             fan: state.fan,
             flow: None,
             tool: state.tool,
-            // The importer does not yet read `S`/`M3`/`M5` back into the power channel — the
-            // emitter writes them for GRBL, but lifting them is a parser change this slice does
-            // not make, so a g-code round trip drops the channel rather than guessing at it.
-            //
-            // Whoever does lift them must look at `emit_normalized_span_lines` first: like the
-            // `CncFrame` preamble, the GRBL power words are *program*-scoped — the `M3` fires once
-            // and the closing `M5` once — so a span emitted on its own carries a prologue and an
-            // epilogue the same span inside the whole-program stream does not, and the span line
-            // accounting there would refuse the rewrite.
-            power: None,
+            power: state.power,
             dwell_s,
             manual_gcode: None,
             orientation,
@@ -854,8 +847,7 @@ fn lift_motion(
         fan: state.fan,
         flow,
         tool: state.tool,
-        // See the dwell branch: `S`/`M3`/`M5` are not lifted in this slice.
-        power: None,
+        power: state.power,
         dwell_s: None,
         manual_gcode: None,
         orientation,
@@ -926,6 +918,7 @@ fn apply_process(command: ProcessCommand, state: &mut LiftState) {
         ProcessCommand::Fan(speed) => state.fan = Some(speed),
         ProcessCommand::Flow(ratio) => state.flow = ratio,
         ProcessCommand::Tool(index) => state.tool = Some(index),
+        ProcessCommand::Power(pwr) => state.power = Some(pwr),
     }
 }
 
@@ -1097,8 +1090,21 @@ mod tests {
         );
     }
 
+    /// An E-only prime move is *timed* — it takes 1 s to push 5 mm of filament at F300, and dropping
+    /// it from the clock would understate every program that primes. `simulate` therefore still counts
+    /// it, including in `max_flow_rate`.
+    ///
+    /// The `max-flow` **rule** does not, and that is the deliberate split this test pins. The rule
+    /// states a *deposition rate* limit, and this move deposits nothing along any path: the filament is
+    /// only travelling through the feed path (`verify::traverses_path`). Against a real Ender-3 profile
+    /// this one pattern produced 813 identical 96.211 mm³/s errors on a healthy 108k-segment print.
+    ///
+    /// The consequence is that `simulate`'s descriptive `max_flow_rate` metric and the rule now scope
+    /// differently. That is recorded in `docs/14` rather than fixed here: the metric's segment domain is
+    /// what `formal/Dry/Semantics/SimulateMetrics.lean` and its refinement corpus model, so narrowing it
+    /// is a formal-artifact change and not a verifier one.
     #[test]
-    fn e_only_prime_moves_have_duration_and_flow() {
+    fn e_only_prime_moves_are_timed_but_deposit_along_no_path() {
         let tp = import_gcode("M83\nG1 E5 F300\n", &Default::default()).unwrap();
         let metrics = simulate(&tp);
         assert_eq!(metrics.segment_count, 1);
@@ -1112,7 +1118,15 @@ mod tests {
                 ..Contracts::default()
             },
         );
-        assert!(report.findings.iter().any(|f| f.rule == "max-flow"));
+        assert!(
+            report.evaluated(crate::verify::RuleId::MaxFlow),
+            "the ceiling must be in force for the absence below to mean anything"
+        );
+        assert!(
+            !report.findings.iter().any(|f| f.rule == "max-flow"),
+            "a prime move deposits along no path: {:?}",
+            report.findings
+        );
     }
 
     #[test]
@@ -1533,5 +1547,16 @@ mod tests {
         imported
             .emit_source_preserving(&imported.toolpath, &grbl)
             .expect("a power-free rewrite still splices");
+    }
+
+    #[test]
+    fn test_power_channel_lifting_from_m3_m5_s_words() {
+        let gcode = "G21\nG90\nM3 S800\nG1 X10 Y0 F1200\nG1 X10 Y10\nM5\nG1 X0 Y0";
+        let imported = import_gcode(gcode, &GcodeImportParams::default()).expect("gcode imports");
+        let segments = imported.segments;
+        assert_eq!(segments.len(), 3);
+        assert_eq!(segments[0].power, Some(800.0));
+        assert_eq!(segments[1].power, Some(800.0));
+        assert_eq!(segments[2].power, Some(0.0));
     }
 }

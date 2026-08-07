@@ -33,7 +33,7 @@ schema validates the canonical names.
 | `machine` | `build_volume` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | `bounds` | |
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
-| `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
+| `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | square-corner velocity: caps the `balanced` per-junction feedrate and drives `junction-velocity` |
 | `machine` | `five_axis` | `"ab"` / `"ac"` / `"bc"`, or an object with `type` + `pivot_offset` + `rotary_offset` | — | how a toolframe orientation maps onto two rotary words; absent ⇒ the reference B/C machine |
 | `machine` | `rotary.travel_deg` | `{a?,b?,c?}` of `[min,max]` degrees | — | per-axis rotary travel; an absent axis is unconstrained |
 | `machine` | `rotary.max_feed_deg_min` | deg/min > 0 | — | maximum rate for any rotary axis |
@@ -68,13 +68,25 @@ max junction / square-corner velocity. It has two optional numeric fields:
 - `max_acceleration_mm_s2` — the toolhead's maximum acceleration in mm/s². When set, the `peak-acceleration`
   verifier rule (§2) flags arcs whose centripetal acceleration `v²/r` exceeds this value, and the `balanced`
   rewrite mode (§3.4) caps arc speed to respect it.
-- `max_junction_velocity_mm_s` — the maximum velocity change allowed at a sharp junction (a per-junction
-  feedrate cap), in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity)
-  fires on contiguous printing segments with a velocity change Δv exceeding this value, and `balanced`
-  mode (§3.4) limits per-junction speed to respect it. This rule is an *advisory* approximation of
-  cornering — a flat Δv-vs-limit check, not a reproduction of firmware junction kinematics (Klipper's
-  square-corner-velocity feeds a junction-deviation formula that permits larger Δv on shallow corners),
-  so on real slicer g-code it may warn on corners the printer handles fine. It is a Warning, never a gate.
+- `max_junction_velocity_mm_s` — the machine's **square-corner velocity**: the speed at which it can take
+  a 90° corner, in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity) turns
+  the direction change at each contiguous printing junction into an allowed corner velocity and fires when
+  the junction is entered faster than that, and `balanced` mode (§3.4) caps per-junction speed to respect
+  it. With `t̂ₐ` the exit tangent of the incoming segment, `t̂_b` the outgoing entry tangent and
+  `f = cos(φ/2) = sqrt((1 + t̂ₐ·t̂_b)/2)`:
+
+  ```
+  fire iff  min(v_a, v_b) > scv · sqrt((√2 − 1)·f / (1 − f))
+  ```
+
+  This is the junction-deviation relation, calibrated so a 90° corner is allowed exactly `scv` (which is
+  what the field's name means), a straight junction is allowed any speed, and a full reversal none. Two
+  consequences worth stating: a large velocity change **along a straight line** is *not* a junction
+  finding (`f = 1`, unbounded allowance) — that is an acceleration question, and `docs/14` records that
+  no rule currently asks it; and the rule still fires on tens of thousands of junctions in a real slicer
+  file, because a healthy print genuinely contains tens of thousands of corners commanded above their
+  cornering limit and the firmware planner slows down at each. It is a Warning, never a gate; see
+  `docs/14-known-limitations.md` for the measurement and why raising `scv` does not fix the volume.
   (The `peak-acceleration` rule, by contrast, evaluates every arc — including travel arcs — against the
   acceleration limit.)
 
@@ -153,17 +165,17 @@ are warnings.
 | `orientation-not-unit` | error | the toolframe orientation vector is not unit length | always |
 | `arc-radius` | error | an arc's endpoint radius disagrees with its start radius | always |
 | `bounds` | error | a move leaves the build volume | `machine.build_volume` |
-| `max-flow` | error | volumetric flow exceeds the ceiling | `material.max_volumetric_flow_mm3_s` |
+| `max-flow` | error | volumetric flow exceeds the ceiling, on a move that deposits along a path | `material.max_volumetric_flow_mm3_s` |
 | `speed` | error | an extruding feedrate is outside the allowed range | `machine.feedrate_range` |
 | `monotonic-z` | error | Z decreases where it must be non-decreasing | `process.monotonic_z` |
 | `cold-extrusion` | error | extruding below the minimum nozzle temperature | `material.min_nozzle_temperature_c` |
-| `retraction-distance` | error | a retraction distance exceeds the limit | `process.max_retraction_distance` |
-| `retraction-speed` | error | a retraction/unretraction speed exceeds the limit | `process.max_retraction_speed` |
+| `retraction-distance` | error | a **pure** (stationary) retraction distance exceeds the limit | `process.max_retraction_distance` |
+| `retraction-speed` | error | a **pure** (stationary) retraction/unretraction speed exceeds the limit | `process.max_retraction_speed` |
 | `travel-without-retraction` | **warning** | a travel run exceeds the allowed distance without a retraction | `process.max_travel_without_retraction` |
-| `first-layer-height` | **warning** | the first-layer height is outside the allowed range | `process.first_layer_height_range` |
-| `first-layer-speed` | **warning** | the first-layer speed is outside the allowed range | `process.first_layer_speed_range` |
+| `first-layer-height` | **warning** | the first-layer height of a bead laid along a path is outside the allowed range | `process.first_layer_height_range` |
+| `first-layer-speed` | **warning** | the first-layer speed of a bead laid along a path is outside the allowed range | `process.first_layer_speed_range` |
 | `peak-acceleration` | error | an arc's centripetal acceleration exceeds the machine's max acceleration | `machine.kinematics.max_acceleration_mm_s2` |
-| `junction-velocity` | **warning** | a junction's velocity change exceeds the machine's square-corner velocity | `machine.kinematics.max_junction_velocity_mm_s` |
+| `junction-velocity` | **warning** | a junction is entered faster than its direction change allows | `machine.kinematics.max_junction_velocity_mm_s` |
 | `unmodeled-gcode` | **warning** | imported/manual G-code is preserved but is outside the verifier's semantic model | always active when present |
 | `continuity` | error | a segment starts somewhere other than where the previous one ended | always active |
 | `negative-quantity` | error | a length, volume, speed or commanded spindle/laser power is negative, or a bead dimension is not positive | always active |
@@ -226,6 +238,37 @@ invisible, and a producer-declared field must not choose the severity the verifi
 `filament-consistency` ships at **warning** for one minor release before being promoted to error.
 Multi-diameter or multi-material IR is unusual but not ill-formed, and no in-tree producer emits any, so
 the release buys evidence rather than assuming it.
+
+### A pure filament move is not a deposition, and not a wipe
+
+Several rules name a physical act, and which segments they apply to is part of the rule rather than an
+implementation detail. Imported G-code is where this bites, because two very different acts arrive as
+nearly the same segment:
+
+| The G-code | What it is | `travel` | `volume` | geometric length |
+|---|---|---|---|---|
+| `G1 X110 Y92 E0.63 F2400` | a bead laid along a path | false | > 0 | > 0 |
+| `G1 E1 F2400` | a prime: filament staged into the nozzle | false (no `G0`, has `E`) | > 0 *(recovered from `E`)* | **0** |
+| `G1 E-1 F3600` | a pure retraction | false | 0 | **0** |
+| `G1 X90.6 Y98.3 E-0.114 F3000` | a wipe that retracts while traversing | false | 0 | > 0 |
+
+`travel` is *inferred* on import ("`G0`, or no `E` word") and `volume` is recovered from any positive `E`,
+so neither distinguishes rows 1 and 2. The **geometric length** does, and the rules are scoped on it:
+
+- **Deposition rules** (`max-flow`, `bead-volume`, `first-layer-height`, `first-layer-speed`) require a
+  path. A prime move deposits nothing on the part; scoring it as a deposition rate reports the whole
+  filament cross-section times the feedrate — 96.2 mm³/s for 1.75 mm filament at `F2400`, above every real
+  ceiling — and scoring it as a bead compares its volume against `length × width × height = 0`.
+  `max-flow` deliberately does *not* also require `travel: false`: OrcaSlicer writes its purge lines as
+  `G0` with an `E` word, and material pushed out that fast is a real flow event whatever the producer
+  called the move.
+- **Retraction rules** (`retraction-speed`, `retraction-distance`) require the *absence* of a path. The
+  commanded feedrate is only a retraction speed when the tool is stationary; on a wipe it is the wipe
+  speed, and the `E` delta is a fraction of one retraction that OrcaSlicer's `retract_before_wipe` split
+  across two moves. A wipe-while-retracting is a different act and wants its own rule; what these two
+  therefore *cannot* see is recorded in `docs/14-known-limitations.md`.
+- **`filament-consistency`** is deliberately *not* scoped this way: `volume/filament` is the feedstock
+  cross-section, and it is exactly as valid on a prime move as on a bead.
 
 ### A clean report states its own coverage
 

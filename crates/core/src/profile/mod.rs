@@ -9,7 +9,10 @@ use crate::resolve::ResolveParams;
 use crate::verify::{Contracts, RotaryContracts, RotaryTravelRanges};
 use serde::{Deserialize, Serialize};
 
+pub mod capability;
 pub mod klipper;
+
+pub use capability::{CapabilityViolation, MachineCapability};
 pub use klipper::{import_klipper, KlipperImportError, KlipperImportWarning};
 
 fn default_profile_version() -> u32 {
