@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dry Machina — Universal CAM Studio</title>
-  <meta name="description" content="Greenfield Multi-Process CAM Studio for 3D Printing, CNC Milling, Laser, Plasma, and 5-Axis Robotics.">
+  <meta name="description" content="Pro-Grade Multi-Process CAM Studio for 3D Printing, CNC Milling, Laser, Plasma, and 5-Axis Robotics.">
   <link rel="stylesheet" href="studio.css">
   <script type="importmap">
   {
@@ -16,7 +16,7 @@
 </head>
 <body>
 
-<!-- Studio Header -->
+<!-- Studio Top Header -->
 <header class="studio-header">
   <div class="brand-section">
     <a href="/" class="brand-logo">
@@ -40,50 +40,45 @@
   </div>
 
   <div class="header-actions">
-    <a href="/web/docs.html" class="btn-action" target="_blank">Docs</a>
+    <a href="/web/machines.html" class="btn-action">Machines</a>
+    <a href="/web/docs.html" class="btn-action" target="_blank">Docs & Specs</a>
     <button id="exportGcodeBtn" class="btn-action primary">Export G-Code</button>
   </div>
 </header>
 
-<!-- Main Workspace -->
+<!-- Main Workspace (3-Column Architecture) -->
 <main class="studio-main">
-  <!-- Left Sidebar -->
+  <!-- Left Sidebar: Design Gallery & File Dropper -->
   <aside class="sidebar-left">
     <div class="panel-header">
-      <span>Design & Generative Tools</span>
+      <span>Generative Toolpath Library</span>
     </div>
     <div class="panel-content">
-      <div class="gallery-list" id="galleryList">
-        <div class="gallery-card active" data-preset="spiral">
-          <div class="gallery-title">Spiral Cylinder</div>
-          <div class="gallery-desc">Continuous spiral vase toolpath with zero seam artifacts.</div>
-        </div>
-        <div class="gallery-card" data-preset="gyroid">
-          <div class="gallery-title">TPMS Gyroid Lattice</div>
-          <div class="gallery-desc">Triply periodic minimal surface implicit field generator.</div>
-        </div>
-        <div class="gallery-card" data-preset="pocket">
-          <div class="gallery-title">Stepped CNC Pocket</div>
-          <div class="gallery-desc">Multi-depth waterline roughing with constant engagement.</div>
-        </div>
-        <div class="gallery-card" data-preset="star">
-          <div class="gallery-title">Star Polygon Lattice</div>
-          <div class="gallery-desc">Auxetic metamaterial mechanical repeating unit.</div>
-        </div>
+      <input type="text" id="gallerySearch" class="gallery-search-input" placeholder="Search 50+ designs & lattices...">
+      
+      <div class="filter-pills">
+        <button class="filter-pill active" data-cat="all">All</button>
+        <button class="filter-pill" data-cat="vases">Vases & 3D</button>
+        <button class="filter-pill" data-cat="tpms">TPMS</button>
+        <button class="filter-pill" data-cat="lattices">Lattices</button>
+        <button class="filter-pill" data-cat="infill">Infill</button>
+        <button class="filter-pill" data-cat="fullcontrol">FullControl</button>
       </div>
 
-      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
-        <div class="panel-header" style="background: transparent; padding: 0 0 10px; height: auto;">
-          <span>Drop G-Code / STEP-NC</span>
+      <div class="gallery-list" id="galleryList"></div>
+
+      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px;">
+        <div class="panel-header" style="background: transparent; padding: 0 0 8px; height: auto;">
+          <span>Custom G-Code / STEP-NC</span>
         </div>
-        <div style="border: 1px dashed var(--border); border-radius: 6px; padding: 16px; text-align: center; font-size: 11.5px; color: var(--fg-muted);">
-          Drag and drop arbitrary <code>.gcode</code> or <code>.stepnc</code> file for zero-latency WASM inspection.
+        <div style="border: 1px dashed var(--border); border-radius: 6px; padding: 12px; text-align: center; font-size: 11px; color: var(--fg-muted);">
+          Drag and drop <code>.gcode</code>, <code>.nc</code>, or <code>.stepnc</code> files to inspect in 3D.
         </div>
       </div>
     </div>
   </aside>
 
-  <!-- Center Viewport -->
+  <!-- Center 3D Viewport -->
   <div class="viewport-center">
     <div class="viewport-overlay-tools">
       <button class="view-btn active" data-view="iso">Iso</button>
@@ -92,31 +87,38 @@
       <button class="view-btn" data-view="side">Side</button>
     </div>
 
+    <div class="color-mode-tools">
+      <button class="color-mode-btn active" data-mode="type">Pass Type</button>
+      <button class="color-mode-btn" data-mode="height">Z-Height</button>
+      <button class="color-mode-btn" data-mode="speed">Speed Heatmap</button>
+    </div>
+
     <div class="engine-status-tag">
       <span class="status-pulse"></span>
-      WASM Active (0ms)
+      WASM Engine Active (0ms)
     </div>
 
     <div id="viewport3d"></div>
   </div>
 
-  <!-- Right Sidebar -->
+  <!-- Right Sidebar: Safety, Telemetry, G-Code & Optimizer -->
   <aside class="sidebar-right">
     <div class="panel-header" style="padding: 0;">
       <div class="panel-tabs">
         <button class="panel-tab-btn active" onclick="switchRightTab('tabSafety')">Safety</button>
         <button class="panel-tab-btn" onclick="switchRightTab('tabTelemetry')">Telemetry</button>
         <button class="panel-tab-btn" onclick="switchRightTab('tabGcode')">G-Code</button>
+        <button class="panel-tab-btn" onclick="switchRightTab('tabOptimizer')">Optimizer</button>
       </div>
     </div>
 
     <div class="panel-content">
-      <!-- Safety Tab -->
+      <!-- 1. Safety Tab -->
       <div id="tabSafety" class="tab-pane active">
         <div id="safetyStatus"></div>
       </div>
 
-      <!-- Telemetry Tab -->
+      <!-- 2. Telemetry Tab -->
       <div id="tabTelemetry" class="tab-pane" style="display: none;">
         <div class="stat-grid">
           <div class="stat-box">
@@ -124,7 +126,7 @@
             <div><span class="val" id="statDuration">0.0</span><span class="unit">s</span></div>
           </div>
           <div class="stat-box">
-            <div class="title">Distance</div>
+            <div class="title">Total Travel</div>
             <div><span class="val" id="statLength">0</span><span class="unit">mm</span></div>
           </div>
           <div class="stat-box">
@@ -132,15 +134,20 @@
             <div><span class="val" id="statVolume">0.0</span><span class="unit">mm³</span></div>
           </div>
           <div class="stat-box">
-            <div class="title">Mass</div>
+            <div class="title">Material Mass</div>
             <div><span class="val" id="statMass">0.0</span><span class="unit">g</span></div>
           </div>
         </div>
       </div>
 
-      <!-- G-Code Tab -->
+      <!-- 3. G-Code Tab -->
       <div id="tabGcode" class="tab-pane" style="display: none; height: 100%;">
-        <div class="gcode-viewer" id="gcodeViewer"></div>
+        <div class="gcode-viewer-table" id="gcodeViewer"></div>
+      </div>
+
+      <!-- 4. Optimizer Tab -->
+      <div id="tabOptimizer" class="tab-pane" style="display: none;">
+        <div id="optimizerDiffs"></div>
       </div>
     </div>
   </aside>
@@ -159,11 +166,12 @@
     <button class="speed-btn active" data-speed="1.0">1×</button>
     <button class="speed-btn" data-speed="4.0">4×</button>
     <button class="speed-btn" data-speed="16.0">16×</button>
+    <button class="speed-btn" data-speed="64.0">64×</button>
   </div>
 </footer>
 
 <script type="module">
-import { initStudio, loadDefaultDesign } from './studio.js?v=2.0.5';
+import { initStudio } from './studio.js?v=2.1.0';
 
 window.addEventListener('DOMContentLoaded', () => {
   initStudio();

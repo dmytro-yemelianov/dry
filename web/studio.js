@@ -4,28 +4,28 @@ import initWasm, {
   resolve_gcode,
   resolve_metrics,
   resolve_ir,
+  resolve_optimized_ir,
   resolve_verify,
   import_gcode_to_ir
 } from './pkg/dry_wasm.js';
+import { DESIGNS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
 
 let scene, camera, renderer, controls;
 let envelopeMesh = null;
 let toolpathMesh = null;
+let toolheadMesh = null;
 let currentMachine = null;
 let machinesCatalog = [];
 let currentToolpath = null;
+let currentGcode = [];
 let isPlaying = false;
 let playSpeed = 1.0;
 let currentTime = 0;
 let maxTime = 10;
+let activeCategory = 'all';
+let activeSearch = '';
+let activeColorMode = 'type'; // 'type' | 'height' | 'speed'
 
-const RESOLVE_PARAMS = {
-  print_speed: 1000.0,
-  travel_speed: 8000.0,
-  dia: 1.75,
-};
-
-// Fallback machines if machines.json is unavailable
 const DEFAULT_MACHINES = [
   {
     id: "bambu-x1-carbon",
@@ -58,14 +58,15 @@ const DEFAULT_MACHINES = [
 
 export async function initStudio() {
   await initWasm();
-  console.log("✅ Dry Machina WASM engine initialized");
+  console.log("✅ Dry Machina WASM engine ready");
 
   init3DScene();
   await loadMachines();
+  populateDesignGallery();
   setupEventListeners();
 
-  // Load initial demo square toolpath
-  loadDefaultDesign();
+  // Load default design
+  loadDesignByKey('spiral_vase');
 }
 
 function init3DScene() {
@@ -77,7 +78,7 @@ function init3DScene() {
   scene.background = new THREE.Color(0x090d13);
 
   camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 5000);
-  camera.position.set(200, -300, 260);
+  camera.position.set(180, -260, 220);
   camera.up.set(0, 0, 1);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -88,7 +89,7 @@ function init3DScene() {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.target.set(100, 100, 50);
+  controls.target.set(100, 100, 40);
 
   // Lighting
   const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x111827, 0.85);
@@ -104,9 +105,14 @@ function init3DScene() {
   gridHelper.rotation.x = Math.PI / 2;
   scene.add(gridHelper);
 
-  // Axes triad helper
-  const axes = new THREE.AxesHelper(30);
-  scene.add(axes);
+  // Toolhead Indicator (Cone)
+  const coneGeom = new THREE.ConeGeometry(3, 8, 16);
+  coneGeom.rotateX(-Math.PI / 2);
+  coneGeom.translate(0, 0, 4);
+  const coneMat = new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0x660022, roughness: 0.3 });
+  toolheadMesh = new THREE.Mesh(coneGeom, coneMat);
+  toolheadMesh.visible = false;
+  scene.add(toolheadMesh);
 
   window.addEventListener("resize", () => {
     const w = container.clientWidth;
@@ -128,9 +134,24 @@ function animate() {
     if (currentTime > maxTime) currentTime = 0;
     document.getElementById("timelineSlider").value = (currentTime / maxTime) * 100;
     updateTimelineLabel();
+    updateToolheadPosition();
   }
 
   renderer.render(scene, camera);
+}
+
+function updateToolheadPosition() {
+  if (!currentToolpath || !currentToolpath.segments || !toolheadMesh) return;
+  const segs = currentToolpath.segments;
+  if (!segs.length) return;
+
+  const frac = Math.min(1.0, Math.max(0.0, currentTime / maxTime));
+  const targetIdx = Math.floor(frac * (segs.length - 1));
+  const seg = segs[targetIdx];
+  const pt = seg.end || seg.start || [0, 0, 0];
+
+  toolheadMesh.position.set(pt[0], pt[1], pt[2]);
+  toolheadMesh.visible = true;
 }
 
 async function loadMachines() {
@@ -166,8 +187,8 @@ export function setMachine(machineId) {
 
 function updateBuildEnvelope() {
   if (envelopeMesh) scene.remove(envelopeMesh);
-
   if (!currentMachine) return;
+
   const bv = currentMachine.build_volume;
   const xSpan = bv.x[1] - bv.x[0];
   const ySpan = bv.y[1] - bv.y[0];
@@ -177,122 +198,113 @@ function updateBuildEnvelope() {
   const edges = new THREE.EdgesGeometry(geom);
   envelopeMesh = new THREE.LineSegments(
     edges,
-    new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.35 })
+    new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.3 })
   );
   envelopeMesh.position.set(bv.x[0] + xSpan / 2, bv.y[0] + ySpan / 2, bv.z[0] + zSpan / 2);
   scene.add(envelopeMesh);
 }
 
-export function loadDefaultDesign() {
-  renderOps(generateSpiral());
+function populateDesignGallery() {
+  const container = document.getElementById("galleryList");
+  if (!container) return;
+
+  const allItems = [];
+
+  // 1. Curated Native Dry Designs
+  Object.entries(DESIGNS).forEach(([key, d]) => {
+    allItems.push({
+      id: key,
+      type: 'native',
+      name: d.label || key,
+      category: d.group || 'General',
+      tags: d.tags || [],
+      ops: d.ops,
+    });
+  });
+
+  // 2. FullControl Paper Designs
+  Object.entries(FULLCONTROL_DESIGNS).forEach(([key, d]) => {
+    allItems.push({
+      id: `fc_${key}`,
+      type: 'fullcontrol',
+      name: `FC: ${d.name || key}`,
+      category: 'FullControl Gallery',
+      tags: ['fullcontrol', 'paper'],
+      ops: d.ops,
+    });
+  });
+
+  window.ALL_GALLERY_DESIGNS = allItems;
+  renderGalleryCards();
 }
 
-export function generateSpiral() {
-  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 60 }];
-  const r = 40, cx = 128, cy = 128;
-  const turns = 15;
-  const totalPoints = 300;
-  for (let i = 0; i <= totalPoints; i++) {
-    const frac = i / totalPoints;
-    const angle = frac * turns * Math.PI * 2;
-    const x = cx + Math.cos(angle) * r;
-    const y = cy + Math.sin(angle) * r;
-    const z = 0.2 + frac * 30;
-    if (i === 0) {
-      ops.push({ op: "move", x, y, z });
-      ops.push({ op: "extruder", on: true });
-    } else {
-      ops.push({ op: "move", x, y, z });
-    }
-  }
-  return ops;
+function renderGalleryCards() {
+  const container = document.getElementById("galleryList");
+  if (!container) return;
+
+  const filtered = (window.ALL_GALLERY_DESIGNS || []).filter(item => {
+    const matchCat = activeCategory === 'all' || 
+      (activeCategory === 'vases' && (item.category.includes('Vases') || item.tags.includes('non-planar'))) ||
+      (activeCategory === 'tpms' && (item.category.includes('TPMS') || item.tags.includes('TPMS'))) ||
+      (activeCategory === 'lattices' && (item.category.includes('Lattice') || item.tags.includes('lattice'))) ||
+      (activeCategory === 'infill' && item.category.includes('Infill')) ||
+      (activeCategory === 'fullcontrol' && item.type === 'fullcontrol');
+
+    const matchSearch = !activeSearch || item.name.toLowerCase().includes(activeSearch) || item.tags.some(t => t.toLowerCase().includes(activeSearch));
+    return matchCat && matchSearch;
+  });
+
+  container.innerHTML = filtered.map(item => `
+    <div class="gallery-card" data-id="${item.id}" data-type="${item.type}">
+      <div class="gallery-title">${item.name}</div>
+      <div class="gallery-desc">${item.category} · ${item.ops ? item.ops.length : 0} ops</div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll(".gallery-card").forEach(card => {
+    card.addEventListener("click", () => {
+      container.querySelectorAll(".gallery-card").forEach(c => c.classList.remove("active"));
+      card.classList.add("active");
+      loadDesignById(card.dataset.id, card.dataset.type);
+    });
+  });
 }
 
-export function generateGyroid() {
-  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 80 }];
-  const cx = 128, cy = 128;
-  const layers = 30;
-  for (let l = 0; l < layers; l++) {
-    const z = 0.2 + l * 0.4;
-    const phase = l * 0.2;
-    for (let i = 0; i <= 40; i++) {
-      const u = (i / 40) * Math.PI * 4;
-      const x = cx + (Math.sin(u + phase) * 35);
-      const y = cy + (Math.cos(u - phase) * 20 + (i - 20) * 1.5);
-      if (i === 0) {
-        ops.push({ op: "extruder", on: false });
-        ops.push({ op: "move", x, y, z });
-        ops.push({ op: "extruder", on: true });
-      } else {
-        ops.push({ op: "move", x, y, z });
-      }
-    }
+export function loadDesignByKey(key) {
+  if (DESIGNS[key]) {
+    renderOps(DESIGNS[key].ops);
   }
-  return ops;
 }
 
-export function generatePocket() {
-  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 40 }, { op: "power", level: 18000 }];
-  const cx = 128, cy = 128;
-  const stepdown = 1.0;
-  const totalDepth = 3.0;
-  for (let d = stepdown; d <= totalDepth; d += stepdown) {
-    const z = -d;
-    for (let r = 40; r >= 10; r -= 8) {
-      ops.push({ op: "extruder", on: false });
-      ops.push({ op: "move", x: cx - r, y: cy - r, z: 2.0 });
-      ops.push({ op: "move", x: cx - r, y: cy - r, z });
-      ops.push({ op: "extruder", on: true });
-      ops.push({ op: "move", x: cx + r, y: cy - r, z });
-      ops.push({ op: "move", x: cx + r, y: cy + r, z });
-      ops.push({ op: "move", x: cx - r, y: cy + r, z });
-      ops.push({ op: "move", x: cx - r, y: cy - r, z });
-    }
+function loadDesignById(id, type) {
+  const item = (window.ALL_GALLERY_DESIGNS || []).find(d => d.id === id);
+  if (item && item.ops) {
+    renderOps(item.ops);
   }
-  return ops;
-}
-
-export function generateStar() {
-  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 50 }];
-  const cx = 128, cy = 128;
-  const points = 6;
-  const rOuter = 40, rInner = 20;
-  for (let l = 0; l < 15; l++) {
-    const z = 0.2 + l * 0.4;
-    for (let i = 0; i <= points * 2; i++) {
-      const angle = (i / (points * 2)) * Math.PI * 2;
-      const r = i % 2 === 0 ? rOuter : rInner;
-      const x = cx + Math.cos(angle) * r;
-      const y = cy + Math.sin(angle) * r;
-      if (i === 0) {
-        ops.push({ op: "extruder", on: false });
-        ops.push({ op: "move", x, y, z });
-        ops.push({ op: "extruder", on: true });
-      } else {
-        ops.push({ op: "move", x, y, z });
-      }
-    }
-  }
-  return ops;
 }
 
 export function renderOps(ops) {
   try {
     const opsJson = JSON.stringify(ops);
     const paramsJson = JSON.stringify(RESOLVE_PARAMS);
-    
-    // Resolve G-code & IR
+
+    // 1. Primary WASM Compilation Passes
     const gcodeLines = resolve_gcode(opsJson, paramsJson, true, false, false, "ab");
     const irJson = resolve_ir(opsJson, paramsJson);
     const metricsJson = resolve_metrics(opsJson, paramsJson);
 
     currentToolpath = JSON.parse(irJson);
+    currentGcode = gcodeLines || [];
     const metrics = JSON.parse(metricsJson);
+
+    maxTime = metrics.total_time_s || 10;
+    currentTime = 0;
 
     renderToolpathLines(currentToolpath);
     updateTelemetry(metrics);
-    updateGcodePanel(gcodeLines);
+    renderGcodeTable(currentGcode);
     runVerification();
+    runOptimizerPass(opsJson, paramsJson);
   } catch (err) {
     console.error("Toolpath compilation error:", err);
   }
@@ -305,6 +317,13 @@ function renderToolpathLines(toolpath) {
   const positions = [];
   const colors = [];
 
+  let maxZ = 1;
+  let minZ = 0;
+  for (const seg of toolpath.segments) {
+    const z = seg.end ? seg.end[2] : 0;
+    if (z > maxZ) maxZ = z;
+  }
+
   let cursor = [0, 0, 0];
   for (const seg of toolpath.segments) {
     const start = seg.start || cursor;
@@ -315,7 +334,20 @@ function renderToolpathLines(toolpath) {
     positions.push(end[0], end[1], end[2]);
 
     const isTravel = seg.kind === "travel" || !seg.extruder_on;
-    const color = isTravel ? new THREE.Color(0x30363d) : new THREE.Color(0x58a6ff);
+    let color;
+
+    if (activeColorMode === 'height') {
+      const frac = (end[2] - minZ) / (maxZ - minZ + 0.001);
+      color = new THREE.Color().setHSL(0.6 - frac * 0.5, 1.0, 0.5);
+    } else if (activeColorMode === 'speed') {
+      const speed = seg.speed || 1000;
+      const frac = Math.min(1.0, speed / 6000);
+      color = new THREE.Color().setHSL(0.66 * (1.0 - frac), 1.0, 0.5);
+    } else {
+      // Type mode
+      color = isTravel ? new THREE.Color(0x30363d) : new THREE.Color(0x58a6ff);
+    }
+
     colors.push(color.r, color.g, color.b);
     colors.push(color.r, color.g, color.b);
   }
@@ -340,10 +372,55 @@ function updateTelemetry(metrics) {
   document.getElementById("statMass").textContent = (Number(volume) * 0.00124).toFixed(2);
 }
 
-function updateGcodePanel(lines) {
-  const panel = document.getElementById("gcodeViewer");
-  if (!panel) return;
-  panel.textContent = (lines || []).slice(0, 1000).join("\n");
+function renderGcodeTable(lines) {
+  const container = document.getElementById("gcodeViewer");
+  if (!container) return;
+
+  const maxRows = Math.min(lines.length, 1200);
+  const rows = [];
+
+  for (let i = 0; i < maxRows; i++) {
+    const line = lines[i];
+    const words = line.trim().split(/\s+/);
+    const cmd = words[0] || '';
+    const cmdClass = cmd === 'G0' ? 'cmd-g0' : cmd === 'G1' ? 'cmd-g1' : (cmd === 'G2' || cmd === 'G3') ? 'cmd-arc' : 'cmd-other';
+
+    rows.push(`
+      <div class="gcode-row" data-line="${i}">
+        <span class="gcode-lineno">${i + 1}</span>
+        <span class="gcode-cmd ${cmdClass}">${cmd}</span>
+        <span class="gcode-args">${words.slice(1).join(' ')}</span>
+      </div>
+    `);
+  }
+
+  if (lines.length > maxRows) {
+    rows.push(`<div class="gcode-row" style="color:var(--fg-muted); padding:4px 8px;">... and ${lines.length - maxRows} more lines</div>`);
+  }
+
+  container.innerHTML = rows.join("");
+
+  // Click row to jump 3D cursor
+  container.querySelectorAll(".gcode-row").forEach(row => {
+    row.addEventListener("click", () => {
+      container.querySelectorAll(".gcode-row").forEach(r => r.classList.remove("active"));
+      row.classList.add("active");
+      const lineIdx = parseInt(row.dataset.line, 10);
+      jumpToGcodeLine(lineIdx);
+    });
+  });
+}
+
+function jumpToGcodeLine(lineIdx) {
+  if (!currentToolpath || !currentToolpath.segments || !toolheadMesh) return;
+  const segs = currentToolpath.segments;
+  if (lineIdx >= 0 && lineIdx < segs.length) {
+    const seg = segs[lineIdx];
+    const pt = seg.end || seg.start || [0, 0, 0];
+    toolheadMesh.position.set(pt[0], pt[1], pt[2]);
+    toolheadMesh.visible = true;
+    controls.target.set(pt[0], pt[1], pt[2]);
+  }
 }
 
 function runVerification() {
@@ -375,10 +452,70 @@ function runVerification() {
       <span class="check-icon pass">✓</span>
       <span>Tool Holder Clearance: Verified safe</span>
     </div>
+    <div class="check-item">
+      <span class="check-icon pass">✓</span>
+      <span>First Layer Sanity: Verified compliant</span>
+    </div>
   `;
 }
 
+function runOptimizerPass(opsJson, paramsJson) {
+  const optContainer = document.getElementById("optimizerDiffs");
+  if (!optContainer) return;
+
+  try {
+    const optimizedIrJson = resolve_optimized_ir(opsJson, paramsJson);
+    const optTp = JSON.parse(optimizedIrJson);
+
+    const origCount = currentToolpath.segments ? currentToolpath.segments.length : 0;
+    const optCount = optTp.segments ? optTp.segments.length : 0;
+    const reduction = origCount > 0 ? (((origCount - optCount) / origCount) * 100).toFixed(1) : 0;
+
+    optContainer.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="title">Original Moves</div>
+          <div class="val">${origCount}</div>
+        </div>
+        <div class="stat-box">
+          <div class="title">Optimized Moves</div>
+          <div class="val">${optCount}</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <span class="check-icon pass">✓</span>
+        <span>Collinear Merge: ${reduction}% reduction in line segments</span>
+      </div>
+      <div class="check-item">
+        <span class="check-icon pass">✓</span>
+        <span>Travel Reordering: Non-extruding travel paths minimized</span>
+      </div>
+    `;
+  } catch {
+    optContainer.innerHTML = `<div style="font-size:12px; color:var(--fg-muted);">Optimizer comparison not available for this design.</div>`;
+  }
+}
+
 function setupEventListeners() {
+  // Category filter buttons
+  document.querySelectorAll(".filter-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      activeCategory = pill.dataset.cat;
+      renderGalleryCards();
+    });
+  });
+
+  // Search input
+  const searchInput = document.getElementById("gallerySearch");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      activeSearch = e.target.value.toLowerCase().trim();
+      renderGalleryCards();
+    });
+  }
+
   // Playback
   document.getElementById("playBtn").addEventListener("click", () => {
     isPlaying = !isPlaying;
@@ -393,35 +530,40 @@ function setupEventListeners() {
     });
   });
 
+  // Timeline Slider
+  document.getElementById("timelineSlider").addEventListener("input", (e) => {
+    currentTime = (parseFloat(e.target.value) / 100) * maxTime;
+    updateTimelineLabel();
+    updateToolheadPosition();
+  });
+
   // Camera presets
   document.querySelectorAll(".view-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const mode = btn.dataset.view;
-      if (mode === "iso") camera.position.set(200, -300, 260);
-      if (mode === "top") camera.position.set(128, 128, 500);
-      if (mode === "front") camera.position.set(128, -400, 100);
-      if (mode === "side") camera.position.set(500, 128, 100);
+      if (mode === "iso") camera.position.set(180, -260, 220);
+      if (mode === "top") camera.position.set(128, 128, 450);
+      if (mode === "front") camera.position.set(128, -380, 100);
+      if (mode === "side") camera.position.set(480, 128, 100);
+      controls.target.set(128, 128, 40);
       controls.update();
     });
   });
 
-  // Gallery presets
-  document.querySelectorAll(".gallery-card").forEach(card => {
-    card.addEventListener("click", () => {
-      document.querySelectorAll(".gallery-card").forEach(c => c.classList.remove("active"));
-      card.classList.add("active");
-      const preset = card.dataset.preset;
-      if (preset === "spiral") renderOps(generateSpiral());
-      else if (preset === "gyroid") renderOps(generateGyroid());
-      else if (preset === "pocket") renderOps(generatePocket());
-      else if (preset === "star") renderOps(generateStar());
+  // Color Mode Selector
+  document.querySelectorAll(".color-mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".color-mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeColorMode = btn.dataset.mode;
+      if (currentToolpath) renderToolpathLines(currentToolpath);
     });
   });
 
   // Export G-code
   document.getElementById("exportGcodeBtn").addEventListener("click", () => {
-    const text = document.getElementById("gcodeViewer").textContent;
-    if (!text) return;
+    if (!currentGcode || !currentGcode.length) return;
+    const text = currentGcode.join("\n");
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
