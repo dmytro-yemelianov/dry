@@ -77,7 +77,7 @@ export const GcodeInspector: React.FC = () => {
   const cmdDesc = CMD_DESC[cmd] || 'G-code command';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Top Decoded Token Explanation Card */}
       <div className="gcode-explainer-card">
         <div className="exp-header">

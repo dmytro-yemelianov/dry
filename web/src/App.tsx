@@ -96,7 +96,7 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="panel-content" style={{ height: 'calc(100% - 40px)', padding: '12px' }}>
+          <div className="panel-content">
             {rightTab === 'gcode' && <GcodeInspector />}
             {rightTab === 'safety' && <SafetyMatrix />}
             {rightTab === 'telemetry' && <TelemetryCard />}
