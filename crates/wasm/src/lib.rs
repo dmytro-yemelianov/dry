@@ -410,6 +410,14 @@ pub fn check_machine_compatibility(
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Reverse-parse raw G-code text into a structured Toolpath IR JSON for in-browser inspection.
+#[wasm_bindgen]
+pub fn import_gcode_to_ir(gcode_text: &str) -> Result<String, JsError> {
+    let imported = dry_core::import_gcode(gcode_text, &dry_core::GcodeImportParams::default())
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&imported).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

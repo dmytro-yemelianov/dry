@@ -492,6 +492,37 @@ export function createViewer(cfg) {
     controls.addEventListener('start', () => el.classList.add('is-dragging'));
     controls.addEventListener('end', () => el.classList.remove('is-dragging'));
     controls.addEventListener('change', () => { V.needsRender = true; exposeDebugState(); });
+
+    // Drag-and-drop G-code reverse inspection
+    el.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      el.style.outline = '2px dashed #58a6ff';
+    });
+    el.addEventListener('dragleave', () => {
+      el.style.outline = 'none';
+    });
+    el.addEventListener('drop', (event) => {
+      event.preventDefault();
+      el.style.outline = 'none';
+      if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+      const file = event.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        try {
+          if (wasm && wasm.import_gcode_to_ir) {
+            const irJson = wasm.import_gcode_to_ir(text);
+            const tp = JSON.parse(irJson);
+            if (tp && tp.segments) {
+              show(tp.segments, true);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to import dropped G-code:', err);
+        }
+      };
+      reader.readAsText(file);
+    });
     scene.add(new THREE.HemisphereLight(0xddeeff, 0x17202a, 0.82));
     const dl = new THREE.DirectionalLight(0xffffff, 1.15); dl.position.set(0.5, -1, 1.6); scene.add(dl);
     const fill = new THREE.DirectionalLight(0x8ecbff, 0.28); fill.position.set(-1.4, 0.7, 0.8); scene.add(fill);
