@@ -17,16 +17,14 @@ const vcross = (a: Vec3, b: Vec3): Vec3 => [
   a[2] * b[0] - a[0] * b[2],
   a[0] * b[1] - a[1] * b[0],
 ];
-const vmad = (p: Vec3, d: Vec3, s: number): Vec3 => [
-  p[0] + d[0] * s,
-  p[1] + d[1] * s,
-  p[2] + d[2] * s,
-];
 
 export interface BeadFilterOptions {
   mode: SlicingFilterMode;
   targetSection: number;
   segmentSections: number[];
+  activeFilterLayers?: number[];
+  activeFilterFigures?: number[];
+  activeFilterTurns?: number[];
 }
 
 export function buildStadiumBeadsGeometry(
@@ -73,11 +71,26 @@ export function buildStadiumBeadsGeometry(
     const isTravel = seg.travel === true || seg.kind === 'travel';
     if (isTravel) continue;
 
-    // Multi-modal slicing filter check
-    if (filter && filter.segmentSections && filter.segmentSections.length > idx) {
-      const segSec = filter.segmentSections[idx];
-      if (filter.mode === 'upToSection' && segSec > filter.targetSection) continue;
-      if (filter.mode === 'singleSection' && segSec !== filter.targetSection) continue;
+    // Multi-modal slicing & multi-tag filter check
+    if (filter) {
+      if (filter.mode === 'upToSection' && filter.segmentSections) {
+        const segSec = filter.segmentSections[idx];
+        if (segSec > filter.targetSection) continue;
+      } else if (filter.mode === 'singleSection' && filter.segmentSections) {
+        const segSec = filter.segmentSections[idx];
+        if (segSec !== filter.targetSection) continue;
+      } else if (filter.mode === 'multiFilter') {
+        const tags = seg.tags;
+        if (filter.activeFilterLayers && filter.activeFilterLayers.length > 0) {
+          if (!tags || tags.layer === undefined || !filter.activeFilterLayers.includes(tags.layer)) continue;
+        }
+        if (filter.activeFilterFigures && filter.activeFilterFigures.length > 0) {
+          if (!tags || tags.figure === undefined || !filter.activeFilterFigures.includes(tags.figure)) continue;
+        }
+        if (filter.activeFilterTurns && filter.activeFilterTurns.length > 0) {
+          if (!tags || tags.turn === undefined || !filter.activeFilterTurns.includes(tags.turn)) continue;
+        }
+      }
     }
 
     const d = vsub(p1, p0);

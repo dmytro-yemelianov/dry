@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStudioStore } from '../../store/useStudioStore';
-import type { GroupingMode, GcodeViewFormat } from '../../types/domain';
+import type { GroupingMode } from '../../types/domain';
 
 const CMD_DESC: Record<string, string> = {
   G0: 'rapid travel — reposition without extruding',
@@ -36,16 +36,10 @@ const PARAM_DESC: Record<string, [string, string]> = {
   P: ['dwell time in ms', 'ms'],
 };
 
-interface ParsedGcodeRow {
-  index: number;
-  raw: string;
-  cmd: string;
-  args: Record<string, string>;
-}
-
 export const GcodeInspector: React.FC = () => {
   const gcodeLines = useStudioStore((state) => state.gcodeLines);
   const gcodeSections = useStudioStore((state) => state.gcodeSections);
+  const multiTagRows = useStudioStore((state) => state.multiTagRows);
   const groupingMode = useStudioStore((state) => state.groupingMode);
   const setGroupingMode = useStudioStore((state) => state.setGroupingMode);
   const gcodeViewFormat = useStudioStore((state) => state.gcodeViewFormat);
@@ -61,23 +55,16 @@ export const GcodeInspector: React.FC = () => {
   const nextSection = useStudioStore((state) => state.nextSection);
   const prevSection = useStudioStore((state) => state.prevSection);
 
+  const activeFilterLayers = useStudioStore((state) => state.activeFilterLayers);
+  const activeFilterFigures = useStudioStore((state) => state.activeFilterFigures);
+  const activeFilterTurns = useStudioStore((state) => state.activeFilterTurns);
+  const toggleFilterLayer = useStudioStore((state) => state.toggleFilterLayer);
+  const toggleFilterFigure = useStudioStore((state) => state.toggleFilterFigure);
+  const toggleFilterTurn = useStudioStore((state) => state.toggleFilterTurn);
+  const clearMultiFilters = useStudioStore((state) => state.clearMultiFilters);
+
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
-
-  // Pre-parse G-code lines into token structures for table matrix rendering
-  const parsedRows = useMemo<ParsedGcodeRow[]>(() => {
-    return gcodeLines.map((line, idx) => {
-      const words = line.trim().split(/\s+/).filter(Boolean);
-      const cmd = words[0] || '';
-      const args: Record<string, string> = {};
-      for (const tok of words.slice(1)) {
-        const k = tok[0].toUpperCase();
-        const v = tok.slice(1);
-        if (k && v !== undefined) args[k] = v;
-      }
-      return { index: idx, raw: line, cmd, args };
-    });
-  }, [gcodeLines]);
 
   // Map each line index to its section header if it starts a section
   const sectionStartMap = useRef<Map<number, { label: string; kind: string }>>(new Map());
@@ -98,6 +85,13 @@ export const GcodeInspector: React.FC = () => {
 
   const currentDisplayIndex = hoveredLineIndex !== null ? hoveredLineIndex : activeLineIndex;
   const currentDisplayLine = gcodeLines[currentDisplayIndex] || gcodeLines[0] || '';
+  const currentRowMeta = multiTagRows[currentDisplayIndex] || {
+    index: currentDisplayIndex,
+    raw: currentDisplayLine,
+    cmd: '',
+    args: {},
+    tags: {},
+  };
 
   const virtualizer = useVirtualizer({
     count: gcodeLines.length,
@@ -124,6 +118,9 @@ export const GcodeInspector: React.FC = () => {
       ? 'Figure'
       : 'Layer';
 
+  const hasActiveFilters =
+    activeFilterLayers.length > 0 || activeFilterFigures.length > 0 || activeFilterTurns.length > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Grouping Strategy & View Format Switcher Bar */}
@@ -138,7 +135,7 @@ export const GcodeInspector: React.FC = () => {
                 onClick={() => setGroupingMode(mode)}
               >
                 {mode === 'auto'
-                  ? `Auto (${sectionTitle}s)`
+                  ? `Auto Multi-Tag`
                   : mode === 'revolutions'
                   ? 'Turns'
                   : mode === 'figures'
@@ -166,6 +163,54 @@ export const GcodeInspector: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Breadcrumbs Trail */}
+      <div className="breadcrumb-trail-bar">
+        <span className="bc-item">
+          L{currentRowMeta.tags.layer || 1} (Z={currentRowMeta.tags.layerZ?.toFixed(2) || '0.20'}mm)
+        </span>
+        {currentRowMeta.tags.figure && (
+          <>
+            <span className="bc-sep">›</span>
+            <span className="bc-item">
+              Fig {currentRowMeta.tags.figure} ({currentRowMeta.tags.figureType || 'extrude'})
+            </span>
+          </>
+        )}
+        {currentRowMeta.tags.turn && (
+          <>
+            <span className="bc-sep">›</span>
+            <span className="bc-item">Turn {currentRowMeta.tags.turn}</span>
+          </>
+        )}
+        <span className="bc-sep">›</span>
+        <span className="bc-active">Move #{currentDisplayIndex + 1}</span>
+      </div>
+
+      {/* Multi-Filter Active Indicators */}
+      {hasActiveFilters && (
+        <div className="active-filters-bar">
+          <span className="filter-badge-label">Active Filters:</span>
+          {activeFilterLayers.map((l) => (
+            <span key={`l-${l}`} className="filter-chip" onClick={() => toggleFilterLayer(l)}>
+              Layer {l} ✕
+            </span>
+          ))}
+          {activeFilterFigures.map((f) => (
+            <span key={`f-${f}`} className="filter-chip" onClick={() => toggleFilterFigure(f)}>
+              Fig {f} ✕
+            </span>
+          ))}
+          {activeFilterTurns.map((t) => (
+            <span key={`t-${t}`} className="filter-chip" onClick={() => toggleFilterTurn(t)}>
+              Turn {t} ✕
+            </span>
+          ))}
+          <button className="clear-filter-btn" onClick={clearMultiFilters}>
+            Clear All
+          </button>
+        </div>
+      )}
 
       {/* Multi-Modal Section Navigation Bar */}
       <div className="layer-nav-bar">
@@ -224,6 +269,7 @@ export const GcodeInspector: React.FC = () => {
       {gcodeViewFormat === 'table' && (
         <div className="table-matrix-header">
           <span className="col-no">Line</span>
+          <span className="col-tags">Tags</span>
           <span className="col-cmd">Op</span>
           <span className="col-x">X (mm)</span>
           <span className="col-y">Y (mm)</span>
@@ -248,10 +294,16 @@ export const GcodeInspector: React.FC = () => {
         >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const index = virtualRow.index;
-            const rowData = parsedRows[index] || { index, raw: '', cmd: '', args: {} };
-            const isG0 = rowData.cmd === 'G0';
-            const isG1 = rowData.cmd === 'G1';
-            const isArc = rowData.cmd === 'G2' || rowData.cmd === 'G3';
+            const rowMeta = multiTagRows[index] || {
+              index,
+              raw: gcodeLines[index] || '',
+              cmd: '',
+              args: {},
+              tags: {},
+            };
+            const isG0 = rowMeta.cmd === 'G0';
+            const isG1 = rowMeta.cmd === 'G1';
+            const isArc = rowMeta.cmd === 'G2' || rowMeta.cmd === 'G3';
             const cmdClass = isG0 ? 'cmd-g0' : isG1 ? 'cmd-g1' : isArc ? 'cmd-arc' : 'cmd-other';
             const isActive = index === activeLineIndex;
             const sectionInfo = sectionStartMap.current.get(index);
@@ -284,7 +336,7 @@ export const GcodeInspector: React.FC = () => {
                 )}
 
                 {gcodeViewFormat === 'stream' ? (
-                  /* ---- Stream Format ---- */
+                  /* ---- Stream Format with Multi-Tag Badges ---- */
                   <div
                     className={`gcode-row ${isActive ? 'active' : ''}`}
                     onMouseEnter={() => setHoveredLineIndex(index)}
@@ -292,11 +344,49 @@ export const GcodeInspector: React.FC = () => {
                     onClick={() => setFocusedLine(index)}
                   >
                     <span className="gcode-lineno">{index + 1}</span>
-                    <span className={`gcode-cmd ${cmdClass}`}>{rowData.cmd}</span>
-                    <span className="gcode-args">{rowData.raw.split(/\s+/).slice(1).join(' ')}</span>
+                    <div className="row-tag-pills">
+                      {rowMeta.tags.layer !== undefined && (
+                        <span
+                          className={`row-tag tag-layer ${activeFilterLayers.includes(rowMeta.tags.layer) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFilterLayer(rowMeta.tags.layer!);
+                          }}
+                          title="Filter by Layer"
+                        >
+                          L{rowMeta.tags.layer}
+                        </span>
+                      )}
+                      {rowMeta.tags.figure !== undefined && (
+                        <span
+                          className={`row-tag tag-fig ${activeFilterFigures.includes(rowMeta.tags.figure) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFilterFigure(rowMeta.tags.figure!);
+                          }}
+                          title="Filter by Figure"
+                        >
+                          F{rowMeta.tags.figure}
+                        </span>
+                      )}
+                      {rowMeta.tags.turn !== undefined && (
+                        <span
+                          className={`row-tag tag-turn ${activeFilterTurns.includes(rowMeta.tags.turn) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFilterTurn(rowMeta.tags.turn!);
+                          }}
+                          title="Filter by Turn"
+                        >
+                          T{rowMeta.tags.turn}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`gcode-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
+                    <span className="gcode-args">{rowMeta.raw.split(/\s+/).slice(1).join(' ')}</span>
                   </div>
                 ) : (
-                  /* ---- Tabular Coordinate Matrix Format ---- */
+                  /* ---- Tabular Coordinate Matrix Format with Multi-Tag Badges ---- */
                   <div
                     className={`table-matrix-row ${isActive ? 'active' : ''}`}
                     onMouseEnter={() => setHoveredLineIndex(index)}
@@ -304,12 +394,36 @@ export const GcodeInspector: React.FC = () => {
                     onClick={() => setFocusedLine(index)}
                   >
                     <span className="col-no">{index + 1}</span>
-                    <span className={`col-cmd ${cmdClass}`}>{rowData.cmd}</span>
-                    <span className="col-x">{rowData.args.X || '—'}</span>
-                    <span className="col-y">{rowData.args.Y || '—'}</span>
-                    <span className="col-z">{rowData.args.Z || '—'}</span>
-                    <span className="col-e">{rowData.args.E || '—'}</span>
-                    <span className="col-f">{rowData.args.F || '—'}</span>
+                    <div className="col-tags">
+                      {rowMeta.tags.layer !== undefined && (
+                        <span
+                          className={`row-tag tag-layer ${activeFilterLayers.includes(rowMeta.tags.layer) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFilterLayer(rowMeta.tags.layer!);
+                          }}
+                        >
+                          L{rowMeta.tags.layer}
+                        </span>
+                      )}
+                      {rowMeta.tags.figure !== undefined && (
+                        <span
+                          className={`row-tag tag-fig ${activeFilterFigures.includes(rowMeta.tags.figure) ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFilterFigure(rowMeta.tags.figure!);
+                          }}
+                        >
+                          F{rowMeta.tags.figure}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`col-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
+                    <span className="col-x">{rowMeta.args.X || '—'}</span>
+                    <span className="col-y">{rowMeta.args.Y || '—'}</span>
+                    <span className="col-z">{rowMeta.args.Z || '—'}</span>
+                    <span className="col-e">{rowMeta.args.E || '—'}</span>
+                    <span className="col-f">{rowMeta.args.F || '—'}</span>
                   </div>
                 )}
               </div>

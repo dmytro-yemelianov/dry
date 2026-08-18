@@ -88,6 +88,10 @@ export const ThreeViewport: React.FC = () => {
   const seekTime = useStudioStore((state) => state.seekTime);
   const importCustomGcode = useStudioStore((state) => state.importCustomGcode);
 
+  const activeFilterLayers = useStudioStore((state) => state.activeFilterLayers);
+  const activeFilterFigures = useStudioStore((state) => state.activeFilterFigures);
+  const activeFilterTurns = useStudioStore((state) => state.activeFilterTurns);
+
   // Initialize Scene
   useEffect(() => {
     const container = containerRef.current;
@@ -240,6 +244,9 @@ export const ThreeViewport: React.FC = () => {
         mode: slicingFilterMode,
         targetSection: targetSectionIndex,
         segmentSections,
+        activeFilterLayers,
+        activeFilterFigures,
+        activeFilterTurns,
       });
 
       const pDef = PLASTIC_MATERIALS[plasticMaterial] || PLASTIC_MATERIALS.cyan;

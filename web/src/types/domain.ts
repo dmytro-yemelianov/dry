@@ -47,6 +47,7 @@ export interface Segment {
   height?: number;
   centre?: [number, number] | null;
   clockwise?: boolean;
+  tags?: RowGroupTags;
 }
 
 export interface Toolpath {
@@ -95,7 +96,39 @@ export interface DesignDef {
 }
 
 export type GroupingKind = 'revolution' | 'figure' | 'layer' | 'routine';
-export type GroupingMode = 'auto' | 'revolutions' | 'figures' | 'layers';
+export type GroupingMode = 'auto' | 'revolutions' | 'figures' | 'layers' | 'multi';
+
+export interface RowGroupTags {
+  layer?: number;
+  layerZ?: number;
+  figure?: number;
+  figureType?: 'perimeter' | 'infill' | 'travel' | 'skirt' | 'bridge';
+  turn?: number;
+  turnAngleDeg?: number;
+  feature?: string;
+}
+
+export interface GcodeRowMeta {
+  index: number;
+  raw: string;
+  cmd: string;
+  args: Record<string, string>;
+  tags: RowGroupTags;
+}
+
+export interface HierarchyGroupNode {
+  id: string;
+  kind: 'layer' | 'figure' | 'turn' | 'feature';
+  label: string;
+  badge: string;
+  startLine: number;
+  endLine: number;
+  startSeg: number;
+  endSeg: number;
+  lineCount: number;
+  z?: number;
+  children?: HierarchyGroupNode[];
+}
 
 export interface GcodeSection {
   index: number;
@@ -113,5 +146,5 @@ export interface GcodeSection {
 
 export type RenderStyle = 'beads' | 'wireframe';
 export type PlasticMaterial = 'cyan' | 'obsidian' | 'gold' | 'orange' | 'white' | 'resin';
-export type SlicingFilterMode = 'all' | 'upToSection' | 'singleSection';
+export type SlicingFilterMode = 'all' | 'upToSection' | 'singleSection' | 'multiFilter';
 export type GcodeViewFormat = 'stream' | 'table';

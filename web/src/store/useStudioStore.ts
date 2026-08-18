@@ -11,6 +11,9 @@ import type {
   PlasticMaterial,
   SlicingFilterMode,
   GcodeViewFormat,
+  RowGroupTags,
+  GcodeRowMeta,
+  HierarchyGroupNode,
 } from '../types/domain';
 import {
   ensureWasmInitialized,
@@ -54,8 +57,8 @@ const DEFAULT_MACHINES: MachineProfile[] = [
   },
 ];
 
-/** Intelligent Multi-Modal Sectioning and Grouping Engine */
-function computeIntelligentGrouping(
+/** Multi-Tag Auto-Grouping Engine: simultaneously tags moves with layers, figures, turns, and features */
+function computeMultiTagGrouping(
   gcodeLines: string[],
   toolpath: Toolpath | null,
   requestedMode: GroupingMode
@@ -63,6 +66,8 @@ function computeIntelligentGrouping(
   sections: GcodeSection[];
   effectiveKind: GroupingKind;
   segmentSections: number[];
+  multiTagRows: GcodeRowMeta[];
+  hierarchyTree: HierarchyGroupNode[];
 } {
   const segments = toolpath?.segments || [];
   if (!segments.length) {
@@ -73,16 +78,21 @@ function computeIntelligentGrouping(
       kind: 'routine',
       label: 'Start Routine',
     };
-    return { sections: [defaultSec], effectiveKind: 'routine', segmentSections: [] };
+    return {
+      sections: [defaultSec],
+      effectiveKind: 'routine',
+      segmentSections: [],
+      multiTagRows: [],
+      hierarchyTree: [],
+    };
   }
 
-  // 1. Analyze Geometry & Toolpath Characteristics
+  // 1. Calculate centroid and bounding box for polar unrolling
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   let zChanges = 0;
   let continuousZChanges = 0;
   let lastZ: number | null = null;
-  let islands = 0;
-  let inExtrusion = false;
+  let totalExtrusionDistance = 0;
 
   for (const seg of segments) {
     const pt = seg.end || seg.start;
@@ -101,15 +111,8 @@ function computeIntelligentGrouping(
       if (Math.abs(z - lastZ) < 0.1) continuousZChanges++;
       lastZ = z;
     }
-
-    const isTravel = seg.travel === true || seg.kind === 'travel';
-    if (!isTravel) {
-      if (!inExtrusion) {
-        islands++;
-        inExtrusion = true;
-      }
-    } else {
-      inExtrusion = false;
+    if (seg.travel !== true && seg.kind !== 'travel') {
+      totalExtrusionDistance += seg.length || 0;
     }
   }
 
@@ -117,165 +120,200 @@ function computeIntelligentGrouping(
   const cy = isFinite(minY) ? (minY + maxY) / 2 : 50;
   const isContinuousSpiral = continuousZChanges > 15 && continuousZChanges > zChanges * 0.7;
 
-  // 2. Decide Effective Strategy
+  // 2. Determine Primary Strategy for Main Section List
   let strategy: GroupingKind = 'layer';
   if (requestedMode === 'revolutions') strategy = 'revolution';
   else if (requestedMode === 'figures') strategy = 'figure';
   else if (requestedMode === 'layers') strategy = 'layer';
   else {
-    // Auto Detection
+    // Auto-selection
     if (isContinuousSpiral) strategy = 'revolution';
-    else if (islands > 1 && zChanges <= 3) strategy = 'figure';
     else if (zChanges > 1) strategy = 'layer';
-    else if (islands > 1) strategy = 'figure';
-    else strategy = 'revolution';
+    else strategy = 'figure';
   }
 
+  // 3. Simultaneous Multi-Tagging of Segments
+  const segmentTags: RowGroupTags[] = [];
+  let currentLayer = 1;
+  let currentLayerZ: number | null = null;
+  let currentFigure = 0;
+  let inFigureExtrusion = false;
+  let cumulativeAngle = 0;
+  let lastAngle: number | null = null;
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const pt = seg.end || seg.start || [cx, cy, 0];
+    const px = (pt[0] !== null ? (pt[0] as number) : cx) - cx;
+    const py = (pt[1] !== null ? (pt[1] as number) : cy) - cy;
+    const pz = pt[2] !== null ? (pt[2] as number) : 0;
+    const roundedZ = Math.round(pz * 1000) / 1000;
+
+    // Layer tag
+    if (currentLayerZ === null || Math.abs(roundedZ - currentLayerZ) > 1e-4) {
+      if (currentLayerZ !== null) currentLayer++;
+      currentLayerZ = roundedZ;
+    }
+
+    // Figure tag
+    const isTravel = seg.travel === true || seg.kind === 'travel';
+    if (!isTravel) {
+      if (!inFigureExtrusion) {
+        currentFigure++;
+        inFigureExtrusion = true;
+      }
+    } else {
+      inFigureExtrusion = false;
+    }
+
+    // Revolution / Turn tag
+    const angle = Math.atan2(py, px);
+    if (lastAngle !== null) {
+      let diff = angle - lastAngle;
+      if (diff > Math.PI) diff -= TAU;
+      if (diff < -Math.PI) diff += TAU;
+      cumulativeAngle += Math.abs(diff);
+    }
+    lastAngle = angle;
+    const currentTurn = Math.floor(cumulativeAngle / TAU) + 1;
+
+    // Feature classification
+    let featureType: 'perimeter' | 'infill' | 'travel' | 'skirt' | 'bridge' = 'infill';
+    if (isTravel) featureType = 'travel';
+    else if (seg.speed && seg.speed < 1200) featureType = 'perimeter';
+    else featureType = 'infill';
+
+    const tags: RowGroupTags = {
+      layer: currentLayer,
+      layerZ: currentLayerZ,
+      figure: isTravel ? undefined : currentFigure,
+      figureType: featureType,
+      turn: currentTurn,
+      turnAngleDeg: Math.round((cumulativeAngle * 180) / Math.PI),
+      feature: isTravel ? 'Travel Move' : `${featureType.toUpperCase()} Move`,
+    };
+
+    seg.tags = tags;
+    segmentTags.push(tags);
+  }
+
+  // 4. Map G-Code Lines to Multi-Tag Rows
+  const lineFactor = gcodeLines.length > 0 && segments.length > 0 ? segments.length / gcodeLines.length : 1;
+  const multiTagRows: GcodeRowMeta[] = gcodeLines.map((line, idx) => {
+    const words = line.trim().split(/\s+/).filter(Boolean);
+    const cmd = words[0] || '';
+    const args: Record<string, string> = {};
+    for (const tok of words.slice(1)) {
+      const k = tok[0].toUpperCase();
+      const v = tok.slice(1);
+      if (k && v !== undefined) args[k] = v;
+    }
+
+    const segIdx = Math.min(segments.length - 1, Math.floor(idx * lineFactor));
+    const tags = segmentTags[segIdx] || { layer: 1, figure: 1, turn: 1 };
+    return {
+      index: idx,
+      raw: line,
+      cmd,
+      args,
+      tags,
+    };
+  });
+
+  // 5. Build Standard Sections based on strategy
   const sections: GcodeSection[] = [];
   const segmentSections: number[] = [];
 
-  // Approximate mapping of segment index to G-code line index
-  const lineFactor = gcodeLines.length > 0 && segments.length > 0 ? gcodeLines.length / segments.length : 1;
-
   if (strategy === 'revolution') {
-    // ---- Revolutions / Turns Grouping ----
-    let cumulativeAngle = 0;
-    let lastAngle: number | null = null;
     let currentTurn = 1;
-    let turnStartSeg = 0;
-    let zStart = 0;
-
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const pt = seg.end || seg.start || [cx, cy, 0];
-      const px = (pt[0] !== null ? (pt[0] as number) : cx) - cx;
-      const py = (pt[1] !== null ? (pt[1] as number) : cy) - cy;
-      const pz = pt[2] !== null ? (pt[2] as number) : 0;
-
-      if (i === 0) zStart = pz;
-
-      const angle = Math.atan2(py, px);
-      if (lastAngle !== null) {
-        let diff = angle - lastAngle;
-        if (diff > Math.PI) diff -= TAU;
-        if (diff < -Math.PI) diff += TAU;
-        cumulativeAngle += Math.abs(diff);
-      }
-      lastAngle = angle;
-
-      const completedTurns = Math.floor(cumulativeAngle / TAU);
-      if (completedTurns >= currentTurn || i === 0) {
-        if (i > 0) {
-          const prevSec = sections[sections.length - 1];
-          if (prevSec) {
-            prevSec.moveCount = i - turnStartSeg;
-            prevSec.zRange = [zStart, pz];
-          }
-          currentTurn = completedTurns + 1;
-        }
-
-        turnStartSeg = i;
-        zStart = pz;
-        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
+      const turn = segmentTags[i].turn || 1;
+      if (turn >= currentTurn || i === 0) {
+        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i / lineFactor));
         sections.push({
-          index: currentTurn,
+          index: turn,
           line: lineIdx,
           segmentIndex: i,
           kind: 'revolution',
-          label: `Turn ${currentTurn} (${(currentTurn * 360 - 360)}°–${currentTurn * 360}°)`,
-          subLabel: `Z: ${pz.toFixed(2)}mm`,
-          zRange: [pz, pz],
-          angleRangeDeg: [currentTurn * 360 - 360, currentTurn * 360],
+          label: `Turn ${turn} (${(turn * 360 - 360)}°–${turn * 360}°)`,
+          subLabel: `Z: ${segmentTags[i].layerZ?.toFixed(2)}mm`,
         });
+        currentTurn = turn + 1;
       }
-
       segmentSections.push(sections.length);
     }
   } else if (strategy === 'figure') {
-    // ---- Discrete Geometric Figures / Islands Grouping ----
     let currentFig = 0;
-    let figStartSeg = 0;
-    let inFig = false;
-
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const isTravel = seg.travel === true || seg.kind === 'travel';
-
-      if (!isTravel) {
-        if (!inFig) {
-          currentFig++;
-          inFig = true;
-          figStartSeg = i;
-          const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
-          const pt = seg.end || seg.start;
-          const pz = pt && pt[2] !== null ? (pt[2] as number) : 0;
-          sections.push({
-            index: currentFig,
-            line: lineIdx,
-            segmentIndex: i,
-            kind: 'figure',
-            label: `Figure ${currentFig} (Extrusion Loop)`,
-            subLabel: `Z: ${pz.toFixed(2)}mm`,
-            zRange: [pz, pz],
-          });
-        }
-      } else {
-        if (inFig) {
-          inFig = false;
-          const prevSec = sections[sections.length - 1];
-          if (prevSec) prevSec.moveCount = i - figStartSeg;
-        }
+      const fig = segmentTags[i].figure || 0;
+      if (fig > currentFig) {
+        currentFig = fig;
+        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i / lineFactor));
+        sections.push({
+          index: currentFig,
+          line: lineIdx,
+          segmentIndex: i,
+          kind: 'figure',
+          label: `Figure ${currentFig} (${segmentTags[i].figureType || 'Extrusion'})`,
+          subLabel: `Z: ${segmentTags[i].layerZ?.toFixed(2)}mm`,
+        });
       }
-
       segmentSections.push(Math.max(1, sections.length));
     }
   } else {
-    // ---- Discrete Layers Grouping ----
-    let currentLayer = 0;
-    let currentZ: number | null = null;
-    let layerStartSeg = 0;
-
+    let curLayer = 0;
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const pt = seg.end || seg.start;
-      const pz = pt && pt[2] !== null ? (pt[2] as number) : 0;
-      const roundedZ = Math.round(pz * 1000) / 1000;
-
-      if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-4) {
-        if (currentZ !== null) {
-          const prevSec = sections[sections.length - 1];
-          if (prevSec) prevSec.moveCount = i - layerStartSeg;
-        }
-        currentZ = roundedZ;
-        currentLayer++;
-        layerStartSeg = i;
-        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
+      const layer = segmentTags[i].layer || 1;
+      if (layer > curLayer) {
+        curLayer = layer;
+        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i / lineFactor));
         sections.push({
-          index: currentLayer,
+          index: curLayer,
           line: lineIdx,
           segmentIndex: i,
           kind: 'layer',
-          label: `Layer ${currentLayer} (Z=${roundedZ.toFixed(2)}mm)`,
-          subLabel: `${roundedZ.toFixed(3)} mm`,
-          zRange: [roundedZ, roundedZ],
+          label: `Layer ${curLayer} (Z=${segmentTags[i].layerZ?.toFixed(2)}mm)`,
+          subLabel: `${segmentTags[i].layerZ?.toFixed(3)} mm`,
         });
       }
-
-      segmentSections.push(currentLayer);
+      segmentSections.push(curLayer);
     }
   }
 
-  if (!sections.length) {
-    sections.push({
-      index: 1,
-      line: 0,
-      segmentIndex: 0,
-      kind: strategy,
-      label: 'Section 1',
-    });
+  // 6. Build Hierarchical Grouping Tree (Layer -> Figure -> Moves)
+  const layerMap = new Map<number, HierarchyGroupNode>();
+  for (let idx = 0; idx < multiTagRows.length; idx++) {
+    const row = multiTagRows[idx];
+    const lNum = row.tags.layer || 1;
+    if (!layerMap.has(lNum)) {
+      layerMap.set(lNum, {
+        id: `layer-${lNum}`,
+        kind: 'layer',
+        label: `Layer ${lNum} (Z=${row.tags.layerZ?.toFixed(2) || '0.20'}mm)`,
+        badge: `L${lNum}`,
+        startLine: idx,
+        endLine: idx,
+        startSeg: Math.floor(idx * lineFactor),
+        endSeg: Math.floor(idx * lineFactor),
+        lineCount: 0,
+        z: row.tags.layerZ,
+        children: [],
+      });
+    }
+    const lNode = layerMap.get(lNum)!;
+    lNode.endLine = idx;
+    lNode.lineCount++;
   }
 
-  return { sections, effectiveKind: strategy, segmentSections };
+  const hierarchyTree = Array.from(layerMap.values());
+
+  return {
+    sections: sections.length ? sections : [{ index: 1, line: 0, segmentIndex: 0, kind: 'layer', label: 'Layer 1' }],
+    effectiveKind: strategy,
+    segmentSections,
+    multiTagRows,
+    hierarchyTree,
+  };
 }
 
 interface StudioState {
@@ -288,8 +326,13 @@ interface StudioState {
   gcodeLines: string[];
   gcodeSections: GcodeSection[];
   segmentSections: number[];
+  multiTagRows: GcodeRowMeta[];
+  hierarchyTree: HierarchyGroupNode[];
   groupingMode: GroupingMode;
   effectiveGroupingKind: GroupingKind;
+  activeFilterLayers: number[];
+  activeFilterFigures: number[];
+  activeFilterTurns: number[];
   metrics: Metrics | null;
   optimizedToolpath: Toolpath | null;
   colorMode: 'type' | 'height' | 'speed';
@@ -320,6 +363,10 @@ interface StudioState {
   setSlicingFilterMode: (mode: SlicingFilterMode) => void;
   setTargetSectionIndex: (idx: number) => void;
   setGcodeViewFormat: (format: GcodeViewFormat) => void;
+  toggleFilterLayer: (layer: number) => void;
+  toggleFilterFigure: (figure: number) => void;
+  toggleFilterTurn: (turn: number) => void;
+  clearMultiFilters: () => void;
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
   togglePlay: () => void;
@@ -343,8 +390,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   gcodeLines: [],
   gcodeSections: [],
   segmentSections: [],
+  multiTagRows: [],
+  hierarchyTree: [],
   groupingMode: 'auto',
   effectiveGroupingKind: 'revolution',
+  activeFilterLayers: [],
+  activeFilterFigures: [],
+  activeFilterTurns: [],
   metrics: null,
   optimizedToolpath: null,
   colorMode: 'type',
@@ -402,6 +454,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       focusedLineIndex: null,
       activeSectionIndex: 1,
       targetSectionIndex: 1,
+      activeFilterLayers: [],
+      activeFilterFigures: [],
+      activeFilterTurns: [],
     });
 
     get().recompileCurrentDesign();
@@ -431,7 +486,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setGroupingMode: (mode) => {
     set({ groupingMode: mode });
     const { gcodeLines, toolpath } = get();
-    const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+    const { sections, effectiveKind, segmentSections, multiTagRows, hierarchyTree } = computeMultiTagGrouping(
       gcodeLines,
       toolpath,
       mode
@@ -440,6 +495,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       gcodeSections: sections,
       effectiveGroupingKind: effectiveKind,
       segmentSections,
+      multiTagRows,
+      hierarchyTree,
       activeSectionIndex: 1,
       targetSectionIndex: 1,
     });
@@ -447,6 +504,55 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setSlicingFilterMode: (mode) => set({ slicingFilterMode: mode }),
   setTargetSectionIndex: (idx) => set({ targetSectionIndex: idx }),
   setGcodeViewFormat: (format) => set({ gcodeViewFormat: format }),
+
+  toggleFilterLayer: (layer) => {
+    set((state) => {
+      const exists = state.activeFilterLayers.includes(layer);
+      const next = exists
+        ? state.activeFilterLayers.filter((l) => l !== layer)
+        : [...state.activeFilterLayers, layer];
+      return {
+        activeFilterLayers: next,
+        slicingFilterMode: next.length > 0 || state.activeFilterFigures.length > 0 || state.activeFilterTurns.length > 0 ? 'multiFilter' : 'all',
+      };
+    });
+  },
+
+  toggleFilterFigure: (fig) => {
+    set((state) => {
+      const exists = state.activeFilterFigures.includes(fig);
+      const next = exists
+        ? state.activeFilterFigures.filter((f) => f !== fig)
+        : [...state.activeFilterFigures, fig];
+      return {
+        activeFilterFigures: next,
+        slicingFilterMode: next.length > 0 || state.activeFilterLayers.length > 0 || state.activeFilterTurns.length > 0 ? 'multiFilter' : 'all',
+      };
+    });
+  },
+
+  toggleFilterTurn: (turn) => {
+    set((state) => {
+      const exists = state.activeFilterTurns.includes(turn);
+      const next = exists
+        ? state.activeFilterTurns.filter((t) => t !== turn)
+        : [...state.activeFilterTurns, turn];
+      return {
+        activeFilterTurns: next,
+        slicingFilterMode: next.length > 0 || state.activeFilterLayers.length > 0 || state.activeFilterFigures.length > 0 ? 'multiFilter' : 'all',
+      };
+    });
+  },
+
+  clearMultiFilters: () => {
+    set({
+      activeFilterLayers: [],
+      activeFilterFigures: [],
+      activeFilterTurns: [],
+      slicingFilterMode: 'all',
+    });
+  },
+
   setActiveCategory: (cat) => set({ activeCategory: cat }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -518,7 +624,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     try {
       const tp = importGcode(text);
       const lines = text.split('\n').filter((l) => l.trim().length > 0);
-      const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+      const { sections, effectiveKind, segmentSections, multiTagRows, hierarchyTree } = computeMultiTagGrouping(
         lines,
         tp,
         get().groupingMode
@@ -529,12 +635,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         gcodeSections: sections,
         effectiveGroupingKind: effectiveKind,
         segmentSections,
+        multiTagRows,
+        hierarchyTree,
         activeDesignKey: 'custom_import',
         currentTime: 0,
         maxTime: 10,
         focusedLineIndex: null,
         activeSectionIndex: 1,
         targetSectionIndex: 1,
+        activeFilterLayers: [],
+        activeFilterFigures: [],
+        activeFilterTurns: [],
       });
     } catch (err) {
       console.error('Import failed:', err);
@@ -554,7 +665,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const gcode = compileGcode(ops, RESOLVE_PARAMS);
       const ir = compileIR(ops, RESOLVE_PARAMS);
       const m = compileMetrics(ops, RESOLVE_PARAMS);
-      const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+      const { sections, effectiveKind, segmentSections, multiTagRows, hierarchyTree } = computeMultiTagGrouping(
         gcode,
         ir,
         groupingMode
@@ -573,6 +684,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         gcodeSections: sections,
         effectiveGroupingKind: effectiveKind,
         segmentSections,
+        multiTagRows,
+        hierarchyTree,
         metrics: m,
         optimizedToolpath: optIr,
         maxTime: m.total_time_s || 10,
