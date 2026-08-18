@@ -184,17 +184,96 @@ function updateBuildEnvelope() {
 }
 
 export function loadDefaultDesign() {
-  const ops = [
-    { type: "extruder", on: false },
-    { type: "move", x: 20, y: 20, z: 0.2 },
-    { type: "extruder", on: true },
-    { type: "speed", print: 60 },
-    { type: "move", x: 120, y: 20, z: 0.2 },
-    { type: "move", x: 120, y: 120, z: 0.2 },
-    { type: "move", x: 20, y: 120, z: 0.2 },
-    { type: "move", x: 20, y: 20, z: 0.2 },
-  ];
-  renderOps(ops);
+  renderOps(generateSpiral());
+}
+
+export function generateSpiral() {
+  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 60 }];
+  const r = 40, cx = 128, cy = 128;
+  const turns = 15;
+  const totalPoints = 300;
+  for (let i = 0; i <= totalPoints; i++) {
+    const frac = i / totalPoints;
+    const angle = frac * turns * Math.PI * 2;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    const z = 0.2 + frac * 30;
+    if (i === 0) {
+      ops.push({ op: "move", x, y, z });
+      ops.push({ op: "extruder", on: true });
+    } else {
+      ops.push({ op: "move", x, y, z });
+    }
+  }
+  return ops;
+}
+
+export function generateGyroid() {
+  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 80 }];
+  const cx = 128, cy = 128;
+  const layers = 30;
+  for (let l = 0; l < layers; l++) {
+    const z = 0.2 + l * 0.4;
+    const phase = l * 0.2;
+    for (let i = 0; i <= 40; i++) {
+      const u = (i / 40) * Math.PI * 4;
+      const x = cx + (Math.sin(u + phase) * 35);
+      const y = cy + (Math.cos(u - phase) * 20 + (i - 20) * 1.5);
+      if (i === 0) {
+        ops.push({ op: "extruder", on: false });
+        ops.push({ op: "move", x, y, z });
+        ops.push({ op: "extruder", on: true });
+      } else {
+        ops.push({ op: "move", x, y, z });
+      }
+    }
+  }
+  return ops;
+}
+
+export function generatePocket() {
+  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 40 }, { op: "power", level: 18000 }];
+  const cx = 128, cy = 128;
+  const stepdown = 1.0;
+  const totalDepth = 3.0;
+  for (let d = stepdown; d <= totalDepth; d += stepdown) {
+    const z = -d;
+    for (let r = 40; r >= 10; r -= 8) {
+      ops.push({ op: "extruder", on: false });
+      ops.push({ op: "move", x: cx - r, y: cy - r, z: 2.0 });
+      ops.push({ op: "move", x: cx - r, y: cy - r, z });
+      ops.push({ op: "extruder", on: true });
+      ops.push({ op: "move", x: cx + r, y: cy - r, z });
+      ops.push({ op: "move", x: cx + r, y: cy + r, z });
+      ops.push({ op: "move", x: cx - r, y: cy + r, z });
+      ops.push({ op: "move", x: cx - r, y: cy - r, z });
+    }
+  }
+  return ops;
+}
+
+export function generateStar() {
+  const ops = [{ op: "extruder", on: false }, { op: "speed", print: 50 }];
+  const cx = 128, cy = 128;
+  const points = 6;
+  const rOuter = 40, rInner = 20;
+  for (let l = 0; l < 15; l++) {
+    const z = 0.2 + l * 0.4;
+    for (let i = 0; i <= points * 2; i++) {
+      const angle = (i / (points * 2)) * Math.PI * 2;
+      const r = i % 2 === 0 ? rOuter : rInner;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      if (i === 0) {
+        ops.push({ op: "extruder", on: false });
+        ops.push({ op: "move", x, y, z });
+        ops.push({ op: "extruder", on: true });
+      } else {
+        ops.push({ op: "move", x, y, z });
+      }
+    }
+  }
+  return ops;
 }
 
 export function renderOps(ops) {
@@ -321,6 +400,32 @@ function setupEventListeners() {
       if (mode === "side") camera.position.set(500, 128, 100);
       controls.update();
     });
+  });
+
+  // Gallery presets
+  document.querySelectorAll(".gallery-card").forEach(card => {
+    card.addEventListener("click", () => {
+      document.querySelectorAll(".gallery-card").forEach(c => c.classList.remove("active"));
+      card.classList.add("active");
+      const preset = card.dataset.preset;
+      if (preset === "spiral") renderOps(generateSpiral());
+      else if (preset === "gyroid") renderOps(generateGyroid());
+      else if (preset === "pocket") renderOps(generatePocket());
+      else if (preset === "star") renderOps(generateStar());
+    });
+  });
+
+  // Export G-code
+  document.getElementById("exportGcodeBtn").addEventListener("click", () => {
+    const text = document.getElementById("gcodeViewer").textContent;
+    if (!text) return;
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dry_machina_${currentMachine ? currentMachine.id : 'export'}.gcode`;
+    a.click();
+    URL.revokeObjectURL(url);
   });
 
   // Drag & drop file inspection
