@@ -14,6 +14,7 @@
 pub mod clothoid;
 pub mod codec;
 pub mod compare;
+pub mod document;
 pub mod emit;
 pub mod engine;
 pub mod explain;
@@ -21,12 +22,11 @@ pub mod features;
 pub mod forensics;
 pub mod frame;
 pub mod gcode;
-
 pub mod generate;
 pub mod ir;
 pub mod optimize;
-
 pub mod profile;
+pub mod provenance;
 pub mod recommend;
 pub mod report;
 pub mod resolve;
@@ -50,11 +50,13 @@ pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
+pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidationError};
 #[allow(deprecated)]
 pub use emit::emit;
 pub use emit::{
-    emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
-    Kinematics, KrlFrame, KrlTransform, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_cycle_cancel, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, DrillCycle,
+    EmitParams, FirmwareFlavor, Kinematics, KrlFrame, KrlTransform, PeckDrillCycle,
+    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
@@ -88,9 +90,12 @@ pub use optimize::{
     travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
 };
 pub use profile::{
-    import_klipper, FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineKinematics,
-    MachineProfile, MachineRotary, MaterialProfile, ProcessProfile, Profile, ProfileError,
+    check_compatibility, import_klipper, AxisRange, CompatibilityFinding, CompatibilityReport,
+    FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineCapabilities,
+    MachineKinematics, MachineProfile, MachineRotary, MaterialProfile, ProcessProfile, Profile,
+    ProfileError, Severity as CompatibilitySeverity,
 };
+pub use provenance::{NodeId, ProvenanceMap, SegmentSpan};
 pub use recommend::{
     apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
     ExecutableAction, ExecutionResult, MetricSnapshot, Recommendation, Verdict,
