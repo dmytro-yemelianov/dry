@@ -50,6 +50,13 @@ export interface DryWasm {
     firstLayerSpeedRange: Float64Array | undefined,
     kinematicsJson: string
   ): string;
+  compute_scurve_profile(
+    vStart: number,
+    vTarget: number,
+    maxAcceleration: number,
+    maxJerk: number
+  ): string;
+  import_step_nc_to_ops(stepNcText: string): string;
 }
 
 // The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
@@ -203,4 +210,28 @@ export function resolveVerify(
       kinematicsJson
     )
   );
+}
+
+export interface SCurveProfile {
+  t_jerk_inc: number;
+  t_const_acc: number;
+  t_jerk_dec: number;
+  total_duration: number;
+  total_distance: number;
+  peak_acceleration: number;
+}
+
+export function computeSCurveProfile(
+  vStart: number,
+  vTarget: number,
+  maxAcceleration: number,
+  maxJerk: number
+): SCurveProfile {
+  return JSON.parse(
+    bind().compute_scurve_profile(vStart, vTarget, maxAcceleration, maxJerk)
+  );
+}
+
+export function importStepNc(stepNcText: string): Op[] {
+  return JSON.parse(bind().import_step_nc_to_ops(stepNcText));
 }

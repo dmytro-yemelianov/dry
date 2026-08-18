@@ -418,6 +418,36 @@ pub fn import_gcode_to_ir(gcode_text: &str) -> Result<String, JsError> {
     serde_json::to_string(&imported).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Compute a 7-phase jerk-bounded S-curve trajectory profile.
+#[wasm_bindgen]
+pub fn compute_scurve_profile(
+    v_start: f64,
+    v_target: f64,
+    max_acceleration: f64,
+    max_jerk: f64,
+) -> Result<String, JsError> {
+    let params = dry_core::SCurveParams {
+        v_start,
+        v_target,
+        max_acceleration,
+        max_jerk,
+    };
+    let profile = dry_core::calculate_scurve_profile(&params)
+        .map_err(|e| JsError::new(e))?;
+    serde_json::to_string(&profile).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Import an ISO 14649 STEP-NC document and lower it into Dry L1 operations JSON.
+#[wasm_bindgen]
+pub fn import_step_nc_to_ops(step_nc_text: &str) -> Result<String, JsError> {
+    let steps = dry_core::parse_step_nc(step_nc_text).map_err(|e| JsError::new(e))?;
+    let mut all_ops = Vec::new();
+    for step in &steps {
+        all_ops.extend(dry_core::lower_workingstep_to_ops(step));
+    }
+    serde_json::to_string(&all_ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

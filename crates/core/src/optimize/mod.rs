@@ -12,6 +12,7 @@ mod arc;
 mod coasting;
 mod engagement;
 mod merge;
+mod scurve;
 mod travel;
 mod z_hop;
 
@@ -30,6 +31,7 @@ pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};
 pub use self::engagement::optimize_corner_feedrate;
 pub use self::merge::merge_collinear;
+pub use self::scurve::{calculate_scurve_profile, SCurveParams, SCurveProfile};
 pub use self::travel::travel_reorder;
 pub use self::z_hop::{z_hop, z_hop_with_params};
 

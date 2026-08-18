@@ -37,6 +37,7 @@ pub mod resolve;
 pub mod reverse;
 pub mod schema;
 pub mod sdk;
+pub mod step_nc;
 pub mod tool;
 pub mod trace;
 
@@ -102,9 +103,10 @@ pub use generate::{
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
-    apply_safe_gated, arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline,
-    merge_collinear, optimize_aggressive_pipeline, optimize_corner_feedrate, optimize_pipeline,
-    safe_pipeline, travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
+    apply_safe_gated, arc_fit, balanced_pipeline, calculate_scurve_profile, coasting,
+    coasting_with_dist, max_pipeline, merge_collinear, optimize_aggressive_pipeline,
+    optimize_corner_feedrate, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
+    z_hop_with_params, GatedResult, OptimizeMode, SCurveParams, SCurveProfile,
 };
 pub use profile::{
     check_compatibility, import_klipper, AxisRange, CompatibilityFinding, CompatibilityReport,
@@ -126,6 +128,9 @@ pub use resolve::{
 };
 pub use reverse::{reverse, ReverseError};
 pub use sdk::DesignBuilder;
+pub use step_nc::{
+    lower_workingstep_to_ops, parse_step_nc, StepNcFeature, StepNcWorkingstep,
+};
 pub use trace::{
     trace_summary, trace_summary_with_analytics, trace_summary_with_sources, LayerStats,
     LayerTraceLinkage, Percentiles, PhaseStats, TraceAnalytics, TraceAnalyticsOptions, TraceError,

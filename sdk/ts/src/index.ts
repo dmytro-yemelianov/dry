@@ -23,8 +23,10 @@ export {
   resolveOptimizedIr,
   resolveBalancedIr,
   resolveVerify,
+  computeSCurveProfile,
+  importStepNc,
 } from './engine';
-export type { MachineKinematics } from './engine';
+export type { MachineKinematics, SCurveProfile } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type {
   Finding,
