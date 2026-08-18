@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clean Room Verification — Dry Machina</title>
+  <meta name="description" content="Clean room engineering methodology, independent mathematical conformance, and provenance assurance.">
+  <link rel="stylesheet" href="tool-ui.css">
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 32px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand strong {
+      font-size: 18px;
+      color: #58a6ff;
+    }
+    nav a {
+      color: #8b949e;
+      text-decoration: none;
+      margin-left: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    nav a:hover, nav a.active {
+      color: #58a6ff;
+    }
+    .content-container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px 80px;
+    }
+    h1 {
+      font-size: 32px;
+      color: #f0f6fc;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 16px;
+      color: #8b949e;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+    h2 {
+      font-size: 22px;
+      color: #f0f6fc;
+      margin-top: 36px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+      padding-bottom: 8px;
+    }
+    p, li {
+      color: #8b949e;
+      font-size: 14px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .step-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .step-card h3 {
+      margin-top: 0;
+      color: #58a6ff;
+      font-size: 16px;
+    }
+    footer {
+      border-top: 1px solid #30363d;
+      padding: 32px;
+      text-align: center;
+      font-size: 13px;
+      color: #8b949e;
+      background: #161b22;
+    }
+    footer a {
+      color: #58a6ff;
+      text-decoration: none;
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <strong>Dry Machina</strong>
+    <span style="font-size: 12px; color: #8b949e;">Universal Toolpath Compiler</span>
+  </div>
+  <nav aria-label="Main Navigation">
+    <a href="/">Home</a>
+    <a href="/web/">3D Studio</a>
+    <a href="/web/machines.html">Machines</a>
+    <a href="/web/auth.html">Cloud Auth</a>
+    <a href="/web/docs.html">Docs & Specs</a>
+    <a href="https://github.com/dmytro-yemelianov/dry">GitHub</a>
+  </nav>
+</header>
+
+<main class="content-container">
+  <h1>Clean Room Engineering Policy</h1>
+  <div class="subtitle">Independent Implementation · Mathematical Assurance · IP Integrity</div>
+
+  <p>Dry Machina is developed strictly under a clean-room software engineering methodology. The goal of this process is to ensure complete mathematical correctness, independent reproducibility, and total license hygiene.</p>
+
+  <div class="step-card">
+    <h3>1. Specification-First Architecture</h3>
+    <p>All toolpath compilers, intermediate representation (IR) dialects (<code>dry.intent/1</code>, <code>dry.motion/1</code>, <code>dry.tool/1</code>, <code>dry.machine/1</code>), and emitter passes are written from formal mathematical definitions and public machine specifications rather than reverse-engineered code.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>2. Independent Conformance Vector Testing</h3>
+    <p>To verify behavioral correctness without code contamination, we maintain a standalone conformance oracle suite (<code>conformance/vectors/</code>). These vectors contain strictly numerical inputs and expected physical toolpath outputs validated by standalone verification scripts (<code>tools/validate_vectors.py</code>) running independently of the core compiler.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>3. Zero GPL / Tainted Code Policy</h3>
+    <p>The released Rust compiler crate (<code>crates/core/</code>), CLI binaries, WASM bindings, and TypeScript/Python SDKs are written completely from scratch and are 100% free of GPL-licensed dependencies or copyleft code, guaranteeing unencumbered enterprise and commercial deployment.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>4. Formal Mathematical Proofs & Invariant Checks</h3>
+    <p>Critical motion planning algorithms (such as 7-phase S-curve profiles, Euler-Rodrigues quaternion rotations, and RTCP kinematics) are verified against analytical mathematical proofs and property-based test fuzzers.</p>
+  </div>
+</main>
+
+<footer>
+  <div>
+    © 2026 Dry Machina. All rights reserved.
+    <a href="/web/legal.html">Legal</a>
+    <a href="/web/privacy.html">Privacy</a>
+    <a href="/web/cleanroom.html">Clean Room</a>
+    <a href="/web/docs.html">Documentation</a>
+  </div>
+</footer>
+
+</body>
+</html>

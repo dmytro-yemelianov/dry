@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation & Specifications — Dry Machina</title>
+  <meta name="description" content="Comprehensive guides, API documentation, and specification schemas for Dry Machina.">
+  <link rel="stylesheet" href="tool-ui.css">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --line: #30363d;
+      --fg: #c9d1d9;
+      --fg-bright: #f0f6fc;
+      --muted: #8b949e;
+      --core: #58a6ff;
+      --accent-green: #3fb950;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 32px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand strong {
+      font-size: 18px;
+      color: var(--core);
+    }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    nav a:hover, nav a.active {
+      color: var(--core);
+    }
+    .docs-layout {
+      display: flex;
+      max-width: 1360px;
+      margin: 0 auto;
+      min-height: calc(100vh - 120px);
+    }
+    .docs-sidebar {
+      width: 280px;
+      padding: 32px 24px;
+      border-right: 1px solid var(--line);
+      flex-shrink: 0;
+      position: sticky;
+      top: 57px;
+      height: calc(100vh - 57px);
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .sidebar-search {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--fg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 24px;
+      box-sizing: border-box;
+    }
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 20px 0 8px;
+    }
+    .sidebar-links {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar-links li {
+      margin: 4px 0;
+    }
+    .sidebar-links a {
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 13px;
+      display: block;
+      padding: 6px 8px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+    .sidebar-links a:hover, .sidebar-links a.active {
+      background: rgba(88, 166, 255, 0.12);
+      color: var(--core);
+    }
+    .docs-content {
+      flex: 1;
+      padding: 40px 48px 100px;
+      max-width: 860px;
+    }
+    h1 {
+      font-size: 32px;
+      color: var(--fg-bright);
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 22px;
+      color: var(--fg-bright);
+      margin-top: 40px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    h3 {
+      font-size: 17px;
+      color: var(--fg-bright);
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    p, li {
+      font-size: 14px;
+      color: #8b949e;
+      line-height: 1.65;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12.5px;
+      background: rgba(110, 118, 129, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #e6edf3;
+    }
+    pre {
+      background: #161b22;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 16px 0 24px;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: #e6edf3;
+    }
+    .code-tabs {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 16px 0 24px;
+      background: var(--panel);
+    }
+    .tab-headers {
+      display: flex;
+      background: #0d1117;
+      border-bottom: 1px solid var(--line);
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-right: 1px solid var(--line);
+    }
+    .tab-btn.active {
+      color: var(--core);
+      background: var(--panel);
+      border-bottom: 2px solid var(--core);
+    }
+    .tab-pane {
+      padding: 16px;
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    .spec-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--core);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      margin-left: 8px;
+    }
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 32px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      background: var(--panel);
+    }
+    footer a {
+      color: var(--core);
+      text-decoration: none;
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <strong>Dry Machina</strong>
+    <span style="font-size: 12px; color: var(--muted);">Documentation & Specs</span>
+  </div>
+  <nav aria-label="Main Navigation">
+    <a href="/">Home</a>
+    <a href="/web/">3D Studio</a>
+    <a href="/web/machines.html">Machines</a>
+    <a href="/web/auth.html">Cloud Auth</a>
+    <a href="/web/docs.html" class="active">Docs & Specs</a>
+    <a href="https://github.com/dmytro-yemelianov/dry">GitHub</a>
+  </nav>
+</header>
+
+<div class="docs-layout">
+  <aside class="docs-sidebar">
+    <input type="text" id="docsSearch" class="sidebar-search" placeholder="Search documentation...">
+    
+    <div class="sidebar-section-title">Getting Started</div>
+    <ul class="sidebar-links">
+      <li><a href="#overview" class="active">Platform Overview</a></li>
+      <li><a href="#quickstart">Quickstart Guide</a></li>
+      <li><a href="#architecture">Architecture & IR</a></li>
+    </ul>
+
+    <div class="sidebar-section-title">SDKs & Tooling</div>
+    <ul class="sidebar-links">
+      <li><a href="#sdk-typescript">TypeScript SDK</a></li>
+      <li><a href="#sdk-python">Python SDK</a></li>
+      <li><a href="#rust-core">Rust Core Crate</a></li>
+      <li><a href="#cli-usage">Native CLI</a></li>
+    </ul>
+
+    <div class="sidebar-section-title">Manufacturing Processes</div>
+    <ul class="sidebar-links">
+      <li><a href="#proc-fdm">3D Printing (FDM)</a></li>
+      <li><a href="#proc-cnc">CNC Milling (RS-274)</a></li>
+      <li><a href="#proc-laser">Laser Cutting & Engraving</a></li>
+      <li><a href="#proc-plasma">Plasma & Waterjet</a></li>
+      <li><a href="#proc-robotics">5-Axis Robotics & RTCP</a></li>
+    </ul>
+
+    <div class="sidebar-section-title">Mathematical Systems</div>
+    <ul class="sidebar-links">
+      <li><a href="#math-scurve">7-Phase S-Curve Motion</a></li>
+      <li><a href="#math-tpms">TPMS Implicit Slicing</a></li>
+      <li><a href="#math-pocket">Stepped Pocketing Engine</a></li>
+      <li><a href="#math-stepnc">ISO 14649 STEP-NC Parser</a></li>
+    </ul>
+
+    <div class="sidebar-section-title">Specification Schemas</div>
+    <ul class="sidebar-links">
+      <li><a href="#schema-intent">dry.intent/1</a></li>
+      <li><a href="#schema-motion">dry.motion/1</a></li>
+      <li><a href="#schema-tool">dry.tool/1</a></li>
+      <li><a href="#schema-machine">dry.machine/1</a></li>
+      <li><a href="#schema-report">dry.report/1</a></li>
+    </ul>
+  </aside>
+
+  <main class="docs-content">
+    <section id="overview">
+      <h1>Dry Machina Documentation</h1>
+      <p>Dry Machina (<code>drymachina.com</code>) is an open-source, multi-process CAM toolpath compiler and generative manufacturing platform written in Rust with WebAssembly, TypeScript, and Python SDK bindings.</p>
+      
+      <h2>Core Design Principles</h2>
+      <ul>
+        <li><strong>Multi-Process Portability:</strong> Compile a single geometric intent into G-code for 3D printers (Klipper/Marlin/Bambu), CNC mills (RS-274/GRBL), laser cutters, plasma tables, and 5-axis robotic arms.</li>
+        <li><strong>Provable Correctness:</strong> Deterministic lowering passes, mathematical proofs, continuous S-curve acceleration profiling, and physical machine capability gates.</li>
+        <li><strong>Client-Side Zero-Latency WebAssembly:</strong> Run complex 3D toolpath compilation, collision checking, and G-code generation 100% locally in the browser with 0ms network latency.</li>
+      </ul>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quickstart Guide</h2>
+      <p>Choose your preferred environment to start authoring and compiling toolpaths:</p>
+
+      <div class="code-tabs">
+        <div class="tab-headers">
+          <button class="tab-btn active" onclick="switchTab(event, 'code-ts')">TypeScript</button>
+          <button class="tab-btn" onclick="switchTab(event, 'code-py')">Python</button>
+          <button class="tab-btn" onclick="switchTab(event, 'code-cli')">Native CLI</button>
+        </div>
+        <div id="code-ts" class="tab-pane active">
+          <pre><code>import { Design, mm, mm_s, MachineCatalog } from '@dry/sdk';
+
+// 1. Author a toolpath design
+const design = new Design()
+  .point(mm(0), mm(0), mm(0.2))
+  .speed(mm_s(60))
+  .point(mm(100), mm(0), mm(0.2))
+  .point(mm(100), mm(100), mm(0.2))
+  .point(mm(0), mm(100), mm(0.2))
+  .point(mm(0), mm(0), mm(0.2));
+
+// 2. Pre-flight check against machine limits
+const catalog = new MachineCatalog();
+const machine = await catalog.get('bambu-x1-carbon');
+const report = design.checkCompatibility(machine.toCapabilities());
+
+// 3. Emit G-code
+if (report.compatible) {
+  const gcode = design.gcode();
+  console.log(gcode.join('\n'));
+}</code></pre>
+        </div>
+        <div id="code-py" class="tab-pane">
+          <pre><code>from dry import Design, mm, mm_s, MachineCatalog
+
+# 1. Author a toolpath design
+design = (
+    Design()
+    .point(mm(0), mm(0), mm(0.2))
+    .speed(mm_s(60))
+    .point(mm(100), mm(0), mm(0.2))
+    .point(mm(100), mm(100), mm(0.2))
+    .point(mm(0), mm(100), mm(0.2))
+    .point(mm(0), mm(0), mm(0.2))
+)
+
+# 2. Check machine limits
+catalog = MachineCatalog()
+machine = catalog.get("bambu-x1-carbon")
+report = design.check_compatibility(machine.to_capabilities())
+
+# 3. Emit G-code
+if report["compatible"]:
+    gcode = design.gcode()
+    print("\n".join(gcode))</code></pre>
+        </div>
+        <div id="code-cli" class="tab-pane">
+          <pre><code># 1. Emit G-code from JSON toolpath
+dry emit conformance/gcode/square.json --flavor klipper > output.gcode
+
+# 2. Run pre-flight verification against machine limits
+dry verify conformance/gcode/square.json --profile profiles/bambu_x1c.json
+
+# 3. Inspect layer forensics & volumetric flow
+dry trace conformance/gcode/square.json</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="math-scurve">
+      <h2>7-Phase Jerk-Bounded S-Curve Motion (D4.5)</h2>
+      <p>Dry Machina implements an analytical 7-phase S-curve profile solver that bounds jerk (\(\frac{da}{dt} \le j_{\max}\)), preventing acceleration discontinuities that cause ringing, ghosting, and motor resonance.</p>
+      <pre><code>import { computeSCurveProfile } from '@dry/sdk';
+
+// Calculate smooth transition from 0 to 200 mm/s
+// with a_max = 2000 mm/s², j_max = 20,000 mm/s³
+const profile = computeSCurveProfile(0, 200, 2000, 20000);
+console.log(`Duration: ${profile.total_duration}s, Peak Accel: ${profile.peak_acceleration} mm/s²`);</code></pre>
+    </section>
+
+    <section id="math-stepnc">
+      <h2>ISO 14649 STEP-NC Importer (D1.8)</h2>
+      <p>Directly ingest enterprise CAD/CAM machining workingsteps (drilling cycles, planar facing, and closed pocket features) into Dry L1 operations:</p>
+      <pre><code>import { importStepNc } from '@dry/sdk';
+
+const xml = `&lt;stepnc xmlns="urn:iso:std:iso-10303-14649"&gt;
+  &lt;workingsteps&gt;
+    &lt;workingstep id="ws-1" type="hole" x="50" y="25" diameter="6.0" depth="15.0" feed="800"/&gt;
+  &lt;/workingsteps&gt;
+&lt;/stepnc&gt;`;
+
+const ops = importStepNc(xml);</code></pre>
+    </section>
+
+    <section id="schema-machine">
+      <h2>Machine Profile Specification <span class="spec-badge">dry.machine/1</span></h2>
+      <p>Standardized JSON schema for describing manufacturing hardware constraints across 3D printers, CNC mills, laser cutters, and robotics:</p>
+      <pre><code>{
+  "$schema": "https://dry.yemelianov.dev/schema/dry.machine/1.json",
+  "id": "bambu-x1-carbon",
+  "name": "Bambu Lab X1-Carbon",
+  "category": "3d_printer",
+  "manufacturer": "Bambu Lab",
+  "build_volume": {
+    "x": [0, 256],
+    "y": [0, 256],
+    "z": [0, 256]
+  },
+  "max_feedrates": { "x": 500, "y": 500, "z": 30, "e": 60 },
+  "max_acceleration": 20000,
+  "firmware": "bambu",
+  "kinematics": "corexy",
+  "default_nozzle_diameter": 0.4,
+  "max_hotend_temp": 300,
+  "max_bed_temp": 120
+}</code></pre>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div>
+    © 2026 Dry Machina. All rights reserved.
+    <a href="/web/legal.html">Legal</a>
+    <a href="/web/privacy.html">Privacy</a>
+    <a href="/web/cleanroom.html">Clean Room</a>
+    <a href="/web/docs.html">Documentation</a>
+  </div>
+</footer>
+
+<script>
+function switchTab(e, tabId) {
+  const container = e.target.closest('.code-tabs');
+  container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  container.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,1626 +1,182 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="icon" href="data:," />
-<title>Dry — toolpath compiler, in your browser</title>
-<meta name="description" content="Dry toolpath compiler interactive gallery. Lower design intent to L2 toolpath IR and print-ready G-code with live 3D visualization and simulation." />
-<style>
-  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e;
-          --extrude:#58a6ff; --travel:#f85149; --accent:#3fb950; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font:14px/1.5 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-  header { padding:18px 24px; border-bottom:1px solid var(--line); }
-  header p { margin:4px 0 0; color:var(--muted); font-size:12px; }
-  main { display:grid; grid-template-columns: 360px 1fr 380px; gap:1px; background:var(--line);
-         height: calc(100vh - 75px); }
-  section { background:var(--bg); padding:16px; overflow:auto; }
-  h2 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
-       margin:0 0 12px; font-weight:600; }
-  h2 .sub { text-transform:none; color:var(--muted); font-weight:400; }
-  select, label, button, input { font:inherit; }
-  select { width:100%; background:var(--panel); color:var(--fg); border:1px solid var(--line);
-           border-radius:6px; padding:8px; margin-bottom:14px; }
-  input[type="number"], input[type="text"] { width:100%; background:var(--panel); color:var(--fg);
-           border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
-  input[type="checkbox"] { accent-color:var(--accent); }
-  .row { display:flex; gap:10px; margin-bottom:8px; }
-  .toggle { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
-  .source-panel[hidden] { display:none !important; }
-  .source-panel { border-top:1px solid var(--line); padding-top:12px; margin-top:12px; }
-  .control-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px 10px; }
-  .control-grid label { display:flex; flex-direction:column; gap:4px; color:var(--muted);
-                        font-size:10px; text-transform:uppercase; letter-spacing:.7px; }
-  .control-grid select { margin:0; padding:6px 8px; }
-  .control-grid .wide { grid-column:1 / -1; }
-  .control-grid .check { flex-direction:row; align-items:center; min-height:31px; text-transform:none;
-                         letter-spacing:0; font-size:12px; }
-  .error { margin-top:10px; color:var(--travel); font-size:12px; }
-  #viewport { width:100%; height:54vh; background:var(--panel); border-radius:8px;
-              border:1px solid var(--line); overflow:hidden; position:relative; }
-  #viewport canvas { display:block; width:100%; height:100%; }
-  .view-grid-labels { position:absolute; inset:0; display:grid; grid-template-columns:1fr 1fr;
-                      grid-template-rows:1fr 1fr; pointer-events:none; z-index:2; }
-  .view-grid-cell { padding:8px; border-color:rgba(48,54,61,.82); }
-  .view-grid-cell:nth-child(1), .view-grid-cell:nth-child(2) { border-bottom:1px solid rgba(48,54,61,.82); }
-  .view-grid-cell:nth-child(1), .view-grid-cell:nth-child(3) { border-right:1px solid rgba(48,54,61,.82); }
-  .view-grid-cell span { display:inline-block; padding:3px 7px; border:1px solid var(--line);
-                         border-radius:6px; background:rgba(13,17,23,.76); color:var(--fg);
-                         font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px;
-            vertical-align:middle; }
-  .playback { display:flex; align-items:center; gap:10px; margin-top:12px; }
-  .playback button { background:var(--panel); color:var(--fg); border:1px solid var(--line);
-                     border-radius:6px; padding:6px 10px; cursor:pointer; }
-  .playback button:hover { border-color:var(--muted); }
-  #scrub { flex:1; accent-color:var(--accent); }
-  #clock { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; min-width:96px;
-           text-align:right; }
-  .speeds { display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap; }
-  .speeds .lbl { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px;
-                 margin-right:4px; }
-  .speeds button { background:var(--panel); color:var(--muted); border:1px solid var(--line);
-                   border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px; }
-  .speeds button.active { color:var(--bg); background:var(--accent); border-color:var(--accent);
-                          font-weight:600; }
-  .metrics { display:grid; grid-template-columns:1fr auto; gap:4px 12px; }
-  .metrics dt { color:var(--muted); }
-  .metrics dd { margin:0; text-align:right; }
-  .gcode-meta { color:var(--muted); font-size:11px; margin:0 0 6px; }
-  .gcode { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px;
-           font-size:12px; overflow:auto; max-height:46vh; }
-  .gline { padding:1px 8px; border-radius:4px; white-space:pre; cursor:pointer; }
-  .gline:hover { background:#1f2630; }
-  .gline.active { background:var(--accent); color:var(--bg); font-weight:600; }
-  .gline .ln { color:var(--muted); display:inline-block; width:38px; user-select:none; }
-  .gline.active .ln { color:var(--bg); }
-  .explain { margin-top:10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;
-             padding:10px; font-size:12px; min-height:70px; }
-  .explain .cmd { color:var(--accent); font-weight:600; }
-  .explain table { width:100%; border-collapse:collapse; margin-top:6px; }
-  .explain td { padding:2px 4px; vertical-align:top; }
-  .explain td.k { color:var(--extrude); width:64px; font-weight:600; }
-  .explain td.d { color:var(--muted); }
-  .explain .hint { color:var(--muted); }
-  .optimize { font-size:13px; }
-  .optimize .delta { color:var(--accent); }
-  .optimize .none { color:var(--muted); }
-  .findings { display:flex; flex-direction:column; gap:6px; }
-  .findings .ok { color:var(--accent); }
-  .finding { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--travel);
-             border-radius:6px; padding:6px 8px; font-size:12px; }
-  .finding.warning { border-left-color:#d29922; }
-  .finding .rule { color:var(--travel); font-weight:600; }
-  .finding.warning .rule { color:#d29922; }
-  .finding .msg { color:var(--muted); display:block; margin-top:2px; }
-  footer { color:var(--muted); font-size:11px; padding:8px 24px; border-top:1px solid var(--line); }
-  code { color:var(--extrude); }
-  .picker-row { display:flex; gap:10px; align-items:flex-start; margin:-6px 0 14px; }
-  .design-thumb { width:84px; height:84px; border-radius:8px; border:1px solid var(--line);
-                  background:var(--panel); flex:none; }
-  .tags { display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; }
-  .tags .chip { font-size:10px; color:var(--muted); background:#1f2630; border:1px solid var(--line);
-                border-radius:10px; padding:1px 7px; }
-</style>
-<link rel="stylesheet" href="tool-ui.css" />
-<script type="importmap">
-{ "imports": { "three": "./vendor/three.module.js" } }
-</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dry Machina — Universal CAM Studio</title>
+  <meta name="description" content="Greenfield Multi-Process CAM Studio for 3D Printing, CNC Milling, Laser, Plasma, and 5-Axis Robotics.">
+  <link rel="stylesheet" href="studio.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js"
+    }
+  }
+  </script>
 </head>
-<body class="app-page">
-<header>
-  <div class="topbar">
-    <div class="brand">
-      <h1><b>Dry Machina</b> — Universal CAM Studio</h1>
-      <span>Multi-process compiler · 3D Printing, CNC, Laser, Plasma, 5-Axis Robotics · drymachina.com</span>
-    </div>
-    <nav aria-label="Dry Machina web navigation">
-      <a href="/">Home</a>
-      <a href="/web/" class="active">3D Studio</a>
-      <a href="/web/machines.html">Machines</a>
-      <a href="/web/auth.html">Cloud Auth</a>
-      <a href="https://github.com/dmytro-yemelianov/dry">GitHub</a>
-    </nav>
+<body>
+
+<!-- Studio Header -->
+<header class="studio-header">
+  <div class="brand-section">
+    <a href="/" class="brand-logo">
+      <span class="core-dot"></span>
+      Dry Machina
+    </a>
+    <span class="badge-version">Studio 2.0</span>
+  </div>
+
+  <div class="machine-select-wrapper">
+    <label for="machineSelect">Machine:</label>
+    <select id="machineSelect" class="machine-select"></select>
+  </div>
+
+  <div class="process-tabs">
+    <button class="process-tab active" data-process="fdm">3D Printing</button>
+    <button class="process-tab" data-process="cnc">CNC Mill</button>
+    <button class="process-tab" data-process="laser">Laser</button>
+    <button class="process-tab" data-process="plasma">Plasma</button>
+    <button class="process-tab" data-process="robotics">5-Axis RTCP</button>
+  </div>
+
+  <div class="header-actions">
+    <a href="/web/docs.html" class="btn-action" target="_blank">Docs</a>
+    <button id="exportGcodeBtn" class="btn-action primary">Export G-Code</button>
   </div>
 </header>
-<main id="appLayout" class="resizable-layout">
-  <section class="panel-region" data-panel="source">
-    <div class="panel-heading">
-      <h2>Source</h2>
-      <button type="button" class="panel-toggle" data-panel-toggle="source" aria-expanded="true">Hide</button>
-    </div>
-    <div id="sourceCards" class="source-cards" aria-label="Design source gallery"></div>
-    <select id="source" class="source-select-fallback" aria-label="Design source" aria-hidden="true" tabindex="-1">
-      <option value="gallery">Gallery design</option>
-      <option value="fullcontrol">FullControl samples</option>
-      <option value="lattice">Printable star lattice</option>
-      <option value="tpms">TPMS infill volume</option>
-    </select>
-    <div class="profile-panel">
-      <label class="select-field" title="Printer profile used by the resolver defaults and verifier presets."><span class="param-name">printer</span><select id="printerProfile" aria-label="Printer profile"></select></label>
-      <div id="printerProfileMeta" class="profile-meta" aria-live="polite"></div>
-    </div>
-    <div id="galleryPanel" class="source-panel">
-      <div id="designCards" class="design-cards" aria-label="Gallery designs"></div>
-      <select id="design" class="design-select-fallback" aria-label="Gallery design" aria-hidden="true" tabindex="-1"></select>
-      <div id="galleryParams" class="control-grid gallery-params"></div>
-    </div>
-    <div id="latticePanel" class="source-panel" hidden>
-      <div class="control-grid">
-        <label class="wide select-field" title="Star-polygon family from the lattice research generator."><span class="param-name">family</span><select id="latticeFamily"></select></label>
-        <div class="control-actions wide"><button type="button" id="resetLatticeDefaults" class="reset-defaults">Reset all</button></div>
-        <label class="range-field" title="Inclination angle used by the star-polygon lattice construction."><span class="param-name">alpha</span>
-          <span class="range-row"><input type="range" data-sync="latticeAlpha" min="0" max="150" step="1" value="30" aria-label="Alpha degrees" /><input type="number" id="latticeAlpha" value="30" min="0" max="150" step="1" /><span class="param-unit">[deg]</span></span>
-        </label>
-        <label class="range-field" title="Nominal strut/repeating-unit length in millimeters."><span class="param-name">strut</span>
-          <span class="range-row"><input type="range" data-sync="latticeUnit" min="1" max="50" step="0.01" value="4.33" aria-label="Strut millimeters" /><input type="number" id="latticeUnit" value="4.33" min="1" max="50" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Number of repeating lattice columns."><span class="param-name">columns</span>
-          <span class="range-row"><input type="range" data-sync="latticeCols" min="1" max="15" step="1" value="10" aria-label="Lattice columns" /><input type="number" id="latticeCols" value="10" min="1" max="15" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Number of lattice rows; M4 can be rounded to complete row pairs."><span class="param-name">rows</span>
-          <span class="range-row"><input type="range" data-sync="latticeRows" min="1" max="12" step="1" value="3" aria-label="Lattice rows" /><input type="number" id="latticeRows" value="3" min="1" max="12" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Number of repeated printed layers."><span class="param-name">layers</span>
-          <span class="range-row"><input type="range" data-sync="latticeLayers" min="1" max="40" step="1" value="2" aria-label="Lattice layers" /><input type="number" id="latticeLayers" value="2" min="1" max="40" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Z step and bead height used for every lattice layer."><span class="param-name">layer</span>
-          <span class="range-row"><input type="range" data-sync="latticeLayerH" min="0.05" max="2" step="0.001" value="0.2" aria-label="Layer millimeters" /><input type="number" id="latticeLayerH" value="0.2" min="0.05" max="2" step="0.001" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Extrusion bead width for generated lattice moves."><span class="param-name">bead</span>
-          <span class="range-row"><input type="range" data-sync="latticeBead" min="0.1" max="2" step="0.01" value="0.5" aria-label="Bead millimeters" /><input type="number" id="latticeBead" value="0.5" min="0.1" max="2" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Print feedrate for generated lattice paths."><span class="param-name">speed</span>
-          <span class="range-row"><input type="range" data-sync="latticeSpeed" min="60" max="12000" step="10" value="1000" aria-label="Print speed" /><input type="number" id="latticeSpeed" value="1000" min="60" max="12000" step="10" /><span class="param-unit">[mm/min]</span></span>
-        </label>
-        <label class="check wide"><input type="checkbox" id="latticeCompleteWidth" checked /> complete M4 row pairs</label>
-        <span id="latticeRowPairHint" class="control-hint wide" aria-live="polite"></span>
-      </div>
-    </div>
-    <div id="tpmsPanel" class="source-panel" hidden>
-      <div class="control-grid">
-        <label class="wide select-field" title="Implicit TPMS equation used for contour slicing."><span class="param-name">surface</span><select id="tpmsSurface"></select></label>
-        <div class="control-actions wide"><button type="button" id="resetTpmsDefaults" class="reset-defaults">Reset all</button></div>
-        <label class="range-field" title="TPMS unit-cell size in millimeters."><span class="param-name">cell</span>
-          <span class="range-row"><input type="range" data-sync="tpmsCell" min="4" max="80" step="0.5" value="22" aria-label="TPMS cell millimeters" /><input type="number" id="tpmsCell" value="22" min="4" max="80" step="0.5" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="XY marching-squares samples per cell. Higher values cost more CPU/GPU."><span class="param-name">samples</span>
-          <span class="range-row"><input type="range" data-sync="tpmsSamples" min="4" max="64" step="1" value="16" aria-label="TPMS samples per cell" /><input type="number" id="tpmsSamples" value="16" min="4" max="64" step="1" /><span class="param-unit">[1/cell]</span></span>
-        </label>
-        <label class="range-field" title="Number of repeated TPMS cells in X."><span class="param-name">cells X</span>
-          <span class="range-row"><input type="range" data-sync="tpmsCellsX" min="1" max="8" step="1" value="1" aria-label="TPMS cells X" /><input type="number" id="tpmsCellsX" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Number of repeated TPMS cells in Y."><span class="param-name">cells Y</span>
-          <span class="range-row"><input type="range" data-sync="tpmsCellsY" min="1" max="8" step="1" value="1" aria-label="TPMS cells Y" /><input type="number" id="tpmsCellsY" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Number of repeated TPMS cells in Z; directly affects layer count."><span class="param-name">cells Z</span>
-          <span class="range-row"><input type="range" data-sync="tpmsCellsZ" min="1" max="8" step="1" value="1" aria-label="TPMS cells Z" /><input type="number" id="tpmsCellsZ" value="1" min="1" max="8" step="1" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Base Z slice spacing and visual bead height."><span class="param-name">layer</span>
-          <span class="range-row"><input type="range" data-sync="tpmsLayerH" min="0.08" max="1.4" step="0.01" value="0.28" aria-label="TPMS layer millimeters" /><input type="number" id="tpmsLayerH" value="0.28" min="0.08" max="1.4" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Implicit surface level f(x,y,z)=iso."><span class="param-name">iso</span>
-          <span class="range-row"><input type="range" data-sync="tpmsIso" min="-4" max="4" step="0.05" value="0" aria-label="TPMS iso level" /><input type="number" id="tpmsIso" value="0" min="-4" max="4" step="0.05" /><span class="param-unit">[1]</span></span>
-        </label>
-        <label class="range-field" title="Extrusion bead width for contour paths."><span class="param-name">bead</span>
-          <span class="range-row"><input type="range" data-sync="tpmsBead" min="0.1" max="2" step="0.01" value="0.45" aria-label="TPMS bead millimeters" /><input type="number" id="tpmsBead" value="0.45" min="0.1" max="2" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Print feedrate for generated TPMS contour paths."><span class="param-name">speed</span>
-          <span class="range-row"><input type="range" data-sync="tpmsSpeed" min="60" max="12000" step="10" value="1200" aria-label="TPMS print speed" /><input type="number" id="tpmsSpeed" value="1200" min="60" max="12000" step="10" /><span class="param-unit">[mm/min]</span></span>
-        </label>
-        <label class="range-field" title="Smallest adaptive slice spacing allowed in high-change areas."><span class="param-name">min layer</span>
-          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMin" min="0.08" max="0.4" step="0.01" value="0.14" aria-label="TPMS adaptive minimum layer" /><input type="number" id="tpmsAdaptiveMin" value="0.14" min="0.08" max="0.4" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="range-field" title="Maximum Z interval before adaptive slicing inserts a midpoint."><span class="param-name">max layer</span>
-          <span class="range-row"><input type="range" data-sync="tpmsAdaptiveMax" min="0.12" max="1.4" step="0.01" value="0.28" aria-label="TPMS adaptive maximum layer" /><input type="number" id="tpmsAdaptiveMax" value="0.28" min="0.12" max="1.4" step="0.01" /><span class="param-unit">[mm]</span></span>
-        </label>
-        <label class="check wide"><input type="checkbox" id="tpmsPerimeter" checked /> include perimeter on each layer</label>
-        <label class="check wide"><input type="checkbox" id="tpmsAdaptive" /> adaptive slices in bad zones</label>
-      </div>
-    </div>
-    <div class="design-summary">
-      <img id="designThumb" class="design-thumb" alt="design thumbnail" />
-      <div>
-        <div id="designTitle" class="design-title"></div>
-        <div class="tags" id="designTags"></div>
-        <div id="designDescription" class="design-description"></div>
-        <div id="designLinks" class="design-links"></div>
-      </div>
-    </div>
-    <div id="sourceError" class="error" role="alert" hidden></div>
-    <label class="toggle"><input type="checkbox" id="relE" checked /> relative extrusion (E)</label>
 
-    <h2 class="section-title">Export</h2>
-    <div class="export-panel">
-      <label class="select-field" title="Export the active resolved design as motion G-code, wrapped G-code, Dry L1 JSON, metrics, or a FullControl-compatible Python step list."><span class="param-name">format</span><select id="exportFormat" aria-label="Export format">
-        <option value="gcode">motion G-code</option>
-        <option value="gcode-macros">G-code + selected macros</option>
-        <option value="dry-json">Dry L1 JSON</option>
-        <option value="metrics-json">metrics JSON</option>
-        <option value="fullcontrol-py">FullControl Python</option>
-      </select></label>
-      <div class="export-actions">
-        <button type="button" id="exportCopy">Copy</button>
-        <button type="button" id="exportDownload">Download</button>
-        <span id="exportStatus" class="export-status" aria-live="polite"></span>
+<!-- Main Workspace -->
+<main class="studio-main">
+  <!-- Left Sidebar -->
+  <aside class="sidebar-left">
+    <div class="panel-header">
+      <span>Design & Generative Tools</span>
+    </div>
+    <div class="panel-content">
+      <div class="gallery-list" id="galleryList">
+        <div class="gallery-card active" data-preset="spiral">
+          <div class="gallery-title">Spiral Cylinder</div>
+          <div class="gallery-desc">Continuous spiral vase toolpath with zero seam artifacts.</div>
+        </div>
+        <div class="gallery-card" data-preset="gyroid">
+          <div class="gallery-title">TPMS Gyroid Lattice</div>
+          <div class="gallery-desc">Triply periodic minimal surface implicit field generator.</div>
+        </div>
+        <div class="gallery-card" data-preset="pocket">
+          <div class="gallery-title">Stepped CNC Pocket</div>
+          <div class="gallery-desc">Multi-depth waterline roughing with constant engagement.</div>
+        </div>
+        <div class="gallery-card" data-preset="star">
+          <div class="gallery-title">Star Polygon Lattice</div>
+          <div class="gallery-desc">Auxetic metamaterial mechanical repeating unit.</div>
+        </div>
       </div>
-      <div class="macro-grid" aria-label="Optional G-code macros">
-        <label title="Add comments and unit/positioning mode commands before the motion G-code."><input type="checkbox" id="macroHeader" checked /> header</label>
-        <label title="Wait for bed and nozzle temperature using M140/M104/M190/M109."><input type="checkbox" id="macroHeat" /> heat</label>
-        <label title="Home the printer with G28 before printing."><input type="checkbox" id="macroHome" /> home</label>
-        <label title="Prime with a bed-edge purge line and reset E before the generated motion."><input type="checkbox" id="macroPrimeLine" /> prime line</label>
-        <label title="Prime a small blob at the current start area and reset E."><input type="checkbox" id="macroPrimeBlob" /> prime blob</label>
-        <label title="Park/present the toolhead after the generated motion."><input type="checkbox" id="macroPresent" /> present</label>
-        <label title="Turn heaters and fan off after the generated motion."><input type="checkbox" id="macroCooldown" /> cooldown</label>
-        <label title="Disable steppers after the generated motion."><input type="checkbox" id="macroMotorsOff" /> motors off</label>
-        <label class="macro-number" title="Nozzle temperature used by the optional heat macro.">nozzle <input type="number" id="macroNozzle" value="210" min="0" max="320" step="1" /></label>
-        <label class="macro-number" title="Bed temperature used by the optional heat macro.">bed <input type="number" id="macroBed" value="60" min="0" max="140" step="1" /></label>
+
+      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+        <div class="panel-header" style="background: transparent; padding: 0 0 10px; height: auto;">
+          <span>Drop G-Code / STEP-NC</span>
+        </div>
+        <div style="border: 1px dashed var(--border); border-radius: 6px; padding: 16px; text-align: center; font-size: 11.5px; color: var(--fg-muted);">
+          Drag and drop arbitrary <code>.gcode</code> or <code>.stepnc</code> file for zero-latency WASM inspection.
+        </div>
       </div>
     </div>
-    <h2 class="section-title">Metrics</h2>
-    <dl class="metrics" id="metrics"></dl>
+  </aside>
 
-    <h2 class="section-title">Optimize <span class="sub">— safe / balanced (kinematics-aware)</span></h2>
-    <div class="optimize-controls">
-      <label>mode
-        <select id="optimizeMode">
-          <option value="safe">safe — arc-fit + merge</option>
-          <option value="balanced">balanced — kinematics-aware re-speed</option>
-        </select>
-      </label>
-      <span class="sub">balanced uses the max accel / junction velocity below</span>
+  <!-- Center Viewport -->
+  <div class="viewport-center">
+    <div class="viewport-overlay-tools">
+      <button class="view-btn active" data-view="iso">Iso</button>
+      <button class="view-btn" data-view="top">Top</button>
+      <button class="view-btn" data-view="front">Front</button>
+      <button class="view-btn" data-view="side">Side</button>
     </div>
-    <div class="optimize" id="optimize"></div>
 
-    <h2 class="section-title">Verify <span class="sub">— machine-safety contracts</span></h2>
-    <div class="verify-grid">
-      <label>max flow <input type="number" id="maxFlow" value="8" step="0.5" min="0" /></label>
-      <label>min temp <input type="number" id="minTemp" value="180" step="5" min="0" /></label>
-      <label>bounds <input type="text" id="bounds" value="" placeholder="x0,x1,y0,y1,z0,z1" /></label>
-      <label>speed range <input type="text" id="speedRange" value="" placeholder="min,max" /></label>
-      <label>retract dist <input type="number" id="maxRetractDist" value="0" step="0.5" min="0" title="max retraction distance (mm); 0 disables" /></label>
-      <label>retract speed <input type="number" id="maxRetractSpeed" value="0" step="300" min="0" title="max (un)retraction speed (mm/min); 0 disables" /></label>
-      <label>max travel/retract <input type="number" id="maxTravelNoRetract" value="0" step="1" min="0" title="max travel distance without a retraction (mm); 0 disables" /></label>
-      <label>first-layer height <input type="text" id="firstLayerHeight" value="" placeholder="min,max" /></label>
-      <label>first-layer speed <input type="text" id="firstLayerSpeed" value="" placeholder="min,max" /></label>
-      <label>max accel <input type="number" id="maxAccel" value="0" step="500" min="0" title="machine max acceleration (mm/s²) — enables peak-acceleration + feeds balanced; 0 disables" /></label>
-      <label>junction vel <input type="number" id="junctionVel" value="0" step="1" min="0" title="square-corner / junction velocity (mm/s) — enables junction-velocity + feeds balanced; 0 disables" /></label>
-      <label class="check"><input type="checkbox" id="monotonicZ" /> monotonic Z</label>
+    <div class="engine-status-tag">
+      <span class="status-pulse"></span>
+      WASM Active (0ms)
     </div>
-    <div class="findings" id="findings"></div>
-  </section>
-  <div class="panel-resizer" data-resize-panel="source" role="separator" aria-orientation="vertical" aria-label="Resize source panel"></div>
-  <section class="panel-region" data-panel="toolpath">
-    <div class="panel-heading">
-      <h2>Toolpath — 3D <span class="sub">— drag Iso to orbit · scroll to zoom</span></h2>
-      <button type="button" class="panel-toggle" data-panel-toggle="toolpath" aria-expanded="true">Hide</button>
+
+    <div id="viewport3d"></div>
+  </div>
+
+  <!-- Right Sidebar -->
+  <aside class="sidebar-right">
+    <div class="panel-header" style="padding: 0;">
+      <div class="panel-tabs">
+        <button class="panel-tab-btn active" onclick="switchRightTab('tabSafety')">Safety</button>
+        <button class="panel-tab-btn" onclick="switchRightTab('tabTelemetry')">Telemetry</button>
+        <button class="panel-tab-btn" onclick="switchRightTab('tabGcode')">G-Code</button>
+      </div>
     </div>
-    <div id="viewport" role="img" aria-label="Four synchronized toolpath views"></div>
-    <div class="render-controls" id="renderControls" aria-label="Toolpath render controls">
-      <label class="render-pill" title="Show already printed extrusion."><input type="checkbox" data-render-layer="printed" checked /><span class="swatch extrude"></span>printed</label>
-      <label class="render-pill" title="Show planned, unprinted extrusion."><input type="checkbox" data-render-layer="planned" checked /><span class="swatch planned"></span>planned</label>
-      <label class="render-pill" title="Show travel moves."><input type="checkbox" data-render-layer="travel" checked /><span class="swatch travel"></span>travel</label>
-      <label class="render-pill" title="When enabled, only travel moves on the active playback layer are displayed."><input type="checkbox" data-render-layer="travelLayer" /><span class="swatch travel-layer"></span>layer travel</label>
-      <label class="render-pill" title="Show toolhead marker."><input type="checkbox" data-render-layer="toolhead" checked /><span class="swatch toolhead"></span>toolhead</label>
-      <label class="render-pill" title="Show build plate grid."><input type="checkbox" data-render-layer="bed" checked /><span class="swatch bed"></span>bed</label>
-      <label class="render-mode">quality
-        <select data-render-mode aria-label="Toolpath render quality">
-          <option value="auto" selected>auto</option>
-          <option value="fast">fast lines</option>
-          <option value="bead">bead</option>
-          <option value="realistic">realistic bead</option>
-        </select>
-      </label>
-      <label class="render-mode">view
-        <select id="viewMode" data-view-mode aria-label="Toolpath view layout">
-          <option value="grid" selected>3+1 views</option>
-          <option value="iso">Iso only</option>
-        </select>
-      </label>
+
+    <div class="panel-content">
+      <!-- Safety Tab -->
+      <div id="tabSafety" class="tab-pane active">
+        <div id="safetyStatus"></div>
+      </div>
+
+      <!-- Telemetry Tab -->
+      <div id="tabTelemetry" class="tab-pane" style="display: none;">
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="title">Duration</div>
+            <div><span class="val" id="statDuration">0.0</span><span class="unit">s</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="title">Distance</div>
+            <div><span class="val" id="statLength">0</span><span class="unit">mm</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="title">Volume</div>
+            <div><span class="val" id="statVolume">0.0</span><span class="unit">mm³</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="title">Mass</div>
+            <div><span class="val" id="statMass">0.0</span><span class="unit">g</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- G-Code Tab -->
+      <div id="tabGcode" class="tab-pane" style="display: none; height: 100%;">
+        <div class="gcode-viewer" id="gcodeViewer"></div>
+      </div>
     </div>
-    <div class="render-profile" id="renderProfile" aria-live="polite"></div>
-    <div class="playback">
-      <button id="resetView" class="reset-view" title="fit view" aria-label="Fit toolpath view">Fit</button>
-      <button id="play" title="play / pause" aria-label="Play or pause toolpath">▶</button>
-      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Toolpath playback position" />
-      <span id="clock">0:00 / 0:00</span>
-      <div class="speeds" id="speeds"><span class="lbl">speed</span></div>
-    </div>
-  </section>
-  <div class="panel-resizer" data-resize-panel="gcode" role="separator" aria-orientation="vertical" aria-label="Resize G-code panel"></div>
-  <section class="panel-region" data-panel="gcode">
-    <div class="panel-heading">
-      <h2>G-code <span class="sub">— click a line to seek · the current line highlights as it prints</span></h2>
-      <button type="button" class="panel-toggle" data-panel-toggle="gcode" aria-expanded="true">Hide</button>
-    </div>
-    <div class="gcode-tools" id="gcodeTools"></div>
-    <div class="gcode-meta" id="gcodeMeta"></div>
-    <div id="gcode" class="gcode" aria-label="Generated g-code">loading wasm…</div>
-    <div id="explain" class="explain"><span class="hint">Hover a line, or press play, to explain it.</span></div>
-  </section>
+  </aside>
 </main>
-<footer>Dry is proprietary clean-room software. three.js (MIT) is vendored locally.</footer>
+
+<!-- Bottom Playback Controller -->
+<footer class="studio-playback">
+  <button id="playBtn" class="playback-play-btn">▶</button>
+  <div class="timeline-slider-wrapper">
+    <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="100" value="0">
+    <span id="timelineLabel" class="timeline-label">0.0s / 10.0s</span>
+  </div>
+  <div class="speed-selector">
+    <button class="speed-btn" data-speed="0.25">0.25×</button>
+    <button class="speed-btn" data-speed="0.5">0.5×</button>
+    <button class="speed-btn active" data-speed="1.0">1×</button>
+    <button class="speed-btn" data-speed="4.0">4×</button>
+    <button class="speed-btn" data-speed="16.0">16×</button>
+  </div>
+</footer>
 
 <script type="module">
-import init, { resolve_gcode, resolve_metrics, resolve_ir,
-               resolve_optimized_ir, resolve_balanced_ir, resolve_verify, metrics_ir } from './pkg/dry_wasm.js';
-import { DESIGNS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
-import { STAR_POLYGON_FAMILIES, starPolygonLatticeOps } from './lattice-research.js';
-import { TPMS_SURFACES, tpmsOps } from './tpms-engine.js';
-import { createViewer } from './viewer.js';
-import { thumbnail } from './thumb.js';
-import { showWasmLoadError } from './wasm-load.js';
+import { initStudio, loadDefaultDesign } from './studio.js';
 
-const $ = (id) => document.getElementById(id);
-const PRINTER_PROFILES = {
-  generic: {
-    label: 'Generic FFF',
-    description: 'Conservative motion defaults for a generic 1.75 mm FFF printer.',
-    params: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
-    verify: { maxFlow: 8, minTemp: 180, bounds: '', speedRange: '', monotonicZ: false,
-              maxRetractDist: 0, maxRetractSpeed: 0, maxTravelNoRetract: 0,
-              firstLayerHeight: '', firstLayerSpeed: '', maxAccel: 0, junctionVel: 0 },
-    temperatures: { nozzle: 210, bed: 60 },
-    park: { x: 0, y: 180, zLift: 10 },
-  },
-  pla_bedslinger_220: {
-    label: 'PLA bed slinger 220',
-    description: 'PLA-oriented profile for a 220 mm Cartesian bed.',
-    params: { print_speed: 1800, travel_speed: 9000, dia: 1.75 },
-    verify: { maxFlow: 12, minTemp: 185, bounds: '0,220,0,220,0,250', speedRange: '60,9000', monotonicZ: false,
-              maxRetractDist: 3, maxRetractSpeed: 2400, maxTravelNoRetract: 0,
-              firstLayerHeight: '0.1,0.32', firstLayerSpeed: '60,1800', maxAccel: 3000, junctionVel: 8 },
-    temperatures: { nozzle: 205, bed: 60 },
-    park: { x: 0, y: 210, zLift: 10 },
-  },
-  petg_conservative: {
-    label: 'PETG conservative',
-    description: 'Lower-flow PETG baseline with hotter extrusion checks.',
-    params: { print_speed: 1500, travel_speed: 8000, dia: 1.75 },
-    verify: { maxFlow: 8, minTemp: 220, bounds: '0,220,0,220,0,250', speedRange: '60,8000', monotonicZ: false,
-              maxRetractDist: 4, maxRetractSpeed: 1800, maxTravelNoRetract: 0,
-              firstLayerHeight: '', firstLayerSpeed: '', maxAccel: 2500, junctionVel: 6 },
-    temperatures: { nozzle: 235, bed: 80 },
-    park: { x: 0, y: 210, zLift: 10 },
-  },
-  fast_corexy_250: {
-    label: 'Fast CoreXY 250',
-    description: 'Higher-flow CoreXY-style preset for fast PLA exploration.',
-    params: { print_speed: 4200, travel_speed: 18000, dia: 1.75 },
-    verify: { maxFlow: 24, minTemp: 190, bounds: '0,250,0,250,0,250', speedRange: '60,18000', monotonicZ: false,
-              maxRetractDist: 1, maxRetractSpeed: 3600, maxTravelNoRetract: 0,
-              firstLayerHeight: '0.1,0.3', firstLayerSpeed: '60,3000', maxAccel: 8000, junctionVel: 12 },
-    temperatures: { nozzle: 215, bed: 60 },
-    park: { x: 125, y: 245, zLift: 15 },
-  },
+window.addEventListener('DOMContentLoaded', () => {
+  initStudio();
+});
+
+window.switchRightTab = function(tabId) {
+  document.querySelectorAll('.panel-tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.sidebar-right .tab-pane').forEach(pane => pane.style.display = 'none');
+  
+  event.target.classList.add('active');
+  document.getElementById(tabId).style.display = 'block';
 };
-const SOURCE_DEFS = [
-  {
-    key: 'gallery',
-    label: 'Gallery',
-    description: 'Authored parametric examples from the design table.',
-    tags: ['DESIGNS', 'controls'],
-    ops: () => DESIGNS.star?.ops?.() || [],
-  },
-  {
-    key: 'fullcontrol',
-    label: 'FullControl samples',
-    description: 'All 28 notebook, fullcontrol.xyz, and oracle-gallery defaults reconstructed as executable Dry L1 designs.',
-    tags: ['28 ports', 'notebooks', 'fullcontrol.xyz'],
-    ops: () => FULLCONTROL_DESIGNS.nonplanar_spacer?.ops || [],
-  },
-  {
-    key: 'lattice',
-    label: 'Star lattice',
-    description: 'Research lattice generator with printable star-polygon families.',
-    tags: ['lattice', 'research'],
-    ops: () => starPolygonLatticeOps({
-      family: 'M4', alphaDeg: 45, cols: 5, rows: 2, segLength: 4.33,
-      layers: 1, layerHeight: 0.2, beadWidth: 0.5, beadHeight: 0.2, completeWidth: true,
-    }),
-  },
-  {
-    key: 'tpms',
-    label: 'TPMS',
-    description: 'Implicit infill contours generated by the Rust engine over wasm.',
-    tags: ['TPMS', 'infill'],
-    ops: () => tpmsOps({
-      surface: 'gyroid', cellSize: 18, cellsX: 1, cellsY: 1, cellsZ: 1,
-      samplesPerCell: 12, layerHeight: 0.28, beadWidth: 0.45, beadHeight: 0.28,
-      printSpeed: 1200, perimeter: true, maxFieldSamples: 1_000_000,
-    }),
-  },
-];
-
-(async () => {
-  try {
-    await init();
-  } catch (err) {
-    showWasmLoadError(err);
-    return;
-  }
-  const viewer = createViewer({
-    viewportEl: $('viewport'), gcodeEl: $('gcode'), explainEl: $('explain'),
-    metricsEl: $('metrics'), optimizeEl: $('optimize'), verifyEl: $('findings'),
-    gcodeMetaEl: $('gcodeMeta'), gcodeToolsEl: $('gcodeTools'), playEl: $('play'), scrubEl: $('scrub'),
-    clockEl: $('clock'), speedsEl: $('speeds'), resetViewEl: $('resetView'),
-    renderControlsEl: $('renderControls'), renderProfileEl: $('renderProfile'), viewModeEl: $('viewMode'),
-    wasm: { resolve_gcode, resolve_metrics, resolve_ir, resolve_optimized_ir, resolve_balanced_ir, resolve_verify, metrics_ir },
-    params: RESOLVE_PARAMS,
-    getParams: currentResolveParams,
-    getMaxFlow: () => parseFloat($('maxFlow').value) || 0,
-    getMinTemp: () => parseFloat($('minTemp').value) || 0,
-    getBounds: () => $('bounds').value,
-    getMonotonicZ: () => $('monotonicZ').checked,
-    getSpeedRange: () => $('speedRange').value,
-    getMaxRetractDist: () => parseFloat($('maxRetractDist').value) || 0,
-    getMaxRetractSpeed: () => parseFloat($('maxRetractSpeed').value) || 0,
-    getMaxTravelNoRetract: () => parseFloat($('maxTravelNoRetract').value) || 0,
-    getFirstLayerHeight: () => $('firstLayerHeight').value,
-    getFirstLayerSpeed: () => $('firstLayerSpeed').value,
-    getOptimizeMode: () => $('optimizeMode')?.value || 'safe',
-    // Machine motion-limits as a kinematics JSON object ('' = none); feeds both balanced optimize and
-    // the peak-acceleration / junction-velocity verify rules.
-    getKinematics: () => {
-      const a = parseFloat($('maxAccel').value) || 0, j = parseFloat($('junctionVel').value) || 0;
-      const o = {};
-      if (a > 0) o.max_acceleration_mm_s2 = a;
-      if (j > 0) o.max_junction_velocity_mm_s = j;
-      return Object.keys(o).length ? JSON.stringify(o) : '';
-    },
-  });
-
-  const sel = $('design');
-  const designLibrary = (source = $('source').value) => source === 'fullcontrol' ? FULLCONTROL_DESIGNS : DESIGNS;
-
-  function populateDesignSelect(preferred = '') {
-    const library = designLibrary();
-    sel.replaceChildren();
-    const groups = {};
-    for (const [key, design] of Object.entries(library)) (groups[design.group || 'Other'] ||= []).push([key, design]);
-    for (const [group, items] of Object.entries(groups)) {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = group;
-      for (const [key, design] of items) {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = design.label;
-        optgroup.appendChild(option);
-      }
-      sel.appendChild(optgroup);
-    }
-    if (preferred && library[preferred]) sel.value = preferred;
-  }
-
-  for (const [family, spec] of Object.entries(STAR_POLYGON_FAMILIES)) {
-    const option = document.createElement('option');
-    option.value = family;
-    option.textContent = `${family} · ${spec.topology}`;
-    $('latticeFamily').appendChild(option);
-  }
-  for (const [key, spec] of Object.entries(TPMS_SURFACES)) {
-    const option = document.createElement('option');
-    option.value = key;
-    option.textContent = spec.label;
-    $('tpmsSurface').appendChild(option);
-  }
-
-  const intValue = (id, fallback) => {
-    const value = Number.parseInt($(id).value, 10);
-    return Number.isFinite(value) ? value : fallback;
-  };
-  const numValue = (id, fallback) => {
-    const value = Number.parseFloat($(id).value);
-    return Number.isFinite(value) ? value : fallback;
-  };
-  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-  let LAST_EXPORT = null;
-
-  function selectedPrinterProfile() {
-    return PRINTER_PROFILES[$('printerProfile')?.value] || PRINTER_PROFILES.generic;
-  }
-
-  function currentResolveParams() {
-    return { ...RESOLVE_PARAMS, ...(selectedPrinterProfile().params || {}) };
-  }
-
-  function populatePrinterProfiles() {
-    const select = $('printerProfile');
-    select.replaceChildren();
-    for (const [key, profile] of Object.entries(PRINTER_PROFILES)) {
-      const option = document.createElement('option');
-      option.value = key;
-      option.textContent = profile.label;
-      select.appendChild(option);
-    }
-    select.value = 'generic';
-  }
-
-  function renderPrinterProfileMeta() {
-    const profile = selectedPrinterProfile();
-    const params = currentResolveParams();
-    $('printerProfileMeta').textContent =
-      `${profile.description} print ${params.print_speed} mm/min · travel ${params.travel_speed} mm/min · filament ${params.dia} mm`;
-  }
-
-  function applyPrinterProfile(render = true) {
-    const profile = selectedPrinterProfile();
-    const verify = profile.verify || {};
-    $('maxFlow').value = String(verify.maxFlow ?? 0);
-    $('minTemp').value = String(verify.minTemp ?? 0);
-    $('bounds').value = verify.bounds || '';
-    $('speedRange').value = verify.speedRange || '';
-    $('monotonicZ').checked = Boolean(verify.monotonicZ);
-    $('maxRetractDist').value = String(verify.maxRetractDist ?? 0);
-    $('maxRetractSpeed').value = String(verify.maxRetractSpeed ?? 0);
-    $('maxTravelNoRetract').value = String(verify.maxTravelNoRetract ?? 0);
-    $('firstLayerHeight').value = verify.firstLayerHeight || '';
-    $('firstLayerSpeed').value = verify.firstLayerSpeed || '';
-    $('maxAccel').value = String(verify.maxAccel ?? 0);
-    $('junctionVel').value = String(verify.junctionVel ?? 0);
-    $('macroNozzle').value = String(profile.temperatures?.nozzle ?? 210);
-    $('macroBed').value = String(profile.temperatures?.bed ?? 60);
-    renderPrinterProfileMeta();
-    if (render) go();
-  }
-
-  const CONTROL_GROUPS = {
-    lattice: [
-      'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
-      'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
-    ],
-    tpms: [
-      'tpmsSurface', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY',
-      'tpmsCellsZ', 'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsAdaptiveMin',
-      'tpmsAdaptiveMax', 'tpmsPerimeter', 'tpmsAdaptive',
-    ],
-  };
-  const controlDefaults = new Map();
-  const resetButtons = new Map();
-
-  function syncRangeFromNumber(id) {
-    const range = document.querySelector(`input[type="range"][data-sync="${id}"]`);
-    const number = $(id);
-    if (!range || !number) return;
-    const min = Number.parseFloat(range.min);
-    const max = Number.parseFloat(range.max);
-    const fallback = Number.parseFloat(range.value);
-    const raw = Number.parseFloat(number.value);
-    const value = Number.isFinite(raw) ? raw : fallback;
-    range.value = String(clamp(value, min, max));
-  }
-
-  let scheduledGo = 0;
-  function scheduleGo() {
-    window.clearTimeout(scheduledGo);
-    scheduledGo = window.setTimeout(() => {
-      scheduledGo = 0;
-      go();
-    }, 90);
-  }
-
-  function bindRangeControls() {
-    for (const range of document.querySelectorAll('input[type="range"][data-sync]')) {
-      const number = $(range.dataset.sync);
-      if (!number) continue;
-      const syncNumber = () => {
-        number.value = range.value;
-        scheduleGo();
-      };
-      const commitNumber = () => {
-        number.value = range.value;
-        window.clearTimeout(scheduledGo);
-        scheduledGo = 0;
-        go();
-      };
-      range.addEventListener('input', syncNumber);
-      range.addEventListener('change', commitNumber);
-      number.addEventListener('input', () => syncRangeFromNumber(range.dataset.sync));
-      number.addEventListener('change', () => syncRangeFromNumber(range.dataset.sync));
-      syncRangeFromNumber(range.dataset.sync);
-    }
-  }
-
-  function controlValue(id) {
-    const el = $(id);
-    if (!el) return '';
-    if (el.type === 'checkbox') return el.checked;
-    return el.value;
-  }
-
-  function setControlValue(id, value) {
-    const el = $(id);
-    if (!el) return;
-    if (el.type === 'checkbox') el.checked = Boolean(value);
-    else el.value = String(value);
-    syncRangeFromNumber(id);
-  }
-
-  function isNumericControl(id) {
-    const el = $(id);
-    return Boolean(el && el.type === 'number' && document.querySelector(`input[type="range"][data-sync="${id}"]`));
-  }
-
-  function controlEqualsDefault(id) {
-    if (!controlDefaults.has(id)) return true;
-    const current = controlValue(id);
-    const fallback = controlDefaults.get(id);
-    if (typeof current === 'boolean' || typeof fallback === 'boolean') return current === fallback;
-    if (isNumericControl(id)) {
-      const a = Number.parseFloat(current);
-      const b = Number.parseFloat(fallback);
-      if (Number.isFinite(a) && Number.isFinite(b)) return Math.abs(a - b) < 1e-9;
-    }
-    return String(current) === String(fallback);
-  }
-
-  function updateDefaultResetState() {
-    for (const [id, button] of resetButtons) {
-      button.classList.toggle('is-hidden', controlEqualsDefault(id));
-    }
-    for (const [group, ids] of Object.entries(CONTROL_GROUPS)) {
-      const button = $(`reset${group === 'tpms' ? 'Tpms' : 'Lattice'}Defaults`);
-      if (!button) continue;
-      button.disabled = ids.every((id) => controlEqualsDefault(id));
-    }
-  }
-
-  function resetControlToDefault(id, render = true) {
-    if (!controlDefaults.has(id)) return;
-    setControlValue(id, controlDefaults.get(id));
-    if (id.startsWith('lattice')) syncLatticeBounds();
-    if (id.startsWith('tpms')) syncTpmsBounds();
-    updateDefaultResetState();
-    if (render) go();
-  }
-
-  function resetGroupToDefaults(group) {
-    const ids = CONTROL_GROUPS[group] || [];
-    for (const id of ids) {
-      if (controlDefaults.has(id)) setControlValue(id, controlDefaults.get(id));
-    }
-    if (group === 'lattice') syncLatticeBounds();
-    if (group === 'tpms') syncTpmsBounds();
-    updateDefaultResetState();
-    go();
-  }
-
-  function attachControlReset(id) {
-    const el = $(id);
-    const label = el ? el.closest('label') : null;
-    if (!el || !label || resetButtons.has(id)) return;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'default-reset is-hidden';
-    button.dataset.resetControl = id;
-    button.textContent = 'def';
-    button.title = 'Reset this parameter to its default';
-    button.setAttribute('aria-label', `Reset ${id} to default`);
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      resetControlToDefault(id);
-    });
-    label.classList.add('has-default-reset');
-    const row = label.querySelector('.range-row');
-    if (row) {
-      row.classList.add('has-default-reset');
-      row.appendChild(button);
-    } else {
-      label.appendChild(button);
-    }
-    resetButtons.set(id, button);
-  }
-
-  function setupDefaultResets() {
-    for (const ids of Object.values(CONTROL_GROUPS)) {
-      for (const id of ids) {
-        controlDefaults.set(id, controlValue(id));
-        attachControlReset(id);
-        const el = $(id);
-        if (!el) continue;
-        el.addEventListener('input', updateDefaultResetState);
-        el.addEventListener('change', updateDefaultResetState);
-      }
-    }
-    const latticeReset = $('resetLatticeDefaults');
-    const tpmsReset = $('resetTpmsDefaults');
-    if (latticeReset) latticeReset.addEventListener('click', () => resetGroupToDefaults('lattice'));
-    if (tpmsReset) tpmsReset.addEventListener('click', () => resetGroupToDefaults('tpms'));
-    updateDefaultResetState();
-  }
-
-  const galleryParamControls = new Map();
-
-  function galleryParamId(param) {
-    return `galleryParam_${String(param.id).replace(/[^a-z0-9_-]/gi, '_')}`;
-  }
-
-  function galleryParamValue(param) {
-    const el = $(galleryParamId(param));
-    if (!el) return param.defaultValue;
-    if (param.type === 'checkbox') return el.checked;
-    if (param.type === 'select') return el.value;
-    const value = Number.parseFloat(el.value);
-    if (!Number.isFinite(value)) return param.defaultValue;
-    return param.integer ? Math.round(value) : value;
-  }
-
-  function galleryParamEqualsDefault(param) {
-    const current = galleryParamValue(param);
-    const fallback = param.defaultValue;
-    if (typeof fallback === 'number') {
-      return Math.abs(Number(current) - fallback) < 1e-9;
-    }
-    return current === fallback;
-  }
-
-  function syncGalleryRangeFromNumber(param) {
-    const state = galleryParamControls.get(param.id);
-    if (!state || !state.range || !state.input) return;
-    const value = Number.parseFloat(state.input.value);
-    const fallback = Number.parseFloat(param.defaultValue);
-    state.range.value = String(clamp(Number.isFinite(value) ? value : fallback, Number(param.min), Number(param.max)));
-  }
-
-  function updateGalleryParamResetState() {
-    let allDefault = true;
-    for (const { param, button } of galleryParamControls.values()) {
-      const isDefault = galleryParamEqualsDefault(param);
-      allDefault = allDefault && isDefault;
-      if (button) button.classList.toggle('is-hidden', isDefault);
-    }
-    const resetAll = $('resetGalleryDefaults');
-    if (resetAll) resetAll.disabled = allDefault;
-  }
-
-  function resetGalleryParam(param, render = true) {
-    const state = galleryParamControls.get(param.id);
-    if (!state) return;
-    if (param.type === 'checkbox') state.input.checked = Boolean(param.defaultValue);
-    else state.input.value = String(param.defaultValue);
-    syncGalleryRangeFromNumber(param);
-    updateGalleryParamResetState();
-    if (render) go();
-  }
-
-  function resetGalleryParams() {
-    for (const { param } of galleryParamControls.values()) resetGalleryParam(param, false);
-    updateGalleryParamResetState();
-    go();
-  }
-
-  function appendGalleryResetButton(parent, param) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'default-reset is-hidden';
-    button.dataset.resetControl = param.id;
-    button.textContent = 'def';
-    button.title = 'Reset this parameter to its default';
-    button.setAttribute('aria-label', `Reset ${param.label || param.id} to default`);
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      resetGalleryParam(param);
-    });
-    parent.appendChild(button);
-    return button;
-  }
-
-  function appendGalleryRange(container, param) {
-    const id = galleryParamId(param);
-    const label = document.createElement('label');
-    label.className = 'range-field has-default-reset';
-    if (param.title) label.title = param.title;
-    const name = document.createElement('span');
-    name.className = 'param-name';
-    name.textContent = param.label || param.id;
-    const row = document.createElement('span');
-    row.className = 'range-row has-default-reset';
-    const range = document.createElement('input');
-    range.type = 'range';
-    range.min = String(param.min);
-    range.max = String(param.max);
-    range.step = String(param.step ?? 1);
-    range.value = String(param.defaultValue);
-    range.setAttribute('aria-label', param.label || param.id);
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.id = id;
-    input.min = String(param.min);
-    input.max = String(param.max);
-    input.step = String(param.step ?? 1);
-    input.value = String(param.defaultValue);
-    const unit = document.createElement('span');
-    unit.className = 'param-unit';
-    unit.textContent = `[${param.unit || '1'}]`;
-    row.append(range, input, unit);
-    const button = appendGalleryResetButton(row, param);
-    label.append(name, row);
-    container.appendChild(label);
-    galleryParamControls.set(param.id, { param, input, range, button });
-    range.addEventListener('input', () => {
-      input.value = range.value;
-      updateGalleryParamResetState();
-      scheduleGo();
-    });
-    range.addEventListener('change', () => {
-      input.value = range.value;
-      updateGalleryParamResetState();
-      go();
-    });
-    input.addEventListener('input', () => {
-      syncGalleryRangeFromNumber(param);
-      updateGalleryParamResetState();
-      scheduleGo();
-    });
-    input.addEventListener('change', () => {
-      syncGalleryRangeFromNumber(param);
-      updateGalleryParamResetState();
-      go();
-    });
-  }
-
-  function appendGallerySelect(container, param) {
-    const id = galleryParamId(param);
-    const label = document.createElement('label');
-    label.className = 'wide select-field has-default-reset';
-    if (param.title) label.title = param.title;
-    const name = document.createElement('span');
-    name.className = 'param-name';
-    name.textContent = param.label || param.id;
-    const select = document.createElement('select');
-    select.id = id;
-    for (const optionDef of param.options || []) {
-      const option = document.createElement('option');
-      option.value = optionDef.value;
-      option.textContent = optionDef.label || optionDef.value;
-      option.selected = optionDef.value === param.defaultValue;
-      select.appendChild(option);
-    }
-    const button = appendGalleryResetButton(label, param);
-    label.append(name, select, button);
-    container.appendChild(label);
-    galleryParamControls.set(param.id, { param, input: select, button });
-    select.addEventListener('input', () => {
-      updateGalleryParamResetState();
-      scheduleGo();
-    });
-    select.addEventListener('change', () => {
-      updateGalleryParamResetState();
-      go();
-    });
-  }
-
-  function appendGalleryCheckbox(container, param) {
-    const id = galleryParamId(param);
-    const label = document.createElement('label');
-    label.className = 'check wide has-default-reset';
-    if (param.title) label.title = param.title;
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.id = id;
-    input.checked = Boolean(param.defaultValue);
-    const text = document.createTextNode(` ${param.label || param.id}`);
-    const button = appendGalleryResetButton(label, param);
-    label.append(input, text, button);
-    container.appendChild(label);
-    galleryParamControls.set(param.id, { param, input, button });
-    input.addEventListener('input', () => {
-      updateGalleryParamResetState();
-      scheduleGo();
-    });
-    input.addEventListener('change', () => {
-      updateGalleryParamResetState();
-      go();
-    });
-  }
-
-  function renderGalleryParams() {
-    const container = $('galleryParams');
-    if (!container) return;
-    container.replaceChildren();
-    galleryParamControls.clear();
-    const design = designLibrary()[sel.value];
-    const params = design?.params || [];
-    container.hidden = params.length === 0;
-    if (!params.length) return;
-    const actions = document.createElement('div');
-    actions.className = 'control-actions wide';
-    const resetAll = document.createElement('button');
-    resetAll.type = 'button';
-    resetAll.id = 'resetGalleryDefaults';
-    resetAll.className = 'reset-defaults';
-    resetAll.textContent = 'Reset all';
-    resetAll.addEventListener('click', resetGalleryParams);
-    actions.appendChild(resetAll);
-    container.appendChild(actions);
-    for (const param of params) {
-      if (param.type === 'select') appendGallerySelect(container, param);
-      else if (param.type === 'checkbox') appendGalleryCheckbox(container, param);
-      else appendGalleryRange(container, param);
-    }
-    updateGalleryParamResetState();
-  }
-
-  function galleryParamValues(design) {
-    const values = {};
-    for (const param of design.params || []) values[param.id] = galleryParamValue(param);
-    return values;
-  }
-
-  function completeM4Rows(rows) {
-    return rows % 2 === 0 ? rows : rows + 1;
-  }
-
-  function setupPanelLayout() {
-    const layout = $('appLayout');
-    if (!layout) return;
-    const rememberedWidths = { source: 360, gcode: 380 };
-    const limits = {
-      source: { min: 220, max: 560 },
-      gcode: { min: 260, max: 640 },
-    };
-    const setPanelWidth = (panel, px) => {
-      const limit = limits[panel];
-      if (!limit) return;
-      const width = Math.round(clamp(px, limit.min, limit.max));
-      rememberedWidths[panel] = width;
-      layout.style.setProperty(`--${panel}-w`, `${width}px`);
-    };
-
-    for (const button of layout.querySelectorAll('[data-panel-toggle]')) {
-      const panel = button.dataset.panelToggle;
-      const section = layout.querySelector(`[data-panel="${panel}"]`);
-      if (!section) continue;
-      button.addEventListener('click', () => {
-        const collapsed = section.classList.toggle('is-collapsed');
-        button.setAttribute('aria-expanded', String(!collapsed));
-        button.textContent = collapsed ? panel : 'Hide';
-        layout.classList.toggle(`is-${panel}-collapsed`, collapsed);
-        if (panel === 'source' || panel === 'gcode') {
-          layout.style.setProperty(`--${panel}-w`, collapsed ? '52px' : `${rememberedWidths[panel]}px`);
-        }
-      });
-    }
-
-    for (const handle of layout.querySelectorAll('.panel-resizer')) {
-      handle.addEventListener('pointerdown', (event) => {
-        const panel = handle.dataset.resizePanel;
-        const section = layout.querySelector(`[data-panel="${panel}"]`);
-        if (!panel || !section) return;
-        if (section.classList.contains('is-collapsed')) {
-          section.classList.remove('is-collapsed');
-          layout.classList.remove(`is-${panel}-collapsed`);
-          const toggle = layout.querySelector(`[data-panel-toggle="${panel}"]`);
-          if (toggle) {
-            toggle.setAttribute('aria-expanded', 'true');
-            toggle.textContent = 'Hide';
-          }
-        }
-        const rect = layout.getBoundingClientRect();
-        handle.setPointerCapture(event.pointerId);
-        handle.classList.add('is-resizing');
-        event.preventDefault();
-        const move = (moveEvent) => {
-          moveEvent.preventDefault();
-          if (panel === 'source') setPanelWidth(panel, moveEvent.clientX - rect.left);
-          if (panel === 'gcode') setPanelWidth(panel, rect.right - moveEvent.clientX);
-        };
-        const end = () => {
-          handle.classList.remove('is-resizing');
-          handle.removeEventListener('pointermove', move);
-          handle.removeEventListener('pointerup', end);
-          handle.removeEventListener('pointercancel', end);
-        };
-        handle.addEventListener('pointermove', move);
-        handle.addEventListener('pointerup', end);
-        handle.addEventListener('pointercancel', end);
-      });
-    }
-  }
-
-  function syncSourcePanels() {
-    const source = $('source').value;
-    $('galleryPanel').hidden = source !== 'gallery' && source !== 'fullcontrol';
-    $('latticePanel').hidden = source !== 'lattice';
-    $('tpmsPanel').hidden = source !== 'tpms';
-  }
-
-  function syncLatticeBounds() {
-    const alpha = $('latticeAlpha');
-    alpha.max = '150';
-    if (numValue('latticeAlpha', 0) > 150) alpha.value = '150';
-    syncRangeFromNumber('latticeAlpha');
-
-    const rowsInput = $('latticeRows');
-    const hint = $('latticeRowPairHint');
-    const family = $('latticeFamily').value;
-    const completesM4 = family === 'M4' && $('latticeCompleteWidth').checked;
-    let rows = intValue('latticeRows', 3);
-    if (completesM4) {
-      rows = completeM4Rows(rows);
-      const maxRows = Number.parseInt(rowsInput.max, 10);
-      rows = Number.isFinite(maxRows) ? Math.min(rows, maxRows) : rows;
-      rowsInput.value = String(rows);
-      syncRangeFromNumber('latticeRows');
-    }
-    if (hint) {
-      if (family === 'M4') {
-        const pairs = Math.max(1, Math.floor(rows / 2));
-        hint.textContent = completesM4
-          ? `M4 width uses ${pairs} complete row pair${pairs === 1 ? '' : 's'} (${pairs * 2} rows).`
-          : 'M4 row-pair completion is off; odd row counts omit the incomplete pair.';
-      } else {
-        hint.textContent = 'Row-pair completion applies to M4 only.';
-      }
-    }
-  }
-
-  function syncTpmsBounds() {
-    for (const id of [
-      'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
-      'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
-      'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
-    ]) {
-      syncRangeFromNumber(id);
-    }
-
-    const minInput = $('tpmsAdaptiveMin');
-    const maxInput = $('tpmsAdaptiveMax');
-    const minLayer = numValue('tpmsAdaptiveMin', 0.14);
-    const maxLayer = numValue('tpmsAdaptiveMax', 0.28);
-    if (minLayer > maxLayer) {
-      maxInput.value = minInput.value;
-      syncRangeFromNumber('tpmsAdaptiveMax');
-    }
-  }
-
-  function activeDesign() {
-    const source = $('source').value;
-    if (source === 'gallery' || source === 'fullcontrol') {
-      const design = designLibrary(source)[sel.value];
-      const values = galleryParamValues(design);
-      return {
-        ...design,
-        ops: typeof design.build === 'function' ? design.build(values) : design.ops,
-      };
-    }
-    if (source === 'lattice') {
-      const family = $('latticeFamily').value;
-      const alphaDeg = numValue('latticeAlpha', 30);
-      return {
-        label: `${family} star-polygon lattice`,
-        group: 'Generated',
-        tags: ['generated', 'print lattice', family, `alpha ${alphaDeg}`],
-        ops: starPolygonLatticeOps({
-          family,
-          alphaDeg,
-          cols: intValue('latticeCols', 10),
-          rows: intValue('latticeRows', 3),
-          segLength: numValue('latticeUnit', 4.33),
-          layers: intValue('latticeLayers', 2),
-          layerHeight: numValue('latticeLayerH', 0.2),
-          beadWidth: numValue('latticeBead', 0.5),
-          beadHeight: numValue('latticeLayerH', 0.2),
-          printSpeed: numValue('latticeSpeed', 1000),
-          completeWidth: $('latticeCompleteWidth').checked,
-        }),
-      };
-    }
-    const surface = $('tpmsSurface').value;
-    const spec = TPMS_SURFACES[surface];
-    return {
-      label: `${spec.label} TPMS infill`,
-      group: 'Generated',
-      tags: ['generated', 'TPMS', 'infill', surface],
-      ops: tpmsOps({
-        surface,
-        isoLevel: numValue('tpmsIso', 0),
-        cellSize: numValue('tpmsCell', 22),
-        cellsX: intValue('tpmsCellsX', 1),
-        cellsY: intValue('tpmsCellsY', 1),
-        cellsZ: intValue('tpmsCellsZ', 1),
-        samplesPerCell: intValue('tpmsSamples', 16),
-        layerHeight: numValue('tpmsLayerH', 0.28),
-        beadWidth: numValue('tpmsBead', 0.45),
-        beadHeight: numValue('tpmsLayerH', 0.28),
-        printSpeed: numValue('tpmsSpeed', 1200),
-        perimeter: $('tpmsPerimeter').checked,
-        adaptive: $('tpmsAdaptive').checked,
-        adaptiveMinLayerHeight: numValue('tpmsAdaptiveMin', 0.14),
-        adaptiveMaxLayerHeight: numValue('tpmsAdaptiveMax', 0.28),
-        maxFieldSamples: 3_000_000,
-      }),
-    };
-  }
-
-  // render the current design's tags as chips + a top-down thumbnail
-  const thumbWasm = { resolve_ir };
-  function cardThumbnail(ops, size) {
-    try {
-      return thumbnail(ops, thumbWasm, currentResolveParams(), size);
-    } catch (_error) {
-      return '';
-    }
-  }
-
-  function fillCardThumbnail(img, opsOrFactory, size, delay = 0) {
-    window.setTimeout(() => {
-      if (!img.isConnected) return;
-      const ops = typeof opsOrFactory === 'function' ? opsOrFactory() : opsOrFactory;
-      const src = cardThumbnail(ops || [], size);
-      if (src) img.src = src;
-    }, delay);
-  }
-
-  function setCardSelected(container, selector, key) {
-    for (const button of container.querySelectorAll(selector)) {
-      button.classList.toggle('is-selected', button.dataset.key === key);
-      button.setAttribute('aria-pressed', String(button.dataset.key === key));
-    }
-  }
-
-  function renderSourceCardSelection() {
-    const container = $('sourceCards');
-    if (container) setCardSelected(container, '.source-card', $('source').value);
-  }
-
-  function renderDesignCardSelection() {
-    const container = $('designCards');
-    if (container) setCardSelected(container, '.design-card', sel.value);
-  }
-
-  function activateSource(source, preferredDesign = '') {
-    $('source').value = source;
-    if (source === 'gallery' || source === 'fullcontrol') {
-      populateDesignSelect(preferredDesign);
-      renderDesignCards();
-      renderGalleryParams();
-    }
-    renderSourceCardSelection();
-    go();
-  }
-
-  function renderSourceCards() {
-    const container = $('sourceCards');
-    container.replaceChildren();
-    for (const source of SOURCE_DEFS) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'source-card';
-      button.dataset.key = source.key;
-      button.title = source.description;
-      const img = document.createElement('img');
-      img.alt = '';
-      img.width = 72;
-      img.height = 56;
-      fillCardThumbnail(img, source.ops, 72);
-      const body = document.createElement('span');
-      body.className = 'source-card-body';
-      const title = document.createElement('span');
-      title.className = 'source-card-title';
-      title.textContent = source.label;
-      const desc = document.createElement('span');
-      desc.className = 'source-card-desc';
-      desc.textContent = source.tags.join(' · ');
-      body.append(title, desc);
-      button.append(img, body);
-      button.addEventListener('click', () => {
-        activateSource(source.key);
-      });
-      container.appendChild(button);
-    }
-    renderSourceCardSelection();
-  }
-
-  function renderDesignCards() {
-    const container = $('designCards');
-    container.replaceChildren();
-    const groups = {};
-    for (const [key, design] of Object.entries(designLibrary())) (groups[design.group || 'Other'] ||= []).push([key, design]);
-    let thumbDelay = 0;
-    for (const [group, items] of Object.entries(groups)) {
-      const groupLabel = document.createElement('div');
-      groupLabel.className = 'design-card-group';
-      groupLabel.textContent = group;
-      container.appendChild(groupLabel);
-      for (const [key, design] of items) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'design-card';
-        button.dataset.key = key;
-        button.title = design.label;
-        const img = document.createElement('img');
-        img.alt = '';
-        img.width = 64;
-        img.height = 48;
-        img.loading = 'lazy';
-        fillCardThumbnail(img, design.ops, 64, thumbDelay);
-        thumbDelay += (group === 'TPMS' || $('source').value === 'fullcontrol') ? 45 : 14;
-        const label = document.createElement('span');
-        label.textContent = design.label;
-        button.append(img, label);
-        button.addEventListener('click', () => {
-          sel.value = key;
-          renderGalleryParams();
-          renderDesignCardSelection();
-          go();
-        });
-        container.appendChild(button);
-      }
-    }
-    renderDesignCardSelection();
-  }
-
-  const renderMeta = (d) => {
-    $('designTitle').textContent = d.label || 'Generated design';
-    $('designDescription').textContent = d.description || '';
-    const tags = $('designTags');
-    tags.replaceChildren();
-    for (const t of d.tags || []) {
-      const chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.textContent = t;
-      tags.appendChild(chip);
-    }
-    const links = $('designLinks');
-    links.replaceChildren();
-    for (const [label, href] of d.links || []) {
-      const anchor = document.createElement('a');
-      anchor.href = href;
-      anchor.textContent = label;
-      anchor.target = '_blank';
-      anchor.rel = 'noreferrer';
-      links.appendChild(anchor);
-    }
-    $('designThumb').src = thumbnail(d.ops, thumbWasm, currentResolveParams(), 84);
-  };
-
-  function selectedPrinterKey() {
-    return $('printerProfile')?.value || 'generic';
-  }
-
-  function ensureGcodeLines(result = LAST_EXPORT?.result) {
-    const lines = result?.gcode || [];
-    return Array.isArray(lines) ? lines.map(String) : String(lines || '').split(/\r?\n/).filter(Boolean);
-  }
-
-  function formatGcodeNumber(value, digits = 3) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return '0';
-    return Number.parseFloat(number.toFixed(digits)).toString();
-  }
-
-  function macroPrefixLines() {
-    const profile = selectedPrinterProfile();
-    const params = currentResolveParams();
-    const relativeE = $('relE').checked;
-    const nozzle = numValue('macroNozzle', profile.temperatures?.nozzle ?? 210);
-    const bed = numValue('macroBed', profile.temperatures?.bed ?? 60);
-    const lines = [];
-    if ($('macroHeader').checked) {
-      lines.push(
-        `; Dry export: ${LAST_EXPORT?.design?.label || 'generated design'}`,
-        `; Printer profile: ${profile.label}`,
-        'G21 ; millimeters',
-        'G90 ; absolute XYZ',
-        relativeE ? 'M83 ; relative extrusion' : 'M82 ; absolute extrusion',
-      );
-    }
-    if ($('macroHeat').checked) {
-      if (bed > 0) lines.push(`M140 S${formatGcodeNumber(bed, 0)} ; set bed temperature`);
-      if (nozzle > 0) lines.push(`M104 S${formatGcodeNumber(nozzle, 0)} ; set nozzle temperature`);
-      if (bed > 0) lines.push(`M190 S${formatGcodeNumber(bed, 0)} ; wait for bed`);
-      if (nozzle > 0) lines.push(`M109 S${formatGcodeNumber(nozzle, 0)} ; wait for nozzle`);
-    }
-    if ($('macroHome').checked) lines.push('G28 ; home axes');
-    if ($('macroPrimeLine').checked) {
-      lines.push(
-        '; prime line',
-        'M83 ; temporary relative extrusion for primer',
-        'G92 E0',
-        `G0 X5 Y5 Z0.28 F${formatGcodeNumber(params.travel_speed, 0)}`,
-        'G1 X65 Y5 E6 F600',
-        'G1 X110 Y5 E4 F600',
-        'G92 E0',
-      );
-      if (!relativeE) lines.push('M82 ; restore absolute extrusion');
-    }
-    if ($('macroPrimeBlob').checked) {
-      lines.push(
-        '; prime blob',
-        'M83 ; temporary relative extrusion for primer',
-        'G92 E0',
-        'G1 E5 F300',
-        'G4 S1',
-        'G1 E-0.8 F1800',
-        'G92 E0',
-      );
-      if (!relativeE) lines.push('M82 ; restore absolute extrusion');
-    }
-    return lines;
-  }
-
-  function macroSuffixLines() {
-    const profile = selectedPrinterProfile();
-    const params = currentResolveParams();
-    const park = profile.park || {};
-    const lines = [];
-    if ($('macroPresent').checked) {
-      lines.push(
-        '; present print',
-        'G91',
-        `G0 Z${formatGcodeNumber(park.zLift ?? 10, 2)} F1200`,
-        'G90',
-        `G0 X${formatGcodeNumber(park.x ?? 0, 2)} Y${formatGcodeNumber(park.y ?? 180, 2)} F${formatGcodeNumber(params.travel_speed, 0)}`,
-      );
-    }
-    if ($('macroCooldown').checked) lines.push('M104 S0', 'M140 S0', 'M106 S0');
-    if ($('macroMotorsOff').checked) lines.push('M84');
-    return lines;
-  }
-
-  function gcodeWithSelectedMacros() {
-    return [...macroPrefixLines(), ...ensureGcodeLines(), ...macroSuffixLines()];
-  }
-
-  function pyNumber(value) {
-    if (value == null) return 'None';
-    const number = Number(value);
-    if (!Number.isFinite(number)) return 'None';
-    return String(Number.parseFloat(number.toPrecision(12)));
-  }
-
-  function fcPointExpr(fields) {
-    const entries = [];
-    for (const key of ['x', 'y', 'z']) {
-      if (fields[key] != null) entries.push(`${key}=${pyNumber(fields[key])}`);
-    }
-    return `fc.Point(${entries.join(', ')})`;
-  }
-
-  function fullControlPython(ops) {
-    const profile = selectedPrinterProfile();
-    const lines = [
-      'import fullcontrol as fc',
-      '',
-      '# Generated by Dry from L1 ops.',
-      '# Requires FullControl. Dry-only operations are preserved below as comments.',
-      `# Design: ${LAST_EXPORT?.design?.label || 'generated design'}`,
-      `# Printer profile: ${profile.label}`,
-      '',
-      'steps = []',
-    ];
-    ops.forEach((op, index) => {
-      if (!op || typeof op !== 'object') {
-        lines.push(`# Unsupported literal op ${index}: ${JSON.stringify(op)}`);
-        return;
-      }
-      if (op.op === 'geometry') {
-        lines.push(`steps.append(fc.ExtrusionGeometry(width=${pyNumber(op.width)}, height=${pyNumber(op.height)}))`);
-      } else if (op.op === 'extruder') {
-        lines.push(`steps.append(fc.Extruder(on=${op.on ? 'True' : 'False'}))`);
-      } else if (op.op === 'speed') {
-        if (op.print != null) lines.push(`steps.append(fc.Printer(print_speed=${pyNumber(op.print)}))`);
-        else lines.push(`# Dry speed op ${index}: ${JSON.stringify(op)}`);
-      } else if (op.op === 'move') {
-        lines.push(`steps.append(${fcPointExpr(op)}))`);
-      } else if (op.op === 'arc') {
-        const direction = op.clockwise ? 'clockwise' : 'anticlockwise';
-        lines.push(`steps.append(fc.Arc(centre=${fcPointExpr({ x: op.cx, y: op.cy })}, end=${fcPointExpr(op)}, direction='${direction}'))`);
-      } else {
-        lines.push(`# Dry-only op ${index}: ${JSON.stringify(op)}`);
-      }
-    });
-    lines.push('', '# Pass `steps` into your FullControl workflow, for example transform/preview/export.');
-    return `${lines.join('\n')}\n`;
-  }
-
-  function exportPayload() {
-    const design = LAST_EXPORT?.design || {};
-    return {
-      version: 1,
-      source: $('source').value,
-      design: { label: design.label, group: design.group, tags: design.tags || [] },
-      printer: {
-        key: selectedPrinterKey(),
-        label: selectedPrinterProfile().label,
-        resolveParams: currentResolveParams(),
-      },
-      relativeE: $('relE').checked,
-      ops: LAST_EXPORT?.ops || [],
-    };
-  }
-
-  function buildExportText() {
-    if (!LAST_EXPORT) return '';
-    const format = $('exportFormat').value;
-    if (format === 'gcode') return `${ensureGcodeLines().join('\n')}\n`;
-    if (format === 'gcode-macros') return `${gcodeWithSelectedMacros().join('\n')}\n`;
-    if (format === 'dry-json') return `${JSON.stringify(exportPayload(), null, 2)}\n`;
-    if (format === 'metrics-json') return `${JSON.stringify(LAST_EXPORT.result?.metrics || {}, null, 2)}\n`;
-    if (format === 'fullcontrol-py') return fullControlPython(LAST_EXPORT.ops || []);
-    return '';
-  }
-
-  function exportExtension() {
-    const format = $('exportFormat').value;
-    if (format === 'dry-json' || format === 'metrics-json') return 'json';
-    if (format === 'fullcontrol-py') return 'py';
-    return 'gcode';
-  }
-
-  function exportFilename() {
-    const label = LAST_EXPORT?.design?.label || 'dry-export';
-    const safe = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'dry-export';
-    return `${safe}.${exportExtension()}`;
-  }
-
-  function updateExportStatus(message = '') {
-    const status = $('exportStatus');
-    if (!status) return;
-    if (message) {
-      status.textContent = message;
-      return;
-    }
-    const lines = ensureGcodeLines();
-    status.textContent = LAST_EXPORT ? `${lines.length.toLocaleString()} motion lines ready` : 'no export yet';
-  }
-
-  async function copyExport() {
-    const text = buildExportText();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      updateExportStatus('copied');
-    } catch (_error) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      textarea.remove();
-      updateExportStatus('copied');
-    }
-  }
-
-  function downloadExport() {
-    const text = buildExportText();
-    if (!text) return;
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = exportFilename();
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    updateExportStatus('downloaded');
-  }
-
-  function showError(error) {
-    $('sourceError').hidden = false;
-    $('sourceError').textContent = error.message || String(error);
-    $('gcode').textContent = error.message || String(error);
-    $('designTags').replaceChildren();
-    $('designDescription').textContent = '';
-    $('designLinks').replaceChildren();
-    $('metrics').replaceChildren();
-    $('optimize').replaceChildren();
-    $('findings').replaceChildren();
-    $('gcodeTools').replaceChildren();
-    $('renderProfile').textContent = '';
-  }
-
-  function syncLocation() {
-    const source = $('source').value;
-    const url = new URL(window.location.href);
-    if (source === 'gallery' || source === 'fullcontrol') {
-      url.searchParams.set('source', source);
-      url.searchParams.set('design', sel.value);
-    } else {
-      url.searchParams.delete('source');
-      url.searchParams.delete('design');
-    }
-    window.history.replaceState(null, '', url);
-  }
-
-  const go = () => {
-    try {
-      syncSourcePanels();
-      syncLatticeBounds();
-      syncTpmsBounds();
-      const d = activeDesign();
-      $('sourceError').hidden = true;
-      window.__activeDesign = { label: d.label, group: d.group, tags: d.tags, ops: d.ops.length };
-      renderMeta(d);
-      const result = viewer.show(d.ops, $('relE').checked);
-      LAST_EXPORT = { design: d, ops: d.ops, result, params: currentResolveParams(), relativeE: $('relE').checked };
-      renderSourceCardSelection();
-      renderDesignCardSelection();
-      syncLocation();
-      updateExportStatus();
-      updateDefaultResetState();
-    } catch (error) {
-      LAST_EXPORT = null;
-      showError(error);
-      updateExportStatus();
-      updateDefaultResetState();
-    }
-  };
-
-  for (const id of [
-    'source', 'design', 'latticeFamily', 'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
-    'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed', 'latticeCompleteWidth',
-    'tpmsSurface', 'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ', 'tpmsLayerH',
-    'tpmsIso', 'tpmsBead', 'tpmsSpeed', 'tpmsPerimeter', 'tpmsAdaptive', 'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
-    'relE', 'maxFlow', 'minTemp', 'bounds', 'monotonicZ', 'speedRange',
-    'maxRetractDist', 'maxRetractSpeed', 'maxTravelNoRetract', 'firstLayerHeight', 'firstLayerSpeed',
-    'maxAccel', 'junctionVel', 'optimizeMode',
-  ]) {
-    const el = $(id);
-    if (id === 'source') {
-      el.addEventListener('input', () => activateSource(el.value));
-      el.addEventListener('change', () => activateSource(el.value));
-      continue;
-    }
-    if (id === 'design') {
-      el.addEventListener('input', () => {
-        renderGalleryParams();
-        renderDesignCardSelection();
-        go();
-      });
-      el.addEventListener('change', () => {
-        renderGalleryParams();
-        renderDesignCardSelection();
-        go();
-      });
-      continue;
-    }
-    el.addEventListener('input', go);
-    el.addEventListener('change', go);
-  }
-
-  $('printerProfile').addEventListener('change', () => applyPrinterProfile(true));
-  $('exportCopy').addEventListener('click', copyExport);
-  $('exportDownload').addEventListener('click', downloadExport);
-  for (const id of [
-    'exportFormat', 'macroHeader', 'macroHeat', 'macroHome', 'macroPrimeLine', 'macroPrimeBlob',
-    'macroPresent', 'macroCooldown', 'macroMotorsOff', 'macroNozzle', 'macroBed',
-  ]) {
-    const el = $(id);
-    el.addEventListener('input', () => updateExportStatus());
-    el.addEventListener('change', () => updateExportStatus());
-  }
-
-  populatePrinterProfiles();
-  applyPrinterProfile(false);
-  const requested = new URLSearchParams(window.location.search);
-  const requestedDesign = requested.get('design') || '';
-  const requestedSource = requested.get('source');
-  if (requestedSource === 'fullcontrol' || FULLCONTROL_DESIGNS[requestedDesign]) $('source').value = 'fullcontrol';
-  else if (requestedSource === 'gallery') $('source').value = 'gallery';
-  populateDesignSelect(requestedDesign);
-  renderSourceCards();
-  renderDesignCards();
-  renderGalleryParams();
-  bindRangeControls();
-  setupDefaultResets();
-  setupPanelLayout();
-  go();
-  window.__galleryInventory = {
-    dry: Object.keys(DESIGNS),
-    fullcontrol: Object.keys(FULLCONTROL_DESIGNS),
-  };
-  window.__dryReady = true;
-})();
 </script>
+
 </body>
 </html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Dry Machina</title>
+  <meta name="description" content="Privacy policy and data governance practices for Dry Machina.">
+  <link rel="stylesheet" href="tool-ui.css">
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 32px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand strong {
+      font-size: 18px;
+      color: #58a6ff;
+    }
+    nav a {
+      color: #8b949e;
+      text-decoration: none;
+      margin-left: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    nav a:hover, nav a.active {
+      color: #58a6ff;
+    }
+    .content-container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px 80px;
+    }
+    h1 {
+      font-size: 32px;
+      color: #f0f6fc;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 16px;
+      color: #8b949e;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+    h2 {
+      font-size: 22px;
+      color: #f0f6fc;
+      margin-top: 36px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+      padding-bottom: 8px;
+    }
+    p, li {
+      color: #8b949e;
+      font-size: 14px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .highlight-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 4px solid #58a6ff;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    footer {
+      border-top: 1px solid #30363d;
+      padding: 32px;
+      text-align: center;
+      font-size: 13px;
+      color: #8b949e;
+      background: #161b22;
+    }
+    footer a {
+      color: #58a6ff;
+      text-decoration: none;
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <strong>Dry Machina</strong>
+    <span style="font-size: 12px; color: #8b949e;">Universal Toolpath Compiler</span>
+  </div>
+  <nav aria-label="Main Navigation">
+    <a href="/">Home</a>
+    <a href="/web/">3D Studio</a>
+    <a href="/web/machines.html">Machines</a>
+    <a href="/web/auth.html">Cloud Auth</a>
+    <a href="/web/docs.html">Docs & Specs</a>
+    <a href="https://github.com/dmytro-yemelianov/dry">GitHub</a>
+  </nav>
+</header>
+
+<main class="content-container">
+  <h1>Privacy & Data Governance</h1>
+  <div class="subtitle">Effective Date: August 18, 2026 · Dry Machina Platform (`drymachina.com`)</div>
+
+  <div class="highlight-card">
+    <strong style="color: #f0f6fc;">Zero-Telemetry & Client-Side Privacy Promise:</strong><br>
+    The 3D Web Studio executes 100% in your local browser using compiled WebAssembly. Your CAD geometry, custom G-code files, toolpaths, and proprietary design parameters never leave your computer unless you explicitly choose to authenticate and sync with Cloudflare storage.
+  </div>
+
+  <h2>1. Local Browser Studio Processing</h2>
+  <p>When using the Dry Machina 3D Web Studio (`drymachina.com/web/`):</p>
+  <ul>
+    <li>All compilation passes (lowering, S-curve profiling, TPMS implicit field slicing, corner deceleration, collision checks) execute entirely inside your browser's WebAssembly sandbox.</li>
+    <li>Drag-and-dropped files (`.gcode`, `.nc`, `.stepnc`) are read via HTML5 `FileReader` and processed locally in memory. No file contents are transmitted to any remote servers.</li>
+    <li>Browser local storage (`localStorage`) is used strictly to preserve your selected machine preference and UI layout state across sessions.</li>
+  </ul>
+
+  <h2>2. Cloudflare Edge Services (`api.drymachina.com`)</h2>
+  <p>If you use the optional cloud API or device activation features (`dry login`):</p>
+  <ul>
+    <li><strong>Device Flow Pairing:</strong> Ephemeral 8-character pairing codes are stored in Cloudflare KV with an automatic 15-minute expiration time to complete CLI authentication.</li>
+    <li><strong>API Key Management:</strong> Personal access tokens are encrypted and verified at the Cloudflare edge.</li>
+    <li><strong>Machine Catalog:</strong> Hardware queries to the machine catalog (`/v1/machines`) are read-only and contain no personal identifiable information.</li>
+  </ul>
+
+  <h2>3. Third-Party Analytics</h2>
+  <p>We do not use invasive third-party tracking cookies, behavioral tracking scripts, or ad networks. Standard edge server logs provided by Cloudflare CDN are retained for security monitoring and DDoS mitigation purposes only.</p>
+</main>
+
+<footer>
+  <div>
+    © 2026 Dry Machina. All rights reserved.
+    <a href="/web/legal.html">Legal</a>
+    <a href="/web/privacy.html">Privacy</a>
+    <a href="/web/cleanroom.html">Clean Room</a>
+    <a href="/web/docs.html">Documentation</a>
+  </div>
+</footer>
+
+</body>
+</html>
