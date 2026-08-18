@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="data:," />
-<title>Dry - toolpath compiler infrastructure</title>
-<meta name="description" content="Dry is a typed, units-aware toolpath compiler infrastructure with a Rust engine, CLI, Python and TypeScript SDKs, wasm bindings, browser demos and conformance fixtures." />
+<title>Dry Machina — Universal Toolpath Compiler & Edge API</title>
+<meta name="description" content="Dry Machina (drymachina.com) is a typed, units-aware toolpath compiler infrastructure with a Rust engine, CLI, Python & TypeScript SDKs, WASM runtime, and pre-flight verifiers for 3D Printing, CNC Milling, Laser, Plasma, and 5-Axis Robotics." />
 <style>
   :root {
     --page: #f5f7f8;
@@ -378,42 +378,41 @@
 <header class="site-header">
   <div class="topbar">
     <div class="brand">
-      <strong>Dry</strong>
-      <span>Toolpath compiler infrastructure</span>
+      <strong>Dry Machina</strong>
+      <span>Universal toolpath compiler & edge API · drymachina.com</span>
     </div>
-    <nav aria-label="Dry navigation">
-      <a href="web/index.html">Gallery</a>
-      <a href="web/blocks.html">Visual authoring</a>
-      <a href="web/architecture.html">Architecture audit</a>
+    <nav aria-label="Dry Machina navigation">
+      <a href="web/index.html">Web Studio</a>
+      <a href="web/blocks.html">Visual Blocks</a>
+      <a href="web/architecture.html">Architecture</a>
       <a href="docs/01-architecture.md">Spec</a>
       <a href="README.md">README</a>
     </nav>
   </div>
 </header>
 
-<section class="hero" aria-label="Dry overview">
+<section class="hero" aria-label="Dry Machina overview">
   <canvas id="architectureScene" aria-hidden="true"></canvas>
   <div class="hero-copy">
-    <p class="eyebrow">Typed IR for machine motion</p>
-    <h1>Dry</h1>
+    <p class="eyebrow">Universal Computational Manufacturing Compiler</p>
+    <h1>Dry Machina</h1>
     <p class="lead">
-      A Rust toolpath compiler with thin Python, TypeScript, CLI and browser front-ends. Designs lower
-      through a units-aware IR into simulation, verification, optimization, binary codecs and G-code.
+      A high-performance toolpath compiler infrastructure with a Rust core, CLI, Python & TypeScript SDKs, and Cloudflare Edge API. Compiles algorithmic design intent into verified, physics-safe motion code across 3D printers, CNC mills, lasers, plasma torches, and 5-axis robotic arms.
     </p>
     <div class="hero-actions">
-      <a class="button primary" href="web/index.html">Open browser gallery</a>
-      <a class="button" href="web/blocks.html">Open visual authoring</a>
-      <a class="button" href="#structure">View structure</a>
+      <a class="button primary" href="web/index.html">Open 3D Web Studio</a>
+      <a class="button" href="web/blocks.html">Visual Authoring</a>
+      <a class="button" href="#flow">Explore Architecture</a>
     </div>
   </div>
 </section>
 
 <main>
   <div class="strip" aria-label="project summary">
-    <div class="signal"><b>One engine</b><span><code>crates/core</code> owns lowering, simulation, verification, optimization, import, emit and codecs.</span></div>
-    <div class="signal"><b>Thin front-ends</b><span>CLI, Python, TypeScript and wasm mostly pass L1 operations into the same core contracts.</span></div>
-    <div class="signal"><b>Browser demo</b><span><code>web/</code> runs the wasm engine with 3D playback, g-code sync, gallery and Blockly authoring.</span></div>
-    <div class="signal"><b>Conformance-first</b><span>Fixtures under <code>conformance/</code> keep output behavior reproducible across surfaces.</span></div>
+    <div class="signal"><b>Universal Core</b><span><code>crates/core</code> owns multi-process lowering, simulation, verification, and G-code/KRL emitters.</span></div>
+    <div class="signal"><b>Thin SDKs</b><span>TypeScript & Python SDKs author parametric designs with units and query offline machine catalogs.</span></div>
+    <div class="signal"><b>Edge & Cloud API</b><span>Cloudflare Worker + D1 SQLite running Rust WASM with sub-10ms latency and zero-egress R2 storage.</span></div>
+    <div class="signal"><b>Physics & Quality</b><span>Built-in scallop $R_a$, MRR spindle power load, corner deceleration, and tool holder collision detection.</span></div>
   </div>
 
   <section id="flow" aria-labelledby="flow-title">

@@ -6,6 +6,7 @@ import { handleActivateGet, handleActivateSubmit } from "./activate";
 import { handleDeviceStart, handleToken, requireAuth } from "./auth";
 import { VerifyContainer } from "./container";
 import { handleGetJob, handlePostVerifyJob, handleQueueBatch, type QueueJobMessage } from "./jobs";
+import { getMachineById, registerMachine, searchMachines } from "./machines";
 import { generateApiKey, sha256Hex } from "./tokens";
 import { handleGetUsage, parseQuota, recordUsageEvent, type UsageRouteClass } from "./usage";
 
@@ -180,6 +181,36 @@ async function route(request: Request, env: Env): Promise<Response> {
     return authed(request, env, "job", (accountId) =>
       handleGetJob(env, accountId, decodeURIComponent(jobMatch[1])),
     );
+  }
+
+  if (url.pathname === "/v1/machines") {
+    if (request.method === "GET") {
+      const vendor = url.searchParams.get("vendor") ?? undefined;
+      const category = url.searchParams.get("category") ?? undefined;
+      const minVolumeX = url.searchParams.has("min_x") ? Number(url.searchParams.get("min_x")) : undefined;
+      const minVolumeY = url.searchParams.has("min_y") ? Number(url.searchParams.get("min_y")) : undefined;
+      const minVolumeZ = url.searchParams.has("min_z") ? Number(url.searchParams.get("min_z")) : undefined;
+      const machines = await searchMachines(env.DB, { vendor, category, minVolumeX, minVolumeY, minVolumeZ });
+      return jsonResponse({ machines });
+    }
+    if (request.method === "POST") {
+      return authed(request, env, "keys", async () => {
+        const body = (await request.json()) as any;
+        const result = await registerMachine(env.DB, body);
+        return jsonResponse(result, 201);
+      });
+    }
+    return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET, POST" });
+  }
+
+  const machineMatch = /^\/v1\/machines\/([^/]+)$/.exec(url.pathname);
+  if (machineMatch) {
+    if (request.method !== "GET") {
+      return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
+    }
+    const machine = await getMachineById(env.DB, decodeURIComponent(machineMatch[1]));
+    if (!machine) return jsonResponse({ error: "not_found" }, 404);
+    return jsonResponse({ machine });
   }
 
   if (url.pathname === "/v1/me") {
