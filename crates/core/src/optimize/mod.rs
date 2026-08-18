@@ -10,6 +10,7 @@
 mod adaptive_speed;
 mod arc;
 mod coasting;
+mod engagement;
 mod merge;
 mod travel;
 mod z_hop;
@@ -27,6 +28,7 @@ pub use self::adaptive_speed::{
 };
 pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};
+pub use self::engagement::optimize_corner_feedrate;
 pub use self::merge::merge_collinear;
 pub use self::travel::travel_reorder;
 pub use self::z_hop::{z_hop, z_hop_with_params};

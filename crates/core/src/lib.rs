@@ -25,6 +25,7 @@ pub mod gcode;
 pub mod generate;
 pub mod ir;
 pub mod optimize;
+pub mod pass;
 pub mod pipeline;
 pub mod profile;
 pub mod provenance;
@@ -58,10 +59,12 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 pub use emit::emit;
 pub use emit::{
     emit_cycle_cancel, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc, emit_stream,
-    emit_stream_to_writer, CncFrame, CuttingParams, DrillCycle, EmitParams, FirmwareFlavor,
-    Kinematics, KrlFrame, KrlTransform, LaserMode, LaserParams, LeadInType, PeckDrillCycle,
-    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle, EmitParams,
+    FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserMode, LaserParams,
+    LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
+    REFERENCE_FIVE_AXIS_MACHINE,
 };
+pub use pass::PassRole;
 pub use pipeline::{lower_document_envelope, PipelineError};
 pub use schema::get_dialect_schema;
 pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
@@ -93,8 +96,8 @@ pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
     apply_safe_gated, arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline,
-    merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, safe_pipeline,
-    travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
+    merge_collinear, optimize_aggressive_pipeline, optimize_corner_feedrate, optimize_pipeline,
+    safe_pipeline, travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
 };
 pub use profile::{
     check_compatibility, import_klipper, AxisRange, CompatibilityFinding, CompatibilityReport,
