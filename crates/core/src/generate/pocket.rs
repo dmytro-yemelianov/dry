@@ -532,6 +532,18 @@ pub fn try_pocket_ops(o: &PocketOptions) -> Result<Vec<Op>, PocketError> {
     Ok(ops)
 }
 
+/// Generate L1 ops for a deep pocket broken down into stepped constant-Z passes.
+pub fn pocket_stepped_ops(
+    o: &PocketOptions,
+    total_depth: f64,
+    max_stepdown: f64,
+) -> Result<Vec<Op>, PocketError> {
+    let mut stepped_opts = o.clone();
+    stepped_opts.depth = total_depth;
+    stepped_opts.depth_per_pass = Some(max_stepdown);
+    try_pocket_ops(&stepped_opts)
+}
+
 fn passes(o: &PocketOptions, r: &Resolved) -> Result<Vec<Op>, PocketError> {
     Ok(match (&o.shape, o.mode) {
         (

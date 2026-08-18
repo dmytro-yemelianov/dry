@@ -70,8 +70,8 @@ pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
 pub use pass::PassRole;
 pub use pipeline::{lower_document_envelope, PipelineError};
 pub use quality::{
-    calculate_cusp_height, estimate_surface_roughness_ra, evaluate_surface_quality,
-    SurfaceQualityReport,
+    calculate_cusp_height, calculate_mrr, estimate_cutting_power_kw, estimate_surface_roughness_ra,
+    evaluate_mrr, evaluate_surface_quality, MrrReport, SurfaceQualityReport,
 };
 pub use schema::get_dialect_schema;
 pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
@@ -95,9 +95,9 @@ pub use gcode::{
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 pub use generate::{
-    pocket_design, pocket_ops, tpms_design, tpms_ops, try_pocket_design, try_pocket_ops,
-    try_tpms_design, try_tpms_ops, CutMode, PocketError, PocketOptions, PocketShape, Surface,
-    TpmsError, TpmsOptions,
+    pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops, try_pocket_design,
+    try_pocket_ops, try_tpms_design, try_tpms_ops, CutMode, PocketError, PocketOptions,
+    PocketShape, Surface, TpmsError, TpmsOptions,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{

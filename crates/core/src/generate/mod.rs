@@ -14,8 +14,8 @@ pub mod pocket;
 pub mod tpms;
 
 pub use pocket::{
-    pocket_design, pocket_ops, try_pocket_design, try_pocket_ops, CutMode, PocketError,
-    PocketOptions, PocketShape,
+    pocket_design, pocket_ops, pocket_stepped_ops, try_pocket_design, try_pocket_ops, CutMode,
+    PocketError, PocketOptions, PocketShape,
 };
 pub use tpms::{
     tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,

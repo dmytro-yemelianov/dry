@@ -53,8 +53,16 @@ __all__ = [
     "celsius",
     "s",
     "ms",
+    "MachineProfile",
+    "MachineCatalog",
+    "BUILTIN_MACHINES",
 ]
 
+from .machine import (
+    BUILTIN_MACHINES,
+    MachineCatalog,
+    MachineProfile,
+)
 from .units import (
     celsius,
     cm,

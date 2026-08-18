@@ -61,3 +61,7 @@ pub fn evaluate_surface_quality(
         roughness_ra_um,
     })
 }
+
+#[path = "quality/mrr.rs"]
+pub mod mrr;
+pub use self::mrr::{calculate_mrr, estimate_cutting_power_kw, evaluate_mrr, MrrReport};
