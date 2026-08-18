@@ -16,6 +16,7 @@ Route work to the cheapest tier that can do it safely:
 
 | Work | Route |
 |---|---|
+| Whole-portfolio oversight, roadmap/milestone governance, epic decomposition, release gating | `product-owner` agent — Opus 5, effort `high` |
 | `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
 | Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
 | Locating code, mapping call sites, subsystem summaries | `scout` agent — Haiku; fan out in parallel freely |
