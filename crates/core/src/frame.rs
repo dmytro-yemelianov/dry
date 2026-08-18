@@ -1,244 +1,182 @@
-//! SE(3) Pose & Frame Graph Resolution (Milestone D1.3)
+//! Named coordinate frames and rigid 3D transforms (D1.2, `docs/20-dry-ir-ecosystem-implementation-plan.md` §6.2).
 //!
-//! Provides named coordinate frames (world, machine, workpiece, fixture, tool) and
-//! explicit 3D rigid transforms in SE(3) with translation vectors and rotation matrices.
+//! Every geometric point in Dry exists within a coordinate frame. The standard reserved frame IDs are:
+//! - `design` (local authoring coordinates)
+//! - `workpiece` (workpiece coordinate system / WCS, e.g. G54-G59)
+//! - `fixture` (tombstone / fixture plate coordinates)
+//! - `tool` (tool center point / TCP frame)
+//! - `machine` (physical machine root / joint space)
+//!
+//! Transforms are 3D rigid Euclidean transforms ($SE(3)$) consisting of a 3D translation $(x,y,z)$ and a
+//! unit rotation quaternion $(x, y, z, w)$ with canonical sign normalization.
 
-use std::collections::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct FrameError {
-    pub message: String,
+/// Canonical named frame identifiers.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FrameId {
+    Design,
+    Workpiece,
+    Fixture,
+    Tool,
+    Machine,
+    #[serde(untagged)]
+    Custom(String),
 }
 
-impl std::fmt::Display for FrameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Frame error: {}", self.message)
+impl FrameId {
+    /// Return the string identifier of the frame.
+    pub fn as_str(&self) -> &str {
+        match self {
+            FrameId::Design => "design",
+            FrameId::Workpiece => "workpiece",
+            FrameId::Fixture => "fixture",
+            FrameId::Tool => "tool",
+            FrameId::Machine => "machine",
+            FrameId::Custom(s) => s.as_str(),
+        }
     }
 }
 
-impl std::error::Error for FrameError {}
+/// A normalized unit rotation quaternion $(x, y, z, w)$ representing active 3D rotation.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Quaternion {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
+}
 
-/// A 3D rigid transformation in SE(3).
-#[derive(Debug, Clone, PartialEq)]
-pub struct TransformSE3 {
+impl Quaternion {
+    /// Identity rotation (0°).
+    pub const IDENTITY: Quaternion = Quaternion {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 1.0,
+    };
+
+    /// Create a quaternion from raw components, normalizing and ensuring $w \ge 0$ for canonical representation.
+    pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
+        let norm = libm::sqrt(x * x + y * y + z * z + w * w);
+        if norm == 0.0 || !norm.is_finite() {
+            return Self::IDENTITY;
+        }
+        let sign = if w < 0.0 { -1.0 } else { 1.0 };
+        Quaternion {
+            x: (x / norm) * sign,
+            y: (y / norm) * sign,
+            z: (z / norm) * sign,
+            w: (w / norm) * sign,
+        }
+    }
+
+    /// Construct a rotation of `angle_rad` around normalized axis `(ax, ay, az)`.
+    pub fn from_axis_angle(ax: f64, ay: f64, az: f64, angle_rad: f64) -> Self {
+        let axis_len = libm::sqrt(ax * ax + ay * ay + az * az);
+        if axis_len == 0.0 || !axis_len.is_finite() {
+            return Self::IDENTITY;
+        }
+        let half_angle = angle_rad * 0.5;
+        let s = libm::sin(half_angle) / axis_len;
+        let c = libm::cos(half_angle);
+        Self::new(ax * s, ay * s, az * s, c)
+    }
+
+    /// Multiply two quaternions ($q_1 \cdot q_2$).
+    pub fn multiply(self, rhs: Quaternion) -> Quaternion {
+        let w = self.w * rhs.w - self.x * rhs.x - self.y * rhs.y - self.z * rhs.z;
+        let x = self.w * rhs.x + self.x * rhs.w + self.y * rhs.z - self.z * rhs.y;
+        let y = self.w * rhs.y - self.x * rhs.z + self.y * rhs.w + self.z * rhs.x;
+        let z = self.w * rhs.z + self.x * rhs.y - self.y * rhs.x + self.z * rhs.w;
+        Quaternion::new(x, y, z, w)
+    }
+
+    /// Rotate a 3D point `(px, py, pz)` by this quaternion.
+    pub fn rotate_point(&self, px: f64, py: f64, pz: f64) -> (f64, f64, f64) {
+        // v' = v + 2 * r x (r x v + w * v)
+        let rx = self.x;
+        let ry = self.y;
+        let rz = self.z;
+        let rw = self.w;
+
+        // t = 2 * (r x p)
+        let tx = 2.0 * (ry * pz - rz * py);
+        let ty = 2.0 * (rz * px - rx * pz);
+        let tz = 2.0 * (rx * py - ry * px);
+
+        // v' = p + w * t + (r x t)
+        let vpx = px + rw * tx + (ry * tz - rz * ty);
+        let vpy = py + rw * ty + (rz * tx - rx * tz);
+        let vpz = pz + rw * tz + (rx * ty - ry * tx);
+
+        (vpx, vpy, vpz)
+    }
+}
+
+/// A 3D rigid Euclidean transform ($SE(3)$) consisting of translation and rotation.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Transform3D {
     pub translation: [f64; 3],
-    pub rotation: [[f64; 3]; 3],
+    pub rotation: Quaternion,
 }
 
-impl TransformSE3 {
-    pub fn identity() -> Self {
-        Self {
-            translation: [0.0, 0.0, 0.0],
-            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-        }
-    }
+impl Transform3D {
+    /// Identity transform (no translation, no rotation).
+    pub const IDENTITY: Transform3D = Transform3D {
+        translation: [0.0, 0.0, 0.0],
+        rotation: Quaternion::IDENTITY,
+    };
 
+    /// Pure translation transform.
     pub fn from_translation(x: f64, y: f64, z: f64) -> Self {
-        let mut t = Self::identity();
-        t.translation = [x, y, z];
-        t
+        Transform3D {
+            translation: [x, y, z],
+            rotation: Quaternion::IDENTITY,
+        }
     }
 
-    /// Composes `self` followed by `next`: $T = T_{\text{next}} \circ T_{\text{self}}$.
-    pub fn compose(&self, next: &TransformSE3) -> Self {
-        let mut rot = [[0.0; 3]; 3];
-        for (i, row) in rot.iter_mut().enumerate() {
-            for (j, value) in row.iter_mut().enumerate() {
-                *value = next.rotation[i][0] * self.rotation[0][j]
-                    + next.rotation[i][1] * self.rotation[1][j]
-                    + next.rotation[i][2] * self.rotation[2][j];
-            }
+    /// Pure rotation transform.
+    pub fn from_rotation(rotation: Quaternion) -> Self {
+        Transform3D {
+            translation: [0.0, 0.0, 0.0],
+            rotation,
         }
+    }
 
-        let trans_rot = [
-            next.rotation[0][0] * self.translation[0]
-                + next.rotation[0][1] * self.translation[1]
-                + next.rotation[0][2] * self.translation[2],
-            next.rotation[1][0] * self.translation[0]
-                + next.rotation[1][1] * self.translation[1]
-                + next.rotation[1][2] * self.translation[2],
-            next.rotation[2][0] * self.translation[0]
-                + next.rotation[2][1] * self.translation[1]
-                + next.rotation[2][2] * self.translation[2],
-        ];
-
-        let translation = [
-            next.translation[0] + trans_rot[0],
-            next.translation[1] + trans_rot[1],
-            next.translation[2] + trans_rot[2],
-        ];
-
-        Self {
+    /// Combine translation and rotation.
+    pub fn new(translation: [f64; 3], rotation: Quaternion) -> Self {
+        Transform3D {
             translation,
-            rotation: rot,
+            rotation,
         }
     }
 
+    /// Transform a 3D point $p$ into parent frame: $p' = R \cdot p + T$.
     pub fn transform_point(&self, p: [f64; 3]) -> [f64; 3] {
+        let (rx, ry, rz) = self.rotation.rotate_point(p[0], p[1], p[2]);
         [
-            self.translation[0]
-                + self.rotation[0][0] * p[0]
-                + self.rotation[0][1] * p[1]
-                + self.rotation[0][2] * p[2],
-            self.translation[1]
-                + self.rotation[1][0] * p[0]
-                + self.rotation[1][1] * p[1]
-                + self.rotation[1][2] * p[2],
-            self.translation[2]
-                + self.rotation[2][0] * p[0]
-                + self.rotation[2][1] * p[1]
-                + self.rotation[2][2] * p[2],
+            rx + self.translation[0],
+            ry + self.translation[1],
+            rz + self.translation[2],
         ]
     }
-}
 
-/// Node in the coordinate frame tree.
-#[derive(Debug, Clone)]
-struct FrameNode {
-    parent: Option<String>,
-    pose_from_parent: TransformSE3,
-}
-
-/// A graph of named coordinate frames.
-#[derive(Debug, Clone, Default)]
-pub struct FrameGraph {
-    nodes: HashMap<String, FrameNode>,
-}
-
-impl FrameGraph {
-    pub fn new() -> Self {
-        let mut graph = Self::default();
-        graph.nodes.insert(
-            "world".to_string(),
-            FrameNode {
-                parent: None,
-                pose_from_parent: TransformSE3::identity(),
-            },
+    /// Compose this transform with an inner transform: $T_{composed} = T_{outer} \circ T_{inner}$.
+    pub fn compose(&self, inner: &Transform3D) -> Transform3D {
+        let (tx, ty, tz) = self.rotation.rotate_point(
+            inner.translation[0],
+            inner.translation[1],
+            inner.translation[2],
         );
-        graph
-    }
-
-    pub fn add_frame(
-        &mut self,
-        name: &str,
-        parent: &str,
-        pose_from_parent: TransformSE3,
-    ) -> Result<(), FrameError> {
-        if name == "world" {
-            return Err(FrameError {
-                message: "The root frame 'world' cannot be redefined".to_string(),
-            });
+        Transform3D {
+            translation: [
+                self.translation[0] + tx,
+                self.translation[1] + ty,
+                self.translation[2] + tz,
+            ],
+            rotation: self.rotation.multiply(inner.rotation),
         }
-        if !self.nodes.contains_key(parent) {
-            return Err(FrameError {
-                message: format!("Parent frame '{parent}' does not exist in graph"),
-            });
-        }
-        if self.nodes.contains_key(name) {
-            return Err(FrameError {
-                message: format!("Frame '{name}' already exists in graph"),
-            });
-        }
-        self.nodes.insert(
-            name.to_string(),
-            FrameNode {
-                parent: Some(parent.to_string()),
-                pose_from_parent,
-            },
-        );
-        Ok(())
-    }
-
-    /// Resolves the absolute pose of `frame_name` relative to root `"world"`.
-    pub fn resolve_to_world(&self, frame_name: &str) -> Result<TransformSE3, FrameError> {
-        let mut current = frame_name;
-        let mut chain = Vec::new();
-        let mut visited = HashSet::new();
-
-        while let Some(node) = self.nodes.get(current) {
-            if !visited.insert(current) {
-                return Err(FrameError {
-                    message: format!("Frame graph contains a cycle at '{current}'"),
-                });
-            }
-            chain.push(&node.pose_from_parent);
-            if let Some(ref parent) = node.parent {
-                current = parent.as_str();
-            } else {
-                break;
-            }
-        }
-
-        if current != "world" {
-            return Err(FrameError {
-                message: format!("Frame '{frame_name}' is disconnected from root 'world'"),
-            });
-        }
-
-        let mut transform = TransformSE3::identity();
-        for pose in chain.into_iter().rev() {
-            transform = transform.compose(pose);
-        }
-
-        Ok(transform)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn frame_graph_resolves_nested_translations() {
-        let mut graph = FrameGraph::new();
-        graph
-            .add_frame(
-                "machine",
-                "world",
-                TransformSE3::from_translation(10.0, 0.0, 0.0),
-            )
-            .unwrap();
-        graph
-            .add_frame(
-                "workpiece",
-                "machine",
-                TransformSE3::from_translation(0.0, 20.0, 5.0),
-            )
-            .unwrap();
-
-        let pose = graph.resolve_to_world("workpiece").unwrap();
-        assert_eq!(pose.translation, [10.0, 20.0, 5.0]);
-
-        let p_world = pose.transform_point([1.0, 1.0, 1.0]);
-        assert_eq!(p_world, [11.0, 21.0, 6.0]);
-    }
-
-    #[test]
-    fn frame_graph_rejects_redefinitions_that_could_create_cycles() {
-        let mut graph = FrameGraph::new();
-        graph
-            .add_frame(
-                "machine",
-                "world",
-                TransformSE3::from_translation(10.0, 0.0, 0.0),
-            )
-            .unwrap();
-        graph
-            .add_frame(
-                "workpiece",
-                "machine",
-                TransformSE3::from_translation(0.0, 20.0, 0.0),
-            )
-            .unwrap();
-
-        let error = graph
-            .add_frame("machine", "workpiece", TransformSE3::identity())
-            .unwrap_err();
-        assert!(error.message.contains("already exists"));
-
-        let error = graph
-            .add_frame("world", "machine", TransformSE3::identity())
-            .unwrap_err();
-        assert!(error.message.contains("cannot be redefined"));
     }
 }

@@ -58,4 +58,6 @@ export { TPMS_SURFACES, tpms, tpmsField, tpmsOps, tpmsSurfaceSpec } from './gene
 export type { TpmsOptions, TpmsSurface, TpmsSurfaceSpec } from './generators/tpms';
 export { pocket, pocketOps } from './generators/pocket';
 export type { CutMode, PocketOptions } from './generators/pocket';
+export { mm, cm, inch, deg, rad, mm_s, mm_min, celsius, s, ms } from './units';
+
 

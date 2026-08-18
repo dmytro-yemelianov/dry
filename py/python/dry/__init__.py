@@ -43,7 +43,30 @@ __all__ = [
     "pocket_ops",
     "pocket_gcode",
     "PocketOptions",
+    "mm",
+    "cm",
+    "inch",
+    "deg",
+    "rad",
+    "mm_s",
+    "mm_min",
+    "celsius",
+    "s",
+    "ms",
 ]
+
+from .units import (
+    celsius,
+    cm,
+    deg,
+    inch,
+    mm,
+    mm_min,
+    mm_s,
+    ms,
+    rad,
+    s,
+)
 
 Number = Union[int, float]
 Point = Sequence[Number]
