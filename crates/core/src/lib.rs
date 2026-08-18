@@ -60,10 +60,10 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 #[allow(deprecated)]
 pub use emit::emit;
 pub use emit::{
-    emit_cycle_cancel, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc, emit_stream,
-    emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle, EmitParams,
-    FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserMode, LaserParams,
-    LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
+    emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc,
+    emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle,
+    EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserMode,
+    LaserParams, LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
@@ -134,7 +134,7 @@ pub use trace::{
 
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
 pub use verify::{
-    catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
-    Contracts, Finding, KinematicContracts, Report, RotaryContracts, RotaryTravelRanges, Rule,
-    RuleId, Severity,
+    catalog, check_tool_holder_collision, parse_bounds_csv, parse_speed_range_csv, verify,
+    verify_stream, CollisionFinding, ContractParseError, Contracts, Finding, KinematicContracts,
+    Report, RotaryContracts, RotaryTravelRanges, Rule, RuleId, Severity, ToolHolder,
 };

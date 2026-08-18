@@ -73,5 +73,5 @@ export type {
 } from './machine';
 
 export type { AxisRange, CompatibilityFinding, CompatibilityReport, MachineCapabilities } from './design';
-export { renderFrameAxes } from './visualizer';
-export type { AxisLine, Point3D } from './visualizer';
+export { renderFrameAxes, renderMachineEnvelope, renderPassColorSegments } from './visualizer';
+export type { AxisLine, PassSegmentGroup, Point3D, WireframeBox } from './visualizer';

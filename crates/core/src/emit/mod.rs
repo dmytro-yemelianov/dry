@@ -8,6 +8,7 @@
 //! zeros and a trailing `.` stripped (so `1000.000000`→`1000`, `0.200000`→`0.2`, `0`→`0`).
 
 mod canned;
+mod chunked_stream;
 mod gcode;
 mod kinematics;
 mod krl;
@@ -21,6 +22,7 @@ mod template;
 mod tests;
 
 pub use self::canned::{emit_cycle_cancel, DrillCycle, PeckDrillCycle};
+pub use self::chunked_stream::emit_gcode_chunks;
 #[allow(deprecated)]
 pub use self::gcode::emit;
 pub(crate) use self::gcode::num as format_number;

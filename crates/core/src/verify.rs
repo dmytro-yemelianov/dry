@@ -19,6 +19,10 @@ use crate::units::Length;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
+#[path = "verify/collision.rs"]
+pub mod collision;
+pub use self::collision::{check_tool_holder_collision, CollisionFinding, ToolHolder};
+
 /// The limits a toolpath is checked against. An unset (`None`/`false`) field disables that check.
 ///
 /// This is `Serialize` as well as `Deserialize` because [`Report`] echoes the contracts it ran under
