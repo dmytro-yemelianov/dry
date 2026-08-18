@@ -37,16 +37,30 @@ const PARAM_DESC: Record<string, [string, string]> = {
 
 export const GcodeInspector: React.FC = () => {
   const gcodeLines = useStudioStore((state) => state.gcodeLines);
+  const gcodeSections = useStudioStore((state) => state.gcodeSections);
   const focusedLineIndex = useStudioStore((state) => state.focusedLineIndex);
   const setFocusedLine = useStudioStore((state) => state.setFocusedLine);
   const currentTime = useStudioStore((state) => state.currentTime);
   const maxTime = useStudioStore((state) => state.maxTime);
   const isPlaying = useStudioStore((state) => state.isPlaying);
+  const activeLayerNumber = useStudioStore((state) => state.activeLayerNumber);
+  const jumpToLayer = useStudioStore((state) => state.jumpToLayer);
+  const nextLayer = useStudioStore((state) => state.nextLayer);
+  const prevLayer = useStudioStore((state) => state.prevLayer);
 
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Active line index from playback or focus
+  // Map each line to its section header if it starts a section
+  const sectionStartMap = useRef<Map<number, string>>(new Map());
+  useEffect(() => {
+    const map = new Map<number, string>();
+    gcodeSections.forEach((sec) => {
+      map.set(sec.line, sec.label);
+    });
+    sectionStartMap.current = map;
+  }, [gcodeSections]);
+
   const activeLineIndex =
     focusedLineIndex !== null
       ? focusedLineIndex
@@ -61,23 +75,50 @@ export const GcodeInspector: React.FC = () => {
     count: gcodeLines.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 24,
-    overscan: 20,
+    overscan: 25,
   });
 
-  // Auto-scroll on playback
   useEffect(() => {
     if (isPlaying && activeLineIndex >= 0 && activeLineIndex < gcodeLines.length) {
       virtualizer.scrollToIndex(activeLineIndex, { align: 'auto' });
     }
   }, [isPlaying, activeLineIndex, virtualizer, gcodeLines.length]);
 
-  // Decode Active G-Code Line
   const words = currentDisplayLine.trim().split(/\s+/).filter(Boolean);
   const cmd = words[0] || '';
   const cmdDesc = CMD_DESC[cmd] || 'G-code command';
 
+  const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Layer Navigation Bar */}
+      <div className="layer-nav-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button className="layer-step-btn" onClick={prevLayer} disabled={activeLayerNumber <= 1}>
+            ⏮
+          </button>
+          <span className="layer-badge">
+            Layer {activeLayerNumber} / {maxLayer}
+          </span>
+          <button className="layer-step-btn" onClick={nextLayer} disabled={activeLayerNumber >= maxLayer}>
+            ⏭
+          </button>
+        </div>
+
+        <select
+          className="layer-select-dropdown"
+          value={activeLayerNumber}
+          onChange={(e) => jumpToLayer(parseInt(e.target.value, 10))}
+        >
+          {gcodeSections.map((sec) => (
+            <option key={sec.layer} value={sec.layer}>
+              {sec.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Top Decoded Token Explanation Card */}
       <div className="gcode-explainer-card">
         <div className="exp-header">
@@ -108,7 +149,7 @@ export const GcodeInspector: React.FC = () => {
       <div
         ref={parentRef}
         className="gcode-viewer-table"
-        style={{ flex: 1, overflowY: 'auto' }}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
       >
         <div
           style={{
@@ -127,26 +168,35 @@ export const GcodeInspector: React.FC = () => {
             const isArc = lineCmd === 'G2' || lineCmd === 'G3';
             const cmdClass = isG0 ? 'cmd-g0' : isG1 ? 'cmd-g1' : isArc ? 'cmd-arc' : 'cmd-other';
             const isActive = index === activeLineIndex;
+            const sectionLabel = sectionStartMap.current.get(index);
 
             return (
               <div
                 key={index}
-                className={`gcode-row ${isActive ? 'active' : ''}`}
+                className={`gcode-row-container`}
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                onMouseEnter={() => setHoveredLineIndex(index)}
-                onMouseLeave={() => setHoveredLineIndex(null)}
-                onClick={() => setFocusedLine(index)}
               >
-                <span className="gcode-lineno">{index + 1}</span>
-                <span className={`gcode-cmd ${cmdClass}`}>{lineCmd}</span>
-                <span className="gcode-args">{lineWords.slice(1).join(' ')}</span>
+                {sectionLabel && (
+                  <div className="gcode-section-header">
+                    <span>📌 {sectionLabel}</span>
+                  </div>
+                )}
+                <div
+                  className={`gcode-row ${isActive ? 'active' : ''}`}
+                  onMouseEnter={() => setHoveredLineIndex(index)}
+                  onMouseLeave={() => setHoveredLineIndex(null)}
+                  onClick={() => setFocusedLine(index)}
+                >
+                  <span className="gcode-lineno">{index + 1}</span>
+                  <span className={`gcode-cmd ${cmdClass}`}>{lineCmd}</span>
+                  <span className="gcode-args">{lineWords.slice(1).join(' ')}</span>
+                </div>
               </div>
             );
           })}

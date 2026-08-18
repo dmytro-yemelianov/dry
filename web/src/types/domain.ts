@@ -39,6 +39,8 @@ export interface Segment {
   kind?: string;
   extruder_on?: boolean;
   speed?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface Toolpath {
@@ -85,3 +87,14 @@ export interface DesignDef {
   build?: (params: Record<string, number>) => Op[];
   ops?: Op[];
 }
+
+export interface GcodeSection {
+  line: number;
+  layer: number;
+  z: number;
+  label: string;
+  time?: number;
+}
+
+export type RenderStyle = 'beads' | 'wireframe';
+export type PlasticMaterial = 'obsidian' | 'cyan' | 'gold' | 'orange' | 'white';

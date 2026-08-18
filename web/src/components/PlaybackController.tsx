@@ -11,14 +11,31 @@ export const PlaybackController: React.FC = () => {
   const playSpeed = useStudioStore((state) => state.playSpeed);
   const setPlaySpeed = useStudioStore((state) => state.setPlaySpeed);
   const seekTime = useStudioStore((state) => state.seekTime);
+  const activeLayerNumber = useStudioStore((state) => state.activeLayerNumber);
+  const gcodeSections = useStudioStore((state) => state.gcodeSections);
+  const nextLayer = useStudioStore((state) => state.nextLayer);
+  const prevLayer = useStudioStore((state) => state.prevLayer);
 
   const sliderVal = maxTime > 0 ? (currentTime / maxTime) * 100 : 0;
+  const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
 
   return (
     <footer className="studio-playback">
-      <button onClick={togglePlay} className="playback-play-btn">
-        {isPlaying ? '⏸' : '▶'}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={togglePlay} className="playback-play-btn">
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+
+        <div className="layer-playback-stepper">
+          <button className="layer-step-btn" onClick={prevLayer} disabled={activeLayerNumber <= 1}>
+            ⏮
+          </button>
+          <span className="layer-chip">L{activeLayerNumber}</span>
+          <button className="layer-step-btn" onClick={nextLayer} disabled={activeLayerNumber >= maxLayer}>
+            ⏭
+          </button>
+        </div>
+      </div>
 
       <div className="timeline-slider-wrapper">
         <input

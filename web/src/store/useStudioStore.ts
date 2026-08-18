@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { MachineProfile, Toolpath, Metrics, DesignDef } from '../types/domain';
+import type {
+  MachineProfile,
+  Toolpath,
+  Metrics,
+  DesignDef,
+  GcodeSection,
+  RenderStyle,
+  PlasticMaterial,
+} from '../types/domain';
 import {
   ensureWasmInitialized,
   compileGcode,
@@ -40,6 +48,42 @@ const DEFAULT_MACHINES: MachineProfile[] = [
   },
 ];
 
+function buildAutomatedSections(lines: string[]): GcodeSection[] {
+  const sections: GcodeSection[] = [];
+  let currentZ: number | null = null;
+  let layer = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const words = line.trim().split(/\s+/);
+    const zToken = words.find((w) => w.startsWith('Z') && !isNaN(parseFloat(w.slice(1))));
+    if (!zToken) {
+      if (i === 0 && !sections.length) {
+        sections.push({ line: 0, layer: 0, z: 0, label: 'Start Routine' });
+      }
+      continue;
+    }
+    const zVal = parseFloat(zToken.slice(1));
+    const roundedZ = Math.round(zVal * 1000) / 1000;
+    if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-5) {
+      currentZ = roundedZ;
+      layer += 1;
+      sections.push({
+        line: i,
+        layer,
+        z: roundedZ,
+        label: `Layer ${layer} (Z=${roundedZ.toFixed(2)}mm)`,
+      });
+    }
+  }
+
+  if (!sections.length) {
+    sections.push({ line: 0, layer: 0, z: 0, label: 'Start Routine' });
+  }
+
+  return sections;
+}
+
 interface StudioState {
   isWasmReady: boolean;
   machines: MachineProfile[];
@@ -48,9 +92,12 @@ interface StudioState {
   activeParams: Record<string, number>;
   toolpath: Toolpath | null;
   gcodeLines: string[];
+  gcodeSections: GcodeSection[];
   metrics: Metrics | null;
   optimizedToolpath: Toolpath | null;
   colorMode: 'type' | 'height' | 'speed';
+  renderStyle: RenderStyle;
+  plasticMaterial: PlasticMaterial;
   activeCategory: string;
   searchQuery: string;
   isPlaying: boolean;
@@ -58,6 +105,7 @@ interface StudioState {
   maxTime: number;
   playSpeed: number;
   focusedLineIndex: number | null;
+  activeLayerNumber: number;
 
   // Actions
   initStudio: () => Promise<void>;
@@ -66,12 +114,17 @@ interface StudioState {
   updateParam: (paramId: string, value: number) => void;
   resetParams: () => void;
   setColorMode: (mode: 'type' | 'height' | 'speed') => void;
+  setRenderStyle: (style: RenderStyle) => void;
+  setPlasticMaterial: (mat: PlasticMaterial) => void;
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
   togglePlay: () => void;
   setPlaySpeed: (speed: number) => void;
   seekTime: (time: number) => void;
   setFocusedLine: (index: number | null) => void;
+  jumpToLayer: (layerNum: number) => void;
+  nextLayer: () => void;
+  prevLayer: () => void;
   importCustomGcode: (text: string, filename: string) => void;
   recompileCurrentDesign: () => void;
 }
@@ -84,9 +137,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeParams: {},
   toolpath: null,
   gcodeLines: [],
+  gcodeSections: [],
   metrics: null,
   optimizedToolpath: null,
   colorMode: 'type',
+  renderStyle: 'beads',
+  plasticMaterial: 'cyan',
   activeCategory: 'all',
   searchQuery: '',
   isPlaying: false,
@@ -94,12 +150,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   maxTime: 10,
   playSpeed: 1.0,
   focusedLineIndex: null,
+  activeLayerNumber: 1,
 
   initStudio: async () => {
     await ensureWasmInitialized();
     set({ isWasmReady: true });
 
-    // Load machine profiles
     try {
       const res = await fetch('./machines.json');
       if (res.ok) {
@@ -134,6 +190,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       activeParams: initialParams,
       currentTime: 0,
       focusedLineIndex: null,
+      activeLayerNumber: 1,
     });
 
     get().recompileCurrentDesign();
@@ -158,25 +215,88 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
 
   setColorMode: (mode) => set({ colorMode: mode }),
+  setRenderStyle: (style) => set({ renderStyle: style }),
+  setPlasticMaterial: (mat) => set({ plasticMaterial: mat }),
   setActiveCategory: (cat) => set({ activeCategory: cat }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
   setPlaySpeed: (speed) => set({ playSpeed: speed }),
-  seekTime: (time) => set({ currentTime: time }),
-  setFocusedLine: (index) => set({ focusedLineIndex: index }),
+  seekTime: (time) => {
+    const { gcodeSections, gcodeLines, maxTime } = get();
+    const frac = maxTime > 0 ? Math.min(1.0, Math.max(0.0, time / maxTime)) : 0;
+    const approxLine = Math.floor(frac * (gcodeLines.length - 1));
+
+    let activeL = 1;
+    for (const sec of gcodeSections) {
+      if (approxLine >= sec.line) {
+        activeL = sec.layer;
+      } else {
+        break;
+      }
+    }
+
+    set({ currentTime: time, activeLayerNumber: activeL });
+  },
+
+  setFocusedLine: (index) => {
+    if (index === null) {
+      set({ focusedLineIndex: null });
+      return;
+    }
+    const { gcodeSections } = get();
+    let activeL = 1;
+    for (const sec of gcodeSections) {
+      if (index >= sec.line) {
+        activeL = sec.layer;
+      } else {
+        break;
+      }
+    }
+    set({ focusedLineIndex: index, activeLayerNumber: activeL });
+  },
+
+  jumpToLayer: (layerNum) => {
+    const { gcodeSections, gcodeLines, maxTime } = get();
+    const sec = gcodeSections.find((s) => s.layer === layerNum);
+    if (!sec) return;
+    const frac = gcodeLines.length > 0 ? sec.line / gcodeLines.length : 0;
+    set({
+      activeLayerNumber: layerNum,
+      focusedLineIndex: sec.line,
+      currentTime: frac * maxTime,
+    });
+  },
+
+  nextLayer: () => {
+    const { activeLayerNumber, gcodeSections } = get();
+    const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
+    if (activeLayerNumber < maxLayer) {
+      get().jumpToLayer(activeLayerNumber + 1);
+    }
+  },
+
+  prevLayer: () => {
+    const { activeLayerNumber } = get();
+    if (activeLayerNumber > 1) {
+      get().jumpToLayer(activeLayerNumber - 1);
+    }
+  },
 
   importCustomGcode: (text: string) => {
     try {
       const tp = importGcode(text);
       const lines = text.split('\n').filter((l) => l.trim().length > 0);
+      const sections = buildAutomatedSections(lines);
       set({
         toolpath: tp,
         gcodeLines: lines,
+        gcodeSections: sections,
         activeDesignKey: 'custom_import',
         currentTime: 0,
         maxTime: 10,
         focusedLineIndex: null,
+        activeLayerNumber: 1,
       });
     } catch (err) {
       console.error('Import failed:', err);
@@ -196,6 +316,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const gcode = compileGcode(ops, RESOLVE_PARAMS);
       const ir = compileIR(ops, RESOLVE_PARAMS);
       const m = compileMetrics(ops, RESOLVE_PARAMS);
+      const sections = buildAutomatedSections(gcode);
 
       let optIr: Toolpath | null = null;
       try {
@@ -207,6 +328,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       set({
         toolpath: ir,
         gcodeLines: gcode,
+        gcodeSections: sections,
         metrics: m,
         optimizedToolpath: optIr,
         maxTime: m.total_time_s || 10,
