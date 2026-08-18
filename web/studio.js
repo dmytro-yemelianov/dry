@@ -8,7 +8,7 @@ import initWasm, {
   resolve_verify,
   import_gcode_to_ir
 } from './pkg/dry_wasm.js';
-import { DESIGNS, DESIGN_DEFS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
+import { DESIGNS, DESIGN_DEFS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js?v=2.2.1';
 
 let scene, camera, renderer, controls;
 let envelopeMesh = null;

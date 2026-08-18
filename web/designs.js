@@ -1,9 +1,9 @@
 // Demo designs authored as Dry L1 ops, plus generated research examples.
 // Each is an array of ops: geometry / extruder / speed / move / arc. The same op vocabulary the
 // Python SDK and the conformance oracle use.
-import { starPolygonLatticeOps } from './lattice-research.js';
-import { tpmsOps } from './tpms-engine.js';
-import { FULLCONTROL_DESIGNS } from './fullcontrol-gallery.generated.js';
+import { starPolygonLatticeOps } from './lattice-research.js?v=2.2.1';
+import { tpmsOps } from './tpms-engine.js?v=2.2.1';
+import { FULLCONTROL_DESIGNS } from './fullcontrol-gallery.generated.js?v=2.2.1';
 
 const TAU = Math.PI * 2;
 const G = (w, h) => ({ op: 'geometry', width: w, height: h });
