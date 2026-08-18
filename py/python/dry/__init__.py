@@ -127,6 +127,29 @@ class Design:
                          "points": [[p[0], p[1], p[2]] for p in points]})
         return self
 
+    def clothoid(
+        self,
+        corner_x: Number,
+        corner_y: Number,
+        blend: Number,
+        x: Optional[Number] = None,
+        y: Optional[Number] = None,
+        z: Optional[Number] = None,
+    ) -> "Design":
+        """A clothoid (Euler-spiral) corner blend around construction corner (corner_x, corner_y),
+        consuming `blend` mm of tangent length from each leg on the way to (x, y, z).
+        """
+        self.ops.append({
+            "op": "clothoid",
+            "corner_x": float(corner_x),
+            "corner_y": float(corner_y),
+            "blend": float(blend),
+            "x": None if x is None else float(x),
+            "y": None if y is None else float(y),
+            "z": None if z is None else float(z),
+        })
+        return self
+
     # ---- process channels (§3): typed, defaulted, propagated by the engine ----
     def temperature(self, nozzle: Number) -> "Design":
         "Set the nozzle temperature channel (°C)."

@@ -18,6 +18,15 @@ export type Op =
       clockwise: boolean;
     }
   | { op: 'spline'; points: [number | null, number | null, number | null][] }
+  | {
+      op: 'clothoid';
+      corner_x: number;
+      corner_y: number;
+      x: number | null;
+      y: number | null;
+      z: number | null;
+      blend: number;
+    }
   // process channels (§3): typed, defaulted, propagated by the engine.
   | { op: 'temperature'; nozzle: number }
   | { op: 'fan'; speed: number }

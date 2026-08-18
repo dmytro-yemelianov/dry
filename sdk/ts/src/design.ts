@@ -105,6 +105,30 @@ export class Design {
     return this;
   }
 
+  /**
+   * A clothoid (Euler-spiral) corner blend around construction corner `(corner_x, corner_y)`,
+   * consuming `blend` mm of tangent length from each leg on the way to `(x, y, z)`.
+   */
+  clothoid(a: {
+    corner_x: number;
+    corner_y: number;
+    blend: number;
+    x?: number | null;
+    y?: number | null;
+    z?: number | null;
+  }): this {
+    this.ops.push({
+      op: 'clothoid',
+      corner_x: a.corner_x,
+      corner_y: a.corner_y,
+      blend: a.blend,
+      x: a.x ?? null,
+      y: a.y ?? null,
+      z: a.z ?? null,
+    });
+    return this;
+  }
+
   // ---- process channels (§3) ----
 
   /** Set the nozzle temperature channel (°C). */

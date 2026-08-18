@@ -137,3 +137,16 @@ test('the default flavor refuses the power channel instead of dropping it', () =
   // `gcode()` emits with the default (Marlin) flavor, which has no rendering for the channel.
   assert.throws(() => d.gcode(), /cannot render the spindle\/laser power channel/);
 });
+
+test('a clothoid corner blend resolves and emits gcode via the wasm engine', () => {
+  const d = new Design()
+    .geometry(0.6, 0.2)
+    .extruder(true)
+    .point(0, 0, 0.2)
+    .clothoid({ corner_x: 10, corner_y: 0, blend: 3, x: 10, y: 10, z: 0.2 });
+  const gcode = d.gcode();
+  assert.ok(gcode.length > 5, 'clothoid should resolve to multiple line moves');
+  const ir = d.ir();
+  assert.ok(ir.segments.length > 1, 'clothoid should produce multiple segments');
+});
+

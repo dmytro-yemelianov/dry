@@ -323,3 +323,14 @@ def test_tpms_budget_guard_raises():
     with pytest.raises(ValueError):
         dry.tpms_gcode({"cellSize": 10, "cellsX": 1, "cellsY": 1, "cellsZ": 1,
                         "samplesPerCell": 10, "layerHeight": 1, "maxFieldSamples": 1330})
+
+
+def test_clothoid_authored_in_python_emits_gcode():
+    d = (dry.Design().geometry(0.6, 0.2).extruder(True)
+         .point(0, 0, 0.2)
+         .clothoid(corner_x=10, corner_y=0, blend=3, x=10, y=10, z=0.2))
+    lines = d.gcode()
+    assert len(lines) > 5, "clothoid should resolve to multiple line moves"
+    ir = d.ir()
+    assert len(ir["segments"]) > 1, "clothoid should produce multiple segments"
+
