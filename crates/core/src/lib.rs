@@ -24,11 +24,13 @@ pub mod frame;
 pub mod gcode;
 pub mod generate;
 pub mod ir;
+pub mod multi_head;
 pub mod optimize;
 pub mod pass;
 pub mod pipeline;
 pub mod profile;
 pub mod provenance;
+pub mod quality;
 pub mod recommend;
 pub mod report;
 pub mod resolve;
@@ -44,10 +46,10 @@ pub mod verify;
 pub use clothoid::{corner_blend, fresnel, ClothoidError, CornerBlend, FRESNEL_SERIES_EPSILON};
 pub use codec::{
     decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
-    decode_chunked_streaming_with_limits, decode_streaming, decode_streaming_with_limits,
-    decode_with_limits, encode_chunked, export_3mf_xml, import_3mf_xml, BinarySegmentsIterator,
-    ChunkedSegmentsIterator, CodecError, DecodeLimits, JsonSegmentsIterator, SegmentStream,
-    StreamingDecode, ThreeMfError,
+    decode_chunked_streaming_with_limits, decode_dry2, decode_streaming,
+    decode_streaming_with_limits, decode_with_limits, encode_chunked, encode_dry2,
+    export_3mf_xml, import_3mf_xml, BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError,
+    DecodeLimits, JsonSegmentsIterator, SegmentStream, StreamingDecode, ThreeMfError, DRY2_MAGIC,
 };
 
 pub use compare::{
@@ -64,8 +66,13 @@ pub use emit::{
     LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
+pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
 pub use pass::PassRole;
 pub use pipeline::{lower_document_envelope, PipelineError};
+pub use quality::{
+    calculate_cusp_height, estimate_surface_roughness_ra, evaluate_surface_quality,
+    SurfaceQualityReport,
+};
 pub use schema::get_dialect_schema;
 pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
 pub use engine::{simulate, simulate_stream, Metrics};

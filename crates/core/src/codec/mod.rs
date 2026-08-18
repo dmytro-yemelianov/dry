@@ -59,6 +59,7 @@
 
 mod chunked;
 mod columnar;
+mod dry2;
 mod error;
 mod json;
 pub mod threemf;
@@ -79,6 +80,7 @@ pub use self::chunked::{
 pub use self::columnar::{
     decode_streaming, decode_streaming_with_limits, encode, try_encode, BinarySegmentsIterator,
 };
+pub use self::dry2::{decode_dry2, encode_dry2, DRY2_MAGIC};
 pub use self::error::CodecError;
 pub use self::json::JsonSegmentsIterator;
 
