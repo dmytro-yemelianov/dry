@@ -20,9 +20,9 @@ let currentTime = 0;
 let maxTime = 10;
 
 const RESOLVE_PARAMS = {
-  bead_width: 0.45,
-  layer_height: 0.2,
-  extrusion_multiplier: 1.0,
+  print_speed: 1000.0,
+  travel_speed: 8000.0,
+  dia: 1.75,
 };
 
 // Fallback machines if machines.json is unavailable
@@ -331,10 +331,13 @@ function renderToolpathLines(toolpath) {
 
 function updateTelemetry(metrics) {
   if (!metrics) return;
-  document.getElementById("statDuration").textContent = (metrics.duration_s || 0).toFixed(1);
-  document.getElementById("statLength").textContent = (metrics.length_mm || 0).toFixed(0);
-  document.getElementById("statVolume").textContent = (metrics.volume_mm3 || 0).toFixed(1);
-  document.getElementById("statMass").textContent = ((metrics.volume_mm3 || 0) * 0.00124).toFixed(2);
+  const duration = metrics.total_time_s ?? metrics.print_time_s ?? 0;
+  const length = metrics.extruding_distance ?? metrics.travel_distance ?? 0;
+  const volume = metrics.extruded_volume ?? 0;
+  document.getElementById("statDuration").textContent = Number(duration).toFixed(1);
+  document.getElementById("statLength").textContent = Number(length).toFixed(0);
+  document.getElementById("statVolume").textContent = Number(volume).toFixed(1);
+  document.getElementById("statMass").textContent = (Number(volume) * 0.00124).toFixed(2);
 }
 
 function updateGcodePanel(lines) {
