@@ -71,14 +71,19 @@ impl Quaternion {
 
     /// Construct a rotation of `angle_rad` around normalized axis `(ax, ay, az)`.
     pub fn from_axis_angle(ax: f64, ay: f64, az: f64, angle_rad: f64) -> Self {
+        Self::try_from_axis_angle(ax, ay, az, angle_rad).unwrap_or(Self::IDENTITY)
+    }
+
+    /// Checked constructor from axis and angle: returns `None` if axis length is 0 or non-finite.
+    pub fn try_from_axis_angle(ax: f64, ay: f64, az: f64, angle_rad: f64) -> Option<Self> {
         let axis_len = libm::sqrt(ax * ax + ay * ay + az * az);
-        if axis_len == 0.0 || !axis_len.is_finite() {
-            return Self::IDENTITY;
+        if axis_len == 0.0 || !axis_len.is_finite() || !angle_rad.is_finite() {
+            return None;
         }
         let half_angle = angle_rad * 0.5;
         let s = libm::sin(half_angle) / axis_len;
         let c = libm::cos(half_angle);
-        Self::new(ax * s, ay * s, az * s, c)
+        Some(Self::new(ax * s, ay * s, az * s, c))
     }
 
     /// Multiply two quaternions ($q_1 \cdot q_2$).

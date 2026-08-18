@@ -159,6 +159,60 @@ pub fn check_compatibility(
                 });
             }
         }
+
+        // Spindle RPM check
+        if let Some(max_rpm) = capabilities.max_spindle_rpm {
+            if let Some(spindle) = seg.power {
+                if spindle > max_rpm {
+                    report.add_finding(CompatibilityFinding {
+                        severity: Severity::Warning,
+                        code: "EXCEEDS_MAX_SPINDLE_RPM".into(),
+                        message: format!(
+                            "Spindle speed {:.1} RPM exceeds machine max {:.1} RPM",
+                            spindle, max_rpm
+                        ),
+                        segment_index: Some(index),
+                    });
+                }
+            }
+        }
+
+        // Arc bounding box check
+        if seg.kind == crate::ir::SegmentKind::Arc {
+            if let Some(centre) = seg.centre {
+                let cx = centre[0].value();
+                let cy = centre[1].value();
+                if let (Some(sx), Some(sy)) = (seg.start[0], seg.start[1]) {
+                    let dx = sx.value() - cx;
+                    let dy = sy.value() - cy;
+                    let r = libm::hypot(dx, dy);
+
+                    if (cx - r) < capabilities.x_range.min || (cx + r) > capabilities.x_range.max {
+                        report.add_finding(CompatibilityFinding {
+                            severity: Severity::Error,
+                            code: "ARC_OUT_OF_BOUNDS_X".into(),
+                            message: format!(
+                                "Arc radial sweep [{:.3}, {:.3}] exceeds X limits [{:.3}, {:.3}]",
+                                cx - r, cx + r, capabilities.x_range.min, capabilities.x_range.max
+                            ),
+                            segment_index: Some(index),
+                        });
+                    }
+
+                    if (cy - r) < capabilities.y_range.min || (cy + r) > capabilities.y_range.max {
+                        report.add_finding(CompatibilityFinding {
+                            severity: Severity::Error,
+                            code: "ARC_OUT_OF_BOUNDS_Y".into(),
+                            message: format!(
+                                "Arc radial sweep [{:.3}, {:.3}] exceeds Y limits [{:.3}, {:.3}]",
+                                cy - r, cy + r, capabilities.y_range.min, capabilities.y_range.max
+                            ),
+                            segment_index: Some(index),
+                        });
+                    }
+                }
+            }
+        }
     }
 
     report

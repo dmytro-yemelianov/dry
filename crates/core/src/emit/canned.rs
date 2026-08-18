@@ -17,6 +17,17 @@ pub struct DrillCycle {
 }
 
 impl DrillCycle {
+    /// Validate cycle parameters.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if !self.x.is_finite() || !self.y.is_finite() || !self.z_depth.is_finite() || !self.r_plane.is_finite() {
+            return Err("drill coordinates must be finite");
+        }
+        if !self.feedrate_mm_min.is_finite() || self.feedrate_mm_min <= 0.0 {
+            return Err("feedrate must be positive and finite");
+        }
+        Ok(())
+    }
+
     /// Emit RS-274 / Fanuc G81 block string.
     pub fn emit_rs274(&self) -> String {
         format!(
@@ -38,6 +49,20 @@ pub struct PeckDrillCycle {
 }
 
 impl PeckDrillCycle {
+    /// Validate cycle parameters.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if !self.x.is_finite() || !self.y.is_finite() || !self.z_depth.is_finite() || !self.r_plane.is_finite() {
+            return Err("peck drill coordinates must be finite");
+        }
+        if !self.feedrate_mm_min.is_finite() || self.feedrate_mm_min <= 0.0 {
+            return Err("feedrate must be positive and finite");
+        }
+        if !self.peck_depth_q.is_finite() || self.peck_depth_q <= 0.0 {
+            return Err("peck depth Q must be positive and finite");
+        }
+        Ok(())
+    }
+
     /// Emit RS-274 / Fanuc G83 block string.
     pub fn emit_rs274(&self) -> String {
         format!(
