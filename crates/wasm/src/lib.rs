@@ -341,6 +341,75 @@ pub fn resolve_verify(
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Compute theoretical surface quality metrics (cusp height and arithmetic roughness Ra).
+#[wasm_bindgen]
+pub fn compute_surface_quality(tool_radius_mm: f64, stepover_mm: f64) -> Result<String, JsError> {
+    let report = dry_core::evaluate_surface_quality(tool_radius_mm, stepover_mm)
+        .map_err(|e| JsError::new(e))?;
+    serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Encode a design into the compact DRY2 delta binary format.
+#[wasm_bindgen]
+pub fn encode_dry2_binary(ops_json: &str, params_json: &str) -> Result<Vec<u8>, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(dry_core::encode_dry2(&tp))
+}
+
+/// Decode a DRY2 binary payload into a JSON toolpath string.
+#[wasm_bindgen]
+pub fn decode_dry2_binary(bytes: &[u8]) -> Result<String, JsError> {
+    let tp = dry_core::decode_dry2(bytes).map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&tp).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Emit plasma or abrasive waterjet cutting motion G-code.
+#[wasm_bindgen]
+pub fn emit_plasma(
+    ops_json: &str,
+    params_json: &str,
+    cutting_params_json: &str,
+) -> Result<Vec<String>, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let cutting_params: dry_core::CuttingParams = if cutting_params_json.trim().is_empty() {
+        dry_core::CuttingParams::default()
+    } else {
+        serde_json::from_str(cutting_params_json)
+            .map_err(|e| JsError::new(&format!("cutting params: {e}")))?
+    };
+    Ok(dry_core::emit_plasma_waterjet(&tp, &cutting_params))
+}
+
+/// Run corner engagement feedrate optimization on a design.
+#[wasm_bindgen]
+pub fn optimize_engagement(
+    ops_json: &str,
+    params_json: &str,
+    min_feed_ratio: f64,
+) -> Result<String, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let mut tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    dry_core::optimize_corner_feedrate(&mut tp, min_feed_ratio);
+    serde_json::to_string(&tp).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Check compatibility of a design against machine capabilities.
+#[wasm_bindgen]
+pub fn check_machine_compatibility(
+    ops_json: &str,
+    params_json: &str,
+    capabilities_json: &str,
+) -> Result<String, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let caps: dry_core::MachineCapabilities = serde_json::from_str(capabilities_json)
+        .map_err(|e| JsError::new(&format!("capabilities: {e}")))?;
+    let report = dry_core::check_compatibility(&tp, &caps);
+    serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
