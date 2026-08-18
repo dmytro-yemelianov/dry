@@ -5,9 +5,9 @@
 
 use dry_core::{
     balanced_pipeline, emit_stream, expand_features as expand_feature_program, optimize_pipeline,
-    resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
-    FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams, Toolpath,
-    TpmsOptions,
+    resolve_checked, safe_pipeline, simulate, try_pocket_ops, try_tpms_ops, verify, Contracts,
+    Design, EmitParams, FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op,
+    PocketOptions, ResolveParams, Toolpath, TpmsOptions,
 };
 use wasm_bindgen::prelude::*;
 
@@ -118,6 +118,15 @@ pub fn tpms_ops_json(tpms_options_json: &str) -> Result<String, JsError> {
     let ops = try_tpms_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
     // `dry_core::Op` now derives `Serialize` (symmetric with its `Deserialize`), so the wire form is
     // emitted by serde directly — no hand-maintained mirror to drift from the canonical contract.
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Generate a CNC pocket/profile milling design and return its L1 `Op` list as a JSON string.
+#[wasm_bindgen]
+pub fn pocket_ops_json(pocket_options_json: &str) -> Result<String, JsError> {
+    let options: PocketOptions = serde_json::from_str(pocket_options_json)
+        .map_err(|e| JsError::new(&format!("pocket options: {e}")))?;
+    let ops = try_pocket_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
     serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
 }
 

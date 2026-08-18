@@ -40,6 +40,9 @@ __all__ = [
     "group",
     "repeat",
     "tpms_gcode",
+    "pocket_ops",
+    "pocket_gcode",
+    "PocketOptions",
 ]
 
 Number = Union[int, float]
@@ -55,6 +58,7 @@ Metrics = Dict[str, Any]
 Toolpath = Dict[str, Any]
 Report = Dict[str, Any]
 TpmsOptions = Mapping[str, Any]
+PocketOptions = Mapping[str, Any]
 
 # The TPMS surfaces the engine can slice (kebab-case, matching the `surface` option / TS SDK).
 TPMS_SURFACES: Tuple[str, ...] = (
@@ -450,6 +454,35 @@ def tpms_gcode(
         bool(travel_g1_e0),
         bool(five_axis),
         str(rotary),
+    )
+
+
+def pocket_ops(options: PocketOptions) -> List[Op]:
+    """Generate CNC pocket/profile milling L1 ops from an options dict.
+
+    `options` specifies shape (e.g. `{"shape": "rect", "x": 0, "y": 0, "width": 50, "height": 30}`
+    or `{"shape": "circle", "cx": 25, "cy": 25, "radius": 20}`), `toolDiameter`, `depth`,
+    and optional `stepover`, `depthPerPass`, `safeZ`, `zTop`, `cutFeed`, `plungeFeed`, `mode` ("pocket" | "profile").
+    """
+    return json.loads(_native.pocket_ops_json(json.dumps(options)))
+
+
+def pocket_gcode(
+    options: PocketOptions,
+    printer: str = "generic",
+    relative_e: bool = True,
+    travel_g1_e0: bool = False,
+    five_axis: bool = False,
+    rotary_axes: str = "ab",
+) -> List[str]:
+    """Generate CNC pocket/profile milling g-code from an options dict."""
+    return _native.resolve_pocket_gcode(
+        json.dumps(options),
+        _params(printer),
+        relative_e,
+        bool(travel_g1_e0),
+        bool(five_axis),
+        str(rotary_axes),
     )
 
 

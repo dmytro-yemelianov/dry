@@ -34,14 +34,17 @@ fn rect_inset(step: f64, tool_r: f64) -> f64 {
     step.min(tool_r * (1.0 + std::f64::consts::FRAC_1_SQRT_2))
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "shape", rename_all = "camelCase")]
 pub enum PocketShape {
+    #[serde(rename = "rect")]
     Rect {
         x: f64,
         y: f64,
         width: f64,
         height: f64,
     },
+    #[serde(rename = "circle")]
     Circle {
         cx: f64,
         cy: f64,
@@ -49,16 +52,20 @@ pub enum PocketShape {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CutMode {
     #[default]
     Pocket,
     Profile,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PocketOptions {
+    #[serde(flatten)]
     pub shape: PocketShape,
+    #[serde(default)]
     pub mode: CutMode,
     pub tool_diameter: f64,
     /// Ring-to-ring inset as a fraction of `tool_diameter`, in `(0, 1]` (default 0.5). For

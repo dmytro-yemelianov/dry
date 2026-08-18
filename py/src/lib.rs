@@ -5,9 +5,9 @@
 
 use dry_core::{
     balanced_pipeline, emit_stream, expand_features as expand_feature_program, optimize_pipeline,
-    resolve_checked, safe_pipeline, simulate, try_tpms_ops, verify, Contracts, Design, EmitParams,
-    FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op, ResolveParams,
-    TpmsOptions,
+    resolve_checked, safe_pipeline, simulate, try_pocket_ops, try_tpms_ops, verify, Contracts,
+    Design, EmitParams, FeatureProgram, KinematicContracts, Kinematics, MachineKinematics, Op,
+    PocketOptions, ResolveParams, TpmsOptions,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -112,6 +112,46 @@ fn resolve_tpms_gcode(
     let options: TpmsOptions = serde_json::from_str(tpms_options_json)
         .map_err(|e| PyValueError::new_err(format!("invalid tpms options: {e}")))?;
     let ops = try_tpms_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let tp = resolve_checked(&Design { ops }, &parse_params(params_json)?)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let kinematics =
+        Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    emit_stream(
+        tp.segments.iter().cloned().map(Ok),
+        &EmitParams {
+            relative_e,
+            travel_g1_e0,
+            five_axis,
+            kinematics,
+            ..EmitParams::default()
+        },
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Generate a CNC pocket/profile milling design and return its L1 `Op` list as a JSON string.
+#[pyfunction]
+fn pocket_ops_json(pocket_options_json: &str) -> PyResult<String> {
+    let options: PocketOptions = serde_json::from_str(pocket_options_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid pocket options: {e}")))?;
+    let ops = try_pocket_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Generate a CNC pocket/profile design, resolve it, and emit motion g-code (one string per line).
+#[pyfunction]
+#[pyo3(signature = (pocket_options_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
+fn resolve_pocket_gcode(
+    pocket_options_json: &str,
+    params_json: &str,
+    relative_e: bool,
+    travel_g1_e0: bool,
+    five_axis: bool,
+    rotary_axes: &str,
+) -> PyResult<Vec<String>> {
+    let options: PocketOptions = serde_json::from_str(pocket_options_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid pocket options: {e}")))?;
+    let ops = try_pocket_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let tp = resolve_checked(&Design { ops }, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
@@ -324,6 +364,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_tpms_gcode, m)?)?;
+    m.add_function(wrap_pyfunction!(pocket_ops_json, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_pocket_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;

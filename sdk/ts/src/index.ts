@@ -56,3 +56,6 @@ export type {
 } from './generators/starPolygonLattice';
 export { TPMS_SURFACES, tpms, tpmsField, tpmsOps, tpmsSurfaceSpec } from './generators/tpms';
 export type { TpmsOptions, TpmsSurface, TpmsSurfaceSpec } from './generators/tpms';
+export { pocket, pocketOps } from './generators/pocket';
+export type { CutMode, PocketOptions } from './generators/pocket';
+

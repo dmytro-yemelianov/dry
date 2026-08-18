@@ -28,6 +28,7 @@ export interface DryWasm {
     rotaryAxes: string
   ): string[];
   tpms_ops_json(tpmsOptionsJson: string): string;
+  pocket_ops_json(pocketOptionsJson: string): string;
   resolve_metrics(opsJson: string, paramsJson: string): string;
   metrics_ir(irJson: string): string;
   resolve_ir(opsJson: string, paramsJson: string): string;
@@ -105,6 +106,14 @@ export function resolveGcode(
  */
 export function tpmsOps(optionsJson: string): string {
   return bind().tpms_ops_json(optionsJson);
+}
+
+/**
+ * Generate a CNC pocket/profile milling design's L1 op list in the Rust engine.
+ * `optionsJson` is the camelCase `PocketOptions` wire form; the returned JSON is the `Op[]` list.
+ */
+export function pocketOps(optionsJson: string): string {
+  return bind().pocket_ops_json(optionsJson);
 }
 
 /** Resolve a design and return its simulation metrics. */
