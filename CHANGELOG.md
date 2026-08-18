@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
-## [Unreleased]
+## [0.7.0] - 2026-08-18
 
 ### Added
 - **Trace analytics and the batch-review envelope in `dry-core` (P3.5, engine half).**
