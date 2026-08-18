@@ -173,7 +173,9 @@ export const GcodeInspector: React.FC = () => {
             return (
               <div
                 key={index}
-                className={`gcode-row-container`}
+                data-index={index}
+                ref={virtualizer.measureElement}
+                className="gcode-row-container"
                 style={{
                   position: 'absolute',
                   top: 0,
