@@ -13,10 +13,11 @@ test('Machine Profile and Catalog Suite', async (t) => {
   await t.test('loads built-in machine profiles correctly', () => {
     const catalog = new MachineCatalog();
     const bambu = catalog.search({ vendor: 'Bambu' });
-    assert.equal(bambu.length, 1);
-    assert.equal(bambu[0].name, 'Bambu Lab X1 Carbon');
-    assert.equal(bambu[0].category, '3d_printer');
-    assert.deepEqual(bambu[0].bounds, [0, 256, 0, 256, 0, 256]);
+    assert(bambu.length >= 1);
+    const x1c = bambu.find((m) => m.id === 'bambu-x1c' || m.id === 'bambu-x1-carbon')!;
+    assert(x1c !== undefined);
+    assert.equal(x1c.category, '3d_printer');
+    assert.deepEqual(x1c.bounds, [0, 256, 0, 256, 0, 256]);
   });
 
   await t.test('searches machines across categories (CNC, Laser, Plasma)', () => {

@@ -1,0 +1,1095 @@
+{
+  "$schema": "https://dry.yemelianov.dev/schema/dry.machine/1.json",
+  "version": "1.0.0",
+  "total": 32,
+  "machines": [
+    {
+      "id": "bambu-x1-carbon",
+      "name": "Bambu Lab X1-Carbon",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "bambu-x1c",
+      "name": "Bambu Lab X1 Carbon",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "voron-v24-350",
+      "name": "Voron 2.4 350",
+      "manufacturer": "Voron Design",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          350
+        ],
+        "y": [
+          0,
+          350
+        ],
+        "z": [
+          0,
+          340
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 50,
+        "e": 120
+      },
+      "max_acceleration": 15000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 130,
+      "enclosure": true,
+      "heated_chamber": true
+    },
+    {
+      "id": "bambu-p1s",
+      "name": "Bambu Lab P1S",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "bambu-p1p",
+      "name": "Bambu Lab P1P",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "bambu-a1",
+      "name": "Bambu Lab A1",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 10000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "bambu-a1-mini",
+      "name": "Bambu Lab A1 Mini",
+      "manufacturer": "Bambu Lab",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "bambu",
+      "build_volume": {
+        "x": [
+          0,
+          180
+        ],
+        "y": [
+          0,
+          180
+        ],
+        "z": [
+          0,
+          180
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 60
+      },
+      "max_acceleration": 10000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 80,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-k1",
+      "name": "Creality K1",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          220
+        ],
+        "y": [
+          0,
+          220
+        ],
+        "z": [
+          0,
+          250
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 30,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-k1-max",
+      "name": "Creality K1 Max",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          300
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 30,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-ender-3-v3-ke",
+      "name": "Creality Ender-3 V3 KE",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          220
+        ],
+        "y": [
+          0,
+          220
+        ],
+        "z": [
+          0,
+          240
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 8000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-ender-3-v3-plus",
+      "name": "Creality Ender-3 V3 Plus",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          330
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 30,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-ender-3-v2",
+      "name": "Creality Ender-3 V2",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          220
+        ],
+        "y": [
+          0,
+          220
+        ],
+        "z": [
+          0,
+          250
+        ]
+      },
+      "max_feedrates": {
+        "x": 150,
+        "y": 150,
+        "z": 15,
+        "e": 50
+      },
+      "max_acceleration": 1000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 260,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "creality-cr-10-smart-pro",
+      "name": "Creality CR-10 Smart Pro",
+      "manufacturer": "Creality",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          400
+        ]
+      },
+      "max_feedrates": {
+        "x": 180,
+        "y": 180,
+        "z": 20,
+        "e": 60
+      },
+      "max_acceleration": 1500,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "prusa-mk4s",
+      "name": "Prusa MK4S",
+      "manufacturer": "Prusa Research",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          250
+        ],
+        "y": [
+          0,
+          210
+        ],
+        "z": [
+          0,
+          220
+        ]
+      },
+      "max_feedrates": {
+        "x": 300,
+        "y": 300,
+        "z": 30,
+        "e": 100
+      },
+      "max_acceleration": 4000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 120,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "prusa-mk3s-plus",
+      "name": "Prusa i3 MK3S+",
+      "manufacturer": "Prusa Research",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          250
+        ],
+        "y": [
+          0,
+          210
+        ],
+        "z": [
+          0,
+          210
+        ]
+      },
+      "max_feedrates": {
+        "x": 200,
+        "y": 200,
+        "z": 20,
+        "e": 50
+      },
+      "max_acceleration": 1500,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 120,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "prusa-mini-plus",
+      "name": "Prusa MINI+",
+      "manufacturer": "Prusa Research",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          180
+        ],
+        "y": [
+          0,
+          180
+        ],
+        "z": [
+          0,
+          180
+        ]
+      },
+      "max_feedrates": {
+        "x": 200,
+        "y": 200,
+        "z": 20,
+        "e": 60
+      },
+      "max_acceleration": 2000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 280,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "prusa-xl-5tool",
+      "name": "Prusa XL (5-Tool Toolchanger)",
+      "manufacturer": "Prusa Research",
+      "category": "3d_printer",
+      "kinematics": "toolchanger",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          360
+        ],
+        "y": [
+          0,
+          360
+        ],
+        "z": [
+          0,
+          360
+        ]
+      },
+      "max_feedrates": {
+        "x": 400,
+        "y": 400,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 6000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 115,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "voron-2.4-350",
+      "name": "Voron 2.4 (350mm)",
+      "manufacturer": "Voron Design",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          350
+        ],
+        "y": [
+          0,
+          350
+        ],
+        "z": [
+          0,
+          340
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 50,
+        "e": 120
+      },
+      "max_acceleration": 15000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 130,
+      "enclosure": true,
+      "heated_chamber": true
+    },
+    {
+      "id": "voron-trident-300",
+      "name": "Voron Trident (300mm)",
+      "manufacturer": "Voron Design",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          250
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 40,
+        "e": 100
+      },
+      "max_acceleration": 12000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 130,
+      "enclosure": true,
+      "heated_chamber": true
+    },
+    {
+      "id": "voron-v0.2",
+      "name": "Voron V0.2",
+      "manufacturer": "Voron Design",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          120
+        ],
+        "y": [
+          0,
+          120
+        ],
+        "z": [
+          0,
+          120
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 50,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "elegoo-neptune-4-pro",
+      "name": "Elegoo Neptune 4 Pro",
+      "manufacturer": "Elegoo",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          225
+        ],
+        "y": [
+          0,
+          225
+        ],
+        "z": [
+          0,
+          265
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 8000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 110,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "elegoo-neptune-4-max",
+      "name": "Elegoo Neptune 4 Max",
+      "manufacturer": "Elegoo",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          420
+        ],
+        "y": [
+          0,
+          420
+        ],
+        "z": [
+          0,
+          480
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 25,
+        "e": 80
+      },
+      "max_acceleration": 6000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 90,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "anycubic-kobra-2-pro",
+      "name": "Anycubic Kobra 2 Pro",
+      "manufacturer": "Anycubic",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          220
+        ],
+        "y": [
+          0,
+          220
+        ],
+        "z": [
+          0,
+          250
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 10000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 260,
+      "max_bed_temp": 110,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "anycubic-kobra-2-max",
+      "name": "Anycubic Kobra 2 Max",
+      "manufacturer": "Anycubic",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          420
+        ],
+        "y": [
+          0,
+          420
+        ],
+        "z": [
+          0,
+          500
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 25,
+        "e": 80
+      },
+      "max_acceleration": 8000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 260,
+      "max_bed_temp": 90,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "qidi-x-max-3",
+      "name": "Qidi Tech X-Max 3",
+      "manufacturer": "Qidi Tech",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          325
+        ],
+        "y": [
+          0,
+          325
+        ],
+        "z": [
+          0,
+          315
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 40,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": true
+    },
+    {
+      "id": "qidi-q1-pro",
+      "name": "Qidi Tech Q1 Pro",
+      "manufacturer": "Qidi Tech",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          245
+        ],
+        "y": [
+          0,
+          245
+        ],
+        "z": [
+          0,
+          245
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 40,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": true
+    },
+    {
+      "id": "sovol-sv07-plus",
+      "name": "Sovol SV07 Plus",
+      "manufacturer": "Sovol",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          350
+        ]
+      },
+      "max_feedrates": {
+        "x": 500,
+        "y": 500,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 8000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "sovol-sv06-plus",
+      "name": "Sovol SV06 Plus",
+      "manufacturer": "Sovol",
+      "category": "3d_printer",
+      "kinematics": "cartesian",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          300
+        ],
+        "z": [
+          0,
+          340
+        ]
+      },
+      "max_feedrates": {
+        "x": 180,
+        "y": 180,
+        "z": 20,
+        "e": 60
+      },
+      "max_acceleration": 1500,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": false,
+      "heated_chamber": false
+    },
+    {
+      "id": "ratrig-v-core-3-500",
+      "name": "RatRig V-Core 3.1 (500mm)",
+      "manufacturer": "RatRig",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          500
+        ],
+        "y": [
+          0,
+          500
+        ],
+        "z": [
+          0,
+          500
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 40,
+        "e": 120
+      },
+      "max_acceleration": 15000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 350,
+      "max_bed_temp": 120,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "flashforge-adventurer-5m-pro",
+      "name": "FlashForge Adventurer 5M Pro",
+      "manufacturer": "FlashForge",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          220
+        ],
+        "y": [
+          0,
+          220
+        ],
+        "z": [
+          0,
+          220
+        ]
+      },
+      "max_feedrates": {
+        "x": 600,
+        "y": 600,
+        "z": 30,
+        "e": 80
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 280,
+      "max_bed_temp": 110,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "snapmaker-j1s-idex",
+      "name": "Snapmaker J1s (IDEX)",
+      "manufacturer": "Snapmaker",
+      "category": "3d_printer",
+      "kinematics": "idex",
+      "firmware": "marlin",
+      "build_volume": {
+        "x": [
+          0,
+          300
+        ],
+        "y": [
+          0,
+          200
+        ],
+        "z": [
+          0,
+          200
+        ]
+      },
+      "max_feedrates": {
+        "x": 350,
+        "y": 350,
+        "z": 20,
+        "e": 60
+      },
+      "max_acceleration": 10000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": true,
+      "heated_chamber": false
+    },
+    {
+      "id": "two-trees-sk1",
+      "name": "Two Trees SK1",
+      "manufacturer": "Two Trees",
+      "category": "3d_printer",
+      "kinematics": "corexy",
+      "firmware": "klipper",
+      "build_volume": {
+        "x": [
+          0,
+          256
+        ],
+        "y": [
+          0,
+          256
+        ],
+        "z": [
+          0,
+          256
+        ]
+      },
+      "max_feedrates": {
+        "x": 700,
+        "y": 700,
+        "z": 30,
+        "e": 100
+      },
+      "max_acceleration": 20000,
+      "default_nozzle_diameter": 0.4,
+      "max_hotend_temp": 300,
+      "max_bed_temp": 100,
+      "enclosure": true,
+      "heated_chamber": false
+    }
+  ]
+}

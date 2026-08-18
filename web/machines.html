@@ -335,28 +335,28 @@ max_velocity: 500"></textarea>
 </main>
 
 <script>
-const BUILTIN_MACHINES = [
+let ALL_MACHINES = [
   {
-    id: "bambu-x1c",
-    name: "Bambu Lab X1 Carbon",
+    id: "bambu-x1-carbon",
+    name: "Bambu Lab X1-Carbon",
     vendor: "Bambu Lab",
     category: "3d_printer",
     categoryLabel: "3D Printer",
     bounds: [0, 256, 0, 256, 0, 256],
     maxFeed: 30000,
-    firmware: "Klipper / Custom",
-    kinematics: "CoreXY"
+    firmware: "BAMBU",
+    kinematics: "COREXY"
   },
   {
-    id: "voron-v24-350",
-    name: "Voron 2.4 350",
+    id: "voron-2.4-350",
+    name: "Voron 2.4 (350mm)",
     vendor: "Voron Design",
     category: "3d_printer",
     categoryLabel: "3D Printer",
-    bounds: [0, 350, 0, 350, 0, 330],
+    bounds: [0, 350, 0, 350, 0, 340],
     maxFeed: 36000,
-    firmware: "Klipper",
-    kinematics: "CoreXY"
+    firmware: "KLIPPER",
+    kinematics: "COREXY"
   },
   {
     id: "shapeoko-4",
@@ -368,7 +368,7 @@ const BUILTIN_MACHINES = [
     maxFeed: 5000,
     maxRpm: 24000,
     firmware: "GRBL",
-    kinematics: "Cartesian"
+    kinematics: "CARTESIAN"
   },
   {
     id: "haas-vf2",
@@ -380,7 +380,7 @@ const BUILTIN_MACHINES = [
     maxFeed: 25400,
     maxRpm: 10000,
     firmware: "RS-274",
-    kinematics: "Cartesian 3-Axis"
+    kinematics: "CARTESIAN 3-AXIS"
   },
   {
     id: "ortur-lm2",
@@ -390,8 +390,8 @@ const BUILTIN_MACHINES = [
     categoryLabel: "Laser Cutter",
     bounds: [0, 400, 0, 400, 0, 0],
     maxFeed: 10000,
-    firmware: "GRBL Laser",
-    kinematics: "Cartesian"
+    firmware: "GRBL LASER",
+    kinematics: "CARTESIAN"
   },
   {
     id: "crossfire-pro",
@@ -401,10 +401,85 @@ const BUILTIN_MACHINES = [
     categoryLabel: "Plasma Cutter",
     bounds: [0, 845, 0, 1225, 0, 100],
     maxFeed: 7600,
-    firmware: "GRBL / FireControl",
-    kinematics: "Cartesian"
+    firmware: "GRBL / FIRECONTROL",
+    kinematics: "CARTESIAN"
   }
 ];
+
+async function initCatalog() {
+  try {
+    const res = await fetch('./machines.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.machines)) {
+        const parsed = data.machines.map(m => ({
+          id: m.id,
+          name: m.name,
+          vendor: m.manufacturer,
+          category: m.category,
+          categoryLabel: "3D Printer",
+          bounds: [m.build_volume.x[0], m.build_volume.x[1], m.build_volume.y[0], m.build_volume.y[1], m.build_volume.z[0], m.build_volume.z[1]],
+          maxFeed: m.max_feedrates.x * 60,
+          maxAccel: m.max_acceleration,
+          firmware: m.firmware.toUpperCase(),
+          kinematics: m.kinematics.toUpperCase()
+        }));
+        ALL_MACHINES = [
+          ...parsed,
+          {
+            id: "shapeoko-4",
+            name: "Shapeoko 4 Standard",
+            vendor: "Carbide 3D",
+            category: "cnc_mill",
+            categoryLabel: "CNC Mill",
+            bounds: [0, 444, 0, 444, 0, 101],
+            maxFeed: 5000,
+            maxRpm: 24000,
+            firmware: "GRBL",
+            kinematics: "CARTESIAN"
+          },
+          {
+            id: "haas-vf2",
+            name: "Haas VF-2 VMC",
+            vendor: "Haas Automation",
+            category: "cnc_mill",
+            categoryLabel: "CNC Mill",
+            bounds: [0, 762, 0, 406, 0, 508],
+            maxFeed: 25400,
+            maxRpm: 10000,
+            firmware: "RS-274",
+            kinematics: "CARTESIAN 3-AXIS"
+          },
+          {
+            id: "ortur-lm2",
+            name: "Ortur Laser Master 2",
+            vendor: "Ortur",
+            category: "laser_cutter",
+            categoryLabel: "Laser Cutter",
+            bounds: [0, 400, 0, 400, 0, 0],
+            maxFeed: 10000,
+            firmware: "GRBL LASER",
+            kinematics: "CARTESIAN"
+          },
+          {
+            id: "crossfire-pro",
+            name: "CrossFire PRO Plasma",
+            vendor: "Langmuir Systems",
+            category: "plasma_waterjet",
+            categoryLabel: "Plasma Cutter",
+            bounds: [0, 845, 0, 1225, 0, 100],
+            maxFeed: 7600,
+            firmware: "GRBL / FIRECONTROL",
+            kinematics: "CARTESIAN"
+          }
+        ];
+      }
+    }
+  } catch (err) {
+    console.warn("Using inline fallback machines:", err);
+  }
+  applyFilters();
+}
 
 function renderCards(machines) {
   const grid = document.getElementById("machineGrid");
@@ -421,6 +496,7 @@ function renderCards(machines) {
         <table class="spec-table">
           <tr><td class="label">Build Volume</td><td class="val">${m.bounds[1]} × ${m.bounds[3]} × ${m.bounds[5]} mm</td></tr>
           <tr><td class="label">Max Feedrate</td><td class="val">${m.maxFeed.toLocaleString()} mm/min</td></tr>
+          ${m.maxAccel ? `<tr><td class="label">Max Accel</td><td class="val">${m.maxAccel.toLocaleString()} mm/s²</td></tr>` : ''}
           ${m.maxRpm ? `<tr><td class="label">Max Spindle</td><td class="val">${m.maxRpm.toLocaleString()} RPM</td></tr>` : ''}
           <tr><td class="label">Firmware</td><td class="val">${m.firmware}</td></tr>
           <tr><td class="label">Kinematics</td><td class="val">${m.kinematics}</td></tr>
@@ -438,7 +514,7 @@ let activeCategory = "all";
 let searchTerm = "";
 
 function applyFilters() {
-  const filtered = BUILTIN_MACHINES.filter(m => {
+  const filtered = ALL_MACHINES.filter(m => {
     const matchCat = activeCategory === "all" || m.category === activeCategory;
     const matchSearch = !searchTerm || m.name.toLowerCase().includes(searchTerm) || m.vendor.toLowerCase().includes(searchTerm);
     return matchCat && matchSearch;
@@ -486,7 +562,7 @@ document.getElementById("importKlipperBtn").addEventListener("click", () => {
       kinematics: raw.includes("corexy") ? "CoreXY" : "Cartesian"
     };
 
-    BUILTIN_MACHINES.unshift(imported);
+    ALL_MACHINES.unshift(imported);
     applyFilters();
     status.className = "import-result success";
     status.textContent = `Successfully imported machine (${maxX}×${maxY}×${maxZ}mm)!`;
@@ -496,8 +572,8 @@ document.getElementById("importKlipperBtn").addEventListener("click", () => {
   }
 });
 
-// Initial render
-renderCards(BUILTIN_MACHINES);
+// Initial load & render
+initCatalog();
 </script>
 </body>
 </html>
