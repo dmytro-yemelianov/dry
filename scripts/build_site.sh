@@ -27,6 +27,15 @@ cat << 'EOF' > "$OUT/_headers"
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
 
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/web/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/web/*.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /web/pkg/*.wasm
   Content-Type: application/wasm
   Cache-Control: public, max-age=31536000, immutable
