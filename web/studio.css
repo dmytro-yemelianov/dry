@@ -662,7 +662,55 @@ html, body, #root, .studio-app-container {
   color: var(--fg-bright);
 }
 
-/* ---- Layer Navigation in G-Code Panel ---- */
+/* ---- Multi-Modal Grouping & Layer Navigation in G-Code Panel ---- */
+.grouping-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.grouping-label {
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.grouping-pills {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+}
+
+.grouping-pill {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grouping-pill:hover {
+  background: var(--bg-hover);
+  color: var(--fg-bright);
+}
+
+.grouping-pill.active {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
 .layer-nav-bar {
   display: flex;
   align-items: center;

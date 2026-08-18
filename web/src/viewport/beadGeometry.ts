@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Segment } from '../types/domain';
+import type { Segment, SlicingFilterMode } from '../types/domain';
 
 type Vec3 = [number, number, number];
 
@@ -24,9 +24,9 @@ const vmad = (p: Vec3, d: Vec3, s: number): Vec3 => [
 ];
 
 export interface BeadFilterOptions {
-  mode: 'all' | 'upToLayer' | 'singleLayer';
-  targetLayer: number;
-  segmentLayers: number[];
+  mode: SlicingFilterMode;
+  targetSection: number;
+  segmentSections: number[];
 }
 
 export function buildStadiumBeadsGeometry(
@@ -73,11 +73,11 @@ export function buildStadiumBeadsGeometry(
     const isTravel = seg.travel === true || seg.kind === 'travel';
     if (isTravel) continue;
 
-    // Optional layer filter check
-    if (filter && filter.segmentLayers && filter.segmentLayers.length > idx) {
-      const segL = filter.segmentLayers[idx];
-      if (filter.mode === 'upToLayer' && segL > filter.targetLayer) continue;
-      if (filter.mode === 'singleLayer' && segL !== filter.targetLayer) continue;
+    // Multi-modal slicing filter check
+    if (filter && filter.segmentSections && filter.segmentSections.length > idx) {
+      const segSec = filter.segmentSections[idx];
+      if (filter.mode === 'upToSection' && segSec > filter.targetSection) continue;
+      if (filter.mode === 'singleSection' && segSec !== filter.targetSection) continue;
     }
 
     const d = vsub(p1, p0);

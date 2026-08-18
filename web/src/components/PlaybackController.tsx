@@ -11,13 +11,21 @@ export const PlaybackController: React.FC = () => {
   const playSpeed = useStudioStore((state) => state.playSpeed);
   const setPlaySpeed = useStudioStore((state) => state.setPlaySpeed);
   const seekTime = useStudioStore((state) => state.seekTime);
-  const activeLayerNumber = useStudioStore((state) => state.activeLayerNumber);
+  const activeSectionIndex = useStudioStore((state) => state.activeSectionIndex);
   const gcodeSections = useStudioStore((state) => state.gcodeSections);
-  const nextLayer = useStudioStore((state) => state.nextLayer);
-  const prevLayer = useStudioStore((state) => state.prevLayer);
+  const effectiveGroupingKind = useStudioStore((state) => state.effectiveGroupingKind);
+  const nextSection = useStudioStore((state) => state.nextSection);
+  const prevSection = useStudioStore((state) => state.prevSection);
 
   const sliderVal = maxTime > 0 ? (currentTime / maxTime) * 100 : 0;
-  const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
+  const maxSection = gcodeSections[gcodeSections.length - 1]?.index || 1;
+
+  const sectionPrefix =
+    effectiveGroupingKind === 'revolution'
+      ? 'Turn'
+      : effectiveGroupingKind === 'figure'
+      ? 'Fig'
+      : 'L';
 
   return (
     <footer className="studio-playback">
@@ -27,11 +35,13 @@ export const PlaybackController: React.FC = () => {
         </button>
 
         <div className="layer-playback-stepper">
-          <button className="layer-step-btn" onClick={prevLayer} disabled={activeLayerNumber <= 1}>
+          <button className="layer-step-btn" onClick={prevSection} disabled={activeSectionIndex <= 1}>
             ⏮
           </button>
-          <span className="layer-chip">L{activeLayerNumber}</span>
-          <button className="layer-step-btn" onClick={nextLayer} disabled={activeLayerNumber >= maxLayer}>
+          <span className="layer-chip">
+            {sectionPrefix}{activeSectionIndex}
+          </span>
+          <button className="layer-step-btn" onClick={nextSection} disabled={activeSectionIndex >= maxSection}>
             ⏭
           </button>
         </div>

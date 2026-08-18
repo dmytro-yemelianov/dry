@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStudioStore } from '../../store/useStudioStore';
+import type { GroupingMode } from '../../types/domain';
 
 const CMD_DESC: Record<string, string> = {
   G0: 'rapid travel — reposition without extruding',
@@ -38,25 +39,28 @@ const PARAM_DESC: Record<string, [string, string]> = {
 export const GcodeInspector: React.FC = () => {
   const gcodeLines = useStudioStore((state) => state.gcodeLines);
   const gcodeSections = useStudioStore((state) => state.gcodeSections);
+  const groupingMode = useStudioStore((state) => state.groupingMode);
+  const setGroupingMode = useStudioStore((state) => state.setGroupingMode);
+  const effectiveGroupingKind = useStudioStore((state) => state.effectiveGroupingKind);
   const focusedLineIndex = useStudioStore((state) => state.focusedLineIndex);
   const setFocusedLine = useStudioStore((state) => state.setFocusedLine);
   const currentTime = useStudioStore((state) => state.currentTime);
   const maxTime = useStudioStore((state) => state.maxTime);
   const isPlaying = useStudioStore((state) => state.isPlaying);
-  const activeLayerNumber = useStudioStore((state) => state.activeLayerNumber);
-  const jumpToLayer = useStudioStore((state) => state.jumpToLayer);
-  const nextLayer = useStudioStore((state) => state.nextLayer);
-  const prevLayer = useStudioStore((state) => state.prevLayer);
+  const activeSectionIndex = useStudioStore((state) => state.activeSectionIndex);
+  const jumpToSection = useStudioStore((state) => state.jumpToSection);
+  const nextSection = useStudioStore((state) => state.nextSection);
+  const prevSection = useStudioStore((state) => state.prevSection);
 
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Map each line to its section header if it starts a section
-  const sectionStartMap = useRef<Map<number, string>>(new Map());
+  // Map each line index to its section header if it starts a section
+  const sectionStartMap = useRef<Map<number, { label: string; kind: string }>>(new Map());
   useEffect(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number, { label: string; kind: string }>();
     gcodeSections.forEach((sec) => {
-      map.set(sec.line, sec.label);
+      map.set(sec.line, { label: sec.label, kind: sec.kind });
     });
     sectionStartMap.current = map;
   }, [gcodeSections]);
@@ -88,31 +92,59 @@ export const GcodeInspector: React.FC = () => {
   const cmd = words[0] || '';
   const cmdDesc = CMD_DESC[cmd] || 'G-code command';
 
-  const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
+  const maxSection = gcodeSections[gcodeSections.length - 1]?.index || 1;
+  const sectionTitle =
+    effectiveGroupingKind === 'revolution'
+      ? 'Turn'
+      : effectiveGroupingKind === 'figure'
+      ? 'Figure'
+      : 'Layer';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Layer Navigation Bar */}
+      {/* Grouping Strategy Selector */}
+      <div className="grouping-mode-bar">
+        <span className="grouping-label">Group By:</span>
+        <div className="grouping-pills">
+          {(['auto', 'revolutions', 'figures', 'layers'] as GroupingMode[]).map((mode) => (
+            <button
+              key={mode}
+              className={`grouping-pill ${groupingMode === mode ? 'active' : ''}`}
+              onClick={() => setGroupingMode(mode)}
+            >
+              {mode === 'auto'
+                ? `Auto (${sectionTitle}s)`
+                : mode === 'revolutions'
+                ? 'Turns / Helix'
+                : mode === 'figures'
+                ? 'Figures'
+                : 'Layers'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Multi-Modal Section Navigation Bar */}
       <div className="layer-nav-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button className="layer-step-btn" onClick={prevLayer} disabled={activeLayerNumber <= 1}>
+          <button className="layer-step-btn" onClick={prevSection} disabled={activeSectionIndex <= 1}>
             ⏮
           </button>
           <span className="layer-badge">
-            Layer {activeLayerNumber} / {maxLayer}
+            {sectionTitle} {activeSectionIndex} / {maxSection}
           </span>
-          <button className="layer-step-btn" onClick={nextLayer} disabled={activeLayerNumber >= maxLayer}>
+          <button className="layer-step-btn" onClick={nextSection} disabled={activeSectionIndex >= maxSection}>
             ⏭
           </button>
         </div>
 
         <select
           className="layer-select-dropdown"
-          value={activeLayerNumber}
-          onChange={(e) => jumpToLayer(parseInt(e.target.value, 10))}
+          value={activeSectionIndex}
+          onChange={(e) => jumpToSection(parseInt(e.target.value, 10))}
         >
           {gcodeSections.map((sec) => (
-            <option key={sec.layer} value={sec.layer}>
+            <option key={sec.index} value={sec.index}>
               {sec.label}
             </option>
           ))}
@@ -168,7 +200,14 @@ export const GcodeInspector: React.FC = () => {
             const isArc = lineCmd === 'G2' || lineCmd === 'G3';
             const cmdClass = isG0 ? 'cmd-g0' : isG1 ? 'cmd-g1' : isArc ? 'cmd-arc' : 'cmd-other';
             const isActive = index === activeLineIndex;
-            const sectionLabel = sectionStartMap.current.get(index);
+            const sectionInfo = sectionStartMap.current.get(index);
+
+            const icon =
+              sectionInfo?.kind === 'revolution'
+                ? '🔄'
+                : sectionInfo?.kind === 'figure'
+                ? '🔷'
+                : '📌';
 
             return (
               <div
@@ -184,9 +223,9 @@ export const GcodeInspector: React.FC = () => {
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {sectionLabel && (
+                {sectionInfo && (
                   <div className="gcode-section-header">
-                    <span>📌 {sectionLabel}</span>
+                    <span>{icon} {sectionInfo.label}</span>
                   </div>
                 )}
                 <div

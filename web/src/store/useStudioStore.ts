@@ -5,9 +5,11 @@ import type {
   Metrics,
   DesignDef,
   GcodeSection,
+  GroupingMode,
+  GroupingKind,
   RenderStyle,
   PlasticMaterial,
-  LayerFilterMode,
+  SlicingFilterMode,
 } from '../types/domain';
 import {
   ensureWasmInitialized,
@@ -18,6 +20,8 @@ import {
   importGcode,
 } from '../wasm/engine';
 import { DESIGN_DEFS, FULLCONTROL_GALLERY, RESOLVE_PARAMS } from '../data/designs';
+
+const TAU = Math.PI * 2;
 
 const DEFAULT_MACHINES: MachineProfile[] = [
   {
@@ -49,61 +53,228 @@ const DEFAULT_MACHINES: MachineProfile[] = [
   },
 ];
 
-function buildAutomatedSections(lines: string[]): GcodeSection[] {
-  const sections: GcodeSection[] = [];
-  let currentZ: number | null = null;
-  let layer = 0;
+/** Intelligent Multi-Modal Sectioning and Grouping Engine */
+function computeIntelligentGrouping(
+  gcodeLines: string[],
+  toolpath: Toolpath | null,
+  requestedMode: GroupingMode
+): {
+  sections: GcodeSection[];
+  effectiveKind: GroupingKind;
+  segmentSections: number[];
+} {
+  const segments = toolpath?.segments || [];
+  if (!segments.length) {
+    const defaultSec: GcodeSection = {
+      index: 1,
+      line: 0,
+      segmentIndex: 0,
+      kind: 'routine',
+      label: 'Start Routine',
+    };
+    return { sections: [defaultSec], effectiveKind: 'routine', segmentSections: [] };
+  }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const words = line.trim().split(/\s+/);
-    const zToken = words.find((w) => w.startsWith('Z') && !isNaN(parseFloat(w.slice(1))));
-    if (!zToken) {
-      if (i === 0 && !sections.length) {
-        sections.push({ line: 0, layer: 0, z: 0, label: 'Start Routine' });
-      }
-      continue;
+  // 1. Analyze Geometry & Toolpath Characteristics
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let zChanges = 0;
+  let continuousZChanges = 0;
+  let lastZ: number | null = null;
+  let islands = 0;
+  let inExtrusion = false;
+
+  for (const seg of segments) {
+    const pt = seg.end || seg.start;
+    if (pt && pt[0] !== null && pt[1] !== null) {
+      const x = pt[0] as number, y = pt[1] as number;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
     }
-    const zVal = parseFloat(zToken.slice(1));
-    const roundedZ = Math.round(zVal * 1000) / 1000;
-    if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-4) {
-      currentZ = roundedZ;
-      layer += 1;
-      sections.push({
-        line: i,
-        layer,
-        z: roundedZ,
-        label: `Layer ${layer} (Z=${roundedZ.toFixed(2)}mm)`,
-      });
+    const z = pt && pt[2] !== null ? (pt[2] as number) : 0;
+    if (lastZ === null) {
+      lastZ = z;
+    } else if (Math.abs(z - lastZ) > 1e-4) {
+      zChanges++;
+      if (Math.abs(z - lastZ) < 0.1) continuousZChanges++;
+      lastZ = z;
+    }
+
+    const isTravel = seg.travel === true || seg.kind === 'travel';
+    if (!isTravel) {
+      if (!inExtrusion) {
+        islands++;
+        inExtrusion = true;
+      }
+    } else {
+      inExtrusion = false;
+    }
+  }
+
+  const cx = isFinite(minX) ? (minX + maxX) / 2 : 50;
+  const cy = isFinite(minY) ? (minY + maxY) / 2 : 50;
+  const isContinuousSpiral = continuousZChanges > 15 && continuousZChanges > zChanges * 0.7;
+
+  // 2. Decide Effective Strategy
+  let strategy: GroupingKind = 'layer';
+  if (requestedMode === 'revolutions') strategy = 'revolution';
+  else if (requestedMode === 'figures') strategy = 'figure';
+  else if (requestedMode === 'layers') strategy = 'layer';
+  else {
+    // Auto Detection
+    if (isContinuousSpiral) strategy = 'revolution';
+    else if (islands > 1 && zChanges <= 3) strategy = 'figure';
+    else if (zChanges > 1) strategy = 'layer';
+    else if (islands > 1) strategy = 'figure';
+    else strategy = 'revolution';
+  }
+
+  const sections: GcodeSection[] = [];
+  const segmentSections: number[] = [];
+
+  // Approximate mapping of segment index to G-code line index
+  const lineFactor = gcodeLines.length > 0 && segments.length > 0 ? gcodeLines.length / segments.length : 1;
+
+  if (strategy === 'revolution') {
+    // ---- Revolutions / Turns Grouping ----
+    let cumulativeAngle = 0;
+    let lastAngle: number | null = null;
+    let currentTurn = 1;
+    let turnStartSeg = 0;
+    let zStart = 0;
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const pt = seg.end || seg.start || [cx, cy, 0];
+      const px = (pt[0] !== null ? (pt[0] as number) : cx) - cx;
+      const py = (pt[1] !== null ? (pt[1] as number) : cy) - cy;
+      const pz = pt[2] !== null ? (pt[2] as number) : 0;
+
+      if (i === 0) zStart = pz;
+
+      const angle = Math.atan2(py, px);
+      if (lastAngle !== null) {
+        let diff = angle - lastAngle;
+        if (diff > Math.PI) diff -= TAU;
+        if (diff < -Math.PI) diff += TAU;
+        cumulativeAngle += Math.abs(diff);
+      }
+      lastAngle = angle;
+
+      const completedTurns = Math.floor(cumulativeAngle / TAU);
+      if (completedTurns >= currentTurn || i === 0) {
+        if (i > 0) {
+          const prevSec = sections[sections.length - 1];
+          if (prevSec) {
+            prevSec.moveCount = i - turnStartSeg;
+            prevSec.zRange = [zStart, pz];
+          }
+          currentTurn = completedTurns + 1;
+        }
+
+        turnStartSeg = i;
+        zStart = pz;
+        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
+        sections.push({
+          index: currentTurn,
+          line: lineIdx,
+          segmentIndex: i,
+          kind: 'revolution',
+          label: `Turn ${currentTurn} (${(currentTurn * 360 - 360)}°–${currentTurn * 360}°)`,
+          subLabel: `Z: ${pz.toFixed(2)}mm`,
+          zRange: [pz, pz],
+          angleRangeDeg: [currentTurn * 360 - 360, currentTurn * 360],
+        });
+      }
+
+      segmentSections.push(sections.length);
+    }
+  } else if (strategy === 'figure') {
+    // ---- Discrete Geometric Figures / Islands Grouping ----
+    let currentFig = 0;
+    let figStartSeg = 0;
+    let inFig = false;
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const isTravel = seg.travel === true || seg.kind === 'travel';
+
+      if (!isTravel) {
+        if (!inFig) {
+          currentFig++;
+          inFig = true;
+          figStartSeg = i;
+          const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
+          const pt = seg.end || seg.start;
+          const pz = pt && pt[2] !== null ? (pt[2] as number) : 0;
+          sections.push({
+            index: currentFig,
+            line: lineIdx,
+            segmentIndex: i,
+            kind: 'figure',
+            label: `Figure ${currentFig} (Extrusion Loop)`,
+            subLabel: `Z: ${pz.toFixed(2)}mm`,
+            zRange: [pz, pz],
+          });
+        }
+      } else {
+        if (inFig) {
+          inFig = false;
+          const prevSec = sections[sections.length - 1];
+          if (prevSec) prevSec.moveCount = i - figStartSeg;
+        }
+      }
+
+      segmentSections.push(Math.max(1, sections.length));
+    }
+  } else {
+    // ---- Discrete Layers Grouping ----
+    let currentLayer = 0;
+    let currentZ: number | null = null;
+    let layerStartSeg = 0;
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const pt = seg.end || seg.start;
+      const pz = pt && pt[2] !== null ? (pt[2] as number) : 0;
+      const roundedZ = Math.round(pz * 1000) / 1000;
+
+      if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-4) {
+        if (currentZ !== null) {
+          const prevSec = sections[sections.length - 1];
+          if (prevSec) prevSec.moveCount = i - layerStartSeg;
+        }
+        currentZ = roundedZ;
+        currentLayer++;
+        layerStartSeg = i;
+        const lineIdx = Math.min(gcodeLines.length - 1, Math.floor(i * lineFactor));
+        sections.push({
+          index: currentLayer,
+          line: lineIdx,
+          segmentIndex: i,
+          kind: 'layer',
+          label: `Layer ${currentLayer} (Z=${roundedZ.toFixed(2)}mm)`,
+          subLabel: `${roundedZ.toFixed(3)} mm`,
+          zRange: [roundedZ, roundedZ],
+        });
+      }
+
+      segmentSections.push(currentLayer);
     }
   }
 
   if (!sections.length) {
-    sections.push({ line: 0, layer: 0, z: 0, label: 'Start Routine' });
+    sections.push({
+      index: 1,
+      line: 0,
+      segmentIndex: 0,
+      kind: strategy,
+      label: 'Section 1',
+    });
   }
 
-  return sections;
-}
-
-function computeSegmentLayers(toolpath: Toolpath | null): number[] {
-  if (!toolpath || !toolpath.segments) return [];
-  const layers: number[] = [];
-  let currentZ: number | null = null;
-  let layer = 1;
-
-  for (const seg of toolpath.segments) {
-    const pt = seg.end || seg.start;
-    const z = pt && pt[2] !== null && !isNaN(pt[2] as number) ? (pt[2] as number) : 0;
-    const roundedZ = Math.round(z * 1000) / 1000;
-    if (currentZ === null) {
-      currentZ = roundedZ;
-    } else if (Math.abs(roundedZ - currentZ) > 1e-4) {
-      currentZ = roundedZ;
-      layer += 1;
-    }
-    layers.push(layer);
-  }
-  return layers;
+  return { sections, effectiveKind: strategy, segmentSections };
 }
 
 interface StudioState {
@@ -113,16 +284,18 @@ interface StudioState {
   activeDesignKey: string;
   activeParams: Record<string, number>;
   toolpath: Toolpath | null;
-  segmentLayers: number[];
   gcodeLines: string[];
   gcodeSections: GcodeSection[];
+  segmentSections: number[];
+  groupingMode: GroupingMode;
+  effectiveGroupingKind: GroupingKind;
   metrics: Metrics | null;
   optimizedToolpath: Toolpath | null;
   colorMode: 'type' | 'height' | 'speed';
   renderStyle: RenderStyle;
   plasticMaterial: PlasticMaterial;
-  layerFilterMode: LayerFilterMode;
-  targetLayerNumber: number;
+  slicingFilterMode: SlicingFilterMode;
+  targetSectionIndex: number;
   activeCategory: string;
   searchQuery: string;
   isPlaying: boolean;
@@ -130,7 +303,7 @@ interface StudioState {
   maxTime: number;
   playSpeed: number;
   focusedLineIndex: number | null;
-  activeLayerNumber: number;
+  activeSectionIndex: number;
 
   // Actions
   initStudio: () => Promise<void>;
@@ -141,17 +314,18 @@ interface StudioState {
   setColorMode: (mode: 'type' | 'height' | 'speed') => void;
   setRenderStyle: (style: RenderStyle) => void;
   setPlasticMaterial: (mat: PlasticMaterial) => void;
-  setLayerFilterMode: (mode: LayerFilterMode) => void;
-  setTargetLayerNumber: (layer: number) => void;
+  setGroupingMode: (mode: GroupingMode) => void;
+  setSlicingFilterMode: (mode: SlicingFilterMode) => void;
+  setTargetSectionIndex: (idx: number) => void;
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
   togglePlay: () => void;
   setPlaySpeed: (speed: number) => void;
   seekTime: (time: number) => void;
   setFocusedLine: (index: number | null) => void;
-  jumpToLayer: (layerNum: number) => void;
-  nextLayer: () => void;
-  prevLayer: () => void;
+  jumpToSection: (sectionIndex: number) => void;
+  nextSection: () => void;
+  prevSection: () => void;
   importCustomGcode: (text: string, filename: string) => void;
   recompileCurrentDesign: () => void;
 }
@@ -163,16 +337,18 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeDesignKey: 'spiral_vase',
   activeParams: {},
   toolpath: null,
-  segmentLayers: [],
   gcodeLines: [],
   gcodeSections: [],
+  segmentSections: [],
+  groupingMode: 'auto',
+  effectiveGroupingKind: 'revolution',
   metrics: null,
   optimizedToolpath: null,
   colorMode: 'type',
   renderStyle: 'beads',
   plasticMaterial: 'cyan',
-  layerFilterMode: 'all',
-  targetLayerNumber: 1,
+  slicingFilterMode: 'all',
+  targetSectionIndex: 1,
   activeCategory: 'all',
   searchQuery: '',
   isPlaying: false,
@@ -180,7 +356,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   maxTime: 10,
   playSpeed: 1.0,
   focusedLineIndex: null,
-  activeLayerNumber: 1,
+  activeSectionIndex: 1,
 
   initStudio: async () => {
     await ensureWasmInitialized();
@@ -220,8 +396,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       activeParams: initialParams,
       currentTime: 0,
       focusedLineIndex: null,
-      activeLayerNumber: 1,
-      targetLayerNumber: 1,
+      activeSectionIndex: 1,
+      targetSectionIndex: 1,
     });
 
     get().recompileCurrentDesign();
@@ -248,8 +424,24 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setColorMode: (mode) => set({ colorMode: mode }),
   setRenderStyle: (style) => set({ renderStyle: style }),
   setPlasticMaterial: (mat) => set({ plasticMaterial: mat }),
-  setLayerFilterMode: (mode) => set({ layerFilterMode: mode }),
-  setTargetLayerNumber: (layer) => set({ targetLayerNumber: layer }),
+  setGroupingMode: (mode) => {
+    set({ groupingMode: mode });
+    const { gcodeLines, toolpath } = get();
+    const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+      gcodeLines,
+      toolpath,
+      mode
+    );
+    set({
+      gcodeSections: sections,
+      effectiveGroupingKind: effectiveKind,
+      segmentSections,
+      activeSectionIndex: 1,
+      targetSectionIndex: 1,
+    });
+  },
+  setSlicingFilterMode: (mode) => set({ slicingFilterMode: mode }),
+  setTargetSectionIndex: (idx) => set({ targetSectionIndex: idx }),
   setActiveCategory: (cat) => set({ activeCategory: cat }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -260,16 +452,16 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const frac = maxTime > 0 ? Math.min(1.0, Math.max(0.0, time / maxTime)) : 0;
     const approxLine = Math.floor(frac * (gcodeLines.length - 1));
 
-    let activeL = 1;
+    let activeSec = 1;
     for (const sec of gcodeSections) {
       if (approxLine >= sec.line) {
-        activeL = sec.layer;
+        activeSec = sec.index;
       } else {
         break;
       }
     }
 
-    set({ currentTime: time, activeLayerNumber: activeL, targetLayerNumber: activeL });
+    set({ currentTime: time, activeSectionIndex: activeSec, targetSectionIndex: activeSec });
   },
 
   setFocusedLine: (index) => {
@@ -278,42 +470,42 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       return;
     }
     const { gcodeSections } = get();
-    let activeL = 1;
+    let activeSec = 1;
     for (const sec of gcodeSections) {
       if (index >= sec.line) {
-        activeL = sec.layer;
+        activeSec = sec.index;
       } else {
         break;
       }
     }
-    set({ focusedLineIndex: index, activeLayerNumber: activeL, targetLayerNumber: activeL });
+    set({ focusedLineIndex: index, activeSectionIndex: activeSec, targetSectionIndex: activeSec });
   },
 
-  jumpToLayer: (layerNum) => {
+  jumpToSection: (sectionIndex) => {
     const { gcodeSections, gcodeLines, maxTime } = get();
-    const sec = gcodeSections.find((s) => s.layer === layerNum);
+    const sec = gcodeSections.find((s) => s.index === sectionIndex);
     if (!sec) return;
     const frac = gcodeLines.length > 0 ? sec.line / gcodeLines.length : 0;
     set({
-      activeLayerNumber: layerNum,
-      targetLayerNumber: layerNum,
+      activeSectionIndex: sectionIndex,
+      targetSectionIndex: sectionIndex,
       focusedLineIndex: sec.line,
       currentTime: frac * maxTime,
     });
   },
 
-  nextLayer: () => {
-    const { activeLayerNumber, gcodeSections } = get();
-    const maxLayer = gcodeSections[gcodeSections.length - 1]?.layer || 1;
-    if (activeLayerNumber < maxLayer) {
-      get().jumpToLayer(activeLayerNumber + 1);
+  nextSection: () => {
+    const { activeSectionIndex, gcodeSections } = get();
+    const maxSec = gcodeSections[gcodeSections.length - 1]?.index || 1;
+    if (activeSectionIndex < maxSec) {
+      get().jumpToSection(activeSectionIndex + 1);
     }
   },
 
-  prevLayer: () => {
-    const { activeLayerNumber } = get();
-    if (activeLayerNumber > 1) {
-      get().jumpToLayer(activeLayerNumber - 1);
+  prevSection: () => {
+    const { activeSectionIndex } = get();
+    if (activeSectionIndex > 1) {
+      get().jumpToSection(activeSectionIndex - 1);
     }
   },
 
@@ -321,19 +513,23 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     try {
       const tp = importGcode(text);
       const lines = text.split('\n').filter((l) => l.trim().length > 0);
-      const sections = buildAutomatedSections(lines);
-      const segLayers = computeSegmentLayers(tp);
+      const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+        lines,
+        tp,
+        get().groupingMode
+      );
       set({
         toolpath: tp,
-        segmentLayers: segLayers,
         gcodeLines: lines,
         gcodeSections: sections,
+        effectiveGroupingKind: effectiveKind,
+        segmentSections,
         activeDesignKey: 'custom_import',
         currentTime: 0,
         maxTime: 10,
         focusedLineIndex: null,
-        activeLayerNumber: 1,
-        targetLayerNumber: 1,
+        activeSectionIndex: 1,
+        targetSectionIndex: 1,
       });
     } catch (err) {
       console.error('Import failed:', err);
@@ -341,7 +537,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
 
   recompileCurrentDesign: () => {
-    const { activeDesignKey, activeParams } = get();
+    const { activeDesignKey, activeParams, groupingMode } = get();
     const allDefs: Record<string, DesignDef> = { ...DESIGN_DEFS, ...FULLCONTROL_GALLERY };
     const def = allDefs[activeDesignKey];
     if (!def) return;
@@ -353,8 +549,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const gcode = compileGcode(ops, RESOLVE_PARAMS);
       const ir = compileIR(ops, RESOLVE_PARAMS);
       const m = compileMetrics(ops, RESOLVE_PARAMS);
-      const sections = buildAutomatedSections(gcode);
-      const segLayers = computeSegmentLayers(ir);
+      const { sections, effectiveKind, segmentSections } = computeIntelligentGrouping(
+        gcode,
+        ir,
+        groupingMode
+      );
 
       let optIr: Toolpath | null = null;
       try {
@@ -365,9 +564,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
       set({
         toolpath: ir,
-        segmentLayers: segLayers,
         gcodeLines: gcode,
         gcodeSections: sections,
+        effectiveGroupingKind: effectiveKind,
+        segmentSections,
         metrics: m,
         optimizedToolpath: optIr,
         maxTime: m.total_time_s || 10,

@@ -94,11 +94,18 @@ export interface DesignDef {
   ops?: Op[];
 }
 
+export type GroupingKind = 'revolution' | 'figure' | 'layer' | 'routine';
+export type GroupingMode = 'auto' | 'revolutions' | 'figures' | 'layers';
+
 export interface GcodeSection {
+  index: number;
   line: number;
-  layer: number;
-  z: number;
+  segmentIndex: number;
+  kind: GroupingKind;
   label: string;
+  subLabel?: string;
+  zRange?: [number, number];
+  angleRangeDeg?: [number, number];
   moveCount?: number;
   volume?: number;
   time?: number;
@@ -106,4 +113,4 @@ export interface GcodeSection {
 
 export type RenderStyle = 'beads' | 'wireframe';
 export type PlasticMaterial = 'cyan' | 'obsidian' | 'gold' | 'orange' | 'white' | 'resin';
-export type LayerFilterMode = 'all' | 'upToLayer' | 'singleLayer';
+export type SlicingFilterMode = 'all' | 'upToSection' | 'singleSection';

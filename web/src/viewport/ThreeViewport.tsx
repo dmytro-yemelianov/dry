@@ -72,15 +72,16 @@ export const ThreeViewport: React.FC = () => {
 
   const activeMachine = useStudioStore((state) => state.activeMachine);
   const toolpath = useStudioStore((state) => state.toolpath);
-  const segmentLayers = useStudioStore((state) => state.segmentLayers);
+  const segmentSections = useStudioStore((state) => state.segmentSections);
+  const effectiveGroupingKind = useStudioStore((state) => state.effectiveGroupingKind);
   const colorMode = useStudioStore((state) => state.colorMode);
   const renderStyle = useStudioStore((state) => state.renderStyle);
   const setRenderStyle = useStudioStore((state) => state.setRenderStyle);
   const plasticMaterial = useStudioStore((state) => state.plasticMaterial);
   const setPlasticMaterial = useStudioStore((state) => state.setPlasticMaterial);
-  const layerFilterMode = useStudioStore((state) => state.layerFilterMode);
-  const setLayerFilterMode = useStudioStore((state) => state.setLayerFilterMode);
-  const targetLayerNumber = useStudioStore((state) => state.targetLayerNumber);
+  const slicingFilterMode = useStudioStore((state) => state.slicingFilterMode);
+  const setSlicingFilterMode = useStudioStore((state) => state.setSlicingFilterMode);
+  const targetSectionIndex = useStudioStore((state) => state.targetSectionIndex);
   const currentTime = useStudioStore((state) => state.currentTime);
   const maxTime = useStudioStore((state) => state.maxTime);
   const focusedLineIndex = useStudioStore((state) => state.focusedLineIndex);
@@ -236,9 +237,9 @@ export const ThreeViewport: React.FC = () => {
     if (renderStyle === 'beads') {
       // 1. Solid Extruded Plastic Stadium Beads
       const solidGeom = buildStadiumBeadsGeometry(segments, 8, {
-        mode: layerFilterMode,
-        targetLayer: targetLayerNumber,
-        segmentLayers,
+        mode: slicingFilterMode,
+        targetSection: targetSectionIndex,
+        segmentSections,
       });
 
       const pDef = PLASTIC_MATERIALS[plasticMaterial] || PLASTIC_MATERIALS.cyan;
@@ -271,8 +272,8 @@ export const ThreeViewport: React.FC = () => {
 
         const isTravel = seg.travel === true || seg.kind === 'travel';
         if (isTravel) {
-          if (layerFilterMode === 'upToLayer' && segmentLayers[i] > targetLayerNumber) continue;
-          if (layerFilterMode === 'singleLayer' && segmentLayers[i] !== targetLayerNumber) continue;
+          if (slicingFilterMode === 'upToSection' && segmentSections[i] > targetSectionIndex) continue;
+          if (slicingFilterMode === 'singleSection' && segmentSections[i] !== targetSectionIndex) continue;
           travelPositions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
         }
       }
@@ -305,8 +306,8 @@ export const ThreeViewport: React.FC = () => {
         const p1 = rawEnd && rawEnd[0] !== null ? (rawEnd as number[]) : p0;
         cursor = p1;
 
-        if (layerFilterMode === 'upToLayer' && segmentLayers[i] > targetLayerNumber) continue;
-        if (layerFilterMode === 'singleLayer' && segmentLayers[i] !== targetLayerNumber) continue;
+        if (slicingFilterMode === 'upToSection' && segmentSections[i] > targetSectionIndex) continue;
+        if (slicingFilterMode === 'singleSection' && segmentSections[i] !== targetSectionIndex) continue;
 
         positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
 
@@ -337,7 +338,7 @@ export const ThreeViewport: React.FC = () => {
       scene.add(lineMesh);
       toolpathMeshRef.current = lineMesh;
     }
-  }, [toolpath, renderStyle, plasticMaterial, colorMode, layerFilterMode, targetLayerNumber, segmentLayers]);
+  }, [toolpath, renderStyle, plasticMaterial, colorMode, slicingFilterMode, targetSectionIndex, segmentSections]);
 
   // Update Toolhead Position
   useEffect(() => {
@@ -391,6 +392,13 @@ export const ThreeViewport: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const filterUnitName =
+    effectiveGroupingKind === 'revolution'
+      ? 'Turn'
+      : effectiveGroupingKind === 'figure'
+      ? 'Figure'
+      : 'Layer';
+
   return (
     <div
       className="viewport-center"
@@ -435,25 +443,25 @@ export const ThreeViewport: React.FC = () => {
 
         <div style={{ marginLeft: '6px', display: 'flex', gap: '2px' }}>
           <button
-            className={`color-mode-btn ${layerFilterMode === 'all' ? 'active' : ''}`}
-            onClick={() => setLayerFilterMode('all')}
-            title="Show complete 3D toolpath"
+            className={`color-mode-btn ${slicingFilterMode === 'all' ? 'active' : ''}`}
+            onClick={() => setSlicingFilterMode('all')}
+            title="Show complete toolpath"
           >
-            All Layers
+            All
           </button>
           <button
-            className={`color-mode-btn ${layerFilterMode === 'upToLayer' ? 'active' : ''}`}
-            onClick={() => setLayerFilterMode('upToLayer')}
-            title="Inspect layers up to active layer"
+            className={`color-mode-btn ${slicingFilterMode === 'upToSection' ? 'active' : ''}`}
+            onClick={() => setSlicingFilterMode('upToSection')}
+            title={`Inspect up to active ${filterUnitName}`}
           >
-            Up to Layer
+            Up to {filterUnitName}
           </button>
           <button
-            className={`color-mode-btn ${layerFilterMode === 'singleLayer' ? 'active' : ''}`}
-            onClick={() => setLayerFilterMode('singleLayer')}
-            title="Isolate only active layer"
+            className={`color-mode-btn ${slicingFilterMode === 'singleSection' ? 'active' : ''}`}
+            onClick={() => setSlicingFilterMode('singleSection')}
+            title={`Isolate only active ${filterUnitName}`}
           >
-            Isolate Layer
+            Isolate {filterUnitName}
           </button>
         </div>
       </div>
