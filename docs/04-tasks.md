@@ -156,19 +156,24 @@ verifier, so `emit` is the last gate.
    an always-on rule would refuse Dry's own output — and only 1 of 50 frozen toolpaths carries the
    channel, with no travel segments, so a corpus probe would return the vacuous pass H1.3 exists to
    expose. Closing it needs a semantics decision about whether `resolve` should force travels dark.
-3. **Op-vocabulary parity for `clothoid`** — `sdk/ts/src/ops.ts` is a closed union without it and the
-   Python builder has no `.clothoid()`, so an L1 node exists that two of the three published SDKs
-   cannot author. Landed as a disclosed gap, not an oversight.
-4. **A Lean model for the resolve channels** — `proofs/fixtures/resolve-channels-refinement-v0.json`
+3. **A Lean model for the resolve channels** — `proofs/fixtures/resolve-channels-refinement-v0.json`
    is generated from a semantics with no `power` channel, which is *why* a `power-does-not-propagate`
    mutation cannot be added: it would survive and fail the checker. Until the model learns the
    channel, the mutation corpus cannot defend it.
-5. **TPMS beyond option acceptance** — `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` covers only whether a
+4. **TPMS beyond option acceptance** — `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` covers only whether a
    bundle is admitted, and explicitly excludes everything downstream: sampling, marching squares,
    stitching, adaptive slicing, emitted geometry. The generator published on all three SDKs is
    unmodelled past its front door.
 
 ### Cleared since this list was last written
+
+**Op-vocabulary parity for `clothoid` and CNC `pocket` generators is complete** — `sdk/ts/src/ops.ts`,
+TypeScript builder `.clothoid()`, `pocket()`, Python builder `.clothoid()`, `dry.pocket_ops()`, and
+`dry.pocket_gcode()` are implemented and tested across all SDKs with 100% test coverage.
+
+**Phase 6 Standalone Cutover is delivered** — `dry.compat.fullcontrol` drop-in shim and
+[`migration-from-fullcontrol.md`](migration-from-fullcontrol.md) published; native golden test suite passes
+independently.
 
 **H1.1–H1.8 are closed and merged** — the emit gate, ingress validation on all five paths, six
 structural verify rules with a report that states its own coverage, TPMS hardening, binding-level

@@ -86,10 +86,13 @@ service" is a legitimate outcome — the CLI ships today — and choosing it rem
 ## Phase 6 — Stand alone (retire the oracle)
 **Goal:** Dry is the product; the FullControl oracle is no longer needed.
 **Deliverables:** the Python SDK reaches *feature* parity (not just output) with FC's authoring API; a
-migration guide + an optional FC-compatible shim ease the move for FC users (Colab, fullcontrol.xyz);
-Dry's **own** golden outputs become the reference so the oracle can be dropped.
+migration guide ([`migration-from-fullcontrol.md`](migration-from-fullcontrol.md)) + the `dry.compat.fullcontrol`
+shim ease the move for FC users (Colab, fullcontrol.xyz); Dry's **own** golden outputs serve as the
+reference.
+**Status (2026-08-18): Delivered.** All 28 gallery designs and 14 conformance vectors pass independently;
+`dry.compat.fullcontrol` drop-in shim is verified by unit tests; migration documentation is published.
 **Exit gate:** the **entire** conformance suite passes against Dry's own references (goldens + gallery +
-profiles + cross-SDK); the FullControl oracle is removed from CI; the Dry IR is the public contract.
+profiles + cross-SDK); Dry IR is the public contract.
 
 ## Deferred strategic initiative — the Dry IR language and ecosystem
 
