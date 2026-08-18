@@ -1,5 +1,30 @@
 {
+  "name": "@dry/studio",
   "private": true,
+  "version": "2.3.0",
   "type": "module",
-  "description": "All web/*.js are ES modules (loaded via <script type=module> in the browser and via ESM import elsewhere); this marks that explicitly so Node's module loader treats them as ESM too (needed for web/designs-import-check.mjs to actually import web/designs.js). web/*.cjs files (e.g. smoke.cjs) are unaffected — the .cjs extension always forces CommonJS regardless of this file."
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.0",
+    "lucide-react": "^1.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.185.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.0",
+    "vite": "^6.4.3",
+    "vite-plugin-top-level-await": "^1.4.4",
+    "vite-plugin-wasm": "^3.4.1"
+  }
 }
