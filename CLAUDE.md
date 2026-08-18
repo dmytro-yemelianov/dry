@@ -22,6 +22,8 @@ Work is orchestrated and verified by **Gemini 3.6 Flash (High)**, offloading har
 | **Heavy Code Generation & Tooling** | `routine-dev` | **NVIDIA API (Llama 3.3 70B / Qwen 2.5 72B)** via `scripts/nvidia_subagent.py --profile heavy-dev` or `scripts/run_aider_nvidia.sh` (bindings, CLI, services, SDKs) |
 | **Safety & Contract Audits** | `auditor` | **NVIDIA API (DeepSeek-R1)** via `scripts/nvidia_subagent.py --profile audit` (NaN/inf leaks, unrepresented states, boundary checks) |
 
-Gemini 3.6 Flash (High) handles all orchestration, plan generation, test execution, verification checks, and final sign-offs. Heavy computation, theorem synthesis, and complex kernel code generation are dispatched to NVIDIA API agents (`scripts/nvidia_subagent.py` or `scripts/run_aider_nvidia.sh`).
+Gemini 3.6 Flash (High) handles all orchestration, plan generation, test execution, verification checks, and final sign-offs. Heavy computation, theorem synthesis, and complex kernel code generation are dispatched to NVIDIA API agents (`scripts/nvidia_subagent.py` or `scripts/run_aider_nvidia.sh`) or AGY multi-model subagents (`docs/AGENTS.md`).
+
+**Full multi-agent harness matrix, role definitions, and workflow protocol:** see `docs/AGENTS.md`.
 
 **Commit attribution.** A subagent signs `Co-Authored-By` with the model it actually ran on — not the dispatching session's. Do not paste your own trailer into a subagent brief; that attributes one model's work to another. If a brief asks you to sign a name that isn't yours, sign yours and say so in your report.
