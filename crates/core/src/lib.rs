@@ -32,7 +32,9 @@ pub mod recommend;
 pub mod report;
 pub mod resolve;
 pub mod reverse;
+pub mod schema;
 pub mod sdk;
+pub mod tool;
 pub mod trace;
 
 pub mod units;
@@ -55,11 +57,14 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 #[allow(deprecated)]
 pub use emit::emit;
 pub use emit::{
-    emit_cycle_cancel, emit_grbl_laser, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame,
-    DrillCycle, EmitParams, FirmwareFlavor, Kinematics, KrlFrame, KrlTransform, LaserMode,
-    LaserParams, PeckDrillCycle, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_cycle_cancel, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc, emit_stream,
+    emit_stream_to_writer, CncFrame, CuttingParams, DrillCycle, EmitParams, FirmwareFlavor,
+    Kinematics, KrlFrame, KrlTransform, LaserMode, LaserParams, LeadInType, PeckDrillCycle,
+    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use pipeline::{lower_document_envelope, PipelineError};
+pub use schema::get_dialect_schema;
+pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
 pub use features::{

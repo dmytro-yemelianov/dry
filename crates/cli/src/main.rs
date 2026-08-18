@@ -746,6 +746,11 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export JSON Schema for a versioned Dry dialect (e.g. intent/1, path/1, motion/1, tool/1).
+    Schema {
+        /// Dialect name or identifier.
+        dialect: String,
+    },
 }
 
 fn die(msg: String) -> ! {
@@ -1183,6 +1188,18 @@ fn run(cli: Cli) -> ExitCode {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::from(1)
+            }
+        }
+        Cmd::Schema { dialect } => {
+            match dry_core::get_dialect_schema(&dialect) {
+                Some(schema_str) => {
+                    println!("{schema_str}");
+                    ExitCode::SUCCESS
+                }
+                None => {
+                    eprintln!("error: unknown dialect '{dialect}'. Supported dialects: 'intent/1', 'path/1', 'motion/1', 'tool/1'");
+                    ExitCode::from(2)
+                }
             }
         }
         Cmd::Inspect { file } => {
