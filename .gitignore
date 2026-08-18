@@ -33,6 +33,7 @@ web/pkg/
 web/pkg-node/
 web/fullcontrol-gallery.generated.js
 sdk/ts/wasm/
+dist-site/
 
 # Playwright MCP scratch (headless verification)
 .playwright-mcp/
