@@ -16,11 +16,14 @@ Route work to the cheapest tier that can do it safely:
 
 | Work | Route |
 |---|---|
-| Whole-portfolio oversight, roadmap/milestone governance, epic decomposition, release gating | `product-owner` agent — Opus 5, effort `high` |
+| Architecture governance, dialect invariants (L0–L3), ADRs, NFRs, FFI boundary design | `architect` agent — Opus 5, effort `xhigh` |
+| Whole-portfolio oversight, roadmap/milestone governance, epic decomposition | `product-owner` agent — Opus 5, effort `high` |
+| Release engineering, milestone gates, dependency tracking, version bump gating | `delivery-lead` agent — Sonnet, effort `medium` |
+| Formal verification (Lean 4), conformance oracle vectors, numeric boundary audits, hardening | `qa-assurance` agent — Opus 5, effort `high` |
 | `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
-| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
+| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
 | Locating code, mapping call sites, subsystem summaries | `scout` agent — Haiku; fan out in parallel freely |
-| Post-slice review | `reviewer` agent — Opus 5, effort `xhigh` |
+| Post-slice code review & contract audit | `reviewer` agent — Opus 5, effort `xhigh` |
 
 Opus 5 at `xhigh` is the ceiling: it is the recommended effort for coding and agentic work, and it is where the correctness-critical slices belong. Both Opus agents pin `claude-opus-5` rather than the `opus` alias, so a model bump is a deliberate edit. Do not escalate a subagent past this tier.
 
