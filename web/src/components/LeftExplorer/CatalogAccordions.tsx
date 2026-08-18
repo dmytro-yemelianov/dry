@@ -10,6 +10,9 @@ export const CatalogAccordions: React.FC = () => {
   const setSearchQuery = useStudioStore((state) => state.setSearchQuery);
   const activeDesignKey = useStudioStore((state) => state.activeDesignKey);
   const selectDesign = useStudioStore((state) => state.selectDesign);
+  const activeParams = useStudioStore((state) => state.activeParams);
+  const updateParam = useStudioStore((state) => state.updateParam);
+  const resetParams = useStudioStore((state) => state.resetParams);
 
   const categories: Record<string, DesignDef[]> = {
     'Vases & Non-Planar': [],
@@ -121,22 +124,94 @@ export const CatalogAccordions: React.FC = () => {
                 <span className="category-count">{filteredItems.length}</span>
               </div>
               <div className="category-items">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.key}
-                    className={`gallery-card ${item.key === activeDesignKey ? 'active' : ''}`}
-                    onClick={() => selectDesign(item.key)}
-                  >
-                    <div className="gallery-title">{item.label}</div>
-                    <div className="gallery-tags">
-                      {item.tags.map((t) => (
-                        <span key={t} className="tag-badge">
-                          {t}
-                        </span>
-                      ))}
+                {filteredItems.map((item) => {
+                  const isSelected = item.key === activeDesignKey;
+                  const isParametric = item.params && item.params.length > 0;
+
+                  return (
+                    <div
+                      key={item.key}
+                      className={`gallery-card ${isSelected ? 'active' : ''}`}
+                      onClick={() => !isSelected && selectDesign(item.key)}
+                    >
+                      <div className="gallery-card-header">
+                        <div className="gallery-title">{item.label}</div>
+                        <div className="gallery-tags">
+                          {item.tags.map((t) => (
+                            <span key={t} className="tag-badge">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Inline Parameter Drawer for Selected Card */}
+                      {isSelected && (
+                        <div
+                          className="card-param-drawer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="param-inline-header">
+                            <span>Adjust Parameters</span>
+                            <button
+                              onClick={resetParams}
+                              className="param-reset-btn"
+                              title="Reset all sliders to default values"
+                            >
+                              ↺ Reset
+                            </button>
+                          </div>
+
+                          {isParametric ? (
+                            <div className="param-fields-compact">
+                              {item.params.map((p) => {
+                                const val = activeParams[p.id] ?? p.defaultValue;
+                                return (
+                                  <div key={p.id} className="param-row-compact">
+                                    <div className="param-label-wrapper-compact">
+                                      <span className="param-label-compact">{p.label}</span>
+                                      <span className="param-val-badge-compact">
+                                        {val} {p.unit}
+                                      </span>
+                                    </div>
+                                    <div className="param-input-wrapper-compact">
+                                      <input
+                                        type="range"
+                                        className="param-slider-compact"
+                                        min={p.min}
+                                        max={p.max}
+                                        step={p.step}
+                                        value={val}
+                                        onChange={(e) =>
+                                          updateParam(p.id, parseFloat(e.target.value))
+                                        }
+                                      />
+                                      <input
+                                        type="number"
+                                        className="param-num-input-compact"
+                                        min={p.min}
+                                        max={p.max}
+                                        step={p.step}
+                                        value={val}
+                                        onChange={(e) =>
+                                          updateParam(p.id, parseFloat(e.target.value))
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="param-fixed-notice">
+                              Fixed canonical reference geometry (FullControl).
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
