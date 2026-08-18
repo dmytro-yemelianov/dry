@@ -187,7 +187,7 @@ body {
 }
 
 .sidebar-left, .sidebar-right {
-  width: 320px;
+  width: 340px;
   background: var(--bg-panel);
   border-color: var(--border);
   display: flex;
@@ -201,7 +201,7 @@ body {
 }
 
 .sidebar-right {
-  width: 380px;
+  width: 400px;
   border-left: 1px solid var(--border);
 }
 
@@ -218,24 +218,24 @@ body {
   color: var(--fg-bright);
 }
 
-.panel-tabs {
+.panel-tabs, .left-tabs {
   display: flex;
   height: 100%;
 }
 
-.panel-tab-btn {
+.panel-tab-btn, .left-tab-btn {
   background: transparent;
   border: none;
   color: var(--fg-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 0 12px;
+  padding: 0 14px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s ease;
 }
 
-.panel-tab-btn.active {
+.panel-tab-btn.active, .left-tab-btn.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
@@ -291,6 +291,143 @@ body {
   background: var(--accent-glow);
   color: var(--accent);
   border-color: rgba(88, 166, 255, 0.4);
+}
+
+/* ---- Category Accordions ---- */
+.category-group {
+  margin-bottom: 16px;
+}
+
+.category-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+
+.category-count {
+  background: var(--bg-active);
+  color: var(--fg-bright);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.category-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gallery-card {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gallery-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+
+.gallery-card.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.gallery-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-bright);
+  margin-bottom: 3px;
+}
+
+.gallery-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-badge {
+  font-size: 9.5px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ---- Parametric Sliders & Form Controls ---- */
+.param-row {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.param-label-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.param-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-bright);
+}
+
+.param-val-badge {
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.param-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.param-slider {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.param-num-input {
+  width: 60px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-bright);
+  font-size: 11.5px;
+  font-family: ui-monospace, monospace;
+  padding: 3px 6px;
+  text-align: right;
+  outline: none;
+}
+
+.param-num-input:focus {
+  border-color: var(--accent);
 }
 
 /* ---- Viewport 3D ---- */
@@ -468,46 +605,107 @@ body {
   color: var(--fg-bright);
 }
 
-/* ---- Design Gallery & Cards ---- */
-.gallery-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* ---- G-Code Explainer Card & Inspector ---- */
+.gcode-explainer-card {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
 }
 
-.gallery-card {
+.exp-header {
+  font-size: 12px;
+  color: var(--fg-bright);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.exp-cmd {
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+}
+
+.exp-table {
+  width: 100%;
+  font-size: 11px;
+  border-collapse: collapse;
+}
+
+.exp-table td {
+  padding: 2px 4px;
+}
+
+.exp-k {
+  font-family: ui-monospace, monospace;
+  color: var(--accent-hover);
+  width: 40px;
+}
+
+.exp-desc {
+  color: var(--fg-muted);
+}
+
+.exp-desc b {
+  color: var(--fg-bright);
+}
+
+.gcode-viewer-table {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
   background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  height: calc(100% - 130px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.gallery-card:hover {
-  border-color: var(--border-light);
+.gcode-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.gcode-row:hover {
   background: var(--bg-hover);
 }
 
-.gallery-card.active {
-  border-color: var(--accent);
+.gcode-row.active {
   background: var(--accent-glow);
+  border-left: 3px solid var(--accent);
 }
 
-.gallery-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fg-bright);
-  margin-bottom: 2px;
-}
-
-.gallery-desc {
-  font-size: 10.5px;
+.gcode-lineno {
+  width: 40px;
   color: var(--fg-muted);
-  line-height: 1.3;
+  text-align: right;
+  margin-right: 12px;
+  font-size: 10.5px;
+  user-select: none;
 }
 
-/* ---- Telemetry & Pre-flight Tables ---- */
+.gcode-cmd {
+  font-weight: 700;
+  margin-right: 8px;
+  width: 32px;
+}
+
+.cmd-g0 { color: var(--fg-muted); }
+.cmd-g1 { color: var(--accent); }
+.cmd-arc { color: var(--success); }
+.cmd-other { color: var(--purple); }
+
+.gcode-args {
+  color: var(--fg);
+}
+
+/* ---- Stat & Check Cards ---- */
 .stat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -575,59 +773,4 @@ body {
 .check-icon.warn {
   background: var(--warning);
   color: #0d1117;
-}
-
-/* ---- Virtualized G-Code Inspector Table ---- */
-.gcode-viewer-table {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11.5px;
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.gcode-row {
-  display: flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-bottom: 1px solid rgba(48, 54, 61, 0.4);
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-
-.gcode-row:hover {
-  background: var(--bg-hover);
-}
-
-.gcode-row.active {
-  background: var(--accent-glow);
-  border-left: 3px solid var(--accent);
-}
-
-.gcode-lineno {
-  width: 40px;
-  color: var(--fg-muted);
-  text-align: right;
-  margin-right: 12px;
-  font-size: 10.5px;
-  user-select: none;
-}
-
-.gcode-cmd {
-  font-weight: 700;
-  margin-right: 8px;
-  width: 32px;
-}
-
-.cmd-g0 { color: var(--fg-muted); }
-.cmd-g1 { color: var(--accent); }
-.cmd-arc { color: var(--success); }
-.cmd-other { color: var(--purple); }
-
-.gcode-args {
-  color: var(--fg);
 }

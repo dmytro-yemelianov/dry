@@ -508,4 +508,4 @@ const DESIGNS = Object.fromEntries(
 
 const RESOLVE_PARAMS = { print_speed: 1000, travel_speed: 8000, dia: 1.75 };
 
-export { DESIGNS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS, TAU };
+export { DESIGNS, DESIGN_DEFS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS, TAU };

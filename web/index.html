@@ -48,13 +48,18 @@
 
 <!-- Main Workspace (3-Column Architecture) -->
 <main class="studio-main">
-  <!-- Left Sidebar: Design Gallery & File Dropper -->
+  <!-- Left Sidebar: Design Explorer & Live Parametric Controls -->
   <aside class="sidebar-left">
-    <div class="panel-header">
-      <span>Generative Toolpath Library</span>
+    <div class="panel-header" style="padding: 0;">
+      <div class="left-tabs">
+        <button class="left-tab-btn active" data-tab="catalog">Catalog</button>
+        <button class="left-tab-btn" data-tab="params">Parameters</button>
+      </div>
     </div>
-    <div class="panel-content">
-      <input type="text" id="gallerySearch" class="gallery-search-input" placeholder="Search 50+ designs & lattices...">
+    
+    <!-- 1. Catalog Pane -->
+    <div class="panel-content" id="leftCatalogPane">
+      <input type="text" id="gallerySearch" class="gallery-search-input" placeholder="Search 50+ designs, lattices & FullControl...">
       
       <div class="filter-pills">
         <button class="filter-pill active" data-cat="all">All</button>
@@ -72,8 +77,17 @@
           <span>Custom G-Code / STEP-NC</span>
         </div>
         <div style="border: 1px dashed var(--border); border-radius: 6px; padding: 12px; text-align: center; font-size: 11px; color: var(--fg-muted);">
-          Drag and drop <code>.gcode</code>, <code>.nc</code>, or <code>.stepnc</code> files to inspect in 3D.
+          Drag and drop arbitrary <code>.gcode</code>, <code>.nc</code>, or <code>.stepnc</code> file to inspect in 3D.
         </div>
+      </div>
+    </div>
+
+    <!-- 2. Live Parameters Pane -->
+    <div class="panel-content" id="leftParamsPane" style="display: none;">
+      <div id="activeDesignHeader" style="margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);"></div>
+      <div id="paramControlsContainer"></div>
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <button id="resetParamsBtn" class="btn-action" style="width: 100%; justify-content: center;">Reset to Defaults</button>
       </div>
     </div>
   </aside>
@@ -101,24 +115,32 @@
     <div id="viewport3d"></div>
   </div>
 
-  <!-- Right Sidebar: Safety, Telemetry, G-Code & Optimizer -->
+  <!-- Right Sidebar: Safety, Telemetry, G-Code Explainer & Optimizer -->
   <aside class="sidebar-right">
     <div class="panel-header" style="padding: 0;">
       <div class="panel-tabs">
-        <button class="panel-tab-btn active" onclick="switchRightTab('tabSafety')">Safety</button>
+        <button class="panel-tab-btn active" onclick="switchRightTab('tabGcode')">G-Code</button>
+        <button class="panel-tab-btn" onclick="switchRightTab('tabSafety')">Safety</button>
         <button class="panel-tab-btn" onclick="switchRightTab('tabTelemetry')">Telemetry</button>
-        <button class="panel-tab-btn" onclick="switchRightTab('tabGcode')">G-Code</button>
         <button class="panel-tab-btn" onclick="switchRightTab('tabOptimizer')">Optimizer</button>
       </div>
     </div>
 
     <div class="panel-content">
-      <!-- 1. Safety Tab -->
-      <div id="tabSafety" class="tab-pane active">
+      <!-- 1. G-Code Tab with Live Token Explainer -->
+      <div id="tabGcode" class="tab-pane active" style="height: 100%; display: flex; flex-direction: column;">
+        <div id="gcodeExplainerCard" class="gcode-explainer-card">
+          <div class="exp-header"><span class="exp-cmd">G-Code Inspector</span> — <span>Click or hover any line to decode parameters</span></div>
+        </div>
+        <div class="gcode-viewer-table" id="gcodeViewer"></div>
+      </div>
+
+      <!-- 2. Safety Tab -->
+      <div id="tabSafety" class="tab-pane" style="display: none;">
         <div id="safetyStatus"></div>
       </div>
 
-      <!-- 2. Telemetry Tab -->
+      <!-- 3. Telemetry Tab -->
       <div id="tabTelemetry" class="tab-pane" style="display: none;">
         <div class="stat-grid">
           <div class="stat-box">
@@ -138,11 +160,6 @@
             <div><span class="val" id="statMass">0.0</span><span class="unit">g</span></div>
           </div>
         </div>
-      </div>
-
-      <!-- 3. G-Code Tab -->
-      <div id="tabGcode" class="tab-pane" style="display: none; height: 100%;">
-        <div class="gcode-viewer-table" id="gcodeViewer"></div>
       </div>
 
       <!-- 4. Optimizer Tab -->
@@ -171,7 +188,7 @@
 </footer>
 
 <script type="module">
-import { initStudio } from './studio.js?v=2.1.0';
+import { initStudio } from './studio.js?v=2.2.0';
 
 window.addEventListener('DOMContentLoaded', () => {
   initStudio();

@@ -8,7 +8,7 @@ import initWasm, {
   resolve_verify,
   import_gcode_to_ir
 } from './pkg/dry_wasm.js';
-import { DESIGNS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
+import { DESIGNS, DESIGN_DEFS, FULLCONTROL_DESIGNS, RESOLVE_PARAMS } from './designs.js';
 
 let scene, camera, renderer, controls;
 let envelopeMesh = null;
@@ -18,13 +18,50 @@ let currentMachine = null;
 let machinesCatalog = [];
 let currentToolpath = null;
 let currentGcode = [];
+let activeDesignKey = 'spiral_vase';
+let activeDesignType = 'native'; // 'native' | 'fullcontrol' | 'custom'
+let activeParams = {};
 let isPlaying = false;
 let playSpeed = 1.0;
 let currentTime = 0;
 let maxTime = 10;
+let activeLeftTab = 'catalog'; // 'catalog' | 'params'
 let activeCategory = 'all';
 let activeSearch = '';
 let activeColorMode = 'type'; // 'type' | 'height' | 'speed'
+
+const CMD_DESC = {
+  G0: 'rapid travel — reposition without extruding',
+  G1: 'linear move — extrude in a straight line',
+  G2: 'clockwise circular arc',
+  G3: 'counter-clockwise circular arc',
+  G4: 'dwell — pause in place',
+  M3: 'spindle on (clockwise) / laser active',
+  M4: 'spindle on (counter-clockwise)',
+  M5: 'spindle / laser off',
+  M104: 'set extruder temperature',
+  M109: 'wait for extruder temperature',
+  M140: 'set bed temperature',
+  M190: 'wait for bed temperature',
+  M106: 'set cooling fan speed',
+  M107: 'turn cooling fan off',
+  T: 'tool change command',
+};
+
+const PARAM_DESC = {
+  F: ['feedrate', 'mm/min'],
+  X: ['target X coordinate', 'mm'],
+  Y: ['target Y coordinate', 'mm'],
+  Z: ['target Z coordinate / layer height', 'mm'],
+  E: ['extrusion amount', 'mm of filament'],
+  I: ['arc center ΔX offset', 'mm'],
+  J: ['arc center ΔY offset', 'mm'],
+  A: ['rotary A axis angle', 'deg'],
+  B: ['rotary B axis angle', 'deg'],
+  C: ['rotary C axis angle', 'deg'],
+  S: ['dwell time / spindle RPM / laser PWM', 's / RPM / PWM'],
+  P: ['dwell time in ms', 'ms'],
+};
 
 const DEFAULT_MACHINES = [
   {
@@ -58,15 +95,15 @@ const DEFAULT_MACHINES = [
 
 export async function initStudio() {
   await initWasm();
-  console.log("✅ Dry Machina WASM engine ready");
+  console.log("✅ Dry Machina WASM engine initialized");
 
   init3DScene();
   await loadMachines();
-  populateDesignGallery();
+  populateDesignExplorer();
   setupEventListeners();
 
   // Load default design
-  loadDesignByKey('spiral_vase');
+  selectDesign('spiral_vase', 'native');
 }
 
 function init3DScene() {
@@ -135,6 +172,7 @@ function animate() {
     document.getElementById("timelineSlider").value = (currentTime / maxTime) * 100;
     updateTimelineLabel();
     updateToolheadPosition();
+    syncPlaybackToGcode();
   }
 
   renderer.render(scene, camera);
@@ -152,6 +190,17 @@ function updateToolheadPosition() {
 
   toolheadMesh.position.set(pt[0], pt[1], pt[2]);
   toolheadMesh.visible = true;
+}
+
+function syncPlaybackToGcode() {
+  if (!currentToolpath || !currentToolpath.segments) return;
+  const segs = currentToolpath.segments;
+  if (!segs.length) return;
+
+  const frac = Math.min(1.0, Math.max(0.0, currentTime / maxTime));
+  const targetIdx = Math.floor(frac * (segs.length - 1));
+
+  highlightGcodeLine(targetIdx, false);
 }
 
 async function loadMachines() {
@@ -204,82 +253,186 @@ function updateBuildEnvelope() {
   scene.add(envelopeMesh);
 }
 
-function populateDesignGallery() {
+function populateDesignExplorer() {
   const container = document.getElementById("galleryList");
   if (!container) return;
 
-  const allItems = [];
+  const categories = {
+    'Vases & Non-Planar': [],
+    'TPMS Minimal Surfaces': [],
+    'Research Lattices': [],
+    'Curves & Geometries': [],
+    'Infill & Multi-Layer': [],
+    'Basics': [],
+    'FullControl Gallery': [],
+  };
 
-  // 1. Curated Native Dry Designs
-  Object.entries(DESIGNS).forEach(([key, d]) => {
-    allItems.push({
-      id: key,
+  // 1. Curated Native Designs
+  Object.entries(DESIGN_DEFS).forEach(([key, def]) => {
+    const group = def.group || 'Basics';
+    const catName = group.includes('Vases') ? 'Vases & Non-Planar'
+      : group.includes('TPMS') ? 'TPMS Minimal Surfaces'
+      : group.includes('Research') ? 'Research Lattices'
+      : group.includes('Curves') ? 'Curves & Geometries'
+      : group.includes('Infill') ? 'Infill & Multi-Layer'
+      : 'Basics';
+
+    categories[catName].push({
+      key,
       type: 'native',
-      name: d.label || key,
-      category: d.group || 'General',
-      tags: d.tags || [],
-      ops: d.ops,
+      label: def.label,
+      tags: def.tags || [],
+      params: def.params || [],
     });
   });
 
   // 2. FullControl Paper Designs
   Object.entries(FULLCONTROL_DESIGNS).forEach(([key, d]) => {
-    allItems.push({
-      id: `fc_${key}`,
+    categories['FullControl Gallery'].push({
+      key,
       type: 'fullcontrol',
-      name: `FC: ${d.name || key}`,
-      category: 'FullControl Gallery',
+      label: d.name || key,
       tags: ['fullcontrol', 'paper'],
       ops: d.ops,
     });
   });
 
-  window.ALL_GALLERY_DESIGNS = allItems;
-  renderGalleryCards();
+  window.DESIGN_CATEGORIES = categories;
+  renderDesignAccordions();
 }
 
-function renderGalleryCards() {
+function renderDesignAccordions() {
   const container = document.getElementById("galleryList");
   if (!container) return;
 
-  const filtered = (window.ALL_GALLERY_DESIGNS || []).filter(item => {
-    const matchCat = activeCategory === 'all' || 
-      (activeCategory === 'vases' && (item.category.includes('Vases') || item.tags.includes('non-planar'))) ||
-      (activeCategory === 'tpms' && (item.category.includes('TPMS') || item.tags.includes('TPMS'))) ||
-      (activeCategory === 'lattices' && (item.category.includes('Lattice') || item.tags.includes('lattice'))) ||
-      (activeCategory === 'infill' && item.category.includes('Infill')) ||
-      (activeCategory === 'fullcontrol' && item.type === 'fullcontrol');
+  const query = activeSearch.toLowerCase().trim();
+  const html = [];
 
-    const matchSearch = !activeSearch || item.name.toLowerCase().includes(activeSearch) || item.tags.some(t => t.toLowerCase().includes(activeSearch));
-    return matchCat && matchSearch;
+  Object.entries(window.DESIGN_CATEGORIES || {}).forEach(([catTitle, items]) => {
+    const filteredItems = items.filter(item => {
+      const matchCat = activeCategory === 'all' ||
+        (activeCategory === 'vases' && catTitle.includes('Vases')) ||
+        (activeCategory === 'tpms' && catTitle.includes('TPMS')) ||
+        (activeCategory === 'lattices' && catTitle.includes('Lattices')) ||
+        (activeCategory === 'infill' && catTitle.includes('Infill')) ||
+        (activeCategory === 'fullcontrol' && catTitle.includes('FullControl'));
+
+      const matchSearch = !query || item.label.toLowerCase().includes(query) || item.tags.some(t => t.toLowerCase().includes(query));
+      return matchCat && matchSearch;
+    });
+
+    if (!filteredItems.length) return;
+
+    html.push(`
+      <div class="category-group">
+        <div class="category-header">
+          <span>${catTitle}</span>
+          <span class="category-count">${filteredItems.length}</span>
+        </div>
+        <div class="category-items">
+          ${filteredItems.map(item => `
+            <div class="gallery-card ${item.key === activeDesignKey ? 'active' : ''}" data-key="${item.key}" data-type="${item.type}">
+              <div class="gallery-title">${item.label}</div>
+              <div class="gallery-tags">${item.tags.map(t => `<span class="tag-badge">${t}</span>`).join('')}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
   });
 
-  container.innerHTML = filtered.map(item => `
-    <div class="gallery-card" data-id="${item.id}" data-type="${item.type}">
-      <div class="gallery-title">${item.name}</div>
-      <div class="gallery-desc">${item.category} · ${item.ops ? item.ops.length : 0} ops</div>
-    </div>
-  `).join("");
+  container.innerHTML = html.join('');
 
-  container.querySelectorAll(".gallery-card").forEach(card => {
-    card.addEventListener("click", () => {
-      container.querySelectorAll(".gallery-card").forEach(c => c.classList.remove("active"));
-      card.classList.add("active");
-      loadDesignById(card.dataset.id, card.dataset.type);
+  container.querySelectorAll('.gallery-card').forEach(card => {
+    card.addEventListener('click', () => {
+      container.querySelectorAll('.gallery-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectDesign(card.dataset.key, card.dataset.type);
     });
   });
 }
 
-export function loadDesignByKey(key) {
-  if (DESIGNS[key]) {
-    renderOps(DESIGNS[key].ops);
+export function selectDesign(key, type) {
+  activeDesignKey = key;
+  activeDesignType = type;
+
+  if (type === 'native' && DESIGN_DEFS[key]) {
+    const def = DESIGN_DEFS[key];
+    activeParams = Object.fromEntries((def.params || []).map(p => [p.id, p.defaultValue]));
+    renderParamControls(def);
+    buildAndRenderNativeDesign(key);
+  } else if (type === 'fullcontrol' && FULLCONTROL_DESIGNS[key]) {
+    hideParamControls(FULLCONTROL_DESIGNS[key].name);
+    renderOps(FULLCONTROL_DESIGNS[key].ops);
   }
 }
 
-function loadDesignById(id, type) {
-  const item = (window.ALL_GALLERY_DESIGNS || []).find(d => d.id === id);
-  if (item && item.ops) {
-    renderOps(item.ops);
+function renderParamControls(def) {
+  const container = document.getElementById("paramControlsContainer");
+  if (!container) return;
+
+  const header = document.getElementById("activeDesignHeader");
+  if (header) {
+    header.innerHTML = `
+      <div style="font-size:14px; font-weight:700; color:var(--fg-bright);">${def.label}</div>
+      <div style="font-size:11px; color:var(--fg-muted); margin-top:2px;">${def.group} · ${(def.params || []).length} parameters</div>
+    `;
+  }
+
+  const form = (def.params || []).map(p => `
+    <div class="param-row">
+      <div class="param-label-wrapper">
+        <label class="param-label">${p.label}</label>
+        <span class="param-val-badge" id="badge_${p.id}">${activeParams[p.id]} ${p.unit}</span>
+      </div>
+      <div class="param-input-wrapper">
+        <input type="range" class="param-slider" id="slider_${p.id}" data-id="${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${activeParams[p.id]}">
+        <input type="number" class="param-num-input" id="num_${p.id}" data-id="${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${activeParams[p.id]}">
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = form || `<div style="font-size:12px; color:var(--fg-muted);">No adjustable parameters for this model.</div>`;
+
+  // Attach live event listeners to sliders and number inputs
+  (def.params || []).forEach(p => {
+    const slider = document.getElementById(`slider_${p.id}`);
+    const num = document.getElementById(`num_${p.id}`);
+    const badge = document.getElementById(`badge_${p.id}`);
+
+    const onUpdate = (val) => {
+      const numVal = parseFloat(val);
+      activeParams[p.id] = numVal;
+      slider.value = numVal;
+      num.value = numVal;
+      badge.textContent = `${numVal} ${p.unit}`;
+      buildAndRenderNativeDesign(activeDesignKey);
+    };
+
+    if (slider) slider.addEventListener('input', (e) => onUpdate(e.target.value));
+    if (num) num.addEventListener('input', (e) => onUpdate(e.target.value));
+  });
+}
+
+function hideParamControls(title) {
+  const container = document.getElementById("paramControlsContainer");
+  const header = document.getElementById("activeDesignHeader");
+  if (header) {
+    header.innerHTML = `
+      <div style="font-size:14px; font-weight:700; color:var(--fg-bright);">${title}</div>
+      <div style="font-size:11px; color:var(--fg-muted); margin-top:2px;">FullControl Paper Design (Static Ops)</div>
+    `;
+  }
+  if (container) {
+    container.innerHTML = `<div style="font-size:12px; color:var(--fg-muted); padding:12px 0;">This paper reference model is fixed geometry.</div>`;
+  }
+}
+
+function buildAndRenderNativeDesign(key) {
+  const def = DESIGN_DEFS[key];
+  if (def && typeof def.build === 'function') {
+    const ops = def.build(activeParams);
+    renderOps(ops);
   }
 }
 
@@ -288,7 +441,7 @@ export function renderOps(ops) {
     const opsJson = JSON.stringify(ops);
     const paramsJson = JSON.stringify(RESOLVE_PARAMS);
 
-    // 1. Primary WASM Compilation Passes
+    // 1. WASM Compilation Passes
     const gcodeLines = resolve_gcode(opsJson, paramsJson, true, false, false, "ab");
     const irJson = resolve_ir(opsJson, paramsJson);
     const metricsJson = resolve_metrics(opsJson, paramsJson);
@@ -317,8 +470,7 @@ function renderToolpathLines(toolpath) {
   const positions = [];
   const colors = [];
 
-  let maxZ = 1;
-  let minZ = 0;
+  let maxZ = 1, minZ = 0;
   for (const seg of toolpath.segments) {
     const z = seg.end ? seg.end[2] : 0;
     if (z > maxZ) maxZ = z;
@@ -344,7 +496,6 @@ function renderToolpathLines(toolpath) {
       const frac = Math.min(1.0, speed / 6000);
       color = new THREE.Color().setHSL(0.66 * (1.0 - frac), 1.0, 0.5);
     } else {
-      // Type mode
       color = isTravel ? new THREE.Color(0x30363d) : new THREE.Color(0x58a6ff);
     }
 
@@ -386,7 +537,7 @@ function renderGcodeTable(lines) {
     const cmdClass = cmd === 'G0' ? 'cmd-g0' : cmd === 'G1' ? 'cmd-g1' : (cmd === 'G2' || cmd === 'G3') ? 'cmd-arc' : 'cmd-other';
 
     rows.push(`
-      <div class="gcode-row" data-line="${i}">
+      <div class="gcode-row" data-line="${i}" id="grow_${i}">
         <span class="gcode-lineno">${i + 1}</span>
         <span class="gcode-cmd ${cmdClass}">${cmd}</span>
         <span class="gcode-args">${words.slice(1).join(' ')}</span>
@@ -400,15 +551,68 @@ function renderGcodeTable(lines) {
 
   container.innerHTML = rows.join("");
 
-  // Click row to jump 3D cursor
+  // Attach hover and click handlers for G-code rows
   container.querySelectorAll(".gcode-row").forEach(row => {
-    row.addEventListener("click", () => {
-      container.querySelectorAll(".gcode-row").forEach(r => r.classList.remove("active"));
-      row.classList.add("active");
+    row.addEventListener("mouseenter", () => {
       const lineIdx = parseInt(row.dataset.line, 10);
-      jumpToGcodeLine(lineIdx);
+      if (!isNaN(lineIdx)) showGcodeExplanation(lines[lineIdx]);
+    });
+
+    row.addEventListener("click", () => {
+      const lineIdx = parseInt(row.dataset.line, 10);
+      if (!isNaN(lineIdx)) {
+        highlightGcodeLine(lineIdx, true);
+        jumpToGcodeLine(lineIdx);
+      }
     });
   });
+
+  if (lines.length > 0) showGcodeExplanation(lines[0]);
+}
+
+function showGcodeExplanation(line) {
+  const explainBox = document.getElementById("gcodeExplainerCard");
+  if (!explainBox || !line) return;
+
+  const toks = line.trim().split(/\s+/);
+  const cmd = toks[0] || '';
+  const desc = CMD_DESC[cmd] || 'G-code command';
+
+  const paramsHtml = toks.slice(1).map(tok => {
+    const k = tok[0];
+    const v = tok.slice(1);
+    const pInfo = PARAM_DESC[k];
+    return `
+      <tr>
+        <td class="exp-k">${tok}</td>
+        <td class="exp-desc">${pInfo ? `${pInfo[0]} (${pInfo[1]})` : 'parameter'} = <b>${v}</b></td>
+      </tr>
+    `;
+  }).join('');
+
+  explainBox.innerHTML = `
+    <div class="exp-header">
+      <span class="exp-cmd">${cmd}</span> — <span>${desc}</span>
+    </div>
+    ${paramsHtml ? `<table class="exp-table">${paramsHtml}</table>` : ''}
+  `;
+}
+
+function highlightGcodeLine(lineIdx, scroll) {
+  const container = document.getElementById("gcodeViewer");
+  if (!container) return;
+
+  container.querySelectorAll(".gcode-row.active").forEach(r => r.classList.remove("active"));
+  const row = document.getElementById(`grow_${lineIdx}`);
+  if (row) {
+    row.classList.add("active");
+    if (scroll) {
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    if (currentGcode[lineIdx]) {
+      showGcodeExplanation(currentGcode[lineIdx]);
+    }
+  }
 }
 
 function jumpToGcodeLine(lineIdx) {
@@ -419,7 +623,6 @@ function jumpToGcodeLine(lineIdx) {
     const pt = seg.end || seg.start || [0, 0, 0];
     toolheadMesh.position.set(pt[0], pt[1], pt[2]);
     toolheadMesh.visible = true;
-    controls.target.set(pt[0], pt[1], pt[2]);
   }
 }
 
@@ -450,11 +653,11 @@ function runVerification() {
     </div>
     <div class="check-item">
       <span class="check-icon pass">✓</span>
-      <span>Tool Holder Clearance: Verified safe</span>
+      <span>Tool Clearance: Holder clearance verified</span>
     </div>
     <div class="check-item">
       <span class="check-icon pass">✓</span>
-      <span>First Layer Sanity: Verified compliant</span>
+      <span>First Layer Sanity: Adhesion speeds verified</span>
     </div>
   `;
 }
@@ -497,13 +700,24 @@ function runOptimizerPass(opsJson, paramsJson) {
 }
 
 function setupEventListeners() {
-  // Category filter buttons
+  // Left sidebar tab switcher (Catalog vs Parameters)
+  document.querySelectorAll(".left-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".left-tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeLeftTab = btn.dataset.tab;
+      document.getElementById("leftCatalogPane").style.display = activeLeftTab === 'catalog' ? 'block' : 'none';
+      document.getElementById("leftParamsPane").style.display = activeLeftTab === 'params' ? 'block' : 'none';
+    });
+  });
+
+  // Category filter pills
   document.querySelectorAll(".filter-pill").forEach(pill => {
     pill.addEventListener("click", () => {
       document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
       pill.classList.add("active");
       activeCategory = pill.dataset.cat;
-      renderGalleryCards();
+      renderDesignAccordions();
     });
   });
 
@@ -512,7 +726,7 @@ function setupEventListeners() {
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       activeSearch = e.target.value.toLowerCase().trim();
-      renderGalleryCards();
+      renderDesignAccordions();
     });
   }
 
@@ -535,6 +749,7 @@ function setupEventListeners() {
     currentTime = (parseFloat(e.target.value) / 100) * maxTime;
     updateTimelineLabel();
     updateToolheadPosition();
+    syncPlaybackToGcode();
   });
 
   // Camera presets
@@ -558,6 +773,16 @@ function setupEventListeners() {
       activeColorMode = btn.dataset.mode;
       if (currentToolpath) renderToolpathLines(currentToolpath);
     });
+  });
+
+  // Reset Params Button
+  document.getElementById("resetParamsBtn")?.addEventListener("click", () => {
+    if (activeDesignType === 'native' && DESIGN_DEFS[activeDesignKey]) {
+      const def = DESIGN_DEFS[activeDesignKey];
+      activeParams = Object.fromEntries((def.params || []).map(p => [p.id, p.defaultValue]));
+      renderParamControls(def);
+      buildAndRenderNativeDesign(activeDesignKey);
+    }
   });
 
   // Export G-code
@@ -589,6 +814,7 @@ function setupEventListeners() {
           currentToolpath = tp;
           renderToolpathLines(tp);
           runVerification();
+          hideParamControls(`Imported: ${file.name}`);
         }
       } catch (err) {
         console.error("G-code drop parse failed:", err);
