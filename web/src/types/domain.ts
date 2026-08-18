@@ -34,13 +34,19 @@ export interface Metrics {
 }
 
 export interface Segment {
-  start?: [number, number, number];
-  end?: [number, number, number];
+  start?: [number | null, number | null, number | null];
+  end?: [number | null, number | null, number | null];
   kind?: string;
+  travel?: boolean;
   extruder_on?: boolean;
   speed?: number;
+  length?: number;
+  volume?: number;
+  filament?: number;
   width?: number;
   height?: number;
+  centre?: [number, number] | null;
+  clockwise?: boolean;
 }
 
 export interface Toolpath {
@@ -93,8 +99,11 @@ export interface GcodeSection {
   layer: number;
   z: number;
   label: string;
+  moveCount?: number;
+  volume?: number;
   time?: number;
 }
 
 export type RenderStyle = 'beads' | 'wireframe';
-export type PlasticMaterial = 'obsidian' | 'cyan' | 'gold' | 'orange' | 'white';
+export type PlasticMaterial = 'cyan' | 'obsidian' | 'gold' | 'orange' | 'white' | 'resin';
+export type LayerFilterMode = 'all' | 'upToLayer' | 'singleLayer';

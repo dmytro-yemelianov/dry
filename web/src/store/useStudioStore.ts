@@ -7,6 +7,7 @@ import type {
   GcodeSection,
   RenderStyle,
   PlasticMaterial,
+  LayerFilterMode,
 } from '../types/domain';
 import {
   ensureWasmInitialized,
@@ -65,7 +66,7 @@ function buildAutomatedSections(lines: string[]): GcodeSection[] {
     }
     const zVal = parseFloat(zToken.slice(1));
     const roundedZ = Math.round(zVal * 1000) / 1000;
-    if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-5) {
+    if (currentZ === null || Math.abs(roundedZ - currentZ) > 1e-4) {
       currentZ = roundedZ;
       layer += 1;
       sections.push({
@@ -84,6 +85,27 @@ function buildAutomatedSections(lines: string[]): GcodeSection[] {
   return sections;
 }
 
+function computeSegmentLayers(toolpath: Toolpath | null): number[] {
+  if (!toolpath || !toolpath.segments) return [];
+  const layers: number[] = [];
+  let currentZ: number | null = null;
+  let layer = 1;
+
+  for (const seg of toolpath.segments) {
+    const pt = seg.end || seg.start;
+    const z = pt && pt[2] !== null && !isNaN(pt[2] as number) ? (pt[2] as number) : 0;
+    const roundedZ = Math.round(z * 1000) / 1000;
+    if (currentZ === null) {
+      currentZ = roundedZ;
+    } else if (Math.abs(roundedZ - currentZ) > 1e-4) {
+      currentZ = roundedZ;
+      layer += 1;
+    }
+    layers.push(layer);
+  }
+  return layers;
+}
+
 interface StudioState {
   isWasmReady: boolean;
   machines: MachineProfile[];
@@ -91,6 +113,7 @@ interface StudioState {
   activeDesignKey: string;
   activeParams: Record<string, number>;
   toolpath: Toolpath | null;
+  segmentLayers: number[];
   gcodeLines: string[];
   gcodeSections: GcodeSection[];
   metrics: Metrics | null;
@@ -98,6 +121,8 @@ interface StudioState {
   colorMode: 'type' | 'height' | 'speed';
   renderStyle: RenderStyle;
   plasticMaterial: PlasticMaterial;
+  layerFilterMode: LayerFilterMode;
+  targetLayerNumber: number;
   activeCategory: string;
   searchQuery: string;
   isPlaying: boolean;
@@ -116,6 +141,8 @@ interface StudioState {
   setColorMode: (mode: 'type' | 'height' | 'speed') => void;
   setRenderStyle: (style: RenderStyle) => void;
   setPlasticMaterial: (mat: PlasticMaterial) => void;
+  setLayerFilterMode: (mode: LayerFilterMode) => void;
+  setTargetLayerNumber: (layer: number) => void;
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
   togglePlay: () => void;
@@ -136,6 +163,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeDesignKey: 'spiral_vase',
   activeParams: {},
   toolpath: null,
+  segmentLayers: [],
   gcodeLines: [],
   gcodeSections: [],
   metrics: null,
@@ -143,6 +171,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   colorMode: 'type',
   renderStyle: 'beads',
   plasticMaterial: 'cyan',
+  layerFilterMode: 'all',
+  targetLayerNumber: 1,
   activeCategory: 'all',
   searchQuery: '',
   isPlaying: false,
@@ -191,6 +221,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       currentTime: 0,
       focusedLineIndex: null,
       activeLayerNumber: 1,
+      targetLayerNumber: 1,
     });
 
     get().recompileCurrentDesign();
@@ -217,6 +248,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setColorMode: (mode) => set({ colorMode: mode }),
   setRenderStyle: (style) => set({ renderStyle: style }),
   setPlasticMaterial: (mat) => set({ plasticMaterial: mat }),
+  setLayerFilterMode: (mode) => set({ layerFilterMode: mode }),
+  setTargetLayerNumber: (layer) => set({ targetLayerNumber: layer }),
   setActiveCategory: (cat) => set({ activeCategory: cat }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -236,7 +269,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       }
     }
 
-    set({ currentTime: time, activeLayerNumber: activeL });
+    set({ currentTime: time, activeLayerNumber: activeL, targetLayerNumber: activeL });
   },
 
   setFocusedLine: (index) => {
@@ -253,7 +286,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         break;
       }
     }
-    set({ focusedLineIndex: index, activeLayerNumber: activeL });
+    set({ focusedLineIndex: index, activeLayerNumber: activeL, targetLayerNumber: activeL });
   },
 
   jumpToLayer: (layerNum) => {
@@ -263,6 +296,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const frac = gcodeLines.length > 0 ? sec.line / gcodeLines.length : 0;
     set({
       activeLayerNumber: layerNum,
+      targetLayerNumber: layerNum,
       focusedLineIndex: sec.line,
       currentTime: frac * maxTime,
     });
@@ -288,8 +322,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const tp = importGcode(text);
       const lines = text.split('\n').filter((l) => l.trim().length > 0);
       const sections = buildAutomatedSections(lines);
+      const segLayers = computeSegmentLayers(tp);
       set({
         toolpath: tp,
+        segmentLayers: segLayers,
         gcodeLines: lines,
         gcodeSections: sections,
         activeDesignKey: 'custom_import',
@@ -297,6 +333,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         maxTime: 10,
         focusedLineIndex: null,
         activeLayerNumber: 1,
+        targetLayerNumber: 1,
       });
     } catch (err) {
       console.error('Import failed:', err);
@@ -317,6 +354,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const ir = compileIR(ops, RESOLVE_PARAMS);
       const m = compileMetrics(ops, RESOLVE_PARAMS);
       const sections = buildAutomatedSections(gcode);
+      const segLayers = computeSegmentLayers(ir);
 
       let optIr: Toolpath | null = null;
       try {
@@ -327,6 +365,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
       set({
         toolpath: ir,
+        segmentLayers: segLayers,
         gcodeLines: gcode,
         gcodeSections: sections,
         metrics: m,

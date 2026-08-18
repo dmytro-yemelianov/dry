@@ -2,95 +2,62 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useStudioStore } from '../store/useStudioStore';
-import type { Segment } from '../types/domain';
+import { buildStadiumBeadsGeometry } from './beadGeometry';
+import type { Segment, PlasticMaterial } from '../types/domain';
 
-const PLASTIC_PALETTES: Record<string, { color: number; roughness: number; metalness: number }> = {
-  cyan: { color: 0x00d2ff, roughness: 0.28, metalness: 0.08 },
-  obsidian: { color: 0x22272e, roughness: 0.35, metalness: 0.1 },
-  gold: { color: 0xe6b800, roughness: 0.22, metalness: 0.4 },
-  orange: { color: 0xff6600, roughness: 0.32, metalness: 0.05 },
-  white: { color: 0xf0f4f8, roughness: 0.38, metalness: 0.02 },
-};
-
-// 3D Vector Helpers for Volumetric Bead Geometry
-type Vec3 = [number, number, number];
-const vsub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const vlen = (a: Vec3): number => Math.hypot(a[0], a[1], a[2]);
-const vnorm = (a: Vec3): Vec3 => {
-  const l = vlen(a);
-  return l > 1e-9 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 1];
-};
-const vcross = (a: Vec3, b: Vec3): Vec3 => [
-  a[1] * b[2] - a[2] * b[1],
-  a[2] * b[0] - a[0] * b[2],
-  a[0] * b[1] - a[1] * b[0],
-];
-const vmad = (p: Vec3, d: Vec3, s: number): Vec3 => [
-  p[0] + d[0] * s,
-  p[1] + d[1] * s,
-  p[2] + d[2] * s,
-];
-
-function buildVolumetricBeadsGeometry(segments: Segment[]): THREE.BufferGeometry {
-  const pos: number[] = [];
-  const nrm: number[] = [];
-  const UP: Vec3 = [0, 0, 1];
-
-  const push = (p: Vec3, n: Vec3) => {
-    pos.push(p[0], p[1], p[2]);
-    nrm.push(n[0], n[1], n[2]);
-  };
-
-  const quad = (a: Vec3, b: Vec3, c: Vec3, d: Vec3, n: Vec3) => {
-    push(a, n);
-    push(b, n);
-    push(c, n);
-    push(a, n);
-    push(c, n);
-    push(d, n);
-  };
-
-  let cursor: Vec3 = [0, 0, 0];
-  for (const seg of segments) {
-    const p0: Vec3 = seg.start || cursor;
-    const p1: Vec3 = seg.end || p0;
-    cursor = p1;
-
-    // Only generate solid geometry for extruding moves
-    if (seg.kind === 'travel' || !seg.extruder_on) continue;
-
-    const d = vsub(p1, p0);
-    const len = vlen(d);
-    if (len < 1e-6) continue;
-
-    const dir: Vec3 = [d[0] / len, d[1] / len, d[2] / len];
-    let side = vcross(dir, UP);
-    if (vlen(side) < 1e-5) side = vcross(dir, [1, 0, 0]);
-    side = vnorm(side);
-    const vn = vnorm(vcross(side, dir));
-
-    const hw = (seg.width || 0.45) / 2;
-    const hh = (seg.height || 0.2) / 2;
-
-    const C = (e: Vec3, ss: number, uu: number): Vec3 => vmad(vmad(e, side, hw * ss), vn, hh * uu);
-
-    const a = { mm: C(p0, -1, -1), pm: C(p0, 1, -1), pp: C(p0, 1, 1), mp: C(p0, -1, 1) };
-    const b = { mm: C(p1, -1, -1), pm: C(p1, 1, -1), pp: C(p1, 1, 1), mp: C(p1, -1, 1) };
-    const neg = (v: Vec3): Vec3 => [-v[0], -v[1], -v[2]];
-
-    quad(a.pm, b.pm, b.pp, a.pp, side); // +side
-    quad(a.mm, a.mp, b.mp, b.mm, neg(side)); // -side
-    quad(a.mp, a.pp, b.pp, b.mp, vn); // top
-    quad(a.mm, b.mm, b.pm, a.pm, neg(vn)); // bottom
-    quad(a.mm, a.pm, a.pp, a.mp, neg(dir)); // start cap
-    quad(b.mm, b.mp, b.pp, b.pm, dir); // end cap
+const PLASTIC_MATERIALS: Record<
+  PlasticMaterial,
+  {
+    color: number;
+    roughness: number;
+    metalness: number;
+    clearcoat?: number;
+    clearcoatRoughness?: number;
+    transmission?: number;
+    transparent?: boolean;
+    opacity?: number;
   }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
-  return geom;
-}
+> = {
+  cyan: {
+    color: 0x00d2ff,
+    roughness: 0.18,
+    metalness: 0.05,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.1,
+  },
+  obsidian: {
+    color: 0x1c2128,
+    roughness: 0.55,
+    metalness: 0.04,
+    clearcoat: 0.08,
+  },
+  gold: {
+    color: 0xdfb035,
+    roughness: 0.22,
+    metalness: 0.65,
+    clearcoat: 0.6,
+  },
+  orange: {
+    color: 0xff6600,
+    roughness: 0.32,
+    metalness: 0.05,
+    clearcoat: 0.45,
+  },
+  white: {
+    color: 0xf5f7fa,
+    roughness: 0.38,
+    metalness: 0.02,
+    clearcoat: 0.25,
+  },
+  resin: {
+    color: 0x77ccee,
+    roughness: 0.08,
+    metalness: 0.0,
+    transmission: 0.85,
+    transparent: true,
+    opacity: 0.9,
+  },
+};
 
 export const ThreeViewport: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,11 +72,15 @@ export const ThreeViewport: React.FC = () => {
 
   const activeMachine = useStudioStore((state) => state.activeMachine);
   const toolpath = useStudioStore((state) => state.toolpath);
+  const segmentLayers = useStudioStore((state) => state.segmentLayers);
   const colorMode = useStudioStore((state) => state.colorMode);
   const renderStyle = useStudioStore((state) => state.renderStyle);
   const setRenderStyle = useStudioStore((state) => state.setRenderStyle);
   const plasticMaterial = useStudioStore((state) => state.plasticMaterial);
   const setPlasticMaterial = useStudioStore((state) => state.setPlasticMaterial);
+  const layerFilterMode = useStudioStore((state) => state.layerFilterMode);
+  const setLayerFilterMode = useStudioStore((state) => state.setLayerFilterMode);
+  const targetLayerNumber = useStudioStore((state) => state.targetLayerNumber);
   const currentTime = useStudioStore((state) => state.currentTime);
   const maxTime = useStudioStore((state) => state.maxTime);
   const focusedLineIndex = useStudioStore((state) => state.focusedLineIndex);
@@ -136,7 +107,8 @@ export const ThreeViewport: React.FC = () => {
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
 
@@ -146,16 +118,20 @@ export const ThreeViewport: React.FC = () => {
     controls.target.set(100, 100, 40);
     controlsRef.current = controls;
 
-    // Lighting (Studio Key + Rim + Ambient)
-    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x161b22, 0.9);
+    // Studio 3-Point PBR Lighting Rig
+    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x161b22, 1.0);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    keyLight.position.set(220, -180, 350);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+    keyLight.position.set(240, -180, 380);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x58a6ff, 0.6);
-    rimLight.position.set(-200, 300, 200);
+    const fillLight = new THREE.DirectionalLight(0x90b0e0, 0.8);
+    fillLight.position.set(-220, -200, 200);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0x58a6ff, 1.0);
+    rimLight.position.set(0, 320, 240);
     scene.add(rimLight);
 
     // Ground Grid
@@ -164,7 +140,7 @@ export const ThreeViewport: React.FC = () => {
     gridHelper.rotation.x = Math.PI / 2;
     scene.add(gridHelper);
 
-    // Toolhead Cone Mesh (Spindle/Nozzle Indicator)
+    // Toolhead Cone Mesh
     const coneGeom = new THREE.ConeGeometry(3.5, 9, 24);
     coneGeom.rotateX(-Math.PI / 2);
     coneGeom.translate(0, 0, 4.5);
@@ -239,7 +215,7 @@ export const ThreeViewport: React.FC = () => {
     envelopeMeshRef.current = envelope;
   }, [activeMachine]);
 
-  // Update Toolpath Rendering (Solid Volumetric Beads vs Wireframe)
+  // Update Toolpath Geometry & Physical Shaders
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -258,14 +234,24 @@ export const ThreeViewport: React.FC = () => {
     const segments = toolpath.segments;
 
     if (renderStyle === 'beads') {
-      // 1. Realistic Volumetric 3D Plastic Beads
-      const solidGeom = buildVolumetricBeadsGeometry(segments);
-      const palette = PLASTIC_PALETTES[plasticMaterial] || PLASTIC_PALETTES.cyan;
+      // 1. Solid Extruded Plastic Stadium Beads
+      const solidGeom = buildStadiumBeadsGeometry(segments, 8, {
+        mode: layerFilterMode,
+        targetLayer: targetLayerNumber,
+        segmentLayers,
+      });
 
-      const solidMat = new THREE.MeshStandardMaterial({
-        color: palette.color,
-        roughness: palette.roughness,
-        metalness: palette.metalness,
+      const pDef = PLASTIC_MATERIALS[plasticMaterial] || PLASTIC_MATERIALS.cyan;
+      const solidMat = new THREE.MeshPhysicalMaterial({
+        color: pDef.color,
+        roughness: pDef.roughness,
+        metalness: pDef.metalness,
+        clearcoat: pDef.clearcoat ?? 0.3,
+        clearcoatRoughness: pDef.clearcoatRoughness ?? 0.1,
+        transmission: pDef.transmission ?? 0.0,
+        transparent: pDef.transparent ?? false,
+        opacity: pDef.opacity ?? 1.0,
+        side: THREE.DoubleSide,
       });
 
       const solidMesh = new THREE.Mesh(solidGeom, solidMat);
@@ -274,47 +260,62 @@ export const ThreeViewport: React.FC = () => {
 
       // 2. Rapid Travel Lines
       const travelPositions: number[] = [];
-      let cursor: Vec3 = [0, 0, 0];
-      for (const seg of segments) {
-        const start: Vec3 = seg.start || cursor;
-        const end: Vec3 = seg.end || start;
-        cursor = end;
-        if (seg.kind === 'travel' || !seg.extruder_on) {
-          travelPositions.push(start[0], start[1], start[2], end[0], end[1], end[2]);
+      let cursor = [0, 0, 0];
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const rawStart = seg.start;
+        const p0 = rawStart && rawStart[0] !== null ? (rawStart as number[]) : cursor;
+        const rawEnd = seg.end;
+        const p1 = rawEnd && rawEnd[0] !== null ? (rawEnd as number[]) : p0;
+        cursor = p1;
+
+        const isTravel = seg.travel === true || seg.kind === 'travel';
+        if (isTravel) {
+          if (layerFilterMode === 'upToLayer' && segmentLayers[i] > targetLayerNumber) continue;
+          if (layerFilterMode === 'singleLayer' && segmentLayers[i] !== targetLayerNumber) continue;
+          travelPositions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
         }
       }
+
       if (travelPositions.length > 0) {
         const tGeom = new THREE.BufferGeometry();
         tGeom.setAttribute('position', new THREE.Float32BufferAttribute(travelPositions, 3));
-        const tMat = new THREE.LineBasicMaterial({ color: 0x30363d, transparent: true, opacity: 0.6 });
+        const tMat = new THREE.LineBasicMaterial({ color: 0x38424d, transparent: true, opacity: 0.6 });
         const tMesh = new THREE.LineSegments(tGeom, tMat);
         scene.add(tMesh);
         travelMeshRef.current = tMesh;
       }
     } else {
-      // Line Segments (Wireframe Mode)
+      // Wireframe Lines Mode
       const positions: number[] = [];
       const colors: number[] = [];
 
       let maxZ = 1, minZ = 0;
       for (const seg of segments) {
-        const z = seg.end ? seg.end[2] : 0;
+        const z = seg.end && seg.end[2] !== null ? (seg.end[2] as number) : 0;
         if (z > maxZ) maxZ = z;
       }
 
-      let cursor: Vec3 = [0, 0, 0];
-      for (const seg of segments) {
-        const start: Vec3 = seg.start || cursor;
-        const end: Vec3 = seg.end || start;
-        cursor = end;
+      let cursor = [0, 0, 0];
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const rawStart = seg.start;
+        const p0 = rawStart && rawStart[0] !== null ? (rawStart as number[]) : cursor;
+        const rawEnd = seg.end;
+        const p1 = rawEnd && rawEnd[0] !== null ? (rawEnd as number[]) : p0;
+        cursor = p1;
 
-        positions.push(start[0], start[1], start[2], end[0], end[1], end[2]);
+        if (layerFilterMode === 'upToLayer' && segmentLayers[i] > targetLayerNumber) continue;
+        if (layerFilterMode === 'singleLayer' && segmentLayers[i] !== targetLayerNumber) continue;
 
-        const isTravel = seg.kind === 'travel' || !seg.extruder_on;
+        positions.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
+
+        const isTravel = seg.travel === true || seg.kind === 'travel';
         let color: THREE.Color;
 
         if (colorMode === 'height') {
-          const frac = (end[2] - minZ) / (maxZ - minZ + 0.001);
+          const z = p1[2] || 0;
+          const frac = (z - minZ) / (maxZ - minZ + 0.001);
           color = new THREE.Color().setHSL(0.6 - frac * 0.5, 1.0, 0.5);
         } else if (colorMode === 'speed') {
           const speed = seg.speed || 1000;
@@ -336,7 +337,7 @@ export const ThreeViewport: React.FC = () => {
       scene.add(lineMesh);
       toolpathMeshRef.current = lineMesh;
     }
-  }, [toolpath, renderStyle, plasticMaterial, colorMode]);
+  }, [toolpath, renderStyle, plasticMaterial, colorMode, layerFilterMode, targetLayerNumber, segmentLayers]);
 
   // Update Toolhead Position
   useEffect(() => {
@@ -357,7 +358,8 @@ export const ThreeViewport: React.FC = () => {
     }
 
     const seg = segs[targetIdx];
-    const pt = seg.end || seg.start || [0, 0, 0];
+    const rawPt = seg.end || seg.start || [0, 0, 0];
+    const pt = [rawPt[0] || 0, rawPt[1] || 0, rawPt[2] || 0];
     toolhead.position.set(pt[0], pt[1], pt[2]);
     toolhead.visible = true;
   }, [currentTime, maxTime, focusedLineIndex, toolpath]);
@@ -422,18 +424,43 @@ export const ThreeViewport: React.FC = () => {
             value={plasticMaterial}
             onChange={(e) => setPlasticMaterial(e.target.value as any)}
           >
-            <option value="cyan">Cyber Cyan PLA</option>
+            <option value="cyan">Cyber Cyan PETG</option>
             <option value="obsidian">Obsidian Matte PLA</option>
             <option value="gold">Silk Gold PLA</option>
             <option value="orange">Sunset Orange PLA</option>
             <option value="white">Ceramic White PLA</option>
+            <option value="resin">Translucent SLA Resin</option>
           </select>
         )}
+
+        <div style={{ marginLeft: '6px', display: 'flex', gap: '2px' }}>
+          <button
+            className={`color-mode-btn ${layerFilterMode === 'all' ? 'active' : ''}`}
+            onClick={() => setLayerFilterMode('all')}
+            title="Show complete 3D toolpath"
+          >
+            All Layers
+          </button>
+          <button
+            className={`color-mode-btn ${layerFilterMode === 'upToLayer' ? 'active' : ''}`}
+            onClick={() => setLayerFilterMode('upToLayer')}
+            title="Inspect layers up to active layer"
+          >
+            Up to Layer
+          </button>
+          <button
+            className={`color-mode-btn ${layerFilterMode === 'singleLayer' ? 'active' : ''}`}
+            onClick={() => setLayerFilterMode('singleLayer')}
+            title="Isolate only active layer"
+          >
+            Isolate Layer
+          </button>
+        </div>
       </div>
 
       <div className="engine-status-tag">
         <span className="status-pulse"></span>
-        WASM Engine Active (0ms)
+        WASM PBR Engine Active
       </div>
 
       <div ref={containerRef} id="viewport3d" style={{ width: '100%', height: '100%' }} />

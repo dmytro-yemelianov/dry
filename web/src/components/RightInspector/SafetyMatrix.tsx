@@ -10,14 +10,17 @@ export const SafetyMatrix: React.FC = () => {
 
   for (const seg of toolpath?.segments || []) {
     const pt = seg.end || seg.start;
-    if (pt) {
+    if (pt && pt[0] !== null && pt[1] !== null && pt[2] !== null) {
+      const x = pt[0];
+      const y = pt[1];
+      const z = pt[2];
       if (
-        pt[0] < bv.x[0] ||
-        pt[0] > bv.x[1] ||
-        pt[1] < bv.y[0] ||
-        pt[1] > bv.y[1] ||
-        pt[2] < bv.z[0] ||
-        pt[2] > bv.z[1]
+        x < bv.x[0] ||
+        x > bv.x[1] ||
+        y < bv.y[0] ||
+        y > bv.y[1] ||
+        z < bv.z[0] ||
+        z > bv.z[1]
       ) {
         oob = true;
         break;
