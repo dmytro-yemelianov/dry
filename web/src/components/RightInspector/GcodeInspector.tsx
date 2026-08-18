@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useStudioStore } from '../../store/useStudioStore';
-import type { GroupingMode } from '../../types/domain';
+import type { GroupingMode, GcodeViewFormat } from '../../types/domain';
 
 const CMD_DESC: Record<string, string> = {
   G0: 'rapid travel — reposition without extruding',
@@ -36,11 +36,20 @@ const PARAM_DESC: Record<string, [string, string]> = {
   P: ['dwell time in ms', 'ms'],
 };
 
+interface ParsedGcodeRow {
+  index: number;
+  raw: string;
+  cmd: string;
+  args: Record<string, string>;
+}
+
 export const GcodeInspector: React.FC = () => {
   const gcodeLines = useStudioStore((state) => state.gcodeLines);
   const gcodeSections = useStudioStore((state) => state.gcodeSections);
   const groupingMode = useStudioStore((state) => state.groupingMode);
   const setGroupingMode = useStudioStore((state) => state.setGroupingMode);
+  const gcodeViewFormat = useStudioStore((state) => state.gcodeViewFormat);
+  const setGcodeViewFormat = useStudioStore((state) => state.setGcodeViewFormat);
   const effectiveGroupingKind = useStudioStore((state) => state.effectiveGroupingKind);
   const focusedLineIndex = useStudioStore((state) => state.focusedLineIndex);
   const setFocusedLine = useStudioStore((state) => state.setFocusedLine);
@@ -54,6 +63,21 @@ export const GcodeInspector: React.FC = () => {
 
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  // Pre-parse G-code lines into token structures for table matrix rendering
+  const parsedRows = useMemo<ParsedGcodeRow[]>(() => {
+    return gcodeLines.map((line, idx) => {
+      const words = line.trim().split(/\s+/).filter(Boolean);
+      const cmd = words[0] || '';
+      const args: Record<string, string> = {};
+      for (const tok of words.slice(1)) {
+        const k = tok[0].toUpperCase();
+        const v = tok.slice(1);
+        if (k && v !== undefined) args[k] = v;
+      }
+      return { index: idx, raw: line, cmd, args };
+    });
+  }, [gcodeLines]);
 
   // Map each line index to its section header if it starts a section
   const sectionStartMap = useRef<Map<number, { label: string; kind: string }>>(new Map());
@@ -102,25 +126,44 @@ export const GcodeInspector: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Grouping Strategy Selector */}
+      {/* Grouping Strategy & View Format Switcher Bar */}
       <div className="grouping-mode-bar">
-        <span className="grouping-label">Group By:</span>
-        <div className="grouping-pills">
-          {(['auto', 'revolutions', 'figures', 'layers'] as GroupingMode[]).map((mode) => (
-            <button
-              key={mode}
-              className={`grouping-pill ${groupingMode === mode ? 'active' : ''}`}
-              onClick={() => setGroupingMode(mode)}
-            >
-              {mode === 'auto'
-                ? `Auto (${sectionTitle}s)`
-                : mode === 'revolutions'
-                ? 'Turns / Helix'
-                : mode === 'figures'
-                ? 'Figures'
-                : 'Layers'}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="grouping-label">Group:</span>
+          <div className="grouping-pills">
+            {(['auto', 'revolutions', 'figures', 'layers'] as GroupingMode[]).map((mode) => (
+              <button
+                key={mode}
+                className={`grouping-pill ${groupingMode === mode ? 'active' : ''}`}
+                onClick={() => setGroupingMode(mode)}
+              >
+                {mode === 'auto'
+                  ? `Auto (${sectionTitle}s)`
+                  : mode === 'revolutions'
+                  ? 'Turns'
+                  : mode === 'figures'
+                  ? 'Figures'
+                  : 'Layers'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="format-pills">
+          <button
+            className={`format-pill ${gcodeViewFormat === 'stream' ? 'active' : ''}`}
+            onClick={() => setGcodeViewFormat('stream')}
+            title="Raw G-code stream view"
+          >
+            Stream
+          </button>
+          <button
+            className={`format-pill ${gcodeViewFormat === 'table' ? 'active' : ''}`}
+            onClick={() => setGcodeViewFormat('table')}
+            title="Tabular coordinate matrix view (X | Y | Z | E | F)"
+          >
+            Table Matrix
+          </button>
         </div>
       </div>
 
@@ -177,7 +220,20 @@ export const GcodeInspector: React.FC = () => {
         )}
       </div>
 
-      {/* Virtualized Line Stream */}
+      {/* Table Header Row when in Table Matrix mode */}
+      {gcodeViewFormat === 'table' && (
+        <div className="table-matrix-header">
+          <span className="col-no">Line</span>
+          <span className="col-cmd">Op</span>
+          <span className="col-x">X (mm)</span>
+          <span className="col-y">Y (mm)</span>
+          <span className="col-z">Z (mm)</span>
+          <span className="col-e">E (mm)</span>
+          <span className="col-f">F (mm/min)</span>
+        </div>
+      )}
+
+      {/* Virtualized G-Code Stream or Table Matrix */}
       <div
         ref={parentRef}
         className="gcode-viewer-table"
@@ -192,12 +248,10 @@ export const GcodeInspector: React.FC = () => {
         >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const index = virtualRow.index;
-            const line = gcodeLines[index] || '';
-            const lineWords = line.trim().split(/\s+/);
-            const lineCmd = lineWords[0] || '';
-            const isG0 = lineCmd === 'G0';
-            const isG1 = lineCmd === 'G1';
-            const isArc = lineCmd === 'G2' || lineCmd === 'G3';
+            const rowData = parsedRows[index] || { index, raw: '', cmd: '', args: {} };
+            const isG0 = rowData.cmd === 'G0';
+            const isG1 = rowData.cmd === 'G1';
+            const isArc = rowData.cmd === 'G2' || rowData.cmd === 'G3';
             const cmdClass = isG0 ? 'cmd-g0' : isG1 ? 'cmd-g1' : isArc ? 'cmd-arc' : 'cmd-other';
             const isActive = index === activeLineIndex;
             const sectionInfo = sectionStartMap.current.get(index);
@@ -228,16 +282,36 @@ export const GcodeInspector: React.FC = () => {
                     <span>{icon} {sectionInfo.label}</span>
                   </div>
                 )}
-                <div
-                  className={`gcode-row ${isActive ? 'active' : ''}`}
-                  onMouseEnter={() => setHoveredLineIndex(index)}
-                  onMouseLeave={() => setHoveredLineIndex(null)}
-                  onClick={() => setFocusedLine(index)}
-                >
-                  <span className="gcode-lineno">{index + 1}</span>
-                  <span className={`gcode-cmd ${cmdClass}`}>{lineCmd}</span>
-                  <span className="gcode-args">{lineWords.slice(1).join(' ')}</span>
-                </div>
+
+                {gcodeViewFormat === 'stream' ? (
+                  /* ---- Stream Format ---- */
+                  <div
+                    className={`gcode-row ${isActive ? 'active' : ''}`}
+                    onMouseEnter={() => setHoveredLineIndex(index)}
+                    onMouseLeave={() => setHoveredLineIndex(null)}
+                    onClick={() => setFocusedLine(index)}
+                  >
+                    <span className="gcode-lineno">{index + 1}</span>
+                    <span className={`gcode-cmd ${cmdClass}`}>{rowData.cmd}</span>
+                    <span className="gcode-args">{rowData.raw.split(/\s+/).slice(1).join(' ')}</span>
+                  </div>
+                ) : (
+                  /* ---- Tabular Coordinate Matrix Format ---- */
+                  <div
+                    className={`table-matrix-row ${isActive ? 'active' : ''}`}
+                    onMouseEnter={() => setHoveredLineIndex(index)}
+                    onMouseLeave={() => setHoveredLineIndex(null)}
+                    onClick={() => setFocusedLine(index)}
+                  >
+                    <span className="col-no">{index + 1}</span>
+                    <span className={`col-cmd ${cmdClass}`}>{rowData.cmd}</span>
+                    <span className="col-x">{rowData.args.X || '—'}</span>
+                    <span className="col-y">{rowData.args.Y || '—'}</span>
+                    <span className="col-z">{rowData.args.Z || '—'}</span>
+                    <span className="col-e">{rowData.args.E || '—'}</span>
+                    <span className="col-f">{rowData.args.F || '—'}</span>
+                  </div>
+                )}
               </div>
             );
           })}

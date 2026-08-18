@@ -10,6 +10,7 @@ import type {
   RenderStyle,
   PlasticMaterial,
   SlicingFilterMode,
+  GcodeViewFormat,
 } from '../types/domain';
 import {
   ensureWasmInitialized,
@@ -296,6 +297,7 @@ interface StudioState {
   plasticMaterial: PlasticMaterial;
   slicingFilterMode: SlicingFilterMode;
   targetSectionIndex: number;
+  gcodeViewFormat: GcodeViewFormat;
   activeCategory: string;
   searchQuery: string;
   isPlaying: boolean;
@@ -317,6 +319,7 @@ interface StudioState {
   setGroupingMode: (mode: GroupingMode) => void;
   setSlicingFilterMode: (mode: SlicingFilterMode) => void;
   setTargetSectionIndex: (idx: number) => void;
+  setGcodeViewFormat: (format: GcodeViewFormat) => void;
   setActiveCategory: (cat: string) => void;
   setSearchQuery: (q: string) => void;
   togglePlay: () => void;
@@ -349,6 +352,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   plasticMaterial: 'cyan',
   slicingFilterMode: 'all',
   targetSectionIndex: 1,
+  gcodeViewFormat: 'stream',
   activeCategory: 'all',
   searchQuery: '',
   isPlaying: false,
@@ -442,6 +446,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   setSlicingFilterMode: (mode) => set({ slicingFilterMode: mode }),
   setTargetSectionIndex: (idx) => set({ targetSectionIndex: idx }),
+  setGcodeViewFormat: (format) => set({ gcodeViewFormat: format }),
   setActiveCategory: (cat) => set({ activeCategory: cat }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 

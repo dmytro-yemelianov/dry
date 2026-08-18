@@ -114,3 +114,4 @@ export interface GcodeSection {
 export type RenderStyle = 'beads' | 'wireframe';
 export type PlasticMaterial = 'cyan' | 'obsidian' | 'gold' | 'orange' | 'white' | 'resin';
 export type SlicingFilterMode = 'all' | 'upToSection' | 'singleSection';
+export type GcodeViewFormat = 'stream' | 'table';
