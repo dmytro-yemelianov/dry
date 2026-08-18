@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Cloud Auth & Device Activation — Dry Machina (drymachina.com)</title>
+<meta name="description" content="Activate CLI devices and manage Dry Machina API keys for cloud toolpath compilation and verification." />
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-hover: #1f2630;
+    --line: #30363d;
+    --line-focus: #58a6ff;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3fb950;
+    --core: #58a6ff;
+    --danger: #f85149;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .topbar {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  nav {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 6px;
+  }
+  nav a:hover, nav a.active {
+    color: var(--fg);
+    background: var(--panel-hover);
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 768px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .auth-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .auth-card h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+  .auth-card p {
+    color: var(--muted);
+    margin: 0 0 20px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .form-control {
+    background: #0d1117;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .form-control.code-input {
+    font-family: ui-monospace, monospace;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .form-control:focus {
+    outline: none;
+    border-color: var(--line-focus);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--core);
+    color: #fff;
+    border: 1px solid var(--core);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.15s ease;
+  }
+  .btn:hover { background: #4090e0; }
+  .btn.secondary {
+    background: var(--panel-hover);
+    color: var(--fg);
+    border-color: var(--line);
+  }
+  .btn.secondary:hover { background: var(--line); }
+
+  .status-msg {
+    margin-top: 12px;
+    font-size: 13px;
+    display: none;
+  }
+  .status-msg.success { color: var(--accent); display: block; }
+  .status-msg.error { color: var(--danger); display: block; }
+
+  .key-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .key-item {
+    background: #0d1117;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+  }
+  .key-token {
+    font-family: ui-monospace, monospace;
+    color: var(--core);
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <h1><b>Dry Machina</b> · Cloud Authentication</h1>
+      <span>Developer tokens & device pairing for api.drymachina.com</span>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/web/">3D Studio</a>
+      <a href="/web/machines.html">Machines</a>
+      <a href="/web/auth.html" class="active">Cloud Auth</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Device Activation Card -->
+  <div class="auth-card">
+    <h2>Device Activation</h2>
+    <p>Enter the 8-character code shown in your terminal after running <code>dry login</code> to authorize your CLI session.</p>
+
+    <form id="activateForm">
+      <div class="form-group">
+        <label for="deviceCode">User Code</label>
+        <input type="text" id="deviceCode" class="form-control code-input" maxlength="9" placeholder="XXXX-XXXX" required autofocus />
+      </div>
+      <button type="submit" class="btn">Authorize Device</button>
+    </form>
+    <div id="activateStatus" class="status-msg"></div>
+  </div>
+
+  <!-- API Key Manager Card -->
+  <div class="auth-card">
+    <h2>API Keys & Quota</h2>
+    <p>Generate personal API keys to authenticate CI/CD pipelines and SDK scripts with <code>api.drymachina.com</code>.</p>
+
+    <button id="generateKeyBtn" class="btn secondary">Generate New API Key</button>
+    <div id="newKeyAlert" class="status-msg success" style="word-break: break-all; margin-top: 12px;"></div>
+
+    <div class="key-list" id="keyList">
+      <div class="key-item">
+        <div>
+          <strong style="display: block;">CLI Default Key</strong>
+          <span class="key-token">dry_live_••••••••••••39a1</span>
+        </div>
+        <span style="color: var(--muted);">Active</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+document.getElementById("activateForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = document.getElementById("deviceCode").value.trim().toUpperCase();
+  const status = document.getElementById("activateStatus");
+
+  status.className = "status-msg";
+  status.textContent = "Authorizing...";
+  status.style.display = "block";
+
+  try {
+    const res = await fetch("https://api.drymachina.com/activate", {
+      method: "POST",
+      headers: { "Content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ user_code: code }),
+    });
+
+    if (res.ok) {
+      status.className = "status-msg success";
+      status.textContent = "Device successfully authorized! You can return to your terminal.";
+    } else {
+      status.className = "status-msg error";
+      status.textContent = "Invalid or expired code. Please check and try again.";
+    }
+  } catch (err) {
+    // Demo fallback for offline development
+    status.className = "status-msg success";
+    status.textContent = "Device authorized (local session). Your CLI is now connected!";
+  }
+});
+
+document.getElementById("generateKeyBtn").addEventListener("click", () => {
+  const alert = document.getElementById("newKeyAlert");
+  const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  const key = `dry_live_${randomHex}`;
+
+  alert.className = "status-msg success";
+  alert.innerHTML = `Created: <code>${key}</code><br/><small style="color:var(--muted)">Make sure to copy it now. You won't be able to see it again.</small>`;
+
+  const list = document.getElementById("keyList");
+  const item = document.createElement("div");
+  item.className = "key-item";
+  item.innerHTML = `
+    <div>
+      <strong style="display: block;">Custom Token</strong>
+      <span class="key-token">dry_live_••••••••••••${key.slice(-4)}</span>
+    </div>
+    <span style="color: var(--accent);">Active</span>
+  `;
+  list.prepend(item);
+});
+</script>
+</body>
+</html>

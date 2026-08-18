@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Machine Catalog — Dry Machina (drymachina.com)</title>
+<meta name="description" content="Explore verified machine capabilities, build volumes, kinematics, and firmware profiles for 3D printers, CNC mills, lasers, plasma cutters, and robotics." />
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-hover: #1f2630;
+    --line: #30363d;
+    --line-focus: #58a6ff;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3fb950;
+    --core: #58a6ff;
+    --warning: #d29922;
+    --danger: #f85149;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .topbar {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  nav {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+  }
+  nav a:hover, nav a.active {
+    color: var(--fg);
+    background: var(--panel-hover);
+  }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  .catalog-hero {
+    margin-bottom: 28px;
+  }
+  .catalog-hero h2 {
+    font-size: 26px;
+    margin: 0 0 8px;
+    letter-spacing: -0.4px;
+  }
+  .catalog-hero p {
+    color: var(--muted);
+    margin: 0;
+    font-size: 14px;
+    max-width: 720px;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    color: var(--fg);
+    background: var(--panel-hover);
+    border-color: var(--core);
+  }
+  .search-input {
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    min-width: 240px;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--line-focus);
+  }
+
+  .machine-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .machine-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .machine-card:hover {
+    border-color: var(--core);
+    transform: translateY(-1px);
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 2px;
+  }
+  .card-vendor {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .category-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #1f2630;
+    border: 1px solid var(--line);
+    color: var(--core);
+    text-transform: uppercase;
+  }
+
+  .spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 12px 0;
+  }
+  .spec-table td {
+    padding: 3px 0;
+  }
+  .spec-table td.label {
+    color: var(--muted);
+    width: 45%;
+  }
+  .spec-table td.val {
+    color: var(--fg);
+    font-family: ui-monospace, monospace;
+    text-align: right;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .action-btn {
+    flex: 1;
+    text-align: center;
+    background: var(--panel-hover);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .action-btn:hover {
+    background: var(--line);
+  }
+  .action-btn.primary {
+    background: var(--core);
+    border-color: var(--core);
+    color: #fff;
+  }
+  .action-btn.primary:hover {
+    background: #4090e0;
+  }
+
+  .importer-section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+    margin-top: 24px;
+  }
+  .importer-section h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+  .importer-section p {
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-size: 13px;
+  }
+  .config-textarea {
+    width: 100%;
+    height: 140px;
+    background: #0d1117;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    resize: vertical;
+    margin-bottom: 12px;
+  }
+  .config-textarea:focus {
+    outline: none;
+    border-color: var(--line-focus);
+  }
+  .import-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .import-result {
+    font-size: 13px;
+    margin-left: 8px;
+  }
+  .import-result.success { color: var(--accent); }
+  .import-result.error { color: var(--danger); }
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <h1><b>Dry Machina</b> · Machine Catalog</h1>
+      <span>Hardware capabilities registry for drymachina.com</span>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/web/">3D Studio</a>
+      <a href="/web/machines.html" class="active">Machines</a>
+      <a href="/web/auth.html">Cloud Auth</a>
+      <a href="https://github.com/dmytro-yemelianov/dry">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="catalog-hero">
+    <h2>Hardware Capabilities & Slicer Profiles</h2>
+    <p>Pre-configured physical boundaries, maximum velocities, spindle ratings, and kinematics for 3D printers, CNC mills, lasers, plasma cutters, and robot arms.</p>
+  </div>
+
+  <div class="toolbar">
+    <div class="filters">
+      <button class="filter-btn active" data-category="all">All Machines</button>
+      <button class="filter-btn" data-category="3d_printer">3D Printers</button>
+      <button class="filter-btn" data-category="cnc_mill">CNC Mills</button>
+      <button class="filter-btn" data-category="laser_cutter">Laser Cutters</button>
+      <button class="filter-btn" data-category="plasma_waterjet">Plasma / Waterjet</button>
+    </div>
+    <input type="text" id="machineSearch" class="search-input" placeholder="Search by vendor or model..." />
+  </div>
+
+  <div id="machineGrid" class="machine-grid">
+    <!-- Populated dynamically from BUILTIN_MACHINES -->
+  </div>
+
+  <div class="importer-section">
+    <h3>1-Click Klipper Config Importer</h3>
+    <p>Paste your <code>printer.cfg</code> below to automatically extract axis travel limits, kinematics, and max feedrates into a verified <code>dry.machine/1</code> profile.</p>
+    <textarea id="klipperInput" class="config-textarea" placeholder="[stepper_x]
+position_min: 0
+position_max: 350
+...
+[printer]
+kinematics: corexy
+max_velocity: 500"></textarea>
+    <div class="import-actions">
+      <button id="importKlipperBtn" class="action-btn primary" style="max-width: 200px;">Parse & Register</button>
+      <span id="importStatus" class="import-result"></span>
+    </div>
+  </div>
+</main>
+
+<script>
+const BUILTIN_MACHINES = [
+  {
+    id: "bambu-x1c",
+    name: "Bambu Lab X1 Carbon",
+    vendor: "Bambu Lab",
+    category: "3d_printer",
+    categoryLabel: "3D Printer",
+    bounds: [0, 256, 0, 256, 0, 256],
+    maxFeed: 30000,
+    firmware: "Klipper / Custom",
+    kinematics: "CoreXY"
+  },
+  {
+    id: "voron-v24-350",
+    name: "Voron 2.4 350",
+    vendor: "Voron Design",
+    category: "3d_printer",
+    categoryLabel: "3D Printer",
+    bounds: [0, 350, 0, 350, 0, 330],
+    maxFeed: 36000,
+    firmware: "Klipper",
+    kinematics: "CoreXY"
+  },
+  {
+    id: "shapeoko-4",
+    name: "Shapeoko 4 Standard",
+    vendor: "Carbide 3D",
+    category: "cnc_mill",
+    categoryLabel: "CNC Mill",
+    bounds: [0, 444, 0, 444, 0, 101],
+    maxFeed: 5000,
+    maxRpm: 24000,
+    firmware: "GRBL",
+    kinematics: "Cartesian"
+  },
+  {
+    id: "haas-vf2",
+    name: "Haas VF-2 VMC",
+    vendor: "Haas Automation",
+    category: "cnc_mill",
+    categoryLabel: "CNC Mill",
+    bounds: [0, 762, 0, 406, 0, 508],
+    maxFeed: 25400,
+    maxRpm: 10000,
+    firmware: "RS-274",
+    kinematics: "Cartesian 3-Axis"
+  },
+  {
+    id: "ortur-lm2",
+    name: "Ortur Laser Master 2",
+    vendor: "Ortur",
+    category: "laser_cutter",
+    categoryLabel: "Laser Cutter",
+    bounds: [0, 400, 0, 400, 0, 0],
+    maxFeed: 10000,
+    firmware: "GRBL Laser",
+    kinematics: "Cartesian"
+  },
+  {
+    id: "crossfire-pro",
+    name: "CrossFire PRO Plasma",
+    vendor: "Langmuir Systems",
+    category: "plasma_waterjet",
+    categoryLabel: "Plasma Cutter",
+    bounds: [0, 845, 0, 1225, 0, 100],
+    maxFeed: 7600,
+    firmware: "GRBL / FireControl",
+    kinematics: "Cartesian"
+  }
+];
+
+function renderCards(machines) {
+  const grid = document.getElementById("machineGrid");
+  grid.innerHTML = machines.map(m => `
+    <div class="machine-card">
+      <div>
+        <div class="card-header">
+          <div>
+            <h4 class="card-title">${m.name}</h4>
+            <span class="card-vendor">${m.vendor}</span>
+          </div>
+          <span class="category-badge">${m.categoryLabel}</span>
+        </div>
+        <table class="spec-table">
+          <tr><td class="label">Build Volume</td><td class="val">${m.bounds[1]} × ${m.bounds[3]} × ${m.bounds[5]} mm</td></tr>
+          <tr><td class="label">Max Feedrate</td><td class="val">${m.maxFeed.toLocaleString()} mm/min</td></tr>
+          ${m.maxRpm ? `<tr><td class="label">Max Spindle</td><td class="val">${m.maxRpm.toLocaleString()} RPM</td></tr>` : ''}
+          <tr><td class="label">Firmware</td><td class="val">${m.firmware}</td></tr>
+          <tr><td class="label">Kinematics</td><td class="val">${m.kinematics}</td></tr>
+        </table>
+      </div>
+      <div class="card-actions">
+        <a class="action-btn primary" href="/web/?machine=${m.id}">Load in Studio</a>
+        <button class="action-btn" onclick="navigator.clipboard.writeText(JSON.stringify(${JSON.stringify(m).replace(/"/g, '&quot;')}, null, 2))">Copy JSON</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+let activeCategory = "all";
+let searchTerm = "";
+
+function applyFilters() {
+  const filtered = BUILTIN_MACHINES.filter(m => {
+    const matchCat = activeCategory === "all" || m.category === activeCategory;
+    const matchSearch = !searchTerm || m.name.toLowerCase().includes(searchTerm) || m.vendor.toLowerCase().includes(searchTerm);
+    return matchCat && matchSearch;
+  });
+  renderCards(filtered);
+}
+
+document.querySelectorAll(".filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeCategory = btn.dataset.category;
+    applyFilters();
+  });
+});
+
+document.getElementById("machineSearch").addEventListener("input", (e) => {
+  searchTerm = e.target.value.toLowerCase().trim();
+  applyFilters();
+});
+
+document.getElementById("importKlipperBtn").addEventListener("click", () => {
+  const raw = document.getElementById("klipperInput").value;
+  const status = document.getElementById("importStatus");
+  try {
+    const maxXMatch = /\[stepper_x\][^\[]*position_max:\s*([\d.]+)/i.exec(raw);
+    const maxYMatch = /\[stepper_y\][^\[]*position_max:\s*([\d.]+)/i.exec(raw);
+    const maxZMatch = /\[stepper_z\][^\[]*position_max:\s*([\d.]+)/i.exec(raw);
+    const velMatch = /\[printer\][^\[]*max_velocity:\s*([\d.]+)/i.exec(raw);
+
+    const maxX = maxXMatch ? parseFloat(maxXMatch[1]) : 200;
+    const maxY = maxYMatch ? parseFloat(maxYMatch[1]) : 200;
+    const maxZ = maxZMatch ? parseFloat(maxZMatch[1]) : 200;
+    const maxFeed = velMatch ? parseFloat(velMatch[1]) * 60 : 18000;
+
+    const imported = {
+      id: "custom-klipper-" + Date.now().toString(36),
+      name: "Custom Klipper Machine",
+      vendor: "Custom",
+      category: "3d_printer",
+      categoryLabel: "3D Printer",
+      bounds: [0, maxX, 0, maxY, 0, maxZ],
+      maxFeed: maxFeed,
+      firmware: "Klipper",
+      kinematics: raw.includes("corexy") ? "CoreXY" : "Cartesian"
+    };
+
+    BUILTIN_MACHINES.unshift(imported);
+    applyFilters();
+    status.className = "import-result success";
+    status.textContent = `Successfully imported machine (${maxX}×${maxY}×${maxZ}mm)!`;
+  } catch (err) {
+    status.className = "import-result error";
+    status.textContent = "Failed to parse Klipper config: " + err.message;
+  }
+});
+
+// Initial render
+renderCards(BUILTIN_MACHINES);
+</script>
+</body>
+</html>
