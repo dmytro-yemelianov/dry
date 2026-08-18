@@ -16,6 +16,11 @@
       --muted: #8b949e;
       --core: #58a6ff;
       --accent-green: #3fb950;
+      --accent-orange: #d29922;
+      --accent-purple: #bc8cff;
+    }
+    html {
+      scroll-behavior: smooth;
     }
     body {
       background: var(--bg);
@@ -58,13 +63,13 @@
     }
     .docs-layout {
       display: flex;
-      max-width: 1360px;
+      max-width: 1400px;
       margin: 0 auto;
       min-height: calc(100vh - 120px);
     }
     .docs-sidebar {
-      width: 280px;
-      padding: 32px 24px;
+      width: 290px;
+      padding: 28px 20px;
       border-right: 1px solid var(--line);
       flex-shrink: 0;
       position: sticky;
@@ -72,17 +77,22 @@
       height: calc(100vh - 57px);
       overflow-y: auto;
       box-sizing: border-box;
+      background: var(--bg);
     }
     .sidebar-search {
       width: 100%;
-      background: var(--bg);
+      background: var(--panel);
       border: 1px solid var(--line);
-      color: var(--fg);
+      color: var(--fg-bright);
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 13px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       box-sizing: border-box;
+      outline: none;
+    }
+    .sidebar-search:focus {
+      border-color: var(--core);
     }
     .sidebar-section-title {
       font-size: 11px;
@@ -98,14 +108,14 @@
       margin: 0;
     }
     .sidebar-links li {
-      margin: 4px 0;
+      margin: 2px 0;
     }
     .sidebar-links a {
       color: var(--fg);
       text-decoration: none;
       font-size: 13px;
       display: block;
-      padding: 6px 8px;
+      padding: 6px 10px;
       border-radius: 4px;
       transition: all 0.15s ease;
     }
@@ -115,8 +125,13 @@
     }
     .docs-content {
       flex: 1;
-      padding: 40px 48px 100px;
-      max-width: 860px;
+      padding: 40px 60px 120px;
+      max-width: 920px;
+      box-sizing: border-box;
+    }
+    section {
+      margin-bottom: 60px;
+      padding-top: 20px;
     }
     h1 {
       font-size: 32px;
@@ -127,13 +142,13 @@
     h2 {
       font-size: 22px;
       color: var(--fg-bright);
-      margin-top: 40px;
+      margin-top: 36px;
       margin-bottom: 16px;
       padding-bottom: 8px;
       border-bottom: 1px solid var(--line);
     }
     h3 {
-      font-size: 17px;
+      font-size: 16px;
       color: var(--fg-bright);
       margin-top: 24px;
       margin-bottom: 10px;
@@ -142,6 +157,13 @@
       font-size: 14px;
       color: #8b949e;
       line-height: 1.65;
+    }
+    ul, ol {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    li {
+      margin-bottom: 6px;
     }
     code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -211,6 +233,17 @@
       border: 1px solid rgba(88, 166, 255, 0.3);
       margin-left: 8px;
     }
+    .info-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--core);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .info-card.green { border-left-color: var(--accent-green); }
+    .info-card.orange { border-left-color: var(--accent-orange); }
+    .info-card.purple { border-left-color: var(--accent-purple); }
     footer {
       border-top: 1px solid var(--line);
       padding: 32px;
@@ -245,27 +278,27 @@
 
 <div class="docs-layout">
   <aside class="docs-sidebar">
-    <input type="text" id="docsSearch" class="sidebar-search" placeholder="Search documentation...">
+    <input type="text" id="docsSearch" class="sidebar-search" placeholder="Filter documentation...">
     
     <div class="sidebar-section-title">Getting Started</div>
     <ul class="sidebar-links">
       <li><a href="#overview" class="active">Platform Overview</a></li>
       <li><a href="#quickstart">Quickstart Guide</a></li>
-      <li><a href="#architecture">Architecture & IR</a></li>
+      <li><a href="#architecture">Architecture & Multi-Dialect IR</a></li>
     </ul>
 
     <div class="sidebar-section-title">SDKs & Tooling</div>
     <ul class="sidebar-links">
-      <li><a href="#sdk-typescript">TypeScript SDK</a></li>
-      <li><a href="#sdk-python">Python SDK</a></li>
-      <li><a href="#rust-core">Rust Core Crate</a></li>
-      <li><a href="#cli-usage">Native CLI</a></li>
+      <li><a href="#sdk-typescript">TypeScript SDK (@dry/sdk)</a></li>
+      <li><a href="#sdk-python">Python SDK (dry)</a></li>
+      <li><a href="#rust-core">Rust Core Crate (dry-core)</a></li>
+      <li><a href="#cli-usage">Native CLI (dry)</a></li>
     </ul>
 
     <div class="sidebar-section-title">Manufacturing Processes</div>
     <ul class="sidebar-links">
       <li><a href="#proc-fdm">3D Printing (FDM)</a></li>
-      <li><a href="#proc-cnc">CNC Milling (RS-274)</a></li>
+      <li><a href="#proc-cnc">CNC Milling (RS-274 / GRBL)</a></li>
       <li><a href="#proc-laser">Laser Cutting & Engraving</a></li>
       <li><a href="#proc-plasma">Plasma & Waterjet</a></li>
       <li><a href="#proc-robotics">5-Axis Robotics & RTCP</a></li>
@@ -276,7 +309,7 @@
       <li><a href="#math-scurve">7-Phase S-Curve Motion</a></li>
       <li><a href="#math-tpms">TPMS Implicit Slicing</a></li>
       <li><a href="#math-pocket">Stepped Pocketing Engine</a></li>
-      <li><a href="#math-stepnc">ISO 14649 STEP-NC Parser</a></li>
+      <li><a href="#math-stepnc">ISO 14649 STEP-NC Importer</a></li>
     </ul>
 
     <div class="sidebar-section-title">Specification Schemas</div>
@@ -290,10 +323,16 @@
   </aside>
 
   <main class="docs-content">
+    <!-- 1. Overview -->
     <section id="overview">
       <h1>Dry Machina Documentation</h1>
-      <p>Dry Machina (<code>drymachina.com</code>) is an open-source, multi-process CAM toolpath compiler and generative manufacturing platform written in Rust with WebAssembly, TypeScript, and Python SDK bindings.</p>
+      <p>Dry Machina (<code>drymachina.com</code>) is an open-source, multi-process CAM toolpath compiler, intermediate representation (IR), and generative manufacturing platform written in Rust with WebAssembly, TypeScript, and Python SDK bindings.</p>
       
+      <div class="info-card">
+        <strong style="color: var(--fg-bright);">The Universal Manufacturing Compiler:</strong><br>
+        Just as LLVM abstracts machine assembly code across x86, ARM, and WebAssembly, Dry Machina abstracts machine motion across FDM 3D printers, subtractive CNC machining centers, diode/fiber lasers, plasma tables, and 6-axis industrial robotic arms.
+      </div>
+
       <h2>Core Design Principles</h2>
       <ul>
         <li><strong>Multi-Process Portability:</strong> Compile a single geometric intent into G-code for 3D printers (Klipper/Marlin/Bambu), CNC mills (RS-274/GRBL), laser cutters, plasma tables, and 5-axis robotic arms.</li>
@@ -302,9 +341,10 @@
       </ul>
     </section>
 
+    <!-- 2. Quickstart -->
     <section id="quickstart">
       <h2>Quickstart Guide</h2>
-      <p>Choose your preferred environment to start authoring and compiling toolpaths:</p>
+      <p>Choose your preferred programming language or tool to start authoring and compiling toolpaths:</p>
 
       <div class="code-tabs">
         <div class="tab-headers">
@@ -372,9 +412,86 @@ dry trace conformance/gcode/square.json</code></pre>
       </div>
     </section>
 
+    <!-- 3. Architecture -->
+    <section id="architecture">
+      <h2>Architecture & Multi-Dialect IR</h2>
+      <p>The Dry compilation pipeline uses a strictly layered intermediate representation:</p>
+      <ul>
+        <li><strong>L1 (Design Intent):</strong> High-level authoring operations (e.g. <code>move</code>, <code>arc</code>, <code>spline</code>, <code>pocket</code>, <code>tpms</code>, <code>speed</code>, <code>flow</code>) independent of machine kinematics.</li>
+        <li><strong>L2 (Resolved Toolpath):</strong> Fully sampled linear and arc segments with resolved Cartesian positions, volumetric extrusion ratios, and spindle power.</li>
+        <li><strong>L3 (Motion Profile & Machine G-Code):</strong> Kinematically bounded moves with 7-phase S-curve profiles, corner deceleration, retraction hops, and dialect-specific formatting (Klipper, Bambu, RS-274, GRBL, KUKA KRL).</li>
+      </ul>
+    </section>
+
+    <!-- 4. TypeScript SDK -->
+    <section id="sdk-typescript">
+      <h2>TypeScript SDK <span class="spec-badge">@dry/sdk</span></h2>
+      <p>The official TypeScript SDK for Node.js and modern browser WebAssembly execution.</p>
+      <pre><code>npm install @dry/sdk</code></pre>
+      <p>Key exports include <code>Design</code>, <code>MachineCatalog</code>, <code>computeSCurveProfile</code>, <code>importStepNc</code>, <code>TPMSGenerator</code>, and units helpers (<code>mm</code>, <code>inch</code>, <code>mm_s</code>).</p>
+    </section>
+
+    <!-- 5. Python SDK -->
+    <section id="sdk-python">
+      <h2>Python SDK <span class="spec-badge">dry</span></h2>
+      <p>The high-performance Python SDK powered by native Rust PyO3 bindings.</p>
+      <pre><code>pip install dry</code></pre>
+      <p>Provides complete feature parity with the TypeScript and Rust layers, including FullControl Python design reproduction, TPMS field slicing, and machine profile verification.</p>
+    </section>
+
+    <!-- 6. Rust Core Crate -->
+    <section id="rust-core">
+      <h2>Rust Core Crate <span class="spec-badge">dry-core</span></h2>
+      <p>The foundational compiler crate providing pure Rust, zero-allocation data structures, serialization schemas, and motion optimizers.</p>
+      <pre><code>[dependencies]
+dry-core = { version = "0.7.0", path = "crates/core" }</code></pre>
+    </section>
+
+    <!-- 7. Native CLI -->
+    <section id="cli-usage">
+      <h2>Native CLI <span class="spec-badge">dry</span></h2>
+      <p>Command-line interface for batch processing, automated CI/CD verification, and machine communication.</p>
+      <pre><code># Commands overview:
+dry emit &lt;INPUT.json&gt; --flavor [klipper|bambu|marlin|grbl|rs274|krl]
+dry verify &lt;INPUT.json&gt; --profile &lt;PROFILE.json&gt;
+dry trace &lt;INPUT.json&gt;
+dry login</code></pre>
+    </section>
+
+    <!-- 8. 3D Printing (FDM) -->
+    <section id="proc-fdm">
+      <h2>3D Printing (FDM)</h2>
+      <p>Supports non-planar toolpaths, continuous vase spirals, variable extrusion bead widths, dynamic cooling fan curves, and multi-material tool changes across Klipper, RepRap, Marlin, and Bambu Lab hardware.</p>
+    </section>
+
+    <!-- 9. CNC Milling -->
+    <section id="proc-cnc">
+      <h2>CNC Milling (RS-274 / GRBL)</h2>
+      <p>Supports canned drilling cycles (<code>G81</code> standard drilling, <code>G83</code> deep hole peck drilling), volumetric Material Removal Rate (MRR) computation, spindle cutting power estimation ($P_c = \frac{\text{MRR} \cdot k_c}{60 \cdot \eta}$), and cusp height surface roughness calculation.</p>
+    </section>
+
+    <!-- 10. Laser Cutting -->
+    <section id="proc-laser">
+      <h2>Laser Cutting & Engraving</h2>
+      <p>Supports dynamic spindle PWM power modulation (<code>M3 S...</code> / <code>M4 S...</code>), lead-in kerf compensation, air assist solenoid triggers, and continuous raster vectorization.</p>
+    </section>
+
+    <!-- 11. Plasma & Waterjet -->
+    <section id="proc-plasma">
+      <h2>Plasma & Waterjet</h2>
+      <p>Supports torch height control (THC) initial height sensing (IHS), pierce delay dwells (<code>G4 P...</code>), corner radius slowdown, and kerf width offsetting.</p>
+    </section>
+
+    <!-- 12. 5-Axis Robotics -->
+    <section id="proc-robotics">
+      <h2>5-Axis Robotics & RTCP</h2>
+      <p>Supports Rotation Tool Center Point (RTCP) kinematics, surface normal vector interpolation ($\vec{n} = [i, j, k]$), and native KUKA Robot Language (KRL <code>LIN</code> / <code>PTP</code>) emitter lowering.</p>
+    </section>
+
+    <!-- 13. S-Curve Motion -->
     <section id="math-scurve">
       <h2>7-Phase Jerk-Bounded S-Curve Motion (D4.5)</h2>
-      <p>Dry Machina implements an analytical 7-phase S-curve profile solver that bounds jerk (\(\frac{da}{dt} \le j_{\max}\)), preventing acceleration discontinuities that cause ringing, ghosting, and motor resonance.</p>
+      <p>Dry Machina implements an analytical 7-phase S-curve profile solver that bounds jerk (\(\frac{da}{dt} \le j_{\max}\)), eliminating acceleration discontinuities that cause ringing, ghosting, and motor resonance.</p>
       <pre><code>import { computeSCurveProfile } from '@dry/sdk';
 
 // Calculate smooth transition from 0 to 200 mm/s
@@ -383,6 +500,24 @@ const profile = computeSCurveProfile(0, 200, 2000, 20000);
 console.log(`Duration: ${profile.total_duration}s, Peak Accel: ${profile.peak_acceleration} mm/s²`);</code></pre>
     </section>
 
+    <!-- 14. TPMS Implicit Slicing -->
+    <section id="math-tpms">
+      <h2>TPMS Implicit Slicing</h2>
+      <p>Triply Periodic Minimal Surfaces (TPMS) generated directly from mathematical implicit field functions:</p>
+      <ul>
+        <li><strong>Gyroid:</strong> \(\sin(x)\cos(y) + \sin(y)\cos(z) + \sin(z)\cos(x) = C\)</li>
+        <li><strong>Schwarz Diamond:</strong> \(\sin(x)\sin(y)\sin(z) + \sin(x)\cos(y)\cos(z) + \cos(x)\sin(y)\cos(z) + \cos(x)\cos(y)\sin(z) = C\)</li>
+        <li><strong>Schwarz Primitive:</strong> \(\cos(x) + \cos(y) + \cos(z) = C\)</li>
+      </ul>
+    </section>
+
+    <!-- 15. Stepped Pocketing Engine -->
+    <section id="math-pocket">
+      <h2>Stepped Pocketing Engine</h2>
+      <p>Generates multi-pass rectangular and circular pocketing roughing toolpaths with constant radial engagement and customizable stepover and stepdown.</p>
+    </section>
+
+    <!-- 16. ISO 14649 STEP-NC Importer -->
     <section id="math-stepnc">
       <h2>ISO 14649 STEP-NC Importer (D1.8)</h2>
       <p>Directly ingest enterprise CAD/CAM machining workingsteps (drilling cycles, planar facing, and closed pocket features) into Dry L1 operations:</p>
@@ -397,6 +532,25 @@ const xml = `&lt;stepnc xmlns="urn:iso:std:iso-10303-14649"&gt;
 const ops = importStepNc(xml);</code></pre>
     </section>
 
+    <!-- 17. dry.intent/1 -->
+    <section id="schema-intent">
+      <h2>Design Intent Specification <span class="spec-badge">dry.intent/1</span></h2>
+      <p>High-level resolution-independent design layer schema for multi-process geometry definitions.</p>
+    </section>
+
+    <!-- 18. dry.motion/1 -->
+    <section id="schema-motion">
+      <h2>Motion Segment Specification <span class="spec-badge">dry.motion/1</span></h2>
+      <p>Intermediate representation for kinematically resolved toolpath segments, coordinates, feedrates, and orientations.</p>
+    </section>
+
+    <!-- 19. dry.tool/1 -->
+    <section id="schema-tool">
+      <h2>Cutting Tool & Nozzle Specification <span class="spec-badge">dry.tool/1</span></h2>
+      <p>Schema for endmills (flat, ballnose, chamfer), plasma torches, laser heads, and FDM extruder nozzles.</p>
+    </section>
+
+    <!-- 20. dry.machine/1 -->
     <section id="schema-machine">
       <h2>Machine Profile Specification <span class="spec-badge">dry.machine/1</span></h2>
       <p>Standardized JSON schema for describing manufacturing hardware constraints across 3D printers, CNC mills, laser cutters, and robotics:</p>
@@ -420,6 +574,12 @@ const ops = importStepNc(xml);</code></pre>
   "max_bed_temp": 120
 }</code></pre>
     </section>
+
+    <!-- 21. dry.report/1 -->
+    <section id="schema-report">
+      <h2>Pre-Flight Verification Report <span class="spec-badge">dry.report/1</span></h2>
+      <p>JSON schema for diagnostics, axis boundary checks, kinematic violations, collision flags, and manufacturing telemetry.</p>
+    </section>
   </main>
 </div>
 
@@ -434,6 +594,7 @@ const ops = importStepNc(xml);</code></pre>
 </footer>
 
 <script>
+// Code Tab Switching
 function switchTab(e, tabId) {
   const container = e.target.closest('.code-tabs');
   container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -441,6 +602,45 @@ function switchTab(e, tabId) {
   e.target.classList.add('active');
   document.getElementById(tabId).classList.add('active');
 }
+
+// Active Sidebar Highlighting on Click & Scroll
+document.querySelectorAll('.sidebar-links a').forEach(link => {
+  link.addEventListener('click', (e) => {
+    document.querySelectorAll('.sidebar-links a').forEach(a => a.classList.remove('active'));
+    link.classList.add('active');
+  });
+});
+
+// Realtime Search Filter for Sidebar
+document.getElementById('docsSearch').addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('.sidebar-links li').forEach(item => {
+    const text = item.textContent.toLowerCase();
+    if (!query || text.includes(query)) {
+      item.style.display = 'block';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+});
+
+// Scrollspy for active link
+window.addEventListener('scroll', () => {
+  const fromTop = window.scrollY + 100;
+  const links = document.querySelectorAll('.sidebar-links a');
+  
+  document.querySelectorAll('main section').forEach(section => {
+    if (section.offsetTop <= fromTop && (section.offsetTop + section.offsetHeight) > fromTop) {
+      links.forEach(a => {
+        if (a.getAttribute('href') === `#${section.id}`) {
+          a.classList.add('active');
+        } else {
+          a.classList.remove('active');
+        }
+      });
+    }
+  });
+});
 </script>
 
 </body>
