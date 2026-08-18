@@ -185,6 +185,7 @@ impl FixturePose {
             y: self.y.to_f64()?,
             z: self.z.to_f64()?,
             rotate_z_deg: self.rotate_z_deg.to_f64()?,
+            ..Default::default()
         })
     }
 }

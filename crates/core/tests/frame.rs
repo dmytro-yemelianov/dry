@@ -8,7 +8,6 @@ fn test_frame_id_canonical_strings() {
     assert_eq!(FrameId::Fixture.as_str(), "fixture");
     assert_eq!(FrameId::Tool.as_str(), "tool");
     assert_eq!(FrameId::Machine.as_str(), "machine");
-    assert_eq!(FrameId::Custom("part-1".into()).as_str(), "part-1");
 }
 
 #[test]

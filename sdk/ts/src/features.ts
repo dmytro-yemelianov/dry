@@ -9,6 +9,13 @@ export interface FeaturePose {
   y?: number;
   z?: number;
   rotate_z_deg?: number;
+  rotation?: {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+  };
+  frame?: string;
 }
 
 export type FeatureNode =

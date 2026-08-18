@@ -145,6 +145,7 @@ fn feature_pose_transforms_points_arcs_and_orientation() {
                 y: 20.0,
                 z: 4.0,
                 rotate_z_deg: 90.0,
+                ..Default::default()
             },
         )],
     };
@@ -305,10 +306,10 @@ fn feature_program_rejects_unknown_fields() {
     let json = r#"{
       "features": [{
         "kind": "feature",
-        "pose": {"rotation": 90},
+        "pose": {"unknown_field": 90},
         "ops": [{"op": "move", "x": 0, "y": 0, "z": 0.2}]
       }]
     }"#;
     let error = serde_json::from_str::<FeatureProgram>(json).unwrap_err();
-    assert!(error.to_string().contains("unknown field `rotation`"));
+    assert!(error.to_string().contains("unknown field `unknown_field`"));
 }

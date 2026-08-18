@@ -5,6 +5,7 @@
 //! sequence semantics. Groups preserve order; repeats compose a step pose. Full 3D named coordinate
 //! frames belong to D1.3.
 
+use crate::frame::{FrameId, Quaternion};
 use crate::resolve::{Design, Op};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
@@ -13,7 +14,8 @@ pub const DEFAULT_MAX_EXPANDED_OPS: usize = 1_000_000;
 pub const DEFAULT_MAX_EXPANDED_NODES: usize = 100_000;
 pub const DEFAULT_MAX_FEATURE_DEPTH: usize = 64;
 
-/// A planar feature pose. Translation is in millimetres and rotation is in degrees about +Z.
+/// A 3D feature pose. Translation is in millimetres, with either planar rotation (in degrees about +Z)
+/// or full 3D quaternion rotation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FeaturePose {
@@ -25,6 +27,10 @@ pub struct FeaturePose {
     pub z: f64,
     #[serde(default)]
     pub rotate_z_deg: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Quaternion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<FrameId>,
 }
 
 /// One node in the first bounded L0 feature graph.
@@ -51,7 +57,7 @@ pub enum FeatureNode {
     },
 }
 
-/// A versionless internal L0 program for P2.3. Its public stabilization/versioning belongs to D1.
+/// A versionless internal L0 program for P2.3 / D1.2. Its public stabilization/versioning belongs to D1.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FeatureProgram {
@@ -103,6 +109,7 @@ struct Transform {
     cos: f64,
     sin: f64,
     translation: [f64; 3],
+    rotation: Option<Quaternion>,
 }
 
 impl Transform {
@@ -111,6 +118,7 @@ impl Transform {
             cos: 1.0,
             sin: 0.0,
             translation: [0.0; 3],
+            rotation: None,
         }
     }
 
@@ -127,11 +135,17 @@ impl Transform {
                 )));
             }
         }
-        let angle = radians_from_degrees(pose.rotate_z_deg);
+        let (cos, sin, rotation) = if let Some(q) = pose.rotation {
+            (1.0, 0.0, Some(q))
+        } else {
+            let angle = radians_from_degrees(pose.rotate_z_deg);
+            (libm::cos(angle), libm::sin(angle), None)
+        };
         Ok(Self {
-            cos: libm::cos(angle),
-            sin: libm::sin(angle),
+            cos,
+            sin,
             translation: [pose.x, pose.y, pose.z],
+            rotation,
         })
     }
 
@@ -139,6 +153,18 @@ impl Transform {
     fn compose(self, local: Self) -> Self {
         let [lx, ly, lz] = local.translation;
         let translated = self.apply_vector([lx, ly, lz]);
+        let rotation = match (self.rotation, local.rotation) {
+            (Some(q1), Some(q2)) => Some(q1.multiply(q2)),
+            (Some(q1), None) => {
+                let q2 = Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(local.sin, local.cos));
+                Some(q1.multiply(q2))
+            }
+            (None, Some(q2)) => {
+                let q1 = Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(self.sin, self.cos));
+                Some(q1.multiply(q2))
+            }
+            (None, None) => None,
+        };
         Self {
             cos: self.cos * local.cos - self.sin * local.sin,
             sin: self.sin * local.cos + self.cos * local.sin,
@@ -147,6 +173,7 @@ impl Transform {
                 translated[1] + self.translation[1],
                 translated[2] + self.translation[2],
             ],
+            rotation,
         }
     }
 
@@ -160,18 +187,28 @@ impl Transform {
     }
 
     fn apply_xy(self, point: [f64; 2]) -> [f64; 2] {
-        [
-            self.cos * point[0] - self.sin * point[1] + self.translation[0],
-            self.sin * point[0] + self.cos * point[1] + self.translation[1],
-        ]
+        if let Some(q) = self.rotation {
+            let (px, py, _) = q.rotate_point(point[0], point[1], 0.0);
+            [px + self.translation[0], py + self.translation[1]]
+        } else {
+            [
+                self.cos * point[0] - self.sin * point[1] + self.translation[0],
+                self.sin * point[0] + self.cos * point[1] + self.translation[1],
+            ]
+        }
     }
 
     fn apply_vector(self, vector: [f64; 3]) -> [f64; 3] {
-        [
-            self.cos * vector[0] - self.sin * vector[1],
-            self.sin * vector[0] + self.cos * vector[1],
-            vector[2],
-        ]
+        if let Some(q) = self.rotation {
+            let (vx, vy, vz) = q.rotate_point(vector[0], vector[1], vector[2]);
+            [vx, vy, vz]
+        } else {
+            [
+                self.cos * vector[0] - self.sin * vector[1],
+                self.sin * vector[0] + self.cos * vector[1],
+                vector[2],
+            ]
+        }
     }
 
     fn is_identity(self) -> bool {
@@ -179,6 +216,9 @@ impl Transform {
         (self.cos - 1.0).abs() <= EPS
             && self.sin.abs() <= EPS
             && self.translation.iter().all(|value| value.abs() <= EPS)
+            && self.rotation.map_or(true, |q| {
+                (q.w - 1.0).abs() <= EPS && q.x.abs() <= EPS && q.y.abs() <= EPS && q.z.abs() <= EPS
+            })
     }
 }
 

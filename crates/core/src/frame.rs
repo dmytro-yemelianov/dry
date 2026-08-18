@@ -13,7 +13,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Canonical named frame identifiers.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FrameId {
     Design,
@@ -21,8 +21,6 @@ pub enum FrameId {
     Fixture,
     Tool,
     Machine,
-    #[serde(untagged)]
-    Custom(String),
 }
 
 impl FrameId {
@@ -34,7 +32,6 @@ impl FrameId {
             FrameId::Fixture => "fixture",
             FrameId::Tool => "tool",
             FrameId::Machine => "machine",
-            FrameId::Custom(s) => s.as_str(),
         }
     }
 }

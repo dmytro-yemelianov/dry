@@ -119,6 +119,7 @@ impl FixturePose {
             y: self.y,
             z: self.z,
             rotate_z_deg: self.rotate_z_deg,
+            ..Default::default()
         }
     }
 }
