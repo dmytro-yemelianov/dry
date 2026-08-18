@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStudioStore } from '../../store/useStudioStore';
 import { DESIGN_DEFS, FULLCONTROL_GALLERY } from '../../data/designs';
 import type { DesignDef } from '../../types/domain';
@@ -13,6 +13,9 @@ export const CatalogAccordions: React.FC = () => {
   const activeParams = useStudioStore((state) => state.activeParams);
   const updateParam = useStudioStore((state) => state.updateParam);
   const resetParams = useStudioStore((state) => state.resetParams);
+
+  // Parameters are collapsed by default
+  const [expandedCardKey, setExpandedCardKey] = useState<string | null>(null);
 
   const categories: Record<string, DesignDef[]> = {
     'Vases & Non-Planar': [],
@@ -127,15 +130,37 @@ export const CatalogAccordions: React.FC = () => {
                 {filteredItems.map((item) => {
                   const isSelected = item.key === activeDesignKey;
                   const isParametric = item.params && item.params.length > 0;
+                  const isExpanded = isSelected && expandedCardKey === item.key;
 
                   return (
                     <div
                       key={item.key}
                       className={`gallery-card ${isSelected ? 'active' : ''}`}
-                      onClick={() => !isSelected && selectDesign(item.key)}
+                      onClick={() => {
+                        if (!isSelected) {
+                          selectDesign(item.key);
+                          // Parameters remain collapsed by default on selection
+                        }
+                      }}
                     >
                       <div className="gallery-card-header">
-                        <div className="gallery-title">{item.label}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                          <div className="gallery-title">{item.label}</div>
+                          {isParametric && (
+                            <button
+                              className={`param-toggle-pill ${isExpanded ? 'open' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isSelected) selectDesign(item.key);
+                                setExpandedCardKey(isExpanded ? null : item.key);
+                              }}
+                              title={isExpanded ? 'Collapse parameters' : 'Expand parameter sliders'}
+                            >
+                              {isExpanded ? '▼ Params' : `⚙️ ${item.params.length}`}
+                            </button>
+                          )}
+                        </div>
+
                         <div className="gallery-tags">
                           {item.tags.map((t) => (
                             <span key={t} className="tag-badge">
@@ -145,8 +170,8 @@ export const CatalogAccordions: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Inline Parameter Drawer for Selected Card */}
-                      {isSelected && (
+                      {/* Inline Parameter Drawer when expanded */}
+                      {isExpanded && isParametric && (
                         <div
                           className="card-param-drawer"
                           onClick={(e) => e.stopPropagation()}
@@ -162,51 +187,45 @@ export const CatalogAccordions: React.FC = () => {
                             </button>
                           </div>
 
-                          {isParametric ? (
-                            <div className="param-fields-compact">
-                              {item.params.map((p) => {
-                                const val = activeParams[p.id] ?? p.defaultValue;
-                                return (
-                                  <div key={p.id} className="param-row-compact">
-                                    <div className="param-label-wrapper-compact">
-                                      <span className="param-label-compact">{p.label}</span>
-                                      <span className="param-val-badge-compact">
-                                        {val} {p.unit}
-                                      </span>
-                                    </div>
-                                    <div className="param-input-wrapper-compact">
-                                      <input
-                                        type="range"
-                                        className="param-slider-compact"
-                                        min={p.min}
-                                        max={p.max}
-                                        step={p.step}
-                                        value={val}
-                                        onChange={(e) =>
-                                          updateParam(p.id, parseFloat(e.target.value))
-                                        }
-                                      />
-                                      <input
-                                        type="number"
-                                        className="param-num-input-compact"
-                                        min={p.min}
-                                        max={p.max}
-                                        step={p.step}
-                                        value={val}
-                                        onChange={(e) =>
-                                          updateParam(p.id, parseFloat(e.target.value))
-                                        }
-                                      />
-                                    </div>
+                          <div className="param-fields-compact">
+                            {item.params.map((p) => {
+                              const val = activeParams[p.id] ?? p.defaultValue;
+                              return (
+                                <div key={p.id} className="param-row-compact">
+                                  <div className="param-label-wrapper-compact">
+                                    <span className="param-label-compact">{p.label}</span>
+                                    <span className="param-val-badge-compact">
+                                      {val} {p.unit}
+                                    </span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="param-fixed-notice">
-                              Fixed canonical reference geometry (FullControl).
-                            </div>
-                          )}
+                                  <div className="param-input-wrapper-compact">
+                                    <input
+                                      type="range"
+                                      className="param-slider-compact"
+                                      min={p.min}
+                                      max={p.max}
+                                      step={p.step}
+                                      value={val}
+                                      onChange={(e) =>
+                                        updateParam(p.id, parseFloat(e.target.value))
+                                      }
+                                    />
+                                    <input
+                                      type="number"
+                                      className="param-num-input-compact"
+                                      min={p.min}
+                                      max={p.max}
+                                      step={p.step}
+                                      value={val}
+                                      onChange={(e) =>
+                                        updateParam(p.id, parseFloat(e.target.value))
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

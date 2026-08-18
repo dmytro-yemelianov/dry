@@ -401,6 +401,33 @@ html, body, #root, .studio-app-container {
   gap: 4px;
 }
 
+.param-toggle-pill {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.param-toggle-pill:hover {
+  background: var(--bg-hover);
+  color: var(--fg-bright);
+  border-color: var(--border-light);
+}
+
+.param-toggle-pill.open {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
 .tag-badge {
   font-size: 9.5px;
   background: var(--bg-panel);
