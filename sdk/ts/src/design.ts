@@ -298,4 +298,93 @@ export class Design {
       kinematics
     );
   }
+
+  /**
+   * Pre-flight check toolpath against machine capabilities (D2.2).
+   */
+  checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport {
+    const toolpath = this.ir(printer);
+    const findings: CompatibilityFinding[] = [];
+
+    for (let index = 0; index < toolpath.segments.length; index++) {
+      const seg = toolpath.segments[index];
+      const end = seg.end;
+      if (end) {
+        const [x, y, z] = end;
+        if (x !== null && (x < capabilities.xRange.min || x > capabilities.xRange.max)) {
+          findings.push({
+            severity: 'Error',
+            code: 'OUT_OF_BOUNDS_X',
+            message: `X coordinate ${x} exceeds machine limit [${capabilities.xRange.min}, ${capabilities.xRange.max}]`,
+            segmentIndex: index,
+          });
+        }
+        if (y !== null && (y < capabilities.yRange.min || y > capabilities.yRange.max)) {
+          findings.push({
+            severity: 'Error',
+            code: 'OUT_OF_BOUNDS_Y',
+            message: `Y coordinate ${y} exceeds machine limit [${capabilities.yRange.min}, ${capabilities.yRange.max}]`,
+            segmentIndex: index,
+          });
+        }
+        if (z !== null && (z < capabilities.zRange.min || z > capabilities.zRange.max)) {
+          findings.push({
+            severity: 'Error',
+            code: 'OUT_OF_BOUNDS_Z',
+            message: `Z coordinate ${z} exceeds machine limit [${capabilities.zRange.min}, ${capabilities.zRange.max}]`,
+            segmentIndex: index,
+          });
+        }
+      }
+
+      if (capabilities.maxFeedrate !== undefined && seg.speed > capabilities.maxFeedrate) {
+        findings.push({
+          severity: 'Warning',
+          code: 'EXCEEDS_MAX_FEEDRATE',
+          message: `Feedrate ${seg.speed} exceeds machine max ${capabilities.maxFeedrate}`,
+          segmentIndex: index,
+        });
+      }
+
+      if (capabilities.maxSpindleRpm !== undefined && seg.power !== undefined && seg.power > capabilities.maxSpindleRpm) {
+        findings.push({
+          severity: 'Warning',
+          code: 'EXCEEDS_MAX_SPINDLE_RPM',
+          message: `Spindle speed ${seg.power} exceeds machine max ${capabilities.maxSpindleRpm}`,
+          segmentIndex: index,
+        });
+      }
+    }
+
+    return {
+      compatible: !findings.some((f) => f.severity === 'Error'),
+      findings,
+    };
+  }
+}
+
+export interface AxisRange {
+  min: number;
+  max: number;
+}
+
+export interface MachineCapabilities {
+  name?: string;
+  xRange: AxisRange;
+  yRange: AxisRange;
+  zRange: AxisRange;
+  maxFeedrate?: number;
+  maxSpindleRpm?: number;
+}
+
+export interface CompatibilityFinding {
+  severity: 'Warning' | 'Error';
+  code: string;
+  message: string;
+  segmentIndex?: number;
+}
+
+export interface CompatibilityReport {
+  compatible: boolean;
+  findings: CompatibilityFinding[];
 }

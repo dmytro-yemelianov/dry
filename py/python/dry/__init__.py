@@ -374,6 +374,71 @@ class Design:
             kin_json,
         ))
 
+    def check_compatibility(
+        self,
+        capabilities: Mapping[str, Any],
+        printer: str = "generic",
+    ) -> Mapping[str, Any]:
+        """Pre-flight check toolpath against machine capabilities (D2.2)."""
+        tp = self.ir(printer)
+        segments = tp.get("segments", []) if isinstance(tp, dict) else []
+        findings = []
+
+        x_range = capabilities.get("x_range", [0, 300])
+        y_range = capabilities.get("y_range", [0, 300])
+        z_range = capabilities.get("z_range", [0, 300])
+        max_feed = capabilities.get("max_feedrate")
+        max_spindle = capabilities.get("max_spindle_rpm")
+
+        for index, seg in enumerate(segments):
+            end = seg.get("end")
+            if end:
+                x, y, z = end
+                if x is not None and (x < x_range[0] or x > x_range[1]):
+                    findings.append({
+                        "severity": "Error",
+                        "code": "OUT_OF_BOUNDS_X",
+                        "message": f"X coordinate {x} exceeds machine limit [{x_range[0]}, {x_range[1]}]",
+                        "segment_index": index,
+                    })
+                if y is not None and (y < y_range[0] or y > y_range[1]):
+                    findings.append({
+                        "severity": "Error",
+                        "code": "OUT_OF_BOUNDS_Y",
+                        "message": f"Y coordinate {y} exceeds machine limit [{y_range[0]}, {y_range[1]}]",
+                        "segment_index": index,
+                    })
+                if z is not None and (z < z_range[0] or z > z_range[1]):
+                    findings.append({
+                        "severity": "Error",
+                        "code": "OUT_OF_BOUNDS_Z",
+                        "message": f"Z coordinate {z} exceeds machine limit [{z_range[0]}, {z_range[1]}]",
+                        "segment_index": index,
+                    })
+
+            speed = seg.get("speed", 0.0)
+            if max_feed is not None and speed > max_feed:
+                findings.append({
+                    "severity": "Warning",
+                    "code": "EXCEEDS_MAX_FEEDRATE",
+                    "message": f"Feedrate {speed} exceeds machine max {max_feed}",
+                    "segment_index": index,
+                })
+
+            power = seg.get("power")
+            if max_spindle is not None and power is not None and power > max_spindle:
+                findings.append({
+                    "severity": "Warning",
+                    "code": "EXCEEDS_MAX_SPINDLE_RPM",
+                    "message": f"Spindle speed {power} exceeds machine max {max_spindle}",
+                    "segment_index": index,
+                })
+
+        return {
+            "compatible": not any(f["severity"] == "Error" for f in findings),
+            "findings": findings,
+        }
+
 
 def feature(
     design: Union[Design, Sequence[Op]],

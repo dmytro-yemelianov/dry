@@ -58,6 +58,7 @@ export { TPMS_SURFACES, tpms, tpmsField, tpmsOps, tpmsSurfaceSpec } from './gene
 export type { TpmsOptions, TpmsSurface, TpmsSurfaceSpec } from './generators/tpms';
 export { pocket, pocketOps } from './generators/pocket';
 export type { CutMode, PocketOptions } from './generators/pocket';
-export { mm, cm, inch, deg, rad, mm_s, mm_min, celsius, s, ms } from './units';
-
-
+export { celsius, cm, deg, inch, mm, mm_min, mm_s, ms, rad, s } from './units';
+export type { AxisRange, CompatibilityFinding, CompatibilityReport, MachineCapabilities } from './design';
+export { renderFrameAxes } from './visualizer';
+export type { AxisLine, Point3D } from './visualizer';

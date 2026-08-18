@@ -25,6 +25,7 @@ pub mod gcode;
 pub mod generate;
 pub mod ir;
 pub mod optimize;
+pub mod pipeline;
 pub mod profile;
 pub mod provenance;
 pub mod recommend;
@@ -54,10 +55,11 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 #[allow(deprecated)]
 pub use emit::emit;
 pub use emit::{
-    emit_cycle_cancel, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, DrillCycle,
-    EmitParams, FirmwareFlavor, Kinematics, KrlFrame, KrlTransform, PeckDrillCycle,
-    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_cycle_cancel, emit_grbl_laser, emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame,
+    DrillCycle, EmitParams, FirmwareFlavor, Kinematics, KrlFrame, KrlTransform, LaserMode,
+    LaserParams, PeckDrillCycle, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
+pub use pipeline::{lower_document_envelope, PipelineError};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
 pub use features::{

@@ -724,6 +724,28 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Check a toolpath against machine capabilities for physical limits and boundaries.
+    Check {
+        file: String,
+        /// Maximum machine X travel (mm).
+        #[arg(long, default_value_t = 300.0)]
+        max_x: f64,
+        /// Maximum machine Y travel (mm).
+        #[arg(long, default_value_t = 300.0)]
+        max_y: f64,
+        /// Maximum machine Z travel (mm).
+        #[arg(long, default_value_t = 300.0)]
+        max_z: f64,
+        /// Maximum machine feedrate (mm/min).
+        #[arg(long)]
+        max_feedrate: Option<f64>,
+        /// Maximum spindle speed (RPM).
+        #[arg(long)]
+        max_spindle_rpm: Option<f64>,
+        /// Print report as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn die(msg: String) -> ! {
@@ -1123,6 +1145,46 @@ fn run(cli: Cli) -> ExitCode {
             }
         }
         Cmd::Printer { command, source } => run_printer(command, &source),
+        Cmd::Check {
+            file,
+            max_x,
+            max_y,
+            max_z,
+            max_feedrate,
+            max_spindle_rpm,
+            json,
+        } => {
+            let tp = load(&file);
+            let mut caps = dry_core::MachineCapabilities::new(
+                "CLI-Machine",
+                dry_core::AxisRange::new(0.0, max_x),
+                dry_core::AxisRange::new(0.0, max_y),
+                dry_core::AxisRange::new(0.0, max_z),
+            );
+            caps.max_feedrate_mm_min = max_feedrate;
+            caps.max_spindle_rpm = max_spindle_rpm;
+            let report = dry_core::check_compatibility(&tp, &caps);
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            } else if report.compatible {
+                println!("OK: Toolpath '{file}' is fully compatible with machine limits.");
+            } else {
+                eprintln!(
+                    "FAIL: Toolpath '{file}' violates machine limits ({} findings):",
+                    report.findings.len()
+                );
+                for finding in &report.findings {
+                    eprintln!("  [{:?}] {}: {}", finding.severity, finding.code, finding.message);
+                }
+            }
+
+            if report.compatible {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            }
+        }
         Cmd::Inspect { file } => {
             let tp = load(&file);
             let m = simulate(&tp);
