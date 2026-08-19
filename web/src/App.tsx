@@ -7,11 +7,13 @@ import { GcodeInspector } from './components/RightInspector/GcodeInspector';
 import { SafetyMatrix } from './components/RightInspector/SafetyMatrix';
 import { TelemetryCard } from './components/RightInspector/TelemetryCard';
 import { OptimizerDiffs } from './components/RightInspector/OptimizerDiffs';
+import { MacroStudio } from './components/RightInspector/MacroStudio';
+import { SlicerWizard } from './components/RightInspector/SlicerWizard';
 import { PlaybackController } from './components/PlaybackController';
 
 export const App: React.FC = () => {
   const initStudio = useStudioStore((state) => state.initStudio);
-  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer'>('gcode');
+  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer' | 'macros' | 'slicers'>('gcode');
 
   useEffect(() => {
     initStudio();
@@ -61,6 +63,24 @@ export const App: React.FC = () => {
                 G-Code
               </button>
               <button
+                className={`panel-tab-btn ${rightTab === 'optimizer' ? 'active' : ''}`}
+                onClick={() => setRightTab('optimizer')}
+              >
+                Optimizer
+              </button>
+              <button
+                className={`panel-tab-btn ${rightTab === 'macros' ? 'active' : ''}`}
+                onClick={() => setRightTab('macros')}
+              >
+                Macros
+              </button>
+              <button
+                className={`panel-tab-btn ${rightTab === 'slicers' ? 'active' : ''}`}
+                onClick={() => setRightTab('slicers')}
+              >
+                Slicers
+              </button>
+              <button
                 className={`panel-tab-btn ${rightTab === 'safety' ? 'active' : ''}`}
                 onClick={() => setRightTab('safety')}
               >
@@ -72,20 +92,16 @@ export const App: React.FC = () => {
               >
                 Telemetry
               </button>
-              <button
-                className={`panel-tab-btn ${rightTab === 'optimizer' ? 'active' : ''}`}
-                onClick={() => setRightTab('optimizer')}
-              >
-                Optimizer
-              </button>
             </div>
           </div>
 
           <div className="panel-content">
             {rightTab === 'gcode' && <GcodeInspector />}
+            {rightTab === 'optimizer' && <OptimizerDiffs />}
+            {rightTab === 'macros' && <MacroStudio />}
+            {rightTab === 'slicers' && <SlicerWizard />}
             {rightTab === 'safety' && <SafetyMatrix />}
             {rightTab === 'telemetry' && <TelemetryCard />}
-            {rightTab === 'optimizer' && <OptimizerDiffs />}
           </div>
         </aside>
       </main>

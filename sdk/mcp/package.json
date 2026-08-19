@@ -1,0 +1,16 @@
+{
+  "name": "@dry/mcp",
+  "version": "2.3.0",
+  "description": "Dry Machina Safe AI-to-Manufacturing Model Context Protocol (MCP) Server",
+  "main": "dist/index.js",
+  "bin": {
+    "dry-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["mcp", "cam", "gcode", "manufacturing", "3d-printing", "ai"],
+  "author": "Dry Machina Team",
+  "license": "MIT"
+}
