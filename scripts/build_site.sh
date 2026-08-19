@@ -7,7 +7,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 OUT="$ROOT/dist-site"
 
 rm -rf "$OUT"
-mkdir -p "$OUT/web" "$OUT/docs"
+mkdir -p "$OUT/web" "$OUT/docs" "$OUT/assets"
 
 # 1. Build the web WASM bundle
 bash "$ROOT/web/build.sh" web "$ROOT/web/pkg"
@@ -33,8 +33,15 @@ cp "$ROOT/web/architecture.html" "$OUT/web/architecture.html"
 
 # 5. Copy Vite compiled studio (index.html, assets/ with content hashes)
 cp -r "$ROOT/web/dist/"* "$OUT/web/"
+# Also mirror assets to root /assets/ for absolute resilience
+cp -r "$ROOT/web/dist/assets/"* "$OUT/assets/"
 
-# 6. Write Cloudflare Headers & Cache Policy
+# 6. Write Cloudflare Redirects
+cat << 'EOF' > "$OUT/_redirects"
+/web    /web/   301
+EOF
+
+# 7. Write Cloudflare Headers & Cache Policy with explicit MIME types
 cat << 'EOF' > "$OUT/_headers"
 /*
   X-Content-Type-Options: nosniff
@@ -47,10 +54,27 @@ cat << 'EOF' > "$OUT/_headers"
 /web/*.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/web/assets/*
+/web/assets/*.css
+  Content-Type: text/css; charset=utf-8
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.css
+  Content-Type: text/css; charset=utf-8
+  Cache-Control: public, max-age=31536000, immutable
+
+/web/assets/*.js
+  Content-Type: text/javascript; charset=utf-8
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.js
+  Content-Type: text/javascript; charset=utf-8
   Cache-Control: public, max-age=31536000, immutable
 
 /web/assets/*.wasm
+  Content-Type: application/wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*.wasm
   Content-Type: application/wasm
   Cache-Control: public, max-age=31536000, immutable
 EOF
