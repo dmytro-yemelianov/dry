@@ -24,6 +24,7 @@ cp -r "$ROOT/docs/"* "$OUT/docs/"
 cp "$ROOT/web/machines.html" "$OUT/web/machines.html"
 cp "$ROOT/web/machines.json" "$OUT/web/machines.json"
 cp "$ROOT/web/docs.html" "$OUT/web/docs.html"
+cp "$ROOT/web/api.html" "$OUT/web/api.html"
 cp "$ROOT/web/auth.html" "$OUT/web/auth.html"
 cp "$ROOT/web/legal.html" "$OUT/web/legal.html"
 cp "$ROOT/web/privacy.html" "$OUT/web/privacy.html"
@@ -39,6 +40,7 @@ cp -r "$ROOT/web/dist/assets/"* "$OUT/assets/"
 # 6. Write Cloudflare Redirects
 cat << 'EOF' > "$OUT/_redirects"
 /web    /web/   301
+/api    /web/api.html 301
 EOF
 
 # 7. Write Cloudflare Headers & Cache Policy with explicit MIME types

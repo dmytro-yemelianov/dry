@@ -9,11 +9,12 @@ import { TelemetryCard } from './components/RightInspector/TelemetryCard';
 import { OptimizerDiffs } from './components/RightInspector/OptimizerDiffs';
 import { MacroStudio } from './components/RightInspector/MacroStudio';
 import { SlicerWizard } from './components/RightInspector/SlicerWizard';
+import { ApiPortal } from './components/RightInspector/ApiPortal';
 import { PlaybackController } from './components/PlaybackController';
 
 export const App: React.FC = () => {
   const initStudio = useStudioStore((state) => state.initStudio);
-  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer' | 'macros' | 'slicers'>('gcode');
+  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer' | 'macros' | 'slicers' | 'api'>('gcode');
 
   useEffect(() => {
     initStudio();
@@ -81,6 +82,12 @@ export const App: React.FC = () => {
                 Slicers
               </button>
               <button
+                className={`panel-tab-btn ${rightTab === 'api' ? 'active' : ''}`}
+                onClick={() => setRightTab('api')}
+              >
+                API & MCP
+              </button>
+              <button
                 className={`panel-tab-btn ${rightTab === 'safety' ? 'active' : ''}`}
                 onClick={() => setRightTab('safety')}
               >
@@ -100,6 +107,7 @@ export const App: React.FC = () => {
             {rightTab === 'optimizer' && <OptimizerDiffs />}
             {rightTab === 'macros' && <MacroStudio />}
             {rightTab === 'slicers' && <SlicerWizard />}
+            {rightTab === 'api' && <ApiPortal />}
             {rightTab === 'safety' && <SafetyMatrix />}
             {rightTab === 'telemetry' && <TelemetryCard />}
           </div>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dry Machina — Cloud Manufacturing APIs & MCP Server Documentation</title>
+  <meta name="description" content="Public Cloud REST APIs and Model Context Protocol (MCP) Server for algorithmic CAM, G-code optimization, 5-layer machine safety shields, and macro compilation.">
+  <link rel="stylesheet" href="/web/assets/studio.css">
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    .api-header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .api-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    .endpoint-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .method-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-family: ui-monospace, monospace;
+    }
+    .method-get { background: #238636; color: #fff; }
+    .method-post { background: #1f6feb; color: #fff; }
+    .endpoint-uri {
+      font-family: ui-monospace, monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-left: 10px;
+    }
+    pre {
+      background: #090d13;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #79c0ff;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: #58a6ff;
+      border-bottom: 2px solid #58a6ff;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="api-header">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <a href="/" style="font-weight: 800; font-size: 18px; color: #58a6ff; text-decoration: none;">DRY MACHINA</a>
+      <span style="color: #8b949e; font-size: 14px;">/</span>
+      <span style="font-weight: 600; font-size: 14px; color: #f0f6fc;">Cloud API & MCP Reference</span>
+    </div>
+    <div>
+      <a href="/web/" style="color: #58a6ff; font-size: 13px; text-decoration: none; font-weight: 600; margin-right: 16px;">Studio 2.3</a>
+      <a href="/web/docs" style="color: #8b949e; font-size: 13px; text-decoration: none;">Docs</a>
+    </div>
+  </header>
+
+  <main class="api-container">
+    <section style="margin-bottom: 36px;">
+      <h1 style="color: #f0f6fc; font-size: 28px; margin-bottom: 8px;">Public Cloud Manufacturing APIs & MCP Server</h1>
+      <p style="color: #8b949e; font-size: 14px; max-width: 800px;">
+        Dry Machina provides deterministic Cloud Edge REST endpoints and an autonomous Model Context Protocol (MCP) Server for algorithmic CAM toolpath compilation, G-code optimization, 5-layer machine safety audits, and multi-firmware macro compilation.
+      </p>
+    </section>
+
+    <!-- MCP Integration Box -->
+    <div class="endpoint-card" style="border-left: 4px solid #a371f7;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <div style="font-size: 16px; font-weight: 700; color: #d2a8ff;">🤖 Remote MCP Server (Claude Desktop & Cursor IDE)</div>
+        <span style="font-size: 11px; background: rgba(163, 113, 247, 0.15); color: #d2a8ff; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Hosted at drymachina.com/api/mcp</span>
+      </div>
+      <p style="font-size: 13px; color: #8b949e;">
+        Connect Claude, Cursor, Antigravity, or custom agents directly to Dry Machina's safety shield and parametric generators:
+      </p>
+
+      <h4 style="color: #f0f6fc; margin: 14px 0 6px;">1. Cursor IDE Config (<code>.cursor/mcp.json</code>)</h4>
+      <pre><code>{
+  "mcpServers": {
+    "dry-machina": {
+      "url": "https://drymachina.com/api/mcp"
+    }
+  }
+}</code></pre>
+
+      <h4 style="color: #f0f6fc; margin: 14px 0 6px;">2. Claude Desktop Config (<code>claude_desktop_config.json</code>)</h4>
+      <pre><code>{
+  "mcpServers": {
+    "dry-machina": {
+      "command": "npx",
+      "args": ["-y", "@drymachina/mcp"]
+    }
+  }
+}</code></pre>
+    </div>
+
+    <!-- REST API Reference -->
+    <h2 style="color: #f0f6fc; font-size: 20px; margin: 32px 0 16px;">REST API Endpoints</h2>
+
+    <!-- Endpoint: /api/macros -->
+    <div class="endpoint-card">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/macros</span>
+      </div>
+      <p style="font-size: 13px; color: #8b949e;">List all production parameterized machine macros and schema parameters.</p>
+      <pre><code>curl -X GET https://drymachina.com/api/macros</code></pre>
+    </div>
+
+    <!-- Endpoint: /api/macros (POST) -->
+    <div class="endpoint-card">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/macros</span>
+      </div>
+      <p style="font-size: 13px; color: #8b949e;">Compile a parameterized macro into native Klipper (.cfg), Marlin, Bambu, or Dry IR.</p>
+      <pre><code>curl -X POST https://drymachina.com/api/macros \
+  -H "Content-Type: application/json" \
+  -d '{
+    "macro_id": "adaptive_purge_line",
+    "target": "klipper",
+    "params": { "startX": 15, "startY": 15, "length": 50 }
+  }'</code></pre>
+    </div>
+
+    <!-- Endpoint: /api/verify -->
+    <div class="endpoint-card">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/verify</span>
+      </div>
+      <p style="font-size: 13px; color: #8b949e;">Run 5-layer machine envelope and melt flow safety audit on G-code.</p>
+      <pre><code>curl -X POST https://drymachina.com/api/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "machine_id": "bambu_x1c",
+    "gcode": "G90\nG0 X10 Y10 Z0.2 F6000\nG1 X50 Y10 E2.5 F1800"
+  }'</code></pre>
+    </div>
+
+    <!-- Endpoint: /api/machines -->
+    <div class="endpoint-card">
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/machines</span>
+      </div>
+      <p style="font-size: 13px; color: #8b949e;">Query physical build envelopes, max feedrates, and hotend melt limits for 24+ machines.</p>
+      <pre><code>curl -X GET https://drymachina.com/api/machines</code></pre>
+    </div>
+  </main>
+
+</body>
+</html>
