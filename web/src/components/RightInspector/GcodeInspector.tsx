@@ -135,7 +135,7 @@ export const GcodeInspector: React.FC = () => {
                 onClick={() => setGroupingMode(mode)}
               >
                 {mode === 'auto'
-                  ? `Auto Multi-Tag`
+                  ? `Auto Gantt`
                   : mode === 'revolutions'
                   ? 'Turns'
                   : mode === 'figures'
@@ -150,14 +150,14 @@ export const GcodeInspector: React.FC = () => {
           <button
             className={`format-pill ${gcodeViewFormat === 'stream' ? 'active' : ''}`}
             onClick={() => setGcodeViewFormat('stream')}
-            title="Raw G-code stream view"
+            title="Raw G-code stream view with Vertical Gantt"
           >
             Stream
           </button>
           <button
             className={`format-pill ${gcodeViewFormat === 'table' ? 'active' : ''}`}
             onClick={() => setGcodeViewFormat('table')}
-            title="Tabular coordinate matrix view (X | Y | Z | E | F)"
+            title="Tabular coordinate matrix view with Vertical Gantt"
           >
             Table Matrix
           </button>
@@ -265,21 +265,29 @@ export const GcodeInspector: React.FC = () => {
         )}
       </div>
 
-      {/* Table Header Row when in Table Matrix mode */}
-      {gcodeViewFormat === 'table' && (
-        <div className="table-matrix-header">
-          <span className="col-no">Line</span>
-          <span className="col-tags">Tags</span>
-          <span className="col-cmd">Op</span>
-          <span className="col-x">X (mm)</span>
-          <span className="col-y">Y (mm)</span>
-          <span className="col-z">Z (mm)</span>
-          <span className="col-e">E (mm)</span>
-          <span className="col-f">F (mm/min)</span>
+      {/* Dedicated Gantt Header Bar with Horizontally Aligned Column Names */}
+      <div className="gcode-table-header">
+        <div className="gantt-header-gutter">
+          <span className="gantt-hdr-col layer-hdr" title="Layer Schedule">Layer</span>
+          <span className="gantt-hdr-col fig-hdr" title="Figure & Loop Schedule">Figure</span>
+          <span className="gantt-hdr-col turn-hdr" title="Revolution / Turn Schedule">Turn</span>
         </div>
-      )}
+        <span className="col-no">Line</span>
+        {gcodeViewFormat === 'table' ? (
+          <>
+            <span className="col-cmd">Op</span>
+            <span className="col-x">X (mm)</span>
+            <span className="col-y">Y (mm)</span>
+            <span className="col-z">Z (mm)</span>
+            <span className="col-e">E (mm)</span>
+            <span className="col-f">F (mm/min)</span>
+          </>
+        ) : (
+          <span className="col-stream-hdr">Command & Coordinates</span>
+        )}
+      </div>
 
-      {/* Virtualized G-Code Stream or Table Matrix */}
+      {/* Virtualized G-Code Stream or Table Matrix with Vertical Gantt Chart */}
       <div
         ref={parentRef}
         className="gcode-viewer-table"
@@ -301,6 +309,25 @@ export const GcodeInspector: React.FC = () => {
               args: {},
               tags: {},
             };
+            const prevRow = index > 0 ? multiTagRows[index - 1] : null;
+            const nextRow = index < multiTagRows.length - 1 ? multiTagRows[index + 1] : null;
+
+            // Track 1: Layer
+            const layerVal = rowMeta.tags.layer || 1;
+            const lStart = !prevRow || prevRow.tags.layer !== layerVal;
+            const lEnd = !nextRow || nextRow.tags.layer !== layerVal;
+
+            // Track 2: Figure
+            const figVal = rowMeta.tags.figure;
+            const isTravel = figVal === undefined;
+            const figStart = !isTravel && (!prevRow || prevRow.tags.figure !== figVal);
+            const figEnd = !isTravel && (!nextRow || nextRow.tags.figure !== figVal);
+
+            // Track 3: Turn
+            const turnVal = rowMeta.tags.turn || 1;
+            const turnStart = !prevRow || prevRow.tags.turn !== turnVal;
+            const turnEnd = !nextRow || nextRow.tags.turn !== turnVal;
+
             const isG0 = rowMeta.cmd === 'G0';
             const isG1 = rowMeta.cmd === 'G1';
             const isArc = rowMeta.cmd === 'G2' || rowMeta.cmd === 'G3';
@@ -335,97 +362,83 @@ export const GcodeInspector: React.FC = () => {
                   </div>
                 )}
 
-                {gcodeViewFormat === 'stream' ? (
-                  /* ---- Stream Format with Multi-Tag Badges ---- */
-                  <div
-                    className={`gcode-row ${isActive ? 'active' : ''}`}
-                    onMouseEnter={() => setHoveredLineIndex(index)}
-                    onMouseLeave={() => setHoveredLineIndex(null)}
-                    onClick={() => setFocusedLine(index)}
-                  >
-                    <span className="gcode-lineno">{index + 1}</span>
-                    <div className="row-tag-pills">
-                      {rowMeta.tags.layer !== undefined && (
-                        <span
-                          className={`row-tag tag-layer ${activeFilterLayers.includes(rowMeta.tags.layer) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFilterLayer(rowMeta.tags.layer!);
-                          }}
-                          title="Filter by Layer"
-                        >
-                          L{rowMeta.tags.layer}
-                        </span>
-                      )}
-                      {rowMeta.tags.figure !== undefined && (
-                        <span
-                          className={`row-tag tag-fig ${activeFilterFigures.includes(rowMeta.tags.figure) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFilterFigure(rowMeta.tags.figure!);
-                          }}
-                          title="Filter by Figure"
-                        >
-                          F{rowMeta.tags.figure}
-                        </span>
-                      )}
-                      {rowMeta.tags.turn !== undefined && (
-                        <span
-                          className={`row-tag tag-turn ${activeFilterTurns.includes(rowMeta.tags.turn) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFilterTurn(rowMeta.tags.turn!);
-                          }}
-                          title="Filter by Turn"
-                        >
-                          T{rowMeta.tags.turn}
-                        </span>
+                <div
+                  className={`gcode-row-wrapper ${gcodeViewFormat === 'table' ? 'table-matrix-row' : 'gcode-row'} ${isActive ? 'active' : ''}`}
+                  onMouseEnter={() => setHoveredLineIndex(index)}
+                  onMouseLeave={() => setHoveredLineIndex(null)}
+                  onClick={() => setFocusedLine(index)}
+                >
+                  {/* Vertical Gantt Chart Gutter */}
+                  <div className="vertical-gantt-gutter">
+                    {/* Layer Track */}
+                    <div
+                      className={`gantt-track-cell layer-track ${lStart ? 'is-start' : ''} ${lEnd ? 'is-end' : ''} ${activeFilterLayers.includes(layerVal) ? 'active-filter' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFilterLayer(layerVal);
+                      }}
+                      title={`Layer ${layerVal} (Z=${rowMeta.tags.layerZ?.toFixed(2)}mm)`}
+                    >
+                      <div className="gantt-rail-stem" />
+                      {lStart && <span className="gantt-block-badge">L{layerVal}</span>}
+                      {lEnd && !lStart && <span className="gantt-end-node" />}
+                    </div>
+
+                    {/* Figure Track */}
+                    <div
+                      className={`gantt-track-cell fig-track ${figStart ? 'is-start' : ''} ${figEnd ? 'is-end' : ''} ${isTravel ? 'is-travel' : ''} ${figVal && activeFilterFigures.includes(figVal) ? 'active-filter' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (figVal) toggleFilterFigure(figVal);
+                      }}
+                      title={isTravel ? 'Travel Move (Rapid)' : `Figure ${figVal} (${rowMeta.tags.figureType || 'extrude'})`}
+                    >
+                      {isTravel ? (
+                        <div className="gantt-travel-dash" />
+                      ) : (
+                        <>
+                          <div className="gantt-rail-stem" />
+                          {figStart && <span className="gantt-block-badge">F{figVal}</span>}
+                          {figEnd && !figStart && <span className="gantt-end-node" />}
+                        </>
                       )}
                     </div>
-                    <span className={`gcode-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
-                    <span className="gcode-args">{rowMeta.raw.split(/\s+/).slice(1).join(' ')}</span>
-                  </div>
-                ) : (
-                  /* ---- Tabular Coordinate Matrix Format with Multi-Tag Badges ---- */
-                  <div
-                    className={`table-matrix-row ${isActive ? 'active' : ''}`}
-                    onMouseEnter={() => setHoveredLineIndex(index)}
-                    onMouseLeave={() => setHoveredLineIndex(null)}
-                    onClick={() => setFocusedLine(index)}
-                  >
-                    <span className="col-no">{index + 1}</span>
-                    <div className="col-tags">
-                      {rowMeta.tags.layer !== undefined && (
-                        <span
-                          className={`row-tag tag-layer ${activeFilterLayers.includes(rowMeta.tags.layer) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFilterLayer(rowMeta.tags.layer!);
-                          }}
-                        >
-                          L{rowMeta.tags.layer}
-                        </span>
-                      )}
-                      {rowMeta.tags.figure !== undefined && (
-                        <span
-                          className={`row-tag tag-fig ${activeFilterFigures.includes(rowMeta.tags.figure) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFilterFigure(rowMeta.tags.figure!);
-                          }}
-                        >
-                          F{rowMeta.tags.figure}
-                        </span>
-                      )}
+
+                    {/* Turn Track */}
+                    <div
+                      className={`gantt-track-cell turn-track ${turnStart ? 'is-start' : ''} ${turnEnd ? 'is-end' : ''} ${activeFilterTurns.includes(turnVal) ? 'active-filter' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFilterTurn(turnVal);
+                      }}
+                      title={`Turn ${turnVal}`}
+                    >
+                      <div className="gantt-rail-stem" />
+                      {turnStart && <span className="gantt-block-badge">T{turnVal}</span>}
+                      {turnEnd && !turnStart && <span className="gantt-end-node" />}
                     </div>
-                    <span className={`col-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
-                    <span className="col-x">{rowMeta.args.X || '—'}</span>
-                    <span className="col-y">{rowMeta.args.Y || '—'}</span>
-                    <span className="col-z">{rowMeta.args.Z || '—'}</span>
-                    <span className="col-e">{rowMeta.args.E || '—'}</span>
-                    <span className="col-f">{rowMeta.args.F || '—'}</span>
                   </div>
-                )}
+
+                  <span className="col-no">{index + 1}</span>
+
+                  {gcodeViewFormat === 'stream' ? (
+                    /* ---- Stream Mode ---- */
+                    <>
+                      <span className={`gcode-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
+                      <span className="gcode-args">{rowMeta.raw.split(/\s+/).slice(1).join(' ')}</span>
+                    </>
+                  ) : (
+                    /* ---- Tabular Coordinate Matrix Mode ---- */
+                    <>
+                      <span className={`col-cmd ${cmdClass}`}>{rowMeta.cmd}</span>
+                      <span className="col-x">{rowMeta.args.X || '—'}</span>
+                      <span className="col-y">{rowMeta.args.Y || '—'}</span>
+                      <span className="col-z">{rowMeta.args.Z || '—'}</span>
+                      <span className="col-e">{rowMeta.args.E || '—'}</span>
+                      <span className="col-f">{rowMeta.args.F || '—'}</span>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}

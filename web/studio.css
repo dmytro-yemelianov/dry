@@ -982,7 +982,7 @@ html, body, #root, .studio-app-container {
   color: var(--fg-bright);
 }
 
-.table-matrix-header {
+.table-matrix-header, .gcode-table-header {
   display: flex;
   align-items: center;
   background: var(--bg-panel-header);
@@ -998,7 +998,34 @@ html, body, #root, .studio-app-container {
   flex-shrink: 0;
 }
 
-.table-matrix-row {
+.gantt-header-gutter {
+  display: flex;
+  width: 108px;
+  gap: 4px;
+  margin-right: 8px;
+  border-right: 1px solid var(--border);
+  padding-right: 4px;
+}
+
+.gantt-hdr-col {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.layer-hdr { color: #58a6ff; }
+.fig-hdr { color: #3fb950; }
+.turn-hdr { color: #d29922; }
+
+.col-stream-hdr {
+  flex: 1;
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.gcode-row-wrapper {
   display: flex;
   align-items: center;
   padding: 2px 8px;
@@ -1010,13 +1037,126 @@ html, body, #root, .studio-app-container {
   font-size: 11px;
 }
 
-.table-matrix-row:hover {
+.gcode-row-wrapper:hover {
   background: var(--bg-hover);
 }
 
-.table-matrix-row.active {
+.gcode-row-wrapper.active {
   background: var(--accent-glow);
   border-left: 3px solid var(--accent);
+}
+
+/* ---- Vertical Gantt Chart Multi-Track Gutter ---- */
+.vertical-gantt-gutter {
+  display: flex;
+  width: 108px;
+  height: 100%;
+  gap: 4px;
+  margin-right: 8px;
+  border-right: 1px solid var(--border);
+  padding-right: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.gantt-track-cell {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.gantt-rail-stem {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  z-index: 1;
+  transition: all 0.1s ease;
+}
+
+.layer-track .gantt-rail-stem { background: rgba(88, 166, 255, 0.4); }
+.fig-track .gantt-rail-stem { background: rgba(63, 185, 80, 0.4); }
+.turn-track .gantt-rail-stem { background: rgba(210, 153, 34, 0.4); }
+
+.layer-track.is-start .gantt-rail-stem { top: 50%; }
+.layer-track.is-end .gantt-rail-stem { bottom: 50%; }
+
+.fig-track.is-start .gantt-rail-stem { top: 50%; }
+.fig-track.is-end .gantt-rail-stem { bottom: 50%; }
+
+.turn-track.is-start .gantt-rail-stem { top: 50%; }
+.turn-track.is-end .gantt-rail-stem { bottom: 50%; }
+
+.gantt-track-cell:hover .gantt-rail-stem {
+  width: 3px;
+}
+
+.layer-track:hover .gantt-rail-stem { background: #58a6ff; }
+.fig-track:hover .gantt-rail-stem { background: #3fb950; }
+.turn-track:hover .gantt-rail-stem { background: #d29922; }
+
+.gantt-track-cell.active-filter .gantt-rail-stem {
+  width: 3.5px;
+}
+
+.gantt-block-badge {
+  position: relative;
+  z-index: 2;
+  font-size: 8.5px;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  padding: 0 3px;
+  border-radius: 3px;
+  line-height: 13px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.layer-track .gantt-block-badge {
+  background: #1f6feb;
+  color: #fff;
+  border: 1px solid #58a6ff;
+}
+
+.fig-track .gantt-block-badge {
+  background: #238636;
+  color: #fff;
+  border: 1px solid #3fb950;
+}
+
+.turn-track .gantt-block-badge {
+  background: #9e6a03;
+  color: #fff;
+  border: 1px solid #d29922;
+}
+
+.gantt-end-node {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.layer-track .gantt-end-node { background: #58a6ff; }
+.fig-track .gantt-end-node { background: #3fb950; }
+.turn-track .gantt-end-node { background: #d29922; }
+
+.gantt-travel-dash {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  right: 2px;
+  height: 1px;
+  border-top: 1px dashed rgba(240, 136, 62, 0.3);
 }
 
 .breadcrumb-trail-bar {
