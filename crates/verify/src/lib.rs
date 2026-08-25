@@ -1,3 +1,5 @@
+//! # kmet-verify — KMET layer 2: the verification rule registry
+//!
 //! `verify` — check a resolved [`Toolpath`] against machine-safety **contracts** and structural
 //! invariants, returning a located [`Report`] (`docs/01-architecture.md` §7). This is where Dry stops
 //! merely *compiling* a toolpath and starts *catching* unsafe ones.
@@ -9,15 +11,30 @@
 //!  - **contract-driven** (checked when the contract supplies a limit): the move stays inside the build
 //!    **bounds**; the volumetric **flow** stays under a ceiling; the feedrate stays within a **speed**
 //!    range; **Z is monotonic** (non-decreasing) when required (e.g. vase mode).
+//!
+//! Extracted verbatim from `dry-core` (plan Task 5), which re-exports this crate *as* its `verify`
+//! module and every name below flat, so the CLI, the bindings and the tests reach the same surface
+//! under the paths they always had. It reads layer 1 from [`kmet_kernel`] and the shared rule and
+//! contract vocabulary from [`kmet_contracts`]; nothing here may depend on the analysis layer above,
+//! and the kernel may never depend on this crate — that cycle is what the split exists to break.
 
-use crate::emit::{KinematicsExt, RotaryState};
-use crate::engine::segment_motion_time;
-use crate::ir::{Segment, SegmentKind, Toolpath};
-use crate::optimize::get_tangents;
-use crate::resolve::{catmull_rom, SAMPLES};
-use crate::units::Length;
+#![forbid(unsafe_code)]
+
+mod gated;
+
+use kmet_kernel::codec::CodecError;
+use kmet_kernel::emit::{KinematicsExt, RotaryState};
+use kmet_kernel::engine::segment_motion_time;
+use kmet_kernel::ir::{Segment, SegmentKind, Toolpath};
+use kmet_kernel::optimize::get_tangents;
+use kmet_kernel::resolve::{catmull_rom, SAMPLES};
+use kmet_kernel::units::Length;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
+
+// The kernel supplies the rewrite *mechanism* and this crate the verification *policy*, so the two
+// gate wrappers can live in neither alone; they sit beside the verifier they call.
+pub use gated::{apply_gated, apply_safe_gated};
 
 // The vocabulary below is defined in `kmet-contracts`, the logic-free crate that sits under both the
 // kernel and the verifier: `RotaryContracts.model` is a `Kinematics`, while the kernel reads `RuleId`,
@@ -60,6 +77,24 @@ pub struct Finding {
     pub message: String,
 }
 
+/// Which licensing mode produced a report, stamped onto the report envelopes by the CLI.
+///
+/// Passive data only: the engine never verifies a licence, never reads one, and never sets this — it
+/// exists here so the wire shape of a stamped report is part of the same typed contract as the rest.
+/// A report the engine built carries `None`, which serializes away entirely, so the golden reports
+/// under `conformance/reports/` are byte-identical with and without the field.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LicenseStamp {
+    /// `"licensed"` or `"evaluation"`.
+    pub mode: String,
+    /// The licensee, when running licensed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub licensee: Option<String>,
+    /// The licence tier, when running licensed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tier: Option<String>,
+}
+
 /// The result of verifying a toolpath.
 ///
 /// The three fields beside `findings` exist so that a **vacuous** pass is not byte-identical to a real
@@ -79,10 +114,10 @@ pub struct Report {
     #[serde(default)]
     pub contracts: Contracts,
     /// The licensing mode this report was produced under, when the caller stamped one
-    /// (see [`crate::LicenseStamp`]) — never set by the engine.
+    /// (see [`LicenseStamp`]) — never set by the engine.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub license: Option<crate::report::LicenseStamp>,
+    pub license: Option<LicenseStamp>,
 }
 
 impl Report {
@@ -388,9 +423,9 @@ fn push_finding(report: &mut Report, rule: RuleId, segment: Option<usize>, messa
 }
 
 /// Verify a stream of segments against the contracts, returning all findings (structural + contract-driven).
-pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, crate::codec::CodecError>
+pub fn verify_stream<I>(segments: I, c: &Contracts) -> Result<Report, CodecError>
 where
-    I: IntoIterator<Item = Result<Segment, crate::codec::CodecError>>,
+    I: IntoIterator<Item = Result<Segment, CodecError>>,
 {
     let mut r = Report {
         rules_evaluated: RuleId::ALL
@@ -1040,36 +1075,7 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::units::{Feedrate, Volume};
-
-    #[test]
-    fn contract_csv_parsers_reject_inverted_ranges() {
-        for (input, axis) in [
-            ("1,0,0,1,0,1", "x"),
-            ("0,1,1,0,0,1", "y"),
-            ("0,1,0,1,1,0", "z"),
-        ] {
-            let error = parse_bounds_csv(input).unwrap_err().to_string();
-            assert_eq!(
-                error,
-                format!("bounds {axis} lower bound must be <= upper bound")
-            );
-        }
-
-        assert_eq!(
-            parse_speed_range_csv("9000,300").unwrap_err().to_string(),
-            "speed range lower bound must be <= upper bound"
-        );
-    }
-
-    #[test]
-    fn contract_csv_parsers_allow_equal_endpoints() {
-        assert_eq!(
-            parse_bounds_csv("1,1,2,2,3,3").unwrap(),
-            [[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
-        );
-        assert_eq!(parse_speed_range_csv("600,600").unwrap(), [600.0, 600.0]);
-    }
+    use kmet_kernel::units::{Feedrate, Volume};
 
     /// A single arc segment with the given radius (mm) and speed (mm/min), valid geometry.
     fn arc_toolpath(radius_mm: f64, speed_mm_min: f64) -> Toolpath {
@@ -1243,11 +1249,6 @@ mod tests {
     }
 
     #[test]
-    fn contracts_default_has_no_kinematics() {
-        assert!(Contracts::default().kinematics.is_none());
-    }
-
-    #[test]
     fn empty_toolpath_is_ok_but_vacuously_so() {
         let tp = Toolpath {
             version: 0,
@@ -1298,84 +1299,19 @@ mod tests {
         );
     }
 
+    /// `catalog()` is a projection of the vocabulary, not a second copy of it: one entry per
+    /// [`RuleId`], in `RuleId::ALL` order, carrying that id's own severity and summary. The
+    /// vocabulary's internal consistency — wire ids, the error/warning split — is
+    /// `kmet-contracts`' own test, next to the code it covers.
     #[test]
-    fn rule_catalog_is_consistent() {
+    fn rule_catalog_projects_the_whole_vocabulary() {
         let cat = catalog();
         assert_eq!(cat.len(), RuleId::ALL.len());
-        for rule in &cat {
-            // wire id round-trips and is unique-mapping
-            assert_eq!(RuleId::from_wire(rule.id.as_str()), Some(rule.id));
-            assert!(!rule.summary.is_empty());
-            assert_eq!(rule.severity, rule.id.default_severity());
+        for (entry, id) in cat.iter().zip(RuleId::ALL) {
+            assert_eq!(entry.id, id);
+            assert_eq!(entry.severity, id.default_severity());
+            assert_eq!(entry.summary, id.summary());
         }
-        // process/quality advisories are warnings; everything else is an error.
-        let warnings: Vec<&str> = cat
-            .iter()
-            .filter(|r| r.severity == Severity::Warning)
-            .map(|r| r.id.as_str())
-            .collect();
-        assert_eq!(
-            warnings,
-            vec![
-                // The IR's travel flag disagreeing with its deposited volume is a modelling
-                // inconsistency, not an unsafe program: see `default_severity` for why it is a
-                // warning globally rather than only for imported IR.
-                "travel-extrudes",
-                "travel-without-retraction",
-                "first-layer-height",
-                "first-layer-speed",
-                "junction-velocity",
-                "unmodeled-gcode",
-                // Staged: promoted to Error one minor release after landing (design §8).
-                "filament-consistency",
-                "rotary-feed",
-            ]
-        );
-    }
-
-    /// Pins the always-on rule set exactly, so the structural baseline cannot drift silently the way
-    /// "5 of 18" did before H1.3. A rule joining or leaving this list changes what `Report::ok()`
-    /// means for every caller that supplies no contracts, which is a decision, not a detail.
-    #[test]
-    fn contracts_default_evaluates_only_structural_rules() {
-        let c = Contracts::default();
-        let evaluated: Vec<&str> = RuleId::ALL
-            .into_iter()
-            .filter(|r| r.is_evaluated(&c))
-            .map(|r| r.as_str())
-            .collect();
-        assert_eq!(
-            evaluated,
-            vec![
-                "finite",
-                "travel-extrudes",
-                "bead",
-                "orientation-not-unit",
-                "arc-radius",
-                "unmodeled-gcode",
-                "continuity",
-                "negative-quantity",
-                "segment-length",
-                "arc-length",
-                "filament-consistency",
-            ],
-            "the always-on structural set changed"
-        );
-
-        // Of those, the ones that can flip `ok()`. Before H1.3 this was 5 of 18; H1.3 took it to 9 of
-        // 11, and downgrading `travel-extrudes` to a warning takes it to 8 — a rule leaving this
-        // count is the same decision as one joining it.
-        let can_fail: Vec<&str> = evaluated
-            .iter()
-            .copied()
-            .filter(|id| RuleId::from_wire(id).unwrap().default_severity() == Severity::Error)
-            .collect();
-        assert_eq!(
-            can_fail.len(),
-            8,
-            "error-severity always-on rules: {can_fail:?}"
-        );
-        assert_eq!(RuleId::ALL.len(), 27);
     }
 
     #[test]
@@ -1396,7 +1332,7 @@ mod tests {
                 max_acceleration_mm_s2: Some(500.0),
                 max_junction_velocity_mm_s: Some(8.0),
             }),
-            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
         };
         assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
 
@@ -1409,34 +1345,6 @@ mod tests {
         };
         assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 11);
         assert_eq!(verify(&tp, &c).rules_evaluated.len(), 27);
-    }
-
-    /// A rotary contract that states a limit but not the one a rule needs must leave that rule
-    /// *unevaluated*, not silently passing: an all-empty travel table checks no axis.
-    #[test]
-    fn rotary_rules_are_evaluated_only_where_a_limit_is_supplied() {
-        let travel_only = Contracts {
-            rotary: Some(RotaryContracts {
-                travel_deg: Some(RotaryTravelRanges {
-                    b: Some([0.0, 120.0]),
-                    ..RotaryTravelRanges::default()
-                }),
-                ..RotaryContracts::default()
-            }),
-            ..Contracts::default()
-        };
-        assert!(RuleId::RotaryTravel.is_evaluated(&travel_only));
-        assert!(!RuleId::RotaryFeed.is_evaluated(&travel_only));
-        assert!(!RuleId::OrientationReachability.is_evaluated(&travel_only));
-
-        let empty_table = Contracts {
-            rotary: Some(RotaryContracts {
-                travel_deg: Some(RotaryTravelRanges::default()),
-                ..RotaryContracts::default()
-            }),
-            ..Contracts::default()
-        };
-        assert!(!RuleId::RotaryTravel.is_evaluated(&empty_table));
     }
 
     /// A single extruding move at `speed`, carrying `orientation`, from `x0` to `x0 + 10` at z = 0.2.
@@ -1495,7 +1403,7 @@ mod tests {
     #[test]
     fn tilt_beyond_the_reference_trunnion_is_a_rotary_travel_error() {
         let c = Contracts {
-            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
 
@@ -1525,7 +1433,7 @@ mod tests {
     #[test]
     fn a_reorientation_faster_than_the_axis_can_turn_is_a_rotary_feed_warning() {
         let c = Contracts {
-            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
         let vertical = oriented_move(0.0, [0.0, 0.0, 1.0], 600.0);
@@ -1566,7 +1474,7 @@ mod tests {
     #[test]
     fn tilting_a_far_out_point_below_the_table_is_an_orientation_reachability_error() {
         let c = Contracts {
-            rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
 
@@ -1604,7 +1512,7 @@ mod tests {
         let with_limits = verify(
             &tp,
             &Contracts {
-                rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+                rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
                 ..Contracts::default()
             },
         );

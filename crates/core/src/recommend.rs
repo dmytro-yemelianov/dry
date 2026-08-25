@@ -129,12 +129,11 @@ fn classify_contract(rec: &Recommendation) -> Classified {
     Classified::Executable(ExecutableAction::Contract { field, override_ })
 }
 
-use crate::gated::apply_gated;
 use crate::gcode::ImportedGcode;
 use crate::ir::Toolpath;
 use crate::profile::MachineKinematics;
 use crate::trace::trace_summary;
-use crate::verify::{verify, Contracts, Severity};
+use crate::verify::{apply_gated, verify, Contracts, Severity};
 
 /// Measured state of a toolpath under a set of contracts.
 #[derive(Debug, Clone, Serialize, Deserialize)]

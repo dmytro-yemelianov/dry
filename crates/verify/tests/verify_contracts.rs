@@ -2,10 +2,12 @@
 //! returning a `Report` of located findings. These are Dry's own clean-room contracts (not a
 //! reproduction of any oracle's text): each is a well-specified property of a safe toolpath.
 
-use dry_core::{
-    import_gcode, resolve, resolve_checked, verify, Contracts, Design, GcodeImportParams,
-    ResolveParams, RuleId, SegmentKind, Severity,
+use kmet_contracts::{Contracts, RuleId, Severity};
+use kmet_kernel::{
+    import_gcode, resolve, resolve_checked, Design, GcodeImportParams, Length, ResolveParams,
+    SegmentKind,
 };
+use kmet_verify::verify;
 
 fn design_json(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -109,8 +111,8 @@ fn verifier_flags_invalid_arc_radius_in_ir() {
         .iter_mut()
         .find(|segment| segment.kind == SegmentKind::Arc)
         .unwrap();
-    arc.end[0] = Some(dry_core::Length::mm(1.0));
-    arc.end[1] = Some(dry_core::Length::mm(1.0));
+    arc.end[0] = Some(Length::mm(1.0));
+    arc.end[1] = Some(Length::mm(1.0));
     let report = verify(&tp, &Contracts::default());
     assert!(report.findings.iter().any(|f| f.rule == "arc-radius"));
 }

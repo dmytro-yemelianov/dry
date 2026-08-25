@@ -338,9 +338,9 @@ class VerifyToleranceOwnershipTests(unittest.TestCase):
 
     def build_tree(self, directory: str, verify_body: str, contracts_body: str) -> Path:
         root = Path(directory)
-        (root / "crates" / "core" / "src").mkdir(parents=True)
+        (root / "crates" / "verify" / "src").mkdir(parents=True)
         (root / "crates" / "contracts" / "src").mkdir(parents=True)
-        (root / "crates" / "core" / "src" / "verify.rs").write_text(
+        (root / "crates" / "verify" / "src" / "lib.rs").write_text(
             verify_body, encoding="utf-8"
         )
         (root / "crates" / "contracts" / "src" / "lib.rs").write_text(
@@ -404,7 +404,7 @@ class VerifyToleranceOwnershipTests(unittest.TestCase):
                 validator,
                 "VERIFY_TOLERANCE_OWNERS",
                 {
-                    "CONTINUITY_TOLERANCE_MM": "crates/core/src/verify.rs",
+                    "CONTINUITY_TOLERANCE_MM": "crates/verify/src/lib.rs",
                     "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
                 },
             ):

@@ -2,10 +2,10 @@
 //!
 //! These are `kmet_kernel::optimize::apply_gated_with` bound to `verify` as its error-rule policy.
 //! The mechanism is kernel code; the policy is not, because a kernel that could call the verifier
-//! would reinstate the cycle the crate split exists to break. They sit here, in the crate that still
-//! owns `verify`, until `kmet-verify` is extracted and takes them (plan Tasks 4 and 5).
+//! would reinstate the cycle the crate split exists to break. So they sit here, in the crate that
+//! owns `verify` — the lowest layer that can name both halves (plan Tasks 4 and 5).
 
-use crate::verify::Contracts;
+use crate::Contracts;
 use kmet_kernel::ir::Toolpath;
 use kmet_kernel::optimize::{apply_gated_with, GatedResult, OptimizeMode};
 use kmet_kernel::profile::MachineKinematics;
@@ -21,7 +21,7 @@ pub fn apply_gated(
     mode: OptimizeMode,
     kinematics: Option<&MachineKinematics>,
 ) -> GatedResult {
-    use crate::verify::{verify, Severity};
+    use crate::{verify, Severity};
 
     apply_gated_with(tp, mode, kinematics, |candidate| {
         verify(candidate, contracts)

@@ -9,14 +9,14 @@
 //! fixture defect.
 //!
 //! Run with:
-//!   cargo test -p dry-core --test h13_rule_probe -- --ignored --nocapture
+//!   cargo test -p kmet-verify --test h13_rule_probe -- --ignored --nocapture
 //!
 //! The predicates here are deliberately duplicated from the spec rather than imported from `verify.rs`:
 //! at probe time they do not exist there yet, and keeping them local means the probe measures the spec's
 //! predicate, not whatever the implementation later becomes.
 
-use dry_core::ir::{Segment, SegmentKind, Toolpath};
-use dry_core::units::Length;
+use kmet_kernel::ir::{Segment, SegmentKind, Toolpath};
+use kmet_kernel::units::Length;
 use std::collections::BTreeMap;
 use std::f64::consts::TAU;
 use std::fs;

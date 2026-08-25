@@ -206,8 +206,18 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
         shutil.copy2(ROOT / name, destination / name)
 
     # Every workspace member has to be present or cargo refuses to load the manifest, even the ones
-    # no mutation touches (`contracts` from crate-split Task 3, `kernel` from Task 4).
-    for member in ("contracts", "core", "kernel", "cli", "license", "llm", "moonraker"):
+    # no mutation touches (`contracts` from crate-split Task 3, `kernel` from Task 4, `verify` from
+    # Task 5).
+    for member in (
+        "contracts",
+        "core",
+        "kernel",
+        "verify",
+        "cli",
+        "license",
+        "llm",
+        "moonraker",
+    ):
         shutil.copytree(
             ROOT / "crates" / member, destination / "crates" / member
         )

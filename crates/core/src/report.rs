@@ -38,23 +38,11 @@ impl LocatedFinding {
     }
 }
 
-/// Which licensing mode produced a report, stamped onto the report envelopes by the CLI.
-///
-/// Passive data only: the engine never verifies a licence, never reads one, and never sets this — it
-/// exists here so the wire shape of a stamped report is part of the same typed contract as the rest.
-/// A report the engine built carries `None`, which serializes away entirely, so the golden reports
-/// under `conformance/reports/` are byte-identical with and without the field.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LicenseStamp {
-    /// `"licensed"` or `"evaluation"`.
-    pub mode: String,
-    /// The licensee, when running licensed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub licensee: Option<String>,
-    /// The licence tier, when running licensed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tier: Option<String>,
-}
+// `verify::Report` carries this field too, and `verify` is now a crate *below* this one, so the
+// definition had to travel with it (plan Task 5). Re-exported from its former path: the type, its
+// wire shape and every `dry_core::report::LicenseStamp` / `dry_core::LicenseStamp` import are
+// unchanged.
+pub use crate::verify::LicenseStamp;
 
 /// The `review-gcode` report: metrics plus located safety findings for an imported G-code file.
 #[derive(Debug, Clone, Serialize, Deserialize)]

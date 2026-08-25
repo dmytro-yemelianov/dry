@@ -740,7 +740,7 @@ lean_source = "formal/Dry/Numeric/Orientation.lean"
 rust_sources = [
   "crates/kernel/src/features.rs",
   "crates/kernel/src/resolve.rs",
-  "crates/core/src/verify.rs"
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/Orientation.lean",
@@ -786,7 +786,7 @@ exclusions = [
 lean_source = "formal/Dry/Tests/OrientationContractFixtures.lean"
 rust_sources = [
   "crates/kernel/src/resolve.rs",
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/core/tests/orientation_refinement.rs"
 ]
 numeric_evidence = []
@@ -1216,7 +1216,7 @@ exclusions = [
 lean_source = "formal/Dry/Tests/ResolveOrientationFixtures.lean"
 rust_sources = [
   "crates/kernel/src/resolve.rs",
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/core/tests/resolve_orientation_refinement.rs"
 ]
 numeric_evidence = []
@@ -1429,7 +1429,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/VerifierSoundness.lean"
 rust_sources = [
-  "crates/core/src/verify.rs"
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -1540,7 +1540,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/Capability.lean"
 rust_sources = [
-  "crates/core/src/verify.rs"
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []

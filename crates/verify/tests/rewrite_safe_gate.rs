@@ -5,10 +5,9 @@
 //! input. Pre-existing errors do not block; warning-only new findings do not block. A rejected span is
 //! returned verbatim. These tests pin that contract.
 
-use dry_core::{
-    apply_safe_gated, safe_pipeline, Contracts, Feedrate, Length, Segment, SegmentKind, Toolpath,
-    Volume,
-};
+use kmet_contracts::{Contracts, RuleId};
+use kmet_kernel::{safe_pipeline, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
+use kmet_verify::{apply_safe_gated, verify};
 
 /// A valid extruding line move; override per case.
 fn line(start: [f64; 3], end: [f64; 3]) -> Segment {
@@ -101,11 +100,11 @@ fn safe_rejected_when_arc_fit_breaks_bounds() {
     let input = tp(arc_run_over_top());
     let contracts = bounds_below_arc_top();
     // Sanity: the input itself is in-bounds (all chord endpoints have y ≤ 4.33).
-    let baseline = dry_core::verify(&input, &contracts);
+    let baseline = verify(&input, &contracts);
     assert!(baseline.ok(), "the chord run must start in-bounds");
     // ...and that the in-bounds claim is non-vacuous: `bounds` is the rule this whole gate turns on,
     // so a contract that silently failed to supply it would make the sanity check meaningless.
-    assert!(baseline.evaluated(dry_core::RuleId::Bounds));
+    assert!(baseline.evaluated(RuleId::Bounds));
     let result = apply_safe_gated(&input, &contracts);
     assert!(
         !result.accepted,
@@ -138,7 +137,7 @@ fn pre_existing_error_does_not_block() {
         ..Contracts::default()
     };
     assert!(
-        !dry_core::verify(&input, &contracts).ok(),
+        !verify(&input, &contracts).ok(),
         "the input must already carry a bounds error"
     );
     let result = apply_safe_gated(&input, &contracts);

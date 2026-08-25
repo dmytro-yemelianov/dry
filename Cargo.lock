@@ -370,6 +370,7 @@ dependencies = [
  "criterion",
  "kmet-contracts",
  "kmet-kernel",
+ "kmet-verify",
  "libm",
  "miniz_oxide",
  "num-bigint",
@@ -667,6 +668,17 @@ dependencies = [
  "miniz_oxide",
  "num-bigint",
  "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kmet-verify"
+version = "0.6.0"
+dependencies = [
+ "kmet-contracts",
+ "kmet-kernel",
+ "libm",
  "serde",
  "serde_json",
 ]

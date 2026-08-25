@@ -10,23 +10,25 @@
 //! encoding and the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
 //!
 //! **Layering.** Layer 1 — the IR, resolve, lowering, optimisation, generation and emission — now
-//! lives in `kmet-kernel`, and every one of its modules and names is re-exported below unchanged, so
-//! a `dry_core::Toolpath` or `dry_core::emit::emit` import resolves exactly as it always did. The
-//! verifier and the analysis layer are still defined here; they follow in plan Tasks 5 and 6, after
-//! which this crate is a facade over four (`docs/superpowers/plans`).
+//! lives in `kmet-kernel`, and layer 2 — the verification rule registry and the verify-gated rewrite
+//! — in `kmet-verify`. Every one of their modules and names is re-exported below unchanged, so a
+//! `dry_core::Toolpath`, `dry_core::emit::emit` or `dry_core::verify::verify` import resolves exactly
+//! as it always did. The analysis layer is still defined here; it follows in plan Task 6, after which
+//! this crate is a facade over four (`docs/superpowers/plans`).
 
 #![forbid(unsafe_code)]
 
 pub mod compare;
 pub mod explain;
 pub mod forensics;
-mod gated;
 pub mod recommend;
 pub mod report;
 pub mod reverse;
 pub mod trace;
 
-pub mod verify;
+// Layer 2, re-exported as a module so `dry_core::verify::<item>` keeps resolving; the flat list at
+// the bottom of this file re-exports its names as well, exactly as `pub mod verify` did.
+pub use kmet_verify as verify;
 
 // Layer 1, re-exported module-for-module from `kmet-kernel` so that `dry_core::<module>::<item>`
 // paths keep resolving for the CLI, the bindings and the tests.
@@ -69,9 +71,6 @@ pub use forensics::{
     ForensicsReport, Hotspot, LayerModel, SeamHint, TravelStat, TravelStrategy,
 };
 pub use frame::{FrameError, FrameGraph, TransformSE3};
-// The verification-gated rewrite wrappers: kernel mechanism, verifier policy, so they cannot live in
-// `kmet-kernel`. They move to `kmet-verify` at plan Task 5; the names re-exported here do not change.
-pub use gated::{apply_gated, apply_safe_gated};
 pub use gcode::{
     import_gcode, import_gcode_reader, import_gcode_reader_with_map, import_gcode_with_map,
     import_parsed_gcode, import_parsed_gcode_with_map, parse_gcode_lines, DistanceMode,
@@ -113,8 +112,14 @@ pub use trace::{
 };
 
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
+// `apply_gated` / `apply_safe_gated` are listed here rather than under `optimize`: the mechanism is
+// the kernel's (`optimize::apply_gated_with`) but the policy is the verifier's, and the wrappers now
+// live in `kmet-verify` beside it. So the flat `dry_core::apply_gated` every caller already uses is
+// unchanged, and the module path is `dry_core::verify::apply_gated`. Restoring the pre-split
+// `dry_core::optimize::apply_gated` would put a verifier-policy name back under a kernel module — the
+// layering the split exists to remove — and no caller, in-tree or in a binding, used it.
 pub use verify::{
-    catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
-    Contracts, Finding, KinematicContracts, Report, RotaryContracts, RotaryTravelRanges, Rule,
-    RuleId, Severity,
+    apply_gated, apply_safe_gated, catalog, parse_bounds_csv, parse_speed_range_csv, verify,
+    verify_stream, ContractParseError, Contracts, Finding, KinematicContracts, Report,
+    RotaryContracts, RotaryTravelRanges, Rule, RuleId, Severity,
 };

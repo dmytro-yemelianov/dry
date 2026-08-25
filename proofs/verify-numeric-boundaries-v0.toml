@@ -1,10 +1,10 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the kmet-contracts extraction and is imported straight from there by crates/kernel/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
+scope = "The binary64 boundary of the always-on structural rules in crates/verify/src/lib.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the kmet-contracts extraction and is imported straight from there by crates/kernel/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
-path = "crates/core/src/verify.rs"
+path = "crates/verify/src/lib.rs"
 role = "implementation"
 hash_mode = "file"
 # Re-pinned for the arc-radius entry below. The reviewed diff against the previous hash is a doc
@@ -53,7 +53,44 @@ hash_mode = "file"
 # text changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are
 # untouched at 1e-6 and still defined here; `arc_radius_error`, the continuity rule, the two length
 # rules and the filament rule are byte-identical; every rule still fires at the same severity.
-sha256 = "0cd040fa485ae7403b8cfd4c8a45a6bb3cf16c8e29247cf2b3a5ed4f4e06aa98"
+#
+# Re-pinned 2026-08-25 for the `kmet-verify` extraction (KMET crate-split plan, Task 5). The file is
+# the same file: it moved from `crates/core/src/verify.rs` to `crates/verify/src/lib.rs`, the crate
+# root of layer 2, and the `path` above moved with it. Against the previous hash the reviewed diff is
+# four things, none of them a rule:
+#   1. A crate root's worth of header -- one doc paragraph, `#![forbid(unsafe_code)]`, `mod gated;`
+#      and `pub use gated::{apply_gated, apply_safe_gated};`. The two gate wrappers are the verify
+#      *policy* bound to the kernel's `apply_gated_with` *mechanism*; they moved here from
+#      `crates/core/src/gated.rs` unchanged and are declared, not defined, in this file.
+#   2. Import rewrites: the six `use crate::{emit,engine,ir,optimize,resolve,units}::...` lines became
+#      `kmet_kernel::...`, `crate::codec::CodecError` became a named `use` of the same type so
+#      `verify_stream`'s signature stays on one line, and five in-module tests now spell
+#      `kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS`. Same items, same crate graph, new paths.
+#   3. `LicenseStamp` moved *in*, verbatim, from `crates/core/src/report.rs`. `Report.license` is
+#      typed with it and layer 3 now sits above this crate, so the definition had to travel below the
+#      field it types; `dry_core::report` re-exports it, so the type, its serde attributes and the
+#      wire shape of a stamped report are unchanged. This is the same field the 2026-08-03 re-pin
+#      above was reviewed for, now with its declaration inside the pin rather than outside it.
+#   4. Five in-module tests that exercise `kmet-contracts` and nothing else --
+#      `contract_csv_parsers_*`, `contracts_default_has_no_kinematics`,
+#      `contracts_default_evaluates_only_structural_rules` and
+#      `rotary_rules_are_evaluated_only_where_a_limit_is_supplied` -- moved out to
+#      `crates/contracts/tests/vocabulary.rs`, and `rule_catalog_is_consistent` split along the same
+#      line: the `RuleId` sweep went with them, the `catalog()` projection stayed here.
+#
+# What that costs this pin. Those assertions -- `RuleId::ALL.len() == 27`, the always-on set, the
+# error-severity count of 8, the warning list -- are the ones the 2026-08-03 `travel-extrudes` note
+# leans on, and they are now outside every hash in this file. They are still enforced, and by the
+# crate that owns the code they read: `crates/contracts/src/lib.rs` holds `RuleId::ALL`,
+# `default_severity` and `is_evaluated`, the slice below pins all three, and the moved tests fail the
+# moment any of them changes. A pin makes a vocabulary edit present as a review; the tests make it
+# present as a red build. The slice still does the first, in the file that now does the second.
+#
+# No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation` text
+# changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are untouched at
+# 1e-6 and still defined in this file; `arc_radius_error`, the continuity rule, the two length rules
+# and the filament rule are byte-identical; every rule still fires at the same severity.
+sha256 = "c02b7212951cad655d026d426e30cacc5c8da4c2da1e02e075f32dee029afa3c"
 
 # The verify half of the vocabulary crate: everything this inventory used to cover whole-file inside
 # verify.rs and that the crate split moved out. The contract structs and their serde field
@@ -112,7 +149,7 @@ sha256 = "f8eaf3745ac018d41c1c2ab57417d3e71b1a479ae93cae407d550229b3056971"
 id = "FM1.F64.VERIFY.CONTINUITY.GAP"
 title = "Continuity tolerates a per-axis gap only below the emitter's own coordinate resolution"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const CONTINUITY_TOLERANCE_MM: f64 = 1e-6;"
 inputs = ["Segment.start", "Segment.end"]
 operation = "Per axis, with the previous segment's end p and this segment's start q: fire when |p - q| > 1e-6 * max(|p|, |q|, 1). An undefined axis inherits and never fires; ManualGcode resets the tracked position instead of being compared."
@@ -128,7 +165,7 @@ exclusions = [
 ]
 next_obligation = "Keep this equal to the emitter's coordinate precision. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/emit/gcode.rs",
   "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
 ]
@@ -142,7 +179,7 @@ profile_entries = [
 id = "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH"
 title = "A declared length must agree with the geometry the segment itself carries"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const LENGTH_TOLERANCE: f64 = 1e-6;"
 inputs = ["Segment.length", "Segment.start", "Segment.end", "Segment.centre", "Segment.clockwise"]
 operation = "For straight and stationary primitives, fire when the declared length differs from the distance between the segment's own endpoints by more than 1e-6 relative. For an Arc, compare against hypot(radius * swept, dz) instead. Spline and ManualGcode are excluded."
@@ -158,7 +195,7 @@ exclusions = [
 ]
 next_obligation = "If any producer adopts a different length formula, this rule stops checking a producer against itself and needs re-deriving."
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/resolve.rs",
   "crates/kernel/src/gcode/lift.rs",
 ]
@@ -172,7 +209,7 @@ profile_entries = [
 id = "FM1.F64.VERIFY.FILAMENT_RATIO"
 title = "The volume-to-filament ratio is the feedstock cross-section and is constant per tool"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const FILAMENT_RATIO_TOLERANCE: f64 = 1e-6;"
 inputs = ["Segment.volume", "Segment.filament", "Segment.tool", "Segment.travel"]
 operation = "Over segments with !travel and volume > 0 and filament > 0, grouped by tool: fire when volume/filament differs from the group's first observed ratio by more than 1e-6 relative."
@@ -188,7 +225,7 @@ exclusions = [
 ]
 next_obligation = "Promote to Error one minor release after landing, and revisit if the IR gains a filament diameter."
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/optimize/coasting.rs",
   "crates/kernel/src/optimize/arc.rs",
 ]
@@ -210,7 +247,7 @@ profile_entries = [
 id = "FM1.F64.VERIFY.ARC_RADIUS"
 title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
 rust_symbol = "arc_radius_error"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);"
 inputs = ["Segment.start", "Segment.end", "Segment.centre", "Op::Arc.cx", "Op::Arc.cy"]
 operation = "With r0 = hypot(start - centre) and r1 = hypot(end - centre), both required > 0: fire when |r0 - r1| > 1e-6 * max(r0, r1, 1). Applied twice on the same constant - by verify's `arc-radius` rule on a Segment, and by resolve's L1 gate on an Op::Arc, which imports the constant rather than restating it. An arc with an undefined start or end X/Y is reported as missing geometry instead, and is not measured by this predicate."
@@ -228,7 +265,7 @@ exclusions = [
 ]
 next_obligation = "If any emitter starts applying this epsilon, that application has a different input domain (an emitted pose, not an IR quantity) and needs its own boundary in the emit inventory rather than an extension of this one."
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/resolve.rs",
   "crates/kernel/src/emit/krl.rs",
 ]

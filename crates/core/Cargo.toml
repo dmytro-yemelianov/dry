@@ -18,6 +18,9 @@ kmet-contracts = { path = "../contracts" }
 # Layer 1: the IR, resolve, lowering, optimisation, generation and emission. Extracted so the verifier
 # and the analysis layer can be separated from the kernel; re-exported wholesale by `lib.rs`.
 kmet-kernel = { path = "../kernel" }
+# Layer 2: the verification rule registry and the two verify-gated rewrite wrappers. Re-exported by
+# `lib.rs` *as* this crate's `verify` module, so `dry_core::verify::...` still resolves.
+kmet-verify = { path = "../verify" }
 serde = { version = "1", features = ["derive"] }
 # `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
 # within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a

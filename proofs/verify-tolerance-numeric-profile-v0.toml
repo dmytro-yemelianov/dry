@@ -67,7 +67,7 @@ where being generous is safe because it *suppresses* a warning; as a violation t
 admit a 99 µm gap, half a layer height on a 0.2 mm layer.
 """
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/emit/gcode.rs",
   "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
 ]
@@ -89,7 +89,7 @@ between two independent derivations. Relative rather than absolute for the reaso
 COMPARED_COORDINATE_MM.
 """
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/resolve.rs",
   "crates/kernel/src/gcode/lift.rs",
 ]
@@ -111,7 +111,7 @@ hidden: a *uniformly* wrong diameter yields a constant ratio and passes. Closing
 filament diameter the IR does not carry.
 """
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/optimize/coasting.rs",
   "crates/kernel/src/optimize/arc.rs",
 ]
@@ -135,7 +135,7 @@ and an emitter comment then justified declining a check of its own by calling th
 justification true. Nothing about the rule's behaviour changed.
 """
 evidence = [
-  "crates/core/src/verify.rs",
+  "crates/verify/src/lib.rs",
   "crates/kernel/src/resolve.rs",
 ]
 next_obligation = "Re-derive if either radius stops being computed by the same hypot on the same centre. An emit-side application would need its own budget: the input domain there is an emitted pose, not an IR quantity."

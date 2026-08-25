@@ -536,7 +536,7 @@ Profiled unit orientation application after arbitrary transform-composition tree
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Euclidean three-space over the Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 contract.
 - Lean theorem: [`Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error`](../../formal/Dry/Numeric/Orientation.lean).
-- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs), [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs), [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: [`Orientation.lean`](../../formal/Dry/Numeric/Orientation.lean), [`ApplicationAccumulation.lean`](../../formal/Dry/Numeric/ApplicationAccumulation.lean), [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: [`OrientationContractFixtures.lean`](../../formal/Dry/Tests/OrientationContractFixtures.lean), [`orientation-contract-refinement-v0.json`](../../proofs/fixtures/orientation-contract-refinement-v0.json), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
 
@@ -564,7 +564,7 @@ Selected native orientation inputs refine nonzero resolution and unit verificati
 - Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational source classification observed through selected finite binary64 values.
 - Lean theorem: [`Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks`](../../formal/Dry/Tests/OrientationContractFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
 - Numeric evidence: —.
 - Refinement evidence: [`OrientationContractFixtures.lean`](../../formal/Dry/Tests/OrientationContractFixtures.lean), [`orientation-contract-refinement-v0.json`](../../proofs/fixtures/orientation-contract-refinement-v0.json), [`orientation-contract-refinement-fixtures.schema.json`](../../proofs/fixtures/orientation-contract-refinement-fixtures.schema.json), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
@@ -875,7 +875,7 @@ Native Rust resolve_checked accurately refines Lean orientation resolution seman
 - Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs).
 - Numeric evidence: —.
 - Refinement evidence: [`ResolveOrientationFixtures.lean`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean), [`resolve-orientation-refinement-v0.json`](../../proofs/fixtures/resolve-orientation-refinement-v0.json), [`resolve-orientation-refinement-fixtures.schema.json`](../../proofs/fixtures/resolve-orientation-refinement-fixtures.schema.json), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs), [`resolve-orientation-mutations-v0.toml`](../../proofs/resolve-orientation-mutations-v0.toml), [`check_resolve_orientation_mutations.py`](../../tools/check_resolve_orientation_mutations.py), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
@@ -1022,7 +1022,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 - Normative clause: `DRY.REPORT.VERIFIER_RULES_V1` — Verifier rules are explicit, located, and coverage-aware.
 - Numeric domain: Exact rational bounds, speeds, flows, and Z elevations.
 - Lean theorem: [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean).
-- Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -1099,7 +1099,7 @@ An abstract three-bound capability predicate fails closed when any modeled bound
 - Normative clause: `DRY.CAPABILITY.MATCHING_V0` — Capability matching fails closed at the machine boundary.
 - Numeric domain: Exact rational machine limits and requirements.
 - Lean theorem: [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean).
-- Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 

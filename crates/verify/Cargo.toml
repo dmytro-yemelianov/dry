@@ -1,0 +1,28 @@
+[package]
+name = "kmet-verify"
+description = "KMET layer 2: the verification rule registry and the verify-gated rewrite. Machine-checked correctness claims live alongside in proofs/ and formal/."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+# Layer 2 sits on the kernel and the vocabulary and on nothing else: the verifier reads the same
+# geometry the emitter writes, so it needs `kmet-kernel`, and it speaks the rule/contract vocabulary,
+# so it needs `kmet-contracts`. Nothing here may depend on layer 3, and the kernel may never depend
+# on this crate — that cycle is what the split exists to break.
+[dependencies]
+kmet-contracts = { path = "../contracts" }
+kmet-kernel = { path = "../kernel" }
+serde = { version = "1", features = ["derive"] }
+# The same deterministic libm the kernel resolves and emits with: the rotary rules judge the words the
+# emitter would write, so both halves must round identically or the verifier checks a different
+# program from the one that runs.
+libm = "0.2"
+# No `serde_json`: nothing here reads or writes JSON. `Report` and `Finding` derive the traits and the
+# crate that encodes them supplies the codec -- which is also where `float_roundtrip` has to be
+# enabled, exactly as `kmet-contracts` leaves it.
+
+[dev-dependencies]
+serde_json = "1"
