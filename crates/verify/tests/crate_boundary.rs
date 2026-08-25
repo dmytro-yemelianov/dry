@@ -1,17 +1,23 @@
-//! Symbols `kmet-verify` reaches across the future crate boundary (plan Tasks 1 and 4).
+//! The kernel symbols `kmet-verify` reaches across the layer-1 → layer-2 crate boundary.
 //!
 //! An integration test compiles as a separate crate, so anything `pub(crate)` fails to resolve here.
 //! That is the point: this file is the compile-time contract that the layer-2 boundary stays open.
 //! See docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md §5.7.
 //!
-//! Every name below now lives in `kmet-kernel` and reaches here only through `dry-core`'s
-//! re-export, which is itself a `pub use` of a `pub` item — so re-narrowing any of them fails at the
-//! re-export (E0365) before it ever fails here.
+//! Task 1 wrote it against a boundary that did not exist yet, so it sat in `dry-core` and read the
+//! kernel through `dry-core`'s re-exports. Both halves are real now: it lives in the crate that
+//! actually consumes these names and imports them from `kmet-kernel` directly, so a narrowing fails
+//! against the definition rather than at a re-export one crate away (plan Task 5, fix round 1).
+//!
+//! It is deliberately redundant. `kmet_verify`'s own `lib.rs` calls `resolve_joints`,
+//! `rotary_words` and `machine_position` and reads `Rotary`'s fields, so a narrowing would break the
+//! crate before it broke this file. The redundancy is the point of a boundary test: it states the
+//! contract by name, in one place, instead of leaving it implied by where the rules happen to reach.
 
-use dry_core::emit::{KinematicsExt, RotaryState};
-use dry_core::engine::segment_motion_time;
-use dry_core::optimize::get_tangents;
-use dry_core::{resolve, Design, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE};
+use kmet_kernel::emit::{KinematicsExt, RotaryState};
+use kmet_kernel::engine::segment_motion_time;
+use kmet_kernel::optimize::get_tangents;
+use kmet_kernel::{resolve, Design, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

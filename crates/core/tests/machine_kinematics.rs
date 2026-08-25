@@ -5,12 +5,15 @@
 //! velocity. When present, `balanced` feeds them into `adaptive_speed` so cornering speed respects the
 //! real machine envelope: the acceleration drives the arc centripetal limit and the junction velocity
 //! adds an *absolute* per-junction feedrate cap on top of the existing relative cosine factor. These
-//! tests pin the round-trip, the pass, and the gate wiring.
+//! tests pin the profile round-trip and the `adaptive_speed` pass.
+//!
+//! The third link in that chain — `apply_gated` forwarding the profile's kinematics into `balanced` —
+//! is tested where the wrapper lives, in
+//! `crates/verify/tests/rewrite_balanced_max_gate.rs::balanced_gate_lowers_corner_feedrate_with_kinematics`.
 
 use dry_core::{
-    adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated, Contracts, Feedrate,
-    Kinematics, Length, MachineKinematics, OptimizeMode, Profile, Segment, SegmentKind, Toolpath,
-    Volume,
+    adaptive_speed_with_kinematics, adaptive_speed_with_params, Feedrate, Kinematics, Length,
+    Profile, Segment, SegmentKind, Toolpath, Volume,
 };
 
 /// A valid extruding line move at `speed` mm/min; override per case.
@@ -253,32 +256,4 @@ fn no_junction_velocity_matches_params_only() {
     let params = adaptive_speed_with_params(&input, 500.0);
     let kin = adaptive_speed_with_kinematics(&input, 500.0, None);
     assert_eq!(kin, params);
-}
-
-// --- (c) the balanced gate consumes the profile kinematics ----------------------------------------
-
-#[test]
-fn balanced_gate_lowers_corner_feedrate_with_kinematics() {
-    let input = right_angle_corner(1500.0);
-    let kinematics = MachineKinematics {
-        max_acceleration_mm_s2: Some(500.0),
-        max_junction_velocity_mm_s: Some(5.0),
-    };
-
-    // No machine contracts: shaping never introduces a new error, so both rewrites are accepted.
-    let without = apply_gated(&input, &Contracts::default(), OptimizeMode::Balanced, None);
-    let with = apply_gated(
-        &input,
-        &Contracts::default(),
-        OptimizeMode::Balanced,
-        Some(&kinematics),
-    );
-    assert!(without.accepted && with.accepted);
-
-    let corner_without = without.toolpath.segments[0].speed.value();
-    let corner_with = with.toolpath.segments[0].speed.value();
-    assert!(
-        corner_with < corner_without,
-        "a kinematics-bearing profile must lower the balanced corner feedrate ({corner_with} !< {corner_without})"
-    );
 }

@@ -87,13 +87,16 @@ fn right_angle_corner(speed: f64) -> Toolpath {
 }
 
 /// `apply_gated_with`'s `mode` and `kinematics` are the parameters the gate inversion newly exposes,
-/// and the goldens provably cannot see them: mutating `pipeline_for`'s
-/// `Balanced => balanced_pipeline(tp, kinematics)` to pass `None` leaves `report_goldens`,
-/// `rewrite_safe_gate` and `rewrite_balanced_max_gate` all green and fails exactly one test in the
-/// repository — `balanced_gate_lowers_corner_feedrate_with_kinematics` in
-/// `crates/core/tests/machine_kinematics.rs`, which travels with `apply_gated` to `kmet-verify`
-/// (plan Task 5). This is that assertion, over that test's fixture, against the mechanism instead of
-/// the wrapper: the policy closure is always empty, so nothing but the routing is under test.
+/// and no golden can see them: mutating `pipeline_for`'s
+/// `Balanced => balanced_pipeline(tp, kinematics)` to pass `None` leaves `report_goldens` and
+/// `rewrite_safe_gate` green and fails exactly two tests in the repository — this one, and
+/// `balanced_gate_lowers_corner_feedrate_with_kinematics`, which moved with `apply_gated` into
+/// `crates/verify/tests/rewrite_balanced_max_gate.rs` (plan Task 5).
+///
+/// That pair is deliberate and has to stay a pair. The other half tests the *wrapper* forwarding its
+/// argument and lives in the crate that owns the wrapper; this one tests the *mechanism* routing it,
+/// with an always-empty policy closure so that nothing but the routing is under test. Either alone
+/// leaves half the path free to stop forwarding.
 #[test]
 fn apply_gated_with_routes_kinematics_into_balanced() {
     let input = right_angle_corner(1500.0);

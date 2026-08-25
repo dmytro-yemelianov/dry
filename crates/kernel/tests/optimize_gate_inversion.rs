@@ -1,11 +1,17 @@
 //! `apply_gated_with` is the kernel-side gate mechanism: it runs the pipeline and accepts the result
-//! only when the caller's policy reports no *new* error rule. Policy lives in `kmet-verify`
-//! (plan Task 5); the kernel must not know what a rule is.
+//! only when the caller's policy reports no *new* error rule. Policy lives in `kmet-verify`; the
+//! kernel must not know what a rule is, and every policy below is a synthetic closure returning
+//! opaque strings, precisely so that nothing here needs the verifier.
+//!
+//! That is why the file moved here from `crates/core/tests/` with the mechanism it tests (plan
+//! Task 5, fix round 1): a test that names no verifier had no reason to sit two layers above one.
+//! `tests/kernel_surface.rs` covers the parameters the same function forwards; this covers the
+//! accept/reject decision it makes.
 
 use std::collections::BTreeSet;
 
-use dry_core::optimize::apply_gated_with;
-use dry_core::{resolve, Design, OptimizeMode, ResolveParams};
+use kmet_kernel::optimize::apply_gated_with;
+use kmet_kernel::{resolve, Design, OptimizeMode, ResolveParams};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

@@ -8,8 +8,8 @@
 
 use kmet_contracts::{Contracts, RuleId};
 use kmet_kernel::{
-    balanced_pipeline, max_pipeline, Feedrate, Length, OptimizeMode, Segment, SegmentKind,
-    Toolpath, Volume,
+    balanced_pipeline, max_pipeline, Feedrate, Length, MachineKinematics, OptimizeMode, Segment,
+    SegmentKind, Toolpath, Volume,
 };
 use kmet_verify::{apply_gated, verify};
 
@@ -223,4 +223,49 @@ fn max_accepted_and_reduces_segments_under_permissive_contracts() {
         result.toolpath.segments.len()
     );
     assert_eq!(result.toolpath, max_pipeline(&input));
+}
+
+/// Two extruding legs meeting at a sharp 90° corner at (10, 0). The corner is where junction shaping
+/// (relative cosine factor and the absolute junction-velocity cap) bites.
+fn right_angle_corner(speed: f64) -> Toolpath {
+    tp(vec![
+        line_at([0.0, 0.0, 0.2], [10.0, 0.0, 0.2], speed),
+        line_at([10.0, 0.0, 0.2], [10.0, 10.0, 0.2], speed),
+    ])
+}
+
+/// `apply_gated`'s job is to bind the verifier's policy to the kernel's mechanism *and forward the
+/// caller's parameters*. `mode` is covered by every test above; this covers `kinematics`, the only
+/// argument no other assertion in this crate exercises — every other `apply_gated` call here and in
+/// `gate_uses_kernel_mechanism.rs` passes `None`. Without it, a wrapper that dropped the argument
+/// and passed `None` to `apply_gated_with` would leave `cargo test -p kmet-verify` entirely green.
+///
+/// Moved here from `crates/core/tests/machine_kinematics.rs` with the wrapper (plan Task 5, fix
+/// round 1). `kmet-kernel` proves the same routing against the *mechanism* in
+/// `tests/kernel_surface.rs::apply_gated_with_routes_kinematics_into_balanced`; this is the wrapper
+/// half of that pair, and the two must move together or one of them stops meaning anything.
+#[test]
+fn balanced_gate_lowers_corner_feedrate_with_kinematics() {
+    let input = right_angle_corner(1500.0);
+    let kinematics = MachineKinematics {
+        max_acceleration_mm_s2: Some(500.0),
+        max_junction_velocity_mm_s: Some(5.0),
+    };
+
+    // No machine contracts: shaping never introduces a new error, so both rewrites are accepted.
+    let without = apply_gated(&input, &Contracts::default(), OptimizeMode::Balanced, None);
+    let with = apply_gated(
+        &input,
+        &Contracts::default(),
+        OptimizeMode::Balanced,
+        Some(&kinematics),
+    );
+    assert!(without.accepted && with.accepted);
+
+    let corner_without = without.toolpath.segments[0].speed.value();
+    let corner_with = with.toolpath.segments[0].speed.value();
+    assert!(
+        corner_with < corner_without,
+        "a kinematics-bearing profile must lower the balanced corner feedrate ({corner_with} !< {corner_without})"
+    );
 }
