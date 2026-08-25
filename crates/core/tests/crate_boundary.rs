@@ -30,15 +30,17 @@ fn segment_motion_time_is_reachable_from_another_crate() {
 #[test]
 fn get_tangents_is_reachable_from_another_crate() {
     let tp = resolve(&straight_run(), &ResolveParams::default());
-    // A straight line is not an arc, so there are no tangents — `None` is the correct answer.
-    // The assertion under test is that the symbol resolves at all.
+    // `get_tangents` is arc-*aware*, not arc-only: it returns the entry and exit direction of any
+    // segment long enough to have one, and refuses only the too-short or degenerate (see its own
+    // doc). This 10 mm straight run therefore has tangents — both `[1.0, 0.0, 0.0]`.
     let seg = tp.segments.last().unwrap();
-    let _ = get_tangents(seg);
+    assert!(get_tangents(seg).is_some());
 }
 
 #[test]
 fn rotary_state_is_nameable_from_another_crate() {
-    // Using the type in a `size_of` call proves it is both `pub` and `Sized` from outside the crate,
-    // and unlike an unused helper fn it cannot trip `dead_code` under `-D warnings`.
+    // Using the type in a `size_of` call proves it is both `pub` and `Sized` from outside the crate
+    // without introducing an item at all — so nothing here depends on the underscore convention that
+    // happens to suppress `dead_code` for an unused `fn _accepts(_s: &RotaryState) {}`.
     let _ = std::mem::size_of::<RotaryState>();
 }

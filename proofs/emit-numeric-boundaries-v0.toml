@@ -7,7 +7,15 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 path = "crates/core/src/emit/kinematics.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "fd09ca3524609fffd2a87e934decc015f7642e7bc39de574105663a1b08138c1"
+# Re-pinned 2026-08-25 for the layer-2 crate-boundary widening (KMET crate-split plan, Task 1). The
+# reviewed diff against the previous hash is four lines: a three-line doc-comment addition on
+# `RotaryState` (a blank `///` plus two lines recording that it is exposed for `kmet-verify` and is
+# not stable authoring surface) and `pub(crate) struct RotaryState` -> `pub struct RotaryState`. No
+# predicate, no constant, no control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is
+# untouched at 1e-9, `resolve_c` is byte-identical, and the `operation` and `assumptions` text of
+# FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly. Visibility only — the
+# whole-file `hash_mode` is what brings a doc comment under this pin, not numeric relevance.
+sha256 = "b763951a27538694622003eda35d284c0a33251d164c0fcb1b545fa2f820f34f"
 
 # ---------------------------------------------------------------------------------------------
 # The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in
