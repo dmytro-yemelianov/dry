@@ -1,4 +1,11 @@
-# Public Cloudflare product site
+# Public Cloudflare sites
+
+The repository publishes two independent Cloudflare Pages projects. `dry-public-docs` serves the
+documentation and interactive browser product built from `docs/site`. `drymachina` serves the portal
+and Studio at `drymachina.com`, built from the repository root. They share no build tooling, and a
+deployment of one has no effect on the other.
+
+## The `dry-public-docs` documentation site
 
 Dry's documentation and interactive browser product in `docs/site` are public at the
 `dry-public-docs` Cloudflare Pages project. Direct Upload receives only the generated files in
@@ -16,7 +23,7 @@ Source and downloadable release artifacts are public through GitHub as described
 [`12-releasing.md`](12-releasing.md). They remain proprietary under `LICENSE`; public access does not
 grant permission to use, modify, or redistribute them.
 
-## Build modes
+### Build modes
 
 `npm run build` creates the production artifact and is the build deployed to Cloudflare.
 
@@ -27,7 +34,7 @@ Use it only when a lightweight docs-only deployment is specifically required.
 `npm run build:product` is an explicit alias for the full production build and remains useful in local
 development and CI.
 
-## Build and deploy
+### Build and deploy
 
 Prerequisites:
 
@@ -59,6 +66,65 @@ List deployments without changing production:
 ```sh
 npx --yes wrangler@4.111.0 pages deployment list --project-name dry-public-docs
 ```
+
+## The `drymachina` portal and Studio site
+
+`drymachina.com`, `www.drymachina.com`, and `drymachina.pages.dev` are served by the `drymachina`
+Pages project, built from the repository root rather than from `docs/site`. The `main` branch is the
+Pages production branch.
+
+`scripts/build_site.sh` stages the static bundle into `dist-site/`: the root portal (`index.html`,
+`README.md`), the `docs/` tree, the standalone `web/*.html` portals, `web/machines.json`, and the
+compiled Vite Studio from `web/dist`. It also writes `_redirects` and `_headers`.
+
+### `functions/` is not part of `dist-site`
+
+The four public API endpoints — `/api/verify`, `/api/macros`, `/api/mcp`, `/api/machines` — are
+Cloudflare Pages Functions in `functions/` at the repository root. `scripts/build_site.sh` never
+copies them into `dist-site/`, and nothing in the staged bundle references them.
+
+They reach production only because Wrangler discovers a `functions/` directory relative to the
+**current working directory**, not relative to the directory being uploaded. The deploy must therefore
+run from the repository root:
+
+```sh
+bash scripts/build_site.sh
+npx wrangler pages deploy dist-site --project-name drymachina --branch main   # from the repo root
+```
+
+Running the same command from any other directory uploads the identical static bundle and silently
+produces a site with no API endpoints. Wrangler reports success and the deploy looks normal. Confirm
+`/api/machines` after every deploy rather than inferring it from the upload summary.
+
+### Verification after deploy
+
+1. Confirm `https://drymachina.com/` and `https://www.drymachina.com/` return `200`.
+2. Confirm `/web/` loads the Studio and `/web/machines.json` returns the machine registry.
+3. Confirm all four `/api/*` endpoints return `200` with `application/json` bodies.
+
+`dist-site/` ships no `404.html`. Unmatched paths fall back to the root `index.html` with a `200`
+status, so a status code alone does not prove a file was deployed — compare the response body.
+
+### Deployment records and the working tree
+
+A Pages deployment records the commit that was checked out, but Direct Upload sends the working tree
+as it stands. The two can disagree: the deployment the dashboard attributes to `1530784` already
+served `functions/`, which was committed ten minutes later as `9b43703`. The window was short here,
+but nothing bounds it. Treat the recorded commit as a hint, not as a description of what is running.
+
+### Current state: offline
+
+As of 2026-08-25 the production deployment is a static maintenance page that returns
+"Dry Machina — Temporarily Offline" on every path. The Pages project, its custom domains, and its
+deployment history are intact; only the served content was replaced.
+
+To restore the site, rebuild and redeploy from the repository root using the command above, then run
+the verification steps. Rolling back to a stored deployment through the Cloudflare dashboard restores
+the same content without a rebuild.
+
+Every past deployment also remains reachable at its own `<hash>.drymachina.pages.dev` URL, including
+the API endpoints. Replacing the production deployment does not withdraw those. Removing them requires
+deleting the deployments or placing a Cloudflare Access policy over `*.drymachina.pages.dev`.
 
 ## Automation boundary
 

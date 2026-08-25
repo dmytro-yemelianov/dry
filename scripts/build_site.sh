@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 # Build and stage the full Dry Machina site bundle for Cloudflare Pages.
+#
+# This script stages STATIC assets only. The public API endpoints (/api/verify,
+# /api/macros, /api/mcp, /api/machines) are Cloudflare Pages Functions living in
+# functions/ at the repo root, and are deliberately NOT copied into dist-site/ --
+# Wrangler discovers a functions/ directory relative to the CURRENT WORKING
+# DIRECTORY, not relative to the uploaded directory. The deploy must therefore be
+# run from the repo root or the site ships with no API endpoints, silently and
+# with a successful-looking upload. See docs/18-cloudflare-publishing.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -82,3 +90,24 @@ cat << 'EOF' > "$OUT/_headers"
 EOF
 
 echo "✅ Dry Machina site bundle built into $OUT"
+
+# Pages Functions are picked up from ./functions relative to the deploy CWD.
+# This script cannot know that CWD -- the deploy is a separate command -- so it
+# only checks that functions/ exists and prints the correct invocation below.
+if [ ! -d "$ROOT/functions" ]; then
+  echo "⚠️  $ROOT/functions is missing — a deploy from here would publish NO /api/* endpoints."
+fi
+
+cat <<EOM
+
+Deploy from the REPO ROOT ($ROOT) so functions/ is bundled:
+
+  cd "$ROOT"
+  npx wrangler pages deploy dist-site --project-name drymachina --branch main
+
+Then verify the endpoints actually shipped (a 200 alone is not proof — dist-site
+has no 404.html, so unmatched paths fall back to index.html with a 200):
+
+  curl -s https://drymachina.com/api/machines | head -c 80
+
+EOM
