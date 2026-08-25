@@ -1,13 +1,17 @@
-//! Symbols `kmet-verify` reaches across the future crate boundary (plan Task 1).
+//! Symbols `kmet-verify` reaches across the future crate boundary (plan Tasks 1 and 4).
 //!
 //! An integration test compiles as a separate crate, so anything `pub(crate)` fails to resolve here.
 //! That is the point: this file is the compile-time contract that the layer-2 boundary stays open.
 //! See docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md §5.7.
+//!
+//! Every name below now lives in `kmet-kernel` and reaches here only through `dry-core`'s
+//! re-export, which is itself a `pub use` of a `pub` item — so re-narrowing any of them fails at the
+//! re-export (E0365) before it ever fails here.
 
-use dry_core::emit::RotaryState;
+use dry_core::emit::{KinematicsExt, RotaryState};
 use dry_core::engine::segment_motion_time;
 use dry_core::optimize::get_tangents;
-use dry_core::{resolve, Design, ResolveParams};
+use dry_core::{resolve, Design, ResolveParams, REFERENCE_FIVE_AXIS_MACHINE};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -43,4 +47,20 @@ fn rotary_state_is_nameable_from_another_crate() {
     // without introducing an item at all — so nothing here depends on the underscore convention that
     // happens to suppress `dead_code` for an unused `fn _accepts(_s: &RotaryState) {}`.
     let _ = std::mem::size_of::<RotaryState>();
+}
+
+#[test]
+fn the_rotary_geometry_is_callable_from_another_crate() {
+    // The three rotary rules resolve a segment's orientation through the emitter's own geometry, so
+    // `KinematicsExt` and both types its methods hand back — `Joints` and `Rotary` — have to be
+    // reachable and, for `Rotary`, readable field by field. A trait method returning a type less
+    // visible than itself is a `private_interfaces` error, so `Joints` cannot be narrowed alone.
+    let model = REFERENCE_FIVE_AXIS_MACHINE;
+    let mut state = RotaryState::default();
+    let joints = model
+        .resolve_joints(Some([0.0, 0.0, 1.0]), &mut state)
+        .expect("+Z is resolvable under every model");
+    let words = model.rotary_words(joints);
+    assert_eq!(words.len(), 2);
+    assert!(words.iter().all(|w| w.value.is_finite() && w.letter != ' '));
 }

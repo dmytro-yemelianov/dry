@@ -51,7 +51,7 @@ jobs:
       # and PyO3 binding are not wasm targets.
       - name: clippy (wasm, dry-core)
         run: cargo clippy -p dry-core --target wasm32-unknown-unknown --locked -- -D warnings
-      # `crates/core/tests/wasm_native_math.rs` builds the wasm binding and compares it with native
+      # `crates/kernel/tests/wasm_native_math.rs` builds the wasm binding and compares it with native
       # output; that test shells out to `web/build.sh`, which requires wasm-bindgen and Node.
       - name: install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
@@ -254,7 +254,7 @@ jobs:
       # profile and every labelled TPMS option bundle validates against the published schemas
       # (docs/11-profiles-and-reports.md, docs/07-tpms-codegen.md). The Rust side (report drift gate,
       # rule-catalog coverage, and the engine column of the TPMS corpus in
-      # `crates/core/tests/tpms_options_schema.rs`) rides `cargo test --all` in the `core` job.
+      # `crates/kernel/tests/tpms_options_schema.rs`) rides `cargo test --all` in the `core` job.
       - name: validate report schemas + example profiles + TPMS options
         run: python tools/validate_reports.py .
 

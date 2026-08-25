@@ -47,8 +47,8 @@ EXPECTED_LIBM_CONTRACT = {
     "trig_contract_status": "imported-assumption",
 }
 FEATURE_SOURCES = {
-    "crates/core/src/features.rs",
-    "crates/core/src/resolve.rs",
+    "crates/kernel/src/features.rs",
+    "crates/kernel/src/resolve.rs",
 }
 FEATURE_BOUNDARIES = {
     "FM1.F64.FEATURE.POSE.FINITE",
@@ -159,9 +159,15 @@ VERIFY_TOLERANCE_OWNERS = {
     "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
 }
 # Where a duplicate of a pinned epsilon could hide. Every crate an owner can live in, so that adding
-# an owner outside `crates/core` cannot silently narrow the sweep.
-SINGLE_DEFINITION_ROOTS = ("crates/core/src", "crates/contracts/src")
-EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs", "crates/contracts/src/lib.rs"}
+# an owner outside `crates/core` cannot silently narrow the sweep. `crates/kernel` carries no owner
+# today but is swept anyway: it is where `resolve.rs` reads ARC_RADIUS_TOLERANCE_MM from, and a
+# restated copy there is exactly the duplicate this rule exists to catch.
+SINGLE_DEFINITION_ROOTS = (
+    "crates/core/src",
+    "crates/kernel/src",
+    "crates/contracts/src",
+)
+EMIT_SOURCES = {"crates/kernel/src/emit/kinematics.rs", "crates/contracts/src/lib.rs"}
 EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
 EMIT_LIMITS = {
     f"{EMIT_PROFILE_ID}.LIMIT.TOOL_DIRECTION_COMPONENT",
@@ -177,8 +183,8 @@ EMIT_IMPLEMENTATION_TOLERANCES = {
     f"{EMIT_PROFILE_ID}.BUDGET.SINGULAR_CONE_SIN_TILT": "SINGULAR_CONE_SIN_TILT",
 }
 CLOTHOID_SOURCES = {
-    "crates/core/src/clothoid.rs",
-    "crates/core/src/resolve.rs",
+    "crates/kernel/src/clothoid.rs",
+    "crates/kernel/src/resolve.rs",
 }
 CLOTHOID_BOUNDARIES = {
     "FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES",
@@ -651,9 +657,9 @@ def require_single_definition(owners: dict[str, str], errors: list[str]) -> None
     twice, unregistered, while an emitter comment called it published. Callers that want an epsilon
     import it from its owner.
 
-    Both crates are swept, not `crates/core` alone: the crate split moved one of these constants
-    into `kmet-contracts`, and a rule that kept looking only at the kernel would stop seeing the
-    very constant whose duplicate it exists to catch.
+    All three crates are swept, not `crates/core` alone: the crate split moved one of these constants
+    into `kmet-contracts` and the code that reads it into `kmet-kernel`, and a rule that kept looking
+    only at `crates/core` would stop seeing the very constant whose duplicate it exists to catch.
     """
     for root in SINGLE_DEFINITION_ROOTS:
         for path in sorted((ROOT / root).rglob("*.rs")):
@@ -698,7 +704,7 @@ def validate_emit_implementation_values(
 ) -> None:
     """Pin the singular-cone epsilon against the constant in `emit/kinematics.rs`."""
     pin_tolerance_constants(
-        "crates/core/src/emit/kinematics.rs",
+        "crates/kernel/src/emit/kinematics.rs",
         EMIT_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
@@ -710,7 +716,7 @@ def validate_clothoid_implementation_values(
 ) -> None:
     """Pin the Fresnel series threshold against the constant in `clothoid.rs`."""
     pin_tolerance_constants(
-        "crates/core/src/clothoid.rs",
+        "crates/kernel/src/clothoid.rs",
         CLOTHOID_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
@@ -929,7 +935,7 @@ def validate_profile_entries(
 def validate_feature_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
-    source = (ROOT / "crates/core/src/features.rs").read_text(encoding="utf-8")
+    source = (ROOT / "crates/kernel/src/features.rs").read_text(encoding="utf-8")
     node_limit_match = re.search(
         r"pub const DEFAULT_MAX_EXPANDED_NODES: usize = ([0-9_]+);",
         source,

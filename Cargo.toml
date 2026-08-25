@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/contracts",
     "crates/core",
+    "crates/kernel",
     "crates/cli",
     "crates/license",
     "crates/llm",

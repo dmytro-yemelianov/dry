@@ -65,8 +65,8 @@ where `acos(k)` has already collapsed to 0 for a unit direction; it covers more 
 degree worst case exceeds what a word can print, so the policy would start altering geometry.
 """
 evidence = [
-  "crates/core/src/emit/kinematics.rs",
-  "crates/core/src/emit/gcode.rs",
+  "crates/kernel/src/emit/kinematics.rs",
+  "crates/kernel/src/emit/gcode.rs",
   "crates/core/tests/five_axis_singular_cone.rs",
 ]
 next_obligation = "Re-derive if the emitter's word precision changes, or if Ac/Bc stop recovering the tilt with acos(k); the excluded (1e-9, 1e-8] band closes with the latter."
@@ -87,6 +87,6 @@ the cone boundary at 10-degree steps with the held C forced to the worst case an
 separation against this ceiling.
 """
 evidence = [
-  "crates/core/src/emit/kinematics.rs",
+  "crates/kernel/src/emit/kinematics.rs",
 ]
 next_obligation = "Recompute as 2*asin(eps) whenever SINGULAR_CONE_SIN_TILT changes; the two move together."

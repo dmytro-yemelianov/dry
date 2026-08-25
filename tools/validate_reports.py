@@ -39,7 +39,7 @@ def validate_tpms_options(root: Path, validator_factory, errors: list[str]) -> i
 
     The manifest carries two verdicts per case: the schema's and the engine's. Only the schema
     column is checkable here (this validator never imports dry-core); the engine column is checked
-    by `crates/core/tests/tpms_options_schema.rs` against the same manifest. What this function adds
+    by `crates/kernel/tests/tpms_options_schema.rs` against the same manifest. What this function adds
     on top of "the schema agrees with its own labels" is the invariant that binds the two columns:
     a case may never be schema-invalid while the engine accepts it. That is the direction which
     would make the published schema wrong — it would refuse a bundle the engine happily runs.

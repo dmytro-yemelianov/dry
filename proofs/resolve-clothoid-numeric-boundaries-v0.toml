@@ -1,10 +1,10 @@
 schema_version = 1
 model = "resolve-clothoid-numeric-boundaries-v0"
-scope = "The binary64 boundary of crates/core/src/clothoid.rs: the Fresnel series that evaluates the Euler spiral, the exact refusals that decide whether a corner has a symmetric clothoid blend at all, and the fixed-count sampling that turns the solved spiral into the line segments `resolve` lowers to."
+scope = "The binary64 boundary of crates/kernel/src/clothoid.rs: the Fresnel series that evaluates the Euler spiral, the exact refusals that decide whether a corner has a symmetric clothoid blend at all, and the fixed-count sampling that turns the solved spiral into the line segments `resolve` lowers to."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.RESOLVE.CLOTHOID.V0"
 
 [[source]]
-path = "crates/core/src/clothoid.rs"
+path = "crates/kernel/src/clothoid.rs"
 role = "implementation"
 hash_mode = "file"
 sha256 = "e439cc8c032383d6dcd486dc01ed61a64fa0618c9f7e60a1ec3b37b3ba940137"
@@ -14,7 +14,7 @@ sha256 = "e439cc8c032383d6dcd486dc01ed61a64fa0618c9f7e60a1ec3b37b3ba940137"
 # `Op` enum's own shape is not re-pinned here — `feature-numeric-boundaries-v0` already pins that
 # slice as its input domain, and one pin per fact is enough.
 [[source]]
-path = "crates/core/src/resolve.rs"
+path = "crates/kernel/src/resolve.rs"
 role = "input-domain"
 hash_mode = "slice"
 anchor_start = "                let start = [pos[0].unwrap_or(0.0), pos[1].unwrap_or(0.0)];"
@@ -55,7 +55,7 @@ sha256 = "6cb9866747b5e1b00b3b051a371f059cfd8e51bad97be9d7f55d42f85646a421"
 id = "FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"
 title = "The Euler spiral's Fresnel integrals are summed to a relative term threshold, not an absolute one"
 rust_symbol = "fresnel_with_terms"
-source_path = "crates/core/src/clothoid.rs"
+source_path = "crates/kernel/src/clothoid.rs"
 source_anchor = "pub const FRESNEL_SERIES_EPSILON: f64 = 1e-17;"
 inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
 operation = "Cf(t) and Sf(t) are summed from their Maclaurin series by term ratio, each stopping when |term| <= 1e-17 * |partial sum| or at a hard cap of 32 iterations past the leading term, i.e. 33 terms. A sampled spiral point is A*Cf(tau) with A = blend / (Cf(sigma) + Sf(sigma)*tan(theta)); the relative threshold is what makes the position error a fixed fraction of `blend` rather than a fixed fraction of A, which is unbounded above as the deflection shrinks."
@@ -67,14 +67,14 @@ assumptions = [
   "The alternating terms decrease monotonically past the second one across that whole argument range, so the truncation error is bounded by the first omitted term.",
 ]
 exclusions = [
-  "Arguments above sqrt(pi). Nothing in the node produces one; a caller reaching `fresnel` directly for a longer spiral is outside this bound. The Abramowitz & Stegun cross-check in crates/core/tests/clothoid.rs is deliberately one such caller, by exactly one ulp: the tabulated values are defined under the substitution t = u*sqrt(pi), so reproducing them needs the correctly rounded sqrt(pi) (1.772453850905516), which is the next double above the node's own maximum argument (1.7724538509055159). The two constants are kept apart in that file, and one ulp is visible in the result — 1.11e-16 and 0 at the reference point, 2.22e-16 and 1.67e-16 one ulp down.",
+  "Arguments above sqrt(pi). Nothing in the node produces one; a caller reaching `fresnel` directly for a longer spiral is outside this bound. The Abramowitz & Stegun cross-check in crates/kernel/tests/clothoid.rs is deliberately one such caller, by exactly one ulp: the tabulated values are defined under the substitution t = u*sqrt(pi), so reproducing them needs the correctly rounded sqrt(pi) (1.772453850905516), which is the next double above the node's own maximum argument (1.7724538509055159). The two constants are kept apart in that file, and one ulp is visible in the result — 1.11e-16 and 0 at the reference point, 2.22e-16 and 1.67e-16 one ulp down.",
   "The rounding error of the summation itself, which is folded into the measured agreement with quadrature rather than analysed term by term.",
   "The accuracy of the composite-Simpson reference beyond its own arithmetic: 2^16 intervals put its truncation error far below its accumulated rounding, and the published ceiling is that rounding floor, not the series error.",
 ]
 next_obligation = "If the node ever admits a spiral longer than one turn of a corner — a standalone spiral op, or an asymmetric blend — re-derive the argument bound before reusing this series; the entry is scoped to sigma < sqrt(pi) and says so."
 evidence = [
-  "crates/core/src/clothoid.rs",
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/src/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 claim_ids = []
 profile_entries = [
@@ -87,7 +87,7 @@ profile_entries = [
 id = "FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE"
 title = "A corner with no symmetric clothoid blend is refused exactly, never clamped into one that fits"
 rust_symbol = "corner_blend"
-source_path = "crates/core/src/clothoid.rs"
+source_path = "crates/kernel/src/clothoid.rs"
 source_anchor = "    if blend > incoming_len {"
 inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "running position"]
 operation = """
@@ -117,9 +117,9 @@ exclusions = [
 ]
 next_obligation = "Two. (1) If the node ever grows an asymmetric blend (different tangent lengths per leg), the single blend-versus-leg rule splits into two independent ones and this entry must list them separately, since a caller could then overrun one leg while satisfying the other. (2) hypot, atan2, sqrt and tan carry no named accuracy contract. Either extend proofs/libm-0.2.16-trig-contract.md to cover them, or reformulate A to avoid tan near pi/2 — cos(theta)/(Cf*cos(theta) + Sf*sin(theta)) is the same quantity without the pole — before this entry's shape budgets are widened to the whole admitted interval."
 evidence = [
-  "crates/core/src/clothoid.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/src/clothoid.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 claim_ids = []
 profile_entries = [
@@ -132,7 +132,7 @@ profile_entries = [
 id = "FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"
 title = "The blend is lowered as a fixed 2*SAMPLES chord polyline whose departure from the spiral scales with the blend"
 rust_symbol = "corner_blend"
-source_path = "crates/core/src/clothoid.rs"
+source_path = "crates/kernel/src/clothoid.rs"
 source_anchor = "    let mut points = Vec::with_capacity(2 * SAMPLES);"
 inputs = ["Op::Clothoid.blend", "Op::Clothoid.{corner_x,corner_y}", "Op::Clothoid.{x,y}", "resolve::SAMPLES"]
 operation = "Each half is sampled at 16 uniform steps of the normalised arc length tau, giving 32 chords for the whole blend, and `resolve` emits them as plain SegmentKind::Line segments. The count is fixed rather than tolerance-driven, exactly as it is for a Catmull-Rom span, so the number of segments a design produces is a function of the design alone and not of its scale."
@@ -141,7 +141,7 @@ numeric_status = "bounded"
 assumptions = [
   "The Fresnel parameterisation is unit-speed, so uniform steps in tau are uniform in arc length and the chords are of equal length up to curvature; that is what makes a single relative deviation bound cover the whole blend.",
   "The blend never turns by more than 180 degrees in total, so no chord subtends more than 5.625 degrees of tangent rotation.",
-  "The two halves are generated by different code — the first from the enter frame walking tau up, the second from the exit frame walking it back down — so a deviation bound stated for the whole blend has to be measured on both. It now is: crates/core/tests/clothoid.rs walks all 32 chords and reconstructs each against its own frame, reporting the halves separately (6.808361608503092e-4 and 6.808361608264731e-4). Until this slice's review it walked the first 16 only, so half of the range the budget claimed was unmeasured.",
+  "The two halves are generated by different code — the first from the enter frame walking tau up, the second from the exit frame walking it back down — so a deviation bound stated for the whole blend has to be measured on both. It now is: crates/kernel/tests/clothoid.rs walks all 32 chords and reconstructs each against its own frame, reporting the halves separately (6.808361608503092e-4 and 6.808361608264731e-4). Until this slice's review it walked the first 16 only, so half of the range the budget claimed was unmeasured.",
 ]
 exclusions = [
   "Any adaptive or tolerance-driven subdivision: there is none, and a user who needs a tighter chord must ask for a smaller blend or, in a later slice, a configurable sample count.",
@@ -151,9 +151,9 @@ exclusions = [
 ]
 next_obligation = "If SAMPLES ever becomes configurable, the published deviation ceiling becomes a function of it and this entry must state the count it was measured at."
 evidence = [
-  "crates/core/src/clothoid.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/src/clothoid.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 claim_ids = []
 profile_entries = [

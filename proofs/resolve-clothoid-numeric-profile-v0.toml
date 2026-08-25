@@ -58,7 +58,7 @@ by the first omitted term") holds only where the terms are monotonically decreas
 throughout this interval. A caller reaching `fresnel` directly with a larger argument leaves the \
 profile. Note that the correctly rounded sqrt(pi) is 1.772453850905516, one ulp *above* this upper \
 bound; the Abramowitz & Stegun cross-check needs that constant and not this one, and the two are \
-kept as separate named constants in crates/core/tests/clothoid.rs with the relationship between \
+kept as separate named constants in crates/kernel/tests/clothoid.rs with the relationship between \
 them pinned by `the_swept_domain_is_the_published_domain`.
 """
 boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES"]
@@ -120,7 +120,7 @@ node admits is that the corner closes: JOINT_CLOSURE_MM is met at 1e-15 mm right
 from the refusal, because the closure identity is self-consistent in A.
 
 Pinned by `the_shape_budgets_do_not_reach_the_ends_of_the_admitted_interval` in \
-crates/core/tests/clothoid.rs, which asserts the *failure* so that this entry cannot quietly go \
+crates/kernel/tests/clothoid.rs, which asserts the *failure* so that this entry cannot quietly go \
 stale: if the node ever gets better there, that test starts failing and this band gets widened.
 """
 boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE", "FM1.F64.RESOLVE.CLOTHOID.CHORD_SAMPLING"]
@@ -149,7 +149,7 @@ ratio exactly 1 can therefore validate unplaced and be refused after placement �
 rotate_z_deg = 30, where a 10 mm leg becomes 9.999999999999998 mm and a 10 mm blend no longer fits. \
 Refusing is correct (the placed corner really does have a shorter leg; admitting it would clamp), \
 but a design that sits exactly on this boundary is pose-sensitive and should not. Pinned by \
-`a_blend_that_exactly_fills_its_leg_is_not_pose_stable` in crates/core/tests/clothoid.rs. The \
+`a_blend_that_exactly_fills_its_leg_is_not_pose_stable` in crates/kernel/tests/clothoid.rs. The \
 refusals that compare against zero rather than against a length — NoDeflection and Reversal — are \
 pose-stable, measured over 20 rotations each.
 """
@@ -159,7 +159,7 @@ boundary_ids = ["FM1.F64.RESOLVE.CLOTHOID.CORNER_SOLVE"]
 # Budgets — FRESNEL_SERIES_TERM_THRESHOLD is pinned against clothoid.rs by
 # validate_clothoid_implementation_values, so the constant cannot be retuned without updating this
 # file. Every other ceiling here is a measurement, taken over the sweep declared in
-# crates/core/tests/clothoid.rs (20 deflections from -179 to 179 degrees, 7 blends from 0.01 mm to
+# crates/kernel/tests/clothoid.rs (20 deflections from -179 to 179 degrees, 7 blends from 0.01 mm to
 # 9.999 mm against 10 mm legs) and reported by the test that guards it.
 # ---------------------------------------------------------------------------------------------
 
@@ -185,8 +185,8 @@ counts iterations *past* the leading term, so the reachable maximum is 33 terms 
 constant is set to; `fresnel_series_terminates_well_inside_its_cap` pins all three numbers.
 """
 evidence = [
-  "crates/core/src/clothoid.rs",
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/src/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 next_obligation = "If the node ever evaluates the spiral beyond sqrt(pi), re-check that the terms still decrease monotonically before reusing this threshold; the series is not the right form for large arguments."
 
@@ -215,7 +215,7 @@ the node's own domain top, the same comparison gives 2.22e-16 and 1.67e-16. Both
 it, so the argument has to be named.
 """
 evidence = [
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 next_obligation = "Tighten with a higher-order quadrature or an extended-precision reference if the series is ever asked to carry a claim below 1e-14; today's ceiling is the reference's floor, not the implementation's."
 
@@ -243,7 +243,7 @@ blend's arc length falls toward the ulp of the coordinates it is drawn at. That 
 gap, the cause and why no deflection threshold closes it.
 """
 evidence = [
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 next_obligation = "Re-measure if SAMPLES changes: the residual is a function of the step size and this ceiling was measured at 16 chords per half. Separately, widening the measured band toward the ends of LIMIT.DEFLECTION_RAD needs the tan(theta) pole removed from the solve first (see CORNER_SOLVE's second obligation), not a larger sweep."
 
@@ -270,7 +270,7 @@ as it is for a Catmull-Rom span, so a design's segment count is a function of th
 its scale. Like the curvature ceiling, this one is stated over LIMIT.BUDGETED_DEFLECTION_RAD.
 """
 evidence = [
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 next_obligation = "If SAMPLES becomes configurable, this ceiling becomes a function of it and must be republished per count."
 
@@ -298,6 +298,6 @@ a reversal moves the corner's *shape* without opening its joint. Measured at pi 
 gap 8.3e-25 mm, and still under 1e-14 mm one ulp from the refusal.
 """
 evidence = [
-  "crates/core/tests/clothoid.rs",
+  "crates/kernel/tests/clothoid.rs",
 ]
 next_obligation = "Re-measure at the scale of interest if a caller works far from the 10 mm legs used here; the quantity is an absolute length and does not scale away."

@@ -1,6 +1,6 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the kmet-contracts extraction and is imported through verify.rs by crates/core/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
+scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the kmet-contracts extraction and is imported straight from there by crates/kernel/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
@@ -96,7 +96,7 @@ sha256 = "f8eaf3745ac018d41c1c2ab57417d3e71b1a479ae93cae407d550229b3056971"
 # three entries below.
 #
 # The fourth, `arc-radius`, predates H1.3 and was left unregistered when they landed. P5.4 found the
-# gap the hard way: `crates/core/src/emit/krl.rs` declined to re-check arc-radius consistency on the
+# gap the hard way: `crates/kernel/src/emit/krl.rs` declined to re-check arc-radius consistency on the
 # grounds that verify owned it "with its published epsilon", and no such publication existed. The
 # entry is that publication. Registering it also gave the constant a single definition -- resolve.rs
 # had carried a second literal of the same value, outside any pin.
@@ -129,7 +129,7 @@ exclusions = [
 next_obligation = "Keep this equal to the emitter's coordinate precision. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
 evidence = [
   "crates/core/src/verify.rs",
-  "crates/core/src/emit/gcode.rs",
+  "crates/kernel/src/emit/gcode.rs",
   "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
@@ -159,8 +159,8 @@ exclusions = [
 next_obligation = "If any producer adopts a different length formula, this rule stops checking a producer against itself and needs re-deriving."
 evidence = [
   "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/gcode/lift.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/gcode/lift.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
@@ -189,14 +189,23 @@ exclusions = [
 next_obligation = "Promote to Error one minor release after landing, and revisit if the IR gains a filament diameter."
 evidence = [
   "crates/core/src/verify.rs",
-  "crates/core/src/optimize/coasting.rs",
-  "crates/core/src/optimize/arc.rs",
+  "crates/kernel/src/optimize/coasting.rs",
+  "crates/kernel/src/optimize/arc.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
 ]
 
+# Two locational words changed 2026-08-25 for the `kmet-kernel` extraction (KMET crate-split plan,
+# Task 4), in this entry's third `assumptions` line and in the file `scope` above: resolve.rs used to
+# reach the epsilon "through verify.rs" and now imports it straight from `kmet-contracts`, because
+# `crate::verify` does not exist from inside the kernel. Same constant, same owner, same single
+# definition, and the same two pins still cover both halves of the gate -- only the route changed, and
+# leaving the old route asserted would have made this entry describe an import that no longer exists.
+# `operation`, `classification`, `numeric_status`, `exclusions`, `next_obligation`, every budget and
+# every limit are untouched here and in the other three entries; verify.rs itself did not change this
+# task and its hash above is unmoved.
 [[boundary]]
 id = "FM1.F64.VERIFY.ARC_RADIUS"
 title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
@@ -210,7 +219,7 @@ numeric_status = "bounded"
 assumptions = [
   "The two radii are computed by the same hypot on the same centre, so the predicate compares a producer against itself and not two derivations.",
   "Hybrid form (absolute below 1 mm, relative above) for the reason recorded on COMPARED_COORDINATE_MM: at large coordinates the binary64 spacing alone exceeds a fixed 1e-6 mm.",
-  "resolve.rs imports the constant through verify.rs from kmet-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on verify.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
+  "resolve.rs imports the constant straight from kmet-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on verify.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
 ]
 exclusions = [
   "The emit path. `dry emit` runs no verifier (ADR 0002 §1) and no emitter re-applies this epsilon, so IR loaded straight from disk reaches a program without this check. It matters most for `emit/krl.rs`: a KRL CIRC is refitted through three points and keeps no trace of the IR centre, where RS-274 preserves it in I/J and leaves the contradiction visible downstream.",
@@ -220,8 +229,8 @@ exclusions = [
 next_obligation = "If any emitter starts applying this epsilon, that application has a different input domain (an emitted pose, not an IR quantity) and needs its own boundary in the emit inventory rather than an extension of this one."
 evidence = [
   "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/emit/krl.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/emit/krl.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [

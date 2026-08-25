@@ -1,0 +1,33 @@
+[package]
+name = "kmet-kernel"
+description = "KMET layer 1: the IR, resolve, lowering, optimisation, generation and emission. Dependency-light; compiles to wasm32-unknown-unknown unmodified."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+# The kernel stays dependency-light and compiles to wasm32-unknown-unknown unmodified. serde/serde_json
+# (the JSON IR encoding) plus miniz_oxide (pure-Rust DEFLATE for the compact columnar binary encoding)
+# are all wasm-friendly. PyO3/numpy/native bindings live in sibling crates, never here.
+[dependencies]
+# The shared vocabulary (contracts, rule ids, severities, kinematic models), extracted so that the
+# kernel and the verifier can be separated without a cycle. Serde-only, so it costs the kernel nothing.
+kmet-contracts = { path = "../contracts" }
+serde = { version = "1", features = ["derive"] }
+# `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
+# within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a
+# 17-significant-digit coordinate — which is exactly what the IR v0 spec (docs/10, §9) forbids when it
+# defines conformance as bit-exact f64 equality. Pinned by the five_axis_drape conformance vector,
+# whose resolved lengths and volumes are the first in the corpus long enough to expose it.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+miniz_oxide = "0.8"
+libm = "0.2"
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Exact dyadic witnesses for the native f64 feature-operation graph.
+num-bigint = "0.4"
+num-traits = "0.2"

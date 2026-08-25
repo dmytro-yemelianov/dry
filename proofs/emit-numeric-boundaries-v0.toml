@@ -1,10 +1,10 @@
 schema_version = 1
 model = "emit-numeric-boundaries-v0"
-scope = "The binary64 boundary of the tolerance-bearing predicate in crates/core/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the words its two consumers emit - the rotary and linear words of crates/core/src/emit/gcode.rs, and the KUKA A/B angles of crates/core/src/emit/krl.rs. Only kinematics.rs is hash-pinned below: the consumers are recorded as evidence, so a consumer drifting off resolve_c is caught by its own tests and not by this file."
+scope = "The binary64 boundary of the tolerance-bearing predicate in crates/kernel/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the words its two consumers emit - the rotary and linear words of crates/kernel/src/emit/gcode.rs, and the KUKA A/B angles of crates/kernel/src/emit/krl.rs. Only kinematics.rs is hash-pinned below: the consumers are recorded as evidence, so a consumer drifting off resolve_c is caught by its own tests and not by this file."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 
 [[source]]
-path = "crates/core/src/emit/kinematics.rs"
+path = "crates/kernel/src/emit/kinematics.rs"
 role = "implementation"
 hash_mode = "file"
 # Re-pinned 2026-08-25 for the layer-2 crate-boundary widening (KMET crate-split plan, Task 1). The
@@ -35,7 +35,28 @@ hash_mode = "file"
 # `assumptions` and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the
 # code exactly. The whole-file `hash_mode` is what brings a moved type declaration under this pin,
 # not numeric relevance.
-sha256 = "bdd37e03423fbb8df8aaa2d29fc299b474d874ab2d0b197e7ef07c4d6984070b"
+#
+# Re-pinned 2026-08-25 for the `kmet-kernel` extraction (KMET crate-split plan, Task 4), which moved
+# this file from `crates/core/src/emit/kinematics.rs` to `crates/kernel/src/emit/kinematics.rs` --
+# hence the `path` above. A move alone would not change the hash; these four edits did, and they are
+# the whole reviewed diff:
+#   - `crate::verify::RotaryContracts` / `crate::verify::RotaryTravelRanges` in the type and
+#     initialiser of `REFERENCE_FIVE_AXIS_LIMITS` become `kmet_contracts::...`. Path qualification
+#     only: the same two types, reached directly instead of through `verify`'s re-export of them,
+#     because `crate::verify` no longer exists from inside the kernel. Every field value -- the
+#     `[0, 120]` B travel, the absent C travel, `3600` deg/min, the envelope box -- is byte-identical.
+#   - `pub(crate) struct Joints` -> `pub struct Joints`, plus a three-line doc comment saying why. The
+#     tuple field stays private.
+#   - `pub(crate) trait KinematicsExt` -> `pub trait KinematicsExt`, plus a two-line doc comment. A
+#     public method returning a `pub(crate)` type is a `private_interfaces` error under `-D warnings`,
+#     which is why `Joints` had to widen with it; measured, not assumed.
+#   - `pub(crate) struct Rotary` and its two fields -> `pub`, with the doc comment's first line
+#     reworded from "`pub(crate)` fields" to "Public fields" so it still describes the code.
+# Visibility and path qualification only. No predicate, no constant, no control flow and no epsilon
+# changed: `SINGULAR_CONE_SIN_TILT` is untouched at 1e-9, `resolve_c`, `unit_orientation` and every
+# body in `impl KinematicsExt for Kinematics` are byte-identical, and the `operation`, `assumptions`
+# and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly.
+sha256 = "32cb2bc5b610a6033b028996f2e7b1b09627853f6e4c0b3610b7402b7693f095"
 
 # The kinematics half of the vocabulary crate, and the other half of the coverage this inventory
 # used to get whole-file from `emit/kinematics.rs`: the `Kinematics` enum, `REFERENCE_FIVE_AXIS_MACHINE`,
@@ -87,7 +108,7 @@ sha256 = "559e102ac5028b9d1a0da12a68e9f56d7418dea3d83d0cd957eff8bbb117a820"
 id = "FM1.F64.EMIT.ROTARY.SINGULAR_CONE"
 title = "The C axis is held, not recomputed, where the tool direction stops determining it"
 rust_symbol = "resolve_c"
-source_path = "crates/core/src/emit/kinematics.rs"
+source_path = "crates/kernel/src/emit/kinematics.rs"
 source_anchor = "const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;"
 inputs = ["Segment.orientation", "Kinematics::Ac", "Kinematics::Bc"]
 operation = "On the normalised tool direction [i, j, k]: when hypot(i, j) > 1e-9 the C joint is atan2(j, i) and the emitter's RotaryState records it; otherwise the recorded value is reused unchanged. The resolved C feeds both the rotary word and machine_position, so a line's linear and rotary halves always describe one machine state. RotaryState is seeded at 0 (the identity), which is what a program starting inside the cone emitted before this predicate existed."
@@ -97,7 +118,7 @@ assumptions = [
   "The direction is already normalised by unit_orientation, so hypot(i, j) is the sine of the tilt from +Z and lies in [0, 1] regardless of the caller's vector length.",
   "The emitter formats rotary words with {v:.6} degrees, so a direction change below 1e-6 degrees cannot appear in the emitted program.",
   "Ac and Bc are the only models with a C axis; Ab is left untouched and does not advance the state.",
-  "The KRL renderer (crates/core/src/emit/krl.rs) is a second consumer of this predicate: it resolves every pose through Bc with zero offsets, because that model is the KUKA ZYX-Euler decomposition with the roll pinned, and the C word it holds becomes the emitted KUKA A angle. Its angle format is the same num_checked {v:.6}, so the resolution assumption above carries over unchanged. It does not use machine_position -- an E6POS is a TCP pose in $BASE, not a point in a rotated table frame -- so only the rotary half of the operation applies there.",
+  "The KRL renderer (crates/kernel/src/emit/krl.rs) is a second consumer of this predicate: it resolves every pose through Bc with zero offsets, because that model is the KUKA ZYX-Euler decomposition with the roll pinned, and the C word it holds becomes the emitted KUKA A angle. Its angle format is the same num_checked {v:.6}, so the resolution assumption above carries over unchanged. It does not use machine_position -- an E6POS is a TCP pose in $BASE, not a point in a rotated table frame -- so only the rotary half of the operation applies there.",
 ]
 exclusions = [
   "Ab's analogous singularity: B = atan2(i, k) is equally undetermined with the tool along ±Y (i = k = 0), and is not addressed here.",
@@ -107,9 +128,9 @@ exclusions = [
 ]
 next_obligation = "Keep this at or below the tilt whose worst-case substituted direction error, 2*asin(eps), stays under the emitter's 1e-6 degree word resolution. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
 evidence = [
-  "crates/core/src/emit/kinematics.rs",
-  "crates/core/src/emit/gcode.rs",
-  "crates/core/src/emit/krl.rs",
+  "crates/kernel/src/emit/kinematics.rs",
+  "crates/kernel/src/emit/gcode.rs",
+  "crates/kernel/src/emit/krl.rs",
   "crates/core/tests/five_axis_singular_cone.rs",
 ]
 claim_ids = []

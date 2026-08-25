@@ -1,8 +1,8 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
-source = "crates/core/src/features.rs"
+source = "crates/kernel/src/features.rs"
 source_sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
-test = "crates/core/tests/feature_refinement.rs"
+test = "crates/kernel/tests/feature_refinement.rs"
 
 [[mutation]]
 id = "group-reverse-source-order"
@@ -65,7 +65,7 @@ description = "Validate an arc endpoint before its required local start."
 # bytes are unchanged; only the context that locates them grew. The clothoid arm's equivalent
 # ordering is deliberately *not* mutation-covered — the Lean refinement corpus has no clothoid op, so
 # there is no witness fixture to kill such a mutation — and is pinned instead by
-# `a_clothoid_in_a_feature_needs_a_defined_local_start` in crates/core/tests/clothoid.rs.
+# `a_clothoid_in_a_feature_needs_a_defined_local_start` in crates/kernel/tests/clothoid.rs.
 old = '''
                 clockwise,
             } => {

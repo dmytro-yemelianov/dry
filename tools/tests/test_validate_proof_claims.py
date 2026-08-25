@@ -45,7 +45,7 @@ def claim_table(
         numeric_domain = "Real"
         assumptions = []
         exclusions = []
-        rust_sources = ["crates/core/src/features.rs"]
+        rust_sources = ["crates/kernel/src/features.rs"]
         numeric_evidence = []
         refinement_evidence = []
 

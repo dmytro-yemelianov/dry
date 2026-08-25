@@ -358,7 +358,7 @@ means the boundary is a fact about the product rather than an argument about it.
 | New crate | Layer | Drawn from |
 |---|---|---|
 | `kmet-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE` (from `emit/kinematics.rs`) |
-| `kmet-kernel` | 1 | `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` |
+| `kmet-kernel` | 1 | `resolve` `ir` `features` `emit/` `engine` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` `sdk` |
 | `kmet-verify` | 2 | `verify.rs`, `report.rs`, and the `proofs/` + `formal/` linkage |
 | `kmet-trace` | 3 | `trace.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
 

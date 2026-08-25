@@ -25,6 +25,7 @@ name = "dry-core"
 version = "0.6.0"
 dependencies = [
  "kmet-contracts",
+ "kmet-kernel",
  "libm",
  "miniz_oxide",
  "serde",
@@ -66,6 +67,17 @@ name = "kmet-contracts"
 version = "0.6.0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "kmet-kernel"
+version = "0.6.0"
+dependencies = [
+ "kmet-contracts",
+ "libm",
+ "miniz_oxide",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

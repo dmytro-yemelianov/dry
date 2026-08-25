@@ -1,7 +1,14 @@
 schema_version = 1
 model = "resolve-orientation-source-mutations-v0"
-source = "crates/core/src/resolve.rs"
-source_sha256 = "bd69bfa379b1b323dc810e9729963f0919a258ed0ae72a6e1c062afa1308512f"
+source = "crates/kernel/src/resolve.rs"
+# Re-pinned 2026-08-25 for the `kmet-kernel` extraction (KMET crate-split plan, Task 4). The file
+# moved from `crates/core/src/resolve.rs` (hence `source`) and one line inside it changed: the
+# arc-radius epsilon is now imported straight from its owner, `use kmet_contracts::ARC_RADIUS_TOLERANCE_MM;`
+# instead of `use crate::verify::ARC_RADIUS_TOLERANCE_MM;`, because `crate::verify` does not exist
+# from inside the kernel. Same constant, same value, same owner -- `verify` only ever re-exported it.
+# The three lines of comment above that import were reworded to name `kmet-contracts` rather than
+# `verify` as the owner. No `old`/`new` mutation text below is affected; every one still matches.
+source_sha256 = "93213068c4d59f02aff3022ae73894e4f9af3ef2d2eec77600eab37c965d3501"
 test = "crates/core/tests/resolve_orientation_refinement.rs"
 
 [[mutation]]

@@ -205,9 +205,9 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
     for name in ("Cargo.toml", "Cargo.lock", "LICENSE"):
         shutil.copy2(ROOT / name, destination / name)
 
-    # `contracts` is a workspace member, so cargo refuses to load the manifest without it even
-    # though no mutation touches it (crate-split Task 3).
-    for member in ("contracts", "core", "cli", "license", "llm", "moonraker"):
+    # Every workspace member has to be present or cargo refuses to load the manifest, even the ones
+    # no mutation touches (`contracts` from crate-split Task 3, `kernel` from Task 4).
+    for member in ("contracts", "core", "kernel", "cli", "license", "llm", "moonraker"):
         shutil.copytree(
             ROOT / "crates" / member, destination / "crates" / member
         )
@@ -245,13 +245,16 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
 
 
 def test_command(workspace: Path, test: str) -> list[str]:
+    # `kmet-kernel`, not `dry-core`: `features.rs` and its `feature_refinement` integration test both
+    # moved into the kernel crate at crate-split Task 4, and so did the `--lib` numeric tests, which
+    # are `features.rs`'s own `#[cfg(test)] mod native_numeric_tests`.
     command = [
         "cargo",
         "test",
         "--manifest-path",
         str(workspace / "Cargo.toml"),
         "-p",
-        "dry-core",
+        "kmet-kernel",
         "--locked",
     ]
     if test == FEATURE_TEST:

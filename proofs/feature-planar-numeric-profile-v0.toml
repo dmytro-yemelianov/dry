@@ -153,7 +153,7 @@ rationale = "inherit_point selects and copies a finite f64 without arithmetic."
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 next_obligation = "Keep the zero-error result synchronized with any future coordinate representation."
 boundary_ids = ["FM1.F64.FEATURE.COORDINATE.INHERIT"]
@@ -170,7 +170,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Generalize the selected native cardinal-angle witnesses to exhaustive native/wasm execution refinement and connect every checked interval to the imported libm contract."
 boundary_ids = ["FM1.F64.FEATURE.ANGLE.DEGREES"]
@@ -188,7 +188,7 @@ evidence = [
   "proofs/libm-0.2.16-trig-contract.md",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Replace the imported upstream accuracy assumption with exhaustive source-level verification, generalize selected native calls to native/wasm refinement and propagate coefficient error through repeated composition."
 boundary_ids = [
@@ -208,7 +208,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.ROTATION"]
@@ -225,7 +225,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Use the scoped repeat or arbitrary-tree accumulation budgets as appropriate; generalize selected native one-step operation-graph witnesses to arbitrary profiled native/wasm executions."
 boundary_ids = ["FM1.F64.FEATURE.COMPOSE.TRANSLATION"]
@@ -305,7 +305,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 next_obligation = "Tighten this non-production ceiling and generalize the selected nested native corpus to arbitrary profiled Feature/Repeat trees, input envelopes and per-node range premises."
 boundary_ids = [
@@ -326,7 +326,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 next_obligation = "Use the linked angular theorem where direction is the observation, tighten both conservative ceilings and generalize the selected nested native corpus to every theorem premise."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.ORIENTATION"]
@@ -358,7 +358,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic witnesses to every profiled native/wasm execution."
 boundary_ids = ["FM1.F64.FEATURE.APPLY.POINT"]
@@ -375,7 +375,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Add transform coefficient/construction error and generalize the selected native exact-dyadic apply_xy witnesses to every profiled native/wasm execution."
 boundary_ids = [
@@ -395,7 +395,7 @@ evidence = [
   "formal/Dry/Numeric/Binary64.lean",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 next_obligation = "Compose this local budget with coefficient construction where appropriate and generalize the selected native exact-dyadic and orientation-contract witnesses to arbitrary profiled native/wasm execution."
 boundary_ids = [
@@ -410,7 +410,7 @@ unit = "component-value"
 status = "policy"
 ceiling = 1e-12
 rationale = "This records the existing code threshold without claiming it is a proved geometry error budget."
-evidence = ["crates/core/src/features.rs"]
+evidence = ["crates/kernel/src/features.rs"]
 next_obligation = "Replace policy status with a proved observation bound or reject every non-bit-identity transform for manual code."
 boundary_ids = ["FM1.F64.FEATURE.MANUAL.IDENTITY"]
 
@@ -421,6 +421,6 @@ unit = "bit-difference"
 status = "bounded"
 ceiling = 0.0
 rationale = "The feature pass clones these payloads and performs no numeric operation."
-evidence = ["crates/core/src/features.rs"]
+evidence = ["crates/kernel/src/features.rs"]
 next_obligation = "Keep the zero-error pass-through classification synchronized with the pinned Op enum."
 boundary_ids = ["FM1.F64.FEATURE.OP.PASSTHROUGH"]
