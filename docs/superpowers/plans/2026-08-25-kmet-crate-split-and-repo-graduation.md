@@ -1094,6 +1094,17 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 
 ---
 
+> **Constraint discovered while executing Task 6 — read before seeding any repository.** The ordering
+> argument for graduating `kmet-trace` first is *"nothing depends on it"*. That is true of the **code** and
+> false of the **tests**. All three of its drift gates reach repo-root layer-0 data:
+> `crates/trace/tests/report_goldens.rs:26,30` read `../../conformance/reports` and
+> `../../spec/examples/profiles`; `compare_golden.rs:14` reads `../../conformance/reports/compare`;
+> `trace_analytics.rs:36` likewise. A clean `kmet-trace` repository therefore cannot run its own gates
+> without either vendoring `conformance/reports` and `spec/examples/profiles`, submoduling them, or fetching
+> them from the `kmet-kernel` repository that owns layer 0. Decide which **before** Task 8 Step 2 — seeding
+> a repository whose CI cannot pass is worse than not seeding it. The same question applies to
+> `kmet-verify` and `kmet-tools`, whose gates read the same directories.
+
 ## Task 8: Create the repositories and graduate `kmet-trace`
 
 **Files:**
