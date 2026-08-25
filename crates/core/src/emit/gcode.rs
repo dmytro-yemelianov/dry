@@ -1,4 +1,4 @@
-use super::kinematics::RotaryState;
+use super::kinematics::{KinematicsExt, RotaryState};
 use super::{Kinematics, SplineFlatteningIterator};
 use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};

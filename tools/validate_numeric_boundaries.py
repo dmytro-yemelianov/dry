@@ -122,7 +122,7 @@ EXPECTED_BINARY64_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM": 2**-28,
     f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR": 2**-29,
 }
-VERIFY_SOURCES = {"crates/core/src/verify.rs"}
+VERIFY_SOURCES = {"crates/core/src/verify.rs", "crates/contracts/src/lib.rs"}
 VERIFY_BOUNDARIES = {
     "FM1.F64.VERIFY.CONTINUITY.GAP",
     "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
@@ -147,6 +147,20 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR": "FILAMENT_RATIO_TOLERANCE",
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR": "ARC_RADIUS_TOLERANCE_MM",
 }
+# Which file *defines* each of them. Ownership used to be a per-inventory fact -- all four lived in
+# verify.rs -- but the crate split moved ARC_RADIUS_TOLERANCE_MM into `kmet-contracts`, because
+# resolve.rs applies the same epsilon at the L1 gate and the kernel cannot depend on the verifier.
+# The pin follows the definition rather than the module that reads it; verify.rs re-exports the
+# constant, and a re-export carries no value to check.
+VERIFY_TOLERANCE_OWNERS = {
+    "CONTINUITY_TOLERANCE_MM": "crates/core/src/verify.rs",
+    "LENGTH_TOLERANCE": "crates/core/src/verify.rs",
+    "FILAMENT_RATIO_TOLERANCE": "crates/core/src/verify.rs",
+    "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
+}
+# Where a duplicate of a pinned epsilon could hide. Every crate an owner can live in, so that adding
+# an owner outside `crates/core` cannot silently narrow the sweep.
+SINGLE_DEFINITION_ROOTS = ("crates/core/src", "crates/contracts/src")
 EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs"}
 EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
 EMIT_LIMITS = {
@@ -626,46 +640,45 @@ def pin_tolerance_constants(
             )
 
 
-def require_single_definition(
-    constants: set[str], owner: str, errors: list[str]
-) -> None:
-    """Fail if a pinned epsilon is defined more than once anywhere in `crates/core`.
+def require_single_definition(owners: dict[str, str], errors: list[str]) -> None:
+    """Fail if a pinned epsilon is defined anywhere but the file that owns it.
 
-    The pin above reads one file. A second `const` of the same name elsewhere would sit outside it
-    and could be retuned on its own — which is how `ARC_RADIUS_TOLERANCE_MM` came to exist twice,
-    unregistered, while an emitter comment called it published. Callers that want the epsilon import
-    it from its owner.
+    The pins above read one file each. A second `const` of the same name elsewhere would sit outside
+    them and could be retuned on its own — which is how `ARC_RADIUS_TOLERANCE_MM` came to exist
+    twice, unregistered, while an emitter comment called it published. Callers that want an epsilon
+    import it from its owner.
+
+    Both crates are swept, not `crates/core` alone: the crate split moved one of these constants
+    into `kmet-contracts`, and a rule that kept looking only at the kernel would stop seeing the
+    very constant whose duplicate it exists to catch.
     """
-    for path in sorted((ROOT / "crates/core/src").rglob("*.rs")):
-        source = path.read_text(encoding="utf-8")
-        for constant in sorted(constants):
-            hits = len(
-                re.findall(r"const " + re.escape(constant) + r"\s*:", source)
-            )
+    for root in SINGLE_DEFINITION_ROOTS:
+        for path in sorted((ROOT / root).rglob("*.rs")):
+            source = path.read_text(encoding="utf-8")
             relative = path.relative_to(ROOT).as_posix()
-            if hits and relative != owner:
-                errors.append(
-                    f"{constant} is defined in {relative} as well as {owner}: a pinned "
-                    "epsilon must have one definition, imported rather than restated"
+            for constant, owner in sorted(owners.items()):
+                hits = len(
+                    re.findall(r"const " + re.escape(constant) + r"\s*:", source)
                 )
-            elif hits > 1:
-                errors.append(f"{constant} is defined {hits} times in {owner}")
+                if hits and relative != owner:
+                    errors.append(
+                        f"{constant} is defined in {relative} as well as {owner}: a pinned "
+                        "epsilon must have one definition, imported rather than restated"
+                    )
+                elif hits > 1:
+                    errors.append(f"{constant} is defined {hits} times in {owner}")
 
 
 def validate_verify_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
-    """Pin the published tolerance budgets against the constants in `verify.rs`."""
-    owner = "crates/core/src/verify.rs"
-    pin_tolerance_constants(
-        owner,
-        VERIFY_IMPLEMENTATION_TOLERANCES,
-        profile,
-        errors,
-    )
-    require_single_definition(
-        set(VERIFY_IMPLEMENTATION_TOLERANCES.values()), owner, errors
-    )
+    """Pin the published tolerance budgets against the constants that define them."""
+    by_owner: dict[str, dict[str, str]] = {}
+    for budget_id, constant in VERIFY_IMPLEMENTATION_TOLERANCES.items():
+        by_owner.setdefault(VERIFY_TOLERANCE_OWNERS[constant], {})[budget_id] = constant
+    for owner, tolerances in sorted(by_owner.items()):
+        pin_tolerance_constants(owner, tolerances, profile, errors)
+    require_single_definition(VERIFY_TOLERANCE_OWNERS, errors)
 
 
 def validate_emit_implementation_values(

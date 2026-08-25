@@ -12,6 +12,9 @@ publish = false
 # (the JSON IR encoding) plus miniz_oxide (pure-Rust DEFLATE for the compact columnar binary encoding)
 # are all wasm-friendly. PyO3/numpy/native bindings live in sibling crates, never here.
 [dependencies]
+# The shared vocabulary (contracts, rule ids, severities, kinematic models), extracted so that the
+# kernel and the verifier can be separated without a cycle. Serde-only, so it costs the core nothing.
+kmet-contracts = { path = "../contracts" }
 serde = { version = "1", features = ["derive"] }
 # `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
 # within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a

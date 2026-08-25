@@ -99,7 +99,7 @@
 //! rather than confirm it.
 
 use super::gcode::{num_checked, write_line, EmitParams};
-use super::kinematics::{Kinematics, RotaryState};
+use super::kinematics::{Kinematics, KinematicsExt, RotaryState};
 use super::SplineFlatteningIterator;
 use crate::codec::CodecError;
 use crate::ir::SegmentKind;

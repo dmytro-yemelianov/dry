@@ -146,7 +146,9 @@ def build_worktree(target_dir: Path) -> None:
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, target_dir / name)
 
-    for member in ("core", "cli", "license", "llm", "moonraker"):
+    # `contracts` is a workspace member, so cargo refuses to load the manifest without it even
+    # though no mutation touches it (crate-split Task 3).
+    for member in ("contracts", "core", "cli", "license", "llm", "moonraker"):
         if (ROOT / "crates" / member).is_dir():
             shutil.copytree(
                 ROOT / "crates" / member, target_dir / "crates" / member

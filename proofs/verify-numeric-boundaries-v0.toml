@@ -1,6 +1,6 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon is defined in verify.rs and imported by crates/core/src/resolve.rs, so its L1 gate is the same constant and is covered by the same pin."
+scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the kmet-contracts extraction and is imported through verify.rs by crates/core/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
@@ -31,7 +31,45 @@ hash_mode = "file"
 #
 # Re-pinned 2026-08-03 at the merge of the two slices above: the hash below is verify.rs carrying
 # both reviewed diffs combined, with no further change.
-sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
+#
+# Re-pinned 2026-08-25 for the `kmet-contracts` extraction (KMET crate-split plan, Task 3). The
+# reviewed diff against the previous hash is one move and no edit: `Contracts`,
+# `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`,
+# `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId` and `ARC_RADIUS_TOLERANCE_MM`
+# leave this file verbatim for `kmet-contracts` -- the logic-free crate that has to sit below both
+# the kernel and the verifier, because `RotaryContracts.model` is an `emit::Kinematics` while
+# `resolve.rs` reads the arc-radius epsilon -- and are re-exported from their former paths by a
+# single `pub use`. No caller, in-tree or in the bindings, changes import path.
+#
+# What that costs this pin, and what replaces it: `ARC_RADIUS_TOLERANCE_MM` is no longer *defined*
+# in the file this hash covers, so a whole-file pin on verify.rs alone would have left the epsilon
+# free to be retuned outside review. It does not: the second `[[source]]` below pins the constant
+# as a slice of its new owner, and `tools/validate_numeric_boundaries.py` now resolves the constant
+# per-owner rather than assuming verify.rs holds all four. The predicate that *applies* the epsilon
+# stays here and stays byte-identical, so FM1.F64.VERIFY.ARC_RADIUS's `source_anchor` moves off the
+# constant and onto that predicate -- the same entry, anchored to the half of it that is still here.
+#
+# No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation`
+# text changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are
+# untouched at 1e-6 and still defined here; `arc_radius_error`, the continuity rule, the two length
+# rules and the filament rule are byte-identical; every rule still fires at the same severity.
+sha256 = "0cd040fa485ae7403b8cfd4c8a45a6bb3cf16c8e29247cf2b3a5ed4f4e06aa98"
+
+# The arc-radius epsilon itself, which left verify.rs for the vocabulary crate in the crate split so
+# that the kernel's L1 gate in resolve.rs can reach it without depending on the verifier.
+#
+# Pinned as a slice rather than whole-file because kmet-contracts also carries `Contracts`,
+# `RuleId` and `Severity`, none of them tolerance-bearing: a whole-file hash here would make every
+# vocabulary edit present as a numeric review and train the reviewer to wave it through. The slice
+# is the constant and the doc comment asserting it is the single definition -- exactly what
+# FM1.F64.VERIFY.ARC_RADIUS depends on, and nothing else.
+[[source]]
+path = "crates/contracts/src/lib.rs"
+role = "implementation"
+hash_mode = "slice"
+anchor_start = "/// Relative tolerance for `arc-radius`:"
+anchor_end = "\n\n/// The rotary kinematics of the 5-axis machine:"
+sha256 = "9116bb243a52abf2f54159cb97a49091e11a976dd7a0ac110e8dd520da01ca31"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -145,7 +183,7 @@ id = "FM1.F64.VERIFY.ARC_RADIUS"
 title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
 rust_symbol = "arc_radius_error"
 source_path = "crates/core/src/verify.rs"
-source_anchor = "pub(crate) const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;"
+source_anchor = "let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);"
 inputs = ["Segment.start", "Segment.end", "Segment.centre", "Op::Arc.cx", "Op::Arc.cy"]
 operation = "With r0 = hypot(start - centre) and r1 = hypot(end - centre), both required > 0: fire when |r0 - r1| > 1e-6 * max(r0, r1, 1). Applied twice on the same constant - by verify's `arc-radius` rule on a Segment, and by resolve's L1 gate on an Op::Arc, which imports the constant rather than restating it. An arc with an undefined start or end X/Y is reported as missing geometry instead, and is not measured by this predicate."
 classification = "interval-bounded"
@@ -153,7 +191,7 @@ numeric_status = "bounded"
 assumptions = [
   "The two radii are computed by the same hypot on the same centre, so the predicate compares a producer against itself and not two derivations.",
   "Hybrid form (absolute below 1 mm, relative above) for the reason recorded on COMPARED_COORDINATE_MM: at large coordinates the binary64 spacing alone exceeds a fixed 1e-6 mm.",
-  "resolve.rs imports the constant from verify.rs, so the pin below covers the L1 gate as well as the rule. A second literal there would be outside this entry.",
+  "resolve.rs imports the constant through verify.rs from kmet-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on verify.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
 ]
 exclusions = [
   "The emit path. `dry emit` runs no verifier (ADR 0002 §1) and no emitter re-applies this epsilon, so IR loaded straight from disk reaches a program without this check. It matters most for `emit/krl.rs`: a KRL CIRC is refitted through three points and keeps no trace of the IR centre, where RS-274 preserves it in I/J and leaves the contradiction visible downstream.",

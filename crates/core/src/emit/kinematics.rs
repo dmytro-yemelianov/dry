@@ -1,37 +1,7 @@
-use serde::{Deserialize, Serialize};
-
-/// The rotary kinematics of the 5-axis machine: which two rotary axes carry the toolframe orientation,
-/// and how the tool-direction unit vector maps onto them. Supports mechanical TCP (Tool Center Point)
-/// translation offsets and rotary joint rotation offsets.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Kinematics {
-    /// Tilting head: `A` about X then `B` about Y. Words `A`,`B`.
-    Ab {
-        pivot_offset: [f64; 3],
-        rotary_offset: [f64; 2],
-    },
-    /// `A` about X, `C` about Z (e.g. table/trunnion). Words `A`,`C`.
-    Ac {
-        pivot_offset: [f64; 3],
-        rotary_offset: [f64; 2],
-    },
-    /// `B` about Y, `C` about Z. Words `B`,`C`.
-    Bc {
-        pivot_offset: [f64; 3],
-        rotary_offset: [f64; 2],
-    },
-}
-
-/// Reference machine model used for the 5-axis task: B/C rotary axes with zero offsets.
-///
-/// The offsets stay zero deliberately: a zero-pivot table is the one configuration whose forward
-/// transform is exactly a rotation about the WCS origin, so every emitted 5-axis program is
-/// reproducible without a machine-specific calibration. What the model does *not* carry is any
-/// limit — see [`REFERENCE_FIVE_AXIS_LIMITS`] for those.
-pub const REFERENCE_FIVE_AXIS_MACHINE: Kinematics = Kinematics::Bc {
-    pivot_offset: [0.0, 0.0, 0.0],
-    rotary_offset: [0.0, 0.0],
-};
+// `Kinematics` and the reference model are the shared vocabulary: `verify`'s `RotaryContracts` is
+// typed with the enum, so it lives in `kmet-contracts`, below both the kernel and the verifier. The
+// geometry that reads it stays here — see [`KinematicsExt`].
+pub use kmet_contracts::{Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 
 /// The limits of the reference 5-axis machine: what its rotary axes can reach, how fast they can get
 /// there, and where the tool tip is allowed to end up.
@@ -69,15 +39,6 @@ pub const REFERENCE_FIVE_AXIS_LIMITS: crate::verify::RotaryContracts =
         max_rotary_feed_deg_min: Some(3600.0),
         envelope_mm: Some([[-200.0, 200.0], [-200.0, 200.0], [-50.0, 300.0]]),
     };
-
-impl Default for Kinematics {
-    fn default() -> Self {
-        Kinematics::Ab {
-            pivot_offset: [0.0, 0.0, 0.0],
-            rotary_offset: [0.0, 0.0],
-        }
-    }
-}
 
 /// Recover the unit tool-direction vector from a toolframe orientation.
 ///
@@ -118,7 +79,7 @@ const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;
 
 /// The `C`-axis state carried from one segment to the next.
 ///
-/// [`Kinematics::resolve_joints`] cannot be a pure per-segment function: inside the singular cone
+/// [`KinematicsExt::resolve_joints`] cannot be a pure per-segment function: inside the singular cone
 /// `C` is undetermined, and the only defensible answer is where the previous segment left the axis,
 /// which is history. `emit_stream_to_writer` threads this the way it already threads `prog_pos`.
 ///
@@ -140,8 +101,8 @@ pub struct RotaryState {
 /// One segment's rotary joint angles in **radians**, nominal (before `rotary_offset`), in the order
 /// this model emits its words: `Ab` ⇒ `(A, B)`, `Ac` ⇒ `(C, A)`, `Bc` ⇒ `(C, B)`.
 ///
-/// Resolving them once per segment is load-bearing, not tidiness. [`Kinematics::rotary_words`] and
-/// [`Kinematics::machine_position`] each used to recompute `atan2(j, i)` from the orientation. Once
+/// Resolving them once per segment is load-bearing, not tidiness. [`KinematicsExt::rotary_words`]
+/// and [`KinematicsExt::machine_position`] each used to recompute `atan2(j, i)` from the orientation. Once
 /// `C` can be *held* rather than computed, a held value reaching only one of them would emit rotary
 /// words for one machine state and linear words for another: under `Bc` at `B = 0`, holding
 /// `C = 90°` while the linear transform still assumed `C = 0` puts the programmed point a quarter
@@ -160,7 +121,27 @@ fn resolve_c(i: f64, j: f64, state: &mut RotaryState) -> f64 {
     state.c
 }
 
-impl Kinematics {
+/// The kinematic geometry of a [`Kinematics`] model: joint resolution, the rotary words it writes,
+/// and the machine position those words imply.
+///
+/// An extension trait rather than the inherent `impl` this used to be, because the enum itself now
+/// lives in `kmet-contracts` — the vocabulary the verifier shares with the kernel — and Rust allows
+/// an inherent `impl` only in the crate that defines the type. The geometry is kernel code: it
+/// reaches `resolve_c`, [`RotaryState`], [`Joints`] and `libm`, none of which the vocabulary crate
+/// carries. Bodies, signatures and call sites are unchanged; only the block they sit in is new.
+pub(crate) trait KinematicsExt {
+    fn resolve_joints(
+        &self,
+        orientation: Option<[f64; 3]>,
+        state: &mut RotaryState,
+    ) -> Result<Joints, String>;
+    fn rotary_letters(&self) -> [char; 2];
+    fn orientation_from_rotary_words(&self, values: [f64; 2]) -> [f64; 3];
+    fn rotary_words(&self, joints: Joints) -> [Rotary; 2];
+    fn machine_position(&self, p: [f64; 3], joints: Joints) -> [f64; 3];
+}
+
+impl KinematicsExt for Kinematics {
     /// Resolve one segment's rotary joint angles, advancing the `C`-axis state.
     ///
     /// The orientation is normalised first; see [`unit_orientation`]. This is the only fallible step
@@ -169,7 +150,7 @@ impl Kinematics {
     /// `Ab` never touches the state: it has no `C` axis. Its own singularity — `B = atan2(i, k)` with
     /// the tool along ±Y, where `i = k = 0` — is the exact analogue of the one handled here and is
     /// **not** addressed; a tilting head passing through horizontal still swings `B` to zero.
-    pub(crate) fn resolve_joints(
+    fn resolve_joints(
         &self,
         orientation: Option<[f64; 3]>,
         state: &mut RotaryState,
@@ -185,7 +166,7 @@ impl Kinematics {
 
     /// The letters of this model's two rotary words, in the order [`Self::rotary_words`] returns
     /// them — `Ab` writes `A` then `B`, `Ac` and `Bc` write `C` then their tilt axis.
-    pub(crate) fn rotary_letters(&self) -> [char; 2] {
+    fn rotary_letters(&self) -> [char; 2] {
         match self {
             Self::Ab { .. } => ['A', 'B'],
             Self::Ac { .. } => ['C', 'A'],
@@ -212,7 +193,7 @@ impl Kinematics {
     /// only on the branch the forward map can produce (`|a| ≤ 90°` for `Ab`, tilt in `[0°, 180°]`
     /// for `Ac`/`Bc`): a program stating a tilt outside it still yields the tool direction that pose
     /// points in, which is the honest reading of the words.
-    pub(crate) fn orientation_from_rotary_words(&self, values: [f64; 2]) -> [f64; 3] {
+    fn orientation_from_rotary_words(&self, values: [f64; 2]) -> [f64; 3] {
         match *self {
             Self::Ab { rotary_offset, .. } => {
                 let a = (values[0] - rotary_offset[0]).to_radians();
@@ -236,7 +217,7 @@ impl Kinematics {
     }
 
     /// Convert resolved joint angles into the two rotary words used by this model.
-    pub(crate) fn rotary_words(&self, joints: Joints) -> [Rotary; 2] {
+    fn rotary_words(&self, joints: Joints) -> [Rotary; 2] {
         let Joints([first, second]) = joints;
         match *self {
             Self::Ab {
@@ -285,7 +266,7 @@ impl Kinematics {
     ///
     /// Takes the same [`Joints`] the rotary words are rendered from, so the linear and rotary halves
     /// of a line always describe one machine state.
-    pub(crate) fn machine_position(&self, p: [f64; 3], joints: Joints) -> [f64; 3] {
+    fn machine_position(&self, p: [f64; 3], joints: Joints) -> [f64; 3] {
         let Joints([first, second]) = joints;
         match *self {
             Self::Ab {
@@ -365,148 +346,6 @@ impl Kinematics {
 
                 [rx - lx, ry - ly, rz - lz]
             }
-        }
-    }
-
-    pub fn validate(&self) -> Result<(), String> {
-        match self {
-            Self::Ab {
-                pivot_offset,
-                rotary_offset,
-            }
-            | Self::Ac {
-                pivot_offset,
-                rotary_offset,
-            }
-            | Self::Bc {
-                pivot_offset,
-                rotary_offset,
-            } => {
-                for (axis, value) in ["x", "y", "z"].iter().zip(*pivot_offset) {
-                    if !value.is_finite() {
-                        return Err(format!("pivot_offset[{axis}] must be finite"));
-                    }
-                }
-                for (axis, value) in ["0", "1"].iter().zip(*rotary_offset) {
-                    if !value.is_finite() {
-                        return Err(format!("rotary_offset[{axis}] must be finite"));
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub fn named(name: &str) -> Result<Self, String> {
-        match name {
-            "ab" => Ok(Kinematics::Ab {
-                pivot_offset: [0.0, 0.0, 0.0],
-                rotary_offset: [0.0, 0.0],
-            }),
-            "ac" => Ok(Kinematics::Ac {
-                pivot_offset: [0.0, 0.0, 0.0],
-                rotary_offset: [0.0, 0.0],
-            }),
-            "bc" => Ok(Kinematics::Bc {
-                pivot_offset: [0.0, 0.0, 0.0],
-                rotary_offset: [0.0, 0.0],
-            }),
-            other => Err(format!("unknown kinematics: {other}")),
-        }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Kinematics {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::Error;
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum RawKinematics {
-            String(String),
-            Struct(RawKinematicsStruct),
-        }
-
-        #[derive(Deserialize)]
-        struct RawKinematicsStruct {
-            #[serde(rename = "type")]
-            kind: String,
-            #[serde(default)]
-            pivot_offset: [f64; 3],
-            #[serde(default)]
-            rotary_offset: [f64; 2],
-        }
-
-        let raw = RawKinematics::deserialize(deserializer)?;
-        match raw {
-            RawKinematics::String(s) => match s.as_str() {
-                "ab" | "ac" | "bc" => Kinematics::named(&s).map_err(D::Error::custom),
-                other => Err(D::Error::custom(format!("unknown kinematics: {other}"))),
-            },
-            RawKinematics::Struct(s) => match s.kind.as_str() {
-                "ab" => Ok(Kinematics::Ab {
-                    pivot_offset: s.pivot_offset,
-                    rotary_offset: s.rotary_offset,
-                }),
-                "ac" => Ok(Kinematics::Ac {
-                    pivot_offset: s.pivot_offset,
-                    rotary_offset: s.rotary_offset,
-                }),
-                "bc" => Ok(Kinematics::Bc {
-                    pivot_offset: s.pivot_offset,
-                    rotary_offset: s.rotary_offset,
-                }),
-                other => Err(D::Error::custom(format!(
-                    "unknown kinematics type: {other}"
-                ))),
-            },
-        }
-    }
-}
-
-impl Serialize for Kinematics {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        #[derive(Serialize)]
-        struct Raw {
-            #[serde(rename = "type")]
-            kind: &'static str,
-            #[serde(default)]
-            pivot_offset: [f64; 3],
-            #[serde(default)]
-            rotary_offset: [f64; 2],
-        }
-
-        match self {
-            Self::Ab {
-                pivot_offset,
-                rotary_offset,
-            } => Raw {
-                kind: "ab",
-                pivot_offset: *pivot_offset,
-                rotary_offset: *rotary_offset,
-            }
-            .serialize(serializer),
-            Self::Ac {
-                pivot_offset,
-                rotary_offset,
-            } => Raw {
-                kind: "ac",
-                pivot_offset: *pivot_offset,
-                rotary_offset: *rotary_offset,
-            }
-            .serialize(serializer),
-            Self::Bc {
-                pivot_offset,
-                rotary_offset,
-            } => Raw {
-                kind: "bc",
-                pivot_offset: *pivot_offset,
-                rotary_offset: *rotary_offset,
-            }
-            .serialize(serializer),
         }
     }
 }

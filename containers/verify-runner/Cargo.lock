@@ -161,6 +161,7 @@ dependencies = [
 name = "dry-core"
 version = "0.6.0"
 dependencies = [
+ "kmet-contracts",
  "libm",
  "miniz_oxide",
  "serde",
@@ -522,6 +523,13 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kmet-contracts"
+version = "0.6.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

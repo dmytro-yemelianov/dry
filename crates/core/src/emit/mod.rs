@@ -27,5 +27,8 @@ pub use self::krl::{KrlFrame, KrlTransform};
 // is judged against the program that will actually be written. Emitter mechanics, not authoring
 // API — public only so `kmet-verify` can reach it across the crate boundary (plan Task 1).
 pub use self::kinematics::RotaryState;
+// The kinematic geometry of a `Kinematics`, an extension trait because the enum itself lives in
+// `kmet-contracts` (plan Task 3). Crate-internal, exactly as the inherent methods it replaced were.
+pub(crate) use self::kinematics::KinematicsExt;
 pub use self::spline::SplineFlatteningIterator;
 pub use self::step_nc::emit_step_nc;

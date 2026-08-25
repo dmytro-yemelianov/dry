@@ -357,9 +357,20 @@ means the boundary is a fact about the product rather than an argument about it.
 
 | New crate | Layer | Drawn from |
 |---|---|---|
+| `kmet-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics` (from `emit/kinematics.rs`) |
 | `kmet-kernel` | 1 | `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` |
 | `kmet-verify` | 2 | `verify.rs`, `report.rs`, and the `proofs/` + `formal/` linkage |
 | `kmet-trace` | 3 | `trace.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
+
+**Four crates, not three — a finding, not drift.** This table said three until dependency analysis on
+2026-08-25, sequencing the split, found layers 1 and 2 mutually dependent as written: `verify.rs`'s
+`RotaryContracts.model` is typed `emit::Kinematics` and its serde default reads
+`emit::REFERENCE_FIVE_AXIS_MACHINE`, while `resolve.rs` applies `verify.rs`'s `ARC_RADIUS_TOLERANCE_MM`
+at the L1 arc gate. Cargo has no cyclic dependencies, so `kmet-kernel` and `kmet-verify` cannot be
+separated *at all* until the vocabulary both of them name sits below both. `kmet-contracts` is that
+crate — types, parsers and rule ids, `serde` its only dependency, no logic — and it is what makes the
+rest of the split possible rather than an addition to it. It is layer 1, so it registers with the kernel:
+§6.1 still files three works.
 
 The split pays twice. Legally it makes three registrations defensible instead of one arguable. Structurally
 it relieves the two largest files in the tree — `verify.rs` at 2 143 lines and `trace.rs` at 1 721 — which

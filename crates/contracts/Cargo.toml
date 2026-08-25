@@ -1,0 +1,17 @@
+[package]
+name = "kmet-contracts"
+description = "KMET shared vocabulary: verification contracts, rule ids, severities, kinematic models. No logic, no dependencies on the kernel."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+# The whole point of this crate is that it is below both the kernel and the verifier, so it carries
+# one dependency and it is the wasm-friendly one every binding already links.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

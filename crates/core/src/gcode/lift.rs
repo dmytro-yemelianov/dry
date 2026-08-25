@@ -2,7 +2,7 @@ use super::{
     parse_gcode_lines_with_state, DistanceMode, ExtrusionMode, GcodeModalState, GcodeParseError,
     GcodeParser, GcodeRecord, MotionMode, ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
-use crate::emit::{emit_stream, format_number, EmitParams, Kinematics};
+use crate::emit::{emit_stream, format_number, EmitParams, Kinematics, KinematicsExt};
 use crate::ir::{Meta, Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 use std::f64::consts::{PI, TAU};

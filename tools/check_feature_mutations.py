@@ -205,7 +205,9 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
     for name in ("Cargo.toml", "Cargo.lock", "LICENSE"):
         shutil.copy2(ROOT / name, destination / name)
 
-    for member in ("core", "cli", "license", "llm", "moonraker"):
+    # `contracts` is a workspace member, so cargo refuses to load the manifest without it even
+    # though no mutation touches it (crate-split Task 3).
+    for member in ("contracts", "core", "cli", "license", "llm", "moonraker"):
         shutil.copytree(
             ROOT / "crates" / member, destination / "crates" / member
         )

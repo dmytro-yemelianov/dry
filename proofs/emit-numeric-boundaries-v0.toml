@@ -15,7 +15,26 @@ hash_mode = "file"
 # untouched at 1e-9, `resolve_c` is byte-identical, and the `operation` and `assumptions` text of
 # FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly. Visibility only — the
 # whole-file `hash_mode` is what brings a doc comment under this pin, not numeric relevance.
-sha256 = "b763951a27538694622003eda35d284c0a33251d164c0fcb1b545fa2f820f34f"
+#
+# Re-pinned 2026-08-25 for the `kmet-contracts` extraction (KMET crate-split plan, Task 3). The
+# reviewed diff against the previous hash is a definition move plus the one language-level
+# consequence of it, and nothing else:
+#   - `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE`, `impl Default for Kinematics`, `validate`,
+#     `named` and the two hand-written serde impls move verbatim to `kmet-contracts`, because
+#     `verify`'s `RotaryContracts.model` is typed with the enum and its serde `default` reads the
+#     const; this file now re-exports both names from there, so every path into it is unchanged.
+#   - The inherent `impl Kinematics` holding `resolve_joints`, `rotary_letters`,
+#     `orientation_from_rotary_words`, `rotary_words` and `machine_position` becomes
+#     `pub(crate) trait KinematicsExt` + `impl KinematicsExt for Kinematics`, because Rust allows an
+#     inherent impl only in the defining crate. Every body is byte-identical, every signature is
+#     unchanged, and the trait's reach is `pub(crate)` exactly as the five `pub(crate) fn` were.
+#   - Four doc-comment links retargeted from `Kinematics::` to `KinematicsExt::`.
+# No predicate, no constant, no control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is
+# untouched at 1e-9, `resolve_c` and `unit_orientation` are byte-identical, and the `operation`,
+# `assumptions` and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the
+# code exactly. The whole-file `hash_mode` is what brings a moved type declaration under this pin,
+# not numeric relevance.
+sha256 = "bdd37e03423fbb8df8aaa2d29fc299b474d874ab2d0b197e7ef07c4d6984070b"
 
 # ---------------------------------------------------------------------------------------------
 # The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in
