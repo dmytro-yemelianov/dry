@@ -657,6 +657,34 @@ it instead of from `optimize`.
 
 Add `"crates/kernel"` to workspace `members`.
 
+- [ ] **Step 3b: Add kernel-local coverage for the gate's kinematics routing**
+
+`apply_gated_with`'s `mode` and `kinematics` parameters are covered today only transitively, through
+`apply_gated`, by a single test — `crates/core/tests/machine_kinematics.rs:261`. That test travels with
+`apply_gated` to `kmet-verify` in Task 5, which would leave `kmet-kernel` holding the gate mechanism with
+no coverage of the routing at all. This is measured, not assumed: mutating `pipeline_for`'s
+`Balanced => balanced_pipeline(tp, kinematics)` to pass `None` fails that one test and **passes** all of
+`report_goldens` (9), `rewrite_safe_gate` (4) and `rewrite_balanced_max_gate` (5).
+
+Add to `crates/kernel/tests/kernel_surface.rs`:
+
+```rust
+#[test]
+fn apply_gated_with_routes_kinematics_into_balanced() {
+    use std::collections::BTreeSet;
+    use kmet_kernel::optimize::apply_gated_with;
+    use kmet_kernel::{MachineKinematics, OptimizeMode};
+
+    // Read `crates/core/tests/machine_kinematics.rs:261` and reuse its fixture and its
+    // MachineKinematics construction verbatim — it is the only existing test of this routing.
+    // Assert that the Some(&k) result differs from the None result in the way that test asserts
+    // (a lowered corner feedrate), with an always-empty policy closure so only routing is under test.
+}
+```
+
+Fill the body from that test rather than inventing a fixture; the point is to preserve an existing
+proven assertion at the new crate boundary, not to author a new one.
+
 - [ ] **Step 4: Move the kernel tests**
 
 ```bash
