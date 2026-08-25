@@ -642,7 +642,18 @@ Within the moved files, rewrite `crate::verify::X` → `kmet_contracts::X` for t
 
 The two `#[cfg(test)]` blocks call `verify::verify`, which is layer 2 and is **not** available here. Move `generate/tpms.rs`'s and `generate/pocket.rs`'s verify-dependent test modules into `crates/core/tests/` as facade-level integration tests, since the facade can see both layers. Name them `generate_tpms_verified.rs` and `generate_pocket_verified.rs`.
 
-Remove `pub fn apply_gated` and `pub fn apply_safe_gated` from `crates/kernel/src/optimize/mod.rs` — they need the verifier and go to `kmet-verify` in Task 5. `apply_gated_with` stays.
+Remove `pub fn apply_gated` and `pub fn apply_safe_gated` from `crates/kernel/src/optimize/mod.rs` —
+they need the verifier, which the kernel must not depend on. `apply_gated_with` stays.
+
+**They need an interim home, or this task does not build.** `crates/core/src/lib.rs` re-exports both
+names, so deleting them without relocation breaks Step 6's `cargo test --all`. Move their bodies —
+**cut and paste from `optimize/mod.rs`, do not retype from this document** — into a new
+`crates/core/src/gated.rs`, adjusting only the crate paths (`crate::verify` stays; `crate::optimize::…`
+becomes `kmet_kernel::optimize::…`). `dry-core` still owns `verify.rs` at this point, so it can host
+them. Task 5 relocates them to `kmet-verify` and deletes the file.
+
+Declare `mod gated;` in `crates/core/src/lib.rs` and re-export `apply_gated` / `apply_safe_gated` from
+it instead of from `optimize`.
 
 Add `"crates/kernel"` to workspace `members`.
 
@@ -758,34 +769,20 @@ git mv crates/core/tests/{verify_contracts,h13_rule_probe,rewrite_safe_gate,rewr
 
 In `crates/verify/src/lib.rs`: add the crate doc comment and `#![forbid(unsafe_code)]`; rewrite the imports at lines 13-18 from `crate::` to `kmet_kernel::`; add `use kmet_contracts::{...}` for the vocabulary; keep the `pub use kmet_contracts::{...}` re-export block added in Task 3 so `kmet_verify::Contracts` still resolves for callers.
 
-Append the two wrappers removed from the kernel in Task 4:
+Relocate the two wrappers from `crates/core/src/gated.rs` (where Task 4 parked them):
 
-```rust
-/// The verification-gated rewrite: `kmet_kernel::optimize::apply_gated_with` with `verify` as policy.
-pub fn apply_gated(
-    tp: &kmet_kernel::ir::Toolpath,
-    contracts: &kmet_contracts::Contracts,
-    mode: kmet_kernel::optimize::OptimizeMode,
-    kinematics: Option<&kmet_kernel::profile::MachineKinematics>,
-) -> kmet_kernel::optimize::GatedResult {
-    kmet_kernel::optimize::apply_gated_with(tp, mode, kinematics, |candidate| {
-        verify(candidate, contracts)
-            .findings
-            .iter()
-            .filter(|f| f.severity == kmet_contracts::Severity::Error)
-            .map(|f| f.rule.to_string())
-            .collect()
-    })
-}
-
-/// `apply_gated` in `Safe` mode with no kinematic model.
-pub fn apply_safe_gated(
-    tp: &kmet_kernel::ir::Toolpath,
-    contracts: &kmet_contracts::Contracts,
-) -> kmet_kernel::optimize::GatedResult {
-    apply_gated(tp, contracts, kmet_kernel::optimize::OptimizeMode::Safe, None)
-}
+```bash
+git mv crates/core/src/gated.rs crates/verify/src/gated.rs
 ```
+
+**Move the bodies verbatim — never retype them from this document.** Adjust only the crate paths:
+`crate::verify::` becomes local, `kmet_kernel::optimize::` and `kmet_contracts::` as appropriate. Declare
+`mod gated;` in `crates/verify/src/lib.rs` and `pub use gated::{apply_gated, apply_safe_gated};`.
+
+> **Why verbatim matters here.** An earlier draft of this plan contained an illustrative version of
+> `apply_gated` that was not merely non-compiling but *behaviourally wrong*: it routed `kinematics` into
+> `Max`, whereas the real `pipeline_for` routes kinematics into `Balanced` and `Max` ignores them
+> entirely. Retyping from prose is how a semantics-preserving refactor stops preserving semantics.
 
 Add `"crates/verify"` to workspace `members`. In `crates/core/Cargo.toml` add `kmet-verify = { path = "../verify" }`; in `crates/core/src/lib.rs` replace `pub mod verify;` with `pub use kmet_verify as verify;` and keep the existing flat `pub use verify::{...}` list, adding `apply_gated` and `apply_safe_gated` to it (they previously came from `optimize`).
 
