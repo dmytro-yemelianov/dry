@@ -102,7 +102,8 @@ fn pipeline_for(
     }
 }
 
-/// The outcome of a single gated rewrite ([`apply_gated`] / [`apply_safe_gated`]).
+/// The outcome of a single gated rewrite ([`apply_gated_with`] and its policy-bound wrappers
+/// [`apply_gated`] / [`apply_safe_gated`]).
 #[derive(Debug, Clone)]
 pub struct GatedResult {
     /// The rewritten toolpath when accepted, or the input verbatim when rejected.
@@ -113,29 +114,23 @@ pub struct GatedResult {
     pub new_error_rules: Vec<String>,
 }
 
-/// Run the pipeline for `mode` and accept the result only if it introduces no **new** error rule
-/// relative to the input under `contracts`. Pre-existing input errors do not block; new warning-only
-/// findings do not block. On rejection the input is returned verbatim, with the offending rule ids in
-/// `new_error_rules`. Apply this per motion span so a rejected span passes through while its neighbours
-/// are still rewritten.
-pub fn apply_gated(
+/// Run the pipeline for `mode` and accept the result only if `error_rules` reports no rule id for the
+/// rewrite that it did not already report for the input. Pre-existing input errors do not block. On
+/// rejection the input is returned verbatim, with the offending rule ids in `new_error_rules`. Apply
+/// this per motion span so a rejected span passes through while its neighbours are still rewritten.
+///
+/// This is the gate *mechanism*: run, diff the rule-id sets, accept or reject. The *policy* — what
+/// counts as an error rule — is the caller's, which is what keeps the optimiser independent of the
+/// verifier. [`apply_gated`] supplies the verification policy that makes this the L2 rewrite gate.
+pub fn apply_gated_with<F>(
     tp: &Toolpath,
-    contracts: &Contracts,
     mode: OptimizeMode,
     kinematics: Option<&MachineKinematics>,
-) -> GatedResult {
-    use crate::verify::{verify, Severity};
-    use std::collections::BTreeSet;
-
-    let error_rules = |tp: &Toolpath| -> BTreeSet<String> {
-        verify(tp, contracts)
-            .findings
-            .iter()
-            .filter(|f| f.severity == Severity::Error)
-            .map(|f| f.rule.clone())
-            .collect()
-    };
-
+    error_rules: F,
+) -> GatedResult
+where
+    F: Fn(&Toolpath) -> std::collections::BTreeSet<String>,
+{
     let pre_errors = error_rules(tp);
     let rewritten = pipeline_for(mode, tp, kinematics);
     let post_errors = error_rules(&rewritten);
@@ -154,6 +149,29 @@ pub fn apply_gated(
             new_error_rules,
         }
     }
+}
+
+/// The verification-gated rewrite: [`apply_gated_with`] with `verify` as the policy, so a rewrite is
+/// accepted only if it introduces no **new** error rule relative to the input under `contracts`.
+/// Pre-existing input errors do not block; new warning-only findings do not block. On rejection the
+/// input is returned verbatim, with the offending rule ids in `new_error_rules`. Apply this per motion
+/// span so a rejected span passes through while its neighbours are still rewritten.
+pub fn apply_gated(
+    tp: &Toolpath,
+    contracts: &Contracts,
+    mode: OptimizeMode,
+    kinematics: Option<&MachineKinematics>,
+) -> GatedResult {
+    use crate::verify::{verify, Severity};
+
+    apply_gated_with(tp, mode, kinematics, |candidate| {
+        verify(candidate, contracts)
+            .findings
+            .iter()
+            .filter(|f| f.severity == Severity::Error)
+            .map(|f| f.rule.clone())
+            .collect()
+    })
 }
 
 /// The `safe`-mode gate: [`apply_gated`] with [`OptimizeMode::Safe`]. Kept as a thin wrapper for the
