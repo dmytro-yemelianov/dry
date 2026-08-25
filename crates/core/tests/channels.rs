@@ -493,21 +493,3 @@ fn optimize_aggressive_pipeline_leaves_a_dark_rapid_dark() {
         "every commanded beam-off vanished:\n{after:#?}"
     );
 }
-
-#[test]
-fn reverse_round_trips_the_power_channel() {
-    let tp = resolve(
-        &design(
-            r#"[{"op":"geometry","width":0.6,"height":0.2},{"op":"extruder","on":true},
-                {"op":"power","level":600},
-                {"op":"move","x":0,"y":0,"z":0.2},{"op":"move","x":10,"y":0,"z":0.2}]"#,
-        ),
-        &ResolveParams::default(),
-    );
-    let design_back = dry_core::reverse(&tp).expect("reverse");
-    let again = resolve(&design_back, &ResolveParams::default());
-    assert_eq!(
-        again.segments.last().unwrap().power,
-        tp.segments.last().unwrap().power
-    );
-}

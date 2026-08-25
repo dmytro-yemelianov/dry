@@ -9,22 +9,22 @@
 //! FullControl oracle, over a **unit-typed IR** ([`units`]: mixing units is a compile error). The binary
 //! encoding and the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
 //!
-//! **Layering.** Layer 1 — the IR, resolve, lowering, optimisation, generation and emission — now
-//! lives in `kmet-kernel`, and layer 2 — the verification rule registry and the verify-gated rewrite
-//! — in `kmet-verify`. Every one of their modules and names is re-exported below unchanged, so a
-//! `dry_core::Toolpath`, `dry_core::emit::emit` or `dry_core::verify::verify` import resolves exactly
-//! as it always did. The analysis layer is still defined here; it follows in plan Task 6, after which
-//! this crate is a facade over four (`docs/superpowers/plans`).
+//! **Layering.** This crate defines nothing. Layer 1 — the IR, resolve, lowering, optimisation,
+//! generation and emission — lives in `kmet-kernel`, layer 2 — the verification rule registry and
+//! the verify-gated rewrite — in `kmet-verify`, and layer 3 — trace, report, forensics, compare,
+//! explain, recommend and reverse — in `kmet-trace`. Every one of their modules and names is
+//! re-exported below unchanged, so a `dry_core::Toolpath`, `dry_core::emit::emit`,
+//! `dry_core::verify::verify` or `dry_core::trace::trace_summary` import resolves exactly as it
+//! always did. `dry-core` is now purely that facade (`docs/superpowers/plans`).
 
 #![forbid(unsafe_code)]
 
-pub mod compare;
-pub mod explain;
-pub mod forensics;
-pub mod recommend;
-pub mod report;
-pub mod reverse;
-pub mod trace;
+// Layer 3, re-exported module-for-module from `kmet-trace` so `dry_core::<module>::<item>` keeps
+// resolving, exactly as the seven `pub mod` declarations that stood here did.
+pub use kmet_trace::{compare, explain, forensics, recommend, report, trace};
+// `reverse`, like `emit` and `resolve` below, names a module *and* a function of the same name; one
+// `use` of the name carries both namespaces, so the flat list must not restate the function.
+pub use kmet_trace::reverse;
 
 // Layer 2, re-exported as a module so `dry_core::verify::<item>` keeps resolving; the flat list at
 // the bottom of this file re-exports its names as well, exactly as `pub mod verify` did.
@@ -103,7 +103,7 @@ pub use report::{
     RewriteReport, RewriteSpanResult, RuleTally, TraceReport,
 };
 pub use resolve::{resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams};
-pub use reverse::{reverse, ReverseError};
+pub use reverse::ReverseError;
 pub use sdk::DesignBuilder;
 pub use trace::{
     trace_summary, trace_summary_with_analytics, trace_summary_with_sources, LayerStats,

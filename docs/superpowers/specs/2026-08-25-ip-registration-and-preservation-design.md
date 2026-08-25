@@ -47,11 +47,19 @@ authoring languages and target machines are interchangeable front-ends and back-
 |---|---|---|---|
 | **0 · Contract** | IR spec (`docs/10`), `spec/` schemas (54 files), conformance vectors (95 files) | 664 KB data | **Public, permanently.** Copyright is thin. The value is the trademark and control of the standard (§6.3) |
 | **1 · Kernel** | `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~17.5k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
-| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `verify.rs` (2 143 — the largest file in core), `report.rs`, assurance tooling | ~11.5k LOC | Separate work, **separate SKU** |
-| **3 · Analysis** | `trace.rs` (1 721), `forensics.rs` (834), `compare` `explain` `recommend` `reverse` | ~3.7k LOC | Separate work, separate SKU |
+| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `verify.rs` (2 143 — the largest file in core), assurance tooling | ~11.0k LOC | Separate work, **separate SKU** |
+| **3 · Analysis** | `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (492), `compare` `explain` `recommend` `reverse` | ~4.2k LOC | Separate work, separate SKU |
 | **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/`, `services/`, `llm`, `moonraker` | ~18.6k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
 | **5 · Commercial infra** | `tools/license-issuer` (704 KB, the largest tool), `crates/license`, `prod-1` key material | — | **Secrecy only.** Never registered, never licensed, never disclosed |
 | **X · Encumbered** | `conformance/oracle/` (GPLv3), oracle-derived corpora, `conformance/slicer-corpus/` (3.1 MB third-party output) | — | **Quarantine.** Excluded from every filing and every release |
+
+**`report.rs` is layer 3, not layer 2 — a correction, not drift.** This table put it beside `verify.rs`
+because a review report is what a verification pass is *read* through. But `report.rs` imports
+`trace::TraceSummary`, so it sits above trace and cannot compile below it; extracting it into
+`kmet-verify` would have required layer 2 to depend on layer 3. Corrected here and in §5.7 when the
+split reached it (plan Task 6), which moves ~0.5k LOC from layer 2 to layer 3. Its `LicenseStamp` did
+travel down to `kmet-verify` at Task 5, because `verify::Report.license` is typed with it — the one
+piece of the file that belongs to the layer below.
 
 Two further items sit outside the layering: `docs/marketing/*` (market research, attack maps) is
 commercially sensitive, currently public, and classified `secret` going forward under §5.4; and
@@ -359,8 +367,8 @@ means the boundary is a fact about the product rather than an argument about it.
 |---|---|---|
 | `kmet-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE` (from `emit/kinematics.rs`) |
 | `kmet-kernel` | 1 | `resolve` `ir` `features` `emit/` `engine` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` `sdk` |
-| `kmet-verify` | 2 | `verify.rs`, `report.rs`, and the `proofs/` + `formal/` linkage |
-| `kmet-trace` | 3 | `trace.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
+| `kmet-verify` | 2 | `verify.rs` and the `proofs/` + `formal/` linkage |
+| `kmet-trace` | 3 | `trace.rs`, `report.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
 
 **Four crates, not three — a finding, not drift.** This table said three until dependency analysis on
 2026-08-25, sequencing the split, found layers 1 and 2 mutually dependent as written: `verify.rs`'s

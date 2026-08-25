@@ -21,6 +21,10 @@ kmet-kernel = { path = "../kernel" }
 # Layer 2: the verification rule registry and the two verify-gated rewrite wrappers. Re-exported by
 # `lib.rs` *as* this crate's `verify` module, so `dry_core::verify::...` still resolves.
 kmet-verify = { path = "../verify" }
+# Layer 3: trace analytics, the report envelopes, forensics, compare, explain, recommend and reverse.
+# With this one `dry-core` holds no implementation of its own — it is a facade over the four KMET
+# crates, and every path it publishes is a re-export.
+kmet-trace = { path = "../trace" }
 serde = { version = "1", features = ["derive"] }
 # `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
 # within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a

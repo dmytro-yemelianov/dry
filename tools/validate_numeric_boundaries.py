@@ -160,14 +160,16 @@ VERIFY_TOLERANCE_OWNERS = {
     "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
 }
 # Where a duplicate of a pinned epsilon could hide. Every crate an owner can live in, so that adding
-# an owner outside `crates/verify` cannot silently narrow the sweep. `crates/core` and `crates/kernel`
-# carry no owner today but are swept anyway: the kernel is where `resolve.rs` reads
-# ARC_RADIUS_TOLERANCE_MM from, and the core is where all four used to live, so a restated copy in
-# either is exactly the duplicate this rule exists to catch.
+# an owner outside `crates/verify` cannot silently narrow the sweep. `crates/core`, `crates/kernel`
+# and `crates/trace` carry no owner today but are swept anyway: the kernel is where `resolve.rs` reads
+# ARC_RADIUS_TOLERANCE_MM from, the trace crate is where the analysis modules that used to sit in the
+# core now live, and the core is where all four used to be defined, so a restated copy in any of them
+# is exactly the duplicate this rule exists to catch.
 SINGLE_DEFINITION_ROOTS = (
     "crates/core/src",
     "crates/kernel/src",
     "crates/verify/src",
+    "crates/trace/src",
     "crates/contracts/src",
 )
 EMIT_SOURCES = {"crates/kernel/src/emit/kinematics.rs", "crates/contracts/src/lib.rs"}
@@ -660,9 +662,10 @@ def require_single_definition(owners: dict[str, str], errors: list[str]) -> None
     twice, unregistered, while an emitter comment called it published. Callers that want an epsilon
     import it from its owner.
 
-    All three crates are swept, not `crates/core` alone: the crate split moved one of these constants
-    into `kmet-contracts` and the code that reads it into `kmet-kernel`, and a rule that kept looking
-    only at `crates/core` would stop seeing the very constant whose duplicate it exists to catch.
+    Every crate the split produced is swept, not `crates/core` alone: it moved one of these constants
+    into `kmet-contracts`, the code that reads it into `kmet-kernel` and the analysis modules into
+    `kmet-trace`, and a rule that kept looking only at `crates/core` would stop seeing the very
+    constant whose duplicate it exists to catch.
     """
     for root in SINGLE_DEFINITION_ROOTS:
         for path in sorted((ROOT / root).rglob("*.rs")):

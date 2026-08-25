@@ -1,11 +1,13 @@
 //! Drift-gated golden for `compare_reports`: build two ExplainReports from committed fixtures, diff
 //! them, and assert the result equals `conformance/reports/compare/expected.json`. Regenerate with
-//! `DRY_REGEN=1 cargo test -p dry-core --test compare_golden`.
-use dry_core::{
-    compare_reports, forensics_analyze, import_gcode_with_map, simulate,
-    trace_summary_with_sources, verify, CompareDelta, Contracts, ExplainReports, GcodeImportParams,
+//! `DRY_REGEN=1 cargo test -p kmet-trace --test compare_golden`.
+use kmet_contracts::Contracts;
+use kmet_kernel::{import_gcode_with_map, simulate, GcodeImportParams};
+use kmet_trace::{
+    compare_reports, forensics_analyze, trace_summary_with_sources, CompareDelta, ExplainReports,
     ReviewReport, TraceReport,
 };
+use kmet_verify::verify;
 use std::path::PathBuf;
 
 fn dir() -> PathBuf {

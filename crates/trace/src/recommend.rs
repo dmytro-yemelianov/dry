@@ -4,7 +4,7 @@
 //! `dry` can actually run and re-verify (a rewrite mode or one of the v1 contract fields); everything
 //! else is **advisory** — an unverified hypothesis the user applies in their slicer.
 
-use crate::optimize::OptimizeMode;
+use kmet_kernel::optimize::OptimizeMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -116,7 +116,7 @@ fn classify_contract(rec: &Recommendation) -> Classified {
             Ok(v) => ContractOverride::Scalar(v),
             Err(_) => return Classified::Advisory(format!("could not parse `{raw}` as a number")),
         },
-        ContractField::SpeedRange => match crate::verify::parse_speed_range_csv(raw) {
+        ContractField::SpeedRange => match kmet_contracts::parse_speed_range_csv(raw) {
             Ok(pair) => ContractOverride::Range(pair),
             Err(_) => return Classified::Advisory(format!("could not parse `{raw}` as `min,max`")),
         },
@@ -129,11 +129,12 @@ fn classify_contract(rec: &Recommendation) -> Classified {
     Classified::Executable(ExecutableAction::Contract { field, override_ })
 }
 
-use crate::gcode::ImportedGcode;
-use crate::ir::Toolpath;
-use crate::profile::MachineKinematics;
 use crate::trace::trace_summary;
-use crate::verify::{apply_gated, verify, Contracts, Severity};
+use kmet_contracts::{Contracts, Severity};
+use kmet_kernel::gcode::ImportedGcode;
+use kmet_kernel::ir::Toolpath;
+use kmet_kernel::profile::MachineKinematics;
+use kmet_verify::{apply_gated, verify};
 
 /// Measured state of a toolpath under a set of contracts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,13 +295,13 @@ fn apply_contract_override(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gcode::{import_gcode_with_map, GcodeImportParams};
-    use crate::verify::Contracts;
+    use kmet_contracts::Contracts;
+    use kmet_kernel::gcode::{import_gcode_with_map, GcodeImportParams};
 
     // A tiny extruding program with two collinear moves (Safe's merge_collinear has something to do).
     const SAMPLE: &str = "G1 X0 Y0 E0\nG1 X10 Y0 E1\nG1 X20 Y0 E2\n";
 
-    fn imported() -> crate::gcode::ImportedGcode {
+    fn imported() -> kmet_kernel::gcode::ImportedGcode {
         import_gcode_with_map(SAMPLE, &GcodeImportParams::default()).expect("import")
     }
 

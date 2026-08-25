@@ -59,12 +59,12 @@
 //! Windows, totals and maxima are fully populated in all three cases: only the layer relation and
 //! [`TraceAnalytics::layer_stats`] are absent.
 
-use crate::engine::segment_motion_time;
-use crate::ir::{Segment, Toolpath};
+use kmet_kernel::engine::segment_motion_time;
+use kmet_kernel::ir::{Segment, Toolpath};
 use serde::{Deserialize, Serialize};
 
 /// Z tolerance (mm) below which two extruding moves are the same layer — the same epsilon
-/// `crates/core/src/forensics.rs` uses to dedup its Z set, so the two layer notions key on the same
+/// `crates/trace/src/forensics.rs` uses to dedup its Z set, so the two layer notions key on the same
 /// tolerance even though they count different things (see [`LayerTraceLinkage`]).
 const LAYER_Z_EPSILON_MM: f64 = 1e-6;
 
@@ -1107,8 +1107,8 @@ fn trace_summary_core(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{Segment, SegmentKind};
-    use crate::units::{Feedrate, Length, Volume};
+    use kmet_kernel::ir::{Segment, SegmentKind};
+    use kmet_kernel::units::{Feedrate, Length, Volume};
 
     fn segment(length: f64, speed: f64, travel: bool, volume: f64) -> Segment {
         Segment {

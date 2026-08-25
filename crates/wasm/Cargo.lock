@@ -26,6 +26,7 @@ version = "0.6.0"
 dependencies = [
  "kmet-contracts",
  "kmet-kernel",
+ "kmet-trace",
  "kmet-verify",
  "libm",
  "miniz_oxide",
@@ -62,6 +63,18 @@ dependencies = [
  "kmet-contracts",
  "libm",
  "miniz_oxide",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kmet-trace"
+version = "0.6.0"
+dependencies = [
+ "kmet-contracts",
+ "kmet-kernel",
+ "kmet-verify",
+ "libm",
  "serde",
  "serde_json",
 ]

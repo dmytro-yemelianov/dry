@@ -232,9 +232,11 @@ pub fn render_markdown(delta: &CompareDelta) -> String {
 mod tests {
     use super::*;
     use crate::{
-        forensics_analyze, import_gcode_with_map, simulate, trace_summary_with_sources, verify,
-        Contracts, ExplainReports, GcodeImportParams, ReviewReport, TraceReport,
+        forensics_analyze, trace_summary_with_sources, ExplainReports, ReviewReport, TraceReport,
     };
+    use kmet_contracts::Contracts;
+    use kmet_kernel::{import_gcode_with_map, simulate, GcodeImportParams};
+    use kmet_verify::verify;
 
     // Build an ExplainReports for a g-code string, mirroring how the CLI assembles one.
     fn reports(src: &str) -> ExplainReports {

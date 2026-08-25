@@ -5,6 +5,7 @@ members = [
     "crates/core",
     "crates/kernel",
     "crates/verify",
+    "crates/trace",
     "crates/cli",
     "crates/license",
     "crates/llm",
@@ -17,6 +18,7 @@ default-members = [
     "crates/contracts",
     "crates/kernel",
     "crates/verify",
+    "crates/trace",
     "crates/core",
     "crates/cli",
 ]

@@ -1,19 +1,23 @@
 //! Golden report generator + drift gate (`docs/11-profiles-and-reports.md`).
 //!
-//! Seeds are authored so that **every** [`dry_core::RuleId`] is triggered by at least one case — the
+//! Seeds are authored so that **every** [`kmet_contracts::RuleId`] is triggered by at least one case — the
 //! `rule_catalog_is_covered` assertion turns the goldens into a completeness check on the catalog. Run
 //! with `UPDATE_REPORTS=1` to (re)write the goldens under `conformance/reports/`; the normal run asserts
 //! the committed goldens still match the engine. The independent Python validator
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
-use dry_core::{
-    apply_gated, apply_safe_gated, build_explain_bundle, simulate, trace_summary,
-    trace_summary_with_analytics, verify, BatchFileResult, BatchStatus, CompareDelta, Contracts,
-    ExplainBundle, ExplainReports, Feedrate, KinematicContracts, Length, LicenseStamp,
-    OptimizeMode, Profile, Report, ReviewBatch, ReviewReport, RewriteReport, RewriteSpanResult,
-    Segment, SegmentKind, Toolpath, TraceAnalyticsOptions, TraceReport, Volume,
+use kmet_contracts::{Contracts, KinematicContracts, RuleId};
+use kmet_kernel::{
+    simulate, Feedrate, Length, OptimizeMode, Profile, Segment, SegmentKind, Toolpath, Volume,
     REFERENCE_FIVE_AXIS_LIMITS,
 };
+use kmet_trace::{
+    build_explain_bundle, forensics_analyze, render_markdown, trace_summary,
+    trace_summary_with_analytics, trace_summary_with_sources, BatchFileResult, BatchStatus,
+    CompareDelta, ExplainBundle, ExplainReports, LicenseStamp, ReviewBatch, ReviewReport,
+    RewriteReport, RewriteSpanResult, TraceAnalyticsOptions, TraceReport,
+};
+use kmet_verify::{apply_gated, apply_safe_gated, verify, Report};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
@@ -644,7 +648,7 @@ fn write_or_check(path: PathBuf, bytes: &[u8], update: bool) {
     } else {
         let committed = fs::read(&path).unwrap_or_else(|_| {
             panic!(
-                "missing {path:?} — run `UPDATE_REPORTS=1 cargo test -p dry-core --test report_goldens`"
+                "missing {path:?} — run `UPDATE_REPORTS=1 cargo test -p kmet-trace --test report_goldens`"
             )
         });
         assert_eq!(committed, bytes, "{path:?} drifted from the engine output");
@@ -704,9 +708,9 @@ fn report_goldens_match_or_update() {
         )
         .unwrap_or_else(|_| panic!("{sample_file} exists"));
         let imported =
-            dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+            kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
                 .expect("import sample");
-        let forensics = dry_core::forensics_analyze(&imported);
+        let forensics = forensics_analyze(&imported);
         let forensics_json = serde_json::to_string_pretty(&forensics).unwrap() + "\n";
         write_or_check(
             dir.join(case).join("forensics.json"),
@@ -716,10 +720,7 @@ fn report_goldens_match_or_update() {
     }
 
     // Completeness: every rule in the catalog must be exercised by at least one golden.
-    let all: BTreeSet<String> = dry_core::RuleId::ALL
-        .iter()
-        .map(|r| r.as_str().to_string())
-        .collect();
+    let all: BTreeSet<String> = RuleId::ALL.iter().map(|r| r.as_str().to_string()).collect();
     assert_eq!(
         covered,
         all,
@@ -894,7 +895,7 @@ fn explain_bundle_golden_matches_or_update() {
     )
     .expect("prusa sample exists");
     let imported =
-        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+        kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
             .expect("import sample");
 
     let metrics = simulate(&imported.toolpath);
@@ -914,15 +915,15 @@ fn explain_bundle_golden_matches_or_update() {
         .copied()
         .map(Some)
         .collect();
-    let trace = dry_core::trace_summary_with_sources(&imported.toolpath, 5.0, &source_lines)
-        .expect("trace sample");
+    let trace =
+        trace_summary_with_sources(&imported.toolpath, 5.0, &source_lines).expect("trace sample");
     let trace_report = TraceReport {
         file: Some("sliced-prusa-sample.gcode".to_string()),
         profile: None,
         trace,
     };
 
-    let forensics = dry_core::forensics_analyze(&imported);
+    let forensics = forensics_analyze(&imported);
 
     let bundle = build_explain_bundle(
         Some("sliced-prusa-sample.gcode".to_string()),
@@ -937,15 +938,15 @@ fn explain_bundle_golden_matches_or_update() {
 
     // Invariants: the prompt carries the safety guardrail; the markdown render has all three sections.
     assert!(
-        bundle.prompt.contains(dry_core::explain::GUARDRAIL),
+        bundle.prompt.contains(kmet_trace::explain::GUARDRAIL),
         "explain prompt must carry the re-verify guardrail"
     );
-    let md = dry_core::render_markdown(&bundle);
+    let md = render_markdown(&bundle);
     for marker in [
         "## Headlines",
         "## Facts",
         "## Prompt",
-        dry_core::explain::GUARDRAIL,
+        kmet_trace::explain::GUARDRAIL,
     ] {
         assert!(md.contains(marker), "markdown missing: {marker}");
     }
@@ -980,7 +981,7 @@ fn trace_analytics_golden_matches_or_update() {
     )
     .expect("cura sample exists");
     let imported =
-        dry_core::import_gcode_with_map(&sample, &dry_core::GcodeImportParams::default())
+        kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
             .expect("import sample");
     let source_lines: Vec<Option<usize>> = imported
         .segment_source_lines

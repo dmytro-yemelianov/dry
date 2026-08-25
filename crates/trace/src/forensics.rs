@@ -9,9 +9,9 @@
 //! infill-angle and -spacing inference, an extrusion-multiplier estimate, and seam- and travel-strategy
 //! hints. Still out of scope: resonance modelling and Cura's base64 config block.
 
-use crate::engine::segment_motion_time;
-use crate::gcode::ImportedGcode;
-use crate::ir::Segment;
+use kmet_kernel::engine::segment_motion_time;
+use kmet_kernel::gcode::ImportedGcode;
+use kmet_kernel::ir::Segment;
 use serde::{Deserialize, Serialize};
 
 /// How a reported fact was obtained.
@@ -621,7 +621,7 @@ pub fn analyze(imported: &ImportedGcode) -> ForensicsReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gcode::{import_gcode_with_map, GcodeImportParams};
+    use kmet_kernel::gcode::{import_gcode_with_map, GcodeImportParams};
 
     const CURA: &str = "\
 ;FLAVOR:Marlin
