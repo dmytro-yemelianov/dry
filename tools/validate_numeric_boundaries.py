@@ -161,7 +161,7 @@ VERIFY_TOLERANCE_OWNERS = {
 # Where a duplicate of a pinned epsilon could hide. Every crate an owner can live in, so that adding
 # an owner outside `crates/core` cannot silently narrow the sweep.
 SINGLE_DEFINITION_ROOTS = ("crates/core/src", "crates/contracts/src")
-EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs"}
+EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs", "crates/contracts/src/lib.rs"}
 EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
 EMIT_LIMITS = {
     f"{EMIT_PROFILE_ID}.LIMIT.TOOL_DIRECTION_COMPONENT",
@@ -415,12 +415,12 @@ def validate_sources(
                 text = content.decode("utf-8")
                 anchor_start = source.get("anchor_start")
                 anchor_end = source.get("anchor_end")
-                if not isinstance(anchor_start, str) or not isinstance(
-                    anchor_end, str
-                ):
+                if not isinstance(anchor_start, str):
+                    continue
+                if anchor_end is not None and not isinstance(anchor_end, str):
                     continue
                 start_count = text.count(anchor_start)
-                end_count = text.count(anchor_end)
+                end_count = 1 if anchor_end is None else text.count(anchor_end)
                 if start_count != 1 or end_count != 1:
                     errors.append(
                         f"{context}: slice anchors must occur exactly once; "
@@ -428,7 +428,10 @@ def validate_sources(
                     )
                     continue
                 start = text.index(anchor_start)
-                end = text.index(anchor_end)
+                # An omitted `anchor_end` means "to the end of the file". A region that runs to EOF
+                # has no trailing token to name, and naming the last one there happens to be leaves
+                # the tail outside the pin — the exact failure this mechanism exists to prevent.
+                end = len(text) if anchor_end is None else text.index(anchor_end)
                 if end <= start:
                     errors.append(f"{context}: slice end precedes its start")
                     continue
@@ -674,8 +677,17 @@ def validate_verify_implementation_values(
 ) -> None:
     """Pin the published tolerance budgets against the constants that define them."""
     by_owner: dict[str, dict[str, str]] = {}
-    for budget_id, constant in VERIFY_IMPLEMENTATION_TOLERANCES.items():
-        by_owner.setdefault(VERIFY_TOLERANCE_OWNERS[constant], {})[budget_id] = constant
+    for budget_id, constant in sorted(VERIFY_IMPLEMENTATION_TOLERANCES.items()):
+        owner = VERIFY_TOLERANCE_OWNERS.get(constant)
+        if owner is None:
+            # Every other failure in this file is a collected diagnostic; an unowned constant used
+            # to be the one that aborted with a traceback instead.
+            errors.append(
+                f"{constant} has no entry in VERIFY_TOLERANCE_OWNERS: a pinned epsilon must "
+                "declare the file that defines it"
+            )
+            continue
+        by_owner.setdefault(owner, {})[budget_id] = constant
     for owner, tolerances in sorted(by_owner.items()):
         pin_tolerance_constants(owner, tolerances, profile, errors)
     require_single_definition(VERIFY_TOLERANCE_OWNERS, errors)

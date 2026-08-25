@@ -86,7 +86,8 @@
         },
         "anchor_end": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Exclusive end of the slice. Omit to slice to the end of the file: a region that runs to EOF has no trailing token to name, and naming whichever one happens to be last would leave the tail outside the pin."
         },
         "sha256": {
           "type": "string",
@@ -107,8 +108,7 @@
           },
           "then": {
             "required": [
-              "anchor_start",
-              "anchor_end"
+              "anchor_start"
             ]
           }
         }

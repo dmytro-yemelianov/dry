@@ -55,21 +55,40 @@ hash_mode = "file"
 # rules and the filament rule are byte-identical; every rule still fires at the same severity.
 sha256 = "0cd040fa485ae7403b8cfd4c8a45a6bb3cf16c8e29247cf2b3a5ed4f4e06aa98"
 
-# The arc-radius epsilon itself, which left verify.rs for the vocabulary crate in the crate split so
-# that the kernel's L1 gate in resolve.rs can reach it without depending on the verifier.
+# The verify half of the vocabulary crate: everything this inventory used to cover whole-file inside
+# verify.rs and that the crate split moved out. The contract structs and their serde field
+# attributes, `ContractParseError`, the CSV contract parsers, `Severity`, the whole of `impl RuleId`
+# -- `ALL`, `as_str`, `from_wire`, `default_severity`, `is_evaluated` -- and, last, the arc-radius
+# epsilon itself.
 #
-# Pinned as a slice rather than whole-file because kmet-contracts also carries `Contracts`,
-# `RuleId` and `Severity`, none of them tolerance-bearing: a whole-file hash here would make every
-# vocabulary edit present as a numeric review and train the reviewer to wave it through. The slice
-# is the constant and the doc comment asserting it is the single definition -- exactly what
-# FM1.F64.VERIFY.ARC_RADIUS depends on, and nothing else.
+# Sliced rather than whole-file, and the split is by *provenance*. The rest of the file is the
+# kinematics that came out of `emit/kinematics.rs`, pinned by `emit-numeric-boundaries-v0.toml` on
+# the same reasoning. Between them the two inventories cover every declaration, impl and constant in
+# the crate, while each one fires only on the content it owns: a rotary-model edit does not present
+# as a verify review, and a rule-severity edit does not present as an emit one. That routing is what
+# a whole-file pin from both inventories would destroy, and it is the whole argument for slicing
+# here.
+#
+# The first version of this pin got the extent wrong and is worth recording, because the mistake is
+# an easy one to repeat: it covered the epsilon alone -- 7 lines of 720, on the argument that the
+# rest of the crate is inert vocabulary. It is not inert. This file's own 2026-08-03 re-pin exists
+# *because* `RuleId::default_severity` changed, and that note says in as many words that it "does
+# change rule behaviour". `RuleId::ALL` and `is_evaluated` decide which rules are evaluated at all,
+# and therefore what `Report::rules_evaluated` is entitled to claim. `parse_bounds_csv` decides what
+# a `--bounds` string means. Demoting `RuleId::Bounds` to a warning, or returning `v[5] + 1.0` from
+# the bounds parser, were both caught by the whole-file pin before the move and both passed green
+# under the narrow slice. They are inside this one.
+#
+# Deliberately outside review, in full: the crate doc comment, `#![forbid(unsafe_code)]` and the
+# `use serde::{Deserialize, Serialize};` line -- the 17 lines above the first item, which contain no
+# code. Nothing executable in kmet-contracts sits outside the two slices.
 [[source]]
 path = "crates/contracts/src/lib.rs"
 role = "implementation"
 hash_mode = "slice"
-anchor_start = "/// Relative tolerance for `arc-radius`:"
-anchor_end = "\n\n/// The rotary kinematics of the 5-axis machine:"
-sha256 = "9116bb243a52abf2f54159cb97a49091e11a976dd7a0ac110e8dd520da01ca31"
+anchor_start = "/// The limits a toolpath is checked against."
+anchor_end = "/// The rotary kinematics of the 5-axis machine:"
+sha256 = "f8eaf3745ac018d41c1c2ab57417d3e71b1a479ae93cae407d550229b3056971"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
