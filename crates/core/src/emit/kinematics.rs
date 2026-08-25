@@ -121,8 +121,11 @@ const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;
 /// [`Kinematics::resolve_joints`] cannot be a pure per-segment function: inside the singular cone
 /// `C` is undetermined, and the only defensible answer is where the previous segment left the axis,
 /// which is history. `emit_stream_to_writer` threads this the way it already threads `prog_pos`.
+///
+/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// authoring surface.
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct RotaryState {
+pub struct RotaryState {
     /// Last determined `C`, in **radians**, nominal (before `rotary_offset`).
     ///
     /// Seeded at `0` — the identity — by `Default`. On the first move there is no previous

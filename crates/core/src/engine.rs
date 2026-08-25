@@ -53,7 +53,10 @@ pub struct Metrics {
 /// a design whose lowering overflows to NaN (a spline with ~1e308 control points) trips
 /// `Length::mm`'s `debug_assert` inside the lowering in a debug build and panics, where a release
 /// build reaches the postcondition and returns `Err`. Either way nothing non-finite enters the IR.
-pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
+///
+/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// authoring surface.
+pub fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     let distance = if s.length > Length::ZERO {
         s.length
     } else if s.filament != Length::ZERO {

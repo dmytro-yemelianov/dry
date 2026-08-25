@@ -21,7 +21,7 @@ use crate::ir::Toolpath;
 use crate::profile::MachineKinematics;
 use crate::verify::Contracts;
 
-pub(crate) use self::adaptive_speed::get_tangents;
+pub use self::adaptive_speed::get_tangents;
 pub use self::adaptive_speed::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,
 };

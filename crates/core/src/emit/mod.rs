@@ -24,8 +24,8 @@ pub use self::gcode::{emit_stream, emit_stream_to_writer, CncFrame, EmitParams, 
 pub use self::kinematics::{Kinematics, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE};
 pub use self::krl::{KrlFrame, KrlTransform};
 // `verify` resolves rotary angles through the same state the emitter threads, so a rotary limit
-// is judged against the program that will actually be written. Crate-internal: it is emitter
-// mechanics, not public API.
-pub(crate) use self::kinematics::RotaryState;
+// is judged against the program that will actually be written. Emitter mechanics, not authoring
+// API — public only so `kmet-verify` can reach it across the crate boundary (plan Task 1).
+pub use self::kinematics::RotaryState;
 pub use self::spline::SplineFlatteningIterator;
 pub use self::step_nc::emit_step_nc;

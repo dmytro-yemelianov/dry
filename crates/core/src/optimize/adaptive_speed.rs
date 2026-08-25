@@ -31,7 +31,10 @@ fn is_contiguous(a: &Segment, b: &Segment) -> bool {
 /// (square-corner velocity), so the cornering quantity must be computed in exactly one place. Before
 /// H1.3 `verify` measured a scalar feedrate delta under the same name, which missed the constant-speed
 /// 90° corner the rule is named for.
-pub(crate) fn get_tangents(s: &Segment) -> Option<([f64; 3], [f64; 3])> {
+///
+/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// authoring surface.
+pub fn get_tangents(s: &Segment) -> Option<([f64; 3], [f64; 3])> {
     let sx = s.start[0]?.value();
     let sy = s.start[1]?.value();
     let sz = s.start[2].unwrap_or(Length::ZERO).value();
