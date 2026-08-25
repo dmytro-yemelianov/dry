@@ -19,7 +19,38 @@
 - **The core must keep compiling to `wasm32-unknown-unknown` unmodified.** No crate in this plan may add a dependency that is not wasm-friendly.
 - **Zero behaviour change.** This is a move-refactor. Every conformance vector, report golden and CNC/KRL golden must remain byte-identical. If a golden changes, the split is wrong — do not regenerate it.
 - **New crates are named `kmet-*` from the outset.** The `dry` → `KMET` product rename (spec §5.6) is gated on trademark clearance and is *not* part of this plan; new crates are simply born with their final names. Residual risk: if clearance kills `KMET`, renaming private crates is a mechanical `sed`.
-- **Verification command after every task:** `cargo fmt --all --check && cargo clippy --all-targets -- -D warnings && cargo test --all`
+- **`proofs/` numeric-boundary pins are part of every task's verification.** They are sha256 pins over
+  kernel source files, enforced by Python in the separate `formal-assurance` CI job
+  (`.github/workflows/ci.yml:277`) — **`cargo test --all` does not reach them.** Five of the six pins in
+  the repo cover files this plan moves:
+
+  | Pin file | Pinned source | Broken by |
+  |---|---|---|
+  | `proofs/emit-numeric-boundaries-v0.toml` | `emit/kinematics.rs` (whole file) | T3, T4 |
+  | `proofs/verify-numeric-boundaries-v0.toml` | `verify.rs` (whole file) | T3, T5 |
+  | `proofs/feature-numeric-boundaries-v0.toml` | `features.rs` (file) + `resolve.rs` (slice) | T4 |
+  | `proofs/resolve-clothoid-numeric-boundaries-v0.toml` | `clothoid.rs` (file) + `resolve.rs` (slice) | T4 |
+
+  - **Editing** a pinned file — even one doc comment — requires re-pinning the sha256 with a comment
+    describing the reviewed diff. The convention is at `proofs/verify-numeric-boundaries-v0.toml:10-34`.
+    Re-pin only after confirming the change is genuinely contract-neutral; never loosen a predicate or
+    bound while re-pinning.
+  - **Moving** a pinned file additionally changes its `path` key, which must be updated in the same
+    commit. This fails differently and less obviously — a missing-file error rather than a hash
+    mismatch. Every `[[source]].path` and `source_path` in `proofs/` is workspace-relative into
+    `crates/core/src/...`.
+  - The slice pins on `resolve.rs` anchor on literal strings (`pub enum Op {` and
+    `\n\n/// Intermediate samples emitted per Catmull-Rom span`) that the validator requires to occur
+    **exactly once**. Any edit to `resolve.rs` must preserve that uniqueness.
+- **Verification command after every task:**
+  ```sh
+  cargo fmt --all --check && cargo clippy --all-targets -- -D warnings && cargo test --all
+  for f in proofs/*numeric-boundaries*.toml; do python3 "tools/validate_numeric_boundaries.py" "$f" || exit 1; done
+  python3 tools/validate_proof_claims.py && python3 tools/validate_spec_claim_links.py
+  ```
+- **From Task 4 onward, rebuild the four excluded binding crates** (`crates/wasm`, `crates/cloud`, `py/`,
+  `containers/verify-runner`) before claiming done — CLAUDE.md requires it, and from Task 4 modules
+  actually move, so the "additive change cannot break a consumer" argument stops holding.
 
 ---
 
