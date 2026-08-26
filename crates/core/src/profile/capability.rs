@@ -5,10 +5,14 @@
 //! - Maximum feedrate bounds
 //! - Spindle RPM limits
 //!
-//! Rotary axis range (A, B, C) is **not** checked. Segments carry a tool-direction vector, not
-//! joint angles, so a range test needs the (i, j, k) to joint mapping in [`crate::emit`] together
-//! with the machine's rotary mode and per-axis limits — none of which [`MachineCapabilities`]
-//! carries. A 5-axis program passing this check has had its rotary travel checked by nothing.
+//! Rotary axis range (A, B, C) is **not** checked here. Segments carry a tool-direction vector
+//! rather than joint angles, so a range test needs the (i, j, k) to joint mapping in
+//! [`crate::emit`] plus the machine's rotary mode and per-axis limits, none of which
+//! [`MachineCapabilities`] carries.
+//!
+//! That check already exists elsewhere and is the one to use: [`crate::verify`]'s `rotary-travel`
+//! rule takes [`crate::RotaryTravelRanges`], keyed by axis letter so a range cannot be read against
+//! the wrong axis. Treat this module as an envelope pre-flight, not as rotary clearance.
 
 use crate::ir::Toolpath;
 use serde::{Deserialize, Serialize};
