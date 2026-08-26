@@ -111,3 +111,56 @@ def test_refusals_arrive_as_exceptions_never_as_blank_success():
                 "value is indistinguishable from an empty successful program"
             )
         assert str(excinfo.value), f"[{name}] raised with no message"
+
+
+# The SDK parses the same documented CSV contract formats the Rust CLI does. `float()` already
+# refuses "abc" and an empty field — more than JavaScript's `Number` manages — but it still accepts
+# "nan", "inf" and "1e400" (the last as infinity). A non-finite contract cannot decide anything:
+# every ordering comparison against NaN is false, so the engine treats one as not in force and the
+# report simply omits the rule. Refusing here says why instead of silently checking less.
+@pytest.mark.parametrize(
+    "bounds",
+    ["abc,1,2,3,4,5", "0,100,0,,0,100", "0,nan,0,100,0,100", "0,1e400,0,100,0,100"],
+)
+def test_bounds_csv_refuses_unusable_values(bounds):
+    design = (
+        dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(50, 0, 0.2)
+    )
+    with pytest.raises(ValueError, match="not a number|must all be finite"):
+        design.verify(bounds=bounds)
+
+
+def test_bounds_csv_still_accepts_a_well_formed_volume():
+    design = (
+        dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(50, 0, 0.2)
+    )
+    report = design.verify(bounds="0,100,0,100,0,100")
+    assert any("bounds" in rule for rule in report["rules_evaluated"])
+
+
+@pytest.mark.parametrize("rng", ["60,nan", "60,1e400", "60,"])
+def test_range_csv_refuses_unusable_values(rng):
+    design = (
+        dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(50, 0, 0.2)
+    )
+    with pytest.raises(ValueError, match="not a number|must all be finite"):
+        design.verify(speed_range=rng)
+
+
+def test_range_csv_length_is_checked():
+    """`_range_to_list` never checked its length, so '60,70,80' reached the binding as three."""
+    design = (
+        dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(50, 0, 0.2)
+    )
+    with pytest.raises(ValueError, match="must be 'min,max'"):
+        design.verify(speed_range="60,70,80")
+
+
+def test_structured_contracts_must_be_finite_too():
+    design = (
+        dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(50, 0, 0.2)
+    )
+    with pytest.raises(ValueError, match="must all be finite"):
+        design.verify(bounds=[[0, 100], [0, float("inf")], [0, 100]])
+    with pytest.raises(ValueError, match="must all be finite"):
+        design.verify(speed_range=[60, float("nan")])

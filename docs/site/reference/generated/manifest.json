@@ -7,11 +7,11 @@
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "137b3f3448d572c110e1b88af23382a5e254617a29f1f8660574cd090388f9be"
+      "sha256": "ba33a85563bdfaeb3ebe3c3729f9a82a4d4243141dc3b735b8e1c6f1e864979e"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "64313cf439d14e9d1aeff751d0955785c0f3bc903e16a938c8ba6ca20da22086"
+      "sha256": "0699635999ccbf9650da1b101ef336429c7f124eabdaadd29c264c12cf0b89a7"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "80ebda4206ef2d8834ceae46793cab20983c840c4f355daa4ce6685729b84ee0"
+      "sha256": "87b2756428717a636a7085453de14fd51ebe13ef25a38a5bee52e091eee6f09f"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",

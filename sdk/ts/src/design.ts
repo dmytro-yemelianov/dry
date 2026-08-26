@@ -23,16 +23,46 @@ function params(printer: string) {
  * Normalise build-volume bounds to the flat `[x0,x1,y0,y1,z0,z1]` (mm) the engine expects, or
  * `undefined` when unset. Accepts a structured `[[x0,x1],[y0,y1],[z0,z1]]` or the legacy CSV string.
  */
+/**
+ * One CSV field as a finite number.
+ *
+ * `Number` is far more permissive than the Rust parser reading the same documented format: it maps
+ * an empty field to 0, `"abc"` to NaN, `"1e400"` to Infinity and `"0x10"` to 16. The first is the
+ * dangerous one — `0,100,0,,0,100` became a plausible-looking build volume rather than an error.
+ * Require a plain decimal literal and a finite result, so both implementations refuse the same
+ * inputs for the same reasons.
+ */
+const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+function csvNumber(name: string, token: string, index: number): number {
+  const text = token.trim();
+  if (text === '') throw new Error(`${name} field ${index + 1} is empty`);
+  if (!DECIMAL.test(text)) throw new Error(`${name} field ${index + 1} is not a number: '${text}'`);
+  const value = Number(text);
+  if (!Number.isFinite(value)) throw new Error(`${name} values must all be finite, got '${text}'`);
+  return value;
+}
+
+/** Every component of an already-structured input must be finite too. */
+function finiteAll(name: string, values: readonly number[]): number[] {
+  values.forEach((value, index) => {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${name} values must all be finite, got ${value} at index ${index}`);
+    }
+  });
+  return [...values];
+}
+
 function boundsToFlat(bounds: string | number[][]): Float64Array | undefined {
   if (typeof bounds === 'string') {
     if (bounds.trim() === '') return undefined;
-    const flat = bounds.split(',').map(Number);
-    if (flat.length !== 6) throw new Error("bounds CSV must be 'x0,x1,y0,y1,z0,z1'");
-    return Float64Array.from(flat);
+    const parts = bounds.split(',');
+    if (parts.length !== 6) throw new Error("bounds CSV must be 'x0,x1,y0,y1,z0,z1'");
+    return Float64Array.from(parts.map((token, index) => csvNumber('bounds', token, index)));
   }
   const flat = bounds.flat();
   if (flat.length !== 6) throw new Error('bounds must be [[x0,x1],[y0,y1],[z0,z1]] or a CSV string');
-  return Float64Array.from(flat);
+  return Float64Array.from(finiteAll('bounds', flat));
 }
 
 /**
@@ -42,12 +72,12 @@ function boundsToFlat(bounds: string | number[][]): Float64Array | undefined {
 function rangeToFlat(name: string, range: string | [number, number]): Float64Array | undefined {
   if (typeof range === 'string') {
     if (range.trim() === '') return undefined;
-    const flat = range.split(',').map(Number);
-    if (flat.length !== 2) throw new Error(`${name} CSV must be 'min,max'`);
-    return Float64Array.from(flat);
+    const parts = range.split(',');
+    if (parts.length !== 2) throw new Error(`${name} CSV must be 'min,max'`);
+    return Float64Array.from(parts.map((token, index) => csvNumber(name, token, index)));
   }
   if (range.length !== 2) throw new Error(`${name} must be [min, max] or a CSV string`);
-  return Float64Array.from(range);
+  return Float64Array.from(finiteAll(name, range));
 }
 
 /** Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. */

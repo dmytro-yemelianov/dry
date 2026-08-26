@@ -14,6 +14,7 @@ A thin, logic-free front-end onto the Dry engine (Rust, via the `_native` extens
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from . import _native  # the Rust engine (PyO3)
@@ -496,17 +497,60 @@ class FeatureProgram:
         return Design.from_ops(ops)
 
 
+def _csv_floats(name: str, text: str, expected: int, shape: str) -> list:
+    """Parse a contract CSV into exactly ``expected`` finite floats.
+
+    ``float()`` already refuses ``"abc"`` and an empty field, which is more than JavaScript's
+    ``Number`` does, but it still accepts ``"nan"``, ``"inf"`` and ``"1e400"`` (the last as
+    infinity). A non-finite contract cannot decide anything — every ordering comparison against NaN
+    is false — so the engine treats one as not in force, and a caller passing it would get a report
+    that simply omits the rule. Refusing here says why instead.
+    """
+    parts = text.split(",")
+    if len(parts) != expected:
+        raise ValueError(f"{name} CSV must be {shape}")
+    values = []
+    for index, token in enumerate(parts):
+        try:
+            value = float(token)
+        except ValueError:
+            raise ValueError(
+                f"{name} field {index + 1} is not a number: {token.strip()!r}"
+            ) from None
+        if not math.isfinite(value):
+            raise ValueError(f"{name} values must all be finite, got {token.strip()!r}")
+        values.append(value)
+    return values
+
+
+def _finite_all(name: str, values: Any) -> Any:
+    """Require every component of an already-structured contract to be finite."""
+    for index, value in enumerate(_flatten_numbers(values)):
+        if not math.isfinite(value):
+            raise ValueError(f"{name} values must all be finite, got {value} at index {index}")
+    return values
+
+
+def _flatten_numbers(values: Any) -> Any:
+    """Yield every number in a nested list/tuple, leaving anything else to the binding to reject."""
+    if isinstance(values, (list, tuple)):
+        for item in values:
+            yield from _flatten_numbers(item)
+    elif isinstance(values, (int, float)) and not isinstance(values, bool):
+        yield float(values)
+
+
 def _bounds_to_list(bounds: Optional[Bounds]) -> Any:
     """Normalise bounds to the structured `[[x0,x1],[y0,y1],[z0,z1]]` the binding expects.
 
     A structured list/tuple passes straight through (the binding validates its shape); a legacy
     ``"x0,x1,y0,y1,z0,z1"`` CSV string is parsed here; ``None`` stays ``None``.
     """
-    if bounds is None or not isinstance(bounds, str):
-        return bounds
-    flat = [float(v) for v in bounds.split(",")]
-    if len(flat) != 6:
-        raise ValueError("bounds CSV must be 'x0,x1,y0,y1,z0,z1'")
+    if bounds is None:
+        return None
+    if not isinstance(bounds, str):
+        return _finite_all("bounds", bounds)
+    flat = _csv_floats("bounds", bounds, 6, "'x0,x1,y0,y1,z0,z1'")
     return [[flat[0], flat[1]], [flat[2], flat[3]], [flat[4], flat[5]]]
 
 
@@ -516,9 +560,11 @@ def _range_to_list(rng: Optional[Range]) -> Any:
     A structured list/tuple passes straight through (the binding validates its shape); a legacy
     ``"min,max"`` CSV string is parsed here; ``None`` stays ``None``.
     """
-    if rng is None or not isinstance(rng, str):
-        return rng
-    return [float(v) for v in rng.split(",")]
+    if rng is None:
+        return None
+    if not isinstance(rng, str):
+        return _finite_all("range", rng)
+    return _csv_floats("range", rng, 2, "'min,max'")
 
 
 def tpms_gcode(

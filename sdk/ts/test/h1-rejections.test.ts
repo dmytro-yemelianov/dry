@@ -125,3 +125,50 @@ test('refusals arrive as thrown errors with messages, never as blank success', (
     assert.ok(threw, `[${name}] did not throw`);
   }
 });
+
+// The SDK parses the same documented CSV contract formats the Rust CLI does, and used to be far
+// more permissive about them: `Number` maps an empty field to 0, 'abc' to NaN and '1e400' to
+// Infinity. The empty-field case was the dangerous one — `0,100,0,,0,100` produced a
+// plausible-looking build volume instead of an error, and the engine now treats a non-finite
+// contract as not in force, so it would have silently dropped the check rather than applying it.
+//
+// `verify` takes its contracts positionally: (printer, maxFlow, minTemp, bounds, monotonicZ,
+// speedRange, ...).
+const contractDesign = () =>
+  new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(50, 0, 0.2);
+
+test('bounds CSV refuses what the Rust parser refuses', () => {
+  for (const bad of ['a,b,c,d,e,f', '0,100,0,,0,100', '0,1e400,0,100,0,100', '0,100,0,100,0,0x10']) {
+    assert.throws(
+      () => contractDesign().verify('generic', 0, 0, bad),
+      /not a number|is empty|must all be finite/,
+      `bounds '${bad}' must be refused`,
+    );
+  }
+
+  const report = contractDesign().verify('generic', 0, 0, '0,100,0,100,0,100');
+  assert.ok(
+    (report.rules_evaluated ?? []).some((r: string) => r.includes('bounds')),
+    'a finite build volume must be in force',
+  );
+});
+
+test('ranges refuse non-finite components, in CSV and structured form', () => {
+  assert.throws(() => contractDesign().verify('generic', 0, 0, '', false, '60,'), /is empty/);
+  assert.throws(() => contractDesign().verify('generic', 0, 0, '', false, '60,abc'), /not a number/);
+  assert.throws(
+    () => contractDesign().verify('generic', 0, 0, '', false, '60,1e400'),
+    /must all be finite/,
+  );
+  assert.throws(
+    () => contractDesign().verify('generic', 0, 0, '', false, [60, Number.NaN]),
+    /must all be finite/,
+  );
+  assert.throws(
+    () => contractDesign().verify('generic', 0, 0, [[0, 100], [0, Number.POSITIVE_INFINITY], [0, 100]]),
+    /must all be finite/,
+  );
+
+  const report = contractDesign().verify('generic', 0, 0, '', false, [60, 9000]);
+  assert.ok((report.rules_evaluated ?? []).some((r: string) => r.includes('speed')));
+});
