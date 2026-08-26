@@ -43,6 +43,13 @@ pub fn calculate_scurve_profile(params: &SCurveParams) -> Result<SCurveProfile, 
     if params.max_jerk <= 0.0 || !params.max_jerk.is_finite() {
         return Err("max_jerk must be positive and finite");
     }
+    // `<0.0` is false for NaN, so without the finiteness test a NaN velocity passed this guard and
+    // produced a NaN profile — total_duration, total_distance and peak_acceleration all NaN — while
+    // the two limits above were already checked for exactly that. A motion planner returning a NaN
+    // trajectory instead of an error is the worse of the two failures.
+    if !params.v_start.is_finite() || !params.v_target.is_finite() {
+        return Err("velocities must be finite");
+    }
     if params.v_start < 0.0 || params.v_target < 0.0 {
         return Err("velocities must be non-negative");
     }

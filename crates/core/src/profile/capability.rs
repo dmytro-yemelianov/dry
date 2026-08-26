@@ -1,10 +1,14 @@
 //! Machine profile capabilities and pre-flight compatibility engine (D2.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §6.4).
 //!
 //! Evaluates whether a toolpath meets the physical machine constraints before emission:
-//! - Work envelope (min/max X, Y, Z)
+//! - Work envelope (min/max X, Y, Z), including a conservative arc sweep test
 //! - Maximum feedrate bounds
 //! - Spindle RPM limits
-//! - Rotary axis range (A, B, C)
+//!
+//! Rotary axis range (A, B, C) is **not** checked. Segments carry a tool-direction vector, not
+//! joint angles, so a range test needs the (i, j, k) to joint mapping in [`crate::emit`] together
+//! with the machine's rotary mode and per-axis limits — none of which [`MachineCapabilities`]
+//! carries. A 5-axis program passing this check has had its rotary travel checked by nothing.
 
 use crate::ir::Toolpath;
 use serde::{Deserialize, Serialize};
@@ -176,7 +180,12 @@ pub fn check_compatibility(
             }
         }
 
-        // Arc bounding box check
+        // Arc bounding box check.
+        //
+        // This bounds the arc by its *full circle*, not the swept sector: a short arc near the
+        // envelope edge is reported even when it never reaches the extreme. That direction is
+        // deliberate — refusing a safe program is recoverable, passing an unsafe one is not — but
+        // it means an ARC_OUT_OF_BOUNDS finding is an upper bound on the sweep, not a witness.
         if seg.kind == crate::ir::SegmentKind::Arc {
             if let Some(centre) = seg.centre {
                 let cx = centre[0].value();

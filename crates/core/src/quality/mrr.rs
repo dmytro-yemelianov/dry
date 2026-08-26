@@ -24,8 +24,15 @@ pub struct MrrReport {
 /// Calculate volumetric Material Removal Rate (MRR) in $\text{cm}^3/\text{min}$.
 ///
 /// Formula: $\text{MRR} = \frac{a_p \times a_e \times v_f}{1000.0}$
+///
+/// Returns `0.0` for any input that is not a positive finite number. `<= 0.0` alone is false for
+/// NaN, so a NaN dimension used to flow straight through into the product and out into the report.
 pub fn calculate_mrr(depth_of_cut_mm: f64, width_of_cut_mm: f64, feedrate_mm_min: f64) -> f64 {
-    if depth_of_cut_mm <= 0.0 || width_of_cut_mm <= 0.0 || feedrate_mm_min <= 0.0 {
+    let positive_finite = |v: f64| v.is_finite() && v > 0.0;
+    if !positive_finite(depth_of_cut_mm)
+        || !positive_finite(width_of_cut_mm)
+        || !positive_finite(feedrate_mm_min)
+    {
         return 0.0;
     }
     // mm^3/min to cm^3/min (/ 1000)
@@ -38,15 +45,25 @@ pub fn calculate_mrr(depth_of_cut_mm: f64, width_of_cut_mm: f64, feedrate_mm_min
 /// - `mrr_cm3_min`: Volumetric MRR in $\text{cm}^3/\text{min}$.
 /// - `specific_cutting_force_n_mm2`: Material specific cutting force $k_c$ in $\text{N/mm}^2$ (e.g. 700 for Al 6061, 2100 for Steel 4140).
 /// - `efficiency`: Spindle / drivetrain mechanical efficiency $\eta \in (0, 1]$ (default ~0.85).
+///
+/// Returns `0.0` for any input outside its stated domain, including non-finite ones.
 pub fn estimate_cutting_power_kw(
     mrr_cm3_min: f64,
     specific_cutting_force_n_mm2: f64,
     efficiency: f64,
 ) -> f64 {
-    if mrr_cm3_min <= 0.0 || specific_cutting_force_n_mm2 <= 0.0 {
+    let positive_finite = |v: f64| v.is_finite() && v > 0.0;
+    if !positive_finite(mrr_cm3_min)
+        || !positive_finite(specific_cutting_force_n_mm2)
+        || !positive_finite(efficiency)
+    {
         return 0.0;
     }
-    let eta = efficiency.clamp(0.1, 1.0);
+    // Power scales as 1/eta, so raising a too-small efficiency *lowers* the estimate. The previous
+    // `clamp(0.1, 1.0)` silently turned eta = 0.05 into 0.1 and halved the predicted power draw —
+    // an under-estimate of what the spindle has to supply, which is the unsafe direction to round.
+    // Only the physically impossible upper end is clamped, and that errs high.
+    let eta = efficiency.min(1.0);
     // (cm^3/min * N/mm^2) / (60 * 1000 * eta) = kW
     (mrr_cm3_min * specific_cutting_force_n_mm2) / (60.0 * 1000.0 * eta)
 }
