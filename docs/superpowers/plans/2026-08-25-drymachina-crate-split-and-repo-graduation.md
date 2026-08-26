@@ -1058,7 +1058,7 @@ make; see **Open decisions**.
 Git+SSH against private repositories, pinned by tag:
 
 ```toml
-drymachina-kernel = { git = "ssh://git@github.com/<org>/drymachina-kernel.git", tag = "v0.7.0" }
+drymachina-kernel = { git = "ssh://git@github.com/drymachina/kernel.git", tag = "v0.7.0" }
 ```
 
 Pin by `tag`, never `branch` — an unpinned git dependency makes builds unreproducible, which would
@@ -1078,13 +1078,13 @@ git mv crates/<name> archive/crates/<name>
 cat > archive/crates/<name>/ARCHIVED.md <<'EOF'
 # Archived — graduated to its own repository
 
-This code was extracted to `<org>/drymachina-<name>` at tag `vX.Y.Z` on <date>.
+This code was extracted to `drymachina/<name>` at tag `vX.Y.Z` on <date>.
 
 It is retained here unmodified as part of the frozen authorship record (see
 `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md` §4, §5.2).
 It is excluded from the Cargo workspace and is not built, tested, or shipped.
 
-Successor repository: ssh://git@github.com/<org>/drymachina-<name>.git
+Successor repository: ssh://git@github.com/drymachina/<name>.git
 Extraction commit in this repository: <sha>
 EOF
 ```
@@ -1141,6 +1141,13 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 > `tests/krl_program_structure.rs` as drift evidence; both live in `crates/core/tests/`, which graduates to
 > `drymachina-tools`, so after Phase C that inventory's stated evidence sits in a different repository from its pin.
 
+> **Repository names are short; crate names keep the prefix.** Inside the `drymachina` organisation a
+> repository called `drymachina-kernel` reads as `drymachina/drymachina-kernel`, which is redundant in
+> every URL and every `git =` dependency line. The repositories are `kernel`, `verify`, `trace`,
+> `tools`; the crates they contain remain `drymachina-kernel`, `drymachina-verify`, `drymachina-trace`.
+> A clone lands in a directory named for the layer, which is what you want when four of them sit side
+> by side.
+
 ## Task 8: Create the repositories and graduate `drymachina-trace`
 
 **Files:**
@@ -1152,19 +1159,19 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 - [ ] **Step 1: Create four empty private repositories**
 
 ```bash
-gh repo create <org>/drymachina-kernel --private --description "DRYMACHINA layer 1 — the toolpath compiler kernel and the IR contract"
-gh repo create <org>/drymachina-verify --private --description "DRYMACHINA layer 2 — verification, proofs and assurance"
-gh repo create <org>/drymachina-trace  --private --description "DRYMACHINA layer 3 — trace analytics, review reports and forensics"
-gh repo create <org>/drymachina-tools  --private --description "DRYMACHINA layer 4 — CLI, SDKs, bindings and the web surface"
+gh repo create drymachina/kernel --private --description "DRYMACHINA layer 1 — the toolpath compiler kernel and the IR contract"
+gh repo create drymachina/verify --private --description "DRYMACHINA layer 2 — verification, proofs and assurance"
+gh repo create drymachina/trace  --private --description "DRYMACHINA layer 3 — trace analytics, review reports and forensics"
+gh repo create drymachina/tools  --private --description "DRYMACHINA layer 4 — CLI, SDKs, bindings and the web surface"
 ```
 
-`<org>` is the organisation chosen in spec §5.1 — `github.com/drymachina` was free as of 2026-08-26, so
-claim it before Task 8 Step 1 rather than after. All four are private and none may ever be made public (spec §0, visibility decision).
+The organisation `github.com/drymachina` was **created 2026-08-26T09:18:37Z** and is empty. Task 8 Step 1
+therefore creates repositories inside an organisation that already exists — do not re-create it. All four are private and none may ever be made public (spec §0, visibility decision).
 
 - [ ] **Step 2: Seed `drymachina-trace` with a single clean initial commit**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/drymachina-trace.git && cd drymachina-trace
+cd /tmp && git clone ssh://git@github.com/drymachina/trace.git && cd drymachina-trace
 mkdir -p conformance tools
 cp -R <repo>/crates/trace/. .
 cp -R <repo>/conformance/reports conformance/
@@ -1237,7 +1244,7 @@ leaving an unexplained red badge:
 - [ ] **Step 2: Seed the repository**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/drymachina-verify.git && cd drymachina-verify
+cd /tmp && git clone ssh://git@github.com/drymachina/verify.git && cd drymachina-verify
 mkdir -p tools
 cp -R <repo>/crates/verify/. .
 cp -R <repo>/proofs <repo>/formal .
@@ -1291,7 +1298,7 @@ kernel's public face.
 - [ ] **Step 1: Seed the two-member workspace**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/drymachina-kernel.git && cd drymachina-kernel
+cd /tmp && git clone ssh://git@github.com/drymachina/kernel.git && cd drymachina-kernel
 mkdir -p contracts kernel conformance tools
 cp -R <repo>/crates/contracts/. contracts/
 cp -R <repo>/crates/kernel/. kernel/
@@ -1364,7 +1371,7 @@ and splitting it further would multiply CI for code that is thin by design (spec
 - [ ] **Step 1: Seed the repository**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/drymachina-tools.git && cd drymachina-tools
+cd /tmp && git clone ssh://git@github.com/drymachina/tools.git && cd drymachina-tools
 mkdir -p crates conformance tools docs
 cp -R <repo>/crates/{cli,llm,moonraker,license,wasm,cloud,core} crates/
 cp -R <repo>/{py,sdk,containers,web,services,examples} .
@@ -1453,10 +1460,10 @@ Nothing here is built, tested, shipped, or maintained. Active development lives 
 
 | Layer | Repository |
 |---|---|
-| 0 + 1 · kernel and IR contract | `<org>/drymachina-kernel` |
-| 2 · verification and assurance | `<org>/drymachina-verify` |
-| 3 · trace analytics and forensics | `<org>/drymachina-trace` |
-| 4 · CLI, SDKs, bindings, web | `<org>/drymachina-tools` |
+| 0 + 1 · kernel and IR contract | `drymachina/kernel` |
+| 2 · verification and assurance | `drymachina/verify` |
+| 3 · trace analytics and forensics | `drymachina/trace` |
+| 4 · CLI, SDKs, bindings, web | `drymachina/tools` |
 
 Retained here and graduated nowhere: `archive/conformance/oracle/` (GPLv3, spec §1.1 layer X) and
 `archive/tools/license-issuer/` (spec §1.1 layer 5).
@@ -1495,8 +1502,8 @@ git commit -m "chore: freeze this repository as the DRYMACHINA authorship archiv
 
 ## Open decisions this plan does not make
 
-- **Claim the GitHub organisation.** `github.com/drymachina` was free as of 2026-08-26 (spec §5.1).
-  Unlike `kmet`'s, this one is available — claim it before announcing, not at Task 8 Step 1.
+- ~~**Claim the GitHub organisation.**~~ **Done** — `github.com/drymachina` created 2026-08-26T09:18:37Z,
+  empty. The slot `kmet` could not have (`github.com/kmet` was taken) is now held.
 - **Where layer 5 lives.** `tools/license-issuer/` and the `prod-1` key material stay in the `dry`
   archive under this plan, which preserves them but leaves them undevelopable. A fifth private
   repository (`drymachina-licensing`) is the likely answer and is the strongest compartmentalisation case in

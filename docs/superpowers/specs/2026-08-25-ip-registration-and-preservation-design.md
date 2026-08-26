@@ -325,7 +325,7 @@ crate structure — `drymachina-contracts` → `drymachina-kernel` → `drymachi
 | `crates.io` | free | **free** |
 | `npm` | free | **free** |
 | `PyPI` | free | **free** |
-| GitHub organisation | **taken** | **free** (`github.com/drymachina` → 404) |
+| GitHub organisation | **taken** | **claimed** — `github.com/drymachina`, created 2026-08-26T09:18:37Z |
 | Domains | `.com`/`.dev`/`.app`/`.xyz`/`.tech` taken | `.com` taken; `.dev`, `.io`, `.sh`, `.app`, `.ua` show no A record |
 | Trademark | not searched | **not searched** — §6.3, and a **[counsel]** gate before filing |
 
@@ -760,8 +760,8 @@ diligence finding. Wired into the §7.3 cadence.
 |---|---|
 | `DRYMACHINA` domain availability | `.com` taken; `.dev`, `.io`, `.sh`, `.app`, `.ua` show no A record. DNS is not proof — check at a registrar (§5.1). |
 | `DRYMACHINA` trademark search (USPTO / EUIPO / UA) | Not run — **[counsel]** gate before filing (§6.3) |
-| GitHub org for `DRYMACHINA` | **Resolved** — `github.com/drymachina` is free (404 as of 2026-08-26). Claim it before announcing (§5.1). |
-| Software Heritage archival status | Unknown — must be queried in Phase 1 (§4.6) |
+| GitHub org for `DRYMACHINA` | **Done** — `github.com/drymachina` created 2026-08-26T09:18:37Z. First recorded public use of the mark; note the date for §6.3. |
+| Software Heritage archival status | **Queried 2026-08-26: NOT archived** (API `NotFoundExc`, origin not found); Wayback holds no docs-site snapshot. Archival deliberately **not** triggered — it is permanent and public, and would publish the proprietary-era tree. RFC-3161 tokens serve the dating purpose instead (§4.5, §4.6). |
 | УКРНОІВІ current procedure and wartime operation | Verify |
 | Published vs unpublished for US registration | **[counsel]** (§6.1) |
 | Deposit option under 37 CFR 202.20(c)(2)(vii) | **[counsel]** (§6.1) |
