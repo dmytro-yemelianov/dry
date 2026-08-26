@@ -9,16 +9,13 @@ repository.workspace = true
 publish = false
 
 # This crate compiles no code of its own: `lib.rs` is a module doc comment and a list of `pub use`
-# statements, so the only things it can depend on are the four crates it re-exports. Everything the
+# statements, so the only things it can depend on are the three crates it re-exports. Everything the
 # engine actually needs — serde/serde_json for the JSON IR, miniz_oxide for the DRY0/DRY1 DEFLATE,
 # libm for the deterministic trig — is declared by whichever KMET crate uses it, and reaches the
 # bindings through this facade the same way the names do. The dev-dependencies below belong to the
 # integration tests in `tests/`, which exercise the assembled stack across all four layers; none of
 # them is linked into a consumer of `dry_core`.
 [dependencies]
-# The shared vocabulary (contracts, rule ids, severities, kinematic models), extracted so that the
-# kernel and the verifier can be separated without a cycle. Serde-only, so it costs the core nothing.
-kmet-contracts = { path = "../contracts" }
 # Layer 1: the IR, resolve, lowering, optimisation, generation and emission. Extracted so the verifier
 # and the analysis layer can be separated from the kernel; re-exported wholesale by `lib.rs`.
 kmet-kernel = { path = "../kernel" }

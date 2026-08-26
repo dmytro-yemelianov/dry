@@ -161,7 +161,6 @@ dependencies = [
 name = "dry-core"
 version = "0.6.0"
 dependencies = [
- "kmet-contracts",
  "kmet-kernel",
  "kmet-trace",
  "kmet-verify",

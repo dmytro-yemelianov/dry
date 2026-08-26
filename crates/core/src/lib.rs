@@ -1,10 +1,12 @@
 //! # dry-core — one import surface over the four KMET crates
 //!
 //! A facade, and nothing else: it holds no types, no functions and no dependency of its own beyond
-//! the four crates it re-exports. Six crates depend on it — `dry-cli`, `dry-llm`, and the four
-//! bindings `dry-wasm`, `dry-cloud`, `dry-py` and `dry-verify-runner`, with `sdk/ts` reaching it
-//! through the wasm one — and each of them names the engine's whole surface through this crate,
-//! under the paths it used before the layers were separated (`docs/01-architecture.md`).
+//! the three crates it re-exports; `kmet-contracts`, the fourth KMET crate, reaches callers through
+//! `kmet-verify`'s re-export of the shared vocabulary rather than through a dependency declared
+//! here. Six crates depend on it — `dry-cli`, `dry-llm`, and the four bindings `dry-wasm`,
+//! `dry-cloud`, `dry-py` and `dry-verify-runner`, with `sdk/ts` reaching it through the wasm one —
+//! and each of them names the engine's whole surface through this crate, under the paths it used
+//! before the layers were separated (`docs/01-architecture.md`).
 //!
 //! What is true of the engine is still true through here: it is dependency-light (no PyO3, no
 //! numpy), it compiles to `wasm32-unknown-unknown` unmodified, its IR is unit-typed ([`units`]:
