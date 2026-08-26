@@ -1130,6 +1130,13 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 > third repository, distinct from either directory R23 names. Those two files are Cura/PrusaSlicer output,
 > the same layer-X character as `conformance/slicer-corpus/`. Add `examples/` to whatever R23 decides.
 >
+> **A cross-document dependency created on 2026-08-26, which Phase C must not sever.** Four `proofs/`
+> re-pin notes cite this plan's crate-naming bullet (Global Constraints, the `drymachina-*` item) as the
+> record of the `kmet-*` → `drymachina-*` mapping their substitution checks depend on. If the plan is
+> archived, rewritten, or graduates to a different repository from `proofs/`, those four checks lose the
+> mapping that makes them reproducible. Either move the mapping into `proofs/` itself before Task 9, or
+> keep the plan wherever `proofs/` lands.
+
 > Also minor: `proofs/emit-numeric-boundaries-v0.toml:108-110` cites `tests/five_axis_singular_cone.rs` and
 > `tests/krl_program_structure.rs` as drift evidence; both live in `crates/core/tests/`, which graduates to
 > `drymachina-tools`, so after Phase C that inventory's stated evidence sits in a different repository from its pin.
