@@ -46,7 +46,7 @@ boundary_ids = [
 ]
 
 # ---------------------------------------------------------------------------------------------
-# Budgets — one per tolerance constant, pinned against verify.rs by
+# Budgets — one per tolerance constant, each pinned against its defining file by
 # validate_verify_implementation_values so a constant cannot be retuned without updating this file.
 # ---------------------------------------------------------------------------------------------
 

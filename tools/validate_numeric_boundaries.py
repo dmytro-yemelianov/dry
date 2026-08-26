@@ -138,8 +138,9 @@ VERIFY_BUDGETS = {
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
 }
-# The tolerance constants this profile publishes, checked against verify.rs so a constant cannot be
-# retuned without updating the assurance artifact that names it. That pin is the whole point of the
+# The tolerance constants this profile publishes, each checked against the file that defines it (see
+# VERIFY_TOLERANCE_OWNERS below -- they no longer share one) so a constant cannot be retuned without
+# updating the assurance artifact that names it. That pin is the whole point of the
 # entry: without it the recorded epsilon is prose.
 VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM": "CONTINUITY_TOLERANCE_MM",
@@ -150,8 +151,8 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
 # Which file *defines* each of them. Ownership used to be a per-inventory fact -- all four lived in
 # verify.rs -- but the crate split moved ARC_RADIUS_TOLERANCE_MM into `drymachina-contracts`, because
 # resolve.rs applies the same epsilon at the L1 gate and the kernel cannot depend on the verifier.
-# The pin follows the definition rather than the module that reads it; verify.rs re-exports the
-# constant, and a re-export carries no value to check. The other three travelled with verify.rs
+# The pin follows the definition rather than the module that reads it; `crates/verify/src/lib.rs`
+# re-exports the constant, and a re-export carries no value to check. The other three travelled with verify.rs
 # itself into `drymachina-verify` at Task 5, where the file is `crates/verify/src/lib.rs`.
 VERIFY_TOLERANCE_OWNERS = {
     "CONTINUITY_TOLERANCE_MM": "crates/verify/src/lib.rs",
