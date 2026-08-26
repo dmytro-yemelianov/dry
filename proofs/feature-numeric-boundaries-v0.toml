@@ -10,6 +10,14 @@ hash_mode = "file"
 sha256 = "a9ac0272fb668828dfb143ffc675b356feb0b1004edcfe6dfb9df6bc96f7ebb7"
 
 [[source]]
+# D1.2's quaternion rotations are implemented here, so the file is pinned like features.rs: the
+# rotation boundaries below anchor into it and would otherwise describe unwatched source.
+path = "crates/core/src/frame.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "8fac21a8f2f653408fa8a656a9c8df2ebc63630132bc2f33b4e6823f3428b42e"
+
+[[source]]
 path = "crates/core/src/resolve.rs"
 role = "input-domain"
 hash_mode = "slice"
@@ -517,4 +525,122 @@ evidence = []
 claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.PASSTHROUGH_BIT_ERROR"
+]
+
+# ---------------------------------------------------------------------------------------------
+# D1.2 admitted full 3D rotation into the feature transform. Composition still runs the planar
+# cos/sin product above, but whenever either side carries a FeaturePose.rotation the effective
+# rotation comes from quaternion arithmetic instead, and a planar side is lifted into a quaternion
+# first. That path introduces atan2, half-angle trigonometry and a square-root normalisation, none
+# of which the one-ULP sine/cosine premise this inventory imports says anything about. The four
+# entries below name that surface so it is inventoried rather than merely mentioned; three of them
+# are honestly `pending`, because naming an operation is not the same as bounding it.
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ROTATION.ADMISSIBLE"
+title = "Quaternion poses are rejected unless they can denote a rotation"
+rust_symbol = "Transform::from_pose"
+source_path = "crates/core/src/features.rs"
+source_anchor = "let norm = libm::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);"
+inputs = ["FeaturePose.rotation.x", "FeaturePose.rotation.y", "FeaturePose.rotation.z", "FeaturePose.rotation.w"]
+operation = "Ordered is_finite checks over the four components, then one libm::sqrt of the sum of their squares; a zero or non-finite norm returns ExpandError. The test mirrors Quaternion::new's own fallback condition, so the gate admits exactly the quaternions that will not be silently replaced by the identity."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = [
+  "Rust f64::is_finite classifies NaN and both infinities as non-finite.",
+  "libm::sqrt of a finite non-negative sum is finite, and underflows to zero only when the true norm is below the binary64 subnormal floor."
+]
+exclusions = [
+  "Finite quaternions of non-unit norm, which are admitted here and normalized during composition rather than refused.",
+  "Rotations reaching the engine through any path other than FeaturePose, which this gate does not sit on."
+]
+next_obligation = "Prove that the admitted set is exactly the set on which Quaternion::new is the identity-free normalization, rather than checking the two conditions side by side."
+evidence = [
+  "crates/core/tests/features_3d_transform.rs",
+  "crates/core/src/frame.rs"
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ROTATION_QUATERNION_COMPONENT"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ROTATION.PLANAR_LIFT"
+title = "A planar side of a mixed composition is lifted to a quaternion through atan2"
+rust_symbol = "Transform::compose"
+source_path = "crates/core/src/features.rs"
+source_anchor = "Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(local.sin, local.cos));"
+inputs = ["Transform.cos", "Transform.sin"]
+operation = "libm::atan2 recovers the Z angle from the stored cosine and sine pair, and Quaternion::from_axis_angle evaluates sine and cosine of half that angle. The recovered angle is a second rounding of a quantity the coefficients already carry rounded, so the lift is not exact even where the coefficients are."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = [
+  "The coefficients reaching this lift satisfy the planar profile's own trigonometric budget.",
+  "libm::atan2 and the half-angle sine/cosine are deterministic for a given binary64 input on both profiled targets."
+]
+exclusions = [
+  "Any accuracy claim for libm::atan2: the imported libm contract covers sine and cosine only.",
+  "The signed-zero and PI boundary behaviour of atan2, which the clothoid inventory documents separately for its own use."
+]
+next_obligation = "Extend the imported libm contract to atan2, then bound the composed angular error of the lift against the planar coefficients it replaces."
+evidence = [
+  "crates/core/tests/features_3d_transform.rs"
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_PLANAR_LIFT_ANGLE_ABS_ERROR"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ROTATION.COMPOSE"
+title = "Quaternion composition renormalizes through a square root"
+rust_symbol = "Quaternion::multiply"
+source_path = "crates/core/src/frame.rs"
+source_anchor = "let w = self.w * rhs.w - self.x * rhs.x - self.y * rhs.y - self.z * rhs.z;"
+inputs = ["Quaternion.{x,y,z,w} of both operands"]
+operation = "Sixteen multiplications and twelve additions or subtractions form the Hamilton product, then Quaternion::new divides each component by libm::sqrt of the sum of their squares and fixes the sign of w. Unlike the planar coefficient product, which is left un-renormalized, every quaternion composition pays one square root and four divisions."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = [
+  "Both operands are finite; the pose gate above enforces that for rotations entering through FeaturePose.",
+  "The composition tree is bounded by the profiled node limit, so the number of chained renormalizations is finite."
+]
+exclusions = [
+  "Error growth across repeated composition, which the planar entry bounds for coefficients but nothing bounds here.",
+  "The identity substitution Quaternion::new performs on a zero or non-finite norm, which is unreachable for gated poses but reachable for callers constructing quaternions directly."
+]
+next_obligation = "Bound the per-composition component error of the Hamilton product with renormalization, then propagate it through the profiled composition tree the way the planar coefficients already are."
+evidence = [
+  "crates/core/tests/features_3d_transform.rs"
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_COMPOSE_COMPONENT_ABS_ERROR"
+]
+
+[[boundary]]
+id = "FM1.F64.FEATURE.ROTATION.APPLY"
+title = "Points are rotated by the unit-quaternion sandwich form"
+rust_symbol = "Quaternion::rotate_point"
+source_path = "crates/core/src/frame.rs"
+source_anchor = "let vpx = px + rw * tx + (ry * tz - rz * ty);"
+inputs = ["Quaternion.{x,y,z,w}", "point components in millimetres"]
+operation = "The v + 2r x (r x v + w v) form: fifteen multiplications and twelve additions or subtractions per point, with no renormalization and no guard. It assumes a unit quaternion, which holds for anything composed through Quaternion::new but not for a directly-constructed one."
+classification = "interval-bound-pending"
+numeric_status = "pending"
+assumptions = [
+  "The quaternion is unit norm to within the composition error above; a non-unit quaternion scales the point rather than rotating it.",
+  "Point components lie inside the profiled local-coordinate limit."
+]
+exclusions = [
+  "Non-unit quaternions reaching this function from callers that bypass both the pose gate and Quaternion::new.",
+  "Cancellation in the cross products for points near the rotation axis, which is not separately characterised."
+]
+next_obligation = "Bound the per-component absolute error of the sandwich form under a near-unit quaternion, and state the norm defect it tolerates before the result stops being a rotation."
+evidence = [
+  "crates/core/tests/features_3d_transform.rs"
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_APPLY_POINT_COMPONENT_ABS_ERROR_MM"
 ]

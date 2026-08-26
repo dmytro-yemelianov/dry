@@ -424,3 +424,62 @@ rationale = "The feature pass clones these payloads and performs no numeric oper
 evidence = ["crates/core/src/features.rs"]
 next_obligation = "Keep the zero-error pass-through classification synchronized with the pinned Op enum."
 boundary_ids = ["FM1.F64.FEATURE.OP.PASSTHROUGH"]
+
+# ---------------------------------------------------------------------------------------------
+# D1.2's quaternion rotation path. One limit describes the inputs the pose gate admits; the three
+# budgets are `pending` on purpose. A pending budget publishes no ceiling and cites no evidence,
+# which is the accurate statement here: the operations are named and tested, not bounded.
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.LIMIT.ROTATION_QUATERNION_COMPONENT"
+quantity = "Binary64 component of a FeaturePose quaternion admitted by the pose gate"
+lower = -1.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "assumption"
+rationale = "The gate refuses non-finite components and any quaternion whose norm is zero or non-finite, and composition renormalizes what it admits, so every component that reaches the rotation arithmetic is a unit-quaternion component in [-1, 1]. Components outside this range are admissible as input and are scaled into it by Quaternion::new before use."
+boundary_ids = [
+  "FM1.F64.FEATURE.ROTATION.ADMISSIBLE"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_PLANAR_LIFT_ANGLE_ABS_ERROR"
+metric = "Absolute error, in radians, of the Z angle recovered by atan2 from a stored cosine/sine pair against the angle those coefficients were built from"
+unit = "radian"
+status = "pending"
+rationale = "The imported libm 0.2.16 contract covers sine and cosine only, so no accuracy premise is available for atan2. The recovered angle is additionally a second rounding of a quantity the coefficients already carry rounded, so a bound has to compose the coefficient budget with an atan2 contract that does not yet exist."
+# Present but empty: the schema requires the key, and a pending budget may not cite
+# evidence as though it were a bound.
+evidence = []
+next_obligation = "Extend the imported libm contract to atan2, then compose it with BUDGET.TRIG_COEFFICIENT_ABS_ERROR to bound the lift."
+boundary_ids = [
+  "FM1.F64.FEATURE.ROTATION.PLANAR_LIFT"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_COMPOSE_COMPONENT_ABS_ERROR"
+metric = "Maximum absolute error of a composed quaternion component against exact real quaternion multiplication of the profiled operands"
+unit = "dimensionless"
+status = "pending"
+rationale = "The Hamilton product's rounding is tractable, but each composition also divides by a libm::sqrt of the component sum of squares, and the planar analogue of this entry deliberately excludes renormalization because the planar path has none. Neither the square root nor the accumulation of renormalizations across a composition tree is bounded yet."
+# Present but empty: the schema requires the key, and a pending budget may not cite
+# evidence as though it were a bound.
+evidence = []
+next_obligation = "Bound one Hamilton product with renormalization, then propagate through the profiled composition-tree node limit as COMPOSITION_TREE_ROTATION_COMPONENT_ABS_ERROR does for the planar coefficients."
+boundary_ids = [
+  "FM1.F64.FEATURE.ROTATION.COMPOSE"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0.BUDGET.ROTATION_APPLY_POINT_COMPONENT_ABS_ERROR_MM"
+metric = "Maximum absolute error, in millimetres, of a point component rotated by the unit-quaternion sandwich form"
+unit = "millimetre"
+status = "pending"
+rationale = "The sandwich form performs fifteen multiplications and twelve additions with no renormalization, so its error depends on the norm defect of the incoming quaternion — which is exactly the quantity the composition budget above does not yet bound. Bounding this one first would rest on an unstated premise."
+# Present but empty: the schema requires the key, and a pending budget may not cite
+# evidence as though it were a bound.
+evidence = []
+next_obligation = "Bound the composition budget, then express this one as a function of the tolerated norm defect and the profiled local-coordinate limit."
+boundary_ids = [
+  "FM1.F64.FEATURE.ROTATION.APPLY"
+]
