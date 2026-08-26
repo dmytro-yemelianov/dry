@@ -24,7 +24,7 @@ review by counsel before external commercial distribution."*
 | Source visibility after cutover | **Private repo, signed binaries released** | Trade secret and EU patent novelty exist only for material that is not published. Publishing source forfeits both permanently, as it already has (§2). |
 | Rewrite the codebase clean under a new name? | **No** | §1.3. Months of work; buys almost nothing. The owner already holds copyright in every line. |
 | Patents | Option preserved, nothing filed now | §6.4. Published material: EU novelty gone, US grace to ~2027-06-18. The unbuilt ~60% is the real patentable surface, and only if it stays confidential. |
-| Name | **`KMET` / `КМЕТ`** | Ukrainian *кмет* — a seasoned warrior, a master of the craft. Reads identically in both scripts; `crates.io`, `npm` and `PyPI` all free. Arbitrary/fanciful in English, so a far stronger mark than `DRY` (§5.1, §6.3). |
+| Name | **`DRYMACHINA`** | Chosen 2026-08-26, superseding `DRYMACHINA` (reserved for another project). Coined compound of `DRY` + Latin *machina*. All three registries free **and** the GitHub organisation free, which `DRYMACHINA`'s was not. Likely suggestive rather than arbitrary — see §6.3 (§5.1). |
 | Portfolio structure | **Six layers; three registrable works** | Split by commercial boundary, not directory — 17 U.S.C. §504(c) counts a compilation as one work for statutory damages (§1.1, §6.1). Requires the §5.7 crate split first. |
 | Enforcement of the discipline | Ledger + validator + CI, mirroring `proofs/claims.toml` | §7. A prose-only checklist is the one process in this repo that would rot silently. |
 
@@ -46,9 +46,9 @@ authoring languages and target machines are interchangeable front-ends and back-
 | Layer | Contents | Size | Protection mode |
 |---|---|---|---|
 | **0 · Contract** | IR spec (`docs/10`), `spec/` schemas (54 files), conformance vectors (95 files) | 664 KB data | **Public, permanently.** Copyright is thin. The value is the trademark and control of the standard (§6.3) |
-| **1 · Kernel** | `kmet-contracts` (994) + `kmet-kernel` (22 814): `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~23.8k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
-| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `kmet-verify` (2 845: `lib.rs` 1 542 + `gated.rs` 40 + 1 193 of tests + a 70-line bench), assurance tooling (2 799: the five `tools/` scripts §5.7 assigns to `kmet-verify` — `validate_numeric_boundaries` 1 111, `check_proof_fixtures` 608, `check_feature_mutations` 408, `validate_proof_claims` 340, `generate_assurance_report` 332) | ~14.5k LOC | Separate work, **separate SKU** |
-| **3 · Analysis** | `kmet-trace` (5 695): `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (493), `compare` `explain` `recommend` `reverse` | ~5.7k LOC | Separate work, separate SKU |
+| **1 · Kernel** | `drymachina-contracts` (994) + `drymachina-kernel` (22 814): `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~23.8k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
+| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `drymachina-verify` (2 845: `lib.rs` 1 542 + `gated.rs` 40 + 1 193 of tests + a 70-line bench), assurance tooling (2 799: the five `tools/` scripts §5.7 assigns to `drymachina-verify` — `validate_numeric_boundaries` 1 111, `check_proof_fixtures` 608, `check_feature_mutations` 408, `validate_proof_claims` 340, `generate_assurance_report` 332) | ~14.5k LOC | Separate work, **separate SKU** |
+| **3 · Analysis** | `drymachina-trace` (5 695): `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (493), `compare` `explain` `recommend` `reverse` | ~5.7k LOC | Separate work, separate SKU |
 | **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/` (3 789), `services/`, `llm`, `moonraker`, the `dry-core` facade (6 115, all but 128 of it the cross-layer integration tests) | ~28.1k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
 | **5 · Commercial infra** | `tools/license-issuer` (704 KB, the largest tool), `crates/license`, `prod-1` key material | — | **Secrecy only.** Never registered, never licensed, never disclosed |
 | **X · Encumbered** | `conformance/oracle/` (GPLv3), oracle-derived corpora, `conformance/slicer-corpus/` (3.1 MB third-party output) | — | **Quarantine.** Excluded from every filing and every release |
@@ -72,7 +72,7 @@ measured over the same `git ls-files` listing.
 
 Re-measured against the tree as it stands at the completion of the §5.7 split (plan Task 7). Before
 that, the rows had been re-derived arithmetically without being re-measured, which is how layer 2
-came to carry a `verify.rs` line count from before `kmet-contracts` was extracted out of it: its
+came to carry a `verify.rs` line count from before `drymachina-contracts` was extracted out of it: its
 other addend, `formal/` at 8 863, was and remains correct, so the sum was internally consistent and
 wrong about the tree — which is exactly the failure a re-derivation cannot catch and a
 re-measurement cannot miss.
@@ -80,9 +80,9 @@ re-measurement cannot miss.
 **`report.rs` is layer 3, not layer 2 — a correction, not drift.** This table put it beside `verify.rs`
 because a review report is what a verification pass is *read* through. But `report.rs` imports
 `trace::TraceSummary`, so it sits above trace and cannot compile below it; extracting it into
-`kmet-verify` would have required layer 2 to depend on layer 3. Corrected here and in §5.7 when the
+`drymachina-verify` would have required layer 2 to depend on layer 3. Corrected here and in §5.7 when the
 split reached it (plan Task 6), which moves ~0.5k LOC from layer 2 to layer 3. Its `LicenseStamp` did
-travel down to `kmet-verify` at Task 5, because `verify::Report.license` is typed with it — the one
+travel down to `drymachina-verify` at Task 5, because `verify::Report.license` is typed with it — the one
 piece of the file that belongs to the layer below.
 
 Two further items sit outside the layering: `docs/marketing/*` (market research, attack maps) is
@@ -91,7 +91,7 @@ commercially sensitive, currently public, and classified `secret` going forward 
 compilation at best.
 
 **Why layer 0 stays public, and why that is the moat rather than a leak.** LLVM's power is not its
-licence; it is that everyone targets LLVM IR. If the IR is the standard and KMET is the reference
+licence; it is that everyone targets LLVM IR. If the IR is the standard and DRYMACHINA is the reference
 implementation, what is controlled is not the code but **the right to claim conformance** — enforced by a
 certification mark over a published conformance suite (§6.3). Published vectors without that mark are
 simply a giveaway; with it they are a licensable asset.
@@ -298,41 +298,43 @@ RFC-3161 timestamp; the timestamp is likely sufficient and far cheaper.
 
 ## 5. Phase 2 — Cutover
 
-### 5.1 The name — `KMET` / `КМЕТ`
+### 5.1 The name — `DRYMACHINA`
 
-**Chosen 2026-08-25.** Ukrainian **кмет**: in the *Tale of Igor's Campaign*, **къмети** are seasoned,
-battle-hardened warriors — masters of a craft — rather than the later dictionary sense of "peasant". It
-also resonates with *кмітливий* (quick-witted, resourceful).
+**Chosen 2026-08-26**, superseding `KMET`, which the owner is reserving for a different project. A coined
+compound of `DRY` — the existing project name, carried forward rather than discarded — and Latin
+*machina*, the machine the compiler ultimately drives.
 
-The name satisfies a deliberate constraint: it reads identically in both scripts. Only seven letters have
-matching form **and** sound across Cyrillic and Latin — **А Е І К М О Т** — because В≠B, Р≠P, С≠C, Н≠H,
-У≠Y and Х≠X in sound despite identical glyphs. `КМЕТ` = `KMET`, glyph for glyph.
+**The earlier dual-script constraint is dropped, deliberately, and this section records why rather than
+quietly restating the rationale around a name that does not meet it.** `KMET` was chosen to read
+identically in Cyrillic and Latin, which restricts a name to the seven letters whose form *and* sound
+match — **А Е І К М О Т** — because В≠B, Р≠P, С≠C, Н≠H, У≠Y and Х≠X despite identical glyphs.
+`DRYMACHINA` does not satisfy that: `D`, `R`, `C` and `H` have no matching-sound Cyrillic homoglyph. The
+constraint bought a real property, and it is being traded for two others that are worth more here
+(§6.3): a *coined* mark rather than a dictionary word, and a free GitHub organisation.
 
-**Backronym** — the technical gloss, mapping one letter to each pipeline stage and each to real modules:
+**No backronym.** `KMET`'s expansion mapped four letters onto four pipeline stages, which was serviceable
+because the letters happened to fit. Inventing a ten-letter equivalent would be contrivance. The thing
+that expansion was reaching for now exists in the tree itself: the layer decomposition of §1.1 is the
+crate structure — `drymachina-contracts` → `drymachina-kernel` → `drymachina-verify` →
+`drymachina-trace` — which is a better artifact than a mnemonic, because a reader can check it.
 
-| | Stage | Modules |
+**Clearance status as of 2026-08-26** — better than `KMET`'s on the two surfaces that mattered:
+
+| Surface | `KMET` | `DRYMACHINA` |
 |---|---|---|
-| **K** | **K**inematics — machine model: profiles, limits, envelope geometry | `profile/`, `units.rs`, `frame.rs`, `clothoid.rs` |
-| **M** | **M**otion — the multi-level IR | `ir.rs`, `resolve.rs`, `features.rs` |
-| **E** | **E**mission — target output | `emit/`, `gcode/`, `codec/` |
-| **T** | **T**race — verification, reports, analytics | `verify.rs`, `report.rs`, `trace.rs`, `forensics.rs` |
+| `crates.io` | free | **free** |
+| `npm` | free | **free** |
+| `PyPI` | free | **free** |
+| GitHub organisation | **taken** | **free** (`github.com/drymachina` → 404) |
+| Domains | `.com`/`.dev`/`.app`/`.xyz`/`.tech` taken | `.com` taken; `.dev`, `.io`, `.sh`, `.app`, `.ua` show no A record |
+| Trademark | not searched | **not searched** — §6.3, and a **[counsel]** gate before filing |
 
-> **KMET — Kinematic Motion Emission Toolchain**
-> **КМЕТ — Кінематика · Моделювання · Емісія · Трасування**
-
-**Clearance status as of 2026-08-25:**
-
-| Surface | Status |
-|---|---|
-| `crates.io`, `npm`, `PyPI` | **All three free** — verified by API |
-| `github.com/kmet` | **Taken** — needs a different org (`kmet-dev`, `kmetlang`) |
-| Domains | **Unknown.** DNS shows no A record for `.io`/`.sh`/`.ua`/`.com.ua`, but absence of an A record is not availability. Check at a registrar. |
-| Trademark | **Not searched.** §6.3, and a **[counsel]** gate before filing. |
+DNS absence is not availability; confirm every domain at a registrar before relying on it.
 
 `dry` was never claimed on any registry, because publication was disabled by policy — which left all three
-package names available to anyone. Do not repeat this: **claim all three registry names and the domain
-before announcing** (§6.3). Registry names are the cheapest defensive asset in the plan and the easiest to
-lose to a squatter between announcement and release.
+package names available to anyone. Do not repeat this: **claim all three registry names, the GitHub
+organisation and the domain before announcing** (§6.3). They are the cheapest defensive assets in this
+plan and the easiest to lose to a squatter between announcement and release.
 
 ### 5.2 Make the public repository private — do not delete
 
@@ -389,17 +391,17 @@ means the boundary is a fact about the product rather than an argument about it.
 
 | New crate | Layer | Drawn from |
 |---|---|---|
-| `kmet-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE` (from `emit/kinematics.rs`) |
-| `kmet-kernel` | 1 | `resolve` `ir` `features` `emit/` `engine` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` `sdk` |
-| `kmet-verify` | 2 | `verify.rs` and the `proofs/` + `formal/` linkage |
-| `kmet-trace` | 3 | `trace.rs`, `report.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
+| `drymachina-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE` (from `emit/kinematics.rs`) |
+| `drymachina-kernel` | 1 | `resolve` `ir` `features` `emit/` `engine` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` `sdk` |
+| `drymachina-verify` | 2 | `verify.rs` and the `proofs/` + `formal/` linkage |
+| `drymachina-trace` | 3 | `trace.rs`, `report.rs`, `forensics.rs`, `compare.rs`, `explain.rs`, `recommend.rs`, `reverse.rs` |
 
 **Four crates, not three — a finding, not drift.** This table said three until dependency analysis on
 2026-08-25, sequencing the split, found layers 1 and 2 mutually dependent as written: `verify.rs`'s
 `RotaryContracts.model` is typed `emit::Kinematics` and its serde default reads
 `emit::REFERENCE_FIVE_AXIS_MACHINE`, while `resolve.rs` applies `verify.rs`'s `ARC_RADIUS_TOLERANCE_MM`
-at the L1 arc gate. Cargo has no cyclic dependencies, so `kmet-kernel` and `kmet-verify` cannot be
-separated *at all* until the vocabulary both of them name sits below both. `kmet-contracts` is that
+at the L1 arc gate. Cargo has no cyclic dependencies, so `drymachina-kernel` and `drymachina-verify` cannot be
+separated *at all* until the vocabulary both of them name sits below both. `drymachina-contracts` is that
 crate — types, parsers and rule ids, `serde` its only dependency, no logic — and it is what makes the
 rest of the split possible rather than an addition to it. It is layer 1, so it registers with the kernel:
 §6.1 still files three works.
@@ -411,7 +413,7 @@ which are already the least pleasant places in the codebase to work, and it give
 
 Measured after the split (plan Task 7): what was `verify.rs` is `crates/verify/src/lib.rs` at 1 542 with
 `gated.rs` at 40 beside it — 1 582 against the 2 143 it started at, the difference being the contract and
-rule vocabulary that moved down to `kmet-contracts`, net of the `LicenseStamp` that moved *in* from
+rule vocabulary that moved down to `drymachina-contracts`, net of the `LicenseStamp` that moved *in* from
 `report.rs`. `trace.rs` is unchanged at 1 721, but is now the largest file of a 5 695-line crate rather
 than one of forty in the engine.
 
@@ -446,9 +448,9 @@ damages and attorney's fees (§412). Foreign authors may register. This is the s
 
 | # | Work | Layer | Why separately registrable |
 |---|---|---|---|
-| 1 | **KMET Engine** | 1 | The commercial core; the thing an infringer would take |
-| 2 | **KMET Assurance** | 2 | Machine-checked proofs over a toolpath compiler — the strongest differentiator, and independently marketable to buyers who need evidence rather than features |
-| 3 | **KMET Analysis** | 3 | Post-slicer review and forensics address a different buyer entirely (`docs/05` §2–§3) |
+| 1 | **DRYMACHINA Engine** | 1 | The commercial core; the thing an infringer would take |
+| 2 | **DRYMACHINA Assurance** | 2 | Machine-checked proofs over a toolpath compiler — the strongest differentiator, and independently marketable to buyers who need evidence rather than features |
+| 3 | **DRYMACHINA Analysis** | 3 | Post-slicer review and forensics address a different buyer entirely (`docs/05` §2–§3) |
 
 Deliberately excluded: **layer 4** — thin by design, low value, and three more filing fees buy nothing;
 **layer 5** — never registered, per §1.1; **layer 0** — public contract, thin copyright, protected by
@@ -475,23 +477,32 @@ evidence of authorship.
 - Useful beyond litigation: local contracts, and IP-income treatment if a Дія.City entity is later formed
   (§10.1).
 
-### 6.3 Trademark on `KMET`
+### 6.3 Trademark on `DRYMACHINA`
 
-The rename converts the weakest element of the portfolio into one of the strongest. `DRY` is a famous
-software-engineering principle (*Don't Repeat Yourself*), which makes a bare word mark in the software
-classes hard to register and weak to enforce. `KMET` has none of that problem: to an English-speaking
-examiner it is a four-letter coined string with no meaning in the field — **arbitrary or fanciful**, the
-strongest class of mark, and the class that supports the broadest enforcement.
+The rename converts the weakest element of the portfolio into one of the stronger ones, though not by as
+much as `KMET` would have. `DRY` alone is a famous software-engineering principle (*Don't Repeat
+Yourself*), which makes a bare word mark in the software classes hard to register and weak to enforce.
+`DRYMACHINA` is a coined compound and is assessed as a whole, not element by element: it is not the DRY
+principle, and no competitor needs the string to describe their own product.
 
-**Register the string, never the expansion.** The backronym in §5.1 is marketing copy. *Kinematic Motion
-Emission Toolchain* is straightforwardly descriptive of a toolpath compiler, and pleading it as the mark —
-or leaning on it in the specimen — invites a descriptiveness refusal and weakens what is otherwise a strong
-filing. File `KMET`; let the expansion live in the copy.
+**Be honest about where on the spectrum it sits. [counsel]** A pure coinage with no meaning in the field
+— which `KMET` was to an English-speaking examiner — is *arbitrary or fanciful*, the strongest class.
+`DRYMACHINA` is likely one step weaker: an examiner who knows the field may read it as *suggestive* — a
+machine for DRY code — because `DRY` is a term of art there and *machina* is transparently "machine".
+Suggestive marks are registrable without proof of secondary meaning and are perfectly enforceable; they
+simply support a slightly narrower zone of exclusion than a coinage. That trade was made knowingly, and
+the compensations are recorded in §5.1: a free GitHub organisation, and continuity with the existing
+project name.
 
-**Known regional meanings, to disclose to counsel up front:** Bulgarian *кмет* = mayor; Serbian/Croatian
-*kmet* = serf. Neither is descriptive of software, so neither should bar registration in Nice 9/42, but
-both are the kind of fact an EUIPO examiner or an opponent surfaces, and it is cheaper to raise it than to
-be surprised by it.
+**On that continuity, one thing worth stating rather than discovering later.** §5 exists partly to put
+distance between the product and the publicly distributed `dry` — including the irrevocably Apache-2.0
+`v0.3.0` of §2. A name retaining `DRY` keeps that association legible. This is not a defect: §1.3 already
+records that lineage cannot be hidden and that no rename or rewrite was ever going to hide it. The
+association costs nothing legally — trademark, trade secret and patent positions are all indifferent to
+it — but anyone reading the new name will connect the two projects, and the plan should not pretend
+otherwise.
+
+There is no expansion or backronym to register (§5.1). Register the string.
 
 - **Classes:** Nice 9 (software) and 42 (SaaS, software design services). Consider 7 for
   machine-control aspects. **[counsel]**
@@ -510,20 +521,20 @@ document.
 
 A **certification mark** (US: 15 U.S.C. §1054; the EU certification mark under the EUTM Regulation) is a
 distinct registration type whose whole purpose is to be *licensed to third parties* who meet a published
-standard — and which the owner may not use on their own goods. `KMET VERIFIED` (or similar) over the
+standard — and which the owner may not use on their own goods. `DRYMACHINA VERIFIED` (or similar) over the
 published conformance suite would let an independent implementation earn the right to claim conformance by
 passing `conformance/vectors`, under terms you set. This is how USB-IF, the Bluetooth SIG and the Wi-Fi
 Alliance monetise standards they give away.
 
 The effect on the portfolio: **the IR spec and vectors stay public — that drives adoption — while the
-right to say "KMET-compliant" stays owned.** Control moves from the code, which cannot be kept secret once
+right to say "DRYMACHINA-compliant" stays owned.** Control moves from the code, which cannot be kept secret once
 published, to the name, which can be held indefinitely. Without this, publishing the conformance suite is
 straightforwardly a donation to any competitor who wants to claim compatibility.
 
 - **Prerequisites:** the standard must be documented and applied consistently, and certification must be
   available on non-discriminatory terms to anyone who meets it. The conformance suite already exists and is
   drift-gated, which is most of the work.
-- **Timing:** after the primary `KMET` word mark, not before — and only once there is a third party who
+- **Timing:** after the primary `DRYMACHINA` word mark, not before — and only once there is a third party who
   might plausibly seek certification. Filing a certification mark with no ecosystem is premature. **[counsel]**
 
 ### 6.4 Patents — option preserved, nothing filed
@@ -669,7 +680,7 @@ Phase 1  Evidence capture ...................... §4   ← blocks everything; re
 GATE   Phase 1 verified: every hash reproducible from stored payloads
 
 Phase 2  Cutover ............................... §5
-   ├─ KMET trademark search + domain check      ← last clearance gate
+   ├─ DRYMACHINA trademark search + domain check      ← last clearance gate
    ├─ claim crates.io / npm / PyPI / domain / org ← BEFORE announcing
    ├─ private repo, full history preserved
    ├─ classification pass                        ← creates the trade secret
@@ -684,13 +695,13 @@ GATE   Crate split merged and green — the §6.1 work boundaries are now
 GATE   [counsel] engagement — brief is this document
 
 Phase 3  Registrations ......................... §6
-   ├─ US trademark ITU: KMET  ← file before announcing
-   ├─ EUIPO / Madrid: KMET
+   ├─ US trademark ITU: DRYMACHINA  ← file before announcing
+   ├─ EUIPO / Madrid: DRYMACHINA
    ├─ US copyright ×3 — Engine / Assurance / Analysis   ← §6.1, layers 1/2/3
    │    each with AI disclaimer + trade-secret deposit relief
    └─ УКРНОІВІ copyright ×3
 
-   (later, once an ecosystem exists: KMET VERIFIED certification mark — §6.3)
+   (later, once an ecosystem exists: DRYMACHINA VERIFIED certification mark — §6.3)
 
 Phase 4  Tooling ............................... §7   ← can start in parallel with Phase 2
    ├─ ip/ledger.toml + schema + validator + tests
@@ -747,9 +758,9 @@ diligence finding. Wired into the §7.3 cadence.
 
 | Item | Status |
 |---|---|
-| `KMET` domain availability | Unknown — DNS is not proof; check at a registrar (§5.1) |
-| `KMET` trademark search (USPTO / EUIPO / UA) | Not run — **[counsel]** gate before filing (§6.3) |
-| GitHub org for `KMET` | `github.com/kmet` taken — pick an alternative (§5.1) |
+| `DRYMACHINA` domain availability | `.com` taken; `.dev`, `.io`, `.sh`, `.app`, `.ua` show no A record. DNS is not proof — check at a registrar (§5.1). |
+| `DRYMACHINA` trademark search (USPTO / EUIPO / UA) | Not run — **[counsel]** gate before filing (§6.3) |
+| GitHub org for `DRYMACHINA` | **Resolved** — `github.com/drymachina` is free (404 as of 2026-08-26). Claim it before announcing (§5.1). |
 | Software Heritage archival status | Unknown — must be queried in Phase 1 (§4.6) |
 | УКРНОІВІ current procedure and wartime operation | Verify |
 | Published vs unpublished for US registration | **[counsel]** (§6.1) |

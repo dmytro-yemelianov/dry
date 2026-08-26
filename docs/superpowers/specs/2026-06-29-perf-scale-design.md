@@ -20,7 +20,7 @@ materialization is documented (not mis-sold as streaming).
 - **Criterion benchmarks** (`crates/core/benches/engine_codec.rs`; later split three ways across
   `crates/kernel/benches/engine_codec.rs`, `crates/verify/benches/verify_pass.rs` and
   `crates/trace/benches/trace_pass.rs` when the crate-split refactor moved codec/simulate/emit, verify
-  and trace into their own crates — see `docs/superpowers/plans/2026-08-25-kmet-crate-split-and-repo-graduation.md`)
+  and trace into their own crates — see `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md`)
   over the codecs and passes for local profiling. Wall-clock is **not** a hard CI gate (runner noise);
   CI only compiles the benches (`cargo bench --no-run`) as a bit-rot gate.
 - **Honest memory-model doc** (`docs/13-performance-and-scale.md`): only `DRY1` + the `*_stream` passes are

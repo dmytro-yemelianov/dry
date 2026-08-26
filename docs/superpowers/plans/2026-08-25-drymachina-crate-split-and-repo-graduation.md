@@ -1,4 +1,4 @@
-# KMET Crate Split and Repo Graduation — Implementation Plan
+# DRYMACHINA Crate Split and Repo Graduation — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -18,7 +18,7 @@
 - **Clippy is `-D warnings` with NO `#[allow]` silencing** — fix structurally. This is the standing discipline from `CONTRIBUTING.md`.
 - **The core must keep compiling to `wasm32-unknown-unknown` unmodified.** No crate in this plan may add a dependency that is not wasm-friendly.
 - **Zero behaviour change.** This is a move-refactor. Every conformance vector, report golden and CNC/KRL golden must remain byte-identical. If a golden changes, the split is wrong — do not regenerate it.
-- **New crates are named `kmet-*` from the outset.** The `dry` → `KMET` product rename (spec §5.6) is gated on trademark clearance and is *not* part of this plan; new crates are simply born with their final names. Residual risk: if clearance kills `KMET`, renaming private crates is a mechanical `sed`.
+- **New crates are named `drymachina-*`.** They were created as `kmet-*` and renamed on 2026-08-26 when the owner reserved `KMET` for a different project (spec §5.1). The `dry` → `DRYMACHINA` product rename (spec §5.6) is still gated on trademark clearance and is *not* part of this plan. Residual risk unchanged: if clearance kills `DRYMACHINA`, renaming private crates is a mechanical `sed` — as this rename demonstrated, plus a re-pin of every `proofs/` digest covering a file whose `use` lines change.
 - **`proofs/` numeric-boundary pins are part of every task's verification.** They are sha256 pins over
   kernel source files, enforced by Python in the separate `formal-assurance` CI job
   (`.github/workflows/ci.yml:277`) — **`cargo test --all` does not reach them.** Five of the six pins in
@@ -60,21 +60,21 @@
 
 | Crate | Layer | Responsibility | Depends on |
 |---|---|---|---|
-| `kmet-contracts` | 1 | The shared vocabulary: contract structs, `RuleId`, `Severity`, `Kinematics`, tolerance constants. No logic. | — |
-| `kmet-kernel` | 1 | resolve, ir, features, emit, gcode, codec, profile, units, frame, clothoid, engine, optimize, generate, sdk | `kmet-contracts` |
-| `kmet-verify` | 2 | The rule registry, `verify`, `verify_stream`, `catalog`, and the verify-gated optimize wrapper | `kmet-contracts`, `kmet-kernel` |
-| `kmet-trace` | 3 | trace, report, forensics, compare, explain, recommend, reverse | `kmet-contracts`, `kmet-kernel`, `kmet-verify` |
+| `drymachina-contracts` | 1 | The shared vocabulary: contract structs, `RuleId`, `Severity`, `Kinematics`, tolerance constants. No logic. | — |
+| `drymachina-kernel` | 1 | resolve, ir, features, emit, gcode, codec, profile, units, frame, clothoid, engine, optimize, generate, sdk | `drymachina-contracts` |
+| `drymachina-verify` | 2 | The rule registry, `verify`, `verify_stream`, `catalog`, and the verify-gated optimize wrapper | `drymachina-contracts`, `drymachina-kernel` |
+| `drymachina-trace` | 3 | trace, report, forensics, compare, explain, recommend, reverse | `drymachina-contracts`, `drymachina-kernel`, `drymachina-verify` |
 | `dry-core` | — | **Facade only.** Re-exports the four above so `cli`/`wasm`/`py`/`cloud`/`llm`/`verify-runner` compile unchanged. | all four |
 
-**Why `kmet-contracts` exists at all:** `RotaryContracts.model` is typed `crate::emit::Kinematics`, and the kernel reads `RuleId`, `Severity` and `Contracts` from `verify`. Without a crate below both, `kmet-kernel` and `kmet-verify` are mutually dependent and cannot be separate crates.
+**Why `drymachina-contracts` exists at all:** `RotaryContracts.model` is typed `crate::emit::Kinematics`, and the kernel reads `RuleId`, `Severity` and `Contracts` from `verify`. Without a crate below both, `drymachina-kernel` and `drymachina-verify` are mutually dependent and cannot be separate crates.
 
 **Test relocation.** `crates/core/tests/` holds 46 integration tests. They follow their subject; cross-layer tests stay with the facade because that is the only crate that can see the whole stack:
 
 | Destination | Tests |
 |---|---|
-| `kmet-kernel/tests/` | `arc_fit.rs` `optimize.rs` `optimize_l2.rs` `travel_reorder.rs` `clothoid.rs` `codec_roundtrip.rs` `features.rs` `ir_contracts.rs` `spline.rs` `meta.rs` `channels.rs` `emit_rejects_unrepresentable.rs` `gcode_import_slicer_dialects.rs` `machine_kinematics.rs` `kinematics.rs` `wasm_native_math.rs` `deposition_refinement.rs` `feature_refinement.rs` `orientation.rs` `orientation_refinement.rs` `resolve_channels_refinement.rs` `resolve_orientation_refinement.rs` `simulate_metrics_refinement.rs` `tpms_options_schema.rs` `ingress_validation.rs` |
-| `kmet-verify/tests/` | `verify_contracts.rs` `h13_rule_probe.rs` `rewrite_safe_gate.rs` `rewrite_balanced_max_gate.rs` |
-| `kmet-trace/tests/` | `trace_analytics.rs` `compare_golden.rs` `report_goldens.rs` |
+| `drymachina-kernel/tests/` | `arc_fit.rs` `optimize.rs` `optimize_l2.rs` `travel_reorder.rs` `clothoid.rs` `codec_roundtrip.rs` `features.rs` `ir_contracts.rs` `spline.rs` `meta.rs` `channels.rs` `emit_rejects_unrepresentable.rs` `gcode_import_slicer_dialects.rs` `machine_kinematics.rs` `kinematics.rs` `wasm_native_math.rs` `deposition_refinement.rs` `feature_refinement.rs` `orientation.rs` `orientation_refinement.rs` `resolve_channels_refinement.rs` `resolve_orientation_refinement.rs` `simulate_metrics_refinement.rs` `tpms_options_schema.rs` `ingress_validation.rs` |
+| `drymachina-verify/tests/` | `verify_contracts.rs` `h13_rule_probe.rs` `rewrite_safe_gate.rs` `rewrite_balanced_max_gate.rs` |
+| `drymachina-trace/tests/` | `trace_analytics.rs` `compare_golden.rs` `report_goldens.rs` |
 | `dry-core/tests/` (facade — the drift gates) | `conformance_gcode.rs` `conformance_resolve.rs` `conformance_roundtrip.rs` `conformance_simulate.rs` `spec_vectors.rs` `cnc_pocket_e2e.rs` `cnc_frame_emit.rs` `krl_program_structure.rs` `five_axis.rs` `five_axis_import.rs` `five_axis_singular_cone.rs` `non_planar_e2e.rs` `profile_matrix.rs` `memory_scale.rs` |
 
 ---
@@ -83,7 +83,7 @@
 
 ## Task 1: Widen kernel visibility across the future crate boundary
 
-`kmet-verify` will live in another crate — and eventually another repository — but reaches three `pub(crate)` symbols today. An integration test compiles as an external crate, so it fails by construction while they are crate-private. That is the failing test.
+`drymachina-verify` will live in another crate — and eventually another repository — but reaches three `pub(crate)` symbols today. An integration test compiles as an external crate, so it fails by construction while they are crate-private. That is the failing test.
 
 **Files:**
 - Create: `crates/core/tests/crate_boundary.rs`
@@ -100,7 +100,7 @@
 
 ```rust
 // crates/core/tests/crate_boundary.rs
-//! Symbols `kmet-verify` reaches across the future crate boundary (plan Task 1).
+//! Symbols `drymachina-verify` reaches across the future crate boundary (plan Task 1).
 //!
 //! An integration test compiles as a separate crate, so anything `pub(crate)` fails to resolve here.
 //! That is the point: this file is the compile-time contract that the layer-2 boundary stays open.
@@ -163,7 +163,7 @@ In `crates/core/src/optimize/mod.rs:24` change `pub(crate) use self::adaptive_sp
 Each of the three needs a doc comment, because `-D warnings` with `missing_docs` in scope will reject a bare `pub` item. Add above each:
 
 ```rust
-/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// Exposed across the crate boundary for `drymachina-verify` (plan Task 1); not part of the stable
 /// authoring surface.
 ```
 
@@ -209,14 +209,14 @@ git commit -m "refactor(core): widen RotaryState/segment_motion_time/get_tangent
   where
       F: Fn(&Toolpath) -> std::collections::BTreeSet<String>;
   ```
-  Task 5 moves `apply_gated` and `apply_safe_gated` into `kmet-verify` as wrappers over this.
+  Task 5 moves `apply_gated` and `apply_safe_gated` into `drymachina-verify` as wrappers over this.
 
 - [ ] **Step 1: Write the failing test**
 
 ```rust
 // crates/core/tests/optimize_gate_inversion.rs
 //! `apply_gated_with` is the kernel-side gate mechanism: it runs the pipeline and accepts the result
-//! only when the caller's policy reports no *new* error rule. Policy lives in `kmet-verify`
+//! only when the caller's policy reports no *new* error rule. Policy lives in `drymachina-verify`
 //! (plan Task 5); the kernel must not know what a rule is.
 
 use std::collections::BTreeSet;
@@ -290,7 +290,7 @@ In `crates/core/src/optimize/mod.rs`, replace the body of `apply_gated` (current
 /// candidate that it did not already report for the input. Pre-existing input errors do not block. On
 /// rejection the input is returned verbatim, with the offending rule ids in `new_error_rules`.
 ///
-/// The kernel owns the mechanism; the caller owns the policy. `kmet-verify` supplies the policy that
+/// The kernel owns the mechanism; the caller owns the policy. `drymachina-verify` supplies the policy that
 /// makes this the verification gate (`apply_gated`).
 pub fn apply_gated_with<F>(
     tp: &Toolpath,
@@ -321,7 +321,7 @@ where
 
 /// The verification-gated pipeline: `apply_gated_with` with `verify` as the policy.
 ///
-/// Moves to `kmet-verify` in plan Task 5; kept here meanwhile so callers are undisturbed.
+/// Moves to `drymachina-verify` in plan Task 5; kept here meanwhile so callers are undisturbed.
 pub fn apply_gated(
     tp: &Toolpath,
     contracts: &Contracts,
@@ -363,7 +363,7 @@ git commit -m "refactor(optimize): invert the verify gate into apply_gated_with"
 
 # Phase B — Create the crates (still one repo)
 
-## Task 3: Extract `kmet-contracts`
+## Task 3: Extract `drymachina-contracts`
 
 **Files:**
 - Create: `crates/contracts/Cargo.toml`, `crates/contracts/src/lib.rs`
@@ -374,20 +374,20 @@ git commit -m "refactor(optimize): invert the verify gate into apply_gated_with"
 - Test: `crates/contracts/tests/vocabulary.rs`
 
 **Interfaces:**
-- Produces: crate `kmet_contracts` exporting `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `Kinematics`, `ARC_RADIUS_TOLERANCE_MM`. Tasks 4, 5 and 6 all depend on this crate.
+- Produces: crate `drymachina_contracts` exporting `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `Kinematics`, `ARC_RADIUS_TOLERANCE_MM`. Tasks 4, 5 and 6 all depend on this crate.
 
 **What moves,** by current location in `crates/core/src/verify.rs`: `Contracts` (line 29), `KinematicContracts` (81), `RotaryContracts` (105), `RotaryTravelRanges` (141), `ContractParseError` (170), `parse_bounds_csv` (216), `parse_speed_range_csv` (226), `Severity` (236), `RuleId` (249), `ARC_RADIUS_TOLERANCE_MM` (616). Plus `Kinematics` from `crates/core/src/emit/kinematics.rs:7`, because `RotaryContracts.model` is typed with it.
 
-**What does NOT move:** `Rule` (308), `catalog` (541), `Finding` (554), `Report` (571), `verify` (1545), `verify_stream` (900). Those are layer 2 and go to `kmet-verify` in Task 5.
+**What does NOT move:** `Rule` (308), `catalog` (541), `Finding` (554), `Report` (571), `verify` (1545), `verify_stream` (900). Those are layer 2 and go to `drymachina-verify` in Task 5.
 
 - [ ] **Step 1: Write the failing test**
 
 ```rust
 // crates/contracts/tests/vocabulary.rs
-//! `kmet-contracts` is the vocabulary shared by the kernel and the verifier. It must compile with no
+//! `drymachina-contracts` is the vocabulary shared by the kernel and the verifier. It must compile with no
 //! dependency on either — that is the whole reason it exists (plan Task 3, spec §5.7).
 
-use kmet_contracts::{
+use drymachina_contracts::{
     parse_bounds_csv, parse_speed_range_csv, Contracts, Kinematics, RotaryContracts, RuleId,
     Severity, ARC_RADIUS_TOLERANCE_MM,
 };
@@ -444,8 +444,8 @@ fn arc_tolerance_is_exposed() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p kmet-contracts`
-Expected: FAIL — `error: package ID specification 'kmet-contracts' did not match any packages`.
+Run: `cargo test -p drymachina-contracts`
+Expected: FAIL — `error: package ID specification 'drymachina-contracts' did not match any packages`.
 
 - [ ] **Step 3: Create the crate**
 
@@ -453,8 +453,8 @@ Expected: FAIL — `error: package ID specification 'kmet-contracts' did not mat
 
 ```toml
 [package]
-name = "kmet-contracts"
-description = "KMET shared vocabulary: verification contracts, rule ids, severities, kinematic models. No logic, no dependencies on the kernel."
+name = "drymachina-contracts"
+description = "DRYMACHINA shared vocabulary: verification contracts, rule ids, severities, kinematic models. No logic, no dependencies on the kernel."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -472,11 +472,11 @@ serde_json = "1"
 `crates/contracts/src/lib.rs`:
 
 ```rust
-//! # kmet-contracts — the shared vocabulary
+//! # drymachina-contracts — the shared vocabulary
 //!
 //! The types the kernel and the verifier both name: verification contracts, rule identifiers,
 //! severities, and the kinematic model enum. Deliberately logic-free and deliberately below both, so
-//! `kmet-kernel` and `kmet-verify` can be separate crates without a cycle.
+//! `drymachina-kernel` and `drymachina-verify` can be separate crates without a cycle.
 //!
 //! See `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md` §5.7.
 
@@ -496,39 +496,39 @@ Add `"crates/contracts"` to `members` in the root `Cargo.toml`.
 Add to `crates/core/Cargo.toml` under `[dependencies]`:
 
 ```toml
-kmet-contracts = { path = "../contracts" }
+drymachina-contracts = { path = "../contracts" }
 ```
 
 At the top of `crates/core/src/verify.rs`, replace the removed definitions with:
 
 ```rust
-pub use kmet_contracts::{
+pub use drymachina_contracts::{
     parse_bounds_csv, parse_speed_range_csv, ContractParseError, Contracts, KinematicContracts,
     RotaryContracts, RotaryTravelRanges, RuleId, Severity, ARC_RADIUS_TOLERANCE_MM,
 };
 ```
 
-In `crates/core/src/emit/kinematics.rs`, replace the `Kinematics` definition with `pub use kmet_contracts::Kinematics;`.
+In `crates/core/src/emit/kinematics.rs`, replace the `Kinematics` definition with `pub use drymachina_contracts::Kinematics;`.
 
 `crates/core/src/lib.rs` needs no change — its existing `pub use verify::{...}` and `pub use emit::{...}` blocks now re-export the moved types transitively.
 
 - [ ] **Step 5: Run tests**
 
-Run: `cargo test -p kmet-contracts && cargo test --all`
+Run: `cargo test -p drymachina-contracts && cargo test --all`
 Expected: 6 new tests pass; everything else green with no golden changes.
 
 - [ ] **Step 6: Correct the spec's crate count**
 
 Spec §5.7 tabulates **three** new crates. This task proves a fourth is required: `RotaryContracts.model`
-is typed `emit::Kinematics`, so without a crate below both, `kmet-kernel` and `kmet-verify` are mutually
+is typed `emit::Kinematics`, so without a crate below both, `drymachina-kernel` and `drymachina-verify` are mutually
 dependent and cannot be separated at all.
 
 In `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md` §5.7, add a
-`kmet-contracts` row to the crate table above `kmet-kernel`:
+`drymachina-contracts` row to the crate table above `drymachina-kernel`:
 
 | New crate | Layer | Drawn from |
 |---|---|---|
-| `kmet-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics` (from `emit/kinematics.rs`) |
+| `drymachina-contracts` | 1 | `Contracts`, `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`, `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId`, `ARC_RADIUS_TOLERANCE_MM` (from `verify.rs`); `Kinematics` (from `emit/kinematics.rs`) |
 
 Add one sentence recording why, so the discrepancy reads as a finding rather than drift: the cycle is
 real, it was discovered by dependency analysis on 2026-08-25, and the vocabulary crate is what breaks it.
@@ -539,12 +539,12 @@ real, it was discovered by dependency analysis on 2026-08-25, and the vocabulary
 git add Cargo.toml crates/contracts crates/core/Cargo.toml crates/core/src/verify.rs \
         crates/core/src/emit/kinematics.rs \
         docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md
-git commit -m "refactor: extract kmet-contracts, the vocabulary shared by kernel and verify"
+git commit -m "refactor: extract drymachina-contracts, the vocabulary shared by kernel and verify"
 ```
 
 ---
 
-## Task 4: Extract `kmet-kernel`
+## Task 4: Extract `drymachina-kernel`
 
 **Files:**
 - Create: `crates/kernel/Cargo.toml`, `crates/kernel/src/lib.rs`
@@ -553,8 +553,8 @@ git commit -m "refactor: extract kmet-contracts, the vocabulary shared by kernel
 - Modify: `Cargo.toml` (workspace `members`), `crates/core/Cargo.toml`, `crates/core/src/lib.rs`
 
 **Interfaces:**
-- Consumes: `kmet_contracts::{Contracts, KinematicContracts, RotaryContracts, RotaryTravelRanges, RuleId, Severity, Kinematics, ARC_RADIUS_TOLERANCE_MM}` from Task 3.
-- Produces: crate `kmet_kernel` with the same public surface these modules have today, including the Task 1 widenings (`emit::RotaryState`, `engine::segment_motion_time`, `optimize::get_tangents`) and the Task 2 addition (`optimize::apply_gated_with`). Tasks 5 and 6 depend on it.
+- Consumes: `drymachina_contracts::{Contracts, KinematicContracts, RotaryContracts, RotaryTravelRanges, RuleId, Severity, Kinematics, ARC_RADIUS_TOLERANCE_MM}` from Task 3.
+- Produces: crate `drymachina_kernel` with the same public surface these modules have today, including the Task 1 widenings (`emit::RotaryState`, `engine::segment_motion_time`, `optimize::get_tangents`) and the Task 2 addition (`optimize::apply_gated_with`). Tasks 5 and 6 depend on it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -563,7 +563,7 @@ git commit -m "refactor: extract kmet-contracts, the vocabulary shared by kernel
 //! The kernel stands alone: resolve → simulate → emit, with no verifier and no analysis layer.
 //! If this compiles, layer 1 is genuinely separable (plan Task 4, spec §1.1).
 
-use kmet_kernel::{emit, resolve, simulate, Design, EmitParams, ResolveParams};
+use drymachina_kernel::{emit, resolve, simulate, Design, EmitParams, ResolveParams};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -589,7 +589,7 @@ fn resolve_simulate_emit_without_verify_or_trace() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p kmet-kernel`
+Run: `cargo test -p drymachina-kernel`
 Expected: FAIL — package not found.
 
 - [ ] **Step 3: Create the crate and move the modules**
@@ -598,8 +598,8 @@ Expected: FAIL — package not found.
 
 ```toml
 [package]
-name = "kmet-kernel"
-description = "KMET layer 1: the IR, resolve, lowering, optimisation, generation and emission. Dependency-light; compiles to wasm32-unknown-unknown unmodified."
+name = "drymachina-kernel"
+description = "DRYMACHINA layer 1: the IR, resolve, lowering, optimisation, generation and emission. Dependency-light; compiles to wasm32-unknown-unknown unmodified."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -608,7 +608,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kmet-contracts = { path = "../contracts" }
+drymachina-contracts = { path = "../contracts" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 miniz_oxide = "0.8"
@@ -638,7 +638,7 @@ git mv crates/core/src/codec crates/core/src/emit crates/core/src/gcode \
 
 `crates/kernel/src/lib.rs` takes the module declarations and `pub use` blocks for exactly these modules, lifted from `crates/core/src/lib.rs`. Add `#![forbid(unsafe_code)]`.
 
-Within the moved files, rewrite `crate::verify::X` → `kmet_contracts::X` for the moved vocabulary. The affected sites are known: `resolve.rs:17`, `optimize/mod.rs:22`, `profile/mod.rs:9`, `profile/mod.rs:410`, `profile/mod.rs:688-690`, and the `#[cfg(test)]` blocks in `generate/tpms.rs:1240` and `generate/pocket.rs:1085-1094`.
+Within the moved files, rewrite `crate::verify::X` → `drymachina_contracts::X` for the moved vocabulary. The affected sites are known: `resolve.rs:17`, `optimize/mod.rs:22`, `profile/mod.rs:9`, `profile/mod.rs:410`, `profile/mod.rs:688-690`, and the `#[cfg(test)]` blocks in `generate/tpms.rs:1240` and `generate/pocket.rs:1085-1094`.
 
 The two `#[cfg(test)]` blocks call `verify::verify`, which is layer 2 and is **not** available here. Move `generate/tpms.rs`'s and `generate/pocket.rs`'s verify-dependent test modules into `crates/core/tests/` as facade-level integration tests, since the facade can see both layers. Name them `generate_tpms_verified.rs` and `generate_pocket_verified.rs`.
 
@@ -649,8 +649,8 @@ they need the verifier, which the kernel must not depend on. `apply_gated_with` 
 names, so deleting them without relocation breaks Step 6's `cargo test --all`. Move their bodies —
 **cut and paste from `optimize/mod.rs`, do not retype from this document** — into a new
 `crates/core/src/gated.rs`, adjusting only the crate paths (`crate::verify` stays; `crate::optimize::…`
-becomes `kmet_kernel::optimize::…`). `dry-core` still owns `verify.rs` at this point, so it can host
-them. Task 5 relocates them to `kmet-verify` and deletes the file.
+becomes `drymachina_kernel::optimize::…`). `dry-core` still owns `verify.rs` at this point, so it can host
+them. Task 5 relocates them to `drymachina-verify` and deletes the file.
 
 Declare `mod gated;` in `crates/core/src/lib.rs` and re-export `apply_gated` / `apply_safe_gated` from
 it instead of from `optimize`.
@@ -661,7 +661,7 @@ Add `"crates/kernel"` to workspace `members`.
 
 `apply_gated_with`'s `mode` and `kinematics` parameters are covered today only transitively, through
 `apply_gated`, by a single test — `crates/core/tests/machine_kinematics.rs:261`. That test travels with
-`apply_gated` to `kmet-verify` in Task 5, which would leave `kmet-kernel` holding the gate mechanism with
+`apply_gated` to `drymachina-verify` in Task 5, which would leave `drymachina-kernel` holding the gate mechanism with
 no coverage of the routing at all. This is measured, not assumed: mutating `pipeline_for`'s
 `Balanced => balanced_pipeline(tp, kinematics)` to pass `None` fails that one test and **passes** all of
 `report_goldens` (9), `rewrite_safe_gate` (4) and `rewrite_balanced_max_gate` (5).
@@ -672,8 +672,8 @@ Add to `crates/kernel/tests/kernel_surface.rs`:
 #[test]
 fn apply_gated_with_routes_kinematics_into_balanced() {
     use std::collections::BTreeSet;
-    use kmet_kernel::optimize::apply_gated_with;
-    use kmet_kernel::{MachineKinematics, OptimizeMode};
+    use drymachina_kernel::optimize::apply_gated_with;
+    use drymachina_kernel::{MachineKinematics, OptimizeMode};
 
     // Read `crates/core/tests/machine_kinematics.rs:261` and reuse its fixture and its
     // MachineKinematics construction verbatim — it is the only existing test of this routing.
@@ -691,17 +691,17 @@ proven assertion at the new crate boundary, not to author a new one.
 git mv crates/core/tests/{arc_fit,optimize,optimize_l2,travel_reorder,clothoid,codec_roundtrip,features,ir_contracts,spline,meta,channels,emit_rejects_unrepresentable,gcode_import_slicer_dialects,machine_kinematics,kinematics,wasm_native_math,deposition_refinement,feature_refinement,orientation,orientation_refinement,resolve_channels_refinement,resolve_orientation_refinement,simulate_metrics_refinement,tpms_options_schema,ingress_validation}.rs crates/kernel/tests/
 ```
 
-In each moved test, rewrite `use dry_core::` → `use kmet_kernel::`. Any test that reaches a verify or trace symbol does **not** belong here — move it to `crates/core/tests/` instead and leave it importing `dry_core::`.
+In each moved test, rewrite `use dry_core::` → `use drymachina_kernel::`. Any test that reaches a verify or trace symbol does **not** belong here — move it to `crates/core/tests/` instead and leave it importing `dry_core::`.
 
 - [ ] **Step 5: Point `dry-core` at the kernel**
 
-In `crates/core/Cargo.toml` add `kmet-kernel = { path = "../kernel" }`. In `crates/core/src/lib.rs` replace the moved `pub mod` declarations and their `pub use` blocks with:
+In `crates/core/Cargo.toml` add `drymachina-kernel = { path = "../kernel" }`. In `crates/core/src/lib.rs` replace the moved `pub mod` declarations and their `pub use` blocks with:
 
 ```rust
-pub use kmet_kernel::{clothoid, codec, emit, engine, features, frame, gcode, generate, ir, optimize, profile, resolve, sdk, units};
+pub use drymachina_kernel::{clothoid, codec, emit, engine, features, frame, gcode, generate, ir, optimize, profile, resolve, sdk, units};
 ```
 
-followed by the identical flat `pub use kmet_kernel::{...}` re-export list that `lib.rs` exposes today for those modules, so every downstream `use dry_core::Toolpath` style import keeps resolving.
+followed by the identical flat `pub use drymachina_kernel::{...}` re-export list that `lib.rs` exposes today for those modules, so every downstream `use dry_core::Toolpath` style import keeps resolving.
 
 - [ ] **Step 6: Run the full suite**
 
@@ -712,12 +712,12 @@ Expected: green, **no golden regeneration**. `spec_vectors.rs`, `report_goldens.
 
 ```bash
 git add -A
-git commit -m "refactor: extract kmet-kernel (layer 1); dry-core becomes a partial facade"
+git commit -m "refactor: extract drymachina-kernel (layer 1); dry-core becomes a partial facade"
 ```
 
 ---
 
-## Task 5: Extract `kmet-verify`
+## Task 5: Extract `drymachina-verify`
 
 **Files:**
 - Create: `crates/verify/Cargo.toml`, `crates/verify/src/lib.rs`
@@ -726,20 +726,20 @@ git commit -m "refactor: extract kmet-kernel (layer 1); dry-core becomes a parti
 - Modify: `Cargo.toml`, `crates/core/Cargo.toml`, `crates/core/src/lib.rs`
 
 **Interfaces:**
-- Consumes: `kmet_contracts::{Contracts, RuleId, Severity, ARC_RADIUS_TOLERANCE_MM}`; `kmet_kernel::{emit::RotaryState, engine::segment_motion_time, optimize::{get_tangents, apply_gated_with, OptimizeMode, GatedResult}, resolve::{catmull_rom, SAMPLES}, ir::{Segment, SegmentKind, Toolpath}, units::Length, profile::MachineKinematics}`.
-- Produces: crate `kmet_verify` exporting `verify`, `verify_stream`, `catalog`, `Rule`, `Finding`, `Report`, `apply_gated`, `apply_safe_gated`. Task 6 depends on it.
+- Consumes: `drymachina_contracts::{Contracts, RuleId, Severity, ARC_RADIUS_TOLERANCE_MM}`; `drymachina_kernel::{emit::RotaryState, engine::segment_motion_time, optimize::{get_tangents, apply_gated_with, OptimizeMode, GatedResult}, resolve::{catmull_rom, SAMPLES}, ir::{Segment, SegmentKind, Toolpath}, units::Length, profile::MachineKinematics}`.
+- Produces: crate `drymachina_verify` exporting `verify`, `verify_stream`, `catalog`, `Rule`, `Finding`, `Report`, `apply_gated`, `apply_safe_gated`. Task 6 depends on it.
 
 - [ ] **Step 1: Write the failing test**
 
 ```rust
 // crates/verify/tests/gate_uses_kernel_mechanism.rs
 //! `apply_gated` is the verification policy bound to the kernel's gate mechanism
-//! (`kmet_kernel::optimize::apply_gated_with`, plan Task 2). This proves the two halves rejoin
+//! (`drymachina_kernel::optimize::apply_gated_with`, plan Task 2). This proves the two halves rejoin
 //! correctly after the split.
 
-use kmet_contracts::Contracts;
-use kmet_kernel::{resolve, Design, OptimizeMode, ResolveParams};
-use kmet_verify::apply_gated;
+use drymachina_contracts::Contracts;
+use drymachina_kernel::{resolve, Design, OptimizeMode, ResolveParams};
+use drymachina_verify::apply_gated;
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -761,7 +761,7 @@ fn clean_toolpath_passes_the_safe_gate() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p kmet-verify`
+Run: `cargo test -p drymachina-verify`
 Expected: FAIL — package not found.
 
 - [ ] **Step 3: Create the crate**
@@ -770,8 +770,8 @@ Expected: FAIL — package not found.
 
 ```toml
 [package]
-name = "kmet-verify"
-description = "KMET layer 2: the verification rule registry and the verify-gated rewrite. Machine-checked correctness claims live alongside in proofs/ and formal/."
+name = "drymachina-verify"
+description = "DRYMACHINA layer 2: the verification rule registry and the verify-gated rewrite. Machine-checked correctness claims live alongside in proofs/ and formal/."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -780,8 +780,8 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kmet-contracts = { path = "../contracts" }
-kmet-kernel = { path = "../kernel" }
+drymachina-contracts = { path = "../contracts" }
+drymachina-kernel = { path = "../kernel" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
@@ -795,7 +795,7 @@ git mv crates/core/src/verify.rs crates/verify/src/lib.rs
 git mv crates/core/tests/{verify_contracts,h13_rule_probe,rewrite_safe_gate,rewrite_balanced_max_gate}.rs crates/verify/tests/
 ```
 
-In `crates/verify/src/lib.rs`: add the crate doc comment and `#![forbid(unsafe_code)]`; rewrite the imports at lines 13-18 from `crate::` to `kmet_kernel::`; add `use kmet_contracts::{...}` for the vocabulary; keep the `pub use kmet_contracts::{...}` re-export block added in Task 3 so `kmet_verify::Contracts` still resolves for callers.
+In `crates/verify/src/lib.rs`: add the crate doc comment and `#![forbid(unsafe_code)]`; rewrite the imports at lines 13-18 from `crate::` to `drymachina_kernel::`; add `use drymachina_contracts::{...}` for the vocabulary; keep the `pub use drymachina_contracts::{...}` re-export block added in Task 3 so `drymachina_verify::Contracts` still resolves for callers.
 
 Relocate the two wrappers from `crates/core/src/gated.rs` (where Task 4 parked them):
 
@@ -804,7 +804,7 @@ git mv crates/core/src/gated.rs crates/verify/src/gated.rs
 ```
 
 **Move the bodies verbatim — never retype them from this document.** Adjust only the crate paths:
-`crate::verify::` becomes local, `kmet_kernel::optimize::` and `kmet_contracts::` as appropriate. Declare
+`crate::verify::` becomes local, `drymachina_kernel::optimize::` and `drymachina_contracts::` as appropriate. Declare
 `mod gated;` in `crates/verify/src/lib.rs` and `pub use gated::{apply_gated, apply_safe_gated};`.
 
 > **Why verbatim matters here.** An earlier draft of this plan contained an illustrative version of
@@ -812,23 +812,23 @@ git mv crates/core/src/gated.rs crates/verify/src/gated.rs
 > `Max`, whereas the real `pipeline_for` routes kinematics into `Balanced` and `Max` ignores them
 > entirely. Retyping from prose is how a semantics-preserving refactor stops preserving semantics.
 
-Add `"crates/verify"` to workspace `members`. In `crates/core/Cargo.toml` add `kmet-verify = { path = "../verify" }`; in `crates/core/src/lib.rs` replace `pub mod verify;` with `pub use kmet_verify as verify;` and keep the existing flat `pub use verify::{...}` list, adding `apply_gated` and `apply_safe_gated` to it (they previously came from `optimize`).
+Add `"crates/verify"` to workspace `members`. In `crates/core/Cargo.toml` add `drymachina-verify = { path = "../verify" }`; in `crates/core/src/lib.rs` replace `pub mod verify;` with `pub use drymachina_verify as verify;` and keep the existing flat `pub use verify::{...}` list, adding `apply_gated` and `apply_safe_gated` to it (they previously came from `optimize`).
 
 - [ ] **Step 4: Run tests**
 
-Run: `cargo test -p kmet-verify && cargo test --all`
+Run: `cargo test -p drymachina-verify && cargo test --all`
 Expected: green, no golden changes.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor: extract kmet-verify (layer 2) with the gate policy rejoined"
+git commit -m "refactor: extract drymachina-verify (layer 2) with the gate policy rejoined"
 ```
 
 ---
 
-## Task 6: Extract `kmet-trace`
+## Task 6: Extract `drymachina-trace`
 
 **Files:**
 - Create: `crates/trace/Cargo.toml`, `crates/trace/src/lib.rs`
@@ -837,8 +837,8 @@ git commit -m "refactor: extract kmet-verify (layer 2) with the gate policy rejo
 - Modify: `Cargo.toml`, `crates/core/Cargo.toml`, `crates/core/src/lib.rs`
 
 **Interfaces:**
-- Consumes: `kmet_contracts`, `kmet_kernel`, `kmet_verify` (`recommend.rs:119` calls `parse_speed_range_csv`; `report.rs` renders `Finding`).
-- Produces: crate `kmet_trace` exporting the module set currently re-exported from `dry_core` for `trace`, `report`, `forensics`, `compare`, `explain`, `recommend`, `reverse`.
+- Consumes: `drymachina_contracts`, `drymachina_kernel`, `drymachina_verify` (`recommend.rs:119` calls `parse_speed_range_csv`; `report.rs` renders `Finding`).
+- Produces: crate `drymachina_trace` exporting the module set currently re-exported from `dry_core` for `trace`, `report`, `forensics`, `compare`, `explain`, `recommend`, `reverse`.
 
 **Note on the layering correction:** the spec's §1.1 placed `report.rs` in layer 2. It imports `trace::TraceSummary` (`report.rs:10`), so it belongs in layer 3. Update §1.1 and §5.7 of the spec in Step 5 rather than leaving the document contradicting the code.
 
@@ -849,8 +849,8 @@ git commit -m "refactor: extract kmet-verify (layer 2) with the gate policy rejo
 //! Layer 3 stands on the kernel and the verifier and is depended on by nothing — which is why it
 //! graduates to its own repository first (plan Task 8).
 
-use kmet_kernel::{resolve, Design, ResolveParams};
-use kmet_trace::trace_summary;
+use drymachina_kernel::{resolve, Design, ResolveParams};
+use drymachina_trace::trace_summary;
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()
@@ -874,7 +874,7 @@ Confirm `trace_summary`'s exact signature at `crates/core/src/trace.rs` before r
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p kmet-trace`
+Run: `cargo test -p drymachina-trace`
 Expected: FAIL — package not found.
 
 - [ ] **Step 3: Create the crate**
@@ -883,8 +883,8 @@ Expected: FAIL — package not found.
 
 ```toml
 [package]
-name = "kmet-trace"
-description = "KMET layer 3: trace analytics, review reports, forensics, comparison, explanation, recommendation and reverse inference."
+name = "drymachina-trace"
+description = "DRYMACHINA layer 3: trace analytics, review reports, forensics, comparison, explanation, recommendation and reverse inference."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -893,9 +893,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kmet-contracts = { path = "../contracts" }
-kmet-kernel = { path = "../kernel" }
-kmet-verify = { path = "../verify" }
+drymachina-contracts = { path = "../contracts" }
+drymachina-kernel = { path = "../kernel" }
+drymachina-verify = { path = "../verify" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
@@ -909,24 +909,24 @@ git mv crates/core/src/{trace.rs,report.rs,forensics.rs,compare.rs,explain.rs,re
 git mv crates/core/tests/{trace_analytics,compare_golden,report_goldens}.rs crates/trace/tests/
 ```
 
-Write `crates/trace/src/lib.rs` with `#![forbid(unsafe_code)]`, the seven `pub mod` declarations, and the `pub use` blocks for `trace`, `report`, `forensics`, `compare`, `explain`, `recommend`, `reverse` lifted verbatim from `crates/core/src/lib.rs`. Rewrite `crate::` imports in the moved files to `kmet_kernel::` / `kmet_verify::` / `kmet_contracts::` as appropriate.
+Write `crates/trace/src/lib.rs` with `#![forbid(unsafe_code)]`, the seven `pub mod` declarations, and the `pub use` blocks for `trace`, `report`, `forensics`, `compare`, `explain`, `recommend`, `reverse` lifted verbatim from `crates/core/src/lib.rs`. Rewrite `crate::` imports in the moved files to `drymachina_kernel::` / `drymachina_verify::` / `drymachina_contracts::` as appropriate.
 
-Add `"crates/trace"` to workspace `members`; add `kmet-trace = { path = "../trace" }` to `crates/core/Cargo.toml`.
+Add `"crates/trace"` to workspace `members`; add `drymachina-trace = { path = "../trace" }` to `crates/core/Cargo.toml`.
 
 - [ ] **Step 4: Run tests**
 
-Run: `cargo test -p kmet-trace && cargo test --all`
+Run: `cargo test -p drymachina-trace && cargo test --all`
 Expected: green. `report_goldens.rs` must pass without regeneration.
 
 - [ ] **Step 5: Correct the spec's layering**
 
-In `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md`, move `report.rs` from the layer-2 row to the layer-3 row in the §1.1 table, and from the `kmet-verify` row to the `kmet-trace` row in the §5.7 table. Add one sentence recording why: `report.rs` imports `trace::TraceSummary`, so it sits above trace.
+In `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md`, move `report.rs` from the layer-2 row to the layer-3 row in the §1.1 table, and from the `drymachina-verify` row to the `drymachina-trace` row in the §5.7 table. Add one sentence recording why: `report.rs` imports `trace::TraceSummary`, so it sits above trace.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor: extract kmet-trace (layer 3); correct report.rs layering in the spec"
+git commit -m "refactor: extract drymachina-trace (layer 3); correct report.rs layering in the spec"
 ```
 
 ---
@@ -939,7 +939,7 @@ git commit -m "refactor: extract kmet-trace (layer 3); correct report.rs layerin
 - Test: `crates/core/tests/facade_surface.rs`
 
 **Interfaces:**
-- Produces: `dry_core` re-exporting the union of `kmet_contracts`, `kmet_kernel`, `kmet_verify`, `kmet_trace`. The six downstream crates (`crates/cli`, `crates/llm`, `crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner`) must compile with **no changes**.
+- Produces: `dry_core` re-exporting the union of `drymachina_contracts`, `drymachina_kernel`, `drymachina_verify`, `drymachina_trace`. The six downstream crates (`crates/cli`, `crates/llm`, `crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner`) must compile with **no changes**.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -978,7 +978,7 @@ Expected: PASS if Tasks 3-6 re-exported completely; any FAIL names exactly the m
 
 - [ ] **Step 3: Strip the facade's direct dependencies**
 
-`crates/core/src/lib.rs` should now contain only the module doc comment and `pub use` statements. `crates/core/Cargo.toml` keeps only the four `kmet-*` path dependencies plus whatever the remaining facade tests need as dev-dependencies (`serde_json`, `sha2`, `criterion`, `num-bigint`, `num-traits`). Remove `serde`, `miniz_oxide`, `libm` from `[dependencies]` — the facade does not use them directly.
+`crates/core/src/lib.rs` should now contain only the module doc comment and `pub use` statements. `crates/core/Cargo.toml` keeps only the four `drymachina-*` path dependencies plus whatever the remaining facade tests need as dev-dependencies (`serde_json`, `sha2`, `criterion`, `num-bigint`, `num-traits`). Remove `serde`, `miniz_oxide`, `libm` from `[dependencies]` — the facade does not use them directly.
 
 Move `[[bench]] engine_codec` to `crates/kernel/Cargo.toml` along with `benches/`, since it benchmarks kernel code.
 
@@ -997,7 +997,7 @@ Expected: all green with **zero edits** to those crates. Any edit needed there m
 
 ```bash
 git add -A
-git commit -m "refactor: reduce dry-core to a pure re-export facade over the four kmet crates"
+git commit -m "refactor: reduce dry-core to a pure re-export facade over the four drymachina crates"
 ```
 
 ---
@@ -1016,10 +1016,10 @@ machine.
 
 | Repository | Layer | Contents | History |
 |---|---|---|---|
-| `kmet-kernel` | 0 + 1 | `contracts/`, `kernel/`, `spec/` schemas, `conformance/vectors/` | clean |
-| `kmet-verify` | 2 | `verify/`, `proofs/`, `formal/`, assurance tooling | clean |
-| `kmet-trace` | 3 | `trace/`, `conformance/reports/`, `tools/validate_reports.py` | clean |
-| `kmet-tools` | 4 + X | CLI, bindings, SDKs, `web/`, `services/`, the `dry-core` facade, the cross-layer drift gates, and the oracle-derived corpora | clean |
+| `drymachina-kernel` | 0 + 1 | `contracts/`, `kernel/`, `spec/` schemas, `conformance/vectors/` | clean |
+| `drymachina-verify` | 2 | `verify/`, `proofs/`, `formal/`, assurance tooling | clean |
+| `drymachina-trace` | 3 | `trace/`, `conformance/reports/`, `tools/validate_reports.py` | clean |
+| `drymachina-tools` | 4 + X | CLI, bindings, SDKs, `web/`, `services/`, the `dry-core` facade, the cross-layer drift gates, and the oracle-derived corpora | clean |
 | `dry` | archive | **Everything, untouched, frozen.** Full 460-commit history. Private forever. | full |
 
 **Nothing is deleted from `dry`.** Graduated code is *archived in place*: removed from the Cargo
@@ -1027,11 +1027,11 @@ workspace `members` so it stops building, moved under `archive/`, and left there
 `dry` is a complete, coherent snapshot of the project as it stood at the cutover — which is far better
 evidence than a hollowed-out shell whose last four commits are deletions.
 
-**Why the encumbered material goes to `kmet-tools` and nowhere else.** `conformance/{gcode,gallery,golden,profiles,roundtrip,simulate}/` are FullControl-oracle output (layer X, spec §1.1) and the
+**Why the encumbered material goes to `drymachina-tools` and nowhere else.** `conformance/{gcode,gallery,golden,profiles,roundtrip,simulate}/` are FullControl-oracle output (layer X, spec §1.1) and the
 cross-layer drift gates test against them. They must not enter a registrable work's repository — that is
-the entire point of the quarantine. `kmet-tools` is where the whole stack is assembled anyway, so the
+the entire point of the quarantine. `drymachina-tools` is where the whole stack is assembled anyway, so the
 facade, the drift gates and the corpora belong together there, leaving layers 1-3 clean of encumbered
-material. When the oracle is retired (spec §5.5) and KMET's own outputs become the reference, this
+material. When the oracle is retired (spec §5.5) and DRYMACHINA's own outputs become the reference, this
 constraint dissolves.
 
 `conformance/oracle/` itself (the GPLv3 generator) graduates **nowhere**. It stays in the `dry` archive
@@ -1041,15 +1041,15 @@ only.
 
 | Source | Destination | Why |
 |---|---|---|
-| `spec/`, `conformance/vectors/`, `tools/validate_vectors.py` | `kmet-kernel` | Layer 0 — the published IR contract is the kernel's public face |
-| `proofs/`, `formal/`, `tools/{validate_proof_claims,check_proof_fixtures,generate_assurance_report,validate_numeric_boundaries,check_feature_mutations}.py` | `kmet-verify` | Layer 2 — the assurance work product |
-| `conformance/reports/`, `tools/validate_reports.py` | `kmet-trace` | Layer 3 — report goldens follow the report code |
-| `crates/{cli,llm,moonraker,license}`, `crates/{wasm,cloud}`, `py/`, `sdk/ts`, `containers/verify-runner`, `web/`, `services/`, `examples/`, `docs/site/`, `tools/slicer_corpus/`, `crates/core` (facade) | `kmet-tools` | Layer 4 |
-| `conformance/{gcode,gallery,golden,profiles,roundtrip,simulate}/`, `conformance/slicer-corpus/` | `kmet-tools` | Layer X — quarantined out of layers 1-3 |
+| `spec/`, `conformance/vectors/`, `tools/validate_vectors.py` | `drymachina-kernel` | Layer 0 — the published IR contract is the kernel's public face |
+| `proofs/`, `formal/`, `tools/{validate_proof_claims,check_proof_fixtures,generate_assurance_report,validate_numeric_boundaries,check_feature_mutations}.py` | `drymachina-verify` | Layer 2 — the assurance work product |
+| `conformance/reports/`, `tools/validate_reports.py` | `drymachina-trace` | Layer 3 — report goldens follow the report code |
+| `crates/{cli,llm,moonraker,license}`, `crates/{wasm,cloud}`, `py/`, `sdk/ts`, `containers/verify-runner`, `web/`, `services/`, `examples/`, `docs/site/`, `tools/slicer_corpus/`, `crates/core` (facade) | `drymachina-tools` | Layer 4 |
+| `conformance/{gcode,gallery,golden,profiles,roundtrip,simulate}/`, `conformance/slicer-corpus/` | `drymachina-tools` | Layer X — quarantined out of layers 1-3 |
 | `conformance/oracle/`, `tools/license-issuer/`, `docs/superpowers/`, `docs/marketing/`, `docs/adr/`, `docs/0*.md`–`2*.md` | **`dry` archive only** | GPLv3 generator, layer 5, and the internal record |
 
 **Layer 5 is deliberately left in the archive.** `tools/license-issuer/` and the `prod-1` key material
-are the highest-value secret in the portfolio (spec §1.1) and putting them in `kmet-tools` — the widest-access repository — would defeat the compartmentalisation that motivated separate repositories at
+are the highest-value secret in the portfolio (spec §1.1) and putting them in `drymachina-tools` — the widest-access repository — would defeat the compartmentalisation that motivated separate repositories at
 all. Giving them a fifth private repository is the likely answer but is a decision this plan does not
 make; see **Open decisions**.
 
@@ -1058,7 +1058,7 @@ make; see **Open decisions**.
 Git+SSH against private repositories, pinned by tag:
 
 ```toml
-kmet-kernel = { git = "ssh://git@github.com/<org>/kmet-kernel.git", tag = "v0.7.0" }
+drymachina-kernel = { git = "ssh://git@github.com/<org>/drymachina-kernel.git", tag = "v0.7.0" }
 ```
 
 Pin by `tag`, never `branch` — an unpinned git dependency makes builds unreproducible, which would
@@ -1078,13 +1078,13 @@ git mv crates/<name> archive/crates/<name>
 cat > archive/crates/<name>/ARCHIVED.md <<'EOF'
 # Archived — graduated to its own repository
 
-This code was extracted to `<org>/kmet-<name>` at tag `vX.Y.Z` on <date>.
+This code was extracted to `<org>/drymachina-<name>` at tag `vX.Y.Z` on <date>.
 
 It is retained here unmodified as part of the frozen authorship record (see
 `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md` §4, §5.2).
 It is excluded from the Cargo workspace and is not built, tested, or shipped.
 
-Successor repository: ssh://git@github.com/<org>/kmet-<name>.git
+Successor repository: ssh://git@github.com/<org>/drymachina-<name>.git
 Extraction commit in this repository: <sha>
 EOF
 ```
@@ -1095,85 +1095,85 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 ---
 
 > **Constraint discovered while executing Task 6 — read before seeding any repository.** The ordering
-> argument for graduating `kmet-trace` first is *"nothing depends on it"*. That is true of the **code** and
+> argument for graduating `drymachina-trace` first is *"nothing depends on it"*. That is true of the **code** and
 > false of the **tests**. All three of its drift gates reach repo-root layer-0 data:
 > `crates/trace/tests/report_goldens.rs:26,30` read `../../conformance/reports` and
 > `../../spec/examples/profiles`; `compare_golden.rs:14` reads `../../conformance/reports/compare`;
-> `trace_analytics.rs:36` likewise. A clean `kmet-trace` repository therefore cannot run its own gates
+> `trace_analytics.rs:36` likewise. A clean `drymachina-trace` repository therefore cannot run its own gates
 > without either vendoring `conformance/reports` and `spec/examples/profiles`, submoduling them, or fetching
-> them from the `kmet-kernel` repository that owns layer 0. Decide which **before** Task 8 Step 2 — seeding
+> them from the `drymachina-kernel` repository that owns layer 0. Decide which **before** Task 8 Step 2 — seeding
 > a repository whose CI cannot pass is worse than not seeding it. The same question applies to
-> `kmet-verify` and `kmet-tools`, whose gates read the same directories.
+> `drymachina-verify` and `drymachina-tools`, whose gates read the same directories.
 
 > **Three further constraints, found by the final whole-branch review. D-2 invalidates a placement.**
 >
-> **D-1 — `kmet-kernel`'s own tests read quarantined oracle output.** `crates/kernel/tests/codec_roundtrip.rs:11`
-> and `wasm_native_math.rs:11-15` read `conformance/gcode`, which the placement table sends to `kmet-tools`
+> **D-1 — `drymachina-kernel`'s own tests read quarantined oracle output.** `crates/kernel/tests/codec_roundtrip.rs:11`
+> and `wasm_native_math.rs:11-15` read `conformance/gcode`, which the placement table sends to `drymachina-tools`
 > *and which this document forbids a registrable work's repository from holding*. Unlike R23 this is not a
 > choose-your-vendoring problem: the quarantine rule rules out the obvious fix. Either those tests move to
-> `kmet-tools`, or the oracle is retired first (§5.5) and the corpora are replaced by KMET's own output.
+> `drymachina-tools`, or the oracle is retired first (§5.5) and the corpora are replaced by DRYMACHINA's own output.
 > `crates/verify/tests/h13_rule_probe.rs:262-265` has a milder version, mitigated by `#[ignore]`.
 >
-> **D-2 — `kmet-kernel` has a COMPILE-TIME dependency on `proofs/`, which the table assigns to `kmet-verify`.**
+> **D-2 — `drymachina-kernel` has a COMPILE-TIME dependency on `proofs/`, which the table assigns to `drymachina-verify`.**
 > Seven `include_str!` sites — `crates/kernel/tests/{deposition_refinement,feature_refinement,
 > resolve_channels_refinement,simulate_metrics_refinement}.rs` and, inside `src/`,
-> `crates/kernel/src/features/native_numeric_tests.rs:7` — so `cargo test -p kmet-kernel` fails to *compile*,
-> not merely to pass. `kmet-verify` already depends on `kmet-kernel`, so this is a build-time cycle between
+> `crates/kernel/src/features/native_numeric_tests.rs:7` — so `cargo test -p drymachina-kernel` fails to *compile*,
+> not merely to pass. `drymachina-verify` already depends on `drymachina-kernel`, so this is a build-time cycle between
 > two graduated repositories. The reverse bites too: the numeric-boundary inventories pin files under
 > `crates/kernel/src` and `crates/contracts/src`, so `validate_numeric_boundaries.py` — living in
-> `kmet-verify` — must hash files in the `kmet-kernel` repository to run at all. **The placement of
+> `drymachina-verify` — must hash files in the `drymachina-kernel` repository to run at all. **The placement of
 > `proofs/` must be reconsidered before Task 9**: the fixtures and the numeric inventories may belong with
-> the kernel, leaving only the Lean development in `kmet-verify`.
+> the kernel, leaving only the Lean development in `drymachina-verify`.
 >
 > **D-3 — R23's directory list is incomplete.** `crates/trace/tests/report_goldens.rs:700-710,893,979` and
-> `trace_analytics.rs:36-38` also read repo-root `examples/`, which the table assigns to `kmet-tools` — a
+> `trace_analytics.rs:36-38` also read repo-root `examples/`, which the table assigns to `drymachina-tools` — a
 > third repository, distinct from either directory R23 names. Those two files are Cura/PrusaSlicer output,
 > the same layer-X character as `conformance/slicer-corpus/`. Add `examples/` to whatever R23 decides.
 >
 > Also minor: `proofs/emit-numeric-boundaries-v0.toml:108-110` cites `tests/five_axis_singular_cone.rs` and
 > `tests/krl_program_structure.rs` as drift evidence; both live in `crates/core/tests/`, which graduates to
-> `kmet-tools`, so after Phase C that inventory's stated evidence sits in a different repository from its pin.
+> `drymachina-tools`, so after Phase C that inventory's stated evidence sits in a different repository from its pin.
 
-## Task 8: Create the repositories and graduate `kmet-trace`
+## Task 8: Create the repositories and graduate `drymachina-trace`
 
 **Files:**
-- Create: private repositories `kmet-kernel`, `kmet-verify`, `kmet-trace`, `kmet-tools`
-- Create: `kmet-trace` repo contents from `crates/trace/`, `conformance/reports/`, `tools/validate_reports.py`
+- Create: private repositories `drymachina-kernel`, `drymachina-verify`, `drymachina-trace`, `drymachina-tools`
+- Create: `drymachina-trace` repo contents from `crates/trace/`, `conformance/reports/`, `tools/validate_reports.py`
 - Modify: root `Cargo.toml` (drop `crates/trace` from `members`), `crates/core/Cargo.toml` (path dep → git dep)
 - Move: `crates/trace/` → `archive/crates/trace/`
 
 - [ ] **Step 1: Create four empty private repositories**
 
 ```bash
-gh repo create <org>/kmet-kernel --private --description "KMET layer 1 — the toolpath compiler kernel and the IR contract"
-gh repo create <org>/kmet-verify --private --description "KMET layer 2 — verification, proofs and assurance"
-gh repo create <org>/kmet-trace  --private --description "KMET layer 3 — trace analytics, review reports and forensics"
-gh repo create <org>/kmet-tools  --private --description "KMET layer 4 — CLI, SDKs, bindings and the web surface"
+gh repo create <org>/drymachina-kernel --private --description "DRYMACHINA layer 1 — the toolpath compiler kernel and the IR contract"
+gh repo create <org>/drymachina-verify --private --description "DRYMACHINA layer 2 — verification, proofs and assurance"
+gh repo create <org>/drymachina-trace  --private --description "DRYMACHINA layer 3 — trace analytics, review reports and forensics"
+gh repo create <org>/drymachina-tools  --private --description "DRYMACHINA layer 4 — CLI, SDKs, bindings and the web surface"
 ```
 
-`<org>` is the organisation chosen in spec §5.1 — `github.com/kmet` is taken, so this is the alternative
-recorded there. All four are private and none may ever be made public (spec §0, visibility decision).
+`<org>` is the organisation chosen in spec §5.1 — `github.com/drymachina` was free as of 2026-08-26, so
+claim it before Task 8 Step 1 rather than after. All four are private and none may ever be made public (spec §0, visibility decision).
 
-- [ ] **Step 2: Seed `kmet-trace` with a single clean initial commit**
+- [ ] **Step 2: Seed `drymachina-trace` with a single clean initial commit**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/kmet-trace.git && cd kmet-trace
+cd /tmp && git clone ssh://git@github.com/<org>/drymachina-trace.git && cd drymachina-trace
 mkdir -p conformance tools
 cp -R <repo>/crates/trace/. .
 cp -R <repo>/conformance/reports conformance/
 cp <repo>/tools/validate_reports.py tools/
 cp <repo>/LICENSE <repo>/NOTICE .
 git add -A
-git commit -m "Initial commit: KMET layer 3 — trace analytics, reports, forensics
+git commit -m "Initial commit: DRYMACHINA layer 3 — trace analytics, reports, forensics
 
-Extracted from the KMET monorepo at <sha>. Authorship history for this code is preserved in the
+Extracted from the DRYMACHINA monorepo at <sha>. Authorship history for this code is preserved in the
 pre-cutover evidence bundle (spec §4) and in the retained \`dry\` archive repository."
 git push
 ```
 
 - [ ] **Step 3: Add CI**
 
-Copy the `core` job from `.github/workflows/ci.yml` into `kmet-trace/.github/workflows/ci.yml`, reduced
+Copy the `core` job from `.github/workflows/ci.yml` into `drymachina-trace/.github/workflows/ci.yml`, reduced
 to: `cargo fmt --all --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, and
 `python tools/validate_reports.py .`. It must resolve sibling private git dependencies — add a deploy
 key, or check out with a token that can read them.
@@ -1186,51 +1186,51 @@ git tag v0.7.0 && git push --tags
 
 - [ ] **Step 5: Switch the monorepo to the git dependency and archive**
 
-In `crates/core/Cargo.toml` replace `kmet-trace = { path = "../trace" }` with the pinned git
+In `crates/core/Cargo.toml` replace `drymachina-trace = { path = "../trace" }` with the pinned git
 dependency. Then apply **The archival procedure** above with `<name>` = `trace`. Archive
 `conformance/reports/` and `tools/validate_reports.py` together (`git mv conformance/reports
 archive/conformance/ && git mv tools/validate_reports.py archive/tools/`) — the goldens and their
 validator must move as a pair, or `dry`'s CI validates an archived directory. Delete the
 `python tools/validate_reports.py .` step from `.github/workflows/ci.yml` in the same commit; that
-check now runs in the `kmet-trace` repository.
+check now runs in the `drymachina-trace` repository.
 
 - [ ] **Step 6: Verify**
 
 Run: `cargo test --all`
-Expected: green, resolving `kmet-trace` over SSH. If the fetch fails, fix SSH access now — the same
+Expected: green, resolving `drymachina-trace` over SSH. If the fetch fails, fix SSH access now — the same
 mechanism carries Tasks 9-11.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "build: graduate kmet-trace to its own repository; archive it here"
+git commit -m "build: graduate drymachina-trace to its own repository; archive it here"
 ```
 
 ---
 
-## Task 9: Graduate `kmet-verify`
+## Task 9: Graduate `drymachina-verify`
 
 **Files:**
-- Create: `kmet-verify` repo from `crates/verify/`, `proofs/`, `formal/`, five assurance tools
+- Create: `drymachina-verify` repo from `crates/verify/`, `proofs/`, `formal/`, five assurance tools
 - Modify: root `Cargo.toml`, `crates/core/Cargo.toml`
 - Move: `crates/verify/` → `archive/crates/verify/`; `proofs/`, `formal/` → `archive/`
 
 - [ ] **Step 1: Record the temporary standalone breakage**
 
-Between Tasks 9 and 10 the `kmet-verify` repository cannot build alone: it depends on `kmet-contracts`
-and `kmet-kernel`, which are still path deps in the monorepo. Put this in its `README.md` rather than
+Between Tasks 9 and 10 the `drymachina-verify` repository cannot build alone: it depends on `drymachina-contracts`
+and `drymachina-kernel`, which are still path deps in the monorepo. Put this in its `README.md` rather than
 leaving an unexplained red badge:
 
 ```markdown
-> **Status:** extraction in progress. This crate depends on `kmet-contracts` and `kmet-kernel`, which
+> **Status:** extraction in progress. This crate depends on `drymachina-contracts` and `drymachina-kernel`, which
 > graduate in the next step. Standalone CI is expected to fail until then.
 ```
 
 - [ ] **Step 2: Seed the repository**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/kmet-verify.git && cd kmet-verify
+cd /tmp && git clone ssh://git@github.com/<org>/drymachina-verify.git && cd drymachina-verify
 mkdir -p tools
 cp -R <repo>/crates/verify/. .
 cp -R <repo>/proofs <repo>/formal .
@@ -1238,9 +1238,9 @@ cp <repo>/tools/{validate_proof_claims.py,check_proof_fixtures.py,generate_assur
 cp -R <repo>/tools/tests tools/
 cp <repo>/LICENSE <repo>/NOTICE .
 git add -A
-git commit -m "Initial commit: KMET layer 2 — verification, proofs and assurance
+git commit -m "Initial commit: DRYMACHINA layer 2 — verification, proofs and assurance
 
-Extracted from the KMET monorepo at <sha>. Authorship history for this code is preserved in the
+Extracted from the DRYMACHINA monorepo at <sha>. Authorship history for this code is preserved in the
 pre-cutover evidence bundle (spec §4) and in the retained \`dry\` archive repository."
 git push
 ```
@@ -1264,27 +1264,27 @@ Expected: green.
 
 ```bash
 git add -A
-git commit -m "build: graduate kmet-verify to its own repository; archive it here"
+git commit -m "build: graduate drymachina-verify to its own repository; archive it here"
 ```
 
 ---
 
-## Task 10: Graduate `kmet-kernel` and `kmet-contracts`
+## Task 10: Graduate `drymachina-kernel` and `drymachina-contracts`
 
-`kmet-contracts` ships inside the `kmet-kernel` repository as a second workspace member. It is layer 1's
+`drymachina-contracts` ships inside the `drymachina-kernel` repository as a second workspace member. It is layer 1's
 vocabulary and a few hundred lines; a separate repository would be overhead with no compartmentalisation
 benefit. The IR contract (layer 0) ships here too, because the published spec and vectors are the
 kernel's public face.
 
 **Files:**
-- Create: `kmet-kernel` repo — a two-member workspace (`contracts/`, `kernel/`) plus `spec/`, `conformance/vectors/`, `tools/validate_vectors.py`
-- Modify: root `Cargo.toml`, `crates/core/Cargo.toml`; and in the `kmet-verify` and `kmet-trace` repos, path deps → git deps
+- Create: `drymachina-kernel` repo — a two-member workspace (`contracts/`, `kernel/`) plus `spec/`, `conformance/vectors/`, `tools/validate_vectors.py`
+- Modify: root `Cargo.toml`, `crates/core/Cargo.toml`; and in the `drymachina-verify` and `drymachina-trace` repos, path deps → git deps
 - Move: `crates/contracts/`, `crates/kernel/`, `spec/`, `conformance/vectors/` → `archive/`
 
 - [ ] **Step 1: Seed the two-member workspace**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/kmet-kernel.git && cd kmet-kernel
+cd /tmp && git clone ssh://git@github.com/<org>/drymachina-kernel.git && cd drymachina-kernel
 mkdir -p contracts kernel conformance tools
 cp -R <repo>/crates/contracts/. contracts/
 cp -R <repo>/crates/kernel/. kernel/
@@ -1300,9 +1300,9 @@ copied verbatim from `<repo>/Cargo.toml` — `version = "0.7.0"`, `edition = "20
 
 ```bash
 git add -A
-git commit -m "Initial commit: KMET layer 1 — kernel, contracts and the IR contract
+git commit -m "Initial commit: DRYMACHINA layer 1 — kernel, contracts and the IR contract
 
-Extracted from the KMET monorepo at <sha>. Authorship history for this code is preserved in the
+Extracted from the DRYMACHINA monorepo at <sha>. Authorship history for this code is preserved in the
 pre-cutover evidence bundle (spec §4) and in the retained \`dry\` archive repository."
 git push && git tag v0.7.0 && git push --tags
 ```
@@ -1315,8 +1315,8 @@ this is the repository that must enforce it.
 
 - [ ] **Step 3: Repoint the sibling repositories**
 
-In `kmet-verify` and `kmet-trace`, replace the `kmet-contracts` / `kmet-kernel` path deps with the
-pinned git deps and push. `kmet-verify`'s CI should now be green — delete the temporary README notice
+In `drymachina-verify` and `drymachina-trace`, replace the `drymachina-contracts` / `drymachina-kernel` path deps with the
+pinned git deps and push. `drymachina-verify`'s CI should now be green — delete the temporary README notice
 from Task 9 Step 1.
 
 - [ ] **Step 4: Switch the monorepo and archive**
@@ -1340,24 +1340,24 @@ four separately-fetched repositories is the proof that the split changed no beha
 
 ```bash
 git add -A
-git commit -m "build: graduate kmet-kernel + kmet-contracts; archive them here"
+git commit -m "build: graduate drymachina-kernel + drymachina-contracts; archive them here"
 ```
 
 ---
 
-## Task 11: Graduate layer 4 to `kmet-tools`
+## Task 11: Graduate layer 4 to `drymachina-tools`
 
 Everything that remains buildable in `dry` moves out together: it is one layer, it releases as one unit,
 and splitting it further would multiply CI for code that is thin by design (spec §1.1, layer 4).
 
 **Files:**
-- Create: `kmet-tools` repo from `crates/{cli,llm,moonraker,license,wasm,cloud,core}`, `py/`, `sdk/ts`, `containers/verify-runner`, `web/`, `services/`, `examples/`, `docs/site/`, `tools/slicer_corpus/`, and the layer-X conformance corpora
+- Create: `drymachina-tools` repo from `crates/{cli,llm,moonraker,license,wasm,cloud,core}`, `py/`, `sdk/ts`, `containers/verify-runner`, `web/`, `services/`, `examples/`, `docs/site/`, `tools/slicer_corpus/`, and the layer-X conformance corpora
 - Move: all of the above → `archive/` in `dry`
 
 - [ ] **Step 1: Seed the repository**
 
 ```bash
-cd /tmp && git clone ssh://git@github.com/<org>/kmet-tools.git && cd kmet-tools
+cd /tmp && git clone ssh://git@github.com/<org>/drymachina-tools.git && cd drymachina-tools
 mkdir -p crates conformance tools docs
 cp -R <repo>/crates/{cli,llm,moonraker,license,wasm,cloud,core} crates/
 cp -R <repo>/{py,sdk,containers,web,services,examples} .
@@ -1368,9 +1368,9 @@ cp <repo>/LICENSE <repo>/NOTICE .
 cp -R <repo>/third_party .
 ```
 
-Rename `crates/core` to `crates/facade` and set its package `name = "kmet"` — layer 4 is where the
+Rename `crates/core` to `crates/facade` and set its package `name = "drymachina"` — layer 4 is where the
 single umbrella crate belongs, and `dry-core` was only ever a transitional name. Update the six
-dependents' `Cargo.toml` accordingly, and their `use dry_core::` imports to `use kmet::`.
+dependents' `Cargo.toml` accordingly, and their `use dry_core::` imports to `use drymachina::`.
 
 Move the cross-layer drift gates in with it: `conformance_gcode.rs`, `conformance_resolve.rs`,
 `conformance_roundtrip.rs`, `conformance_simulate.rs`, `spec_vectors.rs`, `cnc_pocket_e2e.rs`,
@@ -1380,9 +1380,9 @@ Move the cross-layer drift gates in with it: `conformance_gcode.rs`, `conformanc
 
 ```bash
 git add -A
-git commit -m "Initial commit: KMET layer 4 — CLI, SDKs, bindings, web surface
+git commit -m "Initial commit: DRYMACHINA layer 4 — CLI, SDKs, bindings, web surface
 
-Extracted from the KMET monorepo at <sha>. Includes the umbrella \`kmet\` crate, the cross-layer
+Extracted from the DRYMACHINA monorepo at <sha>. Includes the umbrella \`drymachina\` crate, the cross-layer
 conformance drift gates, and the oracle-derived corpora those gates test against — quarantined here
 rather than in layers 1-3 (spec §1.1, layer X). Authorship history is preserved in the pre-cutover
 evidence bundle (spec §4) and in the retained \`dry\` archive repository."
@@ -1404,10 +1404,10 @@ cd crates/cloud && cargo check && cd ../..
 cd containers/verify-runner && cargo check && cd ../../..
 cd py && maturin build && cd ..
 cd sdk/ts && npm ci && npm run build && npm test && cd ../..
-python tools/validate_vectors.py conformance/vectors || true  # vectors now live in kmet-kernel
+python tools/validate_vectors.py conformance/vectors || true  # vectors now live in drymachina-kernel
 ```
-Expected: green. Note that `validate_vectors.py` moved to `kmet-kernel` in Task 10 — the vectors are
-fetched as part of that dependency, so drop this line from `kmet-tools` CI rather than working around it.
+Expected: green. Note that `validate_vectors.py` moved to `drymachina-kernel` in Task 10 — the vectors are
+fetched as part of that dependency, so drop this line from `drymachina-tools` CI rather than working around it.
 
 - [ ] **Step 4: Archive everything in `dry`**
 
@@ -1419,7 +1419,7 @@ archive.
 
 ```bash
 git add -A
-git commit -m "build: graduate layer 4 to kmet-tools; archive it here"
+git commit -m "build: graduate layer 4 to drymachina-tools; archive it here"
 ```
 
 ---
@@ -1446,10 +1446,10 @@ Nothing here is built, tested, shipped, or maintained. Active development lives 
 
 | Layer | Repository |
 |---|---|
-| 0 + 1 · kernel and IR contract | `<org>/kmet-kernel` |
-| 2 · verification and assurance | `<org>/kmet-verify` |
-| 3 · trace analytics and forensics | `<org>/kmet-trace` |
-| 4 · CLI, SDKs, bindings, web | `<org>/kmet-tools` |
+| 0 + 1 · kernel and IR contract | `<org>/drymachina-kernel` |
+| 2 · verification and assurance | `<org>/drymachina-verify` |
+| 3 · trace analytics and forensics | `<org>/drymachina-trace` |
+| 4 · CLI, SDKs, bindings, web | `<org>/drymachina-tools` |
 
 Retained here and graduated nowhere: `archive/conformance/oracle/` (GPLv3, spec §1.1 layer X) and
 `archive/tools/license-issuer/` (spec §1.1 layer 5).
@@ -1481,23 +1481,23 @@ successors are private, and confirm the evidence bundle from spec §4 is readabl
 
 ```bash
 git add -A
-git commit -m "chore: freeze this repository as the KMET authorship archive"
+git commit -m "chore: freeze this repository as the DRYMACHINA authorship archive"
 ```
 
 ---
 
 ## Open decisions this plan does not make
 
-- **The GitHub organisation name.** `github.com/kmet` is taken (spec §5.1). Task 8 Step 1 needs the
-  alternative before anything else runs.
+- **Claim the GitHub organisation.** `github.com/drymachina` was free as of 2026-08-26 (spec §5.1).
+  Unlike `kmet`'s, this one is available — claim it before announcing, not at Task 8 Step 1.
 - **Where layer 5 lives.** `tools/license-issuer/` and the `prod-1` key material stay in the `dry`
   archive under this plan, which preserves them but leaves them undevelopable. A fifth private
-  repository (`kmet-licensing`) is the likely answer and is the strongest compartmentalisation case in
+  repository (`drymachina-licensing`) is the likely answer and is the strongest compartmentalisation case in
   the portfolio (spec §1.1, layer 5) — but it is a decision, not a default.
-- **Trademark clearance on `KMET`** (spec §6.3, §10.2). Crates are named `kmet-*` on the assumption
+- **Trademark clearance on `DRYMACHINA`** (spec §6.3, §10.2). Crates are named `drymachina-*` on the assumption
   clearance succeeds; a failure forces a mechanical rename across four repositories.
-- **Oracle retirement** (spec §5.5). Until it happens, the layer-X corpora constrain `kmet-tools` to
+- **Oracle retirement** (spec §5.5). Until it happens, the layer-X corpora constrain `drymachina-tools` to
   hold the cross-layer drift gates. After it happens, those gates can move to the layer they test.
-- **The §5.7 spec table** lists three crates; this plan implements four, because `kmet-contracts` proved
+- **The §5.7 spec table** lists three crates; this plan implements four, because `drymachina-contracts` proved
   necessary to break the `RotaryContracts.model: emit::Kinematics` cycle. Task 3 Step 6 makes that
   correction to the spec as part of the work.
