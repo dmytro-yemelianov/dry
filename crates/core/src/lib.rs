@@ -1,21 +1,24 @@
-//! # dry-core — the Dry IR + engine (foundations)
+//! # dry-core — one import surface over the four KMET crates
 //!
-//! The dependency-light core of Dry (no PyO3, no numpy), the seed of the architecture in
-//! `docs/01-architecture.md`. At Phase 0 it carries the L2 motion dialect (`ir`) and the first engine
-//! analysis (`simulate`), validated against the FullControl behavioural oracle (`docs/03-conformance.md`)
-//! — clean-room: Dry reproduces FullControl's *outputs*, never its code (`docs/CLEANROOM.md`).
+//! A facade, and nothing else: it holds no types, no functions and no dependency of its own beyond
+//! the four crates it re-exports. Six crates depend on it — `dry-cli`, `dry-llm`, and the four
+//! bindings `dry-wasm`, `dry-cloud`, `dry-py` and `dry-verify-runner`, with `sdk/ts` reaching it
+//! through the wasm one — and each of them names the engine's whole surface through this crate,
+//! under the paths it used before the layers were separated (`docs/01-architecture.md`).
 //!
-//! Status: **P0** — `resolve` + `simulate` + Marlin `emit`, all gated byte-for-output against the
-//! FullControl oracle, over a **unit-typed IR** ([`units`]: mixing units is a compile error). The binary
-//! encoding and the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
+//! What is true of the engine is still true through here: it is dependency-light (no PyO3, no
+//! numpy), it compiles to `wasm32-unknown-unknown` unmodified, its IR is unit-typed ([`units`]:
+//! mixing units is a compile error), and it is gated byte-for-output against the FullControl
+//! behavioural oracle (`docs/03-conformance.md`) clean-room — Dry reproduces FullControl's
+//! *outputs*, never its code (`docs/CLEANROOM.md`).
 //!
-//! **Layering.** This crate defines nothing. Layer 1 — the IR, resolve, lowering, optimisation,
-//! generation and emission — lives in `kmet-kernel`, layer 2 — the verification rule registry and
-//! the verify-gated rewrite — in `kmet-verify`, and layer 3 — trace, report, forensics, compare,
-//! explain, recommend and reverse — in `kmet-trace`. Every one of their modules and names is
-//! re-exported below unchanged, so a `dry_core::Toolpath`, `dry_core::emit::emit`,
-//! `dry_core::verify::verify` or `dry_core::trace::trace_summary` import resolves exactly as it
-//! always did. `dry-core` is now purely that facade (`docs/superpowers/plans`).
+//! **Layering.** Layer 1 — the IR, resolve, lowering, optimisation, generation and emission — lives
+//! in `kmet-kernel`, layer 2 — the verification rule registry and the verify-gated rewrite — in
+//! `kmet-verify`, and layer 3 — trace, report, forensics, compare, explain, recommend and reverse —
+//! in `kmet-trace`. Every one of their modules and names is re-exported below unchanged, so a
+//! `dry_core::Toolpath`, `dry_core::emit::emit`, `dry_core::verify::verify` or
+//! `dry_core::trace::trace_summary` import resolves exactly as it always did
+//! (`docs/superpowers/plans`).
 
 #![forbid(unsafe_code)]
 

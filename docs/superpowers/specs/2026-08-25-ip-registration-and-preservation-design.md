@@ -47,21 +47,35 @@ authoring languages and target machines are interchangeable front-ends and back-
 |---|---|---|---|
 | **0 · Contract** | IR spec (`docs/10`), `spec/` schemas (54 files), conformance vectors (95 files) | 664 KB data | **Public, permanently.** Copyright is thin. The value is the trademark and control of the standard (§6.3) |
 | **1 · Kernel** | `kmet-contracts` (994) + `kmet-kernel` (22 814): `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~23.8k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
-| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `kmet-verify` (2 845: `lib.rs` 1 542 + `gated.rs` 40 + 1 193 of tests + a 70-line bench), assurance tooling | ~11.7k LOC | Separate work, **separate SKU** |
+| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `kmet-verify` (2 845: `lib.rs` 1 542 + `gated.rs` 40 + 1 193 of tests + a 70-line bench), assurance tooling (2 799: the five `tools/` scripts §5.7 assigns to `kmet-verify` — `validate_numeric_boundaries` 1 111, `check_proof_fixtures` 608, `check_feature_mutations` 408, `validate_proof_claims` 340, `generate_assurance_report` 332) | ~14.5k LOC | Separate work, **separate SKU** |
 | **3 · Analysis** | `kmet-trace` (5 695): `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (493), `compare` `explain` `recommend` `reverse` | ~5.7k LOC | Separate work, separate SKU |
-| **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/` (3 789), `services/`, `llm`, `moonraker`, the `dry-core` facade (6 112, all but 125 of it the cross-layer integration tests) | ~28.1k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
+| **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/` (3 789), `services/`, `llm`, `moonraker`, the `dry-core` facade (6 115, all but 128 of it the cross-layer integration tests) | ~28.1k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
 | **5 · Commercial infra** | `tools/license-issuer` (704 KB, the largest tool), `crates/license`, `prod-1` key material | — | **Secrecy only.** Never registered, never licensed, never disclosed |
 | **X · Encumbered** | `conformance/oracle/` (GPLv3), oracle-derived corpora, `conformance/slicer-corpus/` (3.1 MB third-party output) | — | **Quarantine.** Excluded from every filing and every release |
 
-**How these sizes are measured, so the next re-measurement is mechanical.** Each LOC figure is `wc -l`
-over the git-tracked source files (`.rs`, `.lean`, `.ts`, `.js`, `.py`) of the crates and directories
-its row names — tests and benches included, since they are part of the work being registered — with
-vendored third-party code excluded (`web/vendor/` is 57 066 lines of three.js and Blockly and is
-nobody's work product here). A figure in parentheses after a file name is that file's own `wc -l`.
+**How these sizes are measured, so the next re-measurement is mechanical.** A row's Size counts
+exactly what its own Contents column names, and nothing it does not name. Each LOC figure is `wc -l`
+over the git-tracked source files of those crates, directories and scripts — tests and benches
+included, since they are part of the work being registered — with vendored third-party code excluded.
+A figure in parentheses after a file or script name is that file's own `wc -l`. Run literally:
+
+```bash
+loc() { git ls-files "$@" | grep -E '\.(rs|lean|ts|tsx|js|mjs|cjs|py)$' \
+        | grep -v '^web/vendor/' | xargs wc -l | tail -1; }
+loc crates/contracts crates/kernel                       # layer 1 → 23 808
+```
+
+The extension list must carry `.mjs` and `.cjs` or it under-counts `web/` and `services/` by 852 and
+82 lines; the `web/vendor/` exclusion drops 57 066 lines of three.js and Blockly, which is nobody's
+work product here. Layer 0's, 5's and X's figures are file counts and `du -ck` sizes rather than LOC,
+measured over the same `git ls-files` listing.
+
 Re-measured against the tree as it stands at the completion of the §5.7 split (plan Task 7). Before
 that, the rows had been re-derived arithmetically without being re-measured, which is how layer 2
-came to carry a `verify.rs` line count from before `kmet-contracts` was extracted out of it — the
-sum was right and both of its addends were stale.
+came to carry a `verify.rs` line count from before `kmet-contracts` was extracted out of it: its
+other addend, `formal/` at 8 863, was and remains correct, so the sum was internally consistent and
+wrong about the tree — which is exactly the failure a re-derivation cannot catch and a
+re-measurement cannot miss.
 
 **`report.rs` is layer 3, not layer 2 — a correction, not drift.** This table put it beside `verify.rs`
 because a review report is what a verification pass is *read* through. But `report.rs` imports
