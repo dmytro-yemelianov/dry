@@ -1219,7 +1219,7 @@ fn run(cli: Cli) -> ExitCode {
                 cnc_frame: profile.as_ref().and_then(|p| p.emit_params().cnc_frame),
                 // Not wired from `profile`: the profile schema has no KRL block yet, so the
                 // program name and $TOOL/$BASE stay at the emitter's documented defaults
-                // (see crates/core/src/emit/krl.rs).
+                // (see crates/kernel/src/emit/krl.rs).
                 krl_frame: KrlFrame::default(),
             };
             if let Some(step_nc_path) = step_nc {

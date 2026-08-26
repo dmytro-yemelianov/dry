@@ -1032,7 +1032,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 
 **Exclusions**
 
-- Refinement of these abstract predicates against crates/core/src/verify.rs.
+- Refinement of these abstract predicates against crates/verify/src/lib.rs.
 - Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.
 - Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.
 - The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified.

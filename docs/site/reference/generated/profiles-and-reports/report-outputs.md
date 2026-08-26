@@ -57,7 +57,7 @@ document gains:
   epilogue), and `Σ layer.print_time_s` agrees with `trace.print_time_s` — up to floating-point
   summation reordering, since grouping the same addends by layer changes the order and f64 addition is
   not associative. That is what the tests assert (`1e-9` relative, in
-  `crates/core/src/trace.rs::layers_partition_the_segment_range` and the golden test), so it is what the
+  `crates/trace/src/trace.rs::layers_partition_the_segment_range` and the golden test), so it is what the
   document promises: agreement to that tolerance, not bit equality. A break is keyed on the first
   *extruding* move whose Z differs by more than the echoed `analytics.layer_z_epsilon_mm` (default
   1 nm), and the run of non-extruding moves before it (the Z lift and the approach travel) belongs to the

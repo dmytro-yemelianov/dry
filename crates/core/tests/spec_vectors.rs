@@ -983,7 +983,7 @@ fn the_drape_vector_emits_on_the_reference_machine() {
 /// (`B = atan2(i, k)`, `A = atan2(j, hypot(i, k))`, degrees) and checked against the committed line.
 ///
 /// **This is not an independent derivation.** Those two expressions are character-identical to the
-/// emitter's (`crates/core/src/emit/kinematics.rs`), so what the test establishes is that the
+/// emitter's (`crates/kernel/src/emit/kinematics.rs`), so what the test establishes is that the
 /// orientation *reached the file*, at the *positions and in the modality* the emitter's
 /// write-on-change rule dictates. It cannot detect a wrong AB convention — a sign flip or an
 /// axis swap in the emitter would be reproduced here and agree. Nothing outside Dry backs this

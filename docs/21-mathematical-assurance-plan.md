@@ -643,7 +643,7 @@ Dependencies: FM1.2–FM1.4.
 - Executable Lean fixture generator export `formal/Dry/Tests/ResolveOrientationFixtures.lean` emitting 5 schema-valid JSON test cases.
 - JSON fixture snapshot `proofs/fixtures/resolve-orientation-refinement-v0.json` and schema `proofs/fixtures/resolve-orientation-refinement-fixtures.schema.json`.
 - Native Rust refinement test `crates/core/tests/resolve_orientation_refinement.rs`.
-- Pinned source hash and 3 mutations in `crates/core/src/resolve.rs` (`proofs/resolve-orientation-mutations-v0.toml`), each killed by named proof fixtures in CI (`tools/check_resolve_orientation_mutations.py`).
+- Pinned source hash and 3 mutations in `crates/kernel/src/resolve.rs` (`proofs/resolve-orientation-mutations-v0.toml`), each killed by named proof fixtures in CI (`tools/check_resolve_orientation_mutations.py`).
 - Registered claim models `FM1.RESOLVE_ORIENTATION.MODEL.SEMANTICS` and `FM1.RESOLVE_ORIENTATION.NATIVE.REFINE.CORPUS` in `proofs/claims.toml`.
 
 Work packets:

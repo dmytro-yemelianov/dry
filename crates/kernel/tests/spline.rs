@@ -117,7 +117,7 @@ fn gradual_corner_design_emits_curved_spline_segments() {
     // A spline with a gradual cornering profile should emit a dense, visibly curved output.
     // NOTE: this is a Catmull-Rom spline, NOT a clothoid, and the name stays as commit d47446c set
     // it. P5.5 has since landed curvature-linear (Euler spiral) cornering as its own `Op::Clothoid`
-    // node -- see crates/core/src/clothoid.rs and crates/core/tests/clothoid.rs -- but this test does
+    // node -- see crates/kernel/src/clothoid.rs and crates/kernel/tests/clothoid.rs -- but this test does
     // not exercise it, and renaming a spline test after a clothoid would put the name back where
     // d47446c found it.
     let d = design(

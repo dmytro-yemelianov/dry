@@ -44,7 +44,7 @@ const DEFAULT_MAX_FIELD_SAMPLES: f64 = 6_000_000.0;
 /// when it is smaller than half the coordinate step (`1 / QUANTUM`, so 5e-7 mm) the appended top Z
 /// *rounds onto the Z of the layer below*: the two layers land at the same coordinate, the gap is
 /// `0.0`, the declaration is `0.0`, and `resolve` refuses the whole program (`require_positive`,
-/// `crates/core/src/resolve.rs` — `height must be > 0`). That needs a block height off the layer
+/// `crates/kernel/src/resolve.rs` — `height must be > 0`). That needs a block height off the layer
 /// grid to reach — measured with this constant deleted, `cellSize 12.0000003, layerHeight 2.0`
 /// emits declared heights `[2.0, 0.0]` and is refused. A layer height with a sub-step remainder is
 /// *not* a trigger (`layerHeight 1.99999995` on a 12 mm block emits `[1.99999995, 2.0]` and

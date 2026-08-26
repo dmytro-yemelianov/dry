@@ -116,7 +116,8 @@ Acceptance:
 
 > **Delivered (initial):** [`docs/13-performance-and-scale.md`](13-performance-and-scale.md) documents the
 > memory model (only the `DRY1` streaming path is bounded-memory; JSON/`DRY0` materialize), criterion
-> benchmarks (`crates/core/benches/engine_codec.rs`), and a **deterministic** bounded-memory scale gate
+> benchmarks (`crates/kernel/benches/engine_codec.rs`, `crates/verify/benches/verify_pass.rs`,
+> `crates/trace/benches/trace_pass.rs`), and a **deterministic** bounded-memory scale gate
 > (`crates/core/tests/memory_scale.rs`, via a counting allocator) plus a CI bench-compile gate. Remaining:
 > large representative corpora and tracked wall-clock thresholds.
 

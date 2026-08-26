@@ -118,7 +118,7 @@ Do not rely on Dry for any of these today:
   across the committed `conformance/slicer-corpus/` files).
 - **`Q`, `L` and `W` are ambiguous with the legacy KRL import dialect.** They are the `PTP`/`LIN`/`WAIT`
   markers of the g-code-shaped KRL Dry wrote before #181, and also real RS-274 word letters
-  (`crates/core/src/gcode.rs`). A line that states its own `G`/`M`/`T` command is read as that command,
+  (`crates/kernel/src/gcode.rs`). A line that states its own `G`/`M`/`T` command is read as that command,
   so Bambu's `M1006 A0 B10 L100 C37 …` is the macro it is and not a `LIN` move with a rotary pose; but a
   bare `L100` line with nothing else on it is still read as a KRL `LIN`.
 

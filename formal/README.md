@@ -66,7 +66,7 @@ unit/non-unit verifier classification. The abstract orientation theorem converts
 componentwise result into nonzeroness and a conservative `1/4`-radian angular ceiling for exact unit
 inputs.
 `tools/check_feature_mutations.py` then compiles 35 pinned source changes to
-`crates/core/src/features.rs` in isolated workspaces and requires each
+`crates/kernel/src/features.rs` in isolated workspaces and requires each
 named fixture to kill its assigned mutant. The source hash and replacements are reviewed in
 `proofs/feature-refinement-mutations-v0.toml`; a non-compiling mutant does not count as killed.
 
