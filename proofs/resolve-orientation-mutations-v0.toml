@@ -1,14 +1,18 @@
 schema_version = 1
 model = "resolve-orientation-source-mutations-v0"
 source = "crates/core/src/resolve.rs"
-source_sha256 = "bd69bfa379b1b323dc810e9729963f0919a258ed0ae72a6e1c062afa1308512f"
+# Re-pinned 2026-08-26: the orientation magnitude guard now also refuses a magnitude that
+# overflows to infinity, which `mag <= 0.0` let through and which normalises to exactly
+# (0, 0, 0) downstream. The mutation below is re-pointed at the widened condition so it still
+# removes the whole guard.
+source_sha256 = "7fc4fa0ede1e6394fc20ebae1e31f70a561a3de9db2db61b3f9ae3ab40ece9c0"
 test = "crates/core/tests/resolve_orientation_refinement.rs"
 
 [[mutation]]
 id = "orient-zero-magnitude-accepted"
 witness = "zero-orient-before-motion"
 description = "Accept zero-magnitude orientation vector during resolution."
-old = "if mag <= 0.0 {"
+old = "if !mag.is_finite() || mag <= 0.0 {"
 new = "if false {"
 
 [[mutation]]

@@ -10,7 +10,10 @@
 schema_version = 1
 model = "resolve-channels-source-mutations-v0"
 source = "crates/core/src/resolve.rs"
-source_sha256 = "bd69bfa379b1b323dc810e9729963f0919a258ed0ae72a6e1c062afa1308512f"
+# Re-pinned 2026-08-26 for the orientation magnitude guard, which now also refuses a magnitude
+# that overflows to infinity. No channel behaviour changed and no mutation below is affected;
+# this manifest pins the whole file, so an unrelated edit still moves its checksum.
+source_sha256 = "7fc4fa0ede1e6394fc20ebae1e31f70a561a3de9db2db61b3f9ae3ab40ece9c0"
 test = "crates/core/tests/resolve_channels_refinement.rs"
 
 [[mutation]]

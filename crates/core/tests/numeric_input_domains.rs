@@ -3,7 +3,10 @@
 //! Each of these accepted a non-finite input and returned a non-finite result rather than refusing
 //! it. `<= 0.0` and `< 0.0` are both false for NaN, so a magnitude guard alone lets NaN through.
 
-use dry_core::{calculate_mrr, calculate_scurve_profile, estimate_cutting_power_kw, SCurveParams};
+use dry_core::{
+    calculate_mrr, calculate_scurve_profile, estimate_cutting_power_kw, resolve_checked, Design,
+    Op, ResolveParams, SCurveParams,
+};
 
 #[test]
 fn scurve_rejects_non_finite_velocities() {
@@ -71,4 +74,56 @@ fn cutting_power_does_not_round_efficiency_in_the_unsafe_direction() {
     assert_eq!(estimate_cutting_power_kw(mrr, kc, 0.0), 0.0);
     assert_eq!(estimate_cutting_power_kw(mrr, kc, f64::NAN), 0.0);
     assert_eq!(estimate_cutting_power_kw(f64::NAN, kc, 0.85), 0.0);
+}
+
+/// An orientation vector whose components are each finite but whose squares overflow was accepted:
+/// `libm::sqrt(i*i + j*j + k*k)` is infinity, and `mag <= 0.0` is false for infinity. Every consumer
+/// that normalises then divides by that magnitude and gets exactly (0, 0, 0) — the degenerate
+/// orientation the check exists to refuse.
+#[test]
+fn orientation_with_an_unnormalizable_magnitude_is_rejected() {
+    let build = |i: f64, j: f64, k: f64| {
+        let mut design = Design::default();
+        design.ops.push(Op::Move {
+            x: Some(0.0),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+        design.ops.push(Op::Orient { i, j, k });
+        design.ops.push(Op::Move {
+            x: Some(10.0),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+        design
+    };
+
+    for (i, j, k) in [(1e200, 1e200, 1e200), (f64::MAX, 0.0, 0.0), (0.0, 0.0, 0.0)] {
+        let error = resolve_checked(&build(i, j, k), &ResolveParams::default())
+            .expect_err("an unnormalizable orientation must be refused");
+        assert!(
+            format!("{error}").contains("non-zero magnitude"),
+            "expected a magnitude error for ({i:e}, {j:e}, {k:e}), got {error}"
+        );
+    }
+
+    // Ordinary directions, unit or not, still resolve and still normalise to a real direction.
+    for (i, j, k) in [(0.0, 0.0, 1.0), (1.0, 1.0, 1.0), (1e-8, 0.0, 1e-8)] {
+        let toolpath = resolve_checked(&build(i, j, k), &ResolveParams::default())
+            .expect("a normalizable orientation must resolve");
+        let o = toolpath
+            .segments
+            .iter()
+            .find_map(|s| s.orientation)
+            .expect("the orientation rides the segment");
+        let mag = libm::sqrt(o[0] * o[0] + o[1] * o[1] + o[2] * o[2]);
+        assert!(
+            mag.is_finite() && mag > 0.0,
+            "magnitude {mag} is not normalizable"
+        );
+        assert!(
+            (o[0] / mag).is_finite() && (o[1] / mag).is_finite() && (o[2] / mag).is_finite(),
+            "normalising ({i:e}, {j:e}, {k:e}) did not yield a finite direction"
+        );
+    }
 }

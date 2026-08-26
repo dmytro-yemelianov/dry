@@ -272,10 +272,23 @@ pub fn validate_design(design: &Design, p: &ResolveParams) -> Result<(), Resolve
                 require_finite(&prefix("i"), *i)?;
                 require_finite(&prefix("j"), *j)?;
                 require_finite(&prefix("k"), *k)?;
+                // The components are finite by the checks above, but their squares can still
+                // overflow: (1e200, 1e200, 1e200) sums to infinity, and `mag <= 0.0` is false for
+                // infinity, so the vector passed. It is not harmless — every consumer that
+                // normalises divides by that magnitude, turning it into exactly (0, 0, 0): the
+                // degenerate orientation this check exists to refuse. Reject the magnitudes that
+                // cannot be normalised, not the literal zero vector alone.
+                //
+                // The message keeps the substring `non-zero magnitude`: it is contract text pinned
+                // by the Lean-backed refinement corpus in
+                // `proofs/fixtures/orientation-contract-refinement-v0.json`. That corpus is
+                // rational-valued, so binary64 overflow cannot be expressed in it and this case
+                // sits outside the model's domain by construction — which is exactly why the Rust
+                // implementation needs a guard the model does not imply.
                 let mag = libm::sqrt(i * i + j * j + k * k);
-                if mag <= 0.0 {
+                if !mag.is_finite() || mag <= 0.0 {
                     return Err(ResolveError::new(format!(
-                        "ops[{idx}].orient vector must have non-zero magnitude"
+                        "ops[{idx}].orient vector must have non-zero magnitude that can be normalized, got {mag}"
                     )));
                 }
             }
