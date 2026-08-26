@@ -1105,6 +1105,35 @@ repository and the authorship record, and §7.1's `ip/ledger.toml` references it
 > a repository whose CI cannot pass is worse than not seeding it. The same question applies to
 > `kmet-verify` and `kmet-tools`, whose gates read the same directories.
 
+> **Three further constraints, found by the final whole-branch review. D-2 invalidates a placement.**
+>
+> **D-1 — `kmet-kernel`'s own tests read quarantined oracle output.** `crates/kernel/tests/codec_roundtrip.rs:11`
+> and `wasm_native_math.rs:11-15` read `conformance/gcode`, which the placement table sends to `kmet-tools`
+> *and which this document forbids a registrable work's repository from holding*. Unlike R23 this is not a
+> choose-your-vendoring problem: the quarantine rule rules out the obvious fix. Either those tests move to
+> `kmet-tools`, or the oracle is retired first (§5.5) and the corpora are replaced by KMET's own output.
+> `crates/verify/tests/h13_rule_probe.rs:262-265` has a milder version, mitigated by `#[ignore]`.
+>
+> **D-2 — `kmet-kernel` has a COMPILE-TIME dependency on `proofs/`, which the table assigns to `kmet-verify`.**
+> Seven `include_str!` sites — `crates/kernel/tests/{deposition_refinement,feature_refinement,
+> resolve_channels_refinement,simulate_metrics_refinement}.rs` and, inside `src/`,
+> `crates/kernel/src/features/native_numeric_tests.rs:7` — so `cargo test -p kmet-kernel` fails to *compile*,
+> not merely to pass. `kmet-verify` already depends on `kmet-kernel`, so this is a build-time cycle between
+> two graduated repositories. The reverse bites too: the numeric-boundary inventories pin files under
+> `crates/kernel/src` and `crates/contracts/src`, so `validate_numeric_boundaries.py` — living in
+> `kmet-verify` — must hash files in the `kmet-kernel` repository to run at all. **The placement of
+> `proofs/` must be reconsidered before Task 9**: the fixtures and the numeric inventories may belong with
+> the kernel, leaving only the Lean development in `kmet-verify`.
+>
+> **D-3 — R23's directory list is incomplete.** `crates/trace/tests/report_goldens.rs:700-710,893,979` and
+> `trace_analytics.rs:36-38` also read repo-root `examples/`, which the table assigns to `kmet-tools` — a
+> third repository, distinct from either directory R23 names. Those two files are Cura/PrusaSlicer output,
+> the same layer-X character as `conformance/slicer-corpus/`. Add `examples/` to whatever R23 decides.
+>
+> Also minor: `proofs/emit-numeric-boundaries-v0.toml:108-110` cites `tests/five_axis_singular_cone.rs` and
+> `tests/krl_program_structure.rs` as drift evidence; both live in `crates/core/tests/`, which graduates to
+> `kmet-tools`, so after Phase C that inventory's stated evidence sits in a different repository from its pin.
+
 ## Task 8: Create the repositories and graduate `kmet-trace`
 
 **Files:**
