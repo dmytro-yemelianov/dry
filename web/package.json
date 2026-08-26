@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:gallery": "tsc && vite build --base=/gallery/ --outDir=dist-gallery",
     "preview": "vite preview"
   },
   "dependencies": {

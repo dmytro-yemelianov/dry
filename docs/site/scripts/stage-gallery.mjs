@@ -6,76 +6,108 @@ import { fileURLToPath } from 'node:url';
 const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(siteRoot, '../..');
 const webRoot = path.join(repoRoot, 'web');
+const galleryBuild = path.join(webRoot, 'dist-gallery');
 const targetRoot = path.join(siteRoot, '.vitepress/dist/gallery');
 
-const files = [
-  'index.html',
-  'tool-ui.css',
-  'designs.js',
-  'fullcontrol-gallery.generated.js',
-  'lattice-research.js',
-  'tpms-engine.js',
-  'viewer.js',
-  'thumb.js',
-  'spline.js',
-  'wasm-load.js',
-  'pkg/dry_wasm.js',
-  'pkg/dry_wasm_bg.wasm',
-  'vendor/OrbitControls.js',
-  'vendor/three.module.js',
-];
+// The gallery used to be a hand-written static page staged file-by-file from `web/`. Studio 2.0
+// moved it to a Vite + React app, so the staged artifact is now a build output: `web/dist-gallery`,
+// produced by `npm run build:gallery` in `web/` with `--base=/gallery/`. The `/web/` mount used by
+// scripts/build_site.sh keeps its own `web/dist` build; the two differ only in base and outDir.
+if (!fs.existsSync(galleryBuild)) {
+  throw new Error(
+    `Missing gallery build: web/dist-gallery\n` +
+      "Run `npm ci && npm run build:gallery` in web/ before staging the product site.",
+  );
+}
 
 fs.rmSync(targetRoot, { recursive: true, force: true });
-for (const relative of files) {
+fs.cpSync(galleryBuild, targetRoot, { recursive: true });
+
+// Assets the app reaches for at runtime rather than importing, so the bundler never sees them and
+// cannot emit them. `machines.json` is fetched relative to the page: the /web/ deploy gets it from
+// scripts/build_site.sh, and the /gallery/ mount has to stage its own copy or the machine catalog
+// silently falls back to empty. The engine glue is served at the documented unhashed path, not the
+// fingerprinted copy Vite inlines into assets/.
+const RUNTIME_ASSETS = ['pkg/dry_wasm.js', 'pkg/dry_wasm_bg.wasm', 'machines.json'];
+for (const relative of RUNTIME_ASSETS) {
   const source = path.join(webRoot, relative);
-  if (!fs.existsSync(source)) throw new Error(`Missing gallery build input: web/${relative}`);
+  if (!fs.existsSync(source)) {
+    throw new Error(
+      `Missing gallery build input: web/${relative}\n` +
+        'Run `bash docs/site/build.sh wasm-only` to build the engine, and check the file exists.',
+    );
+  }
   const target = path.join(targetRoot, relative);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(source, target);
 }
 
-// The allow list is checked in one direction above: every entry must exist in `web/`. The other
-// direction had no check at all, and that is the half that actually shipped broken (#190). When
-// `web/tpms.js` was replaced by `web/tpms-engine.js`, the replacement was *also* missing from the
-// list — so had the stale entry merely been deleted, staging would have succeeded and the gallery
-// would have 404'd on a module it imports, at runtime, in the browser, with nothing failing here.
-//
-// So: walk what was actually staged, collect the relative modules and assets it references, and
-// require each one to have been staged too.
+// Staging was only ever checked in one direction: every input had to exist. The other half is what
+// actually shipped broken (#190) — a page referencing a module nobody staged 404s at runtime, in
+// the browser, with nothing failing here. So walk what was staged, collect the same-tree modules
+// and assets it references, and require each one to have been staged too. This is what caught the
+// Studio 2.0 entry point still pointing at unbuilt `./src/main.tsx`.
+// `base` is where a relative specifier resolves from, and the two kinds genuinely differ:
+// an import or a src/href resolves against the file that contains it, while a runtime fetch
+// resolves against the *document* URL. A bundled `fetch('./machines.json')` sitting in
+// gallery/assets/index-*.js therefore asks for /gallery/machines.json, not
+// /gallery/assets/machines.json. Resolving it like an import reports a file that is staged
+// correctly as missing.
 const REFERENCE_PATTERNS = [
-  /\bfrom\s*['"](\.\.?\/[^'"]+)['"]/g, // import ... from './x.js'
-  /\bimport\s*\(\s*['"](\.\.?\/[^'"]+)['"]\s*\)/g, // dynamic import('./x.js')
-  /\bsrc\s*=\s*['"](\.\.?\/[^'"]+)['"]/g, // <script src="./x.js">
-  /\bhref\s*=\s*['"](\.\.?\/[^'"]+\.css)['"]/g, // <link href="./x.css">
+  { base: 'module', re: /\bfrom\s*['"]([^'"]+)['"]/g }, // import ... from './x.js'
+  { base: 'module', re: /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g }, // dynamic import('./x.js')
+  { base: 'module', re: /\bsrc\s*=\s*['"]([^'"]+)['"]/g }, // <script src="./x.js">
+  { base: 'module', re: /\bhref\s*=\s*['"]([^'"]+\.css)['"]/g }, // <link href="./x.css">
+  // Runtime fetches are invisible to the bundler, so they are exactly the references that reach
+  // production unstaged — `fetch('./machines.json')` 404'd the machine catalog on this mount.
+  { base: 'document', re: /\bfetch\s*\(\s*['"]([^'"]+)['"]/g }, // fetch('./x.json')
 ];
 
-const dangling = [];
-for (const relative of files) {
-  if (!/\.(js|mjs|html|css)$/.test(relative)) continue;
-  const text = fs.readFileSync(path.join(targetRoot, relative), 'utf8');
-  const fromDir = path.dirname(path.join(targetRoot, relative));
+function walk(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walk(full));
+    else out.push(full);
+  }
+  return out;
+}
 
-  for (const pattern of REFERENCE_PATTERNS) {
-    for (const [, spec] of text.matchAll(pattern)) {
-      // Only same-tree references are our problem; a bare specifier is a bundler/CDN concern and a
-      // query string is a cache-buster, not a different file.
-      const resolved = path.resolve(fromDir, spec.split(/[?#]/)[0]);
+const dangling = [];
+for (const absolute of walk(targetRoot)) {
+  if (!/\.(js|mjs|html|css)$/.test(absolute)) continue;
+  // Source maps are a debugging aid, not a runtime reference, and they legitimately name paths
+  // that were never staged (the original TypeScript sources).
+  if (absolute.endsWith('.map')) continue;
+  const relative = path.relative(targetRoot, absolute);
+  const text = fs.readFileSync(absolute, 'utf8');
+  const fromDir = path.dirname(absolute);
+
+  for (const { base, re } of REFERENCE_PATTERNS) {
+    for (const [, spec] of text.matchAll(re)) {
+      const clean = spec.split(/[?#]/)[0];
+      if (clean === '') continue;
+      // A bare specifier is a bundler/CDN concern, and a data: or protocol URL is not ours.
+      if (!clean.startsWith('.') && !clean.startsWith('/')) continue;
+      if (/^[a-z]+:/i.test(clean)) continue;
+      // Vite emits absolute URLs under the configured base; those resolve from the mount root.
+      const resolved = clean.startsWith('/')
+        ? path.join(targetRoot, clean.replace(/^\/gallery\//, '/'))
+        : path.resolve(base === 'document' ? targetRoot : fromDir, clean);
       if (!resolved.startsWith(targetRoot)) continue;
       if (fs.existsSync(resolved)) continue;
-      dangling.push(`  web/${relative} references ${spec} -> not staged`);
+      dangling.push(`  gallery/${relative} references ${spec} -> not staged`);
     }
   }
 }
 
 if (dangling.length > 0) {
   throw new Error(
-    `The staged gallery references ${dangling.length} file(s) the allow list above does not stage.\n` +
+    `The staged gallery references ${dangling.length} file(s) that were not staged.\n` +
       `${dangling.join('\n')}\n` +
-      'Add them to `files` in this script, or stop referencing them. Left unstaged they are a 404 ' +
-      'in the browser, which no build step would otherwise catch.',
+      'Left unstaged they are a 404 in the browser, which no build step would otherwise catch.',
   );
 }
 
-console.log(
-  `staged public gallery (${files.length} allow-listed files, references resolved) -> ${path.relative(repoRoot, targetRoot)}`,
-);
+const staged = walk(targetRoot).length;
+console.log(`staged gallery from web/dist-gallery (${staged} files) -> .vitepress/dist/gallery`);

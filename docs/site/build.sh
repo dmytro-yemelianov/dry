@@ -22,6 +22,13 @@ fi
     DRY_DOCS_MODE=public ./node_modules/.bin/vitepress build
     node scripts/check-public-boundary.mjs
   elif [ "$MODE" = "product" ]; then
+    # The gallery is a Vite build now, not a folder of static files. Build it against the
+    # /gallery/ mount before VitePress stages it; web/dist stays the /web/ deploy's copy.
+    if [ ! -d "$ROOT/web/node_modules" ]; then
+      echo "web/node_modules is missing; run 'npm ci' in web/ before building the product site" >&2
+      exit 2
+    fi
+    (cd "$ROOT/web" && npm run build:gallery)
     DRY_DOCS_MODE=product ./node_modules/.bin/vitepress build
     node scripts/stage-gallery.mjs
   else

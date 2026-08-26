@@ -203,6 +203,11 @@ jobs:
         run: |
           npm ci
           npm run build
+      # The gallery is a Vite + React build now (Studio 2.0). The product site stages its output,
+      # so its dependencies have to be present before `npm run build` reaches stage-gallery.mjs.
+      - name: install studio deps
+        working-directory: web
+        run: npm ci
       - name: install docs-site deps
         working-directory: docs/site
         run: |
