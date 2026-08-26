@@ -2802,7 +2802,7 @@ fn contracts_from_inputs(profile: Option<&Profile>, overrides: ContractOverrides
         contracts.bounds = Some(parse_bounds(bounds));
     }
     if let Some(max_flow) = overrides.max_flow {
-        contracts.max_flow = Some(max_flow);
+        contracts.max_flow = Some(checked_ceiling("max-flow", max_flow));
     }
     if let Some(speed_range) = overrides.speed_range {
         contracts.speed_range = Some(parse_speed_range(speed_range));
@@ -2811,16 +2811,25 @@ fn contracts_from_inputs(profile: Option<&Profile>, overrides: ContractOverrides
         contracts.monotonic_z = true;
     }
     if let Some(min_temp) = overrides.min_temp {
-        contracts.min_temp = Some(min_temp);
+        contracts.min_temp = Some(checked_ceiling("min-temp", min_temp));
     }
     if let Some(max_retraction_distance) = overrides.max_retraction_distance {
-        contracts.max_retraction_distance = Some(max_retraction_distance);
+        contracts.max_retraction_distance = Some(checked_ceiling(
+            "max-retraction-distance",
+            max_retraction_distance,
+        ));
     }
     if let Some(max_retraction_speed) = overrides.max_retraction_speed {
-        contracts.max_retraction_speed = Some(max_retraction_speed);
+        contracts.max_retraction_speed = Some(checked_ceiling(
+            "max-retraction-speed",
+            max_retraction_speed,
+        ));
     }
     if let Some(max_travel_without_retract) = overrides.max_travel_without_retract {
-        contracts.max_travel_without_retract = Some(max_travel_without_retract);
+        contracts.max_travel_without_retract = Some(checked_ceiling(
+            "max-travel-without-retract",
+            max_travel_without_retract,
+        ));
     }
     if let Some(range) = overrides.first_layer_height_range {
         contracts.first_layer_height_range = Some(parse_range("first-layer-height-range", range));
@@ -2833,14 +2842,30 @@ fn contracts_from_inputs(profile: Option<&Profile>, overrides: ContractOverrides
     if overrides.max_accel.is_some() || overrides.junction_velocity.is_some() {
         let mut kinematics = contracts.kinematics.unwrap_or_default();
         if let Some(max_accel) = overrides.max_accel {
-            kinematics.max_acceleration_mm_s2 = Some(max_accel);
+            kinematics.max_acceleration_mm_s2 = Some(checked_ceiling("max-accel", max_accel));
         }
         if let Some(junction_velocity) = overrides.junction_velocity {
-            kinematics.max_junction_velocity_mm_s = Some(junction_velocity);
+            kinematics.max_junction_velocity_mm_s =
+                Some(checked_ceiling("junction-velocity", junction_velocity));
         }
         contracts.kinematics = Some(kinematics);
     }
     contracts
+}
+
+/// Refuse a contract ceiling that cannot decide anything; exits 2.
+///
+/// Rust parses `NaN`, `inf` and `1e400` as perfectly good `f64`s, so a typo reaches the verifier as
+/// a contract. Every ordering comparison against NaN is false, so the rule it belongs to can never
+/// fire — and the report would still list it as evaluated. Refusing here means an operator learns
+/// about the typo instead of receiving a clean report for a check that never ran.
+fn checked_ceiling(flag: &str, value: f64) -> f64 {
+    if !value.is_finite() {
+        die(format!(
+            "bad --{flag}: must be a finite number, got {value}"
+        ));
+    }
+    value
 }
 
 /// Parse `x0,x1,y0,y1,z0,z1` into a build volume; exits 2 on a malformed value.

@@ -506,25 +506,29 @@ impl RuleId {
             | RuleId::SegmentLength
             | RuleId::ArcLength
             | RuleId::FilamentConsistency => true,
-            RuleId::Bounds => c.bounds.is_some(),
-            RuleId::MaxFlow => c.max_flow.is_some(),
-            RuleId::Speed => c.speed_range.is_some(),
+            // A ceiling is only in force if it can actually decide anything. Every comparison
+            // against a NaN ceiling is false, so a rule carrying one can never fire — and reporting
+            // it as evaluated is exactly the vacuous pass `rules_evaluated` exists to rule out
+            // (H1.3 design section 3.5). `Some(NaN)` is not a contract; it is a typo.
+            RuleId::Bounds => c.bounds.is_some_and(usable_bounds),
+            RuleId::MaxFlow => c.max_flow.is_some_and(usable),
+            RuleId::Speed => c.speed_range.is_some_and(usable_range),
             RuleId::MonotonicZ => c.monotonic_z,
-            RuleId::ColdExtrusion => c.min_temp.is_some(),
-            RuleId::RetractionDistance => c.max_retraction_distance.is_some(),
-            RuleId::RetractionSpeed => c.max_retraction_speed.is_some(),
-            RuleId::TravelWithoutRetraction => c.max_travel_without_retract.is_some(),
-            RuleId::FirstLayerHeight => c.first_layer_height_range.is_some(),
-            RuleId::FirstLayerSpeed => c.first_layer_speed_range.is_some(),
-            RuleId::BeadVolume => c.bead_volume_tolerance.is_some(),
+            RuleId::ColdExtrusion => c.min_temp.is_some_and(usable),
+            RuleId::RetractionDistance => c.max_retraction_distance.is_some_and(usable),
+            RuleId::RetractionSpeed => c.max_retraction_speed.is_some_and(usable),
+            RuleId::TravelWithoutRetraction => c.max_travel_without_retract.is_some_and(usable),
+            RuleId::FirstLayerHeight => c.first_layer_height_range.is_some_and(usable_range),
+            RuleId::FirstLayerSpeed => c.first_layer_speed_range.is_some_and(usable_range),
+            RuleId::BeadVolume => c.bead_volume_tolerance.is_some_and(usable),
             RuleId::PeakAcceleration => c
                 .kinematics
                 .as_ref()
-                .is_some_and(|k| k.max_acceleration_mm_s2.is_some()),
+                .is_some_and(|k| k.max_acceleration_mm_s2.is_some_and(usable)),
             RuleId::JunctionVelocity => c
                 .kinematics
                 .as_ref()
-                .is_some_and(|k| k.max_junction_velocity_mm_s.is_some()),
+                .is_some_and(|k| k.max_junction_velocity_mm_s.is_some_and(usable)),
             RuleId::RotaryTravel => c.rotary.as_ref().is_some_and(|r| {
                 r.travel_deg
                     .as_ref()
@@ -539,6 +543,25 @@ impl RuleId {
             }
         }
     }
+}
+
+/// Whether a scalar contract value can decide anything at all.
+///
+/// Written as a positive test rather than `!v.is_nan()`: every ordering comparison against NaN is
+/// false, so a rule holding one silently never fires, and an infinite ceiling is indistinguishable
+/// from having set no ceiling at all.
+fn usable(value: f64) -> bool {
+    value.is_finite()
+}
+
+/// A range contract is in force only when both ends are usable.
+fn usable_range(range: [f64; 2]) -> bool {
+    usable(range[0]) && usable(range[1])
+}
+
+/// A build volume is in force only when every one of its six numbers is usable.
+fn usable_bounds(bounds: [[f64; 2]; 3]) -> bool {
+    bounds.iter().all(|axis| usable_range(*axis))
 }
 
 /// The full rule catalog (id, default severity, summary), in catalog order.

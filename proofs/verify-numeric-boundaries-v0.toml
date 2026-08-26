@@ -46,7 +46,16 @@ hash_mode = "file"
 # `ToolHolder` declares holder_diameter, collet_diameter and collet_length, and
 # `check_tool_holder_collision` reads none of them — the rule is a plunge-depth-versus-stickout
 # test, not the holder interference check its name implies.
-sha256 = "46d7ded9c8aded6596031301c696ddd4fda465cf9ae6fa412fe8ef4de8795c58"
+#
+# Re-pinned 2026-08-27 for the contract-usability change. This one DOES change rule behaviour
+# and the diff should be read as such: a contract whose value is not finite no longer counts as
+# in force, so the rule holding it is absent from `Report::rules_evaluated` instead of being
+# listed there. A NaN ceiling makes every ordering comparison false, so that rule could never
+# fire while still being reported as evaluated — the exact vacuous pass this inventory's own
+# design note (H1.3 section 3.5) exists to prevent. It changes no tolerance, no epsilon and no
+# predicate: the four boundaries pinned below are always-on rules, unaffected by contract
+# presence, and none of their `operation` text moves.
+sha256 = "0d5d413075a7c5efd6e275793e15ed8994b375868478e35bd77de8d5b4f0c49e"
 
 [[source]]
 # The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its
