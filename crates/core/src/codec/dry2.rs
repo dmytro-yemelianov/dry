@@ -117,8 +117,16 @@ pub fn decode_dry2(bytes: &[u8]) -> Result<Toolpath, CodecError> {
         let speed = (speed_raw as f64) / 10.0;
 
         let seg = Segment {
-            start: [Some(Length(prev_x)), Some(Length(prev_y)), Some(Length(prev_z))],
-            end: [Some(Length(end_x)), Some(Length(end_y)), Some(Length(end_z))],
+            start: [
+                Some(Length(prev_x)),
+                Some(Length(prev_y)),
+                Some(Length(prev_z)),
+            ],
+            end: [
+                Some(Length(end_x)),
+                Some(Length(end_y)),
+                Some(Length(end_z)),
+            ],
             travel,
             speed: Feedrate(speed),
             length: Length(libm::hypot(end_x - prev_x, end_y - prev_y)),

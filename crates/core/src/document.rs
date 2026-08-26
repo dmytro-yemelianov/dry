@@ -103,7 +103,9 @@ impl<T> DocumentEnvelope<T> {
     /// Validate the document envelope structure.
     pub fn validate(&self) -> Result<(), DocumentValidationError> {
         if self.elements.is_empty() {
-            return Err(DocumentValidationError::new("document must contain at least one element"));
+            return Err(DocumentValidationError::new(
+                "document must contain at least one element",
+            ));
         }
         Ok(())
     }

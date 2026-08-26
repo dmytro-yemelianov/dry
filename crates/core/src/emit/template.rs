@@ -46,7 +46,9 @@ impl GcodeTemplate {
 
     /// Render the tool change macro with given context.
     pub fn render_tool_change(&self, ctx: &TemplateContext) -> Option<String> {
-        self.tool_change_macro.as_ref().map(|m| render_template(m, ctx))
+        self.tool_change_macro
+            .as_ref()
+            .map(|m| render_template(m, ctx))
     }
 }
 

@@ -1,6 +1,4 @@
-use dry_core::{
-    optimize_corner_feedrate, resolve, Design, Op, ResolveParams,
-};
+use dry_core::{optimize_corner_feedrate, resolve, Design, Op, ResolveParams};
 
 #[test]
 fn test_engagement_corner_deceleration() {

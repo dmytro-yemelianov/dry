@@ -432,8 +432,7 @@ pub fn compute_scurve_profile(
         max_acceleration,
         max_jerk,
     };
-    let profile = dry_core::calculate_scurve_profile(&params)
-        .map_err(|e| JsError::new(e))?;
+    let profile = dry_core::calculate_scurve_profile(&params).map_err(|e| JsError::new(e))?;
     serde_json::to_string(&profile).map_err(|e| JsError::new(&e.to_string()))
 }
 

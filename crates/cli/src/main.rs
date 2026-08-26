@@ -1180,7 +1180,10 @@ fn run(cli: Cli) -> ExitCode {
                     report.findings.len()
                 );
                 for finding in &report.findings {
-                    eprintln!("  [{:?}] {}: {}", finding.severity, finding.code, finding.message);
+                    eprintln!(
+                        "  [{:?}] {}: {}",
+                        finding.severity, finding.code, finding.message
+                    );
                 }
             }
 
@@ -1190,18 +1193,16 @@ fn run(cli: Cli) -> ExitCode {
                 ExitCode::from(1)
             }
         }
-        Cmd::Schema { dialect } => {
-            match dry_core::get_dialect_schema(&dialect) {
-                Some(schema_str) => {
-                    println!("{schema_str}");
-                    ExitCode::SUCCESS
-                }
-                None => {
-                    eprintln!("error: unknown dialect '{dialect}'. Supported dialects: 'intent/1', 'path/1', 'motion/1', 'tool/1'");
-                    ExitCode::from(2)
-                }
+        Cmd::Schema { dialect } => match dry_core::get_dialect_schema(&dialect) {
+            Some(schema_str) => {
+                println!("{schema_str}");
+                ExitCode::SUCCESS
             }
-        }
+            None => {
+                eprintln!("error: unknown dialect '{dialect}'. Supported dialects: 'intent/1', 'path/1', 'motion/1', 'tool/1'");
+                ExitCode::from(2)
+            }
+        },
         Cmd::Inspect { file } => {
             let tp = load(&file);
             let m = simulate(&tp);

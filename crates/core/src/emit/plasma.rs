@@ -72,19 +72,28 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
         if is_rapid {
             if torch_active {
                 lines.push("M05 ; Torch off".into());
-                lines.push(format!("G00 Z{:.3} ; Retract to safe traverse", params.safe_traverse_height));
+                lines.push(format!(
+                    "G00 Z{:.3} ; Retract to safe traverse",
+                    params.safe_traverse_height
+                ));
                 torch_active = false;
             }
             lines.push(format!("G00 X{x:.3} Y{y:.3}"));
         } else {
             if !torch_active {
                 // Pierce sequence
-                lines.push(format!("G00 Z{:.3} ; Move to pierce height", params.pierce_height));
+                lines.push(format!(
+                    "G00 Z{:.3} ; Move to pierce height",
+                    params.pierce_height
+                ));
                 lines.push("M03 ; Torch ON".into());
                 if params.pierce_delay_s > 0.0 {
                     lines.push(format!("G04 P{:.2} ; Pierce delay", params.pierce_delay_s));
                 }
-                lines.push(format!("G01 Z{:.3} F1500.0 ; Drop to cut height", params.cut_height));
+                lines.push(format!(
+                    "G01 Z{:.3} F1500.0 ; Drop to cut height",
+                    params.cut_height
+                ));
 
                 // Optional lead-in
                 if params.lead_in_type == LeadInType::Linear && params.lead_in_radius > 0.0 {
@@ -106,7 +115,8 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
                     if let Some(c) = seg.centre {
                         let cx = c[0].value();
                         let cy = c[1].value();
-                        let [Some(sx), Some(sy), _] = [seg.start[0], seg.start[1], seg.start[2]] else {
+                        let [Some(sx), Some(sy), _] = [seg.start[0], seg.start[1], seg.start[2]]
+                        else {
                             continue;
                         };
                         let i = cx - sx.value();

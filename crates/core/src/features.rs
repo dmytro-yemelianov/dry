@@ -156,11 +156,13 @@ impl Transform {
         let rotation = match (self.rotation, local.rotation) {
             (Some(q1), Some(q2)) => Some(q1.multiply(q2)),
             (Some(q1), None) => {
-                let q2 = Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(local.sin, local.cos));
+                let q2 =
+                    Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(local.sin, local.cos));
                 Some(q1.multiply(q2))
             }
             (None, Some(q2)) => {
-                let q1 = Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(self.sin, self.cos));
+                let q1 =
+                    Quaternion::from_axis_angle(0.0, 0.0, 1.0, libm::atan2(self.sin, self.cos));
                 Some(q1.multiply(q2))
             }
             (None, None) => None,

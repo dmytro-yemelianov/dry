@@ -19,7 +19,11 @@ pub struct DrillCycle {
 impl DrillCycle {
     /// Validate cycle parameters.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if !self.x.is_finite() || !self.y.is_finite() || !self.z_depth.is_finite() || !self.r_plane.is_finite() {
+        if !self.x.is_finite()
+            || !self.y.is_finite()
+            || !self.z_depth.is_finite()
+            || !self.r_plane.is_finite()
+        {
             return Err("drill coordinates must be finite");
         }
         if !self.feedrate_mm_min.is_finite() || self.feedrate_mm_min <= 0.0 {
@@ -51,7 +55,11 @@ pub struct PeckDrillCycle {
 impl PeckDrillCycle {
     /// Validate cycle parameters.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if !self.x.is_finite() || !self.y.is_finite() || !self.z_depth.is_finite() || !self.r_plane.is_finite() {
+        if !self.x.is_finite()
+            || !self.y.is_finite()
+            || !self.z_depth.is_finite()
+            || !self.r_plane.is_finite()
+        {
             return Err("peck drill coordinates must be finite");
         }
         if !self.feedrate_mm_min.is_finite() || self.feedrate_mm_min <= 0.0 {

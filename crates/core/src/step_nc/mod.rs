@@ -2,6 +2,4 @@
 
 pub mod import;
 
-pub use import::{
-    lower_workingstep_to_ops, parse_step_nc, StepNcFeature, StepNcWorkingstep,
-};
+pub use import::{lower_workingstep_to_ops, parse_step_nc, StepNcFeature, StepNcWorkingstep};

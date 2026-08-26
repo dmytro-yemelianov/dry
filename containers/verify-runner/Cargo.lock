@@ -159,7 +159,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "libm",
  "miniz_oxide",
@@ -169,7 +169,7 @@ dependencies = [
 
 [[package]]
 name = "dry-verify-runner"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "axum",
  "dry-core",

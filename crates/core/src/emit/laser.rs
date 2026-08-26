@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub enum LaserMode {
     #[default]
     Constant, // M3
-    Dynamic,  // M4
+    Dynamic, // M4
 }
 
 /// Configuration parameters for GRBL laser emission.
@@ -68,7 +68,10 @@ pub fn emit_grbl_laser(toolpath: &Toolpath, params: &LaserParams) -> Vec<String>
             }
             lines.push(format!("G0 X{x:.3} Y{y:.3}"));
         } else {
-            let power_val = seg.power.unwrap_or(params.max_power_s).min(params.max_power_s);
+            let power_val = seg
+                .power
+                .unwrap_or(params.max_power_s)
+                .min(params.max_power_s);
             let speed = if seg.speed.value() > 0.0 {
                 seg.speed.value()
             } else {

@@ -168,8 +168,7 @@ pub fn check_compatibility(
                         severity: Severity::Warning,
                         code: "EXCEEDS_MAX_SPINDLE_RPM".into(),
                         message: format!(
-                            "Spindle speed {:.1} RPM exceeds machine max {:.1} RPM",
-                            spindle, max_rpm
+                            "Spindle speed {spindle:.1} RPM exceeds machine max {max_rpm:.1} RPM"
                         ),
                         segment_index: Some(index),
                     });
@@ -193,7 +192,10 @@ pub fn check_compatibility(
                             code: "ARC_OUT_OF_BOUNDS_X".into(),
                             message: format!(
                                 "Arc radial sweep [{:.3}, {:.3}] exceeds X limits [{:.3}, {:.3}]",
-                                cx - r, cx + r, capabilities.x_range.min, capabilities.x_range.max
+                                cx - r,
+                                cx + r,
+                                capabilities.x_range.min,
+                                capabilities.x_range.max
                             ),
                             segment_index: Some(index),
                         });
@@ -205,7 +207,10 @@ pub fn check_compatibility(
                             code: "ARC_OUT_OF_BOUNDS_Y".into(),
                             message: format!(
                                 "Arc radial sweep [{:.3}, {:.3}] exceeds Y limits [{:.3}, {:.3}]",
-                                cy - r, cy + r, capabilities.y_range.min, capabilities.y_range.max
+                                cy - r,
+                                cy + r,
+                                capabilities.y_range.min,
+                                capabilities.y_range.max
                             ),
                             segment_index: Some(index),
                         });

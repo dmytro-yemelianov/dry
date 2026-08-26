@@ -1,6 +1,4 @@
-use dry_core::{
-    emit_grbl_laser, resolve, Design, LaserMode, LaserParams, Op, ResolveParams,
-};
+use dry_core::{emit_grbl_laser, resolve, Design, LaserMode, LaserParams, Op, ResolveParams};
 
 #[test]
 fn test_grbl_laser_emission_constant_and_dynamic() {

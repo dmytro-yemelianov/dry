@@ -48,9 +48,9 @@ pub use clothoid::{corner_blend, fresnel, ClothoidError, CornerBlend, FRESNEL_SE
 pub use codec::{
     decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
     decode_chunked_streaming_with_limits, decode_dry2, decode_streaming,
-    decode_streaming_with_limits, decode_with_limits, encode_chunked, encode_dry2,
-    export_3mf_xml, import_3mf_xml, BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError,
-    DecodeLimits, JsonSegmentsIterator, SegmentStream, StreamingDecode, ThreeMfError, DRY2_MAGIC,
+    decode_streaming_with_limits, decode_with_limits, encode_chunked, encode_dry2, export_3mf_xml,
+    import_3mf_xml, BinarySegmentsIterator, ChunkedSegmentsIterator, CodecError, DecodeLimits,
+    JsonSegmentsIterator, SegmentStream, StreamingDecode, ThreeMfError, DRY2_MAGIC,
 };
 
 pub use compare::{
@@ -67,15 +67,6 @@ pub use emit::{
     LaserParams, LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
-pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
-pub use pass::PassRole;
-pub use pipeline::{lower_document_envelope, PipelineError};
-pub use quality::{
-    calculate_cusp_height, calculate_mrr, estimate_cutting_power_kw, estimate_surface_roughness_ra,
-    evaluate_mrr, evaluate_surface_quality, MrrReport, SurfaceQualityReport,
-};
-pub use schema::get_dialect_schema;
-pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
 pub use features::{
@@ -101,6 +92,7 @@ pub use generate::{
     PocketShape, Surface, TpmsError, TpmsOptions,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
+pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
     apply_safe_gated, arc_fit, balanced_pipeline, calculate_scurve_profile, coasting,
@@ -108,6 +100,8 @@ pub use optimize::{
     optimize_corner_feedrate, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
     z_hop_with_params, GatedResult, OptimizeMode, SCurveParams, SCurveProfile,
 };
+pub use pass::PassRole;
+pub use pipeline::{lower_document_envelope, PipelineError};
 pub use profile::{
     check_compatibility, import_klipper, AxisRange, CompatibilityFinding, CompatibilityReport,
     FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineCapabilities,
@@ -115,6 +109,10 @@ pub use profile::{
     ProfileError, Severity as CompatibilitySeverity,
 };
 pub use provenance::{NodeId, ProvenanceMap, SegmentSpan};
+pub use quality::{
+    calculate_cusp_height, calculate_mrr, estimate_cutting_power_kw, estimate_surface_roughness_ra,
+    evaluate_mrr, evaluate_surface_quality, MrrReport, SurfaceQualityReport,
+};
 pub use recommend::{
     apply_executable, classify, ActionKind, Classified, ContractField, ContractOverride,
     ExecutableAction, ExecutionResult, MetricSnapshot, Recommendation, Verdict,
@@ -127,10 +125,10 @@ pub use resolve::{
     resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
 };
 pub use reverse::{reverse, ReverseError};
+pub use schema::get_dialect_schema;
 pub use sdk::DesignBuilder;
-pub use step_nc::{
-    lower_workingstep_to_ops, parse_step_nc, StepNcFeature, StepNcWorkingstep,
-};
+pub use step_nc::{lower_workingstep_to_ops, parse_step_nc, StepNcFeature, StepNcWorkingstep};
+pub use tool::{ToolDefinition, ToolKind, ToolRegistry};
 pub use trace::{
     trace_summary, trace_summary_with_analytics, trace_summary_with_sources, LayerStats,
     LayerTraceLinkage, Percentiles, PhaseStats, TraceAnalytics, TraceAnalyticsOptions, TraceError,

@@ -1,6 +1,4 @@
-use dry_core::{
-    expand_features, FeatureNode, FeaturePose, FeatureProgram, Op, Quaternion,
-};
+use dry_core::{expand_features, FeatureNode, FeaturePose, FeatureProgram, Op, Quaternion};
 use std::f64::consts::PI;
 
 #[test]

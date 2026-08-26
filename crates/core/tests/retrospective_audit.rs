@@ -1,6 +1,6 @@
 use dry_core::{
-    check_compatibility, resolve, AxisRange, DrillCycle, MachineCapabilities, Op,
-    PeckDrillCycle, Quaternion, ResolveParams, Design,
+    check_compatibility, resolve, AxisRange, Design, DrillCycle, MachineCapabilities, Op,
+    PeckDrillCycle, Quaternion, ResolveParams,
 };
 use std::f64::consts::PI;
 
@@ -87,5 +87,8 @@ fn test_capability_engine_catches_arc_sweep_and_spindle_overshoot() {
 
     let report = check_compatibility(&toolpath, &caps);
     assert!(!report.compatible);
-    assert!(report.findings.iter().any(|f| f.code == "ARC_OUT_OF_BOUNDS_X" || f.code == "OUT_OF_BOUNDS_X"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.code == "ARC_OUT_OF_BOUNDS_X" || f.code == "OUT_OF_BOUNDS_X"));
 }

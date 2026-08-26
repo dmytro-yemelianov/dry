@@ -1,6 +1,4 @@
-use dry_core::{
-    check_tool_holder_collision, resolve, Design, Op, ResolveParams, ToolHolder,
-};
+use dry_core::{check_tool_holder_collision, resolve, Design, Op, ResolveParams, ToolHolder};
 
 #[test]
 fn test_tool_holder_deep_plunge_collision() {

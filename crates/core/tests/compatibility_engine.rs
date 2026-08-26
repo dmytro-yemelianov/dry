@@ -1,6 +1,5 @@
 use dry_core::{
-    check_compatibility, resolve, AxisRange, Design, MachineCapabilities, Op,
-    ResolveParams,
+    check_compatibility, resolve, AxisRange, Design, MachineCapabilities, Op, ResolveParams,
 };
 
 #[test]
@@ -28,10 +27,7 @@ fn test_compatibility_engine_detects_out_of_bounds() {
 
     let report = check_compatibility(&toolpath, &caps);
     assert!(!report.compatible);
-    assert!(report
-        .findings
-        .iter()
-        .any(|f| f.code == "OUT_OF_BOUNDS_X"));
+    assert!(report.findings.iter().any(|f| f.code == "OUT_OF_BOUNDS_X"));
 }
 
 #[test]

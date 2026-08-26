@@ -12,7 +12,10 @@ fn test_idex_modes_and_head_selection() {
     assert_eq!(emit_select_head(1), "T1 ; Select Toolhead 1");
 
     let auto_park = emit_idex_mode(HeadMode::Independent, None);
-    assert_eq!(auto_park[0], "M605 S1 ; Set IDEX Mode: Auto-Park (Independent)");
+    assert_eq!(
+        auto_park[0],
+        "M605 S1 ; Set IDEX Mode: Auto-Park (Independent)"
+    );
 
     let dup = emit_idex_mode(HeadMode::Duplication, Some(110.0));
     assert_eq!(dup[0], "M605 S2 X110.000 ; Set IDEX Mode: Duplication");

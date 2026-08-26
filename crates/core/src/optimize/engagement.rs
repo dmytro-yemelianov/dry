@@ -22,9 +22,21 @@ pub fn optimize_corner_feedrate(toolpath: &mut Toolpath, min_feed_ratio: f64) {
             continue;
         }
 
-        let (Some(s1_x), Some(s1_y)) = (toolpath.segments[i].start[0], toolpath.segments[i].start[1]) else { continue };
-        let (Some(e1_x), Some(e1_y)) = (toolpath.segments[i].end[0], toolpath.segments[i].end[1]) else { continue };
-        let (Some(e2_x), Some(e2_y)) = (toolpath.segments[i + 1].end[0], toolpath.segments[i + 1].end[1]) else { continue };
+        let (Some(s1_x), Some(s1_y)) =
+            (toolpath.segments[i].start[0], toolpath.segments[i].start[1])
+        else {
+            continue;
+        };
+        let (Some(e1_x), Some(e1_y)) = (toolpath.segments[i].end[0], toolpath.segments[i].end[1])
+        else {
+            continue;
+        };
+        let (Some(e2_x), Some(e2_y)) = (
+            toolpath.segments[i + 1].end[0],
+            toolpath.segments[i + 1].end[1],
+        ) else {
+            continue;
+        };
 
         let dx1 = e1_x.value() - s1_x.value();
         let dy1 = e1_y.value() - s1_y.value();

@@ -1,4 +1,6 @@
-use dry_core::{lower_workingstep_to_ops, parse_step_nc, resolve, Design, Op, ResolveParams, StepNcFeature};
+use dry_core::{
+    lower_workingstep_to_ops, parse_step_nc, resolve, Design, Op, ResolveParams, StepNcFeature,
+};
 
 #[test]
 fn test_parse_and_lower_step_nc_workingsteps() {
@@ -15,7 +17,12 @@ fn test_parse_and_lower_step_nc_workingsteps() {
     assert_eq!(steps[0].id, "ws-1");
 
     match &steps[0].feature {
-        StepNcFeature::RoundHole { x, y, diameter, depth } => {
+        StepNcFeature::RoundHole {
+            x,
+            y,
+            diameter,
+            depth,
+        } => {
             assert_eq!(*x, 50.0);
             assert_eq!(*y, 25.0);
             assert_eq!(*diameter, 6.0);

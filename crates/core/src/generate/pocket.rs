@@ -45,11 +45,7 @@ pub enum PocketShape {
         height: f64,
     },
     #[serde(rename = "circle")]
-    Circle {
-        cx: f64,
-        cy: f64,
-        radius: f64,
-    },
+    Circle { cx: f64, cy: f64, radius: f64 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]

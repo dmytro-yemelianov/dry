@@ -46,14 +46,14 @@ impl PassRole {
     /// Standard diagnostic hex color for visualizer rendering.
     pub fn default_color(self) -> &'static str {
         match self {
-            PassRole::Roughing => "#2563eb",   // Blue
-            PassRole::Finishing => "#16a34a",  // Green
-            PassRole::Perimeter => "#9333ea",  // Purple
-            PassRole::Infill => "#ca8a04",     // Yellow
-            PassRole::Support => "#9ca3af",    // Gray
-            PassRole::LeadIn => "#06b6d4",     // Cyan
-            PassRole::LeadOut => "#f97316",    // Orange
-            PassRole::Travel => "#ef4444",     // Red
+            PassRole::Roughing => "#2563eb",  // Blue
+            PassRole::Finishing => "#16a34a", // Green
+            PassRole::Perimeter => "#9333ea", // Purple
+            PassRole::Infill => "#ca8a04",    // Yellow
+            PassRole::Support => "#9ca3af",   // Gray
+            PassRole::LeadIn => "#06b6d4",    // Cyan
+            PassRole::LeadOut => "#f97316",   // Orange
+            PassRole::Travel => "#ef4444",    // Red
         }
     }
 }

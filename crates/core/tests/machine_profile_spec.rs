@@ -42,7 +42,10 @@ fn test_multi_category_machine_capability_checks() {
         max_spindle_rpm: Some(24000.0),
     };
     let r2 = check_compatibility(&toolpath, &small_cnc_caps);
-    assert!(!r2.compatible, "Desktop CNC should fail on bounds and feedrate");
+    assert!(
+        !r2.compatible,
+        "Desktop CNC should fail on bounds and feedrate"
+    );
     assert!(r2.findings.iter().any(|f| f.code == "OUT_OF_BOUNDS_X"));
     assert!(r2.findings.iter().any(|f| f.code == "EXCEEDS_MAX_FEEDRATE"));
 }

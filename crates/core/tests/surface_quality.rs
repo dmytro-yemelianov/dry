@@ -1,6 +1,4 @@
-use dry_core::{
-    calculate_cusp_height, estimate_surface_roughness_ra, evaluate_surface_quality,
-};
+use dry_core::{calculate_cusp_height, estimate_surface_roughness_ra, evaluate_surface_quality};
 
 #[test]
 fn test_cusp_height_and_surface_roughness() {
