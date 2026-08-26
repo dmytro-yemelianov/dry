@@ -42,10 +42,10 @@ hash_mode = "file"
 # single `pub use`. No caller, in-tree or in the bindings, changes import path.
 #
 # What that costs this pin, and what replaces it: `ARC_RADIUS_TOLERANCE_MM` is no longer *defined*
-# in the file this hash covers, so a whole-file pin on verify.rs alone would have left the epsilon
-# free to be retuned outside review. It does not: the second `[[source]]` below pins the constant
-# as a slice of its new owner, and `tools/validate_numeric_boundaries.py` now resolves the constant
-# per-owner rather than assuming verify.rs holds all four. The predicate that *applies* the epsilon
+# in the file this hash covers, so a whole-file pin on `crates/verify/src/lib.rs` alone would have
+# left the epsilon free to be retuned outside review. It does not: the second `[[source]]` below pins
+# the constant as a slice of its new owner, and `tools/validate_numeric_boundaries.py` now resolves
+# the constant per-owner rather than assuming `crates/verify/src/lib.rs` holds all four. The predicate that *applies* the epsilon
 # stays here and stays byte-identical, so FM1.F64.VERIFY.ARC_RADIUS's `source_anchor` moves off the
 # constant and onto that predicate -- the same entry, anchored to the half of it that is still here.
 #
@@ -91,19 +91,29 @@ hash_mode = "file"
 # 1e-6 and still defined in this file; `arc_radius_error`, the continuity rule, the two length rules
 # and the filament rule are byte-identical; every rule still fires at the same severity.
 #
-# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*` (the previous prefix is
-# reserved for a different project, so it is not spelled anywhere in the tree any more, this note
-# included). The file did not move; `path` above is unchanged. The reviewed diff against the previous
-# hash is nineteen lines, each the same token substitution: the crate-doc heading, the two doc lines
-# that link the kernel and vocabulary crates, the seven `use <kernel>::...` imports, the
-# `pub use <vocabulary>::{...}` re-export and the comment above it, and eight lines inside
-# `mod tests` -- the `units::{Feedrate, Volume}` import, one doc line, and five
-# `rotary: Some(<kernel>::emit::REFERENCE_FIVE_AXIS_LIMITS)` contract literals. Same crates, same
-# items, new package names; every import resolves to exactly what it did before.
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*`. The old-to-new mapping
+# and the reason the former prefix was given up are recorded at
+# `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md:21`
+# (the "New crates are named `drymachina-*`" bullet). This inventory deliberately does not spell
+# the retired prefix, so that plan line is where a reader picks the mapping up -- and it is what makes
+# the check at the foot of this note runnable rather than decorative. The file did not move; `path`
+# above is unchanged.
 #
-# Checked rather than asserted: substituting the former names back into the file at this hash
-# reproduces c02b7212951cad655d026d426e30cacc5c8da4c2da1e02e075f32dee029afa3c -- the previous hash --
-# byte for byte, which is what rules out any other edit hiding in the same commit.
+# The reviewed diff against the previous hash is nineteen lines, every one of them the same token
+# substitution, and it adds up as:
+#   - One crate-doc heading, and two doc lines linking the kernel and vocabulary crates, now
+#     [`drymachina_kernel`] and [`drymachina_contracts`].
+#   - Seven `use drymachina_kernel::...` imports.
+#   - One `pub use drymachina_contracts::{...}` re-export, and the comment above it.
+#   - Seven lines inside `mod tests`: the `drymachina_kernel::units::{Feedrate, Volume}` import, one
+#     doc line naming `drymachina-contracts`, and five
+#     `rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS)` contract literals.
+# Same crates, same items, new package names; every import resolves to exactly what it did before.
+#
+# Checked rather than asserted: rewriting those nineteen lines back to the former spellings -- the
+# mapping is on the plan line cited above -- reproduces
+# c02b7212951cad655d026d426e30cacc5c8da4c2da1e02e075f32dee029afa3c, the previous hash, byte for byte.
+# That is what rules out any other edit hiding in the same commit.
 #
 # No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation` text
 # changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are untouched at
@@ -260,15 +270,29 @@ profile_entries = [
 # definition, and the same two pins still cover both halves of the gate -- only the route changed, and
 # leaving the old route asserted would have made this entry describe an import that no longer exists.
 # `operation`, `classification`, `numeric_status`, `exclusions`, `next_obligation`, every budget and
-# every limit are untouched here and in the other three entries; verify.rs itself did not change this
-# task and its hash above is unmoved.
+# every limit are untouched here and in the other three entries; `crates/verify/src/lib.rs` itself
+# did not change this task and its hash above is unmoved.
 #
-# One word changed again 2026-08-26, in the same two places and for the package rename alone: the
-# crate that owns the epsilon is now spelled `drymachina-contracts`. It is the same crate, the same
-# constant and the same single definition -- only the package name moved, and an inventory that kept
-# naming the old one would point at a package that no longer exists. `operation`, `classification`,
-# `numeric_status`, `exclusions`, `next_obligation`, every budget and every limit are untouched here
-# and in the other three entries.
+# Two more locational words changed 2026-08-26, and neither is a numeric edit.
+#
+# The first is the package rename, in the same two places the Task 4 edit above touched: the crate
+# that owns the epsilon is now spelled `drymachina-contracts`. Same crate, same constant, same single
+# definition -- only the package name moved, and an inventory that went on naming the old one would
+# point at a package that no longer exists.
+#
+# The second is a leftover the rename put back under review. This entry's third `assumptions` line
+# said "the file pin on verify.rs", and no `verify.rs` has existed since Task 5 moved the file to
+# `crates/verify/src/lib.rs` -- the path the first `[[source]]` above already carries. The line now
+# names that path, so the pin it points at is one a reader can actually resolve. The same bare
+# shorthand was corrected for the same reason in the two `What that costs this pin` sentences and in
+# the closing sentence of the Task 4 note. It is left standing only where a sentence is explicitly
+# retrospective ("everything this inventory used to cover whole-file inside verify.rs", and the
+# 2026-08-03 note on a hash since superseded) or quotes the older wording it replaced ("through
+# verify.rs"); rewriting those would misdate the record rather than repair it.
+#
+# `operation`, `classification`, `numeric_status`, `exclusions`, `next_obligation`, every budget and
+# every limit are untouched here and in the other three entries, and neither edit touches a pinned
+# source, so neither moves a digest in this file.
 [[boundary]]
 id = "FM1.F64.VERIFY.ARC_RADIUS"
 title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
@@ -282,7 +306,7 @@ numeric_status = "bounded"
 assumptions = [
   "The two radii are computed by the same hypot on the same centre, so the predicate compares a producer against itself and not two derivations.",
   "Hybrid form (absolute below 1 mm, relative above) for the reason recorded on COMPARED_COORDINATE_MM: at large coordinates the binary64 spacing alone exceeds a fixed 1e-6 mm.",
-  "resolve.rs imports the constant straight from drymachina-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on verify.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
+  "resolve.rs imports the constant straight from drymachina-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on crates/verify/src/lib.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
 ]
 exclusions = [
   "The emit path. `dry emit` runs no verifier (ADR 0002 §1) and no emitter re-applies this epsilon, so IR loaded straight from disk reaches a program without this check. It matters most for `emit/krl.rs`: a KRL CIRC is refitted through three points and keeps no trace of the IR centre, where RS-274 preserves it in I/J and leaves the contradiction visible downstream.",

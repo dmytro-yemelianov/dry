@@ -18,15 +18,20 @@ source = "crates/kernel/src/resolve.rs"
 # The three lines of comment above that import were reworded to name `drymachina-contracts` rather than
 # `verify` as the owner. No `old`/`new` mutation text below is affected; every one still matches.
 #
-# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*` (the previous prefix is
-# reserved for a different project, so it is not spelled anywhere in the tree any more, this note
-# included). The file did not move and two lines inside it changed: the arc-radius epsilon is now
-# imported as `use drymachina_contracts::ARC_RADIUS_TOLERANCE_MM;`, and the comment above it names
-# `drymachina-contracts` as the owner. Same constant, same value, same owner crate under a new
-# package name. Checked rather than asserted: substituting the former names back into the file at
-# this hash reproduces 93213068c4d59f02aff3022ae73894e4f9af3ef2d2eec77600eab37c965d3501 -- the
-# previous hash -- byte for byte. No `old`/`new` mutation text below is affected; every one still
-# matches.
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*`. The old-to-new mapping
+# and the reason the former prefix was given up are recorded at
+# `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md:21`
+# (the "New crates are named `drymachina-*`" bullet). This file deliberately does not spell the
+# retired prefix, so that plan line is where a reader picks the mapping up -- and it is what makes the
+# check below runnable rather than decorative.
+#
+# The source did not move and two lines inside it changed: the arc-radius epsilon is now imported as
+# `use drymachina_contracts::ARC_RADIUS_TOLERANCE_MM;`, and the comment above that import names
+# `drymachina-contracts` as the owner. Same constant, same value, same owner crate under a new package
+# name. Checked rather than asserted: rewriting those two lines back to the former spellings -- the
+# mapping is on the plan line cited above -- reproduces
+# 93213068c4d59f02aff3022ae73894e4f9af3ef2d2eec77600eab37c965d3501, the previous hash, byte for byte.
+# No `old`/`new` mutation text below is affected; every one still matches.
 source_sha256 = "f498ecf2b6b984ee1d10bb267778e51ea734c807d64ed533e7697a58072ecaef"
 test = "crates/kernel/tests/resolve_channels_refinement.rs"
 

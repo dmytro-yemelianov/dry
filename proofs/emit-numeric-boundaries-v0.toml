@@ -69,17 +69,29 @@ hash_mode = "file"
 # code exactly. As with the Task 1 re-pin, the whole-file `hash_mode` is what brings a derive and a
 # doc comment under this pin, not numeric relevance.
 #
-# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*` (the previous prefix is
-# reserved for a different project, so it is not spelled anywhere in the tree any more, this note
-# included). Directories, module paths and file contents are otherwise untouched. The reviewed diff
-# against the previous hash is eight lines, each the same token substitution: the vocabulary crate's
-# Rust name in the `pub use` and in the type and initialiser of `REFERENCE_FIVE_AXIS_LIMITS`, and
-# the vocabulary and verifier crates' package names in five comment lines. Same crates, same items,
-# new package names; nothing resolves anywhere new.
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*`. The old-to-new mapping
+# and the reason the former prefix was given up are recorded at
+# `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md:21`
+# (the "New crates are named `drymachina-*`" bullet). This inventory deliberately does not spell
+# the retired prefix, so that plan line is where a reader picks the mapping up -- and it is what makes
+# the check at the foot of this note runnable rather than decorative. Directories, module paths, item
+# names and file contents are otherwise untouched.
 #
-# Checked rather than asserted: substituting the former names back into the file at this hash
-# reproduces a0e94974589a03d30a475770ad97d8b22cb94137386bf969a19b895105045ea5 -- the previous hash --
-# byte for byte, which is what rules out any other edit hiding in the same commit.
+# The reviewed diff against the previous hash is eight lines, every one of them the same token
+# substitution, and it adds up as:
+#   - Four code lines carrying the vocabulary crate's Rust name, now `drymachina_contracts`: the
+#     `pub use` at the head of the file, the type annotation of `REFERENCE_FIVE_AXIS_LIMITS`, and the
+#     two initialiser heads inside it -- `RotaryContracts {` and
+#     `travel_deg: Some(RotaryTravelRanges {`.
+#   - Four comment lines carrying the vocabulary and verifier crates' package names, now
+#     `drymachina-contracts` and `drymachina-verify`: the one above the `pub use`, the one on
+#     `RotaryState`, and two in the `KinematicsExt` doc comment.
+# Same crates, same items, new package names; nothing resolves anywhere new.
+#
+# Checked rather than asserted: rewriting those eight lines back to the former spellings -- the
+# mapping is on the plan line cited above -- reproduces
+# a0e94974589a03d30a475770ad97d8b22cb94137386bf969a19b895105045ea5, the previous hash, byte for byte.
+# That is what rules out any other edit hiding in the same commit.
 #
 # No predicate, no constant, no control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is
 # untouched at 1e-9, `resolve_c`, `unit_orientation` and every body in `impl KinematicsExt for
@@ -129,8 +141,9 @@ sha256 = "559e102ac5028b9d1a0da12a68e9f56d7418dea3d83d0cd957eff8bbb117a820"
 # emit path were under the pin.
 #
 # This inventory is separate from `verify-numeric-boundaries-v0` on purpose: that one declares itself
-# scoped to `verify.rs`, and an emit-side epsilon has a different input domain (a *direction*, not a
-# coordinate) and a different failure mode (wasted rotary motion, not a missed finding).
+# scoped to `crates/verify/src/lib.rs`, and an emit-side epsilon has a different input domain (a
+# *direction*, not a coordinate) and a different failure mode (wasted rotary motion, not a missed
+# finding).
 # ---------------------------------------------------------------------------------------------
 
 [[boundary]]
