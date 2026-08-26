@@ -1,8 +1,8 @@
 //! Layer 3 stands on the kernel and the verifier and is depended on by nothing — which is why it
 //! graduates to its own repository first (plan Task 8).
 
-use kmet_kernel::{resolve, Design, ResolveParams};
-use kmet_trace::trace_summary;
+use drymachina_kernel::{resolve, Design, ResolveParams};
+use drymachina_trace::trace_summary;
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

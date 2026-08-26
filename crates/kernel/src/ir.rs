@@ -139,7 +139,7 @@ pub struct Meta {
     /// A content hash of the source design (hex), for provenance/caching.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_hash: Option<String>,
-    /// Declared contract names the toolpath claims to satisfy (see `kmet-verify`).
+    /// Declared contract names the toolpath claims to satisfy (see `drymachina-verify`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub invariants: Vec<String>,
 }

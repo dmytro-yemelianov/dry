@@ -3,8 +3,8 @@
 
 use std::collections::BTreeSet;
 
-use kmet_kernel::optimize::apply_gated_with;
-use kmet_kernel::{
+use drymachina_kernel::optimize::apply_gated_with;
+use drymachina_kernel::{
     resolve, simulate, Design, EmitParams, Feedrate, Length, MachineKinematics, OptimizeMode,
     ResolveParams, Segment, SegmentKind, Toolpath, Volume,
 };
@@ -26,7 +26,7 @@ fn resolve_simulate_emit_without_verify_or_trace() {
     assert!(m.total_time_s.value() > 0.0);
 
     #[allow(deprecated)]
-    let g = kmet_kernel::emit(&tp, &EmitParams::default());
+    let g = drymachina_kernel::emit(&tp, &EmitParams::default());
     assert!(g.iter().any(|line| line.contains("G1")));
 }
 

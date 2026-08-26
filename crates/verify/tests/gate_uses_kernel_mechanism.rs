@@ -1,10 +1,10 @@
 //! `apply_gated` is the verification policy bound to the kernel's gate mechanism
-//! (`kmet_kernel::optimize::apply_gated_with`, plan Task 2). This proves the two halves rejoin
+//! (`drymachina_kernel::optimize::apply_gated_with`, plan Task 2). This proves the two halves rejoin
 //! correctly after the split.
 
-use kmet_contracts::Contracts;
-use kmet_kernel::{resolve, Design, OptimizeMode, ResolveParams};
-use kmet_verify::apply_gated;
+use drymachina_contracts::Contracts;
+use drymachina_kernel::{resolve, Design, OptimizeMode, ResolveParams};
+use drymachina_verify::apply_gated;
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

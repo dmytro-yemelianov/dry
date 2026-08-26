@@ -8,7 +8,7 @@
 
 use std::path::PathBuf;
 
-use kmet_kernel::{try_tpms_ops, TpmsOptions};
+use drymachina_kernel::{try_tpms_ops, TpmsOptions};
 use serde_json::Value;
 
 fn corpus_dir() -> PathBuf {

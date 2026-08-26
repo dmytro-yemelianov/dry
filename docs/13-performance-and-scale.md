@@ -51,11 +51,11 @@ the three layer crates the codec/simulate/emit, verify, and trace passes now liv
 and `crates/trace/benches/trace_pass.rs` (`trace`):
 
 ```sh
-cargo bench -p kmet-kernel --bench engine_codec
-cargo bench -p kmet-verify --bench verify_pass
-cargo bench -p kmet-trace --bench trace_pass
+cargo bench -p drymachina-kernel --bench engine_codec
+cargo bench -p drymachina-verify --bench verify_pass
+cargo bench -p drymachina-trace --bench trace_pass
 # or a quick pass, e.g.:
-cargo bench -p kmet-kernel --bench engine_codec -- --measurement-time 1 --sample-size 10
+cargo bench -p drymachina-kernel --bench engine_codec -- --measurement-time 1 --sample-size 10
 ```
 
 Indicative timings (5,000 segments; machine-dependent, for relative comparison only):
@@ -76,7 +76,7 @@ bounded-memory; `DRY0` columnar decode is the fastest full-materialization read.
 - **Bounded-memory gate (hard, deterministic):** `memory_scale.rs` runs in `cargo test --all` and fails
   on any streaming regression. Deterministic — not wall-clock — so it is safe on shared CI runners.
 - **Bench bit-rot gate:** the CI `bench` job runs
-  `cargo bench -p kmet-kernel -p kmet-verify -p kmet-trace --no-run`, so all three benchmarks always
+  `cargo bench -p drymachina-kernel -p drymachina-verify -p drymachina-trace --no-run`, so all three benchmarks always
   compile against the current API. (`-p dry-core --no-run` would still exit 0 here and gate nothing —
   the facade crate has no bench target of its own.)
 - **Wall-clock benchmarks** are for local profiling and trend tracking, not a hard CI pass/fail — shared

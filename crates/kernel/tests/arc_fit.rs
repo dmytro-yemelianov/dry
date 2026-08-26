@@ -8,7 +8,7 @@
 // in-tree call sites use, and refusing the whole program is part of what is under test here.
 #![allow(deprecated)]
 
-use kmet_kernel::{
+use drymachina_kernel::{
     arc_fit, emit, resolve, simulate, Design, EmitParams, ResolveParams, SegmentKind,
 };
 

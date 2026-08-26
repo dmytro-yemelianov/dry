@@ -34,7 +34,7 @@ the change is prospective. Customer evaluation and production use require a sepa
 | `conformance/simulate/` | FullControl oracle metrics | output-only | `conformance/export.py` |
 | `conformance/oracle/` | the FullControl oracle generator itself | **dev/CI only — excluded from releases** | n/a |
 | `conformance/vectors/` | authored for the Dry IR v0 spec (slice A) | **authored clean-room** | `UPDATE_VECTORS=1 cargo test -p dry-core --test spec_vectors` |
-| `conformance/reports/` | authored for the report contract (slice D) | **authored clean-room** | `UPDATE_REPORTS=1 cargo test -p kmet-trace --test report_goldens` |
+| `conformance/reports/` | authored for the report contract (slice D) | **authored clean-room** | `UPDATE_REPORTS=1 cargo test -p drymachina-trace --test report_goldens` |
 | `conformance/reports/cnc/` | authored for the P5.3 CNC slice | **authored clean-room** | `UPDATE_GOLDEN=1 cargo test -p dry-core --test cnc_pocket_e2e` |
 | `spec/examples/profiles/` | authored example profiles (slice D) | **authored clean-room** | hand-maintained |
 | `examples/` | authored pilot examples (slice F) | **authored clean-room** | hand-maintained |

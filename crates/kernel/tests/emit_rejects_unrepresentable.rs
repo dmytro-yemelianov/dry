@@ -13,7 +13,7 @@
 // in-tree call sites use, and refusing the whole program is part of what is under test here.
 #![allow(deprecated)]
 
-use kmet_kernel::{
+use drymachina_kernel::{
     emit, emit_stream, CncFrame, EmitParams, Feedrate, FirmwareFlavor, Length, Segment,
     SegmentKind, Toolpath, Volume,
 };
@@ -332,7 +332,7 @@ fn step_nc_refuses_non_finite_quantities() {
         (arc, "arc centre_x"),
         (dwell, "dwell"),
     ] {
-        let error = kmet_kernel::emit_step_nc(&tp(vec![segment]), &EmitParams::default())
+        let error = drymachina_kernel::emit_step_nc(&tp(vec![segment]), &EmitParams::default())
             .expect_err("step-nc should refuse a non-finite quantity")
             .to_string();
         assert!(
@@ -344,9 +344,11 @@ fn step_nc_refuses_non_finite_quantities() {
 
 #[test]
 fn step_nc_still_renders_a_finite_toolpath() {
-    let xml =
-        kmet_kernel::emit_step_nc(&tp(vec![line_to([10.0, 0.0, 0.2])]), &EmitParams::default())
-            .expect("a finite toolpath is representable as STEP-NC");
+    let xml = drymachina_kernel::emit_step_nc(
+        &tp(vec![line_to([10.0, 0.0, 0.2])]),
+        &EmitParams::default(),
+    )
+    .expect("a finite toolpath is representable as STEP-NC");
     assert!(
         xml.contains("<workingstep id=\"ws-0\" type=\"motion\">"),
         "{xml}"

@@ -25,10 +25,10 @@ pub use self::kinematics::{Kinematics, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIV
 pub use self::krl::{KrlFrame, KrlTransform};
 // `verify` resolves rotary angles through the same state the emitter threads, so a rotary limit
 // is judged against the program that will actually be written. Emitter mechanics, not authoring
-// API — public only so `kmet-verify` can reach it across the crate boundary (plan Task 1).
+// API — public only so `drymachina-verify` can reach it across the crate boundary (plan Task 1).
 pub use self::kinematics::RotaryState;
 // The kinematic geometry of a `Kinematics`, an extension trait because the enum itself lives in
-// `kmet-contracts` (plan Task 3). Public, like `RotaryState` above and for the same reason: the
+// `drymachina-contracts` (plan Task 3). Public, like `RotaryState` above and for the same reason: the
 // rotary rules resolve their angles through it, and that call now crosses a crate boundary. `Joints`
 // and `Rotary` travel with it because they are what its methods hand back (plan Task 4).
 pub use self::kinematics::{Joints, KinematicsExt, Rotary};

@@ -6,7 +6,7 @@
 use crate::emit::{CncFrame, EmitParams, FirmwareFlavor, Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 use crate::gcode::GcodeImportParams;
 use crate::resolve::ResolveParams;
-use kmet_contracts::{Contracts, RotaryContracts, RotaryTravelRanges};
+use drymachina_contracts::{Contracts, RotaryContracts, RotaryTravelRanges};
 use serde::{Deserialize, Serialize};
 
 pub mod klipper;
@@ -407,7 +407,7 @@ impl Profile {
             first_layer_speed_range: self.process.first_layer_speed_range,
             bead_volume_tolerance: self.process.bead_volume_tolerance,
             kinematics: self.machine.kinematics.as_ref().map(|k| {
-                kmet_contracts::KinematicContracts {
+                drymachina_contracts::KinematicContracts {
                     max_acceleration_mm_s2: k.max_acceleration_mm_s2,
                     max_junction_velocity_mm_s: k.max_junction_velocity_mm_s,
                 }
@@ -685,9 +685,9 @@ mod tests {
             "a 5-axis model with no stated limits can judge nothing, and must not pretend to"
         );
         for rule in [
-            kmet_contracts::RuleId::RotaryTravel,
-            kmet_contracts::RuleId::RotaryFeed,
-            kmet_contracts::RuleId::OrientationReachability,
+            drymachina_contracts::RuleId::RotaryTravel,
+            drymachina_contracts::RuleId::RotaryFeed,
+            drymachina_contracts::RuleId::OrientationReachability,
         ] {
             assert!(!rule.is_evaluated(&contracts));
         }

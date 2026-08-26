@@ -1,6 +1,6 @@
 [package]
-name = "kmet-contracts"
-description = "KMET shared vocabulary: verification contracts, rule ids, severities, kinematic models. No logic, no dependencies on the kernel."
+name = "drymachina-contracts"
+description = "DRYMACHINA shared vocabulary: verification contracts, rule ids, severities, kinematic models. No logic, no dependencies on the kernel."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

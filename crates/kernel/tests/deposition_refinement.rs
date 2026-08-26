@@ -1,6 +1,6 @@
 //! Native refinement checks for the exact-rational deposition fixture model.
 
-use kmet_kernel::{resolve_checked, Design, Op, ResolveParams};
+use drymachina_kernel::{resolve_checked, Design, Op, ResolveParams};
 use serde::Deserialize;
 
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/deposition-refinement-v0.json");

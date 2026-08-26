@@ -4,7 +4,7 @@
 //! fixture: that a slot exactly one tool wide still cuts its whole floor, and that the result is
 //! *verifier-clean* rather than merely resolvable — which is the claim that matters, because
 //! Profile mode expresses such a slot as a zero-width ring. `verify` is layer 2 and is not
-//! reachable from `kmet-kernel`, where the generator lives, so the second claim runs here, over the
+//! reachable from `drymachina-kernel`, where the generator lives, so the second claim runs here, over the
 //! same fixture and with the same assertions; the first stayed in the kernel (plan Task 4).
 //!
 //! The split is what avoids copying `interior_samples` and the three exact point-to-path distance

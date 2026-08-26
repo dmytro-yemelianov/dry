@@ -161,9 +161,9 @@ dependencies = [
 name = "dry-core"
 version = "0.6.0"
 dependencies = [
- "kmet-kernel",
- "kmet-trace",
- "kmet-verify",
+ "drymachina-kernel",
+ "drymachina-trace",
+ "drymachina-verify",
 ]
 
 [[package]]
@@ -181,6 +181,46 @@ dependencies = [
  "tokio-util",
  "tower 0.4.13",
  "tower-http",
+]
+
+[[package]]
+name = "drymachina-contracts"
+version = "0.6.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "drymachina-kernel"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "libm",
+ "miniz_oxide",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-trace"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "drymachina-verify",
+ "libm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-verify"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "libm",
+ "serde",
 ]
 
 [[package]]
@@ -521,46 +561,6 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kmet-contracts"
-version = "0.6.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "kmet-kernel"
-version = "0.6.0"
-dependencies = [
- "kmet-contracts",
- "libm",
- "miniz_oxide",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kmet-trace"
-version = "0.6.0"
-dependencies = [
- "kmet-contracts",
- "kmet-kernel",
- "kmet-verify",
- "libm",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kmet-verify"
-version = "0.6.0"
-dependencies = [
- "kmet-contracts",
- "kmet-kernel",
- "libm",
- "serde",
 ]
 
 [[package]]

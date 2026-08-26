@@ -1,4 +1,4 @@
-//! # kmet-trace — KMET layer 3: the analysis layer
+//! # drymachina-trace — DRYMACHINA layer 3: the analysis layer
 //!
 //! What the engine says *about* a toolpath rather than what it does to one: windowed motion/time
 //! statistics ([`trace`]), the typed report envelopes the CLI and SDK emit ([`report`]), slicer
@@ -6,8 +6,8 @@
 //! LLM-ready explanation bundle ([`explain`]), the classify/execute half of the recommendation loop
 //! ([`recommend`]), and the L2→L1 reversing pass ([`reverse`]).
 //!
-//! It reads layer 1 from [`kmet_kernel`], layer 2 from [`kmet_verify`] and the shared rule and
-//! contract vocabulary from [`kmet_contracts`]. **Nothing depends on this crate** except the
+//! It reads layer 1 from [`drymachina_kernel`], layer 2 from [`drymachina_verify`] and the shared rule and
+//! contract vocabulary from [`drymachina_contracts`]. **Nothing depends on this crate** except the
 //! `dry-core` facade, which re-exports every module and name below unchanged — which is exactly why
 //! it is the layer that can graduate to its own repository first (plan Task 8).
 //!

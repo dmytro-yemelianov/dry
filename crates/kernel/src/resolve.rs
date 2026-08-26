@@ -11,10 +11,10 @@
 use crate::ir::{Segment, SegmentKind, Toolpath};
 use crate::units::{Angle, Area, Feedrate, Length, Volume};
 // The L1 arc gate below and `verify`'s `arc-radius` rule are one policy, so they are one constant:
-// `kmet-contracts` owns the definition and this is that epsilon, not a second copy of its value.
+// `drymachina-contracts` owns the definition and this is that epsilon, not a second copy of its value.
 // Published as `FM1.F64.VERIFY.ARC_RADIUS` in `proofs/verify-numeric-boundaries-v0.toml`, which pins
 // the definition — a copy here would be outside that pin and could be retuned apart from it.
-use kmet_contracts::ARC_RADIUS_TOLERANCE_MM;
+use drymachina_contracts::ARC_RADIUS_TOLERANCE_MM;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::TAU;
 

@@ -24,7 +24,7 @@ fn all_four_layers_are_reachable_through_the_facade() {
 }
 
 /// `dry_core::reverse` names a module *and* a function, and `lib.rs` re-exports both with a single
-/// `pub use kmet_trace::reverse;` — the construct its comment there describes. `emit` and `resolve`
+/// `pub use drymachina_trace::reverse;` — the construct its comment there describes. `emit` and `resolve`
 /// carry the same construct and are witnessed by their many in-tree callers of both namespaces;
 /// `reverse` has none anywhere in the workspace, so replacing that line with an aliased module
 /// re-export would compile silently and drop `dry_core::reverse(..)` from the public surface. This

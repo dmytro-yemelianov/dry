@@ -54,7 +54,7 @@ pub struct Metrics {
 /// `Length::mm`'s `debug_assert` inside the lowering in a debug build and panics, where a release
 /// build reaches the postcondition and returns `Err`. Either way nothing non-finite enters the IR.
 ///
-/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// Exposed across the crate boundary for `drymachina-verify` (plan Task 1); not part of the stable
 /// authoring surface.
 pub fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     let distance = if s.length > Length::ZERO {

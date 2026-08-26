@@ -2,12 +2,12 @@
 //! returning a `Report` of located findings. These are Dry's own clean-room contracts (not a
 //! reproduction of any oracle's text): each is a well-specified property of a safe toolpath.
 
-use kmet_contracts::{Contracts, RuleId, Severity};
-use kmet_kernel::{
+use drymachina_contracts::{Contracts, RuleId, Severity};
+use drymachina_kernel::{
     import_gcode, resolve, resolve_checked, Design, GcodeImportParams, Length, ResolveParams,
     SegmentKind,
 };
-use kmet_verify::verify;
+use drymachina_verify::verify;
 
 fn design_json(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

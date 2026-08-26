@@ -12,10 +12,10 @@
 //! 3. **Against the refusal contract.** Every degenerate corner is a named error, never a clamp and
 //!    never a silently different corner (ADR 0002 §4).
 
-use kmet_kernel::clothoid::{
+use drymachina_kernel::clothoid::{
     corner_blend, fresnel, fresnel_with_terms, ClothoidError, CornerBlend,
 };
-use kmet_kernel::{
+use drymachina_kernel::{
     emit_stream, resolve_checked, Design, EmitParams, Op, ResolveParams, Segment, SegmentKind,
 };
 use std::f64::consts::PI;
@@ -856,14 +856,14 @@ fn an_unrepresentable_corner_is_refused_rather_than_panicking() {
 fn a_clothoid_inside_a_placed_feature_is_transformed() {
     // Without an arm in `expand_feature_ops` the op would fall through the catch-all clone and a
     // placed corner would silently land in the wrong place, with the wrong handedness.
-    let program: kmet_kernel::FeatureProgram = serde_json::from_str(
+    let program: drymachina_kernel::FeatureProgram = serde_json::from_str(
         r#"{"features":[{"kind":"feature","name":"corner",
              "pose":{"x":100,"y":0,"z":0,"rotate_z_deg":90},
              "ops":[{"op":"move","x":0,"y":0,"z":0.2},
                     {"op":"clothoid","corner_x":10,"corner_y":0,"x":10,"y":10,"z":0.2,"blend":2}]}]}"#,
     )
     .unwrap();
-    let expanded = kmet_kernel::expand_features(&program).expect("feature expands");
+    let expanded = drymachina_kernel::expand_features(&program).expect("feature expands");
     match expanded.ops[1] {
         Op::Clothoid {
             corner_x,
@@ -905,8 +905,8 @@ fn a_blend_that_exactly_fills_its_leg_is_not_pose_stable() {
                  "ops":[{{"op":"move","x":0,"y":0,"z":0.2}},
                         {{"op":"clothoid","corner_x":10,"corner_y":0,"x":10,"y":10,"z":0.2,"blend":10}}]}}]}}"#
         );
-        let program: kmet_kernel::FeatureProgram = serde_json::from_str(&text).unwrap();
-        let expanded = kmet_kernel::expand_features(&program).expect("feature expands");
+        let program: drymachina_kernel::FeatureProgram = serde_json::from_str(&text).unwrap();
+        let expanded = drymachina_kernel::expand_features(&program).expect("feature expands");
         resolve_checked(&Design { ops: expanded.ops }, &ResolveParams::default())
             .map(|toolpath| toolpath.segments.len())
             .map_err(|error| error.to_string())
@@ -928,8 +928,8 @@ fn a_blend_that_exactly_fills_its_leg_is_not_pose_stable() {
                  "ops":[{{"op":"move","x":0,"y":0,"z":0.2}},
                         {{"op":"clothoid","corner_x":10,"corner_y":0,"x":20,"y":0,"z":0.2,"blend":1}}]}}]}}"#
         );
-        let program: kmet_kernel::FeatureProgram = serde_json::from_str(&text).unwrap();
-        let expanded = kmet_kernel::expand_features(&program).expect("feature expands");
+        let program: drymachina_kernel::FeatureProgram = serde_json::from_str(&text).unwrap();
+        let expanded = drymachina_kernel::expand_features(&program).expect("feature expands");
         let message = resolve_checked(&Design { ops: expanded.ops }, &ResolveParams::default())
             .expect_err("a collinear corner is refused at every pose")
             .to_string();
@@ -947,12 +947,12 @@ fn a_clothoid_in_a_feature_needs_a_defined_local_start() {
     // clothoid arm is not: that corpus has no clothoid op, so there is no fixture that could kill a
     // reordering mutation here. This test is the substitute, and it is weaker — it pins the refusal,
     // not the order in which the two checks fire.
-    let program: kmet_kernel::FeatureProgram = serde_json::from_str(
+    let program: drymachina_kernel::FeatureProgram = serde_json::from_str(
         r#"{"features":[{"kind":"feature","name":"corner",
              "ops":[{"op":"clothoid","corner_x":10,"corner_y":0,"x":10,"y":10,"z":0.2,"blend":2}]}]}"#,
     )
     .unwrap();
-    let message = kmet_kernel::expand_features(&program)
+    let message = drymachina_kernel::expand_features(&program)
         .expect_err("a clothoid with no local start must be refused")
         .to_string();
     assert!(

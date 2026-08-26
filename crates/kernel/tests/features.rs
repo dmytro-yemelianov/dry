@@ -1,4 +1,4 @@
-use kmet_kernel::{
+use drymachina_kernel::{
     expand_features, expand_features_with_limits, resolve_checked, Design, ExpandLimits,
     FeatureNode, FeaturePose, FeatureProgram, Op, ResolveParams,
 };

@@ -1,7 +1,7 @@
 //! The TPMS generator's verify-dependent tests.
 //!
 //! Both assertions below run the generated design through `verify`, which is layer 2 and therefore
-//! not reachable from `kmet-kernel`, where the generator itself lives. They ran as
+//! not reachable from `drymachina-kernel`, where the generator itself lives. They ran as
 //! `generate::tpms`'s inline `#[cfg(test)]` tests until the kernel was split out; the facade is the
 //! lowest crate that can still see both layers, so they run here now, unchanged (plan Task 4).
 

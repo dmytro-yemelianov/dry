@@ -234,9 +234,9 @@ mod tests {
     use crate::{
         forensics_analyze, trace_summary_with_sources, ExplainReports, ReviewReport, TraceReport,
     };
-    use kmet_contracts::Contracts;
-    use kmet_kernel::{import_gcode_with_map, simulate, GcodeImportParams};
-    use kmet_verify::verify;
+    use drymachina_contracts::Contracts;
+    use drymachina_kernel::{import_gcode_with_map, simulate, GcodeImportParams};
+    use drymachina_verify::verify;
 
     // Build an ExplainReports for a g-code string, mirroring how the CLI assembles one.
     fn reports(src: &str) -> ExplainReports {

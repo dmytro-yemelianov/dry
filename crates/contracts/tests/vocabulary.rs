@@ -1,7 +1,7 @@
-//! `kmet-contracts` is the vocabulary shared by the kernel and the verifier. It must compile with no
+//! `drymachina-contracts` is the vocabulary shared by the kernel and the verifier. It must compile with no
 //! dependency on either — that is the whole reason it exists (plan Task 3, spec §5.7).
 
-use kmet_contracts::{
+use drymachina_contracts::{
     parse_bounds_csv, parse_speed_range_csv, Contracts, Kinematics, RotaryContracts,
     RotaryTravelRanges, RuleId, Severity, ARC_RADIUS_TOLERANCE_MM,
 };
@@ -60,9 +60,9 @@ fn arc_tolerance_is_exposed() {
 
 // --- moved with the vocabulary itself (plan Tasks 3 and 5) --------------------------------------
 //
-// Everything below exercises `kmet-contracts` and nothing else, but was written inside
+// Everything below exercises `drymachina-contracts` and nothing else, but was written inside
 // `verify.rs`'s in-module tests, back when the vocabulary lived there. Task 3 moved the code out
-// and left these behind; Task 5 would have carried them on to `kmet-verify` with the rest of
+// and left these behind; Task 5 would have carried them on to `drymachina-verify` with the rest of
 // `verify.rs`, leaving the crate that owns the code with six tests covering it.
 
 #[test]
@@ -101,7 +101,7 @@ fn contracts_default_has_no_kinematics() {
 
 /// The rule vocabulary's own consistency: every id round-trips through its wire form, carries a
 /// summary, and lands on the right side of the error/warning split. One layer up, `catalog()`
-/// projects these same facts into `Rule` entries, and `kmet-verify` tests that projection.
+/// projects these same facts into `Rule` entries, and `drymachina-verify` tests that projection.
 #[test]
 fn rule_vocabulary_is_consistent() {
     for id in RuleId::ALL {

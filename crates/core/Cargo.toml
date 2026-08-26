@@ -1,6 +1,6 @@
 [package]
 name = "dry-core"
-description = "The `dry_core` facade: a re-export of the four KMET crates, so the CLI, the bindings and the SDKs keep one import surface."
+description = "The `dry_core` facade: a re-export of the four DRYMACHINA crates, so the CLI, the bindings and the SDKs keep one import surface."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,21 +11,21 @@ publish = false
 # This crate compiles no code of its own: `lib.rs` is a module doc comment and a list of `pub use`
 # statements, so the only things it can depend on are the three crates it re-exports. Everything the
 # engine actually needs — serde/serde_json for the JSON IR, miniz_oxide for the DRY0/DRY1 DEFLATE,
-# libm for the deterministic trig — is declared by whichever KMET crate uses it, and reaches the
+# libm for the deterministic trig — is declared by whichever DRYMACHINA crate uses it, and reaches the
 # bindings through this facade the same way the names do. The dev-dependencies below belong to the
 # integration tests in `tests/`, which exercise the assembled stack across all four layers; none of
 # them is linked into a consumer of `dry_core`.
 [dependencies]
 # Layer 1: the IR, resolve, lowering, optimisation, generation and emission. Extracted so the verifier
 # and the analysis layer can be separated from the kernel; re-exported wholesale by `lib.rs`.
-kmet-kernel = { path = "../kernel" }
+drymachina-kernel = { path = "../kernel" }
 # Layer 2: the verification rule registry and the two verify-gated rewrite wrappers. Re-exported by
 # `lib.rs` *as* this crate's `verify` module, so `dry_core::verify::...` still resolves.
-kmet-verify = { path = "../verify" }
+drymachina-verify = { path = "../verify" }
 # Layer 3: trace analytics, the report envelopes, forensics, compare, explain, recommend and reverse.
-# With this one `dry-core` holds no implementation of its own — it is a facade over the four KMET
+# With this one `dry-core` holds no implementation of its own — it is a facade over the four DRYMACHINA
 # crates, and every path it publishes is a re-export.
-kmet-trace = { path = "../trace" }
+drymachina-trace = { path = "../trace" }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -34,7 +34,7 @@ serde = { version = "1", features = ["derive"] }
 # which the IR v0 spec (docs/10, §9) defines as bit-exact f64 equality. serde_json's default parser
 # is accurate only to within 1 ULP, so without the feature a 17-significant-digit coordinate can come
 # back one bit off — the five_axis_drape vector is the first in the corpus long enough to expose it.
-# Feature unification with `kmet-kernel` would supply this in a workspace build; declaring it is what
+# Feature unification with `drymachina-kernel` would supply this in a workspace build; declaring it is what
 # keeps the assertion true on its own terms rather than by a sibling's accident.
 serde_json = { version = "1", features = ["float_roundtrip"] }
 # Used only by tests/spec_vectors.rs, which reproduces the resolved dome and five-axis geometry the

@@ -1,11 +1,11 @@
 //! `reverse` reconstructs an L1 `Design` from an L2 `Toolpath`, and each channel it re-emits is a
 //! separate branch of that pass. The in-module tests in `reverse.rs` cover temperature, fan and flow;
 //! this covers the **power** channel, which had its only assertion in `crates/core/tests/channels.rs`
-//! — a `dry-core` integration test, so `cargo test -p kmet-trace` could not see a regression in the
+//! — a `dry-core` integration test, so `cargo test -p drymachina-trace` could not see a regression in the
 //! branch that produces it. Moved here verbatim with the pass it exercises (plan Task 6).
 
-use kmet_kernel::{resolve, Design, ResolveParams};
-use kmet_trace::reverse;
+use drymachina_kernel::{resolve, Design, ResolveParams};
+use drymachina_trace::reverse;
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

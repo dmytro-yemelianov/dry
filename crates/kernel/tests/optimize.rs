@@ -3,7 +3,7 @@
 //! *same* path and the *same* deposited material. This is the clearest demonstration of the compiler
 //! thesis — a pass that rewrites the IR while preserving its meaning.
 
-use kmet_kernel::{merge_collinear, resolve, simulate, Design, ResolveParams};
+use drymachina_kernel::{merge_collinear, resolve, simulate, Design, ResolveParams};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

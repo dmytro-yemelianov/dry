@@ -1,6 +1,6 @@
 [package]
-name = "kmet-trace"
-description = "KMET layer 3: trace analytics, review reports, forensics, comparison, explanation, recommendation and reverse inference."
+name = "drymachina-trace"
+description = "DRYMACHINA layer 3: trace analytics, review reports, forensics, comparison, explanation, recommendation and reverse inference."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,11 +12,11 @@ publish = false
 # vocabulary both speak, and nothing depends on it. That is what lets it graduate to its own
 # repository first (plan Task 8) — so these three paths are the whole of its inward surface.
 [dependencies]
-kmet-contracts = { path = "../contracts" }
-kmet-kernel = { path = "../kernel" }
-kmet-verify = { path = "../verify" }
+drymachina-contracts = { path = "../contracts" }
+drymachina-kernel = { path = "../kernel" }
+drymachina-verify = { path = "../verify" }
 serde = { version = "1", features = ["derive"] }
-# Not dev-only, unlike `kmet-verify` and `kmet-contracts`: `explain.rs` serialises the three grounding
+# Not dev-only, unlike `drymachina-verify` and `drymachina-contracts`: `explain.rs` serialises the three grounding
 # reports into the LLM bundle's prompt, so this crate writes JSON in anger. `float_roundtrip` is the
 # same requirement `dry-core` states for the IR — serde_json's default parser is accurate only to
 # within 1 ULP — and it is load-bearing here too: `compare_golden.rs` re-parses the committed

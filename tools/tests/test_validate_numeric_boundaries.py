@@ -330,7 +330,7 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
 
 
 class VerifyToleranceOwnershipTests(unittest.TestCase):
-    """The per-owner pin mechanism, added when `ARC_RADIUS_TOLERANCE_MM` moved to kmet-contracts.
+    """The per-owner pin mechanism, added when `ARC_RADIUS_TOLERANCE_MM` moved to drymachina-contracts.
 
     Ownership used to be a per-inventory fact — verify.rs held all four verify epsilons — so nothing
     tested it. It is now per-constant, and Task 5 moves three more of them, so it needs a net.
@@ -434,7 +434,7 @@ class VerifyToleranceOwnershipTests(unittest.TestCase):
             )
 
     def test_duplicate_definition_is_caught_across_both_crate_roots(self) -> None:
-        # The sweep used to walk crates/core alone. A constant owned by kmet-contracts and restated
+        # The sweep used to walk crates/core alone. A constant owned by drymachina-contracts and restated
         # in the kernel is the exact regression that would have reintroduced.
         with tempfile.TemporaryDirectory() as directory:
             root = self.build_tree(
@@ -480,7 +480,7 @@ class VerifyToleranceOwnershipTests(unittest.TestCase):
 
 
 class ContractsSliceCoverageTests(unittest.TestCase):
-    """`kmet-contracts` is pinned by two slices, one per inventory, split by provenance.
+    """`drymachina-contracts` is pinned by two slices, one per inventory, split by provenance.
 
     The first attempt pinned 460 of the crate's 31 812 bytes and left `RuleId::default_severity`,
     `parse_bounds_csv` and `REFERENCE_FIVE_AXIS_MACHINE` outside numeric review. These tests are the

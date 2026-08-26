@@ -2,7 +2,7 @@
 //! carried losslessly through both the JSON and the binary encodings. The byte-identity guard:
 //! a toolpath WITHOUT a header must serialise exactly as before (no `meta` key).
 
-use kmet_kernel::{resolve, Design, Meta, ResolveParams, Toolpath};
+use drymachina_kernel::{resolve, Design, Meta, ResolveParams, Toolpath};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

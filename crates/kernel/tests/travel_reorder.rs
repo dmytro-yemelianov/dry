@@ -4,7 +4,7 @@
 //! Like `arc_fit`, this pass has no FullControl oracle: it is Dry's own well-specified transform, tested
 //! directly against a constructed layout where the authored order zig-zags across the bed.
 
-use kmet_kernel::{
+use drymachina_kernel::{
     optimize_aggressive_pipeline, optimize_pipeline, resolve, simulate, travel_reorder, Design,
     ResolveParams, Segment,
 };
@@ -14,7 +14,7 @@ fn design(ops: &str) -> Design {
 }
 
 /// Total travel distance: the sum of `length` over travel segments.
-fn travel_distance(tp: &kmet_kernel::Toolpath) -> f64 {
+fn travel_distance(tp: &drymachina_kernel::Toolpath) -> f64 {
     tp.segments
         .iter()
         .filter(|s| s.travel)
@@ -25,7 +25,7 @@ fn travel_distance(tp: &kmet_kernel::Toolpath) -> f64 {
 /// The multiset of extruding (non-travel) segments, as a sortable, comparable key. We compare the
 /// deposited geometry/material exactly: start, end, length, volume — so a reorder that preserves the
 /// runs verbatim leaves this multiset unchanged.
-fn extruding_key(tp: &kmet_kernel::Toolpath) -> Vec<String> {
+fn extruding_key(tp: &drymachina_kernel::Toolpath) -> Vec<String> {
     let mut v: Vec<String> = tp
         .segments
         .iter()
@@ -101,7 +101,7 @@ fn first_run_is_preserved() {
     let tp = resolve(&zigzag_islands(), &ResolveParams::default());
     let opt = travel_reorder(&tp);
     // the first extruding segment (the start of the first run) is identical and still first.
-    let first_in = |t: &kmet_kernel::Toolpath| -> Segment {
+    let first_in = |t: &drymachina_kernel::Toolpath| -> Segment {
         t.segments.iter().find(|s| !s.travel).cloned().unwrap()
     };
     assert_eq!(first_in(&tp), first_in(&opt));
@@ -144,9 +144,9 @@ fn reorder_does_not_invent_a_power_channel() {
         opt.segments.iter().map(|s| s.power).collect::<Vec<_>>()
     );
     // and the default (Marlin) flavor, which has no rendering for the channel, still emits it.
-    kmet_kernel::emit_stream(
+    drymachina_kernel::emit_stream(
         opt.segments.iter().cloned().map(Ok),
-        &kmet_kernel::EmitParams::default(),
+        &drymachina_kernel::EmitParams::default(),
     )
     .expect("a reordered FFF print must still emit");
 }

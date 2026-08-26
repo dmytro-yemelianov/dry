@@ -148,11 +148,11 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR": "ARC_RADIUS_TOLERANCE_MM",
 }
 # Which file *defines* each of them. Ownership used to be a per-inventory fact -- all four lived in
-# verify.rs -- but the crate split moved ARC_RADIUS_TOLERANCE_MM into `kmet-contracts`, because
+# verify.rs -- but the crate split moved ARC_RADIUS_TOLERANCE_MM into `drymachina-contracts`, because
 # resolve.rs applies the same epsilon at the L1 gate and the kernel cannot depend on the verifier.
 # The pin follows the definition rather than the module that reads it; verify.rs re-exports the
 # constant, and a re-export carries no value to check. The other three travelled with verify.rs
-# itself into `kmet-verify` at Task 5, where the file is `crates/verify/src/lib.rs`.
+# itself into `drymachina-verify` at Task 5, where the file is `crates/verify/src/lib.rs`.
 VERIFY_TOLERANCE_OWNERS = {
     "CONTINUITY_TOLERANCE_MM": "crates/verify/src/lib.rs",
     "LENGTH_TOLERANCE": "crates/verify/src/lib.rs",
@@ -663,8 +663,8 @@ def require_single_definition(owners: dict[str, str], errors: list[str]) -> None
     import it from its owner.
 
     Every crate the split produced is swept, not `crates/core` alone: it moved one of these constants
-    into `kmet-contracts`, the code that reads it into `kmet-kernel` and the analysis modules into
-    `kmet-trace`, and a rule that kept looking only at `crates/core` would stop seeing the very
+    into `drymachina-contracts`, the code that reads it into `drymachina-kernel` and the analysis modules into
+    `drymachina-trace`, and a rule that kept looking only at `crates/core` would stop seeing the very
     constant whose duplicate it exists to catch.
     """
     for root in SINGLE_DEFINITION_ROOTS:

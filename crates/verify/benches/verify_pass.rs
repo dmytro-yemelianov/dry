@@ -1,14 +1,14 @@
-//! Criterion benchmark for the verification pass. Run locally with `cargo bench -p kmet-verify`;
+//! Criterion benchmark for the verification pass. Run locally with `cargo bench -p drymachina-verify`;
 //! the CI `bench` job builds it to keep it from bit-rotting (`docs/13-performance-and-scale.md`).
 //!
 //! Split out of `dry-core`'s `engine_codec` bench with the code it measures (plan Task 7): that
-//! bench moved to `kmet-kernel`, which cannot call the verifier — layer 2 depends on layer 1 and
+//! bench moved to `drymachina-kernel`, which cannot call the verifier — layer 2 depends on layer 1 and
 //! never the other way round. The fixture is the same 5 000-segment toolpath, repeated rather than
 //! shared, because after graduation no crate spans both layers to hold one copy of it.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kmet_kernel::{Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
-use kmet_verify::{verify, Contracts};
+use drymachina_kernel::{Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
+use drymachina_verify::{verify, Contracts};
 
 fn toolpath(n: usize) -> Toolpath {
     let mut segments = Vec::with_capacity(n);

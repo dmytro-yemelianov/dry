@@ -1,11 +1,11 @@
 //! Criterion benchmarks for the kernel's hot paths: the three codecs (JSON / `DRY0` / `DRY1`) and
 //! the two passes that lower a resolved toolpath (`simulate` / `emit`). Run locally with
-//! `cargo bench -p kmet-kernel`; the CI `bench` job builds these to keep them from bit-rotting
+//! `cargo bench -p drymachina-kernel`; the CI `bench` job builds these to keep them from bit-rotting
 //! (`docs/13-performance-and-scale.md`).
 //!
 //! Moved here from `dry-core` with the code it measures (plan Task 7). The `verify` and `trace`
 //! benchmarks that stood beside these could not come along — layers 2 and 3 depend on the kernel and
-//! never the other way round — so they are now `kmet-verify`'s and `kmet-trace`'s own bench targets,
+//! never the other way round — so they are now `drymachina-verify`'s and `drymachina-trace`'s own bench targets,
 //! each carrying the same fixture. That duplication is the crate boundary showing through: once the
 //! layers graduate to separate repositories there is no crate left that can build one fixture for
 //! all three.
@@ -15,7 +15,7 @@
 #![allow(deprecated)]
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kmet_kernel::{
+use drymachina_kernel::{
     emit, simulate, EmitParams, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume,
 };
 

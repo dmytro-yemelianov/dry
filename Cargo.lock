@@ -367,9 +367,9 @@ dependencies = [
 name = "dry-core"
 version = "0.6.0"
 dependencies = [
- "kmet-kernel",
- "kmet-trace",
- "kmet-verify",
+ "drymachina-kernel",
+ "drymachina-trace",
+ "drymachina-verify",
  "libm",
  "serde",
  "serde_json",
@@ -404,6 +404,53 @@ dependencies = [
  "serde",
  "serde_json",
  "ureq",
+]
+
+[[package]]
+name = "drymachina-contracts"
+version = "0.6.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-kernel"
+version = "0.6.0"
+dependencies = [
+ "criterion",
+ "drymachina-contracts",
+ "libm",
+ "miniz_oxide",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-trace"
+version = "0.6.0"
+dependencies = [
+ "criterion",
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "drymachina-verify",
+ "libm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-verify"
+version = "0.6.0"
+dependencies = [
+ "criterion",
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "libm",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -646,53 +693,6 @@ name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
-
-[[package]]
-name = "kmet-contracts"
-version = "0.6.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kmet-kernel"
-version = "0.6.0"
-dependencies = [
- "criterion",
- "kmet-contracts",
- "libm",
- "miniz_oxide",
- "num-bigint",
- "num-traits",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kmet-trace"
-version = "0.6.0"
-dependencies = [
- "criterion",
- "kmet-contracts",
- "kmet-kernel",
- "kmet-verify",
- "libm",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kmet-verify"
-version = "0.6.0"
-dependencies = [
- "criterion",
- "kmet-contracts",
- "kmet-kernel",
- "libm",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "libc"

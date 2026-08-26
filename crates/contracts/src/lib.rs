@@ -1,8 +1,8 @@
-//! # kmet-contracts — the shared vocabulary
+//! # drymachina-contracts — the shared vocabulary
 //!
 //! The types the kernel and the verifier both name: verification contracts, rule identifiers,
 //! severities, and the kinematic model enum. Deliberately logic-free and deliberately below both, so
-//! `kmet-kernel` and `kmet-verify` can be separate crates without a cycle.
+//! `drymachina-kernel` and `drymachina-verify` can be separate crates without a cycle.
 //!
 //! See `docs/superpowers/specs/2026-08-25-ip-registration-and-preservation-design.md` §5.7.
 //!

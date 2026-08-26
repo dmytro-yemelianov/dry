@@ -1,5 +1,5 @@
 //! `apply_gated_with` is the kernel-side gate mechanism: it runs the pipeline and accepts the result
-//! only when the caller's policy reports no *new* error rule. Policy lives in `kmet-verify`; the
+//! only when the caller's policy reports no *new* error rule. Policy lives in `drymachina-verify`; the
 //! kernel must not know what a rule is, and every policy below is a synthetic closure returning
 //! opaque strings, precisely so that nothing here needs the verifier.
 //!
@@ -10,8 +10,8 @@
 
 use std::collections::BTreeSet;
 
-use kmet_kernel::optimize::apply_gated_with;
-use kmet_kernel::{resolve, Design, OptimizeMode, ResolveParams};
+use drymachina_kernel::optimize::apply_gated_with;
+use drymachina_kernel::{resolve, Design, OptimizeMode, ResolveParams};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

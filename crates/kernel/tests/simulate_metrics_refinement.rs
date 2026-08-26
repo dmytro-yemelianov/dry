@@ -1,6 +1,6 @@
 //! Native refinement checks for the exact-rational simulate-metrics fixture model.
 
-use kmet_kernel::{simulate, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
+use drymachina_kernel::{simulate, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
 use serde::Deserialize;
 
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/simulate-metrics-refinement-v0.json");

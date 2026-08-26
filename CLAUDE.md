@@ -1,13 +1,13 @@
 # dry
 
-Parametric design/CAM DSL: a Rust engine that resolves feature-based designs to IR, G-code, and reports, layered as `kmet-contracts` (`crates/contracts`, shared vocabulary) → `kmet-kernel` (`crates/kernel`, resolve/emit) → `kmet-verify` (`crates/verify`, rules) → `kmet-trace` (`crates/trace`, reports and analytics), re-exported as one surface by the `dry-core` facade (`crates/core`), with a CLI (`crates/cli`). Bindings — `crates/wasm` (wasm-bindgen), `crates/cloud` (workers-rs), `py/` (PyO3), `containers/verify-runner` (axum) — are excluded from the Cargo workspace and build standalone with their own locks; all four now have dedicated CI jobs (`wasm`, `python-sdk`, `cloud`, `verify-runner`) — still build and test them locally too before claiming done, since each has its own lock and can drift between CI runs. `sdk/ts` is a separate npm package built from the wasm engine. Formal artifacts live in `proofs/` (numeric contracts and mutation claims), `formal/` (Lean 4), `spec/` (JSON schemas), and `conformance/`.
+Parametric design/CAM DSL: a Rust engine that resolves feature-based designs to IR, G-code, and reports, layered as `drymachina-contracts` (`crates/contracts`, shared vocabulary) → `drymachina-kernel` (`crates/kernel`, resolve/emit) → `drymachina-verify` (`crates/verify`, rules) → `drymachina-trace` (`crates/trace`, reports and analytics), re-exported as one surface by the `dry-core` facade (`crates/core`), with a CLI (`crates/cli`). Bindings — `crates/wasm` (wasm-bindgen), `crates/cloud` (workers-rs), `py/` (PyO3), `containers/verify-runner` (axum) — are excluded from the Cargo workspace and build standalone with their own locks; all four now have dedicated CI jobs (`wasm`, `python-sdk`, `cloud`, `verify-runner`) — still build and test them locally too before claiming done, since each has its own lock and can drift between CI runs. `sdk/ts` is a separate npm package built from the wasm engine. Formal artifacts live in `proofs/` (numeric contracts and mutation claims), `formal/` (Lean 4), `spec/` (JSON schemas), and `conformance/`.
 
 ## Commands
 
-- `cargo test -p kmet-kernel` — engine tests (resolve, ir, features, emit, gcode, codec, profile, optimize, generate, units, frame, clothoid, engine, sdk)
-- `cargo test -p kmet-verify` — verification-rule tests
-- `cargo test -p kmet-trace` — trace/report/forensics/compare/explain/recommend/reverse tests
-- `cargo test -p kmet-contracts` — shared-vocabulary tests (`RuleId`, `Severity`, `Contracts*`, `Kinematics`, tolerance constants)
+- `cargo test -p drymachina-kernel` — engine tests (resolve, ir, features, emit, gcode, codec, profile, optimize, generate, units, frame, clothoid, engine, sdk)
+- `cargo test -p drymachina-verify` — verification-rule tests
+- `cargo test -p drymachina-trace` — trace/report/forensics/compare/explain/recommend/reverse tests
+- `cargo test -p drymachina-contracts` — shared-vocabulary tests (`RuleId`, `Severity`, `Contracts*`, `Kinematics`, tolerance constants)
 - `cargo test -p dry-core` — `dry-core` is now a pure re-export facade over the four crates above, plus its own cross-layer integration tests; it runs none of the engine's own unit tests
 - `cargo test -p dry-cli` — CLI tests
 - Excluded crates (`crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner`) build and test from their own directories; all four have CI jobs now, but still verify locally too before claiming done.

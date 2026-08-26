@@ -1,6 +1,6 @@
 [package]
-name = "kmet-kernel"
-description = "KMET layer 1: the IR, resolve, lowering, optimisation, generation and emission. Dependency-light; compiles to wasm32-unknown-unknown unmodified."
+name = "drymachina-kernel"
+description = "DRYMACHINA layer 1: the IR, resolve, lowering, optimisation, generation and emission. Dependency-light; compiles to wasm32-unknown-unknown unmodified."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,7 +14,7 @@ publish = false
 [dependencies]
 # The shared vocabulary (contracts, rule ids, severities, kinematic models), extracted so that the
 # kernel and the verifier can be separated without a cycle. Serde-only, so it costs the kernel nothing.
-kmet-contracts = { path = "../contracts" }
+drymachina-contracts = { path = "../contracts" }
 serde = { version = "1", features = ["derive"] }
 # `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
 # within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a

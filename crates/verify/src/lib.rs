@@ -1,4 +1,4 @@
-//! # kmet-verify — KMET layer 2: the verification rule registry
+//! # drymachina-verify — DRYMACHINA layer 2: the verification rule registry
 //!
 //! `verify` — check a resolved [`Toolpath`] against machine-safety **contracts** and structural
 //! invariants, returning a located [`Report`] (`docs/01-architecture.md` §7). This is where Dry stops
@@ -14,21 +14,21 @@
 //!
 //! Extracted verbatim from `dry-core` (plan Task 5), which re-exports this crate *as* its `verify`
 //! module and every name below flat, so the CLI, the bindings and the tests reach the same surface
-//! under the paths they always had. It reads layer 1 from [`kmet_kernel`] and the shared rule and
-//! contract vocabulary from [`kmet_contracts`]; nothing here may depend on the analysis layer above,
+//! under the paths they always had. It reads layer 1 from [`drymachina_kernel`] and the shared rule and
+//! contract vocabulary from [`drymachina_contracts`]; nothing here may depend on the analysis layer above,
 //! and the kernel may never depend on this crate — that cycle is what the split exists to break.
 
 #![forbid(unsafe_code)]
 
 mod gated;
 
-use kmet_kernel::codec::CodecError;
-use kmet_kernel::emit::{KinematicsExt, RotaryState};
-use kmet_kernel::engine::segment_motion_time;
-use kmet_kernel::ir::{Segment, SegmentKind, Toolpath};
-use kmet_kernel::optimize::get_tangents;
-use kmet_kernel::resolve::{catmull_rom, SAMPLES};
-use kmet_kernel::units::Length;
+use drymachina_kernel::codec::CodecError;
+use drymachina_kernel::emit::{KinematicsExt, RotaryState};
+use drymachina_kernel::engine::segment_motion_time;
+use drymachina_kernel::ir::{Segment, SegmentKind, Toolpath};
+use drymachina_kernel::optimize::get_tangents;
+use drymachina_kernel::resolve::{catmull_rom, SAMPLES};
+use drymachina_kernel::units::Length;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
@@ -36,11 +36,11 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 // gate wrappers can live in neither alone; they sit beside the verifier they call.
 pub use gated::{apply_gated, apply_safe_gated};
 
-// The vocabulary below is defined in `kmet-contracts`, the logic-free crate that sits under both the
+// The vocabulary below is defined in `drymachina-contracts`, the logic-free crate that sits under both the
 // kernel and the verifier: `RotaryContracts.model` is a `Kinematics`, while the kernel reads `RuleId`,
 // `Severity` and `Contracts` from here, so without a crate beneath both the two cannot be separated at
 // all. Re-exported from its former path so every caller — in-tree and in the bindings — is unchanged.
-pub use kmet_contracts::{
+pub use drymachina_contracts::{
     parse_bounds_csv, parse_speed_range_csv, ContractParseError, Contracts, KinematicContracts,
     RotaryContracts, RotaryTravelRanges, RuleId, Severity, ARC_RADIUS_TOLERANCE_MM,
 };
@@ -1075,7 +1075,7 @@ pub fn verify(tp: &Toolpath, c: &Contracts) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmet_kernel::units::{Feedrate, Volume};
+    use drymachina_kernel::units::{Feedrate, Volume};
 
     /// A single arc segment with the given radius (mm) and speed (mm/min), valid geometry.
     fn arc_toolpath(radius_mm: f64, speed_mm_min: f64) -> Toolpath {
@@ -1302,7 +1302,7 @@ mod tests {
     /// `catalog()` is a projection of the vocabulary, not a second copy of it: one entry per
     /// [`RuleId`], in `RuleId::ALL` order, carrying that id's own severity and summary. The
     /// vocabulary's internal consistency — wire ids, the error/warning split — is
-    /// `kmet-contracts`' own test, next to the code it covers.
+    /// `drymachina-contracts`' own test, next to the code it covers.
     #[test]
     fn rule_catalog_projects_the_whole_vocabulary() {
         let cat = catalog();
@@ -1332,7 +1332,7 @@ mod tests {
                 max_acceleration_mm_s2: Some(500.0),
                 max_junction_velocity_mm_s: Some(8.0),
             }),
-            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
         };
         assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
 
@@ -1403,7 +1403,7 @@ mod tests {
     #[test]
     fn tilt_beyond_the_reference_trunnion_is_a_rotary_travel_error() {
         let c = Contracts {
-            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
 
@@ -1433,7 +1433,7 @@ mod tests {
     #[test]
     fn a_reorientation_faster_than_the_axis_can_turn_is_a_rotary_feed_warning() {
         let c = Contracts {
-            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
         let vertical = oriented_move(0.0, [0.0, 0.0, 1.0], 600.0);
@@ -1474,7 +1474,7 @@ mod tests {
     #[test]
     fn tilting_a_far_out_point_below_the_table_is_an_orientation_reachability_error() {
         let c = Contracts {
-            rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
             ..Contracts::default()
         };
 
@@ -1512,7 +1512,7 @@ mod tests {
         let with_limits = verify(
             &tp,
             &Contracts {
-                rotary: Some(kmet_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
+                rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS),
                 ..Contracts::default()
             },
         );

@@ -2,7 +2,7 @@
 //! for every oracle design, and is materially more compact than JSON (the P0.3 gate: ≥3× smaller on a
 //! large fixture — here the ~120-segment spiral vase).
 
-use kmet_kernel::Toolpath;
+use drymachina_kernel::Toolpath;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;

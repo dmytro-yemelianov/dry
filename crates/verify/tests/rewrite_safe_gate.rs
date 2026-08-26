@@ -5,9 +5,9 @@
 //! input. Pre-existing errors do not block; warning-only new findings do not block. A rejected span is
 //! returned verbatim. These tests pin that contract.
 
-use kmet_contracts::{Contracts, RuleId};
-use kmet_kernel::{safe_pipeline, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
-use kmet_verify::{apply_safe_gated, verify};
+use drymachina_contracts::{Contracts, RuleId};
+use drymachina_kernel::{safe_pipeline, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume};
+use drymachina_verify::{apply_safe_gated, verify};
 
 /// A valid extruding line move; override per case.
 fn line(start: [f64; 3], end: [f64; 3]) -> Segment {

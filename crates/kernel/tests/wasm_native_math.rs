@@ -2,7 +2,7 @@
 // in-tree call sites use, and refusing the whole program is part of what is under test here.
 #![allow(deprecated)]
 
-use kmet_kernel::{emit, resolve, Design, EmitParams, ResolveParams, Toolpath};
+use drymachina_kernel::{emit, resolve, Design, EmitParams, ResolveParams, Toolpath};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -70,9 +70,9 @@ fn assert_wasm_matches_native(
 
     // Wasm emit
     let kinematics_str = match params.kinematics {
-        kmet_kernel::Kinematics::Ac { .. } => "ac",
-        kmet_kernel::Kinematics::Bc { .. } => "bc",
-        kmet_kernel::Kinematics::Ab { .. } => "ab",
+        drymachina_kernel::Kinematics::Ac { .. } => "ac",
+        drymachina_kernel::Kinematics::Bc { .. } => "bc",
+        drymachina_kernel::Kinematics::Ab { .. } => "ab",
     };
     let js_emit_code = format!(
         "const dry = require('./web/pkg-node/dry_wasm.js'); console.log(JSON.stringify(dry.resolve_gcode(JSON.stringify({ops_json}), JSON.stringify({resolve_params_json}), {}, {}, {}, '{kinematics_str}')));",

@@ -32,7 +32,7 @@ fn is_contiguous(a: &Segment, b: &Segment) -> bool {
 /// H1.3 `verify` measured a scalar feedrate delta under the same name, which missed the constant-speed
 /// 90° corner the rule is named for.
 ///
-/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// Exposed across the crate boundary for `drymachina-verify` (plan Task 1); not part of the stable
 /// authoring surface.
 pub fn get_tangents(s: &Segment) -> Option<([f64; 3], [f64; 3])> {
     let sx = s.start[0]?.value();

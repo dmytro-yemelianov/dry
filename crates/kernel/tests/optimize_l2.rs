@@ -1,4 +1,4 @@
-use kmet_kernel::{
+use drymachina_kernel::{
     adaptive_speed_with_params, coasting_with_dist, optimize_aggressive_pipeline,
     optimize_pipeline, resolve, simulate, z_hop_with_params, Design, Length, ResolveParams,
     SegmentKind,

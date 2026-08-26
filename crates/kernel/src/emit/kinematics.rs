@@ -1,7 +1,7 @@
 // `Kinematics` and the reference model are the shared vocabulary: `verify`'s `RotaryContracts` is
-// typed with the enum, so it lives in `kmet-contracts`, below both the kernel and the verifier. The
+// typed with the enum, so it lives in `drymachina-contracts`, below both the kernel and the verifier. The
 // geometry that reads it stays here — see [`KinematicsExt`].
-pub use kmet_contracts::{Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
+pub use drymachina_contracts::{Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 
 /// The limits of the reference 5-axis machine: what its rotary axes can reach, how fast they can get
 /// there, and where the tool tip is allowed to end up.
@@ -28,10 +28,10 @@ pub use kmet_contracts::{Kinematics, REFERENCE_FIVE_AXIS_MACHINE};
 /// - `envelope_mm` is the *machine*-coordinate box the tool tip must stay inside once the rotation is
 ///   applied. Deliberately not symmetric in Z: the head can lift well above the table but only a
 ///   little below it, which is the geometry that makes tilting a far-out point unreachable.
-pub const REFERENCE_FIVE_AXIS_LIMITS: kmet_contracts::RotaryContracts =
-    kmet_contracts::RotaryContracts {
+pub const REFERENCE_FIVE_AXIS_LIMITS: drymachina_contracts::RotaryContracts =
+    drymachina_contracts::RotaryContracts {
         model: REFERENCE_FIVE_AXIS_MACHINE,
-        travel_deg: Some(kmet_contracts::RotaryTravelRanges {
+        travel_deg: Some(drymachina_contracts::RotaryTravelRanges {
             a: None,
             b: Some([0.0, 120.0]),
             c: None,
@@ -83,7 +83,7 @@ const SINGULAR_CONE_SIN_TILT: f64 = 1e-9;
 /// `C` is undetermined, and the only defensible answer is where the previous segment left the axis,
 /// which is history. `emit_stream_to_writer` threads this the way it already threads `prog_pos`.
 ///
-/// Exposed across the crate boundary for `kmet-verify` (plan Task 1); not part of the stable
+/// Exposed across the crate boundary for `drymachina-verify` (plan Task 1); not part of the stable
 /// authoring surface.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RotaryState {
@@ -129,12 +129,12 @@ fn resolve_c(i: f64, j: f64, state: &mut RotaryState) -> f64 {
 /// and the machine position those words imply.
 ///
 /// An extension trait rather than the inherent `impl` this used to be, because the enum itself now
-/// lives in `kmet-contracts` — the vocabulary the verifier shares with the kernel — and Rust allows
+/// lives in `drymachina-contracts` — the vocabulary the verifier shares with the kernel — and Rust allows
 /// an inherent `impl` only in the crate that defines the type. The geometry is kernel code: it
 /// reaches `resolve_c`, [`RotaryState`], [`Joints`] and `libm`, none of which the vocabulary crate
 /// carries. Bodies, signatures and call sites are unchanged; only the block they sit in is new.
 ///
-/// Public rather than crate-internal because `kmet-verify` resolves rotary angles through exactly
+/// Public rather than crate-internal because `drymachina-verify` resolves rotary angles through exactly
 /// this geometry, and after the crate split that is a call across a crate boundary (plan Task 4).
 pub trait KinematicsExt {
     fn resolve_joints(

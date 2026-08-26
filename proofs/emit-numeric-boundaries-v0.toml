@@ -7,20 +7,20 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 path = "crates/kernel/src/emit/kinematics.rs"
 role = "implementation"
 hash_mode = "file"
-# Re-pinned 2026-08-25 for the layer-2 crate-boundary widening (KMET crate-split plan, Task 1). The
+# Re-pinned 2026-08-25 for the layer-2 crate-boundary widening (DRYMACHINA crate-split plan, Task 1). The
 # reviewed diff against the previous hash is four lines: a three-line doc-comment addition on
-# `RotaryState` (a blank `///` plus two lines recording that it is exposed for `kmet-verify` and is
+# `RotaryState` (a blank `///` plus two lines recording that it is exposed for `drymachina-verify` and is
 # not stable authoring surface) and `pub(crate) struct RotaryState` -> `pub struct RotaryState`. No
 # predicate, no constant, no control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is
 # untouched at 1e-9, `resolve_c` is byte-identical, and the `operation` and `assumptions` text of
 # FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly. Visibility only — the
 # whole-file `hash_mode` is what brings a doc comment under this pin, not numeric relevance.
 #
-# Re-pinned 2026-08-25 for the `kmet-contracts` extraction (KMET crate-split plan, Task 3). The
+# Re-pinned 2026-08-25 for the `drymachina-contracts` extraction (DRYMACHINA crate-split plan, Task 3). The
 # reviewed diff against the previous hash is a definition move plus the one language-level
 # consequence of it, and nothing else:
 #   - `Kinematics`, `REFERENCE_FIVE_AXIS_MACHINE`, `impl Default for Kinematics`, `validate`,
-#     `named` and the two hand-written serde impls move verbatim to `kmet-contracts`, because
+#     `named` and the two hand-written serde impls move verbatim to `drymachina-contracts`, because
 #     `verify`'s `RotaryContracts.model` is typed with the enum and its serde `default` reads the
 #     const; this file now re-exports both names from there, so every path into it is unchanged.
 #   - The inherent `impl Kinematics` holding `resolve_joints`, `rotary_letters`,
@@ -36,12 +36,12 @@ hash_mode = "file"
 # code exactly. The whole-file `hash_mode` is what brings a moved type declaration under this pin,
 # not numeric relevance.
 #
-# Re-pinned 2026-08-25 for the `kmet-kernel` extraction (KMET crate-split plan, Task 4), which moved
+# Re-pinned 2026-08-25 for the `drymachina-kernel` extraction (DRYMACHINA crate-split plan, Task 4), which moved
 # this file from `crates/core/src/emit/kinematics.rs` to `crates/kernel/src/emit/kinematics.rs` --
 # hence the `path` above. A move alone would not change the hash; these four edits did, and they are
 # the whole reviewed diff:
 #   - `crate::verify::RotaryContracts` / `crate::verify::RotaryTravelRanges` in the type and
-#     initialiser of `REFERENCE_FIVE_AXIS_LIMITS` become `kmet_contracts::...`. Path qualification
+#     initialiser of `REFERENCE_FIVE_AXIS_LIMITS` become `drymachina_contracts::...`. Path qualification
 #     only: the same two types, reached directly instead of through `verify`'s re-export of them,
 #     because `crate::verify` no longer exists from inside the kernel. Every field value -- the
 #     `[0, 120]` B travel, the absent C travel, `3600` deg/min, the envelope box -- is byte-identical.
@@ -57,7 +57,7 @@ hash_mode = "file"
 # body in `impl KinematicsExt for Kinematics` are byte-identical, and the `operation`, `assumptions`
 # and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly.
 #
-# Re-pinned 2026-08-26 for the facade reduction (KMET crate-split plan, Task 7). The reviewed diff
+# Re-pinned 2026-08-26 for the facade reduction (DRYMACHINA crate-split plan, Task 7). The reviewed diff
 # against the previous hash is five lines on `Rotary` and nothing else: `#[derive(Debug, Clone,
 # Copy)]` -- the same three its two siblings in this file, `RotaryState` and `Joints`, already
 # derive -- plus a four-line doc-comment addition (a blank `///` and three lines recording why).
@@ -68,7 +68,24 @@ hash_mode = "file"
 # `assumptions` and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the
 # code exactly. As with the Task 1 re-pin, the whole-file `hash_mode` is what brings a derive and a
 # doc comment under this pin, not numeric relevance.
-sha256 = "a0e94974589a03d30a475770ad97d8b22cb94137386bf969a19b895105045ea5"
+#
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*` (the previous prefix is
+# reserved for a different project, so it is not spelled anywhere in the tree any more, this note
+# included). Directories, module paths and file contents are otherwise untouched. The reviewed diff
+# against the previous hash is eight lines, each the same token substitution: the vocabulary crate's
+# Rust name in the `pub use` and in the type and initialiser of `REFERENCE_FIVE_AXIS_LIMITS`, and
+# the vocabulary and verifier crates' package names in five comment lines. Same crates, same items,
+# new package names; nothing resolves anywhere new.
+#
+# Checked rather than asserted: substituting the former names back into the file at this hash
+# reproduces a0e94974589a03d30a475770ad97d8b22cb94137386bf969a19b895105045ea5 -- the previous hash --
+# byte for byte, which is what rules out any other edit hiding in the same commit.
+#
+# No predicate, no constant, no control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is
+# untouched at 1e-9, `resolve_c`, `unit_orientation` and every body in `impl KinematicsExt for
+# Kinematics` are byte-identical, and the `operation`, `assumptions` and `exclusions` text of
+# FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly.
+sha256 = "dc4b295669c0036a82b1db39e0b88d5683606d43e73d6e7f7c9dd4c3de68d17f"
 
 # The kinematics half of the vocabulary crate, and the other half of the coverage this inventory
 # used to get whole-file from `emit/kinematics.rs`: the `Kinematics` enum, `REFERENCE_FIVE_AXIS_MACHINE`,

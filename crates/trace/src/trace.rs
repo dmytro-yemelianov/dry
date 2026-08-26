@@ -59,8 +59,8 @@
 //! Windows, totals and maxima are fully populated in all three cases: only the layer relation and
 //! [`TraceAnalytics::layer_stats`] are absent.
 
-use kmet_kernel::engine::segment_motion_time;
-use kmet_kernel::ir::{Segment, Toolpath};
+use drymachina_kernel::engine::segment_motion_time;
+use drymachina_kernel::ir::{Segment, Toolpath};
 use serde::{Deserialize, Serialize};
 
 /// Z tolerance (mm) below which two extruding moves are the same layer — the same epsilon
@@ -1107,8 +1107,8 @@ fn trace_summary_core(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmet_kernel::ir::{Segment, SegmentKind};
-    use kmet_kernel::units::{Feedrate, Length, Volume};
+    use drymachina_kernel::ir::{Segment, SegmentKind};
+    use drymachina_kernel::units::{Feedrate, Length, Volume};
 
     fn segment(length: f64, speed: f64, travel: bool, volume: f64) -> Segment {
         Segment {

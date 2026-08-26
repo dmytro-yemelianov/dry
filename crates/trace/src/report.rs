@@ -5,17 +5,17 @@
 //! under `conformance/reports/`) rather than an inline `json!` in the CLI.
 
 use crate::trace::TraceSummary;
-use kmet_contracts::{RuleId, Severity};
-use kmet_kernel::engine::{simulate, Metrics};
-use kmet_kernel::gcode::ImportedGcode;
-use kmet_kernel::ir::Toolpath;
-use kmet_verify::{Finding, Report};
+use drymachina_contracts::{RuleId, Severity};
+use drymachina_kernel::engine::{simulate, Metrics};
+use drymachina_kernel::gcode::ImportedGcode;
+use drymachina_kernel::ir::Toolpath;
+use drymachina_verify::{Finding, Report};
 use serde::{Deserialize, Serialize};
 
 /// A [`Finding`] resolved to its original source line (when the toolpath came from imported G-code).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocatedFinding {
-    /// Stable kebab-case rule id (see [`kmet_contracts::RuleId`]).
+    /// Stable kebab-case rule id (see [`drymachina_contracts::RuleId`]).
     pub rule: String,
     pub severity: Severity,
     /// The offending segment index, if local to one move.
@@ -43,7 +43,7 @@ impl LocatedFinding {
 // definition had to travel with it (plan Task 5). Re-exported from its former path: the type, its
 // wire shape and every `dry_core::report::LicenseStamp` / `dry_core::LicenseStamp` import are
 // unchanged.
-pub use kmet_verify::LicenseStamp;
+pub use drymachina_verify::LicenseStamp;
 
 /// The `review-gcode` report: metrics plus located safety findings for an imported G-code file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,7 +174,7 @@ impl BatchFileResult {
 /// Per-rule roll-up across a batch.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleTally {
-    /// Stable kebab-case rule id (see [`kmet_contracts::RuleId`]).
+    /// Stable kebab-case rule id (see [`drymachina_contracts::RuleId`]).
     pub rule: String,
     /// Total `error`-severity findings for this rule across the batch.
     pub errors: usize,
@@ -350,7 +350,7 @@ impl RewriteReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmet_kernel::engine::Metrics;
+    use drymachina_kernel::engine::Metrics;
 
     fn located(rule: &str, severity: Severity) -> LocatedFinding {
         LocatedFinding {

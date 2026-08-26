@@ -4,7 +4,7 @@
 //! `dry` can actually run and re-verify (a rewrite mode or one of the v1 contract fields); everything
 //! else is **advisory** — an unverified hypothesis the user applies in their slicer.
 
-use kmet_kernel::optimize::OptimizeMode;
+use drymachina_kernel::optimize::OptimizeMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -116,7 +116,7 @@ fn classify_contract(rec: &Recommendation) -> Classified {
             Ok(v) => ContractOverride::Scalar(v),
             Err(_) => return Classified::Advisory(format!("could not parse `{raw}` as a number")),
         },
-        ContractField::SpeedRange => match kmet_contracts::parse_speed_range_csv(raw) {
+        ContractField::SpeedRange => match drymachina_contracts::parse_speed_range_csv(raw) {
             Ok(pair) => ContractOverride::Range(pair),
             Err(_) => return Classified::Advisory(format!("could not parse `{raw}` as `min,max`")),
         },
@@ -130,11 +130,11 @@ fn classify_contract(rec: &Recommendation) -> Classified {
 }
 
 use crate::trace::trace_summary;
-use kmet_contracts::{Contracts, Severity};
-use kmet_kernel::gcode::ImportedGcode;
-use kmet_kernel::ir::Toolpath;
-use kmet_kernel::profile::MachineKinematics;
-use kmet_verify::{apply_gated, verify};
+use drymachina_contracts::{Contracts, Severity};
+use drymachina_kernel::gcode::ImportedGcode;
+use drymachina_kernel::ir::Toolpath;
+use drymachina_kernel::profile::MachineKinematics;
+use drymachina_verify::{apply_gated, verify};
 
 /// Measured state of a toolpath under a set of contracts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -295,13 +295,13 @@ fn apply_contract_override(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmet_contracts::Contracts;
-    use kmet_kernel::gcode::{import_gcode_with_map, GcodeImportParams};
+    use drymachina_contracts::Contracts;
+    use drymachina_kernel::gcode::{import_gcode_with_map, GcodeImportParams};
 
     // A tiny extruding program with two collinear moves (Safe's merge_collinear has something to do).
     const SAMPLE: &str = "G1 X0 Y0 E0\nG1 X10 Y0 E1\nG1 X20 Y0 E2\n";
 
-    fn imported() -> kmet_kernel::gcode::ImportedGcode {
+    fn imported() -> drymachina_kernel::gcode::ImportedGcode {
         import_gcode_with_map(SAMPLE, &GcodeImportParams::default()).expect("import")
     }
 

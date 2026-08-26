@@ -3,8 +3,8 @@
 //! Reconstructs a structured L1 `Design` operation list from an L2 resolved `Toolpath`.
 //! Channel state updates (`Temperature`, `Fan`, `Flow`, `Tool`, `Power`, `Orient`) are emitted only when they change from the running state.
 
-use kmet_kernel::ir::{SegmentKind, Toolpath};
-use kmet_kernel::resolve::{Design, Op};
+use drymachina_kernel::ir::{SegmentKind, Toolpath};
+use drymachina_kernel::resolve::{Design, Op};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReverseError {
@@ -138,7 +138,7 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmet_kernel::{resolve_checked, ResolveParams};
+    use drymachina_kernel::{resolve_checked, ResolveParams};
 
     #[test]
     fn reverse_round_trips_simple_moves_and_channels() {

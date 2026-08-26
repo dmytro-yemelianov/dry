@@ -1,6 +1,6 @@
 //! Refinement test between Lean resolve-channels semantics and production Rust resolve_checked.
 
-use kmet_kernel::{resolve_checked, Design, Op, ResolveParams};
+use drymachina_kernel::{resolve_checked, Design, Op, ResolveParams};
 use serde::Deserialize;
 
 const FIXTURES: &str = include_str!("../../../proofs/fixtures/resolve-channels-refinement-v0.json");

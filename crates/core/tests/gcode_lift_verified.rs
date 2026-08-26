@@ -3,7 +3,7 @@
 //! `gcode::lift` reconstructs an L2 toolpath from a slicer's own program, and two of its inline
 //! tests judged the result with `verify` — one that hot imported G-code is *not* flagged for cold
 //! extrusion, one that an E-only prime move *is* flagged over a flow ceiling. `verify` is layer 2
-//! and is not reachable from `kmet-kernel`, where the importer lives, so they run here, over the
+//! and is not reachable from `drymachina-kernel`, where the importer lives, so they run here, over the
 //! same fixtures and with the same assertions (plan Task 4).
 
 use dry_core::{import_gcode, verify, Contracts, GcodeImportParams};

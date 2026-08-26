@@ -6,12 +6,12 @@
 //! kept only when it introduces no new error rule relative to the input under the active contracts. These
 //! tests pin the balanced/max behaviour and the gate-rejection fallbacks.
 
-use kmet_contracts::{Contracts, RuleId};
-use kmet_kernel::{
+use drymachina_contracts::{Contracts, RuleId};
+use drymachina_kernel::{
     balanced_pipeline, max_pipeline, Feedrate, Length, MachineKinematics, OptimizeMode, Segment,
     SegmentKind, Toolpath, Volume,
 };
-use kmet_verify::{apply_gated, verify};
+use drymachina_verify::{apply_gated, verify};
 
 /// A valid extruding line move at `speed` mm/min; override per case.
 fn line_at(start: [f64; 3], end: [f64; 3], speed: f64) -> Segment {
@@ -238,10 +238,10 @@ fn right_angle_corner(speed: f64) -> Toolpath {
 /// caller's parameters*. `mode` is covered by every test above; this covers `kinematics`, the only
 /// argument no other assertion in this crate exercises — every other `apply_gated` call here and in
 /// `gate_uses_kernel_mechanism.rs` passes `None`. Without it, a wrapper that dropped the argument
-/// and passed `None` to `apply_gated_with` would leave `cargo test -p kmet-verify` entirely green.
+/// and passed `None` to `apply_gated_with` would leave `cargo test -p drymachina-verify` entirely green.
 ///
 /// Moved here from `crates/core/tests/machine_kinematics.rs` with the wrapper (plan Task 5, fix
-/// round 1). `kmet-kernel` proves the same routing against the *mechanism* in
+/// round 1). `drymachina-kernel` proves the same routing against the *mechanism* in
 /// `tests/kernel_surface.rs::apply_gated_with_routes_kinematics_into_balanced`; this is the wrapper
 /// half of that pair, and the two must move together or one of them stops meaning anything.
 #[test]

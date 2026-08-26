@@ -169,13 +169,13 @@ def build_worktree(target_dir: Path) -> None:
 
 
 def run_test(workspace: Path, witness: str) -> subprocess.CompletedProcess[str]:
-    # `-p kmet-kernel`: the refinement test travelled with `resolve.rs` into the kernel crate
+    # `-p drymachina-kernel`: the refinement test travelled with `resolve.rs` into the kernel crate
     # (crate-split Task 4), and the workspace's default-run packages no longer contain it.
     command = [
         "cargo",
         "test",
         "-p",
-        "kmet-kernel",
+        "drymachina-kernel",
         "--test",
         "resolve_channels_refinement",
         "--",

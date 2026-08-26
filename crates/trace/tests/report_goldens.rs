@@ -1,23 +1,23 @@
 //! Golden report generator + drift gate (`docs/11-profiles-and-reports.md`).
 //!
-//! Seeds are authored so that **every** [`kmet_contracts::RuleId`] is triggered by at least one case — the
+//! Seeds are authored so that **every** [`drymachina_contracts::RuleId`] is triggered by at least one case — the
 //! `rule_catalog_is_covered` assertion turns the goldens into a completeness check on the catalog. Run
 //! with `UPDATE_REPORTS=1` to (re)write the goldens under `conformance/reports/`; the normal run asserts
 //! the committed goldens still match the engine. The independent Python validator
 //! (`tools/validate_reports.py`) re-checks every golden against `spec/dry-reports-v1.schema.json`.
 
-use kmet_contracts::{Contracts, KinematicContracts, RuleId};
-use kmet_kernel::{
+use drymachina_contracts::{Contracts, KinematicContracts, RuleId};
+use drymachina_kernel::{
     simulate, Feedrate, Length, OptimizeMode, Profile, Segment, SegmentKind, Toolpath, Volume,
     REFERENCE_FIVE_AXIS_LIMITS,
 };
-use kmet_trace::{
+use drymachina_trace::{
     build_explain_bundle, forensics_analyze, render_markdown, trace_summary,
     trace_summary_with_analytics, trace_summary_with_sources, BatchFileResult, BatchStatus,
     CompareDelta, ExplainBundle, ExplainReports, LicenseStamp, ReviewBatch, ReviewReport,
     RewriteReport, RewriteSpanResult, TraceAnalyticsOptions, TraceReport,
 };
-use kmet_verify::{apply_gated, apply_safe_gated, verify, Report};
+use drymachina_verify::{apply_gated, apply_safe_gated, verify, Report};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
@@ -648,7 +648,7 @@ fn write_or_check(path: PathBuf, bytes: &[u8], update: bool) {
     } else {
         let committed = fs::read(&path).unwrap_or_else(|_| {
             panic!(
-                "missing {path:?} — run `UPDATE_REPORTS=1 cargo test -p kmet-trace --test report_goldens`"
+                "missing {path:?} — run `UPDATE_REPORTS=1 cargo test -p drymachina-trace --test report_goldens`"
             )
         });
         assert_eq!(committed, bytes, "{path:?} drifted from the engine output");
@@ -707,9 +707,11 @@ fn report_goldens_match_or_update() {
                 .join(sample_file),
         )
         .unwrap_or_else(|_| panic!("{sample_file} exists"));
-        let imported =
-            kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
-                .expect("import sample");
+        let imported = drymachina_kernel::import_gcode_with_map(
+            &sample,
+            &drymachina_kernel::GcodeImportParams::default(),
+        )
+        .expect("import sample");
         let forensics = forensics_analyze(&imported);
         let forensics_json = serde_json::to_string_pretty(&forensics).unwrap() + "\n";
         write_or_check(
@@ -894,9 +896,11 @@ fn explain_bundle_golden_matches_or_update() {
             .join("examples/sliced-prusa-sample.gcode"),
     )
     .expect("prusa sample exists");
-    let imported =
-        kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
-            .expect("import sample");
+    let imported = drymachina_kernel::import_gcode_with_map(
+        &sample,
+        &drymachina_kernel::GcodeImportParams::default(),
+    )
+    .expect("import sample");
 
     let metrics = simulate(&imported.toolpath);
     let report = verify(&imported.toolpath, &Contracts::default());
@@ -938,7 +942,7 @@ fn explain_bundle_golden_matches_or_update() {
 
     // Invariants: the prompt carries the safety guardrail; the markdown render has all three sections.
     assert!(
-        bundle.prompt.contains(kmet_trace::explain::GUARDRAIL),
+        bundle.prompt.contains(drymachina_trace::explain::GUARDRAIL),
         "explain prompt must carry the re-verify guardrail"
     );
     let md = render_markdown(&bundle);
@@ -946,7 +950,7 @@ fn explain_bundle_golden_matches_or_update() {
         "## Headlines",
         "## Facts",
         "## Prompt",
-        kmet_trace::explain::GUARDRAIL,
+        drymachina_trace::explain::GUARDRAIL,
     ] {
         assert!(md.contains(marker), "markdown missing: {marker}");
     }
@@ -980,9 +984,11 @@ fn trace_analytics_golden_matches_or_update() {
             .join("examples/sliced-sample.gcode"),
     )
     .expect("cura sample exists");
-    let imported =
-        kmet_kernel::import_gcode_with_map(&sample, &kmet_kernel::GcodeImportParams::default())
-            .expect("import sample");
+    let imported = drymachina_kernel::import_gcode_with_map(
+        &sample,
+        &drymachina_kernel::GcodeImportParams::default(),
+    )
+    .expect("import sample");
     let source_lines: Vec<Option<usize>> = imported
         .segment_source_lines
         .iter()

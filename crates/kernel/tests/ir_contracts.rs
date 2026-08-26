@@ -1,4 +1,4 @@
-use kmet_kernel::{resolve_checked, Design, ResolveParams, SegmentKind, Toolpath};
+use drymachina_kernel::{resolve_checked, Design, ResolveParams, SegmentKind, Toolpath};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

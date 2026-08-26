@@ -6,8 +6,8 @@
 //! `trace.layers.len() >= forensics.layers.layer_count`, with equality exactly when Z is
 //! non-decreasing and each level is a single contiguous run.
 
-use kmet_kernel::{import_gcode_with_map, GcodeImportParams};
-use kmet_trace::{forensics_analyze, trace_summary_with_analytics, TraceAnalyticsOptions};
+use drymachina_kernel::{import_gcode_with_map, GcodeImportParams};
+use drymachina_trace::{forensics_analyze, trace_summary_with_analytics, TraceAnalyticsOptions};
 use std::path::PathBuf;
 
 fn layer_counts(source: &str) -> (usize, usize) {

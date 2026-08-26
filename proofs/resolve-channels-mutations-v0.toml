@@ -10,14 +10,24 @@
 schema_version = 1
 model = "resolve-channels-source-mutations-v0"
 source = "crates/kernel/src/resolve.rs"
-# Re-pinned 2026-08-25 for the `kmet-kernel` extraction (KMET crate-split plan, Task 4). The file
+# Re-pinned 2026-08-25 for the `drymachina-kernel` extraction (DRYMACHINA crate-split plan, Task 4). The file
 # moved from `crates/core/src/resolve.rs` (hence `source`) and one line inside it changed: the
-# arc-radius epsilon is now imported straight from its owner, `use kmet_contracts::ARC_RADIUS_TOLERANCE_MM;`
+# arc-radius epsilon is now imported straight from its owner, `use drymachina_contracts::ARC_RADIUS_TOLERANCE_MM;`
 # instead of `use crate::verify::ARC_RADIUS_TOLERANCE_MM;`, because `crate::verify` does not exist
 # from inside the kernel. Same constant, same value, same owner -- `verify` only ever re-exported it.
-# The three lines of comment above that import were reworded to name `kmet-contracts` rather than
+# The three lines of comment above that import were reworded to name `drymachina-contracts` rather than
 # `verify` as the owner. No `old`/`new` mutation text below is affected; every one still matches.
-source_sha256 = "93213068c4d59f02aff3022ae73894e4f9af3ef2d2eec77600eab37c965d3501"
+#
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*` (the previous prefix is
+# reserved for a different project, so it is not spelled anywhere in the tree any more, this note
+# included). The file did not move and two lines inside it changed: the arc-radius epsilon is now
+# imported as `use drymachina_contracts::ARC_RADIUS_TOLERANCE_MM;`, and the comment above it names
+# `drymachina-contracts` as the owner. Same constant, same value, same owner crate under a new
+# package name. Checked rather than asserted: substituting the former names back into the file at
+# this hash reproduces 93213068c4d59f02aff3022ae73894e4f9af3ef2d2eec77600eab37c965d3501 -- the
+# previous hash -- byte for byte. No `old`/`new` mutation text below is affected; every one still
+# matches.
+source_sha256 = "f498ecf2b6b984ee1d10bb267778e51ea734c807d64ed533e7697a58072ecaef"
 test = "crates/kernel/tests/resolve_channels_refinement.rs"
 
 [[mutation]]

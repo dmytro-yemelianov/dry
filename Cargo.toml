@@ -11,7 +11,7 @@ members = [
     "crates/llm",
     "crates/moonraker",
 ]
-# The engine crates, in layer order, plus the CLI. Before the split all three KMET layers *were*
+# The engine crates, in layer order, plus the CLI. Before the split all three DRYMACHINA layers *were*
 # `crates/core`, so a bare `cargo test` covered them; naming them here restores that rather than
 # setting new policy. Leaving one out is not neutral — its tests simply stop running by default.
 default-members = [

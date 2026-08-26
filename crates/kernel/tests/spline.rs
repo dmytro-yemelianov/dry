@@ -6,7 +6,7 @@
 // in-tree call sites use, and refusing the whole program is part of what is under test here.
 #![allow(deprecated)]
 
-use kmet_kernel::{emit, resolve, Design, EmitParams, ResolveParams, SegmentKind};
+use drymachina_kernel::{emit, resolve, Design, EmitParams, ResolveParams, SegmentKind};
 
 fn design(ops: &str) -> Design {
     serde_json::from_str(&format!("{{\"ops\":{ops}}}")).unwrap()

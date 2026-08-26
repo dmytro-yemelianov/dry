@@ -256,7 +256,7 @@ def copy_minimal_workspace(destination: Path, manifest: Manifest) -> None:
 
 
 def test_command(workspace: Path, test: str) -> list[str]:
-    # `kmet-kernel`, not `dry-core`: `features.rs` and its `feature_refinement` integration test both
+    # `drymachina-kernel`, not `dry-core`: `features.rs` and its `feature_refinement` integration test both
     # moved into the kernel crate at crate-split Task 4, and so did the `--lib` numeric tests, which
     # are `features.rs`'s own `#[cfg(test)] mod native_numeric_tests`.
     command = [
@@ -265,7 +265,7 @@ def test_command(workspace: Path, test: str) -> list[str]:
         "--manifest-path",
         str(workspace / "Cargo.toml"),
         "-p",
-        "kmet-kernel",
+        "drymachina-kernel",
         "--locked",
     ]
     if test == FEATURE_TEST:

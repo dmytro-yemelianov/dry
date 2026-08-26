@@ -1,4 +1,4 @@
-//! # kmet-kernel — KMET layer 1: the IR and the passes that produce it
+//! # drymachina-kernel — DRYMACHINA layer 1: the IR and the passes that produce it
 //!
 //! The dependency-light kernel of the engine (`docs/01-architecture.md`): the unit-typed L2 motion
 //! dialect ([`ir`], [`units`]), the L1 authoring surface that lowers into it ([`resolve`],
@@ -6,10 +6,10 @@
 //! the encodings ([`codec`], [`gcode`]), the machine description it is all judged against
 //! ([`profile`]), and the lowering to machine programs ([`emit`], [`engine`]).
 //!
-//! It carries **no verifier and no analysis layer**. Layer 2 (`kmet-verify`) and layer 3
-//! (`kmet-trace`) depend on this crate; nothing here depends on them. The shared vocabulary they
+//! It carries **no verifier and no analysis layer**. Layer 2 (`drymachina-verify`) and layer 3
+//! (`drymachina-trace`) depend on this crate; nothing here depends on them. The shared vocabulary they
 //! all read — contracts, rule ids, severities, kinematic models — lives one layer below, in
-//! `kmet-contracts`. This crate compiles to `wasm32-unknown-unknown` unmodified.
+//! `drymachina-contracts`. This crate compiles to `wasm32-unknown-unknown` unmodified.
 //!
 //! Extracted verbatim from `dry-core` (plan Task 4); `dry_core` re-exports every name below, so the
 //! bindings and the CLI reach the same surface under the same paths they always have.
