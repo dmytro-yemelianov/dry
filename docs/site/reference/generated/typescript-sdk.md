@@ -34,6 +34,7 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `FeatureProgram` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Expand through the Rust engine and return the canonical L1 `Design`. |
 | `FeatureProgramDocument` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
 | `Finding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Single verification finding, optionally tied to a resolved segment index. |
+| `GcodeOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Emission settings for {@link Design.gcode}. |
 | `group` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Preserve source order while composing feature nodes. |
 | `importStepNc` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `inch` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in inches -&gt; converted to mm. |
@@ -101,4 +102,5 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `TpmsSurface` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Supported triply periodic minimal surface names for TPMS generation. |
 | `tpmsSurfaceSpec` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Return display metadata for a TPMS surface. |
 | `TpmsSurfaceSpec` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Display metadata for a TPMS surface. |
+| `VerifyOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | The machine-safety contracts {@link Design.verify} checks against. |
 | `WireframeBox` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |

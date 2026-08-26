@@ -349,6 +349,28 @@ Single verification finding, optionally tied to a resolved segment index.
 | `message` | `string` | Yes | Human-readable finding details. |
 
 
+## `GcodeOptions`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface GcodeOptions
+```
+
+Emission settings for {@link Design.gcode}.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `printer` | `string` | No | Named printer profile supplying resolve parameters. |
+| `relativeE` | `boolean` | No | Emit relative extrusion (`M83`). |
+| `travelG1E0` | `boolean` | No | Emit travels as `G1 ... |
+| `fiveAxis` | `boolean` | No | Derive rotary words from the toolframe orientation. |
+| `rotaryAxes` | `string` | No | Rotary axis pair to emit when `fiveAxis` is set. |
+
+
 ## `group`
 
 Source: `sdk/ts/src/features.ts`
@@ -1350,6 +1372,40 @@ Optional provenance and invariant metadata attached to a resolved toolpath.
 | `units` | `string` | No | Coordinate and unit convention, normally millimeters. |
 | `source_hash` | `string` | No | Stable source hash when the toolpath was derived from an external artifact. |
 | `invariants` | `string[]` | No | Human-readable invariants the toolpath is expected to satisfy. |
+
+
+## `VerifyOptions`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface VerifyOptions
+```
+
+The machine-safety contracts {@link Design.verify} checks against. Every field is optional; an
+omitted one leaves its rule disabled.
+
+This exists because the positional form does not scale: reaching `firstLayerSpeedRange` means
+writing nine placeholder arguments first, and miscounting them shifts every later contract
+silently. The engine binding shipped exactly that bug — a thirteen-argument call made with four.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `printer` | `string` | No | Named printer profile supplying resolve parameters. |
+| `maxFlow` | `number` | No | Max volumetric flow, mm³/s. |
+| `minTemp` | `number` | No | Minimum nozzle temperature required to extrude, °C. |
+| `bounds` | `string \| number[][]` | No | Build volume as `[[x0,x1],[y0,y1],[z0,z1]]` or an `'x0,x1,y0,y1,z0,z1'` CSV string. |
+| `monotonicZ` | `boolean` | No | Require Z to be non-decreasing, as in vase mode. |
+| `speedRange` | `string \| [number, number]` | No | Allowed extruding feedrate range `[min, max]` in mm/min, or a `'min,max'` CSV string. |
+| `maxRetractionDistance` | `number` | No | Maximum retraction distance, mm. |
+| `maxRetractionSpeed` | `number` | No | Maximum retraction speed, mm/min. |
+| `maxTravelWithoutRetract` | `number` | No | Maximum travel distance permitted without a retraction, mm. |
+| `firstLayerHeightRange` | `string \| [number, number]` | No | First-layer height limits `[min, max]` in mm, or a `'min,max'` CSV string. |
+| `firstLayerSpeedRange` | `string \| [number, number]` | No | First-layer speed limits `[min, max]` in mm/min, or a `'min,max'` CSV string. |
+| `kinematics` | `MachineKinematics` | No | Machine motion limits. |
 
 
 ## `WireframeBox`

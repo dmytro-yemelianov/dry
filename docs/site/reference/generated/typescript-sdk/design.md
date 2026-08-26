@@ -45,13 +45,17 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `retract` | `retract(distance: number \| null = null, speed: number \| null = null): this` |  | Retract filament. |
 | `unretract` | `unretract(distance: number \| null = null, speed: number \| null = null): this` |  | Prime filament back after a retraction. |
 | `deposit` | `deposit(volume: number, speed: number): this` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
-| `gcode` | `gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). |
+| `gcode` | `gcode(options?: GcodeOptions): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). |
+| `gcode` | `gcode(printer?: string, relativeE?: boolean, travelG1E0?: boolean, fiveAxis?: boolean, rotaryAxes?: string): string[]` | [Author a path](/guide/author) | @deprecated Pass a {@link GcodeOptions} object instead. |
+| `gcode` | `gcode(first?: GcodeOptions \| string, ...rest: readonly unknown[]): string[]` | [Author a path](/guide/author) | Declared in the public API. |
 | `simulate` | `simulate(printer = 'generic'): Metrics` | [Simulate](/guide/simulate) | Resolve + simulate; returns metrics (time, distances, material, peak flow). |
 | `ir` | `ir(printer = 'generic'): Toolpath` | [Lower to the Dry IR](/guide/lower) | Resolve to the L2 Dry IR ({ version, segments }). |
 | `optimizedIr` | `optimizedIr(printer = 'generic'): Toolpath` | [Optimize](/guide/optimize) | Resolve through the standard L2 optimization pipeline. |
 | `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. |
 | `binary` | `binary(printer = 'generic'): Uint8Array` |  | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
-| `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
+| `verify` | `verify(options?: VerifyOptions): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
+| `verify` | `verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string \| number[][], monotonicZ?: boolean, speedRange?: string \| [number, number], maxRetractionDistance?: number, maxRetractionSpeed?: number, maxTravelWithoutRetract?: number, firstLayerHeightRange?: string \| [number, number], firstLayerSpeedRange?: string \| [number, number], kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | @deprecated Pass a {@link VerifyOptions} object instead. |
+| `verify` | `verify(first?: VerifyOptions \| string, ...rest: readonly unknown[]): Report` | [Verify](/guide/verify) | Declared in the public API. |
 | `checkCompatibility` | `checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
 
 ### `fromOps`
@@ -385,24 +389,63 @@ Stationary extrusion of a set volume (mm³) at feedrate (mm/min).
 <LiveExample src="author" :outputs='["gcode"]' />
 
 ```ts
-gcode(printer = 'generic', relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
+gcode(options?: GcodeOptions): string[]
 ```
 
 #### Parameters
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `printer` | `any` | `'generic'` | No |
-| `relativeE` | `any` | `true` | No |
-| `travelG1E0` | `any` | `false` | No |
-| `fiveAxis` | `any` | `false` | No |
-| `rotaryAxes` | `any` | `'ab'` | No |
+| `options` | `GcodeOptions` |  | No |
 
 Returns: `string[]`
 
 Resolve + emit motion g-code (an array of lines). `rotaryAxes` is the rotary-axes selector (the
 ab/ac/bc STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit —
 distinct from the machine motion-limits `kinematics` object used by `balancedIr` / `verify`.
+
+### `gcode`
+
+<LiveExample src="author" :outputs='["gcode"]' />
+
+```ts
+gcode(printer?: string, relativeE?: boolean, travelG1E0?: boolean, fiveAxis?: boolean, rotaryAxes?: string): string[]
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `string` |  | No |
+| `relativeE` | `boolean` |  | No |
+| `travelG1E0` | `boolean` |  | No |
+| `fiveAxis` | `boolean` |  | No |
+| `rotaryAxes` | `string` |  | No |
+
+Returns: `string[]`
+
+@deprecated Pass a {@link GcodeOptions} object instead. Three of these arguments are
+consecutive booleans, so transposing two of them type-checks cleanly and changes the emitted
+program.
+
+### `gcode`
+
+<LiveExample src="author" :outputs='["gcode"]' />
+
+```ts
+gcode(first?: GcodeOptions | string, ...rest: readonly unknown[]): string[]
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `first` | `GcodeOptions \| string` |  | No |
+| `rest` | `readonly unknown[]` |  | Yes |
+
+Returns: `string[]`
+
+Declared in the public API.
 
 ### `simulate`
 
@@ -501,25 +544,14 @@ Resolve + encode to the binary DRY1 format; returns the raw bytes.
 <LiveExample src="verify" :outputs='["verify"]' />
 
 ```ts
-verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string | number[][] = '', monotonicZ = false, speedRange: string | [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string | [number, number] = '', firstLayerSpeedRange: string | [number, number] = '', kinematics?: MachineKinematics): Report
+verify(options?: VerifyOptions): Report
 ```
 
 #### Parameters
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `printer` | `any` | `'generic'` | No |
-| `maxFlow` | `any` | `0` | No |
-| `minTemp` | `any` | `0` | No |
-| `bounds` | `string \| number[][]` | `''` | No |
-| `monotonicZ` | `any` | `false` | No |
-| `speedRange` | `string \| [number, number]` | `''` | No |
-| `maxRetractionDistance` | `any` | `0` | No |
-| `maxRetractionSpeed` | `any` | `0` | No |
-| `maxTravelWithoutRetract` | `any` | `0` | No |
-| `firstLayerHeightRange` | `string \| [number, number]` | `''` | No |
-| `firstLayerSpeedRange` | `string \| [number, number]` | `''` | No |
-| `kinematics` | `MachineKinematics` |  | No |
+| `options` | `VerifyOptions` |  | No |
 
 Returns: `Report`
 
@@ -537,6 +569,56 @@ structured limits cross to the engine as native typed contracts (no CSV round-tr
  - `kinematics` — machine motion limits (`max_acceleration_mm_s2` and/or
    `max_junction_velocity_mm_s`). When supplied, enables the `peak-acceleration` and
    `junction-velocity` verify rules; omitting it disables them.
+
+### `verify`
+
+<LiveExample src="verify" :outputs='["verify"]' />
+
+```ts
+verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string | number[][], monotonicZ?: boolean, speedRange?: string | [number, number], maxRetractionDistance?: number, maxRetractionSpeed?: number, maxTravelWithoutRetract?: number, firstLayerHeightRange?: string | [number, number], firstLayerSpeedRange?: string | [number, number], kinematics?: MachineKinematics): Report
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `printer` | `string` |  | No |
+| `maxFlow` | `number` |  | No |
+| `minTemp` | `number` |  | No |
+| `bounds` | `string \| number[][]` |  | No |
+| `monotonicZ` | `boolean` |  | No |
+| `speedRange` | `string \| [number, number]` |  | No |
+| `maxRetractionDistance` | `number` |  | No |
+| `maxRetractionSpeed` | `number` |  | No |
+| `maxTravelWithoutRetract` | `number` |  | No |
+| `firstLayerHeightRange` | `string \| [number, number]` |  | No |
+| `firstLayerSpeedRange` | `string \| [number, number]` |  | No |
+| `kinematics` | `MachineKinematics` |  | No |
+
+Returns: `Report`
+
+@deprecated Pass a {@link VerifyOptions} object instead. Reaching the tenth contract
+positionally means writing out nine placeholders first, and a miscount silently shifts every
+argument after it — this surface has already shipped one such bug.
+
+### `verify`
+
+<LiveExample src="verify" :outputs='["verify"]' />
+
+```ts
+verify(first?: VerifyOptions | string, ...rest: readonly unknown[]): Report
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `first` | `VerifyOptions \| string` |  | No |
+| `rest` | `readonly unknown[]` |  | Yes |
+
+Returns: `Report`
+
+Declared in the public API.
 
 ### `checkCompatibility`
 

@@ -184,16 +184,16 @@ test('default retraction builders emit real E moves', () => {
 // verify() safety contracts.
 test('verify() finds contract violations', () => {
   const d = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(10, 0, 0.2);
-  const report = d.verify('generic', 15.0, 0, '0,100,0,100,0,50');
+  const report = d.verify({ maxFlow: 15.0, bounds: '0,100,0,100,0,50' });
   assert.deepEqual(report.findings, []);
 
   const dBadBounds = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.2).point(150, 0, 0.2);
-  const reportBounds = dBadBounds.verify('generic', 0, 0, '0,100,0,100,0,50');
+  const reportBounds = dBadBounds.verify({ bounds: '0,100,0,100,0,50' });
   assert.ok(reportBounds.findings.length > 0);
   assert.equal(reportBounds.findings[0].rule, 'bounds');
 
   const dBadZ = new Design().geometry(0.6, 0.2).extruder(true).point(0, 0, 0.5).point(10, 0, 0.2);
-  const reportZ = dBadZ.verify('generic', 0, 0, '', true);
+  const reportZ = dBadZ.verify({ monotonicZ: true });
   assert.ok(reportZ.findings.length > 0);
   assert.equal(reportZ.findings[0].rule, 'monotonic-z');
 });

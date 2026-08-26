@@ -80,6 +80,150 @@ function rangeToFlat(name: string, range: string | [number, number]): Float64Arr
   return Float64Array.from(finiteAll(name, range));
 }
 
+/**
+ * The machine-safety contracts {@link Design.verify} checks against. Every field is optional; an
+ * omitted one leaves its rule disabled.
+ *
+ * This exists because the positional form does not scale: reaching `firstLayerSpeedRange` means
+ * writing nine placeholder arguments first, and miscounting them shifts every later contract
+ * silently. The engine binding shipped exactly that bug — a thirteen-argument call made with four.
+ */
+export interface VerifyOptions {
+  /** Named printer profile supplying resolve parameters. Defaults to `'generic'`. */
+  printer?: string;
+  /** Max volumetric flow, mm³/s. */
+  maxFlow?: number;
+  /** Minimum nozzle temperature required to extrude, °C. */
+  minTemp?: number;
+  /** Build volume as `[[x0,x1],[y0,y1],[z0,z1]]` or an `'x0,x1,y0,y1,z0,z1'` CSV string. */
+  bounds?: string | number[][];
+  /** Require Z to be non-decreasing, as in vase mode. */
+  monotonicZ?: boolean;
+  /** Allowed extruding feedrate range `[min, max]` in mm/min, or a `'min,max'` CSV string. */
+  speedRange?: string | [number, number];
+  /** Maximum retraction distance, mm. */
+  maxRetractionDistance?: number;
+  /** Maximum retraction speed, mm/min. */
+  maxRetractionSpeed?: number;
+  /** Maximum travel distance permitted without a retraction, mm. */
+  maxTravelWithoutRetract?: number;
+  /** First-layer height limits `[min, max]` in mm, or a `'min,max'` CSV string. */
+  firstLayerHeightRange?: string | [number, number];
+  /** First-layer speed limits `[min, max]` in mm/min, or a `'min,max'` CSV string. */
+  firstLayerSpeedRange?: string | [number, number];
+  /** Machine motion limits. Supplying it enables the peak-acceleration and junction-velocity rules. */
+  kinematics?: MachineKinematics;
+}
+
+const VERIFY_OPTION_KEYS: readonly (keyof VerifyOptions)[] = [
+  'printer',
+  'maxFlow',
+  'minTemp',
+  'bounds',
+  'monotonicZ',
+  'speedRange',
+  'maxRetractionDistance',
+  'maxRetractionSpeed',
+  'maxTravelWithoutRetract',
+  'firstLayerHeightRange',
+  'firstLayerSpeedRange',
+  'kinematics',
+];
+
+/** The options form is anything that is not the legacy leading `printer` string. */
+function isVerifyOptions(value: unknown): value is VerifyOptions {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Emission settings for {@link Design.gcode}. */
+export interface GcodeOptions {
+  /** Named printer profile supplying resolve parameters. Defaults to `'generic'`. */
+  printer?: string;
+  /** Emit relative extrusion (`M83`). Defaults to `true`. */
+  relativeE?: boolean;
+  /** Emit travels as `G1 ... E0` rather than `G0`. Defaults to `false`. */
+  travelG1E0?: boolean;
+  /** Derive rotary words from the toolframe orientation. Defaults to `false`. */
+  fiveAxis?: boolean;
+  /** Rotary axis pair to emit when `fiveAxis` is set. Defaults to `'ab'`. */
+  rotaryAxes?: string;
+}
+
+const GCODE_OPTION_KEYS: readonly (keyof GcodeOptions)[] = [
+  'printer',
+  'relativeE',
+  'travelG1E0',
+  'fiveAxis',
+  'rotaryAxes',
+];
+
+function isGcodeOptions(value: unknown): value is GcodeOptions {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reject a key this API does not have.
+ *
+ * An options object is only safer than a positional list if a misspelling is an error. `{ maxflow:
+ * 5 }` would otherwise leave the flow rule disabled and report nothing, which is the same silent
+ * weakening the positional form allows — just spelled differently.
+ */
+function checkedOptions<T extends object>(
+  api: string,
+  options: T,
+  known: readonly (keyof T)[]
+): T {
+  const unknown = Object.keys(options).filter(
+    (key) => !(known as readonly string[]).includes(key)
+  );
+  if (unknown.length > 0) {
+    throw new Error(
+      `unknown ${api} option${unknown.length > 1 ? 's' : ''} ${unknown
+        .map((key) => `'${key}'`)
+        .join(', ')}; known: ${(known as readonly string[]).join(', ')}`
+    );
+  }
+  return options;
+}
+
+function checkedVerifyOptions(options: VerifyOptions): VerifyOptions {
+  return checkedOptions('verify', options, VERIFY_OPTION_KEYS);
+}
+
+/** Map the deprecated positional argument list onto the same options shape. */
+function positionalVerifyOptions(
+  printer: string | undefined,
+  rest: readonly unknown[]
+): VerifyOptions {
+  const [
+    maxFlow,
+    minTemp,
+    bounds,
+    monotonicZ,
+    speedRange,
+    maxRetractionDistance,
+    maxRetractionSpeed,
+    maxTravelWithoutRetract,
+    firstLayerHeightRange,
+    firstLayerSpeedRange,
+    kinematics,
+  ] = rest;
+  return {
+    printer,
+    maxFlow: maxFlow as number | undefined,
+    minTemp: minTemp as number | undefined,
+    bounds: bounds as VerifyOptions['bounds'],
+    monotonicZ: monotonicZ as boolean | undefined,
+    speedRange: speedRange as VerifyOptions['speedRange'],
+    maxRetractionDistance: maxRetractionDistance as number | undefined,
+    maxRetractionSpeed: maxRetractionSpeed as number | undefined,
+    maxTravelWithoutRetract: maxTravelWithoutRetract as number | undefined,
+    firstLayerHeightRange: firstLayerHeightRange as VerifyOptions['firstLayerHeightRange'],
+    firstLayerSpeedRange: firstLayerSpeedRange as VerifyOptions['firstLayerSpeedRange'],
+    kinematics: kinematics as MachineKinematics | undefined,
+  };
+}
+
 /** Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. */
 export class Design {
   readonly ops: Op[] = [];
@@ -242,14 +386,38 @@ export class Design {
    * ab/ac/bc STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit —
    * distinct from the machine motion-limits `kinematics` object used by `balancedIr` / `verify`.
    */
+  gcode(options?: GcodeOptions): string[];
+  /**
+   * @deprecated Pass a {@link GcodeOptions} object instead. Three of these arguments are
+   * consecutive booleans, so transposing two of them type-checks cleanly and changes the emitted
+   * program.
+   */
   gcode(
-    printer = 'generic',
-    relativeE = true,
-    travelG1E0 = false,
-    fiveAxis = false,
-    rotaryAxes = 'ab'
-  ): string[] {
-    return resolveGcode(this.ops, params(printer), relativeE, travelG1E0, fiveAxis, rotaryAxes);
+    printer?: string,
+    relativeE?: boolean,
+    travelG1E0?: boolean,
+    fiveAxis?: boolean,
+    rotaryAxes?: string
+  ): string[];
+  gcode(first?: GcodeOptions | string, ...rest: readonly unknown[]): string[] {
+    const o = isGcodeOptions(first)
+      ? checkedOptions('gcode', first, GCODE_OPTION_KEYS)
+      : {
+          printer: first,
+          relativeE: rest[0] as boolean | undefined,
+          travelG1E0: rest[1] as boolean | undefined,
+          fiveAxis: rest[2] as boolean | undefined,
+          rotaryAxes: rest[3] as string | undefined,
+        };
+
+    return resolveGcode(
+      this.ops,
+      params(o.printer ?? 'generic'),
+      o.relativeE ?? true,
+      o.travelG1E0 ?? false,
+      o.fiveAxis ?? false,
+      o.rotaryAxes ?? 'ab'
+    );
   }
 
   /** Resolve + simulate; returns metrics (time, distances, material, peak flow). */
@@ -298,34 +466,45 @@ export class Design {
    *    `max_junction_velocity_mm_s`). When supplied, enables the `peak-acceleration` and
    *    `junction-velocity` verify rules; omitting it disables them.
    */
+  verify(options?: VerifyOptions): Report;
+  /**
+   * @deprecated Pass a {@link VerifyOptions} object instead. Reaching the tenth contract
+   * positionally means writing out nine placeholders first, and a miscount silently shifts every
+   * argument after it — this surface has already shipped one such bug.
+   */
   verify(
-    printer = 'generic',
-    maxFlow = 0,
-    minTemp = 0,
-    bounds: string | number[][] = '',
-    monotonicZ = false,
-    speedRange: string | [number, number] = '',
-    maxRetractionDistance = 0,
-    maxRetractionSpeed = 0,
-    maxTravelWithoutRetract = 0,
-    firstLayerHeightRange: string | [number, number] = '',
-    firstLayerSpeedRange: string | [number, number] = '',
+    printer?: string,
+    maxFlow?: number,
+    minTemp?: number,
+    bounds?: string | number[][],
+    monotonicZ?: boolean,
+    speedRange?: string | [number, number],
+    maxRetractionDistance?: number,
+    maxRetractionSpeed?: number,
+    maxTravelWithoutRetract?: number,
+    firstLayerHeightRange?: string | [number, number],
+    firstLayerSpeedRange?: string | [number, number],
     kinematics?: MachineKinematics
-  ): Report {
+  ): Report;
+  verify(first?: VerifyOptions | string, ...rest: readonly unknown[]): Report {
+    const o = isVerifyOptions(first)
+      ? checkedVerifyOptions(first)
+      : positionalVerifyOptions(first, rest);
+
     return resolveVerify(
       this.ops,
-      params(printer),
-      maxFlow,
-      minTemp,
-      boundsToFlat(bounds),
-      monotonicZ,
-      rangeToFlat('speedRange', speedRange),
-      maxRetractionDistance,
-      maxRetractionSpeed,
-      maxTravelWithoutRetract,
-      rangeToFlat('firstLayerHeightRange', firstLayerHeightRange),
-      rangeToFlat('firstLayerSpeedRange', firstLayerSpeedRange),
-      kinematics
+      params(o.printer ?? 'generic'),
+      o.maxFlow ?? 0,
+      o.minTemp ?? 0,
+      boundsToFlat(o.bounds ?? ''),
+      o.monotonicZ ?? false,
+      rangeToFlat('speedRange', o.speedRange ?? ''),
+      o.maxRetractionDistance ?? 0,
+      o.maxRetractionSpeed ?? 0,
+      o.maxTravelWithoutRetract ?? 0,
+      rangeToFlat('firstLayerHeightRange', o.firstLayerHeightRange ?? ''),
+      rangeToFlat('firstLayerSpeedRange', o.firstLayerSpeedRange ?? ''),
+      o.kinematics
     );
   }
 

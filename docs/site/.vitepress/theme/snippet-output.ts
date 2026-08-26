@@ -54,7 +54,7 @@ export function resolveSnippetOutputs(value: unknown, requested: readonly string
     : isReport(value)
       ? value
       : typeof result?.verify === 'function'
-        ? result.verify('generic', 0, 0, [[0, 250], [0, 210], [0, 220]])
+        ? result.verify({ bounds: [[0, 250], [0, 210], [0, 220]] })
         : null;
 
   return { ir, gcode, metrics, verify };

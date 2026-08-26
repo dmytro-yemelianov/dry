@@ -79,11 +79,7 @@ test('Design.verify(kinematics) surfaces a peak-acceleration finding on a fast a
     .point(5, 0, 0.2)
     .arc({ cx: 0, cy: 0, x: 0, y: 5, z: 0.2, clockwise: false });
 
-  const report = arc.verify(
-    'generic',
-    0, 0, '', false, '', 0, 0, 0, '', '',
-    { max_acceleration_mm_s2: 50 }
-  );
+  const report = arc.verify({ kinematics: { max_acceleration_mm_s2: 50 } });
   assert.ok(
     report.findings.some((f) => f.rule === 'peak-acceleration'),
     'expected a peak-acceleration finding under tight kinematics'

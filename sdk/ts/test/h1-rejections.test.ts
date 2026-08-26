@@ -42,7 +42,7 @@ test('a zero-magnitude toolframe orientation is refused at ingress', () => {
   // H1.2: there is no tool direction to recover from a zero vector, so it cannot be normalised and
   // must not be silently treated as +Z.
   assert.throws(
-    () => orientedDesign(0, 0, 0).gcode('generic', true, false, true, 'ab'),
+    () => orientedDesign(0, 0, 0).gcode({ fiveAxis: true, rotaryAxes: 'ab' }),
     /non-zero magnitude/,
     'a zero orientation must be refused, not defaulted',
   );
@@ -58,8 +58,8 @@ test('a non-unit orientation is normalised, so all three rotary models agree', (
   // vector is unambiguous, so there is nothing to refuse. What must hold is that scaling the vector
   // changes nothing about the emitted program.
   for (const axes of ['ab', 'ac', 'bc'] as const) {
-    const scaled = orientedDesign(0, 0, 0.5).gcode('generic', true, false, true, axes);
-    const unit = orientedDesign(0, 0, 1).gcode('generic', true, false, true, axes);
+    const scaled = orientedDesign(0, 0, 0.5).gcode({ fiveAxis: true, rotaryAxes: axes });
+    const unit = orientedDesign(0, 0, 1).gcode({ fiveAxis: true, rotaryAxes: axes });
     assert.deepEqual(scaled, unit, `rotary model ${axes} is sensitive to orientation magnitude`);
     assert.ok(scaled.length > 0, `rotary model ${axes} emitted nothing`);
   }
@@ -106,7 +106,7 @@ test('refusals arrive as thrown errors with messages, never as blank success', (
   // rendered it that way.
   const refusals: Array<[string, () => unknown]> = [
     ['tpms vacuity', () => tpms({ isoLevel: 2.0, cellsX: 2, cellsY: 2, cellsZ: 2 })],
-    ['zero orientation', () => orientedDesign(0, 0, 0).gcode('generic', true, false, true, 'ab')],
+    ['zero orientation', () => orientedDesign(0, 0, 0).gcode({ fiveAxis: true, rotaryAxes: 'ab' })],
   ];
 
   for (const [name, call] of refusals) {
@@ -140,13 +140,13 @@ const contractDesign = () =>
 test('bounds CSV refuses what the Rust parser refuses', () => {
   for (const bad of ['a,b,c,d,e,f', '0,100,0,,0,100', '0,1e400,0,100,0,100', '0,100,0,100,0,0x10']) {
     assert.throws(
-      () => contractDesign().verify('generic', 0, 0, bad),
+      () => contractDesign().verify({ bounds: bad }),
       /not a number|is empty|must all be finite/,
       `bounds '${bad}' must be refused`,
     );
   }
 
-  const report = contractDesign().verify('generic', 0, 0, '0,100,0,100,0,100');
+  const report = contractDesign().verify({ bounds: '0,100,0,100,0,100' });
   assert.ok(
     (report.rules_evaluated ?? []).some((r: string) => r.includes('bounds')),
     'a finite build volume must be in force',
@@ -154,21 +154,21 @@ test('bounds CSV refuses what the Rust parser refuses', () => {
 });
 
 test('ranges refuse non-finite components, in CSV and structured form', () => {
-  assert.throws(() => contractDesign().verify('generic', 0, 0, '', false, '60,'), /is empty/);
-  assert.throws(() => contractDesign().verify('generic', 0, 0, '', false, '60,abc'), /not a number/);
+  assert.throws(() => contractDesign().verify({ speedRange: '60,' }), /is empty/);
+  assert.throws(() => contractDesign().verify({ speedRange: '60,abc' }), /not a number/);
   assert.throws(
-    () => contractDesign().verify('generic', 0, 0, '', false, '60,1e400'),
+    () => contractDesign().verify({ speedRange: '60,1e400' }),
     /must all be finite/,
   );
   assert.throws(
-    () => contractDesign().verify('generic', 0, 0, '', false, [60, Number.NaN]),
+    () => contractDesign().verify({ speedRange: [60, Number.NaN] }),
     /must all be finite/,
   );
   assert.throws(
-    () => contractDesign().verify('generic', 0, 0, [[0, 100], [0, Number.POSITIVE_INFINITY], [0, 100]]),
+    () => contractDesign().verify({ bounds: [[0, 100], [0, Number.POSITIVE_INFINITY], [0, 100]] }),
     /must all be finite/,
   );
 
-  const report = contractDesign().verify('generic', 0, 0, '', false, [60, 9000]);
+  const report = contractDesign().verify({ speedRange: [60, 9000] });
   assert.ok((report.rules_evaluated ?? []).some((r: string) => r.includes('speed')));
 });

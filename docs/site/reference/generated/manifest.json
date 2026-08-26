@@ -3,11 +3,11 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "1851a40acea7a69edbda4732433be8762361ef9a09e1470e78fee8db7348b520"
+      "sha256": "9f1b619dbed9c52b18f9c60d404a40aa95722ff996e5564d9aebd35aba7036ef"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "ba33a85563bdfaeb3ebe3c3729f9a82a4d4243141dc3b735b8e1c6f1e864979e"
+      "sha256": "7c03033507f7ad1e2d0ac79a1d356d5c657e1702c4a8ed7fe6c9f0c7eddf26d4"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
