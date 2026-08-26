@@ -43,6 +43,56 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   file becomes an `errored` result rather than aborting the run, license-stamped once on the envelope.
   Exit `0` all clean, `1` any file gates, `2` any file errored (outranks `1`) or on a usage error.
 
+### Changed
+- **`crates/core` is split into four crates, and `dry-core` becomes a pure re-export facade.**
+  The engine now layers as `drymachina-contracts` → `drymachina-kernel` → `drymachina-verify` →
+  `drymachina-trace`, with `dry-core` above all three holding no implementation of its own — only
+  `pub use` re-exports and the cross-layer integration tests. `drymachina-contracts` carries the
+  vocabulary both the kernel and the verifier name (`RuleId`, `Severity`, the `Contracts*` structs,
+  `Kinematics`, the tolerance constants); it exists because `RotaryContracts.model` is typed with
+  `emit::Kinematics` while the kernel reads `RuleId` and the arc-radius epsilon from `verify`, so without
+  a crate below both they are mutually dependent and cannot be separated at all.
+
+  **Nothing about the engine's behaviour changed.** Every conformance vector, report golden, CNC and KRL
+  golden is byte-identical, and none was regenerated at any point in the split. `dry-core`'s public
+  surface is unchanged: every name previously reachable as `dry_core::X` still resolves, and all six
+  consumers — `dry-cli`, `dry-llm` and the four bindings `dry-wasm`, `dry-cloud`, `dry-py`,
+  `dry-verify-runner` — plus `sdk/ts` compile with **zero edits**. The one non-additive change to a module
+  path is `dry_core::optimize::apply_gated` / `::apply_safe_gated`, which now live in the verifier; the
+  flat `dry_core::apply_gated` is unaffected and nothing in the tree used the module path.
+
+  Two production dependency edges had to be broken first. `optimize::apply_gated` called
+  `verify::verify` in its body — the only production call across the future kernel/verify boundary — so
+  the kernel now owns the *mechanism* as `apply_gated_with(tp, mode, kinematics, error_rules)`, which runs
+  the pipeline and accepts the result only when the caller's policy reports no *new* error rule, while the
+  policy that makes it the verification gate moved to `drymachina-verify`. Six kernel symbols widened for
+  the crate boundary (`RotaryState`, `segment_motion_time`, `get_tangents`, the `KinematicsExt` trait,
+  `Joints`, `Rotary`); each is still reached from outside its crate, and `crates/verify/tests/crate_boundary.rs`
+  fails to compile if any of them narrows again.
+
+  `LicenseStamp` moved from `report.rs` into `drymachina-verify`, because `verify::Report.license` is typed
+  with it and `report.rs` is layer 3; its derives, field order and serde attributes are unchanged, so the
+  report wire shape is identical. `report.rs` itself sits in layer 3 rather than layer 2, because it
+  imports `trace::TraceSummary`.
+
+- **`proofs/` numeric-boundary coverage is extended, not merely relocated.** Five inventories pin engine
+  source by sha256, and the split moved most of what they pin. Beyond re-pinning, the vocabulary crate is
+  now covered by two provenance-split slices — `drymachina-verify` owns the contract structs, the CSV
+  parsers, `Severity` and all of `impl RuleId`; the emit inventory owns `Kinematics`,
+  `REFERENCE_FIVE_AXIS_MACHINE` and both hand-written serde impls — at 97.3% of the file, with the
+  uncovered remainder being only the crate doc comment, `#![forbid(unsafe_code)]` and one `use`. Whole-file
+  pins were deliberately not used there: they would fire on every field rename and train reviewers to wave
+  numeric reviews through. `tools/validate_numeric_boundaries.py` resolves tolerance constants per owning
+  crate rather than assuming one file holds them all, and gained 14 tests covering that resolution, the
+  duplicate sweep across every crate root, the slice path, and a coverage net that fails if any executable
+  line falls outside the pinned slices.
+
+- **Benchmarks are split three ways** to match the layering: `engine_codec` (codecs, `simulate`, `emit`)
+  to `drymachina-kernel`, `verify_pass` to `drymachina-verify`, `trace_pass` to `drymachina-trace`. All ten
+  benchmarks and the shared fixture are preserved unchanged; the previous single `engine_codec` target
+  reached upward into layers 2 and 3, which Cargo accepts but which would leave the kernel unable to bench
+  itself. `default-members` now covers `contracts`, `kernel`, `verify`, `core` and `cli`, so a bare
+  `cargo test` runs 612 of 645 tests rather than 486.
 ### Fixed
 - **Layer-break tolerance unit in `docs/11-profiles-and-reports.md`.** The prose said a break is keyed
   on a Z difference of more than "1 µm"; the constant (`LAYER_Z_EPSILON_MM = 1e-6` mm) is 1 nm.
