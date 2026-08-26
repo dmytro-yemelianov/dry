@@ -28,7 +28,26 @@ declare module '*/dry_wasm.js' {
   export function resolve_ir(ops_json: string, params_json: string): string;
   export function resolve_metrics(ops_json: string, params_json: string): string;
   export function resolve_optimized_ir(ops_json: string, params_json: string): string;
-  export function resolve_verify(ops_json: string, params_json: string, max_flow?: number, min_temp?: number): string;
+  /**
+   * Full contract surface. The four-argument form this used to declare left nine parameters
+   * undefined at the boundary, which is why the only caller was dead code.
+   * `0` disables a scalar ceiling; `undefined` disables a range; `''` disables the kinematics rules.
+   */
+  export function resolve_verify(
+    ops_json: string,
+    params_json: string,
+    max_flow_opt: number,
+    min_temp_opt: number,
+    bounds: Float64Array | undefined,
+    monotonic_z: boolean,
+    speed_range: Float64Array | undefined,
+    max_retraction_distance_opt: number,
+    max_retraction_speed_opt: number,
+    max_travel_without_retract_opt: number,
+    first_layer_height_range: Float64Array | undefined,
+    first_layer_speed_range: Float64Array | undefined,
+    kinematics_json: string,
+  ): string;
   export function import_gcode_to_ir(gcode_text: string): string;
   export function tpms_ops_json(options_json: string): string;
   export function check_machine_compatibility(ops_json: string, params_json: string, capabilities_json: string): string;

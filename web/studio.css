@@ -1868,3 +1868,59 @@ body.is-resizing-panels {
   font: inherit;
   font-size: 11px;
 }
+
+/* Verification panel: coverage line, findings, and the rule list that was actually in force. */
+.verify-coverage {
+  font-size: 11px;
+  color: var(--fg-muted);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-left: 2px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  line-height: 1.5;
+}
+
+.verify-rules {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.verify-rule-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.verify-rule {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.check-icon.fail {
+  color: #ff8a8a;
+}
+
+.finding-count {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff8a8a;
+}
+
+.finding-samples {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.finding-more {
+  margin-top: 2px;
+  opacity: 0.7;
+  font-style: italic;
+}

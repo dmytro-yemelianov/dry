@@ -161,3 +161,37 @@ test('TPMS designs expose the full generator parameter set', async ({ page }) =>
   // Per-control reset, distinct from the group "Reset to Defaults".
   expect(await page.locator('.default-reset').count()).toBeGreaterThan(0);
 });
+
+// The Safety panel used to render four hardcoded passing checks that were never computed, while the
+// engine's verifier sat behind a dead wrapper. These assertions exist to keep it honest: it must
+// report what was inspected, and it must be able to fail.
+test('safety panel runs the engine verifier and can fail', async ({ page }) => {
+  await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+
+  await page.getByRole('button', { name: 'Safety', exact: true }).click();
+
+  // Coverage is stated, not implied: a clean report over zero segments proves nothing.
+  const coverage = page.locator('.verify-coverage').first();
+  await expect(coverage).toContainText('segments inspected against');
+  expect(await page.locator('.verify-rules .verify-rule').count()).toBeGreaterThan(0);
+
+  // The rows the old panel always showed as passing are gone.
+  const panel = page.locator('.safety-matrix-root');
+  await expect(panel).not.toContainText('Tool Clearance');
+  await expect(panel).not.toContainText('First Layer Sanity');
+
+  // Against the machine's own envelope this design is clean...
+  await expect(panel).toContainText('No findings');
+
+  // ...and against an impossible one it is not. A panel that cannot fail is not a check.
+  await page.getByRole('textbox', { name: 'bounds' }).fill('0,1,0,1,0,1');
+  await expect(page.locator('.check-icon.fail').first()).toBeVisible();
+  await expect(panel).toContainText('outside the build volume');
+
+  // Repeated findings are grouped rather than rendered one row per segment.
+  await expect(page.locator('.finding-count').first()).toContainText('×');
+  expect(await page.locator('.check-item').count()).toBeLessThan(10);
+});

@@ -50,11 +50,64 @@ export function compileOptimizedIR(ops: Op[], params: ResolveParams): Toolpath {
   return JSON.parse(irJson) as Toolpath;
 }
 
-export function compileVerify(ops: Op[], params: ResolveParams, maxFlow?: number, minTemp?: number): unknown {
-  const opsJson = JSON.stringify(ops);
-  const paramsJson = JSON.stringify(params);
-  const reportJson = resolve_verify(opsJson, paramsJson, maxFlow, minTemp);
-  return JSON.parse(reportJson);
+/** What a toolpath is checked against. Every field is optional; an unset one disables its rule. */
+export interface VerifyContracts {
+  maxFlow?: number;
+  minTemp?: number;
+  /** [min_x, max_x, min_y, max_y, min_z, max_z] */
+  bounds?: number[];
+  monotonicZ?: boolean;
+  /** [min, max] in mm/min */
+  speedRange?: number[];
+  maxRetractionDistance?: number;
+  maxRetractionSpeed?: number;
+  maxTravelWithoutRetract?: number;
+  firstLayerHeightRange?: number[];
+  firstLayerSpeedRange?: number[];
+  kinematics?: { max_acceleration_mm_s2?: number; max_junction_velocity_mm_s?: number };
+}
+
+export interface VerifyFinding {
+  rule: string;
+  severity: 'error' | 'warning' | 'info' | string;
+  segment?: number | null;
+  message: string;
+}
+
+export interface VerifyReport {
+  findings: VerifyFinding[];
+  /** Zero means the pass proved nothing — a clean report over no segments is not a clean toolpath. */
+  segments_inspected: number;
+  /** Which rules were actually in force. A rule absent here was never evaluated. */
+  rules_evaluated: string[];
+}
+
+/** `0` disables a scalar ceiling in the binding; ranges are disabled by passing undefined. */
+const scalar = (value: number | undefined): number => (Number.isFinite(value) ? (value as number) : 0);
+const range = (value: number[] | undefined): Float64Array | undefined =>
+  value && value.length ? Float64Array.from(value) : undefined;
+
+export function compileVerify(
+  ops: Op[],
+  params: ResolveParams,
+  contracts: VerifyContracts = {},
+): VerifyReport {
+  const reportJson = resolve_verify(
+    JSON.stringify(ops),
+    JSON.stringify(params),
+    scalar(contracts.maxFlow),
+    scalar(contracts.minTemp),
+    range(contracts.bounds),
+    Boolean(contracts.monotonicZ),
+    range(contracts.speedRange),
+    scalar(contracts.maxRetractionDistance),
+    scalar(contracts.maxRetractionSpeed),
+    scalar(contracts.maxTravelWithoutRetract),
+    range(contracts.firstLayerHeightRange),
+    range(contracts.firstLayerSpeedRange),
+    contracts.kinematics ? JSON.stringify(contracts.kinematics) : '',
+  );
+  return JSON.parse(reportJson) as VerifyReport;
 }
 
 export function importGcode(gcodeText: string): Toolpath {
