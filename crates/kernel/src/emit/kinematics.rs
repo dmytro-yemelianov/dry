@@ -362,6 +362,11 @@ impl KinematicsExt for Kinematics {
 /// Public fields rather than `pub(super)`: `verify` reads the same words the emitter writes, so the
 /// rotary rules judge the program that will actually be produced rather than a second derivation of
 /// it — and after the crate split that reader is in another crate (plan Task 4).
+///
+/// Derives the same three as [`RotaryState`] and [`Joints`], its two siblings in this module: a
+/// public two-field `Copy` type that a cross-crate caller cannot print, clone or pass twice is an
+/// obstacle with no purpose (plan Task 7).
+#[derive(Debug, Clone, Copy)]
 pub struct Rotary {
     pub letter: char,
     pub value: f64,

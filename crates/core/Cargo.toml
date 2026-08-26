@@ -1,6 +1,6 @@
 [package]
 name = "dry-core"
-description = "Dry IR + engine: the dependency-light core (no PyO3/numpy). LLVM/MLIR for machine motion."
+description = "The `dry_core` facade: a re-export of the four KMET crates, so the CLI, the bindings and the SDKs keep one import surface."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,9 +8,13 @@ license-file.workspace = true
 repository.workspace = true
 publish = false
 
-# The core stays dependency-light and compiles to wasm32-unknown-unknown unmodified. serde/serde_json
-# (the JSON IR encoding) plus miniz_oxide (pure-Rust DEFLATE for the compact columnar binary encoding)
-# are all wasm-friendly. PyO3/numpy/native bindings live in sibling crates, never here.
+# This crate compiles no code of its own: `lib.rs` is a module doc comment and a list of `pub use`
+# statements, so the only things it can depend on are the four crates it re-exports. Everything the
+# engine actually needs — serde/serde_json for the JSON IR, miniz_oxide for the DRY0/DRY1 DEFLATE,
+# libm for the deterministic trig — is declared by whichever KMET crate uses it, and reaches the
+# bindings through this facade the same way the names do. The dev-dependencies below belong to the
+# integration tests in `tests/`, which exercise the assembled stack across all four layers; none of
+# them is linked into a consumer of `dry_core`.
 [dependencies]
 # The shared vocabulary (contracts, rule ids, severities, kinematic models), extracted so that the
 # kernel and the verifier can be separated without a cycle. Serde-only, so it costs the core nothing.
@@ -25,29 +29,19 @@ kmet-verify = { path = "../verify" }
 # With this one `dry-core` holds no implementation of its own — it is a facade over the four KMET
 # crates, and every path it publishes is a re-export.
 kmet-trace = { path = "../trace" }
-serde = { version = "1", features = ["derive"] }
-# `float_roundtrip` is required, not an optimisation: serde_json's default parser is accurate only to
-# within 1 ULP, so without it `Toolpath::from_json(tp.to_json())` can come back one bit off for a
-# 17-significant-digit coordinate — which is exactly what the IR v0 spec (docs/10, §9) forbids when it
-# defines conformance as bit-exact f64 equality. Pinned by the five_axis_drape conformance vector,
-# whose resolved lengths and volumes are the first in the corpus long enough to expose it.
-serde_json = { version = "1", features = ["float_roundtrip"] }
-miniz_oxide = "0.8"
-libm = "0.2"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-# Exact dyadic witnesses for the native f64 feature-operation graph.
-num-bigint = "0.4"
-num-traits = "0.2"
-# Used only by tests/spec_vectors.rs to hash the public conformance-vector artifacts into MANIFEST.json
-# (the same hashes the independent Python validator checks). Dev-only: never linked into the engine.
+# `float_roundtrip` is required here, not only in the crates that encode the IR: `spec_vectors.rs`
+# re-parses each committed `input.json` with *this* `serde_json` and asserts `parsed == spec.ir`,
+# which the IR v0 spec (docs/10, §9) defines as bit-exact f64 equality. serde_json's default parser
+# is accurate only to within 1 ULP, so without the feature a 17-significant-digit coordinate can come
+# back one bit off — the five_axis_drape vector is the first in the corpus long enough to expose it.
+# Feature unification with `kmet-kernel` would supply this in a workspace build; declaring it is what
+# keeps the assertion true on its own terms rather than by a sibling's accident.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+# Used only by tests/spec_vectors.rs, which reproduces the resolved dome and five-axis geometry the
+# vectors seed from, and hashes the public artifacts into MANIFEST.json (the same hashes the
+# independent Python validator checks). Dev-only: neither is linked into the engine.
+libm = "0.2"
 sha2 = "0.10"
-# Benchmark harness (dev-only). default-features off to skip the heavy plotting/rayon stack — the CI
-# `bench` job only needs the benches to compile and run (docs/13-performance-and-scale.md).
-criterion = { version = "0.5", default-features = false }
-
-[[bench]]
-name = "engine_codec"
-harness = false

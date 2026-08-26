@@ -1,15 +1,22 @@
-//! Criterion benchmarks for the hot paths: the three codecs (JSON / `DRY0` / `DRY1`) and the passes
-//! (`simulate` / `verify` / `emit` / `trace`). Run locally with `cargo bench -p dry-core`; the CI
-//! `bench` job builds these to keep them from bit-rotting (`docs/13-performance-and-scale.md`).
+//! Criterion benchmarks for the kernel's hot paths: the three codecs (JSON / `DRY0` / `DRY1`) and
+//! the two passes that lower a resolved toolpath (`simulate` / `emit`). Run locally with
+//! `cargo bench -p kmet-kernel`; the CI `bench` job builds these to keep them from bit-rotting
+//! (`docs/13-performance-and-scale.md`).
+//!
+//! Moved here from `dry-core` with the code it measures (plan Task 7). The `verify` and `trace`
+//! benchmarks that stood beside these could not come along — layers 2 and 3 depend on the kernel and
+//! never the other way round — so they are now `kmet-verify`'s and `kmet-trace`'s own bench targets,
+//! each carrying the same fixture. That duplication is the crate boundary showing through: once the
+//! layers graduate to separate repositories there is no crate left that can build one fixture for
+//! all three.
 
 // These exercise the deprecated infallible `emit()` on purpose: it is still the entry point the
 // in-tree call sites use, and refusing the whole program is part of what is under test here.
 #![allow(deprecated)]
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dry_core::{
-    emit, simulate, trace_summary, verify, Contracts, EmitParams, Feedrate, Length, Segment,
-    SegmentKind, Toolpath, Volume,
+use kmet_kernel::{
+    emit, simulate, EmitParams, Feedrate, Length, Segment, SegmentKind, Toolpath, Volume,
 };
 
 fn toolpath(n: usize) -> Toolpath {
@@ -61,11 +68,6 @@ fn benches(c: &mut Criterion) {
     let dry0 = tp.to_bytes();
     let dry1 = tp.to_streaming_bytes();
     let emit_params = EmitParams::default();
-    let contracts = Contracts {
-        bounds: Some([[0.0, 250.0], [0.0, 250.0], [0.0, 250.0]]),
-        max_flow: Some(25.0),
-        ..Contracts::default()
-    };
 
     c.bench_function("encode_json", |b| b.iter(|| black_box(tp.to_json())));
     c.bench_function("encode_dry0", |b| b.iter(|| black_box(tp.to_bytes())));
@@ -82,11 +84,7 @@ fn benches(c: &mut Criterion) {
         b.iter(|| black_box(Toolpath::from_bytes(&dry1).unwrap()))
     });
     c.bench_function("simulate", |b| b.iter(|| black_box(simulate(&tp))));
-    c.bench_function("verify", |b| b.iter(|| black_box(verify(&tp, &contracts))));
     c.bench_function("emit", |b| b.iter(|| black_box(emit(&tp, &emit_params))));
-    c.bench_function("trace", |b| {
-        b.iter(|| black_box(trace_summary(&tp, 5.0).unwrap()))
-    });
 }
 
 criterion_group!(group, benches);

@@ -56,7 +56,19 @@ hash_mode = "file"
 # changed: `SINGULAR_CONE_SIN_TILT` is untouched at 1e-9, `resolve_c`, `unit_orientation` and every
 # body in `impl KinematicsExt for Kinematics` are byte-identical, and the `operation`, `assumptions`
 # and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the code exactly.
-sha256 = "32cb2bc5b610a6033b028996f2e7b1b09627853f6e4c0b3610b7402b7693f095"
+#
+# Re-pinned 2026-08-26 for the facade reduction (KMET crate-split plan, Task 7). The reviewed diff
+# against the previous hash is five lines on `Rotary` and nothing else: `#[derive(Debug, Clone,
+# Copy)]` -- the same three its two siblings in this file, `RotaryState` and `Joints`, already
+# derive -- plus a four-line doc-comment addition (a blank `///` and three lines recording why).
+# `Rotary` is a plain two-field carrier for an emitted letter and its degrees; the three derives are
+# language-level trait impls that no code in this file calls, so no predicate, no constant, no
+# control flow and no epsilon changed: `SINGULAR_CONE_SIN_TILT` is untouched at 1e-9, `resolve_c`
+# and every body in `impl KinematicsExt for Kinematics` are byte-identical, and the `operation`,
+# `assumptions` and `exclusions` text of FM1.F64.EMIT.ROTARY.SINGULAR_CONE below still describes the
+# code exactly. As with the Task 1 re-pin, the whole-file `hash_mode` is what brings a derive and a
+# doc comment under this pin, not numeric relevance.
+sha256 = "a0e94974589a03d30a475770ad97d8b22cb94137386bf969a19b895105045ea5"
 
 # The kinematics half of the vocabulary crate, and the other half of the coverage this inventory
 # used to get whole-file from `emit/kinematics.rs`: the `Kinematics` enum, `REFERENCE_FIVE_AXIS_MACHINE`,

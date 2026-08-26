@@ -46,12 +46,22 @@ authoring languages and target machines are interchangeable front-ends and back-
 | Layer | Contents | Size | Protection mode |
 |---|---|---|---|
 | **0 · Contract** | IR spec (`docs/10`), `spec/` schemas (54 files), conformance vectors (95 files) | 664 KB data | **Public, permanently.** Copyright is thin. The value is the trademark and control of the standard (§6.3) |
-| **1 · Kernel** | `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~17.5k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
-| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `verify.rs` (2 143 — the largest file in core), assurance tooling | ~11.0k LOC | Separate work, **separate SKU** |
-| **3 · Analysis** | `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (492), `compare` `explain` `recommend` `reverse` | ~4.2k LOC | Separate work, separate SKU |
-| **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/`, `services/`, `llm`, `moonraker` | ~18.6k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
+| **1 · Kernel** | `kmet-contracts` (994) + `kmet-kernel` (22 814): `resolve` `ir` `features` `emit/` `gcode/` `codec/` `profile/` `units` `frame` `clothoid` `optimize/` `generate/` | ~23.8k LOC | **Trade secret + copyright.** Where future patents concentrate (§6.4) |
+| **2 · Assurance** | `formal/` (38 Lean modules, 8 863 LOC), `proofs/` (39 files), `kmet-verify` (2 845: `lib.rs` 1 542 + `gated.rs` 40 + 1 193 of tests + a 70-line bench), assurance tooling | ~11.7k LOC | Separate work, **separate SKU** |
+| **3 · Analysis** | `kmet-trace` (5 695): `trace.rs` (1 721), `forensics.rs` (834), `report.rs` (493), `compare` `explain` `recommend` `reverse` | ~5.7k LOC | Separate work, separate SKU |
+| **4 · Distribution** | CLI (8 061), wasm, `py/`, `sdk/ts`, cloud, verify-runner, `web/` (3 789), `services/`, `llm`, `moonraker`, the `dry-core` facade (6 112, all but 125 of it the cross-layer integration tests) | ~28.1k LOC | **Most liberal.** Thin by design — little to protect, much adoption to gain |
 | **5 · Commercial infra** | `tools/license-issuer` (704 KB, the largest tool), `crates/license`, `prod-1` key material | — | **Secrecy only.** Never registered, never licensed, never disclosed |
 | **X · Encumbered** | `conformance/oracle/` (GPLv3), oracle-derived corpora, `conformance/slicer-corpus/` (3.1 MB third-party output) | — | **Quarantine.** Excluded from every filing and every release |
+
+**How these sizes are measured, so the next re-measurement is mechanical.** Each LOC figure is `wc -l`
+over the git-tracked source files (`.rs`, `.lean`, `.ts`, `.js`, `.py`) of the crates and directories
+its row names — tests and benches included, since they are part of the work being registered — with
+vendored third-party code excluded (`web/vendor/` is 57 066 lines of three.js and Blockly and is
+nobody's work product here). A figure in parentheses after a file name is that file's own `wc -l`.
+Re-measured against the tree as it stands at the completion of the §5.7 split (plan Task 7). Before
+that, the rows had been re-derived arithmetically without being re-measured, which is how layer 2
+came to carry a `verify.rs` line count from before `kmet-contracts` was extracted out of it — the
+sum was right and both of its addends were stale.
 
 **`report.rs` is layer 3, not layer 2 — a correction, not drift.** This table put it beside `verify.rs`
 because a review report is what a verification pass is *read* through. But `report.rs` imports
@@ -381,9 +391,15 @@ rest of the split possible rather than an addition to it. It is layer 1, so it r
 §6.1 still files three works.
 
 The split pays twice. Legally it makes three registrations defensible instead of one arguable. Structurally
-it relieves the two largest files in the tree — `verify.rs` at 2 143 lines and `trace.rs` at 1 721 — which
-are already the least pleasant places in the codebase to work, and it gives the SKU boundaries in §1.1
-something real to attach to.
+it relieves the two largest files in `crates/core` — `verify.rs` at 2 143 lines and `trace.rs` at 1 721 —
+which are already the least pleasant places in the codebase to work, and it gives the SKU boundaries in
+§1.1 something real to attach to.
+
+Measured after the split (plan Task 7): what was `verify.rs` is `crates/verify/src/lib.rs` at 1 542 with
+`gated.rs` at 40 beside it — 1 582 against the 2 143 it started at, the difference being the contract and
+rule vocabulary that moved down to `kmet-contracts`, net of the `LicenseStamp` that moved *in* from
+`report.rs`. `trace.rs` is unchanged at 1 721, but is now the largest file of a 5 695-line crate rather
+than one of forty in the engine.
 
 Sequence it **before** Phase 3, and after the rename (§5.6) so the crates are born with their final names.
 This is ordinary refactoring with a deadline, not new engineering: no behaviour changes, and the existing

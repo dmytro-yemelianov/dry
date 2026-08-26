@@ -51,6 +51,12 @@ jobs:
       # and PyO3 binding are not wasm targets.
       - name: clippy (wasm, dry-core)
         run: cargo clippy -p dry-core --target wasm32-unknown-unknown --locked -- -D warnings
+      # `kmet-kernel` states its own constraint — "compiles to wasm32-unknown-unknown unmodified" — and
+      # the facade above would carry it transitively today. Naming the kernel is what keeps that a
+      # gated claim rather than a side effect: after Phase C the two crates are in different
+      # repositories, and the kernel's has no `dry-core` to check it through.
+      - name: clippy (wasm, kmet-kernel)
+        run: cargo clippy -p kmet-kernel --target wasm32-unknown-unknown --locked -- -D warnings
       # `crates/kernel/tests/wasm_native_math.rs` builds the wasm binding and compares it with native
       # output; that test shells out to `web/build.sh`, which requires wasm-bindgen and Node.
       - name: install wasm-bindgen CLI
@@ -63,6 +69,8 @@ jobs:
         run: cargo check -p dry-cli --no-default-features --locked
       - name: build (wasm, dry-core)
         run: cargo build -p dry-core --target wasm32-unknown-unknown --locked
+      - name: build (wasm, kmet-kernel)
+        run: cargo build -p kmet-kernel --target wasm32-unknown-unknown --locked
 
   python-sdk:
     name: python SDK (maturin build + pytest)
@@ -310,8 +318,11 @@ jobs:
       # Keep the criterion benchmarks compiling against the current API (docs/13-performance-and-scale.md).
       # The deterministic bounded-memory scale gate (tests/memory_scale.rs) runs in the `core` job's
       # `cargo test --all`; wall-clock benchmarks are local-profiling only, not a CI pass/fail.
+      # All three packages are named because the benches now sit in the crates whose code they measure
+      # (plan Task 7): the kernel's codec/simulate/emit, the verifier's pass, the analysis layer's
+      # trace. `-p dry-core` would still exit 0 here and gate nothing — the facade has no bench target.
       - name: compile benches
-        run: cargo bench -p dry-core --no-run --locked
+        run: cargo bench -p kmet-kernel -p kmet-verify -p kmet-trace --no-run --locked
 
   cloud:
     name: cloud (workers-rs wasm32 build)

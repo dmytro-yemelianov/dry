@@ -28,10 +28,6 @@ dependencies = [
  "kmet-kernel",
  "kmet-trace",
  "kmet-verify",
- "libm",
- "miniz_oxide",
- "serde",
- "serde_json",
 ]
 
 [[package]]
