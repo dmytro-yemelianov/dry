@@ -7,7 +7,7 @@ numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 path = "crates/core/src/features.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
+sha256 = "a9ac0272fb668828dfb143ffc675b356feb0b1004edcfe6dfb9df6bc96f7ebb7"
 
 [[source]]
 path = "crates/core/src/resolve.rs"
@@ -28,12 +28,21 @@ source_anchor = '''for (name, value) in [
             ("z", pose.z),
             ("rotate_z_deg", pose.rotate_z_deg),
         ] {'''
-inputs = ["FeaturePose.x", "FeaturePose.y", "FeaturePose.z", "FeaturePose.rotate_z_deg"]
-operation = "Ordered is_finite checks; the first non-finite field returns ExpandError."
+inputs = [
+  "FeaturePose.x",
+  "FeaturePose.y",
+  "FeaturePose.z",
+  "FeaturePose.rotate_z_deg",
+  "FeaturePose.rotation.{x,y,z,w}"
+]
+operation = "Ordered is_finite checks; the first non-finite field returns ExpandError. When FeaturePose.rotation is present its four components clear the same gate, and the quaternion norm is then required to be non-zero and finite - sqrt(x*x + y*y + z*z + w*w), the same quantity Quaternion::new tests before silently substituting the identity."
 classification = "rejected"
 numeric_status = "not-applicable"
 assumptions = ["Rust f64::is_finite classifies NaN and both infinities as non-finite."]
-exclusions = ["Finite magnitudes that later overflow during degree conversion or transform arithmetic."]
+exclusions = [
+  "Finite magnitudes that later overflow during degree conversion or transform arithmetic.",
+  "Finite, non-degenerate quaternions that are not unit norm: these are accepted here and normalized during composition rather than rejected."
+]
 next_obligation = "Keep the checked first-error theorem and Rust refinement fixtures synchronized with any pose-field change."
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
@@ -121,14 +130,17 @@ id = "FM1.F64.FEATURE.TRIG.LIBM"
 title = "Planar rotation coefficients use libm sine and cosine"
 rust_symbol = "Transform::from_pose"
 source_path = "crates/core/src/features.rs"
-source_anchor = '''cos: libm::cos(angle),
-            sin: libm::sin(angle),'''
+source_anchor = "(libm::cos(angle), libm::sin(angle), None)"
 inputs = ["binary64 radian angle"]
 operation = "libm argument reduction followed by binary64 cosine and sine evaluation."
 classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = ["The pinned libm 0.2.16 implementation is part of the implementation boundary.", "The release's one-ULP MPFR sine/cosine policy holds universally over the profiled binary64 argument interval.", "Native/wasm parity tests are observations rather than proofs of that accuracy premise."]
-exclusions = ["Arguments outside the proved [-7, 7] envelope.", "Unconditional refinement of every native and wasm call to the imported accuracy contract."]
+exclusions = [
+  "Arguments outside the proved [-7, 7] envelope.",
+  "Unconditional refinement of every native and wasm call to the imported accuracy contract.",
+  "The D1.2 quaternion branch, which bypasses this call entirely: when FeaturePose.rotation is present the coefficients are set to the exact (1, 0) and the rotation is carried as a quaternion instead."
+]
 next_obligation = "Replace the imported one-ULP premise with exhaustive source-level verification; selected native cardinal-angle calls are interval- and mutation-checked."
 evidence = [
   "formal/Dry/Numeric/Trig.lean",
@@ -168,9 +180,13 @@ assumptions = [
   "Every pose leaf and local operation graph satisfies the linked provisional profile.",
   "The parenthesized composition tree contains at most 100,000 composition nodes."
 ]
-exclusions = ["The implementation does not renormalize coefficients after repeated composition."]
+exclusions = [
+  "The implementation does not renormalize coefficients after repeated composition.",
+  "The D1.2 quaternion composition path, which this entry does not bound. When either side carries a FeaturePose.rotation, compose leaves the cos/sin product above in place but derives the effective rotation from Quaternion::multiply, and a planar side is first converted with libm::atan2(sin, cos) followed by Quaternion::from_axis_angle. That introduces atan2, sin/cos on the half-angle, and the libm::sqrt normalization inside Quaternion::new - none of which are covered by the one-ULP sine/cosine premise this inventory imports.",
+  "Quaternion::rotate_point, which applies the composed rotation to a point with nine multiplications and six additions and is likewise unbounded here."
+]
 exact_envelope = ["Identity coefficients (1, 0) compose exactly with finite coefficients."]
-next_obligation = "Selected native one-step and nested cardinal programs now exercise the composition graph; generalize this to every profiled composition and native/wasm rounding/libm premise."
+next_obligation = "Selected native one-step and nested cardinal programs now exercise the composition graph; generalize this to every profiled composition and native/wasm rounding/libm premise. Separately, D1.2 admitted quaternion rotations into this transform without a boundary of their own: atan2, the half-angle trig in from_axis_angle, the sqrt normalization in Quaternion::new, and rotate_point all need a FM1.F64.FEATURE.ROTATION.* inventory entry with its own profile limits and budgets, which also requires registering the ids in tools/validate_numeric_boundaries.py. Until then the quaternion path is implemented and tested but not numerically bounded."
 evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
   "formal/Dry/Numeric/Binary64.lean",

@@ -1,7 +1,7 @@
 schema_version = 1
 model = "feature-refinement-source-mutations-v0"
 source = "crates/core/src/features.rs"
-source_sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
+source_sha256 = "a9ac0272fb668828dfb143ffc675b356feb0b1004edcfe6dfb9df6bc96f7ebb7"
 test = "crates/core/tests/feature_refinement.rs"
 
 [[mutation]]
@@ -343,14 +343,8 @@ id = "swap-pose-sine-cosine"
 witness = "native-trig-minus-90"
 test = "native-numeric"
 description = "Swap the sine and cosine calls used to construct a pose transform."
-old = '''
-            cos: libm::cos(angle),
-            sin: libm::sin(angle),
-'''
-new = '''
-            cos: libm::sin(angle),
-            sin: libm::cos(angle),
-'''
+old = "(libm::cos(angle), libm::sin(angle), None)"
+new = "(libm::sin(angle), libm::cos(angle), None)"
 
 [[mutation]]
 id = "compose-rotation-add-products"

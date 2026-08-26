@@ -135,6 +135,34 @@ impl Transform {
                 )));
             }
         }
+        // D1.2 added `rotation` as four more binary64 pose fields, and they were never put through
+        // the gate above. A non-finite quaternion is not rejected and does not produce NaN either:
+        // composition normalises via Quaternion::new, which substitutes the identity whenever the
+        // norm is zero or non-finite. The feature is then placed silently unrotated, which is worse
+        // than an error — the sibling `rotate_z_deg` refuses the same input. Reject exactly the
+        // inputs that would be silently promoted to the identity.
+        if let Some(q) = pose.rotation {
+            for (name, value) in [
+                ("rotation.x", q.x),
+                ("rotation.y", q.y),
+                ("rotation.z", q.z),
+                ("rotation.w", q.w),
+            ] {
+                if !value.is_finite() {
+                    return Err(ExpandError::new(format!(
+                        "{path}.{name} must be finite, got {value}"
+                    )));
+                }
+            }
+            // Mirrors Quaternion::new's own fallback condition, so underflow to a zero norm and
+            // overflow to a non-finite one are caught alongside the exactly-zero quaternion.
+            let norm = libm::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+            if norm == 0.0 || !norm.is_finite() {
+                return Err(ExpandError::new(format!(
+                    "{path}.rotation must be a unit quaternion, got norm {norm}"
+                )));
+            }
+        }
         let (cos, sin, rotation) = if let Some(q) = pose.rotation {
             (1.0, 0.0, Some(q))
         } else {
@@ -218,7 +246,7 @@ impl Transform {
         (self.cos - 1.0).abs() <= EPS
             && self.sin.abs() <= EPS
             && self.translation.iter().all(|value| value.abs() <= EPS)
-            && self.rotation.map_or(true, |q| {
+            && self.rotation.is_none_or(|q| {
                 (q.w - 1.0).abs() <= EPS && q.x.abs() <= EPS && q.y.abs() <= EPS && q.z.abs() <= EPS
             })
     }

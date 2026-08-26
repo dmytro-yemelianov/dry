@@ -1,5 +1,5 @@
 use dry_core::{
-    lower_workingstep_to_ops, parse_step_nc, resolve, Design, Op, ResolveParams, StepNcFeature,
+    lower_workingstep_to_ops, parse_step_nc, resolve, Design, ResolveParams, StepNcFeature,
 };
 
 #[test]

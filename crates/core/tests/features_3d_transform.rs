@@ -74,3 +74,145 @@ fn test_feature_3d_rotation_transforms_linear_and_orientation() {
         _ => panic!("expected Move op"),
     }
 }
+
+/// D1.2 introduced `FeaturePose.rotation` without routing it through the pose finiteness gate that
+/// `rotate_z_deg` clears. The failure mode was silence rather than NaN: composition normalises via
+/// `Quaternion::new`, which substitutes the identity whenever the norm is zero or non-finite, so a
+/// garbage rotation placed the feature unrotated with nothing to indicate it had been discarded.
+#[test]
+fn test_non_finite_rotation_is_rejected_not_silently_dropped() {
+    let non_finite = [
+        Quaternion {
+            x: f64::NAN,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        },
+        Quaternion {
+            x: 0.0,
+            y: f64::INFINITY,
+            z: 0.0,
+            w: 1.0,
+        },
+        Quaternion {
+            x: 0.0,
+            y: 0.0,
+            z: f64::NEG_INFINITY,
+            w: 1.0,
+        },
+        Quaternion {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: f64::NAN,
+        },
+    ];
+
+    for q in non_finite {
+        let program = FeatureProgram {
+            features: vec![FeatureNode::Feature {
+                name: Some("bad_rotation".into()),
+                pose: FeaturePose {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    rotate_z_deg: 0.0,
+                    rotation: Some(q),
+                    frame: None,
+                },
+                ops: vec![Op::Move {
+                    x: Some(10.0),
+                    y: Some(0.0),
+                    z: Some(0.0),
+                }],
+            }],
+        };
+        let error = expand_features(&program).expect_err("non-finite rotation must be rejected");
+        assert!(
+            format!("{error:?}").contains("must be finite"),
+            "expected a finiteness error for {q:?}, got {error:?}"
+        );
+    }
+}
+
+/// A quaternion whose norm is zero — exactly, or by underflow — is not a rotation. `Quaternion::new`
+/// maps it to the identity, so accepting it would be the same silent placement as above.
+#[test]
+fn test_degenerate_norm_rotation_is_rejected() {
+    let degenerate = [
+        Quaternion {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 0.0,
+        },
+        Quaternion {
+            x: 1e-200,
+            y: 1e-200,
+            z: 1e-200,
+            w: 1e-200,
+        },
+        Quaternion {
+            x: 1e200,
+            y: 1e200,
+            z: 1e200,
+            w: 1e200,
+        },
+    ];
+
+    for q in degenerate {
+        let program = FeatureProgram {
+            features: vec![FeatureNode::Feature {
+                name: Some("degenerate".into()),
+                pose: FeaturePose {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    rotate_z_deg: 0.0,
+                    rotation: Some(q),
+                    frame: None,
+                },
+                ops: vec![Op::Move {
+                    x: Some(10.0),
+                    y: Some(0.0),
+                    z: Some(0.0),
+                }],
+            }],
+        };
+        let error = expand_features(&program).expect_err("degenerate rotation must be rejected");
+        assert!(
+            format!("{error:?}").contains("unit quaternion"),
+            "expected a unit-quaternion error for {q:?}, got {error:?}"
+        );
+    }
+}
+
+/// The valid path is unchanged: a unit quaternion still rotates, and a pose without one still uses
+/// the planar cos/sin route.
+#[test]
+fn test_valid_rotations_still_accepted() {
+    for rotation in [
+        None,
+        Some(Quaternion::from_axis_angle(0.0, 0.0, 1.0, PI / 2.0)),
+    ] {
+        let program = FeatureProgram {
+            features: vec![FeatureNode::Feature {
+                name: Some("ok".into()),
+                pose: FeaturePose {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    rotate_z_deg: 0.0,
+                    rotation,
+                    frame: None,
+                },
+                ops: vec![Op::Move {
+                    x: Some(10.0),
+                    y: Some(0.0),
+                    z: Some(0.0),
+                }],
+            }],
+        };
+        expand_features(&program).expect("a valid pose must still expand");
+    }
+}

@@ -31,7 +31,22 @@ hash_mode = "file"
 #
 # Re-pinned 2026-08-03 at the merge of the two slices above: the hash below is verify.rs carrying
 # both reviewed diffs combined, with no further change.
-sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
+#
+# Re-pinned 2026-08-26 for the tool-holder collision slice. The reviewed diff against the previous
+# hash is exactly four lines in verify.rs: a `#[path]` module declaration for verify/collision.rs
+# and a `pub use` re-export of its three public items. No predicate, no epsilon, no constant and
+# no rule behaviour changed, and none of the four boundaries' `operation` text moved. The
+# collision checker is not one of the always-on structural rules this inventory scopes: it is a
+# separately-invoked pre-flight check living in its own unpinned file, and it is not wired into
+# `Report`. Its arithmetic is six inclusive comparisons bounding an XY window, one strict `z <
+# stock_top_z`, a single `stock_top_z - z` subtraction and one comparison of that difference
+# against `stickout_length` — no transcendentals and no tolerance. It is nonetheless new binary64
+# geometry with no inventory of its own; giving verify/collision.rs a pinned source and a
+# FM1.F64.VERIFY.COLLISION.* entry is outstanding. Worth recording for whoever picks that up:
+# `ToolHolder` declares holder_diameter, collet_diameter and collet_length, and
+# `check_tool_holder_collision` reads none of them — the rule is a plunge-depth-versus-stickout
+# test, not the holder interference check its name implies.
+sha256 = "46d7ded9c8aded6596031301c696ddd4fda465cf9ae6fa412fe8ef4de8795c58"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
