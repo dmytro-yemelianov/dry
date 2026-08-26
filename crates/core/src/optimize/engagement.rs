@@ -1,4 +1,4 @@
-//! Radial tool engagement & corner feedrate optimization (D4.2, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Radial tool engagement & corner feedrate optimization (D4.2, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Prevents tool chatter, vibration, and cutter deflection by dynamically scaling entry feedrates
 //! around sharp internal corners where the radial width of cut spikes.

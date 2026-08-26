@@ -1,4 +1,4 @@
-//! Process pass classification & role tagging (D2.4, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Process pass classification & role tagging (D2.4, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Categorizes toolpath moves by their functional machining or manufacturing role:
 //! - Roughing vs Finishing passes in CNC milling.

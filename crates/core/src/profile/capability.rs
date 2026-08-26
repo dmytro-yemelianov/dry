@@ -1,4 +1,4 @@
-//! Machine profile capabilities and pre-flight compatibility engine (D2.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §6.4).
+//! Machine profile capabilities and pre-flight compatibility engine (D2.1, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Evaluates whether a toolpath meets the physical machine constraints before emission:
 //! - Work envelope (min/max X, Y, Z), including a conservative arc sweep test

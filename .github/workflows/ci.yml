@@ -41,28 +41,78 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.1"
+      # Every gate below runs even when an earlier one fails, and the summary step at the end
+      # decides the job. These gates are independent — a formatting slip does not invalidate clippy,
+      # and neither invalidates the tests — but the default fail-fast made them behave as if they
+      # were, reporting only the first. One branch spent six rounds fixing one failure to reveal
+      # the next: fmt hid two clippy errors, which hid an unused import and a stale mutation
+      # manifest. Whatever is red should be red all at once.
       - name: fmt
+        id: fmt
+        continue-on-error: true
         run: cargo fmt --all --check
       # The standing discipline (inherited from the FullControl fork): clippy is -D warnings with NO
       # #[allow] silencing — fix structurally. Enforced on the native AND wasm targets.
       - name: clippy (native, whole workspace)
+        id: clippy_native
+        continue-on-error: true
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       # wasm targets only the engine crate(s) — dry-core (and, later, the wasm-binding). The native CLI
       # and PyO3 binding are not wasm targets.
       - name: clippy (wasm, dry-core)
+        id: clippy_wasm
+        continue-on-error: true
         run: cargo clippy -p dry-core --target wasm32-unknown-unknown --locked -- -D warnings
       # `crates/core/tests/wasm_native_math.rs` builds the wasm binding and compares it with native
       # output; that test shells out to `web/build.sh`, which requires wasm-bindgen and Node.
+      # Setup for `test` only; if it fails, `test` reports and the other gates still run.
       - name: install wasm-bindgen CLI
+        id: wasm_bindgen
+        continue-on-error: true
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: test
+        id: test
+        continue-on-error: true
         run: cargo test --workspace --all-features --locked
       - name: kill bounded feature source mutations
+        id: mutations
+        continue-on-error: true
         run: python3 tools/check_feature_mutations.py
       - name: compile the minimal CLI feature set
+        id: minimal_cli
+        continue-on-error: true
         run: cargo check -p dry-cli --no-default-features --locked
       - name: build (wasm, dry-core)
+        id: wasm_build
+        continue-on-error: true
         run: cargo build -p dry-core --target wasm32-unknown-unknown --locked
+      - name: gate summary
+        if: always()
+        env:
+          OUTCOMES: >-
+            fmt=${{ steps.fmt.outcome }}
+            clippy-native=${{ steps.clippy_native.outcome }}
+            clippy-wasm=${{ steps.clippy_wasm.outcome }}
+            wasm-bindgen-install=${{ steps.wasm_bindgen.outcome }}
+            test=${{ steps.test.outcome }}
+            feature-mutations=${{ steps.mutations.outcome }}
+            minimal-cli=${{ steps.minimal_cli.outcome }}
+            wasm-build=${{ steps.wasm_build.outcome }}
+        run: |
+          failed=""
+          for pair in $OUTCOMES; do
+            gate="${pair%%=*}"
+            outcome="${pair#*=}"
+            printf '%-22s %s\n' "$gate" "$outcome"
+            if [ "$outcome" != "success" ]; then
+              failed="$failed $gate"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::failing gates:$failed"
+            exit 1
+          fi
+          echo "all core gates passed"
 
   python-sdk:
     name: python SDK (maturin build + pytest)
@@ -143,20 +193,57 @@ jobs:
           node-version: "22.23.1"
       # the binding is excluded from the core workspace, so it gets its own fmt + clippy (same
       # -D warnings, no #[allow] discipline as the core).
-      - name: rust check (the wasm binding)
+      # Independent gates, reported together — clippy here once hid the Blockly regression below,
+      # which had been failing for a different reason entirely.
+      - name: fmt (the wasm binding)
+        id: wasm_fmt
+        continue-on-error: true
         working-directory: crates/wasm
-        run: |
-          cargo fmt --check
-          cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+        run: cargo fmt --check
+      - name: clippy (the wasm binding)
+        id: wasm_clippy
+        continue-on-error: true
+        working-directory: crates/wasm
+        run: cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
       - name: Blockly/web static regressions
+        id: blockly
+        continue-on-error: true
         run: node web/blocks-regression.mjs
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
       - name: install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: build the node-target engine
+        id: node_engine
+        continue-on-error: true
         run: bash web/build.sh nodejs web/pkg-node
       - name: node reproduces the oracle byte-for-byte
+        id: node_oracle
+        continue-on-error: true
         run: node web/smoke.cjs web/pkg-node conformance/gcode conformance/simulate
+      - name: gate summary
+        if: always()
+        env:
+          OUTCOMES: >-
+            fmt=${{ steps.wasm_fmt.outcome }}
+            clippy=${{ steps.wasm_clippy.outcome }}
+            blockly-regression=${{ steps.blockly.outcome }}
+            node-engine-build=${{ steps.node_engine.outcome }}
+            node-oracle=${{ steps.node_oracle.outcome }}
+        run: |
+          failed=""
+          for pair in $OUTCOMES; do
+            gate="${pair%%=*}"
+            outcome="${pair#*=}"
+            printf '%-22s %s\n' "$gate" "$outcome"
+            if [ "$outcome" != "success" ]; then
+              failed="$failed $gate"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::failing gates:$failed"
+            exit 1
+          fi
+          echo "all wasm-binding gates passed"
 
   ts-sdk:
     name: TypeScript SDK (build + reproduces the oracle)
@@ -208,36 +295,82 @@ jobs:
       - name: install studio deps
         working-directory: web
         run: npm ci
+      # `npm ci` is a genuine dependency of everything below, so it stays fail-fast. The gates after
+      # it are independent and report together: the reference-docs diff once hid a broken product
+      # build, which in turn hid the whole smoke suite.
       - name: install docs-site deps
         working-directory: docs/site
-        run: |
-          npm ci
-          npm audit --audit-level=high
+        run: npm ci
+      - name: npm audit
+        id: docs_audit
+        continue-on-error: true
+        working-directory: docs/site
+        run: npm audit --audit-level=high
       - name: reference docs
+        id: docs_reference
+        continue-on-error: true
         working-directory: docs/site
         run: |
           npm run reference
           git -C ../.. diff --exit-code docs/site/reference/generated
           git -C ../.. diff --exit-code docs/site/public/reference/previews
       - name: type-check examples
+        id: docs_typecheck
+        continue-on-error: true
         working-directory: docs/site
         run: npm run typecheck
       - name: unit tests
+        id: docs_unit
+        continue-on-error: true
         working-directory: docs/site
         run: |
           bash build.sh wasm-only
           npm run test
       - name: build docs-only boundary
+        id: docs_public_build
+        continue-on-error: true
         working-directory: docs/site
         run: npm run build:docs-only
       - name: build public interactive product site
+        id: docs_product_build
+        continue-on-error: true
         working-directory: docs/site
         run: npm run build
+      # Smoke drives the artifact the previous step produces, so a failed build fails it too. Both
+      # are reported rather than only the first, which is the point.
       - name: smoke public interactive product examples
+        id: docs_smoke
+        continue-on-error: true
         working-directory: docs/site
         run: |
           npx playwright install chromium
           npm run smoke
+      - name: gate summary
+        if: always()
+        env:
+          OUTCOMES: >-
+            npm-audit=${{ steps.docs_audit.outcome }}
+            reference-docs=${{ steps.docs_reference.outcome }}
+            typecheck=${{ steps.docs_typecheck.outcome }}
+            unit-tests=${{ steps.docs_unit.outcome }}
+            public-boundary-build=${{ steps.docs_public_build.outcome }}
+            product-build=${{ steps.docs_product_build.outcome }}
+            smoke=${{ steps.docs_smoke.outcome }}
+        run: |
+          failed=""
+          for pair in $OUTCOMES; do
+            gate="${pair%%=*}"
+            outcome="${pair#*=}"
+            printf '%-22s %s\n' "$gate" "$outcome"
+            if [ "$outcome" != "success" ]; then
+              failed="$failed $gate"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::failing gates:$failed"
+            exit 1
+          fi
+          echo "all docs-site gates passed"
 
   spec-vectors:
     name: spec vectors (independent python validator, no dry-core)

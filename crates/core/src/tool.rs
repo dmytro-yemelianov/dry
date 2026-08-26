@@ -1,4 +1,4 @@
-//! Tool library & multi-tool registry schema (D2.3, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Tool library & multi-tool registry schema (D2.3, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Provides typed definitions for physical tools (end mills, drills, lasers, nozzles, torches),
 //! a named tool registry, and standard RS-274 / Fanuc tool change block generation (`T01 M06`, `G43 H01`).

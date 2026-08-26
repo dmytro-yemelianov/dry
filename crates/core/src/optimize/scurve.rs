@@ -1,4 +1,4 @@
-//! Jerk-bounded 7-phase S-curve motion profile planner (D4.5, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Jerk-bounded 7-phase S-curve motion profile planner (D4.5, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Continuous-acceleration trajectory planner that bounds the rate of change of acceleration ($\frac{da}{dt} \le j_{\max}$),
 //! eliminating high-frequency vibration, ringing, and motor resonance during high-speed printing and HSM CNC milling.

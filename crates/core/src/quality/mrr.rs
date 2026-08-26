@@ -1,4 +1,4 @@
-//! Material Removal Rate (MRR) & spindle cutting power analytics (D4.4, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Material Removal Rate (MRR) & spindle cutting power analytics (D4.4, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Provides instantaneous and volumetric cutting power analytics:
 //! - $\text{MRR} = a_p \times a_e \times v_f$ ($\text{cm}^3/\text{min}$)

@@ -1,4 +1,4 @@
-//! Custom post-processor macro templating (D3.4, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Custom post-processor macro templating (D3.4, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Provides user-customizable start/end/tool change macros with dynamic parameter substitution:
 //! - `{{ tool_number }}`

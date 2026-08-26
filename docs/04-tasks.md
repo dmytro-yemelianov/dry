@@ -75,6 +75,49 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 - `[ ]` **P6.3** (S) Remove the FC Python implementation; Dry IR is the public contract. *Dep: full suite green. Accept:* repo builds without the FC API; the entire conformance suite passes.
 - **P6 exit gate:** entire conformance suite green; FC API removed with a migration guide.
 
+## Unplanned series `D2`–`D4` — landed ahead of the backlog
+
+These identifiers were introduced by code, not by this backlog. Fourteen modules in `crates/core`
+cite `D2.x`, `D3.x` and `D4.x` against
+[`20-dry-ir-ecosystem-implementation-plan.md`](20-dry-ir-ecosystem-implementation-plan.md) §5 and
+§6.4, but that plan defines `D1.1`–`D1.11` and nothing else, and §5/§6.4 describe module layout and
+model decisions rather than work packets. Every one of those citations pointed at a section that
+does not define the item, so they now cite this entry instead.
+
+Recording them here rather than renumbering them: some map onto an epic that already owns the work,
+and the mapping is a call for the owner, not something to infer from a module header.
+
+| Cited id | Module | Owning epic |
+| --- | --- | --- |
+| `D2.1` | `profile/capability.rs` | envelope/feedrate/spindle pre-flight — overlaps **D1.7** |
+| `D2.1` / `D4.1` | `verify/collision.rs` | **D1.7**, which names tool/fixture/envelope collision |
+| `D2.3` | `tool.rs` | none — new scope |
+| `D2.4` | `pass.rs` | none — new scope |
+| `D2.5` | `multi_head.rs` | none — new scope |
+| `D3.1` | `emit/canned.rs`, `emit/chunked_stream.rs` | RS-274 emission is **P5.3** |
+| `D3.2` | `emit/laser.rs` | **P5.4** (GRBL laser) |
+| `D3.3` | `emit/plasma.rs` | none — new scope (plasma/waterjet is not in P5) |
+| `D3.4` | `emit/template.rs` | none — new scope |
+| `D4.2` | `optimize/engagement.rs` | none — new scope |
+| `D4.3` | `quality.rs` | none — new scope |
+| `D4.4` | `quality/mrr.rs` | none — new scope |
+| `D4.5` | `optimize/scurve.rs` | none — new scope |
+
+Two consequences worth acting on rather than filing.
+
+**`D1.7` is marked `[ ]` but a collision engine exists.** Its acceptance criterion is "adversarial
+fixtures trigger each rule; a clean report lists which models and opaque regions were and were not
+checked". `verify/collision.rs` models one plane — the stock top — and no fixtures, clamps, gantry
+or previously machined stock, which is now stated at the module and in
+`FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH`. The marker should not move to `[~]` on the strength of the
+module existing; the second half of that criterion is the part that is missing.
+
+**§13 of the plan says not to start this work yet.** Verbatim: "Do not start a new backend,
+collision engine or universal L0 ontology in this queue. Those depend on the contracts and evidence
+above." A collision engine and three emission backends (canned/Fanuc, laser, plasma) landed anyway.
+Either §13's sequencing was superseded deliberately — in which case the plan should say so — or this
+is scope that ran ahead of its contracts and the dependency is still owed.
+
 ## Deferred initiative D1 — Dry IR language and ecosystem
 
 These tasks are deliberately **not scheduled** and do not belong in the immediate queue. Activate and

@@ -1,4 +1,4 @@
-//! CNC canned machining cycles for RS-274 / Fanuc dialects (D3.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! CNC canned machining cycles for RS-274 / Fanuc dialects (D3.1, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Implements industry-standard canned cycles:
 //! - `G81`: Direct drilling cycle (rapid to R plane, feed to Z depth, rapid retract to R plane).

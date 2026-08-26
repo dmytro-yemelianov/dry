@@ -44,6 +44,9 @@ Prusa start g-code imports (`docs/14-known-limitations.md` states what still fai
 | CNC RS-274 (`emit --format rs274`) | Experimental (rect/circle pocket+profile via `dry generate pocket`; RS-274 program frame from `machine.cnc`, which is the *only* way it commands the spindle — a per-segment `power` channel is refused, not merged; not validated against a physical controller) |
 | GRBL (`emit --format grbl`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; `dry generate pocket` output emits as bare motion with no program frame. The one flavor that renders the per-segment spindle/laser `power` channel, as modal `S` with `M3`/`M5`; never validated against a real controller) |
 | KRL robot (`emit --format robot-krl`) | Experimental (dialect scaffolding: word emission + Dry-parser round-trip only; no program frame, and no rendering for the spindle/laser `power` channel — a toolpath carrying it is refused; never validated against a real controller) |
+| GRBL laser mode (`emit_grbl_laser`, core API) | Prototype (renders `M3`/`M4`/`M5` and scaled `S`; core API only — no CLI flag, no emit flavor, no conformance golden, never on a controller) |
+| Plasma / waterjet (`emit_plasma_waterjet`, core API) | Prototype (pierce dwell, torch on/off, tangential lead-in/lead-out; core API only — no CLI flag, no emit flavor, no conformance golden, never on a controller) |
+| RS-274 canned cycles (`DrillCycle`, `PeckDrillCycle`, core API) | Prototype (`G81`/`G83` blocks; core API only — not reachable from `emit --format rs274`, no conformance golden) |
 
 ## Platforms (release artifacts)
 

@@ -1,4 +1,4 @@
-//! GRBL Laser mode emitter (D3.2, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! GRBL Laser mode emitter (D3.2, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Emits industry-standard GRBL laser G-code:
 //! - `M3`: Constant laser power mode (e.g. for cutting).

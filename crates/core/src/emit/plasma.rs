@@ -1,4 +1,4 @@
-//! 2D/2.5D Plasma torch and abrasive waterjet cutting emitter (D3.3, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! 2D/2.5D Plasma torch and abrasive waterjet cutting emitter (D3.3, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Features:
 //! - Automated pierce delay (`G04 P...`).

@@ -1,4 +1,4 @@
-//! Low-latency chunked streaming G-code emitter (D3.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Low-latency chunked streaming G-code emitter (D3.1, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Emits G-code in bounded line-chunks, suitable for direct WebSocket/HTTP streaming to
 //! Klipper Moonraker, OctoPrint, or CNC serial controllers with constant $O(1)$ memory usage.

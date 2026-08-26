@@ -1,4 +1,4 @@
-//! Surface roughness & cusp height quality analytics (D4.3, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Surface roughness & cusp height quality analytics (D4.3, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Provides exact geometric formulas to predict surface finish on 3D contoured toolpaths:
 //! - Theoretical scallop / cusp height ($h = R - \sqrt{R^2 - (s/2)^2}$) for ball-nose and bull-nose cutters.

@@ -1,4 +1,4 @@
-//! Multi-head / IDEX machine synchronization (D2.5, `docs/20-dry-ir-ecosystem-implementation-plan.md` §5).
+//! Multi-head / IDEX machine synchronization (D2.5, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! Provides configuration models and G-code emission for multi-head machines:
 //! - Independent Dual Extruder (IDEX) 3D printers.

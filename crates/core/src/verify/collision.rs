@@ -1,4 +1,4 @@
-//! Tool holder & spindle collision detection (D2.1 / D4.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §6.4).
+//! Tool holder & spindle collision detection (D2.1 / D4.1, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
 //! One rule: the holder assembly must not descend below the top of the stock. The tool tip stands
 //! `stickout_length` proud of the holder face, so a cut deeper than the stickout puts the holder
