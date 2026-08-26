@@ -1,41 +1,51 @@
-//! # dry-core — the Dry IR + engine (foundations)
+//! # dry-core — one import surface over the four DRYMACHINA crates
 //!
-//! The dependency-light core of Dry (no PyO3, no numpy), the seed of the architecture in
-//! `docs/01-architecture.md`. At Phase 0 it carries the L2 motion dialect (`ir`) and the first engine
-//! analysis (`simulate`), validated against the FullControl behavioural oracle (`docs/03-conformance.md`)
-//! — clean-room: Dry reproduces FullControl's *outputs*, never its code (`docs/CLEANROOM.md`).
+//! A facade, and nothing else: it holds no types, no functions and no dependency of its own beyond
+//! the three crates it re-exports; `drymachina-contracts`, the fourth DRYMACHINA crate, reaches callers through
+//! `drymachina-verify`'s re-export of the shared vocabulary rather than through a dependency declared
+//! here. Six crates depend on it — `dry-cli`, `dry-llm`, and the four bindings `dry-wasm`,
+//! `dry-cloud`, `dry-py` and `dry-verify-runner`, with `sdk/ts` reaching it through the wasm one —
+//! and each of them names the engine's whole surface through this crate, under the paths it used
+//! before the layers were separated (`docs/01-architecture.md`).
 //!
-//! Status: **P0** — `resolve` + `simulate` + Marlin `emit`, all gated byte-for-output against the
-//! FullControl oracle, over a **unit-typed IR** ([`units`]: mixing units is a compile error). The binary
-//! encoding and the lowering passes are the next P0/P1 increments (`docs/04-tasks.md`).
+//! What is true of the engine is still true through here: it is dependency-light (no PyO3, no
+//! numpy), it compiles to `wasm32-unknown-unknown` unmodified, its IR is unit-typed ([`units`]:
+//! mixing units is a compile error), and it is gated byte-for-output against the FullControl
+//! behavioural oracle (`docs/03-conformance.md`) clean-room — Dry reproduces FullControl's
+//! *outputs*, never its code (`docs/CLEANROOM.md`).
+//!
+//! **Layering.** Layer 1 — the IR, resolve, lowering, optimisation, generation and emission — lives
+//! in `drymachina-kernel`, layer 2 — the verification rule registry and the verify-gated rewrite — in
+//! `drymachina-verify`, and layer 3 — trace, report, forensics, compare, explain, recommend and reverse —
+//! in `drymachina-trace`. Every one of their modules and names is re-exported below unchanged, so a
+//! `dry_core::Toolpath`, `dry_core::emit::emit`, `dry_core::verify::verify` or
+//! `dry_core::trace::trace_summary` import resolves exactly as it always did
+//! (`docs/superpowers/plans`).
 
 #![forbid(unsafe_code)]
 
-pub mod clothoid;
-pub mod codec;
-pub mod compare;
-pub mod emit;
-pub mod engine;
-pub mod explain;
-pub mod features;
-pub mod forensics;
-pub mod frame;
-pub mod gcode;
+// Layer 3, re-exported module-for-module from `drymachina-trace` so `dry_core::<module>::<item>` keeps
+// resolving, exactly as the seven `pub mod` declarations that stood here did.
+pub use drymachina_trace::{compare, explain, forensics, recommend, report, trace};
+// `reverse`, like `emit` and `resolve` below, names a module *and* a function of the same name; one
+// `use` of the name carries both namespaces, so the flat list must not restate the function.
+pub use drymachina_trace::reverse;
 
-pub mod generate;
-pub mod ir;
-pub mod optimize;
+// Layer 2, re-exported as a module so `dry_core::verify::<item>` keeps resolving; the flat list at
+// the bottom of this file re-exports its names as well, exactly as `pub mod verify` did.
+pub use drymachina_verify as verify;
 
-pub mod profile;
-pub mod recommend;
-pub mod report;
-pub mod resolve;
-pub mod reverse;
-pub mod sdk;
-pub mod trace;
-
-pub mod units;
-pub mod verify;
+// Layer 1, re-exported module-for-module from `drymachina-kernel` so that `dry_core::<module>::<item>`
+// paths keep resolving for the CLI, the bindings and the tests.
+pub use drymachina_kernel::{
+    clothoid, codec, engine, features, frame, gcode, generate, ir, optimize, profile, sdk, units,
+};
+// `emit` and `resolve` each name a module *and* a function of the same name, and one `use` of the
+// name carries both namespaces — so, unlike the twelve above, these two also re-export the function
+// and the flat lists below must not restate it.
+#[allow(deprecated)]
+pub use drymachina_kernel::emit;
+pub use drymachina_kernel::resolve;
 
 pub use clothoid::{corner_blend, fresnel, ClothoidError, CornerBlend, FRESNEL_SERIES_EPSILON};
 pub use codec::{
@@ -50,8 +60,6 @@ pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
-#[allow(deprecated)]
-pub use emit::emit;
 pub use emit::{
     emit_step_nc, emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor,
     Kinematics, KrlFrame, KrlTransform, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
@@ -82,10 +90,10 @@ pub use generate::{
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use optimize::{
-    adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
-    apply_safe_gated, arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline,
-    merge_collinear, optimize_aggressive_pipeline, optimize_pipeline, safe_pipeline,
-    travel_reorder, z_hop, z_hop_with_params, GatedResult, OptimizeMode,
+    adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated_with,
+    arc_fit, balanced_pipeline, coasting, coasting_with_dist, max_pipeline, merge_collinear,
+    optimize_aggressive_pipeline, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
+    z_hop_with_params, GatedResult, OptimizeMode,
 };
 pub use profile::{
     import_klipper, FirmwareProfile, KlipperImportError, KlipperImportWarning, MachineKinematics,
@@ -99,10 +107,8 @@ pub use report::{
     BatchFileResult, BatchStatus, LicenseStamp, LocatedFinding, ReviewBatch, ReviewReport,
     RewriteReport, RewriteSpanResult, RuleTally, TraceReport,
 };
-pub use resolve::{
-    resolve, resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams,
-};
-pub use reverse::{reverse, ReverseError};
+pub use resolve::{resolve_checked, validate_design, Design, Op, ResolveError, ResolveParams};
+pub use reverse::ReverseError;
 pub use sdk::DesignBuilder;
 pub use trace::{
     trace_summary, trace_summary_with_analytics, trace_summary_with_sources, LayerStats,
@@ -111,8 +117,14 @@ pub use trace::{
 };
 
 pub use units::{Angle, Area, Feedrate, Flow, Length, Time, Volume};
+// `apply_gated` / `apply_safe_gated` are listed here rather than under `optimize`: the mechanism is
+// the kernel's (`optimize::apply_gated_with`) but the policy is the verifier's, and the wrappers now
+// live in `drymachina-verify` beside it. So the flat `dry_core::apply_gated` every caller already uses is
+// unchanged, and the module path is `dry_core::verify::apply_gated`. Restoring the pre-split
+// `dry_core::optimize::apply_gated` would put a verifier-policy name back under a kernel module — the
+// layering the split exists to remove — and no caller, in-tree or in a binding, used it.
 pub use verify::{
-    catalog, parse_bounds_csv, parse_speed_range_csv, verify, verify_stream, ContractParseError,
-    Contracts, Finding, KinematicContracts, Report, RotaryContracts, RotaryTravelRanges, Rule,
-    RuleId, Severity,
+    apply_gated, apply_safe_gated, catalog, parse_bounds_csv, parse_speed_range_csv, verify,
+    verify_stream, ContractParseError, Contracts, Finding, KinematicContracts, Report,
+    RotaryContracts, RotaryTravelRanges, Rule, RuleId, Severity,
 };

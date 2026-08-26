@@ -1,0 +1,216 @@
+//! The Dry IR — L2 motion dialect (v0).
+//!
+//! A `Toolpath` is an ordered stream of resolved `Segment`s (machine-agnostic moves with absolute
+//! state). This is the level `simulate`/`verify`/`optimise` operate on (`docs/01-architecture.md` §1).
+//!
+//! v0's fields are **unit-typed** (via [`crate::units`]): coordinates and lengths are [`Length`],
+//! the feedrate is [`Feedrate`], deposited material is [`Volume`]. Each quantity is
+//! `#[serde(transparent)]`, so the JSON wire format is unchanged (bare numbers) and stays byte-identical
+//! to the conformance corpora. The general toolframe (orientation), the channel registry, and the
+//! binary/columnar encoding land in P0.3+.
+
+use crate::units::{Feedrate, Length, Volume};
+use serde::{Deserialize, Serialize};
+
+/// The resolved motion primitive carried by a [`Segment`].
+///
+/// The wire format remains the existing lowercase string values (`"line"`, `"arc"`, `"spline"`,
+/// `"dwell"`), but the Rust core now handles the vocabulary as an enum so unsupported values fail at
+/// deserialization/binary decode instead of silently behaving like a line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SegmentKind {
+    #[default]
+    Line,
+    Arc,
+    Spline,
+    Dwell,
+    Retract,
+    Unretract,
+    Deposit,
+    ManualGcode,
+}
+
+impl SegmentKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SegmentKind::Line => "line",
+            SegmentKind::Arc => "arc",
+            SegmentKind::Spline => "spline",
+            SegmentKind::Dwell => "dwell",
+            SegmentKind::Retract => "retract",
+            SegmentKind::Unretract => "unretract",
+            SegmentKind::Deposit => "deposit",
+            SegmentKind::ManualGcode => "manual_gcode",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "line" => Some(SegmentKind::Line),
+            "arc" => Some(SegmentKind::Arc),
+            "spline" => Some(SegmentKind::Spline),
+            "dwell" => Some(SegmentKind::Dwell),
+            "retract" => Some(SegmentKind::Retract),
+            "unretract" => Some(SegmentKind::Unretract),
+            "deposit" => Some(SegmentKind::Deposit),
+            "manual_gcode" => Some(SegmentKind::ManualGcode),
+            _ => None,
+        }
+    }
+}
+
+/// One resolved move from `start` to `end` (absolute). An axis is `None` when undefined before it is
+/// first set (e.g. the very first positioning move). `length` is the true path length (arc length for
+/// arcs; 0 for a pure positioning move). `volume`/`filament` are the material this move deposits.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Segment {
+    pub start: [Option<Length>; 3],
+    pub end: [Option<Length>; 3],
+    pub travel: bool,
+    /// Feedrate (g-code `F`).
+    pub speed: Feedrate,
+    /// Path length.
+    pub length: Length,
+    /// Deposited material volume.
+    pub volume: Volume,
+    /// Feedstock consumed (a length of filament).
+    pub filament: Length,
+    pub width: Option<Length>,
+    pub height: Option<Length>,
+    /// The segment primitive. Defaults to `line` for legacy/header-free fixtures.
+    #[serde(default)]
+    pub kind: SegmentKind,
+    /// Arc centre `(cx, cy)` in absolute coordinates — present only for [`SegmentKind::Arc`].
+    #[serde(default)]
+    pub centre: Option<[Length; 2]>,
+    /// Arc direction: `true` → G2 (clockwise), `false` → G3.
+    #[serde(default)]
+    pub clockwise: bool,
+
+    // ---- process channels (§3): typed, defaulted, propagated by `resolve`. Each is omitted from the
+    // wire form when unset, so a motion-only toolpath serialises byte-identically to a channel-free IR.
+    /// Nozzle temperature (°C) in effect for this move.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// Part-cooling fan (0..1) in effect for this move.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fan: Option<f64>,
+    /// Flow multiplier applied to the deposited volume — omitted when the default (1.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow: Option<f64>,
+    /// Active tool index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<u32>,
+    /// Commanded spindle/laser power in effect for this move, in the units the target controller's
+    /// `S` word takes — RPM for a spindle, PWM counts for a laser. One channel serves both because
+    /// `S` is the one word both dialects spell it with, and because the program-level
+    /// [`crate::emit::CncFrame::spindle_rpm`] already commands RPM: a normalised 0..1 level here
+    /// would not be commensurate with it. `0.0` is a legal value (commanded off), distinct from
+    /// `None` (never commanded).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub power: Option<f64>,
+    /// Dwell duration (s) — present only for [`SegmentKind::Dwell`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dwell_s: Option<f64>,
+    /// Verbatim G-code — present only for [`SegmentKind::ManualGcode`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manual_gcode: Option<String>,
+    /// Toolframe orientation: the tool-direction unit vector `(i, j, k)`. `None` ⇒ identity (+Z), i.e.
+    /// 3-axis. Carrying it makes non-planar / 5-axis a first-class IR property (§2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orientation: Option<[f64; 3]>,
+    /// Spline control points — present only when kind == `SegmentKind::Spline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_points: Option<Vec<[Length; 3]>>,
+}
+
+/// The self-describing IR **header**: optional provenance and declared invariants. Every field is
+/// omitted from the wire form when empty, so a toolpath with no header (`Toolpath.meta == None`)
+/// serialises byte-identically to a header-free IR.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct Meta {
+    /// The tool (and version) that produced this toolpath, e.g. `"dry 0.0.0"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<String>,
+    /// The length unit the coordinates are in, e.g. `"mm"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub units: Option<String>,
+    /// A content hash of the source design (hex), for provenance/caching.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_hash: Option<String>,
+    /// Declared contract names the toolpath claims to satisfy (see `drymachina-verify`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invariants: Vec<String>,
+}
+
+/// A resolved toolpath: an ordered stream of moves. The `version` tags the Dry IR schema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Toolpath<I = Vec<Segment>> {
+    #[serde(default)]
+    pub version: u32,
+    /// Optional self-describing header (provenance + declared invariants). Absent ⇒ no `meta` key on
+    /// the wire (byte-identity with a header-free IR).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Meta>,
+    pub segments: I,
+}
+
+impl Toolpath<Vec<Segment>> {
+    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(s)
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("Toolpath serialises")
+    }
+
+    /// Encode to the compact columnar `DRY0` binary form (`docs/01-architecture.md` §6; see
+    /// [`crate::codec`]).
+    pub fn try_to_bytes(&self) -> Result<Vec<u8>, crate::codec::CodecError> {
+        crate::codec::try_encode(self)
+    }
+
+    /// Encode to the compact columnar `DRY0` binary form (`docs/01-architecture.md` §6; see
+    /// [`crate::codec`]).
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.try_to_bytes()
+            .expect("Dry columnar binary encode failed")
+    }
+
+    /// Encode to the chunked streaming `DRY1` binary form.
+    pub fn try_to_streaming_bytes(&self) -> Result<Vec<u8>, crate::codec::CodecError> {
+        crate::codec::try_encode_chunked(self)
+    }
+
+    /// Encode to the chunked streaming `DRY1` binary form.
+    pub fn to_streaming_bytes(&self) -> Vec<u8> {
+        self.try_to_streaming_bytes()
+            .expect("Dry chunked binary encode failed")
+    }
+
+    /// Decode from either binary form. Lossless: `from_bytes(&to_bytes()) == self`.
+    pub fn from_bytes(buf: &[u8]) -> Result<Self, crate::codec::CodecError> {
+        crate::codec::decode(buf)
+    }
+
+    /// Decode from either binary form with caller-supplied resource budgets.
+    pub fn from_bytes_with_limits(
+        buf: &[u8],
+        limits: &crate::codec::DecodeLimits,
+    ) -> Result<Self, crate::codec::CodecError> {
+        crate::codec::decode_with_limits(buf, limits)
+    }
+}
+
+impl<I> IntoIterator for Toolpath<I>
+where
+    I: IntoIterator,
+{
+    type Item = I::Item;
+    type IntoIter = I::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
+    }
+}

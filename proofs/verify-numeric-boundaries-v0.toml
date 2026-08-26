@@ -1,10 +1,10 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon is defined in verify.rs and imported by crates/core/src/resolve.rs, so its L1 gate is the same constant and is covered by the same pin."
+scope = "The binary64 boundary of the always-on structural rules in crates/verify/src/lib.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon moved to crates/contracts/src/lib.rs with the drymachina-contracts extraction and is imported straight from there by crates/kernel/src/resolve.rs, so its L1 gate is still the same single constant; the slice pinned below is what keeps it under review."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
-path = "crates/core/src/verify.rs"
+path = "crates/verify/src/lib.rs"
 role = "implementation"
 hash_mode = "file"
 # Re-pinned for the arc-radius entry below. The reviewed diff against the previous hash is a doc
@@ -31,7 +31,130 @@ hash_mode = "file"
 #
 # Re-pinned 2026-08-03 at the merge of the two slices above: the hash below is verify.rs carrying
 # both reviewed diffs combined, with no further change.
-sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
+#
+# Re-pinned 2026-08-25 for the `drymachina-contracts` extraction (DRYMACHINA crate-split plan, Task 3). The
+# reviewed diff against the previous hash is one move and no edit: `Contracts`,
+# `KinematicContracts`, `RotaryContracts`, `RotaryTravelRanges`, `ContractParseError`,
+# `parse_bounds_csv`, `parse_speed_range_csv`, `Severity`, `RuleId` and `ARC_RADIUS_TOLERANCE_MM`
+# leave this file verbatim for `drymachina-contracts` -- the logic-free crate that has to sit below both
+# the kernel and the verifier, because `RotaryContracts.model` is an `emit::Kinematics` while
+# `resolve.rs` reads the arc-radius epsilon -- and are re-exported from their former paths by a
+# single `pub use`. No caller, in-tree or in the bindings, changes import path.
+#
+# What that costs this pin, and what replaces it: `ARC_RADIUS_TOLERANCE_MM` is no longer *defined*
+# in the file this hash covers, so a whole-file pin on `crates/verify/src/lib.rs` alone would have
+# left the epsilon free to be retuned outside review. It does not: the second `[[source]]` below pins
+# the constant as a slice of its new owner, and `tools/validate_numeric_boundaries.py` now resolves
+# the constant per-owner rather than assuming `crates/verify/src/lib.rs` holds all four. The predicate that *applies* the epsilon
+# stays here and stays byte-identical, so FM1.F64.VERIFY.ARC_RADIUS's `source_anchor` moves off the
+# constant and onto that predicate -- the same entry, anchored to the half of it that is still here.
+#
+# No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation`
+# text changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are
+# untouched at 1e-6 and still defined here; `arc_radius_error`, the continuity rule, the two length
+# rules and the filament rule are byte-identical; every rule still fires at the same severity.
+#
+# Re-pinned 2026-08-25 for the `drymachina-verify` extraction (DRYMACHINA crate-split plan, Task 5). The file is
+# the same file: it moved from `crates/core/src/verify.rs` to `crates/verify/src/lib.rs`, the crate
+# root of layer 2, and the `path` above moved with it. Against the previous hash the reviewed diff is
+# four things, none of them a rule:
+#   1. A crate root's worth of header -- one doc paragraph, `#![forbid(unsafe_code)]`, `mod gated;`
+#      and `pub use gated::{apply_gated, apply_safe_gated};`. The two gate wrappers are the verify
+#      *policy* bound to the kernel's `apply_gated_with` *mechanism*; they moved here from
+#      `crates/core/src/gated.rs` unchanged and are declared, not defined, in this file.
+#   2. Import rewrites: the six `use crate::{emit,engine,ir,optimize,resolve,units}::...` lines became
+#      `drymachina_kernel::...`, `crate::codec::CodecError` became a named `use` of the same type so
+#      `verify_stream`'s signature stays on one line, and five in-module tests now spell
+#      `drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS`. Same items, same crate graph, new paths.
+#   3. `LicenseStamp` moved *in*, verbatim, from `crates/core/src/report.rs`. `Report.license` is
+#      typed with it and layer 3 now sits above this crate, so the definition had to travel below the
+#      field it types; `dry_core::report` re-exports it, so the type, its serde attributes and the
+#      wire shape of a stamped report are unchanged. This is the same field the 2026-08-03 re-pin
+#      above was reviewed for, now with its declaration inside the pin rather than outside it.
+#   4. Five in-module tests that exercise `drymachina-contracts` and nothing else --
+#      `contract_csv_parsers_*`, `contracts_default_has_no_kinematics`,
+#      `contracts_default_evaluates_only_structural_rules` and
+#      `rotary_rules_are_evaluated_only_where_a_limit_is_supplied` -- moved out to
+#      `crates/contracts/tests/vocabulary.rs`, and `rule_catalog_is_consistent` split along the same
+#      line: the `RuleId` sweep went with them, the `catalog()` projection stayed here.
+#
+# What that costs this pin. Those assertions -- `RuleId::ALL.len() == 27`, the always-on set, the
+# error-severity count of 8, the warning list -- are the ones the 2026-08-03 `travel-extrudes` note
+# leans on, and they are now outside every hash in this file. They are still enforced, and by the
+# crate that owns the code they read: `crates/contracts/src/lib.rs` holds `RuleId::ALL`,
+# `default_severity` and `is_evaluated`, the slice below pins all three, and the moved tests fail the
+# moment any of them changes. A pin makes a vocabulary edit present as a review; the tests make it
+# present as a red build. The slice still does the first, in the file that now does the second.
+#
+# No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation` text
+# changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are untouched at
+# 1e-6 and still defined in this file; `arc_radius_error`, the continuity rule, the two length rules
+# and the filament rule are byte-identical; every rule still fires at the same severity.
+#
+# Re-pinned 2026-08-26 for the four-crate package rename to `drymachina-*`. The old-to-new mapping
+# and the reason the former prefix was given up are recorded at
+# `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md:21`
+# (the "New crates are named `drymachina-*`" bullet). This inventory deliberately does not spell
+# the retired prefix, so that plan line is where a reader picks the mapping up -- and it is what makes
+# the check at the foot of this note runnable rather than decorative. The file did not move; `path`
+# above is unchanged.
+#
+# The reviewed diff against the previous hash is nineteen lines, every one of them the same token
+# substitution, and it adds up as:
+#   - One crate-doc heading, and two doc lines linking the kernel and vocabulary crates, now
+#     [`drymachina_kernel`] and [`drymachina_contracts`].
+#   - Seven `use drymachina_kernel::...` imports.
+#   - One `pub use drymachina_contracts::{...}` re-export, and the comment above it.
+#   - Seven lines inside `mod tests`: the `drymachina_kernel::units::{Feedrate, Volume}` import, one
+#     doc line naming `drymachina-contracts`, and five
+#     `rotary: Some(drymachina_kernel::emit::REFERENCE_FIVE_AXIS_LIMITS)` contract literals.
+# Same crates, same items, new package names; every import resolves to exactly what it did before.
+#
+# Checked rather than asserted: rewriting those nineteen lines back to the former spellings -- the
+# mapping is on the plan line cited above -- reproduces
+# c02b7212951cad655d026d426e30cacc5c8da4c2da1e02e075f32dee029afa3c, the previous hash, byte for byte.
+# That is what rules out any other edit hiding in the same commit.
+#
+# No predicate, no epsilon value, no rule behaviour and none of the four boundaries' `operation` text
+# changed. CONTINUITY_TOLERANCE_MM, LENGTH_TOLERANCE and FILAMENT_RATIO_TOLERANCE are untouched at
+# 1e-6 and still defined in this file; `arc_radius_error`, the continuity rule, the two length rules
+# and the filament rule are byte-identical; every rule still fires at the same severity.
+sha256 = "5e27f8392d0f5c1f991cff0c30089d9a4b523007e7278d680c07c97df152253c"
+
+# The verify half of the vocabulary crate: everything this inventory used to cover whole-file inside
+# verify.rs and that the crate split moved out. The contract structs and their serde field
+# attributes, `ContractParseError`, the CSV contract parsers, `Severity`, the whole of `impl RuleId`
+# -- `ALL`, `as_str`, `from_wire`, `default_severity`, `is_evaluated` -- and, last, the arc-radius
+# epsilon itself.
+#
+# Sliced rather than whole-file, and the split is by *provenance*. The rest of the file is the
+# kinematics that came out of `emit/kinematics.rs`, pinned by `emit-numeric-boundaries-v0.toml` on
+# the same reasoning. Between them the two inventories cover every declaration, impl and constant in
+# the crate, while each one fires only on the content it owns: a rotary-model edit does not present
+# as a verify review, and a rule-severity edit does not present as an emit one. That routing is what
+# a whole-file pin from both inventories would destroy, and it is the whole argument for slicing
+# here.
+#
+# The first version of this pin got the extent wrong and is worth recording, because the mistake is
+# an easy one to repeat: it covered the epsilon alone -- 7 lines of 720, on the argument that the
+# rest of the crate is inert vocabulary. It is not inert. This file's own 2026-08-03 re-pin exists
+# *because* `RuleId::default_severity` changed, and that note says in as many words that it "does
+# change rule behaviour". `RuleId::ALL` and `is_evaluated` decide which rules are evaluated at all,
+# and therefore what `Report::rules_evaluated` is entitled to claim. `parse_bounds_csv` decides what
+# a `--bounds` string means. Demoting `RuleId::Bounds` to a warning, or returning `v[5] + 1.0` from
+# the bounds parser, were both caught by the whole-file pin before the move and both passed green
+# under the narrow slice. They are inside this one.
+#
+# Deliberately outside review, in full: the crate doc comment, `#![forbid(unsafe_code)]` and the
+# `use serde::{Deserialize, Serialize};` line -- the 17 lines above the first item, which contain no
+# code. Nothing executable in drymachina-contracts sits outside the two slices.
+[[source]]
+path = "crates/contracts/src/lib.rs"
+role = "implementation"
+hash_mode = "slice"
+anchor_start = "/// The limits a toolpath is checked against."
+anchor_end = "/// The rotary kinematics of the 5-axis machine:"
+sha256 = "f8eaf3745ac018d41c1c2ab57417d3e71b1a479ae93cae407d550229b3056971"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -39,7 +162,7 @@ sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
 # three entries below.
 #
 # The fourth, `arc-radius`, predates H1.3 and was left unregistered when they landed. P5.4 found the
-# gap the hard way: `crates/core/src/emit/krl.rs` declined to re-check arc-radius consistency on the
+# gap the hard way: `crates/kernel/src/emit/krl.rs` declined to re-check arc-radius consistency on the
 # grounds that verify owned it "with its published epsilon", and no such publication existed. The
 # entry is that publication. Registering it also gave the constant a single definition -- resolve.rs
 # had carried a second literal of the same value, outside any pin.
@@ -55,7 +178,7 @@ sha256 = "7e054294f663733751fa2226603559d65482f2d8e8765c97b9bc5647f125d87a"
 id = "FM1.F64.VERIFY.CONTINUITY.GAP"
 title = "Continuity tolerates a per-axis gap only below the emitter's own coordinate resolution"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const CONTINUITY_TOLERANCE_MM: f64 = 1e-6;"
 inputs = ["Segment.start", "Segment.end"]
 operation = "Per axis, with the previous segment's end p and this segment's start q: fire when |p - q| > 1e-6 * max(|p|, |q|, 1). An undefined axis inherits and never fires; ManualGcode resets the tracked position instead of being compared."
@@ -71,8 +194,8 @@ exclusions = [
 ]
 next_obligation = "Keep this equal to the emitter's coordinate precision. If num() ever formats to more or fewer decimals, the epsilon and this entry move with it."
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/emit/gcode.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/emit/gcode.rs",
   "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
@@ -85,7 +208,7 @@ profile_entries = [
 id = "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH"
 title = "A declared length must agree with the geometry the segment itself carries"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const LENGTH_TOLERANCE: f64 = 1e-6;"
 inputs = ["Segment.length", "Segment.start", "Segment.end", "Segment.centre", "Segment.clockwise"]
 operation = "For straight and stationary primitives, fire when the declared length differs from the distance between the segment's own endpoints by more than 1e-6 relative. For an Arc, compare against hypot(radius * swept, dz) instead. Spline and ManualGcode are excluded."
@@ -101,9 +224,9 @@ exclusions = [
 ]
 next_obligation = "If any producer adopts a different length formula, this rule stops checking a producer against itself and needs re-deriving."
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/gcode/lift.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/gcode/lift.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
@@ -115,7 +238,7 @@ profile_entries = [
 id = "FM1.F64.VERIFY.FILAMENT_RATIO"
 title = "The volume-to-filament ratio is the feedstock cross-section and is constant per tool"
 rust_symbol = "verify_stream"
-source_path = "crates/core/src/verify.rs"
+source_path = "crates/verify/src/lib.rs"
 source_anchor = "const FILAMENT_RATIO_TOLERANCE: f64 = 1e-6;"
 inputs = ["Segment.volume", "Segment.filament", "Segment.tool", "Segment.travel"]
 operation = "Over segments with !travel and volume > 0 and filament > 0, grouped by tool: fire when volume/filament differs from the group's first observed ratio by more than 1e-6 relative."
@@ -131,21 +254,51 @@ exclusions = [
 ]
 next_obligation = "Promote to Error one minor release after landing, and revisit if the IR gains a filament diameter."
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/optimize/coasting.rs",
-  "crates/core/src/optimize/arc.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/optimize/coasting.rs",
+  "crates/kernel/src/optimize/arc.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
 ]
 
+# Two locational words changed 2026-08-25 for the `drymachina-kernel` extraction (DRYMACHINA crate-split plan,
+# Task 4), in this entry's third `assumptions` line and in the file `scope` above: resolve.rs used to
+# reach the epsilon "through verify.rs" and now imports it straight from `drymachina-contracts`, because
+# `crate::verify` does not exist from inside the kernel. Same constant, same owner, same single
+# definition, and the same two pins still cover both halves of the gate -- only the route changed, and
+# leaving the old route asserted would have made this entry describe an import that no longer exists.
+# `operation`, `classification`, `numeric_status`, `exclusions`, `next_obligation`, every budget and
+# every limit are untouched here and in the other three entries; `crates/verify/src/lib.rs` itself
+# did not change this task and its hash above is unmoved.
+#
+# Two more locational words changed 2026-08-26, and neither is a numeric edit.
+#
+# The first is the package rename, in the same two places the Task 4 edit above touched: the crate
+# that owns the epsilon is now spelled `drymachina-contracts`. Same crate, same constant, same single
+# definition -- only the package name moved, and an inventory that went on naming the old one would
+# point at a package that no longer exists.
+#
+# The second is a leftover the rename put back under review. This entry's third `assumptions` line
+# said "the file pin on verify.rs", and no `verify.rs` has existed since Task 5 moved the file to
+# `crates/verify/src/lib.rs` -- the path the first `[[source]]` above already carries. The line now
+# names that path, so the pin it points at is one a reader can actually resolve. The same bare
+# shorthand was corrected for the same reason in the two `What that costs this pin` sentences and in
+# the closing sentence of the Task 4 note. It is left standing only where a sentence is explicitly
+# retrospective ("everything this inventory used to cover whole-file inside verify.rs", and the
+# 2026-08-03 note on a hash since superseded) or quotes the older wording it replaced ("through
+# verify.rs"); rewriting those would misdate the record rather than repair it.
+#
+# `operation`, `classification`, `numeric_status`, `exclusions`, `next_obligation`, every budget and
+# every limit are untouched here and in the other three entries, and neither edit touches a pinned
+# source, so neither moves a digest in this file.
 [[boundary]]
 id = "FM1.F64.VERIFY.ARC_RADIUS"
 title = "An arc's two endpoint radii must agree, and one epsilon decides that everywhere it is asked"
 rust_symbol = "arc_radius_error"
-source_path = "crates/core/src/verify.rs"
-source_anchor = "pub(crate) const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;"
+source_path = "crates/verify/src/lib.rs"
+source_anchor = "let tolerance = ARC_RADIUS_TOLERANCE_MM * start_radius.max(end_radius).max(1.0);"
 inputs = ["Segment.start", "Segment.end", "Segment.centre", "Op::Arc.cx", "Op::Arc.cy"]
 operation = "With r0 = hypot(start - centre) and r1 = hypot(end - centre), both required > 0: fire when |r0 - r1| > 1e-6 * max(r0, r1, 1). Applied twice on the same constant - by verify's `arc-radius` rule on a Segment, and by resolve's L1 gate on an Op::Arc, which imports the constant rather than restating it. An arc with an undefined start or end X/Y is reported as missing geometry instead, and is not measured by this predicate."
 classification = "interval-bounded"
@@ -153,7 +306,7 @@ numeric_status = "bounded"
 assumptions = [
   "The two radii are computed by the same hypot on the same centre, so the predicate compares a producer against itself and not two derivations.",
   "Hybrid form (absolute below 1 mm, relative above) for the reason recorded on COMPARED_COORDINATE_MM: at large coordinates the binary64 spacing alone exceeds a fixed 1e-6 mm.",
-  "resolve.rs imports the constant from verify.rs, so the pin below covers the L1 gate as well as the rule. A second literal there would be outside this entry.",
+  "resolve.rs imports the constant straight from drymachina-contracts, so the two pins above cover the L1 gate as well as the rule: the slice on crates/contracts/src/lib.rs holds the epsilon, the file pin on crates/verify/src/lib.rs holds the predicate that applies it. A second literal in either would be outside this entry.",
 ]
 exclusions = [
   "The emit path. `dry emit` runs no verifier (ADR 0002 §1) and no emitter re-applies this epsilon, so IR loaded straight from disk reaches a program without this check. It matters most for `emit/krl.rs`: a KRL CIRC is refitted through three points and keeps no trace of the IR centre, where RS-274 preserves it in I/J and leaves the contradiction visible downstream.",
@@ -162,9 +315,9 @@ exclusions = [
 ]
 next_obligation = "If any emitter starts applying this epsilon, that application has a different input domain (an emitted pose, not an IR quantity) and needs its own boundary in the emit inventory rather than an extension of this one."
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/emit/krl.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/emit/krl.rs",
 ]
 claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [

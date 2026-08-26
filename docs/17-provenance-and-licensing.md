@@ -17,6 +17,18 @@ Public visibility grants access to inspect and download the product but does not
 licence. Use, modification, redistribution, and production deployment remain subject to `LICENSE` and
 a separate written commercial agreement.
 
+**Publishing the product and reserving its name are different acts, and only the first is disabled.**
+The policy above exists to keep distribution controlled — nobody should be able to `cargo add` the
+engine. It does not require leaving the project's name unclaimed, and leaving it unclaimed is a
+standing risk: `dry` was never claimed on `crates.io`, `npm` or `PyPI` precisely because publication was
+off, which left all three names available to anyone who wanted them.
+
+A **defensive name reservation** — an empty placeholder carrying the licence, a pointer to the project,
+and no product code whatsoever — is therefore permitted and intended. It distributes nothing. Any
+placeholder must state in its description and README that it is a reservation and that the software is
+not distributed through the registry. Publishing anything that contains product code, or that a
+consumer could mistake for the engine, remains disabled.
+
 Dry-authored work uses the custom SPDX expression `LicenseRef-Dry-Proprietary` where the ecosystem
 supports it, Cargo packages point to their proprietary `LICENSE`, and the unpublished npm package uses
 the standard `UNLICENSED` marker. Versions already distributed under Apache-2.0 retain that licence;
@@ -34,7 +46,7 @@ the change is prospective. Customer evaluation and production use require a sepa
 | `conformance/simulate/` | FullControl oracle metrics | output-only | `conformance/export.py` |
 | `conformance/oracle/` | the FullControl oracle generator itself | **dev/CI only — excluded from releases** | n/a |
 | `conformance/vectors/` | authored for the Dry IR v0 spec (slice A) | **authored clean-room** | `UPDATE_VECTORS=1 cargo test -p dry-core --test spec_vectors` |
-| `conformance/reports/` | authored for the report contract (slice D) | **authored clean-room** | `UPDATE_REPORTS=1 cargo test -p dry-core --test report_goldens` |
+| `conformance/reports/` | authored for the report contract (slice D) | **authored clean-room** | `UPDATE_REPORTS=1 cargo test -p drymachina-trace --test report_goldens` |
 | `conformance/reports/cnc/` | authored for the P5.3 CNC slice | **authored clean-room** | `UPDATE_GOLDEN=1 cargo test -p dry-core --test cnc_pocket_e2e` |
 | `spec/examples/profiles/` | authored example profiles (slice D) | **authored clean-room** | hand-maintained |
 | `examples/` | authored pilot examples (slice F) | **authored clean-room** | hand-maintained |

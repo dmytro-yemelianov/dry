@@ -4,7 +4,7 @@
 covers**, the grammar the output is checked against, the conventions it follows and where they come
 from, and what it still does not do.
 
-Implementation: [`crates/core/src/emit/krl.rs`](../crates/core/src/emit/krl.rs). Structural tests:
+Implementation: [`crates/kernel/src/emit/krl.rs`](../crates/kernel/src/emit/krl.rs). Structural tests:
 [`crates/core/tests/krl_program_structure.rs`](../crates/core/tests/krl_program_structure.rs).
 External check: [`tools/krl_check.sh`](../tools/krl_check.sh).
 
@@ -136,7 +136,7 @@ modality g-code gives an omitted axis word — so `LIN {E6POS: Y 20.0}` moves in
 else, and a 3-axis emit (no `--five-axis`) states no orientation at all and leaves the robot's alone.
 
 **Which components are stated is decided by exactly the rule in
-[`emit/gcode.rs`](../crates/core/src/emit/gcode.rs)**, so a word the g-code renderer writes is a
+[`emit/gcode.rs`](../crates/kernel/src/emit/gcode.rs)**, so a word the g-code renderer writes is a
 component this one writes: under `--five-axis`, an axis that *changed* or that the segment *named*;
 in 3-axis mode, an axis the segment named that also changed (plus X and Y on a `CIRC`). The
 five-axis branch is why the golden above restates `Y 0.0, Z 5.0` on a move that only changed X: it is
@@ -163,7 +163,7 @@ A = atan2(j, i)      B = acos(k)      C = 180
 ```
 
 which is `Kinematics::Bc` with zero offsets — already implemented in
-[`crates/core/src/emit/kinematics.rs`](../crates/core/src/emit/kinematics.rs). The KRL renderer
+[`crates/kernel/src/emit/kinematics.rs`](../crates/kernel/src/emit/kinematics.rs). The KRL renderer
 resolves through it rather than re-deriving the trig, and so inherits its **singular-cone hold**: at
 `d = ±Z` the `A` angle is undetermined and is held at its previous value instead of being swung to
 `atan2(0, 0) = 0`. The untilted tool comes out as `A 0, B 0, C 180`, the canonical KUKA
@@ -246,7 +246,7 @@ what that does and does not buy is worth stating exactly, because an earlier dra
 overstated it.
 
 The epsilon is `ARC_RADIUS_TOLERANCE_MM`. It is one constant, defined in
-[`crates/core/src/verify.rs`](../crates/core/src/verify.rs) and imported by `resolve.rs` rather than
+[`crates/contracts/src/lib.rs`](../crates/contracts/src/lib.rs) and imported by `resolve.rs` rather than
 restated there, applied by `verify`'s `arc-radius` rule and by the L1 arc gate, and published as the
 boundary `FM1.F64.VERIFY.ARC_RADIUS` in
 [`proofs/verify-numeric-boundaries-v0.toml`](../proofs/verify-numeric-boundaries-v0.toml) with the

@@ -1,16 +1,16 @@
 schema_version = 1
 model = "feature-numeric-boundaries-v0"
-scope = "The binary64 boundary of crates/core/src/features.rs from FeaturePose and Op inputs through expand_features_with_limits output or ExpandError."
+scope = "The binary64 boundary of crates/kernel/src/features.rs from FeaturePose and Op inputs through expand_features_with_limits output or ExpandError."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.FEATURE.PLANAR.V0"
 
 [[source]]
-path = "crates/core/src/features.rs"
+path = "crates/kernel/src/features.rs"
 role = "implementation"
 hash_mode = "file"
 sha256 = "22dae5f1bcd9c5e119f949f3b1fe16b4ca46ce6f3b020c4d50b1eeeda1c1807f"
 
 [[source]]
-path = "crates/core/src/resolve.rs"
+path = "crates/kernel/src/resolve.rs"
 role = "input-domain"
 hash_mode = "slice"
 anchor_start = "pub enum Op {"
@@ -21,7 +21,7 @@ sha256 = "23ecc650ee759ead0f183624f4133b6c5d31a8b5190a4676aac88ab62bc3d767"
 id = "FM1.F64.FEATURE.POSE.FINITE"
 title = "Feature and repeat poses reject non-finite fields before transform construction"
 rust_symbol = "Transform::from_pose"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = '''for (name, value) in [
             ("x", pose.x),
             ("y", pose.y),
@@ -38,7 +38,7 @@ next_obligation = "Keep the checked first-error theorem and Rust refinement fixt
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 claim_ids = [
   "FM1.TRANSFORM.COMPOSE_ACTION",
@@ -54,7 +54,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.COORDINATE.INHERIT"
 title = "Move, arc-end, spline and clothoid-end coordinates are inherited without arithmetic and then checked finite"
 rust_symbol = "inherit_point"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "let value = point[axis].or(position[axis]).ok_or_else(|| {"
 inputs = ["Op::Move.{x,y,z}", "Op::Arc.{x,y,z}", "Op::Spline.points[*][*]", "Op::Clothoid.{x,y,z}", "running local position"]
 operation = "Select the supplied coordinate or the prior local coordinate; reject missing and non-finite values."
@@ -67,7 +67,7 @@ next_obligation = "Extend the input rejection model if public coordinate syntax 
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 claim_ids = [
   "FM1.FEATURE.COMPOSE_ACTION",
@@ -82,7 +82,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.ANGLE.DEGREES"
 title = "Pose rotation converts binary64 degrees to radians"
 rust_symbol = "radians_from_degrees"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "degrees * PI / 180.0"
 inputs = ["finite FeaturePose.rotate_z_deg", "std::f64::consts::PI", "binary64 literal 180.0"]
 operation = "Two rounded binary64 operations: rotate_z_deg * PI, then division by 180."
@@ -97,8 +97,8 @@ evidence = [
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -120,7 +120,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.TRIG.LIBM"
 title = "Planar rotation coefficients use libm sine and cosine"
 rust_symbol = "Transform::from_pose"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = '''cos: libm::cos(angle),
             sin: libm::sin(angle),'''
 inputs = ["binary64 radian angle"]
@@ -133,12 +133,12 @@ next_obligation = "Replace the imported one-ULP premise with exhaustive source-l
 evidence = [
   "formal/Dry/Numeric/Trig.lean",
   "proofs/libm-0.2.16-trig-contract.md",
-  "crates/core/tests/wasm_native_math.rs",
+  "crates/kernel/tests/wasm_native_math.rs",
   "formal/Dry/Tests/NativeNumericFixtures.lean",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -158,7 +158,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.COMPOSE.ROTATION"
 title = "Nested planar rotations compose with a rounded complex product"
 rust_symbol = "Transform::compose"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "cos: self.cos * local.cos - self.sin * local.sin,"
 inputs = ["parent Transform.{cos,sin}", "local Transform.{cos,sin}"]
 operation = "Four multiplications and two additions/subtractions compute the composed coefficients."
@@ -181,8 +181,8 @@ evidence = [
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -208,7 +208,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.COMPOSE.TRANSLATION"
 title = "Nested pose translations rotate locally and add to the parent translation"
 rust_symbol = "Transform::compose"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "translated[0] + self.translation[0],"
 inputs = ["parent Transform translation and coefficients", "local Transform translation"]
 operation = "Apply the parent rotation to the local translation, then add each parent translation component."
@@ -231,8 +231,8 @@ evidence = [
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -259,7 +259,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.APPLY.POINT"
 title = "Moves, arc endpoints, spline controls and clothoid end points receive a rounded planar point transform"
 rust_symbol = "Transform::apply_point"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "fn apply_point(self, point: [f64; 3]) -> [f64; 3] {"
 inputs = ["finite inherited Move point", "finite inherited Arc endpoint", "finite inherited Spline control point", "finite inherited Clothoid end point", "Transform coefficients and translation"]
 operation = "Apply a planar vector rotation and add XYZ translation."
@@ -267,7 +267,7 @@ classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = [
   "Input coordinates passed inherit_point and transform inputs satisfy their preceding boundary assumptions.",
-  "Op::Clothoid.blend rides through the clothoid arm as a bit copy, not through this transform: no arithmetic is applied to it and its binary64 pattern survives placement exactly. That is a statement about the field, not about the corner, and an earlier version of this line overreached by adding 'a pose is rigid, so a tangent length is invariant under it'. The pose is rigid over the reals and not in binary64 — this transform rotates with rounded cos/sin, so the leg lengths the placed corner is measured against move by ulps while blend holds still. Measured: a corner with blend == leg == 10 mm validates unplaced and is refused at rotate_z_deg = 30, where the leg comes out as 9.999999999999998 mm. Refusing is correct; the claim of invariance was not. See LIMIT.BLEND_TO_LEG_RATIO in proofs/resolve-clothoid-numeric-profile-v0.toml and a_blend_that_exactly_fills_its_leg_is_not_pose_stable in crates/core/tests/clothoid.rs.",
+  "Op::Clothoid.blend rides through the clothoid arm as a bit copy, not through this transform: no arithmetic is applied to it and its binary64 pattern survives placement exactly. That is a statement about the field, not about the corner, and an earlier version of this line overreached by adding 'a pose is rigid, so a tangent length is invariant under it'. The pose is rigid over the reals and not in binary64 — this transform rotates with rounded cos/sin, so the leg lengths the placed corner is measured against move by ulps while blend holds still. Measured: a corner with blend == leg == 10 mm validates unplaced and is refused at rotate_z_deg = 30, where the leg comes out as 9.999999999999998 mm. Refusing is correct; the claim of invariance was not. See LIMIT.BLEND_TO_LEG_RATIO in proofs/resolve-clothoid-numeric-profile-v0.toml and a_blend_that_exactly_fills_its_leg_is_not_pose_stable in crates/kernel/tests/clothoid.rs.",
 ]
 exclusions = ["No current output-finiteness check rejects overflow or NaN produced by transform arithmetic."]
 exact_envelope = ["With identity rotation, integer-valued point/translation operands and every sum within [-2^53, 2^53], output coordinates are exact."]
@@ -280,8 +280,8 @@ evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -304,7 +304,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.APPLY.ARC.CENTER"
 title = "Arc centres and clothoid corners receive a rounded planar point transform"
 rust_symbol = "Transform::apply_xy"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "fn apply_xy(self, point: [f64; 2]) -> [f64; 2] {"
 inputs = ["Op::Arc.cx", "Op::Arc.cy", "Op::Clothoid.corner_x", "Op::Clothoid.corner_y", "Transform coefficients and XY translation"]
 operation = "Two planar multiply-add/subtract expressions rotate and translate the centre."
@@ -322,8 +322,8 @@ evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -346,7 +346,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.APPLY.ORIENTATION"
 title = "Tool orientation receives a rounded planar vector transform"
 rust_symbol = "Transform::apply_vector"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "fn apply_vector(self, vector: [f64; 3]) -> [f64; 3] {"
 inputs = ["Op::Orient.{i,j,k}", "Transform rotation coefficients"]
 operation = "Rotate XY using four multiplications and two additions/subtractions; copy Z unchanged."
@@ -366,8 +366,8 @@ evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/src/features/native_numeric_tests.rs",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -391,7 +391,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.ARC.CENTER.FINITE"
 title = "Arc-centre and clothoid-corner fields reject non-finite values before transform arithmetic"
 rust_symbol = "expand_feature_ops"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = '''require_finite(*cx, &format!("{op_path}.cx"))?,
                     require_finite(*cy, &format!("{op_path}.cy"))?,'''
 inputs = ["Op::Arc.cx", "Op::Arc.cy", "Op::Clothoid.corner_x", "Op::Clothoid.corner_y"]
@@ -404,7 +404,7 @@ next_obligation = "Keep endpoint-before-centre and cx-before-cy first-error orde
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -420,7 +420,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.ORIENTATION.FINITE"
 title = "Orientation fields reject non-finite values before vector arithmetic"
 rust_symbol = "expand_feature_ops"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = '''require_finite(*i, &format!("{op_path}.i"))?,
                     require_finite(*j, &format!("{op_path}.j"))?,
                     require_finite(*k, &format!("{op_path}.k"))?,'''
@@ -434,7 +434,7 @@ next_obligation = "Keep i/j/k first-error order synchronized across Lean, Rust f
 evidence = [
   "formal/Dry/Semantics/CheckedExpansion.lean",
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 claim_ids = [
@@ -450,7 +450,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.MANUAL.IDENTITY"
 title = "Manual G-code transform rejection uses a fixed epsilon identity predicate"
 rust_symbol = "Transform::is_identity"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "const EPS: f64 = 1e-12;"
 inputs = ["Transform.{cos,sin,translation}"]
 operation = "Subtract 1 from cosine, take absolute values, and compare every component with EPS."
@@ -461,7 +461,7 @@ exclusions = ["Passing this predicate does not establish mathematical identity o
 next_obligation = "Replace the implicit epsilon policy with a named numeric profile and prove that accepted transforms meet its declared observation bound."
 evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 claim_ids = ["FM1.FEATURE.CHECKED.RESULT.DETERMINISTIC"]
 profile_entries = [
@@ -473,7 +473,7 @@ profile_entries = [
 id = "FM1.F64.FEATURE.OP.PASSTHROUGH"
 title = "Non-geometric operation payloads are cloned without numeric interpretation"
 rust_symbol = "expand_feature_ops"
-source_path = "crates/core/src/features.rs"
+source_path = "crates/kernel/src/features.rs"
 source_anchor = "other => other.clone(),"
 inputs = [
   "Op::Geometry.{width,height}",
@@ -490,7 +490,7 @@ inputs = [
 operation = "Clone the Op value; feature expansion performs no floating-point arithmetic or validation."
 classification = "pass-through"
 numeric_status = "not-applicable"
-assumptions = ["The complete Op enum in crates/core/src/resolve.rs is pinned as an input-domain source."]
+assumptions = ["The complete Op enum in crates/kernel/src/resolve.rs is pinned as an input-domain source."]
 exclusions = [
   "Validity, units, range checks and downstream resolver arithmetic for these payloads.",
   "Op::Clothoid, reviewed against this list when the pinned Op enum gained it: it is geometric, so it has its own transformed arm rather than reaching the clone, and its numerics are covered by FM1.F64.FEATURE.APPLY.POINT and FM1.F64.FEATURE.APPLY.ARC.CENTER.",

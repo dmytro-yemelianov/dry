@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 try:
     import tomllib
@@ -15,7 +17,19 @@ except ModuleNotFoundError:  # Python 3.10 and earlier
 ROOT = Path(__file__).resolve().parents[2]
 INVENTORY = ROOT / "proofs" / "feature-numeric-boundaries-v0.toml"
 PROFILE = ROOT / "proofs" / "feature-planar-numeric-profile-v0.toml"
+VERIFY_INVENTORY = ROOT / "proofs" / "verify-numeric-boundaries-v0.toml"
+EMIT_INVENTORY = ROOT / "proofs" / "emit-numeric-boundaries-v0.toml"
+CONTRACTS = ROOT / "crates" / "contracts" / "src" / "lib.rs"
 VALIDATOR = ROOT / "tools" / "validate_numeric_boundaries.py"
+
+# The tests above drive the validator as a subprocess, which is right for whole-inventory
+# behaviour. The source-side helpers below (per-owner constant resolution, the duplicate sweep)
+# read Rust files under `ROOT`, so testing them that way would mean mutating the real tree.
+# Importing the module lets `ROOT` be pointed at a fixture instead.
+_SPEC = importlib.util.spec_from_file_location("validate_numeric_boundaries", VALIDATOR)
+assert _SPEC is not None and _SPEC.loader is not None
+validator = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(validator)
 
 
 class NumericBoundaryValidatorTests(unittest.TestCase):
@@ -313,6 +327,287 @@ class NumericBoundaryValidatorTests(unittest.TestCase):
         result = self.run_inventory(contents)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing reciprocal", result.stderr)
+
+
+class VerifyToleranceOwnershipTests(unittest.TestCase):
+    """The per-owner pin mechanism, added when `ARC_RADIUS_TOLERANCE_MM` moved to drymachina-contracts.
+
+    Ownership used to be a per-inventory fact — verify.rs held all four verify epsilons — so nothing
+    tested it. It is now per-constant, and Task 5 moves three more of them, so it needs a net.
+    """
+
+    def build_tree(self, directory: str, verify_body: str, contracts_body: str) -> Path:
+        root = Path(directory)
+        (root / "crates" / "verify" / "src").mkdir(parents=True)
+        (root / "crates" / "contracts" / "src").mkdir(parents=True)
+        (root / "crates" / "verify" / "src" / "lib.rs").write_text(
+            verify_body, encoding="utf-8"
+        )
+        (root / "crates" / "contracts" / "src" / "lib.rs").write_text(
+            contracts_body, encoding="utf-8"
+        )
+        return root
+
+    def test_owner_map_covers_every_pinned_constant(self) -> None:
+        for constant in validator.VERIFY_IMPLEMENTATION_TOLERANCES.values():
+            self.assertIn(constant, validator.VERIFY_TOLERANCE_OWNERS)
+            owner = validator.VERIFY_TOLERANCE_OWNERS[constant]
+            self.assertTrue(
+                (ROOT / owner).is_file(), f"{constant}: owner {owner} does not exist"
+            )
+
+    def test_owner_roots_are_swept_for_duplicates(self) -> None:
+        # Every owner must live under a root the duplicate sweep actually walks, or a second
+        # definition of that constant would be invisible.
+        for owner in set(validator.VERIFY_TOLERANCE_OWNERS.values()):
+            self.assertTrue(
+                any(owner.startswith(root) for root in validator.SINGLE_DEFINITION_ROOTS),
+                f"{owner} is outside SINGLE_DEFINITION_ROOTS",
+            )
+
+    def test_unowned_constant_is_a_diagnostic_not_a_traceback(self) -> None:
+        errors: list[str] = []
+        tolerances = dict(validator.VERIFY_IMPLEMENTATION_TOLERANCES)
+        tolerances["FM1.MADE.UP.BUDGET"] = "NO_SUCH_TOLERANCE_MM"
+        with mock.patch.object(
+            validator, "VERIFY_IMPLEMENTATION_TOLERANCES", tolerances
+        ):
+            validator.validate_verify_implementation_values({"budget": []}, errors)
+        self.assertTrue(
+            any("NO_SUCH_TOLERANCE_MM has no entry" in e for e in errors), errors
+        )
+
+    def test_each_epsilon_is_read_from_its_own_owner(self) -> None:
+        # The contracts-owned constant is 2e-6 here and the verify-owned one 1e-6. Reading either
+        # from the wrong file yields the other value, so a regression cannot pass this silently.
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.build_tree(
+                directory,
+                "const CONTINUITY_TOLERANCE_MM: f64 = 1e-6;\n",
+                "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 2e-6;\n",
+            )
+            profile = {
+                "budget": [
+                    {"id": "B.CONTINUITY", "ceiling": 1e-6},
+                    {"id": "B.ARC", "ceiling": 2e-6},
+                ]
+            }
+            errors: list[str] = []
+            with mock.patch.object(validator, "ROOT", root), mock.patch.object(
+                validator,
+                "VERIFY_IMPLEMENTATION_TOLERANCES",
+                {
+                    "B.CONTINUITY": "CONTINUITY_TOLERANCE_MM",
+                    "B.ARC": "ARC_RADIUS_TOLERANCE_MM",
+                },
+            ), mock.patch.object(
+                validator,
+                "VERIFY_TOLERANCE_OWNERS",
+                {
+                    "CONTINUITY_TOLERANCE_MM": "crates/verify/src/lib.rs",
+                    "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
+                },
+            ):
+                validator.validate_verify_implementation_values(profile, errors)
+            self.assertEqual(errors, [])
+
+    def test_ceiling_drift_in_the_contracts_owned_epsilon_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.build_tree(
+                directory,
+                "",
+                "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 2e-6;\n",
+            )
+            errors: list[str] = []
+            with mock.patch.object(validator, "ROOT", root), mock.patch.object(
+                validator, "VERIFY_IMPLEMENTATION_TOLERANCES", {"B.ARC": "ARC_RADIUS_TOLERANCE_MM"}
+            ), mock.patch.object(
+                validator,
+                "VERIFY_TOLERANCE_OWNERS",
+                {"ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs"},
+            ):
+                validator.validate_verify_implementation_values(
+                    {"budget": [{"id": "B.ARC", "ceiling": 1e-6}]}, errors
+                )
+            self.assertTrue(
+                any("does not match ARC_RADIUS_TOLERANCE_MM" in e for e in errors), errors
+            )
+
+    def test_duplicate_definition_is_caught_across_both_crate_roots(self) -> None:
+        # The sweep used to walk crates/core alone. A constant owned by drymachina-contracts and restated
+        # in the kernel is the exact regression that would have reintroduced.
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.build_tree(
+                directory,
+                "const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;\n",
+                "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;\n",
+            )
+            errors: list[str] = []
+            with mock.patch.object(validator, "ROOT", root):
+                validator.require_single_definition(
+                    {"ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs"}, errors
+                )
+            self.assertTrue(
+                any("must have one definition" in e for e in errors), errors
+            )
+
+    def test_sole_definition_in_the_contracts_owner_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.build_tree(
+                directory, "", "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;\n"
+            )
+            errors: list[str] = []
+            with mock.patch.object(validator, "ROOT", root):
+                validator.require_single_definition(
+                    {"ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs"}, errors
+                )
+            self.assertEqual(errors, [])
+
+    def test_restating_the_owner_definition_twice_is_caught(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.build_tree(
+                directory,
+                "",
+                "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;\n"
+                "pub const ARC_RADIUS_TOLERANCE_MM: f64 = 1e-6;\n",
+            )
+            errors: list[str] = []
+            with mock.patch.object(validator, "ROOT", root):
+                validator.require_single_definition(
+                    {"ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs"}, errors
+                )
+            self.assertTrue(any("is defined 2 times" in e for e in errors), errors)
+
+
+class ContractsSliceCoverageTests(unittest.TestCase):
+    """`drymachina-contracts` is pinned by two slices, one per inventory, split by provenance.
+
+    The first attempt pinned 460 of the crate's 31 812 bytes and left `RuleId::default_severity`,
+    `parse_bounds_csv` and `REFERENCE_FIVE_AXIS_MACHINE` outside numeric review. These tests are the
+    net for that: the slices must resolve, and nothing executable may fall between them.
+    """
+
+    def slice_span(self, inventory: Path) -> tuple[int, int]:
+        document = tomllib.loads(inventory.read_text(encoding="utf-8"))
+        text = CONTRACTS.read_text(encoding="utf-8")
+        for source in document["source"]:
+            if source["path"] != "crates/contracts/src/lib.rs":
+                continue
+            self.assertEqual(source["hash_mode"], "slice")
+            start = text.index(source["anchor_start"])
+            end = (
+                len(text)
+                if "anchor_end" not in source
+                else text.index(source["anchor_end"])
+            )
+            self.assertLess(start, end)
+            return start, end
+        self.fail(f"{inventory.name} does not pin crates/contracts/src/lib.rs")
+
+    def test_both_inventories_pin_a_contracts_slice(self) -> None:
+        verify_span = self.slice_span(VERIFY_INVENTORY)
+        emit_span = self.slice_span(EMIT_INVENTORY)
+        # Contiguous and non-overlapping: the verify half ends exactly where the emit half begins.
+        self.assertEqual(verify_span[1], emit_span[0])
+        self.assertEqual(emit_span[1], len(CONTRACTS.read_text(encoding="utf-8")))
+
+    def test_no_executable_line_falls_outside_the_pinned_slices(self) -> None:
+        text = CONTRACTS.read_text(encoding="utf-8")
+        covered_from = min(
+            self.slice_span(VERIFY_INVENTORY)[0], self.slice_span(EMIT_INVENTORY)[0]
+        )
+        uncovered = text[:covered_from]
+        for number, line in enumerate(uncovered.splitlines(), start=1):
+            stripped = line.strip()
+            self.assertTrue(
+                stripped == ""
+                or stripped.startswith("//!")
+                or stripped.startswith("#!")
+                or stripped.startswith("use "),
+                f"crates/contracts/src/lib.rs:{number} is outside every pinned slice "
+                f"but is not header material: {line!r}",
+            )
+
+    def test_policy_surface_is_inside_a_pinned_slice(self) -> None:
+        # Named explicitly so the three drifts the review demonstrated cannot silently escape again.
+        text = CONTRACTS.read_text(encoding="utf-8")
+        verify_span = self.slice_span(VERIFY_INVENTORY)
+        emit_span = self.slice_span(EMIT_INVENTORY)
+        for anchor in (
+            "pub const REFERENCE_FIVE_AXIS_MACHINE",
+            "pub fn parse_bounds_csv",
+            "pub fn parse_speed_range_csv",
+            "pub fn default_severity",
+            "pub fn is_evaluated",
+            "pub fn from_wire",
+            "pub const ALL: [RuleId; 27]",
+            "pub const ARC_RADIUS_TOLERANCE_MM",
+            "impl Serialize for Kinematics",
+        ):
+            offset = text.index(anchor)
+            self.assertTrue(
+                verify_span[0] <= offset < verify_span[1]
+                or emit_span[0] <= offset < emit_span[1],
+                f"{anchor} is outside every pinned slice",
+            )
+
+
+class SliceHashModeTests(unittest.TestCase):
+    def run_inventory(self, contents: str) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            inventory = Path(directory) / "numeric-boundaries.toml"
+            inventory.write_text(contents, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(VALIDATOR), str(inventory)],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+    def test_slice_to_end_of_file_passes_on_the_repository_inventory(self) -> None:
+        # The emit inventory's contracts slice omits `anchor_end`, which means "to EOF".
+        document = tomllib.loads(EMIT_INVENTORY.read_text(encoding="utf-8"))
+        contracts = [
+            source
+            for source in document["source"]
+            if source["path"] == "crates/contracts/src/lib.rs"
+        ]
+        self.assertEqual(len(contracts), 1)
+        self.assertNotIn("anchor_end", contracts[0])
+        result = subprocess.run(
+            [sys.executable, str(VALIDATOR), str(EMIT_INVENTORY)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("2 pinned sources", result.stdout)
+
+    def test_slice_hash_drift_is_rejected(self) -> None:
+        document = tomllib.loads(VERIFY_INVENTORY.read_text(encoding="utf-8"))
+        digest = next(
+            source["sha256"]
+            for source in document["source"]
+            if source["path"] == "crates/contracts/src/lib.rs"
+        )
+        contents = VERIFY_INVENTORY.read_text(encoding="utf-8").replace(
+            digest, "0" * 64, 1
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("changed without numeric-boundary review", result.stderr)
+
+    def test_slice_anchor_drift_is_rejected(self) -> None:
+        contents = VERIFY_INVENTORY.read_text(encoding="utf-8").replace(
+            'anchor_start = "/// The limits a toolpath is checked against."',
+            'anchor_start = "/// no such anchor"',
+            1,
+        )
+        result = self.run_inventory(contents)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("slice anchors must occur exactly once", result.stderr)
 
 
 if __name__ == "__main__":

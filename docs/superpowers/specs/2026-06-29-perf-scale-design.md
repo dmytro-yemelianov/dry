@@ -17,9 +17,12 @@ materialization is documented (not mis-sold as streaming).
   (`crates/core/tests/memory_scale.rs`) measures peak heap above a baseline while streaming a `DRY1`
   archive vs. materializing it, across two sizes. Streaming must stay within ~1.5× as N doubles;
   materialization must grow ≥1.7×. Deterministic → safe on noisy CI runners (runs in `cargo test`).
-- **Criterion benchmarks** (`crates/core/benches/engine_codec.rs`) over the codecs and passes for local
-  profiling. Wall-clock is **not** a hard CI gate (runner noise); CI only compiles the benches
-  (`cargo bench --no-run`) as a bit-rot gate.
+- **Criterion benchmarks** (`crates/core/benches/engine_codec.rs`; later split three ways across
+  `crates/kernel/benches/engine_codec.rs`, `crates/verify/benches/verify_pass.rs` and
+  `crates/trace/benches/trace_pass.rs` when the crate-split refactor moved codec/simulate/emit, verify
+  and trace into their own crates — see `docs/superpowers/plans/2026-08-25-drymachina-crate-split-and-repo-graduation.md`)
+  over the codecs and passes for local profiling. Wall-clock is **not** a hard CI gate (runner noise);
+  CI only compiles the benches (`cargo bench --no-run`) as a bit-rot gate.
 - **Honest memory-model doc** (`docs/13-performance-and-scale.md`): only `DRY1` + the `*_stream` passes are
   bounded; `DRY0`/JSON materialize.
 
@@ -28,7 +31,7 @@ materialization is documented (not mis-sold as streaming).
 | Path | What |
 |---|---|
 | `crates/core/tests/memory_scale.rs` | counting-allocator bounded-memory gate |
-| `crates/core/benches/engine_codec.rs` | criterion benches (codecs + passes); `criterion` dev-dep + `[[bench]]` |
+| `crates/core/benches/engine_codec.rs` (now split: `crates/kernel/benches/engine_codec.rs`, `crates/verify/benches/verify_pass.rs`, `crates/trace/benches/trace_pass.rs`) | criterion benches (codecs + passes); `criterion` dev-dep + `[[bench]]` |
 | `docs/13-performance-and-scale.md` | memory model, benchmarks, regression-gate policy |
 | `.github/workflows/ci.yml` | new `bench` job (compile gate) |
 

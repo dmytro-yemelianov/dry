@@ -21,7 +21,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Geometry/PlanarTransform.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -59,12 +59,12 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -95,12 +95,12 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -132,12 +132,12 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -168,12 +168,12 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -205,7 +205,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ExpandFeatures.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -250,7 +250,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/CompositionTreeRefinement.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -261,7 +261,7 @@ refinement_evidence = [
   "formal/Dry/Tests/CompositionShapeFixtures.lean",
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "proofs/fixtures/composition-shape-refinement-fixtures.schema.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -294,7 +294,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Angle.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/Angle.lean",
@@ -335,7 +335,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Trig.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/Trig.lean",
@@ -376,7 +376,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
@@ -417,8 +417,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/NativeNumericFixtures.lean"
 rust_sources = [
-  "crates/core/src/features.rs",
-  "crates/core/src/features/native_numeric_tests.rs"
+  "crates/kernel/src/features.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Tests/NativeNumericFixtures.lean",
@@ -440,7 +440,7 @@ numeric_boundaries = [
 refinement_evidence = [
   "proofs/fixtures/native-feature-numeric-interval-v0.json",
   "proofs/fixtures/native-feature-numeric-interval-fixtures.schema.json",
-  "crates/core/src/features/native_numeric_tests.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_proof_fixtures.py",
   "tools/check_feature_mutations.py"
@@ -475,8 +475,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/NestedApplicationFixtures.lean"
 rust_sources = [
-  "crates/core/src/features.rs",
-  "crates/core/tests/feature_refinement.rs"
+  "crates/kernel/src/features.rs",
+  "crates/kernel/tests/feature_refinement.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
@@ -497,7 +497,7 @@ numeric_boundaries = [
 refinement_evidence = [
   "proofs/fixtures/nested-application-refinement-v0.json",
   "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_proof_fixtures.py",
   "tools/check_feature_mutations.py"
@@ -533,7 +533,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Accumulation.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/Accumulation.lean",
@@ -578,7 +578,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/CompositionTree.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/CompositionTree.lean",
@@ -597,7 +597,7 @@ refinement_evidence = [
   "proofs/fixtures/composition-shape-refinement-v0.json",
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -632,7 +632,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/ApplicationAccumulation.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
@@ -651,8 +651,8 @@ refinement_evidence = [
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
   "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
-  "crates/core/tests/feature_refinement.rs",
-  "crates/core/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 
@@ -686,7 +686,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/ApplicationAccumulation.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/ApplicationAccumulation.lean",
@@ -704,8 +704,8 @@ refinement_evidence = [
   "formal/Dry/Tests/NestedApplicationFixtures.lean",
   "proofs/fixtures/nested-application-refinement-v0.json",
   "proofs/fixtures/nested-application-refinement-fixtures.schema.json",
-  "crates/core/tests/feature_refinement.rs",
-  "crates/core/src/features/native_numeric_tests.rs",
+  "crates/kernel/tests/feature_refinement.rs",
+  "crates/kernel/src/features/native_numeric_tests.rs",
   "proofs/feature-refinement-mutations-v0.toml"
 ]
 
@@ -738,9 +738,9 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Orientation.lean"
 rust_sources = [
-  "crates/core/src/features.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/verify.rs"
+  "crates/kernel/src/features.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/Orientation.lean",
@@ -785,8 +785,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/OrientationContractFixtures.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs",
-  "crates/core/src/verify.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/verify/src/lib.rs",
   "crates/core/tests/orientation_refinement.rs"
 ]
 numeric_evidence = []
@@ -826,7 +826,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
@@ -867,7 +867,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Binary64.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = [
   "formal/Dry/Numeric/RoundModel.lean",
@@ -909,7 +909,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/CheckedExpansion.lean"
 rust_sources = [
-  "crates/core/src/features.rs"
+  "crates/kernel/src/features.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -922,7 +922,7 @@ numeric_boundaries = [
 ]
 refinement_evidence = [
   "proofs/fixtures/feature-refinement-v0.json",
-  "crates/core/tests/feature_refinement.rs",
+  "crates/kernel/tests/feature_refinement.rs",
   "proofs/feature-refinement-mutations-v0.toml",
   "tools/check_feature_mutations.py"
 ]
@@ -953,7 +953,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/OrderedFold.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs"
+  "crates/kernel/src/resolve.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -986,8 +986,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Language/WellFormed.lean"
 rust_sources = [
-  "crates/core/src/ir.rs",
-  "crates/core/src/resolve.rs"
+  "crates/kernel/src/ir.rs",
+  "crates/kernel/src/resolve.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -1019,8 +1019,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Language/LogicalEquality.lean"
 rust_sources = [
-  "crates/core/src/ir.rs",
-  "crates/core/src/codec/mod.rs"
+  "crates/kernel/src/ir.rs",
+  "crates/kernel/src/codec/mod.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -1049,7 +1049,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Quantity.lean"
 rust_sources = [
-  "crates/core/src/units.rs"
+  "crates/kernel/src/units.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -1079,8 +1079,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Quantity.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs",
-  "crates/core/src/units.rs"
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/units.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -1112,7 +1112,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Numeric/Quantity.lean"
 rust_sources = [
-  "crates/core/src/units.rs"
+  "crates/kernel/src/units.rs"
 ]
 numeric_evidence = []
 refinement_evidence = []
@@ -1143,7 +1143,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ResolveOrientation.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs"
+  "crates/kernel/src/resolve.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1176,8 +1176,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/DepositionFixtures.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs",
-  "crates/core/tests/deposition_refinement.rs"
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/tests/deposition_refinement.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1185,7 +1185,7 @@ refinement_evidence = [
   "formal/Dry/Tests/DepositionFixtures.lean",
   "proofs/fixtures/deposition-refinement-v0.json",
   "proofs/fixtures/deposition-refinement-fixtures.schema.json",
-  "crates/core/tests/deposition_refinement.rs",
+  "crates/kernel/tests/deposition_refinement.rs",
   "tools/check_proof_fixtures.py"
 ]
 
@@ -1215,8 +1215,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/ResolveOrientationFixtures.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs",
-  "crates/core/src/verify.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/verify/src/lib.rs",
   "crates/core/tests/resolve_orientation_refinement.rs"
 ]
 numeric_evidence = []
@@ -1257,7 +1257,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/ResolveChannels.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs"
+  "crates/kernel/src/resolve.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1289,8 +1289,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/ResolveChannelsFixtures.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs",
-  "crates/core/tests/resolve_channels_refinement.rs"
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/tests/resolve_channels_refinement.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1298,7 +1298,7 @@ refinement_evidence = [
   "formal/Dry/Tests/ResolveChannelsFixtures.lean",
   "proofs/fixtures/resolve-channels-refinement-v0.json",
   "proofs/fixtures/resolve-channels-refinement-fixtures.schema.json",
-  "crates/core/tests/resolve_channels_refinement.rs",
+  "crates/kernel/tests/resolve_channels_refinement.rs",
   "proofs/resolve-channels-mutations-v0.toml",
   "tools/check_resolve_channels_mutations.py",
   "tools/check_proof_fixtures.py"
@@ -1326,7 +1326,7 @@ assumptions = [
 exclusions = []
 lean_source = "formal/Dry/Semantics/Deposition.lean"
 rust_sources = [
-  "crates/core/src/resolve.rs"
+  "crates/kernel/src/resolve.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1352,14 +1352,14 @@ assumptions = [
   "Peak volumetric flow takes the maximum flow rate observed across printing segments."
 ]
 exclusions = [
-  "Refinement against crates/core/src/engine.rs.",
+  "Refinement against crates/kernel/src/engine.rs.",
   "Binary64 rounding, invalid or zero speed behavior outside the modeled branch, and overflow/underflow.",
   "Equivalence of materialized and streaming simulation.",
   "Metric fields and segment kinds not represented by the abstract model."
 ]
 lean_source = "formal/Dry/Semantics/SimulateMetrics.lean"
 rust_sources = [
-  "crates/core/src/engine.rs"
+  "crates/kernel/src/engine.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1390,8 +1390,8 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Tests/SimulateMetricsFixtures.lean"
 rust_sources = [
-  "crates/core/src/engine.rs",
-  "crates/core/tests/simulate_metrics_refinement.rs"
+  "crates/kernel/src/engine.rs",
+  "crates/kernel/tests/simulate_metrics_refinement.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1399,7 +1399,7 @@ refinement_evidence = [
   "formal/Dry/Tests/SimulateMetricsFixtures.lean",
   "proofs/fixtures/simulate-metrics-refinement-v0.json",
   "proofs/fixtures/simulate-metrics-refinement-fixtures.schema.json",
-  "crates/core/tests/simulate_metrics_refinement.rs",
+  "crates/kernel/tests/simulate_metrics_refinement.rs",
   "tools/check_proof_fixtures.py"
 ]
 
@@ -1422,14 +1422,14 @@ assumptions = [
   "Verifier decision predicates return true if and only if underlying physical constraints are satisfied."
 ]
 exclusions = [
-  "Refinement of these abstract predicates against crates/core/src/verify.rs.",
+  "Refinement of these abstract predicates against crates/verify/src/lib.rs.",
   "Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.",
   "Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.",
   "The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified."
 ]
 lean_source = "formal/Dry/Semantics/VerifierSoundness.lean"
 rust_sources = [
-  "crates/core/src/verify.rs"
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = [
@@ -1446,7 +1446,7 @@ numeric = "not-applicable"
 # `pending`, not `not-applicable`. Under ADR 0001 `not-applicable` asserts that no implementation
 # refinement is *owed*, and that is not defensible here: `Report::ok()` is read as an assurance claim
 # at eight in-tree call sites, and H1.3 widened the gap between the Lean predicate set (5 rules) and
-# verify.rs (24). The abstract theorem is unaffected — the exclusions above still limit this claim to
+# the verifier (24 rules, in `crates/verify/src/lib.rs` since the crate split). The abstract theorem is unaffected — the exclusions above still limit this claim to
 # speed, flow, retraction speed/distance and monotonic elevation, and H1.3 changed none of those five
 # predicates — so `abstract = "proved"` stands. What changes is only the honest name for the missing
 # half. Tracked as #198.
@@ -1467,14 +1467,14 @@ assumptions = [
 ]
 exclusions = [
   "Proof that the production merge precondition identifies geometrically collinear segments.",
-  "Binary64 rounding and refinement against crates/core/src/optimize/merge.rs.",
+  "Binary64 rounding and refinement against crates/kernel/src/optimize/merge.rs.",
   "Preservation of time, feedrate transitions, orientations, source maps, or emitted target behavior.",
-  "Preservation of the process channels across a merge: the Lean model carries no channel state, so nothing here proves that a channel change breaks a run. In the production pass that guarantee rests entirely on the exhaustively-destructured ProcessState in crates/core/src/optimize/merge.rs and on the pipeline tests in crates/core/tests/channels.rs; for the spindle/laser power channel its loss is a physical hazard (a deleted beam-off), so the gap is named here rather than folded into the general channel exclusion.",
+  "Preservation of the process channels across a merge: the Lean model carries no channel state, so nothing here proves that a channel change breaks a run. In the production pass that guarantee rests entirely on the exhaustively-destructured ProcessState in crates/kernel/src/optimize/merge.rs and on the pipeline tests in crates/core/tests/channels.rs; for the spindle/laser power channel its loss is a physical hazard (a deleted beam-off), so the gap is named here rather than folded into the general channel exclusion.",
   "Pipeline composition and gating."
 ]
 lean_source = "formal/Dry/Semantics/Optimization.lean"
 rust_sources = [
-  "crates/core/src/optimize/merge.rs"
+  "crates/kernel/src/optimize/merge.rs"
 ]
 
 numeric_evidence = []
@@ -1508,7 +1508,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/CodecInverse.lean"
 rust_sources = [
-  "crates/core/src/codec/mod.rs"
+  "crates/kernel/src/codec/mod.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1540,7 +1540,7 @@ exclusions = [
 ]
 lean_source = "formal/Dry/Semantics/Capability.lean"
 rust_sources = [
-  "crates/core/src/verify.rs"
+  "crates/verify/src/lib.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1583,7 +1583,7 @@ exclusions = [
   "Bundles constructed as a Rust TpmsOptions value rather than deserialized from JSON: the corpus is JSON-only."
 ]
 rust_sources = [
-  "crates/core/src/generate/tpms.rs"
+  "crates/kernel/src/generate/tpms.rs"
 ]
 numeric_evidence = []
 numeric_boundaries = []
@@ -1594,7 +1594,7 @@ refinement_evidence = [
   "spec/dry-tpms-options-v1.schema.json",
   "spec/examples/tpms-options/manifest.json",
   "tools/validate_reports.py",
-  "crates/core/tests/tpms_options_schema.rs"
+  "crates/kernel/tests/tpms_options_schema.rs"
 ]
 
 [claim.status]

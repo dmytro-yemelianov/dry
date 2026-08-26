@@ -24,10 +24,9 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 name = "dry-core"
 version = "0.6.0"
 dependencies = [
- "libm",
- "miniz_oxide",
- "serde",
- "serde_json",
+ "drymachina-kernel",
+ "drymachina-trace",
+ "drymachina-verify",
 ]
 
 [[package]]
@@ -37,6 +36,46 @@ dependencies = [
  "dry-core",
  "pyo3",
  "serde_json",
+]
+
+[[package]]
+name = "drymachina-contracts"
+version = "0.6.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "drymachina-kernel"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "libm",
+ "miniz_oxide",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-trace"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "drymachina-verify",
+ "libm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "drymachina-verify"
+version = "0.6.0"
+dependencies = [
+ "drymachina-contracts",
+ "drymachina-kernel",
+ "libm",
+ "serde",
 ]
 
 [[package]]

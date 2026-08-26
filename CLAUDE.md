@@ -1,10 +1,14 @@
 # dry
 
-Parametric design/CAM DSL: a Rust engine (`crates/core`) that resolves feature-based designs to IR, G-code, and reports, with a CLI (`crates/cli`). Bindings — `crates/wasm` (wasm-bindgen), `crates/cloud` (workers-rs), `py/` (PyO3), `containers/verify-runner` (axum) — are excluded from the Cargo workspace and build standalone with their own locks; all four now have dedicated CI jobs (`wasm`, `python-sdk`, `cloud`, `verify-runner`) — still build and test them locally too before claiming done, since each has its own lock and can drift between CI runs. `sdk/ts` is a separate npm package built from the wasm engine. Formal artifacts live in `proofs/` (numeric contracts and mutation claims), `formal/` (Lean 4), `spec/` (JSON schemas), and `conformance/`.
+Parametric design/CAM DSL: a Rust engine that resolves feature-based designs to IR, G-code, and reports, layered as `drymachina-contracts` (`crates/contracts`, shared vocabulary) → `drymachina-kernel` (`crates/kernel`, resolve/emit) → `drymachina-verify` (`crates/verify`, rules) → `drymachina-trace` (`crates/trace`, reports and analytics), re-exported as one surface by the `dry-core` facade (`crates/core`), with a CLI (`crates/cli`). Bindings — `crates/wasm` (wasm-bindgen), `crates/cloud` (workers-rs), `py/` (PyO3), `containers/verify-runner` (axum) — are excluded from the Cargo workspace and build standalone with their own locks; all four now have dedicated CI jobs (`wasm`, `python-sdk`, `cloud`, `verify-runner`) — still build and test them locally too before claiming done, since each has its own lock and can drift between CI runs. `sdk/ts` is a separate npm package built from the wasm engine. Formal artifacts live in `proofs/` (numeric contracts and mutation claims), `formal/` (Lean 4), `spec/` (JSON schemas), and `conformance/`.
 
 ## Commands
 
-- `cargo test -p dry-core` — engine tests
+- `cargo test -p drymachina-kernel` — engine tests (resolve, ir, features, emit, gcode, codec, profile, optimize, generate, units, frame, clothoid, engine, sdk)
+- `cargo test -p drymachina-verify` — verification-rule tests
+- `cargo test -p drymachina-trace` — trace/report/forensics/compare/explain/recommend/reverse tests
+- `cargo test -p drymachina-contracts` — shared-vocabulary tests (`RuleId`, `Severity`, `Contracts*`, `Kinematics`, tolerance constants)
+- `cargo test -p dry-core` — `dry-core` is now a pure re-export facade over the four crates above, plus its own cross-layer integration tests; it runs none of the engine's own unit tests
 - `cargo test -p dry-cli` — CLI tests
 - Excluded crates (`crates/wasm`, `crates/cloud`, `py/`, `containers/verify-runner`) build and test from their own directories; all four have CI jobs now, but still verify locally too before claiming done.
 - `python tools/validate_vectors.py conformance/vectors` — conformance vectors
@@ -16,8 +20,8 @@ Route work to the cheapest tier that can do it safely:
 
 | Work | Route |
 |---|---|
-| `crates/core` numerics/geometry/emit, `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
-| Everything outside `crates/core` — CLI, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
+| `crates/kernel` (numerics/geometry/emit), `crates/verify` (rules), `crates/trace` (analytics), `crates/contracts` (shared vocabulary), `proofs/`, `formal/`, `spec/`, `conformance/` | `kernel-engineer` agent — Opus 5, effort `xhigh` |
+| Everything outside those four crates — `crates/core` (now a pure re-export facade plus cross-layer integration tests, no implementation of its own), `crates/cli`, other workspace crates (`llm`, `moonraker`, `license`), bindings (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`), `web/`, `services/` (TypeScript workers — distinct from the Rust `crates/cloud`), docs, tests | `routine-dev` agent — Sonnet, effort `medium` |
 | Locating code, mapping call sites, subsystem summaries | `scout` agent — Haiku; fan out in parallel freely |
 | Post-slice review | `reviewer` agent — Opus 5, effort `xhigh` |
 

@@ -1,7 +1,27 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/cli", "crates/license", "crates/llm", "crates/moonraker"]
-default-members = ["crates/core", "crates/cli"]
+members = [
+    "crates/contracts",
+    "crates/core",
+    "crates/kernel",
+    "crates/verify",
+    "crates/trace",
+    "crates/cli",
+    "crates/license",
+    "crates/llm",
+    "crates/moonraker",
+]
+# The engine crates, in layer order, plus the CLI. Before the split all three DRYMACHINA layers *were*
+# `crates/core`, so a bare `cargo test` covered them; naming them here restores that rather than
+# setting new policy. Leaving one out is not neutral — its tests simply stop running by default.
+default-members = [
+    "crates/contracts",
+    "crates/kernel",
+    "crates/verify",
+    "crates/trace",
+    "crates/core",
+    "crates/cli",
+]
 # `py/` (PyO3), `crates/wasm` (wasm-bindgen), and `crates/cloud` (workers-rs) are bindings excluded
 # from the core workspace so the engine stays binding-free; each is built + tested by its own CI job.
 # `crates/cloud` targets wasm32 via workers-rs with its own lock/profile, same reason as `crates/wasm`.

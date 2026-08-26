@@ -1,6 +1,6 @@
 {
   "schema": "dry-tpms-options-v1",
-  "description": "Labelled TPMS option documents. `schema` is the verdict of spec/dry-tpms-options-v1.schema.json; `engine` is the verdict of dry_core::try_tpms_ops after serde_json deserialization. tools/validate_reports.py checks the schema column without dry-core; crates/core/tests/tpms_options_schema.rs checks the engine column and the quoted refusal text. Both tools also enforce the invariant that binds them: no case may be schema-invalid and engine-accepted, i.e. the schema never refuses a bundle the engine would run.",
+  "description": "Labelled TPMS option documents. `schema` is the verdict of spec/dry-tpms-options-v1.schema.json; `engine` is the verdict of dry_core::try_tpms_ops after serde_json deserialization. tools/validate_reports.py checks the schema column without dry-core; crates/kernel/tests/tpms_options_schema.rs checks the engine column and the quoted refusal text. Both tools also enforce the invariant that binds them: no case may be schema-invalid and engine-accepted, i.e. the schema never refuses a bundle the engine would run.",
   "cases": [
     {
       "file": "cases/defaults.json",

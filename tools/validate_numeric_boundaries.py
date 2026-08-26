@@ -47,8 +47,8 @@ EXPECTED_LIBM_CONTRACT = {
     "trig_contract_status": "imported-assumption",
 }
 FEATURE_SOURCES = {
-    "crates/core/src/features.rs",
-    "crates/core/src/resolve.rs",
+    "crates/kernel/src/features.rs",
+    "crates/kernel/src/resolve.rs",
 }
 FEATURE_BOUNDARIES = {
     "FM1.F64.FEATURE.POSE.FINITE",
@@ -122,7 +122,7 @@ EXPECTED_BINARY64_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM": 2**-28,
     f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR": 2**-29,
 }
-VERIFY_SOURCES = {"crates/core/src/verify.rs"}
+VERIFY_SOURCES = {"crates/verify/src/lib.rs", "crates/contracts/src/lib.rs"}
 VERIFY_BOUNDARIES = {
     "FM1.F64.VERIFY.CONTINUITY.GAP",
     "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
@@ -138,8 +138,9 @@ VERIFY_BUDGETS = {
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
 }
-# The tolerance constants this profile publishes, checked against verify.rs so a constant cannot be
-# retuned without updating the assurance artifact that names it. That pin is the whole point of the
+# The tolerance constants this profile publishes, each checked against the file that defines it (see
+# VERIFY_TOLERANCE_OWNERS below -- they no longer share one) so a constant cannot be retuned without
+# updating the assurance artifact that names it. That pin is the whole point of the
 # entry: without it the recorded epsilon is prose.
 VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM": "CONTINUITY_TOLERANCE_MM",
@@ -147,7 +148,32 @@ VERIFY_IMPLEMENTATION_TOLERANCES = {
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR": "FILAMENT_RATIO_TOLERANCE",
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR": "ARC_RADIUS_TOLERANCE_MM",
 }
-EMIT_SOURCES = {"crates/core/src/emit/kinematics.rs"}
+# Which file *defines* each of them. Ownership used to be a per-inventory fact -- all four lived in
+# verify.rs -- but the crate split moved ARC_RADIUS_TOLERANCE_MM into `drymachina-contracts`, because
+# resolve.rs applies the same epsilon at the L1 gate and the kernel cannot depend on the verifier.
+# The pin follows the definition rather than the module that reads it; `crates/verify/src/lib.rs`
+# re-exports the constant, and a re-export carries no value to check. The other three travelled with verify.rs
+# itself into `drymachina-verify` at Task 5, where the file is `crates/verify/src/lib.rs`.
+VERIFY_TOLERANCE_OWNERS = {
+    "CONTINUITY_TOLERANCE_MM": "crates/verify/src/lib.rs",
+    "LENGTH_TOLERANCE": "crates/verify/src/lib.rs",
+    "FILAMENT_RATIO_TOLERANCE": "crates/verify/src/lib.rs",
+    "ARC_RADIUS_TOLERANCE_MM": "crates/contracts/src/lib.rs",
+}
+# Where a duplicate of a pinned epsilon could hide. Every crate an owner can live in, so that adding
+# an owner outside `crates/verify` cannot silently narrow the sweep. `crates/core`, `crates/kernel`
+# and `crates/trace` carry no owner today but are swept anyway: the kernel is where `resolve.rs` reads
+# ARC_RADIUS_TOLERANCE_MM from, the trace crate is where the analysis modules that used to sit in the
+# core now live, and the core is where all four used to be defined, so a restated copy in any of them
+# is exactly the duplicate this rule exists to catch.
+SINGLE_DEFINITION_ROOTS = (
+    "crates/core/src",
+    "crates/kernel/src",
+    "crates/verify/src",
+    "crates/trace/src",
+    "crates/contracts/src",
+)
+EMIT_SOURCES = {"crates/kernel/src/emit/kinematics.rs", "crates/contracts/src/lib.rs"}
 EMIT_BOUNDARIES = {"FM1.F64.EMIT.ROTARY.SINGULAR_CONE"}
 EMIT_LIMITS = {
     f"{EMIT_PROFILE_ID}.LIMIT.TOOL_DIRECTION_COMPONENT",
@@ -163,8 +189,8 @@ EMIT_IMPLEMENTATION_TOLERANCES = {
     f"{EMIT_PROFILE_ID}.BUDGET.SINGULAR_CONE_SIN_TILT": "SINGULAR_CONE_SIN_TILT",
 }
 CLOTHOID_SOURCES = {
-    "crates/core/src/clothoid.rs",
-    "crates/core/src/resolve.rs",
+    "crates/kernel/src/clothoid.rs",
+    "crates/kernel/src/resolve.rs",
 }
 CLOTHOID_BOUNDARIES = {
     "FM1.F64.RESOLVE.CLOTHOID.FRESNEL_SERIES",
@@ -401,12 +427,12 @@ def validate_sources(
                 text = content.decode("utf-8")
                 anchor_start = source.get("anchor_start")
                 anchor_end = source.get("anchor_end")
-                if not isinstance(anchor_start, str) or not isinstance(
-                    anchor_end, str
-                ):
+                if not isinstance(anchor_start, str):
+                    continue
+                if anchor_end is not None and not isinstance(anchor_end, str):
                     continue
                 start_count = text.count(anchor_start)
-                end_count = text.count(anchor_end)
+                end_count = 1 if anchor_end is None else text.count(anchor_end)
                 if start_count != 1 or end_count != 1:
                     errors.append(
                         f"{context}: slice anchors must occur exactly once; "
@@ -414,7 +440,10 @@ def validate_sources(
                     )
                     continue
                 start = text.index(anchor_start)
-                end = text.index(anchor_end)
+                # An omitted `anchor_end` means "to the end of the file". A region that runs to EOF
+                # has no trailing token to name, and naming the last one there happens to be leaves
+                # the tail outside the pin — the exact failure this mechanism exists to prevent.
+                end = len(text) if anchor_end is None else text.index(anchor_end)
                 if end <= start:
                     errors.append(f"{context}: slice end precedes its start")
                     continue
@@ -626,46 +655,55 @@ def pin_tolerance_constants(
             )
 
 
-def require_single_definition(
-    constants: set[str], owner: str, errors: list[str]
-) -> None:
-    """Fail if a pinned epsilon is defined more than once anywhere in `crates/core`.
+def require_single_definition(owners: dict[str, str], errors: list[str]) -> None:
+    """Fail if a pinned epsilon is defined anywhere but the file that owns it.
 
-    The pin above reads one file. A second `const` of the same name elsewhere would sit outside it
-    and could be retuned on its own — which is how `ARC_RADIUS_TOLERANCE_MM` came to exist twice,
-    unregistered, while an emitter comment called it published. Callers that want the epsilon import
-    it from its owner.
+    The pins above read one file each. A second `const` of the same name elsewhere would sit outside
+    them and could be retuned on its own — which is how `ARC_RADIUS_TOLERANCE_MM` came to exist
+    twice, unregistered, while an emitter comment called it published. Callers that want an epsilon
+    import it from its owner.
+
+    Every crate the split produced is swept, not `crates/core` alone: it moved one of these constants
+    into `drymachina-contracts`, the code that reads it into `drymachina-kernel` and the analysis modules into
+    `drymachina-trace`, and a rule that kept looking only at `crates/core` would stop seeing the very
+    constant whose duplicate it exists to catch.
     """
-    for path in sorted((ROOT / "crates/core/src").rglob("*.rs")):
-        source = path.read_text(encoding="utf-8")
-        for constant in sorted(constants):
-            hits = len(
-                re.findall(r"const " + re.escape(constant) + r"\s*:", source)
-            )
+    for root in SINGLE_DEFINITION_ROOTS:
+        for path in sorted((ROOT / root).rglob("*.rs")):
+            source = path.read_text(encoding="utf-8")
             relative = path.relative_to(ROOT).as_posix()
-            if hits and relative != owner:
-                errors.append(
-                    f"{constant} is defined in {relative} as well as {owner}: a pinned "
-                    "epsilon must have one definition, imported rather than restated"
+            for constant, owner in sorted(owners.items()):
+                hits = len(
+                    re.findall(r"const " + re.escape(constant) + r"\s*:", source)
                 )
-            elif hits > 1:
-                errors.append(f"{constant} is defined {hits} times in {owner}")
+                if hits and relative != owner:
+                    errors.append(
+                        f"{constant} is defined in {relative} as well as {owner}: a pinned "
+                        "epsilon must have one definition, imported rather than restated"
+                    )
+                elif hits > 1:
+                    errors.append(f"{constant} is defined {hits} times in {owner}")
 
 
 def validate_verify_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
-    """Pin the published tolerance budgets against the constants in `verify.rs`."""
-    owner = "crates/core/src/verify.rs"
-    pin_tolerance_constants(
-        owner,
-        VERIFY_IMPLEMENTATION_TOLERANCES,
-        profile,
-        errors,
-    )
-    require_single_definition(
-        set(VERIFY_IMPLEMENTATION_TOLERANCES.values()), owner, errors
-    )
+    """Pin the published tolerance budgets against the constants that define them."""
+    by_owner: dict[str, dict[str, str]] = {}
+    for budget_id, constant in sorted(VERIFY_IMPLEMENTATION_TOLERANCES.items()):
+        owner = VERIFY_TOLERANCE_OWNERS.get(constant)
+        if owner is None:
+            # Every other failure in this file is a collected diagnostic; an unowned constant used
+            # to be the one that aborted with a traceback instead.
+            errors.append(
+                f"{constant} has no entry in VERIFY_TOLERANCE_OWNERS: a pinned epsilon must "
+                "declare the file that defines it"
+            )
+            continue
+        by_owner.setdefault(owner, {})[budget_id] = constant
+    for owner, tolerances in sorted(by_owner.items()):
+        pin_tolerance_constants(owner, tolerances, profile, errors)
+    require_single_definition(VERIFY_TOLERANCE_OWNERS, errors)
 
 
 def validate_emit_implementation_values(
@@ -673,7 +711,7 @@ def validate_emit_implementation_values(
 ) -> None:
     """Pin the singular-cone epsilon against the constant in `emit/kinematics.rs`."""
     pin_tolerance_constants(
-        "crates/core/src/emit/kinematics.rs",
+        "crates/kernel/src/emit/kinematics.rs",
         EMIT_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
@@ -685,7 +723,7 @@ def validate_clothoid_implementation_values(
 ) -> None:
     """Pin the Fresnel series threshold against the constant in `clothoid.rs`."""
     pin_tolerance_constants(
-        "crates/core/src/clothoid.rs",
+        "crates/kernel/src/clothoid.rs",
         CLOTHOID_IMPLEMENTATION_TOLERANCES,
         profile,
         errors,
@@ -904,7 +942,7 @@ def validate_profile_entries(
 def validate_feature_implementation_values(
     profile: dict[str, Any], errors: list[str]
 ) -> None:
-    source = (ROOT / "crates/core/src/features.rs").read_text(encoding="utf-8")
+    source = (ROOT / "crates/kernel/src/features.rs").read_text(encoding="utf-8")
     node_limit_match = re.search(
         r"pub const DEFAULT_MAX_EXPANDED_NODES: usize = ([0-9_]+);",
         source,

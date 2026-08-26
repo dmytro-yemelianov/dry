@@ -46,7 +46,7 @@ boundary_ids = [
 ]
 
 # ---------------------------------------------------------------------------------------------
-# Budgets — one per tolerance constant, pinned against verify.rs by
+# Budgets — one per tolerance constant, each pinned against its defining file by
 # validate_verify_implementation_values so a constant cannot be retuned without updating this file.
 # ---------------------------------------------------------------------------------------------
 
@@ -67,8 +67,8 @@ where being generous is safe because it *suppresses* a warning; as a violation t
 admit a 99 µm gap, half a layer height on a 0.2 mm layer.
 """
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/emit/gcode.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/emit/gcode.rs",
   "docs/superpowers/specs/2026-07-31-verify-strengthening-design.md",
 ]
 next_obligation = "Re-derive if the emitter's coordinate precision changes; the two must stay equal."
@@ -89,9 +89,9 @@ between two independent derivations. Relative rather than absolute for the reaso
 COMPARED_COORDINATE_MM.
 """
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
-  "crates/core/src/gcode/lift.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/resolve.rs",
+  "crates/kernel/src/gcode/lift.rs",
 ]
 next_obligation = "Re-derive if any producer adopts a different length formula; the rule assumes there is exactly one."
 
@@ -111,9 +111,9 @@ hidden: a *uniformly* wrong diameter yields a constant ratio and passes. Closing
 filament diameter the IR does not carry.
 """
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/optimize/coasting.rs",
-  "crates/core/src/optimize/arc.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/optimize/coasting.rs",
+  "crates/kernel/src/optimize/arc.rs",
 ]
 next_obligation = "Revisit when the IR carries a filament diameter, which would let the rule check the cross-section rather than only its constancy."
 
@@ -135,7 +135,7 @@ and an emitter comment then justified declining a check of its own by calling th
 justification true. Nothing about the rule's behaviour changed.
 """
 evidence = [
-  "crates/core/src/verify.rs",
-  "crates/core/src/resolve.rs",
+  "crates/verify/src/lib.rs",
+  "crates/kernel/src/resolve.rs",
 ]
 next_obligation = "Re-derive if either radius stops being computed by the same hypot on the same centre. An emit-side application would need its own budget: the input domain there is an emitted pose, not an IR quantity."

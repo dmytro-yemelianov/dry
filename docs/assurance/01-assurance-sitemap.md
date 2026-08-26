@@ -105,7 +105,7 @@ Planar pose composition acts on points by nested application
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Real.
 - Lean theorem: [`Dry.Geometry.PlanarTransform.apply_compose`](../../formal/Dry/Geometry/PlanarTransform.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -130,9 +130,9 @@ Feature groups preserve source-list expansion order
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.expand_group_append`](../../formal/Dry/Semantics/ExpandFeatures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -155,9 +155,9 @@ Repeat expansion emits exactly count times the child operation count
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number resource counts.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.repeat_op_count`](../../formal/Dry/Semantics/ExpandFeatures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -180,9 +180,9 @@ Accepted abstract feature trees respect operation, node and depth budgets
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number resource counts.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.expansion_respects_budgets`](../../formal/Dry/Semantics/ExpandFeatures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -206,9 +206,9 @@ Abstract feature expansion has a unique operation trace
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.Evaluates.deterministic`](../../formal/Dry/Semantics/ExpandFeatures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -231,7 +231,7 @@ A feature pose acts locally before its outer planar transform
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Real.
 - Lean theorem: [`Dry.Semantics.ExpandFeatures.Geometry.feature_composition_action`](../../formal/Dry/Semantics/ExpandFeatures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -257,9 +257,9 @@ Selected nested Feature and Repeat paths preserve parent-first transform-tree pa
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Parametric composition-expression shape.
 - Lean theorem: [`Dry.Semantics.CompositionTreeRefinement.expandNode_tree_parenthesization`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`CompositionShapeFixtures.lean`](../../formal/Dry/Tests/CompositionShapeFixtures.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`composition-shape-refinement-fixtures.schema.json`](../../proofs/fixtures/composition-shape-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`CompositionShapeFixtures.lean`](../../formal/Dry/Tests/CompositionShapeFixtures.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`composition-shape-refinement-fixtures.schema.json`](../../proofs/fixtures/composition-shape-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -283,7 +283,7 @@ Profiled binary64 degree-to-radian conversion has a checked absolute error bound
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Angle.binary64Radians_error`](../../formal/Dry/Numeric/Angle.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`Angle.lean`](../../formal/Dry/Numeric/Angle.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -310,7 +310,7 @@ Profiled binary64 degree-to-sine/cosine coefficient construction has a checked c
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 conversion plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.Trig.binary64Coefficients_error`](../../formal/Dry/Numeric/Trig.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`Trig.lean`](../../formal/Dry/Numeric/Trig.lean), [`Angle.lean`](../../formal/Dry/Numeric/Angle.lean), [`libm-0.2.16-trig-contract.md`](../../proofs/libm-0.2.16-trig-contract.md), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -338,7 +338,7 @@ Profiled binary64 planar transform composition has a concrete componentwise loca
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64Compose_error`](../../formal/Dry/Numeric/Binary64.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`RoundModel.lean`](../../formal/Dry/Numeric/RoundModel.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -364,9 +364,9 @@ Selected native cardinal-angle pose construction, composition and application sa
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Exact real π reference intervals plus exact dyadic models of the observed finite binary64 inputs and local operation graph.
 - Lean theorem: [`Dry.Tests.NativeNumericFixtures.nativeNumericFixtureChecks`](../../formal/Dry/Tests/NativeNumericFixtures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`native_numeric_tests.rs`](../../crates/core/src/features/native_numeric_tests.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs), [`native_numeric_tests.rs`](../../crates/kernel/src/features/native_numeric_tests.rs).
 - Numeric evidence: [`NativeNumericFixtures.lean`](../../formal/Dry/Tests/NativeNumericFixtures.lean), [`Angle.lean`](../../formal/Dry/Numeric/Angle.lean), [`Trig.lean`](../../formal/Dry/Numeric/Trig.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml), [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json).
-- Refinement evidence: [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`native-feature-numeric-interval-fixtures.schema.json`](../../proofs/fixtures/native-feature-numeric-interval-fixtures.schema.json), [`native_numeric_tests.rs`](../../crates/core/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`native-feature-numeric-interval-fixtures.schema.json`](../../proofs/fixtures/native-feature-numeric-interval-fixtures.schema.json), [`native_numeric_tests.rs`](../../crates/kernel/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -391,9 +391,9 @@ Selected nested Feature and Repeat programs satisfy checked point, Arc-centre an
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Exact integer quarter-turn reference semantics observed through stricter power-of-two ceilings that imply the published tree-application budgets.
 - Lean theorem: [`Dry.Tests.NestedApplicationFixtures.nestedApplicationFixtureChecks`](../../formal/Dry/Tests/NestedApplicationFixtures.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs).
 - Numeric evidence: [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`ApplicationAccumulation.lean`](../../formal/Dry/Numeric/ApplicationAccumulation.lean), [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json).
-- Refinement evidence: [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -419,7 +419,7 @@ Profiled sequential repeat-transform accumulation has checked conditional coeffi
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.Accumulation.binary64Repeat_error`](../../formal/Dry/Numeric/Accumulation.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`Accumulation.lean`](../../formal/Dry/Numeric/Accumulation.lean), [`Trig.lean`](../../formal/Dry/Numeric/Trig.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -448,9 +448,9 @@ Profiled arbitrary parenthesized transform-composition trees have checked condit
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.CompositionTree.binary64Tree_error`](../../formal/Dry/Numeric/CompositionTree.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`Accumulation.lean`](../../formal/Dry/Numeric/Accumulation.lean), [`Trig.lean`](../../formal/Dry/Numeric/Trig.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
-- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`CompositionShapeFixtures.lean`](../../formal/Dry/Tests/CompositionShapeFixtures.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`CompositionShapeFixtures.lean`](../../formal/Dry/Tests/CompositionShapeFixtures.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -478,9 +478,9 @@ Profiled point and Arc-centre application after arbitrary transform-composition 
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyPoint_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`ApplicationAccumulation.lean`](../../formal/Dry/Numeric/ApplicationAccumulation.lean), [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
-- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`native_numeric_tests.rs`](../../crates/core/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml).
+- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`native_numeric_tests.rs`](../../crates/kernel/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml).
 
 **Assumptions**
 
@@ -507,9 +507,9 @@ Profiled orientation application after arbitrary transform-composition trees has
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 one-ULP MPFR contract.
 - Lean theorem: [`Dry.Numeric.ApplicationAccumulation.binary64Tree_applyVector_error`](../../formal/Dry/Numeric/ApplicationAccumulation.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`ApplicationAccumulation.lean`](../../formal/Dry/Numeric/ApplicationAccumulation.lean), [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
-- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`native_numeric_tests.rs`](../../crates/core/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml).
+- Refinement evidence: [`CompositionTreeRefinement.lean`](../../formal/Dry/Semantics/CompositionTreeRefinement.lean), [`composition-shape-refinement-v0.json`](../../proofs/fixtures/composition-shape-refinement-v0.json), [`native-feature-numeric-interval-v0.json`](../../proofs/fixtures/native-feature-numeric-interval-v0.json), [`NestedApplicationFixtures.lean`](../../formal/Dry/Tests/NestedApplicationFixtures.lean), [`nested-application-refinement-v0.json`](../../proofs/fixtures/nested-application-refinement-v0.json), [`nested-application-refinement-fixtures.schema.json`](../../proofs/fixtures/nested-application-refinement-fixtures.schema.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`native_numeric_tests.rs`](../../crates/kernel/src/features/native_numeric_tests.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml).
 
 **Assumptions**
 
@@ -536,7 +536,7 @@ Profiled unit orientation application after arbitrary transform-composition tree
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Euclidean three-space over the Real abstraction of scoped IEEE-754 binary64 composition/application plus the imported libm 0.2.16 contract.
 - Lean theorem: [`Dry.Numeric.Orientation.binary64Tree_applyVector_angular_error`](../../formal/Dry/Numeric/Orientation.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs), [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs), [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: [`Orientation.lean`](../../formal/Dry/Numeric/Orientation.lean), [`ApplicationAccumulation.lean`](../../formal/Dry/Numeric/ApplicationAccumulation.lean), [`CompositionTree.lean`](../../formal/Dry/Numeric/CompositionTree.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: [`OrientationContractFixtures.lean`](../../formal/Dry/Tests/OrientationContractFixtures.lean), [`orientation-contract-refinement-v0.json`](../../proofs/fixtures/orientation-contract-refinement-v0.json), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
 
@@ -564,7 +564,7 @@ Selected native orientation inputs refine nonzero resolution and unit verificati
 - Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational source classification observed through selected finite binary64 values.
 - Lean theorem: [`Dry.Tests.OrientationContractFixtures.orientationContractFixtureChecks`](../../formal/Dry/Tests/OrientationContractFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs).
 - Numeric evidence: —.
 - Refinement evidence: [`OrientationContractFixtures.lean`](../../formal/Dry/Tests/OrientationContractFixtures.lean), [`orientation-contract-refinement-v0.json`](../../proofs/fixtures/orientation-contract-refinement-v0.json), [`orientation-contract-refinement-fixtures.schema.json`](../../proofs/fixtures/orientation-contract-refinement-fixtures.schema.json), [`orientation_refinement.rs`](../../crates/core/tests/orientation_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
@@ -591,7 +591,7 @@ Profiled binary64 planar point application has a concrete componentwise local-op
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64ApplyPoint_error`](../../formal/Dry/Numeric/Binary64.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`RoundModel.lean`](../../formal/Dry/Numeric/RoundModel.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -617,7 +617,7 @@ Profiled binary64 planar vector application has a concrete componentwise local-o
 - Normative clause: `DRY.NUMERIC.PLANAR_BINARY64_V0` — Planar binary64 boundaries carry explicit numeric profiles.
 - Numeric domain: Real abstraction of scoped IEEE-754 binary64 round-to-nearest, ties-to-even.
 - Lean theorem: [`Dry.Numeric.Binary64.binary64ApplyVector_error`](../../formal/Dry/Numeric/Binary64.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: [`RoundModel.lean`](../../formal/Dry/Numeric/RoundModel.lean), [`Binary64.lean`](../../formal/Dry/Numeric/Binary64.lean), [`feature-planar-numeric-profile-v0.toml`](../../proofs/feature-planar-numeric-profile-v0.toml).
 - Refinement evidence: —.
 
@@ -644,9 +644,9 @@ Checked feature expansion has a unique success or first-error result
 - Normative clause: `DRY.FEATURE.EXPANSION_V0` — Feature expansion is ordered, bounded, deterministic, and parent-first.
 - Numeric domain: Natural-number translations and resource counters plus rejected non-finite tokens.
 - Lean theorem: [`Dry.Semantics.CheckedExpansion.CheckedEvaluates.deterministic`](../../formal/Dry/Semantics/CheckedExpansion.lean).
-- Rust anchors: [`features.rs`](../../crates/core/src/features.rs).
+- Rust anchors: [`features.rs`](../../crates/kernel/src/features.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/core/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
+- Refinement evidence: [`feature-refinement-v0.json`](../../proofs/fixtures/feature-refinement-v0.json), [`feature_refinement.rs`](../../crates/kernel/tests/feature_refinement.rs), [`feature-refinement-mutations-v0.toml`](../../proofs/feature-refinement-mutations-v0.toml), [`check_feature_mutations.py`](../../tools/check_feature_mutations.py).
 
 **Assumptions**
 
@@ -673,7 +673,7 @@ Ordered state-fold execution has a unique final state
 - Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Integer.
 - Lean theorem: [`Dry.Semantics.OrderedFold.Exec.deterministic`](../../formal/Dry/Semantics/OrderedFold.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -698,7 +698,7 @@ L2 v0 validation succeeds exactly for well-formed logical toolpaths
 - Normative clause: `DRY.IR.L2_WELL_FORMED_V0` — L2 toolpaths obey the published segment and well-formedness rules.
 - Numeric domain: Exact rationals plus an explicit rejected non-finite token.
 - Lean theorem: [`Dry.Language.L2.Validation.validate_success_iff`](../../formal/Dry/Language/WellFormed.lean).
-- Rust anchors: [`ir.rs`](../../crates/core/src/ir.rs), [`resolve.rs`](../../crates/core/src/resolve.rs).
+- Rust anchors: [`ir.rs`](../../crates/kernel/src/ir.rs), [`resolve.rs`](../../crates/kernel/src/resolve.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -725,7 +725,7 @@ Normalized L2 logical equivalence is structural equality
 - Normative clause: `DRY.IR.L2_WELL_FORMED_V0` — L2 toolpaths obey the published segment and well-formedness rules.
 - Numeric domain: Normalized exact logical values.
 - Lean theorem: [`Dry.Language.L2.LogicalEquality.equivalent_iff_eq`](../../formal/Dry/Language/LogicalEquality.lean).
-- Rust anchors: [`ir.rs`](../../crates/core/src/ir.rs), [`mod.rs`](../../crates/core/src/codec/mod.rs).
+- Rust anchors: [`ir.rs`](../../crates/kernel/src/ir.rs), [`mod.rs`](../../crates/kernel/src/codec/mod.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -751,7 +751,7 @@ Dimension composition is commutative
 - Normative clause: `DRY.QUANTITY.DIMENSION_V0` — Quantities retain their declared dimensions and compatible-unit normalization.
 - Numeric domain: Integer exponent vectors.
 - Lean theorem: [`Dry.Numeric.Dimension.compose_commutative`](../../formal/Dry/Numeric/Quantity.lean).
-- Rust anchors: [`units.rs`](../../crates/core/src/units.rs).
+- Rust anchors: [`units.rs`](../../crates/kernel/src/units.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -774,7 +774,7 @@ The deposition volume equation is dimensionally valid
 - Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
 - Numeric domain: Integer exponent vectors.
 - Lean theorem: [`Dry.Numeric.Dimension.deposition_dimension`](../../formal/Dry/Numeric/Quantity.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`units.rs`](../../crates/core/src/units.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`units.rs`](../../crates/kernel/src/units.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -798,7 +798,7 @@ Converting units and then normalizing preserves canonical value
 - Normative clause: `DRY.QUANTITY.DIMENSION_V0` — Quantities retain their declared dimensions and compatible-unit normalization.
 - Numeric domain: Rational.
 - Lean theorem: [`Dry.Numeric.Unit.normalize_convert`](../../formal/Dry/Numeric/Quantity.lean).
-- Rust anchors: [`units.rs`](../../crates/core/src/units.rs).
+- Rust anchors: [`units.rs`](../../crates/kernel/src/units.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -824,7 +824,7 @@ Orientation resolution is deterministically folded, defaults to Z-axis, propagat
 - Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational numbers and optional 3D vectors.
 - Lean theorem: [`Dry.Semantics.ResolveOrientation.unit_orientations_yield_well_formed_segment_orientations`](../../formal/Dry/Semantics/ResolveOrientation.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -849,9 +849,9 @@ Native Rust resolution refines the exact-rational deposition volume laws on the 
 - Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
 - Numeric domain: Exact rational fixture inputs observed through finite binary64 values.
 - Lean theorem: [`Dry.Tests.DepositionFixtures.depositionFixtureChecks`](../../formal/Dry/Tests/DepositionFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`deposition_refinement.rs`](../../crates/core/tests/deposition_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`deposition_refinement.rs`](../../crates/kernel/tests/deposition_refinement.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`DepositionFixtures.lean`](../../formal/Dry/Tests/DepositionFixtures.lean), [`deposition-refinement-v0.json`](../../proofs/fixtures/deposition-refinement-v0.json), [`deposition-refinement-fixtures.schema.json`](../../proofs/fixtures/deposition-refinement-fixtures.schema.json), [`deposition_refinement.rs`](../../crates/core/tests/deposition_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
+- Refinement evidence: [`DepositionFixtures.lean`](../../formal/Dry/Tests/DepositionFixtures.lean), [`deposition-refinement-v0.json`](../../proofs/fixtures/deposition-refinement-v0.json), [`deposition-refinement-fixtures.schema.json`](../../proofs/fixtures/deposition-refinement-fixtures.schema.json), [`deposition_refinement.rs`](../../crates/kernel/tests/deposition_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
 **Assumptions**
 
@@ -875,7 +875,7 @@ Native Rust resolve_checked accurately refines Lean orientation resolution seman
 - Normative clause: `DRY.RESOLVE.ORIENTATION_V0` — Orientation state is explicit, last-write-wins, and attached at emission.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveOrientationFixtures.resolveOrientationFixtureChecks`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`verify.rs`](../../crates/core/src/verify.rs), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`lib.rs`](../../crates/verify/src/lib.rs), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs).
 - Numeric evidence: —.
 - Refinement evidence: [`ResolveOrientationFixtures.lean`](../../formal/Dry/Tests/ResolveOrientationFixtures.lean), [`resolve-orientation-refinement-v0.json`](../../proofs/fixtures/resolve-orientation-refinement-v0.json), [`resolve-orientation-refinement-fixtures.schema.json`](../../proofs/fixtures/resolve-orientation-refinement-fixtures.schema.json), [`resolve_orientation_refinement.rs`](../../crates/core/tests/resolve_orientation_refinement.rs), [`resolve-orientation-mutations-v0.toml`](../../proofs/resolve-orientation-mutations-v0.toml), [`check_resolve_orientation_mutations.py`](../../tools/check_resolve_orientation_mutations.py), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
@@ -900,7 +900,7 @@ Process channels (temperature, fan, flow, tool) deterministically propagate forw
 - Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Exact rational process values and optional quantities.
 - Lean theorem: [`Dry.Semantics.ResolveChannels.resolve_append`](../../formal/Dry/Semantics/ResolveChannels.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -925,9 +925,9 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 - Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs), [`resolve_channels_refinement.rs`](../../crates/core/tests/resolve_channels_refinement.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs), [`resolve_channels_refinement.rs`](../../crates/kernel/tests/resolve_channels_refinement.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`ResolveChannelsFixtures.lean`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean), [`resolve-channels-refinement-v0.json`](../../proofs/fixtures/resolve-channels-refinement-v0.json), [`resolve-channels-refinement-fixtures.schema.json`](../../proofs/fixtures/resolve-channels-refinement-fixtures.schema.json), [`resolve_channels_refinement.rs`](../../crates/core/tests/resolve_channels_refinement.rs), [`resolve-channels-mutations-v0.toml`](../../proofs/resolve-channels-mutations-v0.toml), [`check_resolve_channels_mutations.py`](../../tools/check_resolve_channels_mutations.py), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
+- Refinement evidence: [`ResolveChannelsFixtures.lean`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean), [`resolve-channels-refinement-v0.json`](../../proofs/fixtures/resolve-channels-refinement-v0.json), [`resolve-channels-refinement-fixtures.schema.json`](../../proofs/fixtures/resolve-channels-refinement-fixtures.schema.json), [`resolve_channels_refinement.rs`](../../crates/kernel/tests/resolve_channels_refinement.rs), [`resolve-channels-mutations-v0.toml`](../../proofs/resolve-channels-mutations-v0.toml), [`check_resolve_channels_mutations.py`](../../tools/check_resolve_channels_mutations.py), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
 **Assumptions**
 
@@ -949,7 +949,7 @@ Extrusion volume and filament consumption math obey travel zero-extrusion and li
 - Normative clause: `DRY.DEPOSITION.MATH_V0` — Deposition math follows the declared bead and material equations.
 - Numeric domain: Exact rational length, width, height, and flow values.
 - Lean theorem: [`Dry.Semantics.Deposition.length_scaling_scales_volume`](../../formal/Dry/Semantics/Deposition.lean).
-- Rust anchors: [`resolve.rs`](../../crates/core/src/resolve.rs).
+- Rust anchors: [`resolve.rs`](../../crates/kernel/src/resolve.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -972,7 +972,7 @@ The abstract exact-rational metric fold composes over appended segment traces
 - Normative clause: `DRY.REPORT.METRICS_V1` — Simulation and trace reports expose validated metric summaries.
 - Numeric domain: Exact rational metric counters and segment parameters.
 - Lean theorem: [`Dry.Semantics.SimulateMetrics.foldMetrics_append`](../../formal/Dry/Semantics/SimulateMetrics.lean).
-- Rust anchors: [`engine.rs`](../../crates/core/src/engine.rs).
+- Rust anchors: [`engine.rs`](../../crates/kernel/src/engine.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -983,7 +983,7 @@ The abstract exact-rational metric fold composes over appended segment traces
 
 **Exclusions**
 
-- Refinement against crates/core/src/engine.rs.
+- Refinement against crates/kernel/src/engine.rs.
 - Binary64 rounding, invalid or zero speed behavior outside the modeled branch, and overflow/underflow.
 - Equivalence of materialized and streaming simulation.
 - Metric fields and segment kinds not represented by the abstract model.
@@ -998,9 +998,9 @@ Native Rust simulate over exact-rational segment traces agrees with Lean simulat
 - Normative clause: `DRY.REPORT.METRICS_V1` — Simulation and trace reports expose validated metric summaries.
 - Numeric domain: Exact rational fixture inputs and segment counts observed through finite binary64 values.
 - Lean theorem: [`Dry.Tests.SimulateMetricsFixtures.simulateMetricsFixtureChecks`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean).
-- Rust anchors: [`engine.rs`](../../crates/core/src/engine.rs), [`simulate_metrics_refinement.rs`](../../crates/core/tests/simulate_metrics_refinement.rs).
+- Rust anchors: [`engine.rs`](../../crates/kernel/src/engine.rs), [`simulate_metrics_refinement.rs`](../../crates/kernel/tests/simulate_metrics_refinement.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`SimulateMetricsFixtures.lean`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean), [`simulate-metrics-refinement-v0.json`](../../proofs/fixtures/simulate-metrics-refinement-v0.json), [`simulate-metrics-refinement-fixtures.schema.json`](../../proofs/fixtures/simulate-metrics-refinement-fixtures.schema.json), [`simulate_metrics_refinement.rs`](../../crates/core/tests/simulate_metrics_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
+- Refinement evidence: [`SimulateMetricsFixtures.lean`](../../formal/Dry/Tests/SimulateMetricsFixtures.lean), [`simulate-metrics-refinement-v0.json`](../../proofs/fixtures/simulate-metrics-refinement-v0.json), [`simulate-metrics-refinement-fixtures.schema.json`](../../proofs/fixtures/simulate-metrics-refinement-fixtures.schema.json), [`simulate_metrics_refinement.rs`](../../crates/kernel/tests/simulate_metrics_refinement.rs), [`check_proof_fixtures.py`](../../tools/check_proof_fixtures.py).
 
 **Assumptions**
 
@@ -1022,7 +1022,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 - Normative clause: `DRY.REPORT.VERIFIER_RULES_V1` — Verifier rules are explicit, located, and coverage-aware.
 - Numeric domain: Exact rational bounds, speeds, flows, and Z elevations.
 - Lean theorem: [`Dry.Semantics.VerifierSoundness.coreValidators_sound`](../../formal/Dry/Semantics/VerifierSoundness.lean).
-- Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -1032,7 +1032,7 @@ The abstract exact-rational core verifier predicates imply their modeled inequal
 
 **Exclusions**
 
-- Refinement of these abstract predicates against crates/core/src/verify.rs.
+- Refinement of these abstract predicates against crates/verify/src/lib.rs.
 - Binary64 rounding, NaN/infinity behavior, tolerance policies, rule coverage, and located diagnostics.
 - Verifier rules other than speed, flow, retraction speed/distance, and monotonic elevation.
 - The eighteen rules outside that set, including the six structural rules added by H1.3 (continuity, segment-length, arc-length, negative-quantity, filament-consistency, bead-volume). None is modeled here, so none may be described as formally verified.
@@ -1047,7 +1047,7 @@ The abstract merge constructor stores the sum of input lengths and volumes
 - Normative clause: `DRY.OPTIMIZATION.OBSERVATION_V0` — Optimization passes declare their observation relation.
 - Numeric domain: Exact rational segment lengths and volumes.
 - Lean theorem: [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean).
-- Rust anchors: [`merge.rs`](../../crates/core/src/optimize/merge.rs).
+- Rust anchors: [`merge.rs`](../../crates/kernel/src/optimize/merge.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -1058,9 +1058,9 @@ The abstract merge constructor stores the sum of input lengths and volumes
 **Exclusions**
 
 - Proof that the production merge precondition identifies geometrically collinear segments.
-- Binary64 rounding and refinement against crates/core/src/optimize/merge.rs.
+- Binary64 rounding and refinement against crates/kernel/src/optimize/merge.rs.
 - Preservation of time, feedrate transitions, orientations, source maps, or emitted target behavior.
-- Preservation of the process channels across a merge: the Lean model carries no channel state, so nothing here proves that a channel change breaks a run. In the production pass that guarantee rests entirely on the exhaustively-destructured ProcessState in crates/core/src/optimize/merge.rs and on the pipeline tests in crates/core/tests/channels.rs; for the spindle/laser power channel its loss is a physical hazard (a deleted beam-off), so the gap is named here rather than folded into the general channel exclusion.
+- Preservation of the process channels across a merge: the Lean model carries no channel state, so nothing here proves that a channel change breaks a run. In the production pass that guarantee rests entirely on the exhaustively-destructured ProcessState in crates/kernel/src/optimize/merge.rs and on the pipeline tests in crates/core/tests/channels.rs; for the spindle/laser power channel its loss is a physical hazard (a deleted beam-off), so the gap is named here rather than folded into the general channel exclusion.
 - Pipeline composition and gating.
 
 ### `FM1.CODEC_INVERSE.MODEL.SEMANTICS`
@@ -1073,7 +1073,7 @@ A serializer-neutral field-copy encoding model has an exact list round-trip inve
 - Normative clause: `DRY.IR.CODEC_V0` — JSON, DRY0, and DRY1 are versioned interchange boundaries.
 - Numeric domain: Exact rational segment fields and lists.
 - Lean theorem: [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean).
-- Rust anchors: [`mod.rs`](../../crates/core/src/codec/mod.rs).
+- Rust anchors: [`mod.rs`](../../crates/kernel/src/codec/mod.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -1099,7 +1099,7 @@ An abstract three-bound capability predicate fails closed when any modeled bound
 - Normative clause: `DRY.CAPABILITY.MATCHING_V0` — Capability matching fails closed at the machine boundary.
 - Numeric domain: Exact rational machine limits and requirements.
 - Lean theorem: [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean).
-- Rust anchors: [`verify.rs`](../../crates/core/src/verify.rs).
+- Rust anchors: [`lib.rs`](../../crates/verify/src/lib.rs).
 - Numeric evidence: —.
 - Refinement evidence: —.
 
@@ -1124,9 +1124,9 @@ The published TPMS option surface refuses out-of-domain values before any geomet
 - Normative clause: `DRY.GENERATE.TPMS_OPTIONS_V1` — The TPMS option bundle has a published domain and refuses out-of-domain values.
 - Numeric domain: binary64 option values and u32 counts as parsed by serde_json.
 - Lean theorem: — no Lean model.
-- Rust anchors: [`tpms.rs`](../../crates/core/src/generate/tpms.rs).
+- Rust anchors: [`tpms.rs`](../../crates/kernel/src/generate/tpms.rs).
 - Numeric evidence: —.
-- Refinement evidence: [`dry-tpms-options-v1.schema.json`](../../spec/dry-tpms-options-v1.schema.json), [`manifest.json`](../../spec/examples/tpms-options/manifest.json), [`validate_reports.py`](../../tools/validate_reports.py), [`tpms_options_schema.rs`](../../crates/core/tests/tpms_options_schema.rs).
+- Refinement evidence: [`dry-tpms-options-v1.schema.json`](../../spec/dry-tpms-options-v1.schema.json), [`manifest.json`](../../spec/examples/tpms-options/manifest.json), [`validate_reports.py`](../../tools/validate_reports.py), [`tpms_options_schema.rs`](../../crates/kernel/tests/tpms_options_schema.rs).
 
 **Assumptions**
 

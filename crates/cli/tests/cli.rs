@@ -711,7 +711,7 @@ fn emit_krl_flag_uses_krl_output_mode() {
     assert!(krl.status.success(), "dry emit --format krl should succeed");
 
     // A whole module, not a bare motion line. The travel becomes a PTP, which carries no
-    // `$VEL.CP` because that variable does not govern a joint move (crates/core/src/emit/krl.rs).
+    // `$VEL.CP` because that variable does not govern a joint move (crates/kernel/src/emit/krl.rs).
     assert_eq!(
         String::from_utf8(krl.stdout).unwrap(),
         concat!(
@@ -895,7 +895,7 @@ fn emit_krl_five_axis_writes_zyx_euler_angles_into_every_pose() {
     // Tool axis along +X, then along +Y. KUKA A is the rotation about Z and B the tilt from +Z,
     // so the poses are (A 0, B 90) then (A 90, B 90); C is the pinned 180 deg roll. Under
     // `--five-axis` every axis the segment names is restated, exactly as the g-code renderer
-    // restates them (crates/core/src/emit/gcode.rs), so the second pose repeats X and Z.
+    // restates them (crates/kernel/src/emit/gcode.rs), so the second pose repeats X and Z.
     assert_eq!(
         krl_motion_lines(&program),
         [

@@ -146,7 +146,20 @@ def build_worktree(target_dir: Path) -> None:
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, target_dir / name)
 
-    for member in ("core", "cli", "license", "llm", "moonraker"):
+    # Every workspace member has to be present or cargo refuses to load the manifest, even the ones
+    # no mutation touches (`contracts` from crate-split Task 3, `kernel` from Task 4, `verify` from
+    # Task 5, `trace` from Task 6).
+    for member in (
+        "contracts",
+        "core",
+        "kernel",
+        "verify",
+        "trace",
+        "cli",
+        "license",
+        "llm",
+        "moonraker",
+    ):
         if (ROOT / "crates" / member).is_dir():
             shutil.copytree(
                 ROOT / "crates" / member, target_dir / "crates" / member
@@ -156,9 +169,13 @@ def build_worktree(target_dir: Path) -> None:
 
 
 def run_test(workspace: Path, witness: str) -> subprocess.CompletedProcess[str]:
+    # `-p drymachina-kernel`: the refinement test travelled with `resolve.rs` into the kernel crate
+    # (crate-split Task 4), and the workspace's default-run packages no longer contain it.
     command = [
         "cargo",
         "test",
+        "-p",
+        "drymachina-kernel",
         "--test",
         "resolve_channels_refinement",
         "--",

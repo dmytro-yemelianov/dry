@@ -47,7 +47,7 @@ the structure, don't silence the lint.
 Much of the suite is generated and **drift-gated** — if you change engine output you must regenerate:
 
 - **IR vectors** (`conformance/vectors/`): `UPDATE_VECTORS=1 cargo test -p dry-core --test spec_vectors`
-- **Report goldens** (`conformance/reports/`): `UPDATE_REPORTS=1 cargo test -p dry-core --test report_goldens`
+- **Report goldens** (`conformance/reports/`): `UPDATE_REPORTS=1 cargo test -p drymachina-trace --test report_goldens`
 - **CNC program golden** (`conformance/reports/cnc/`): `UPDATE_GOLDEN=1 cargo test -p dry-core --test cnc_pocket_e2e`
 - **KRL program golden** (`conformance/reports/robot/`): `UPDATE_GOLDEN=1 cargo test -p dry-core --test krl_program_structure`.
   Re-run `tools/krl_check.sh` after regenerating — it parses the golden with an external KRL grammar
@@ -57,7 +57,7 @@ Much of the suite is generated and **drift-gated** — if you change engine outp
   `conformance/export.py` from the FullControl oracle (output only — see the provenance ledger).
 
 Adding a public IR feature? Add a vector and update the spec (`docs/10-dry-ir-v0-spec.md`). Adding a
-verification rule? Extend the `RuleId` registry in `crates/core/src/verify.rs`, the catalog in
+verification rule? Extend the `RuleId` registry in `crates/contracts/src/lib.rs`, the catalog in
 `docs/11-profiles-and-reports.md`, and a report golden that triggers it.
 
 ## Pull requests

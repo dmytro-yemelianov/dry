@@ -2,7 +2,7 @@
 //!
 //! **Read the test names literally.** Nothing here executes a KUKA program. Every assertion below
 //! is about the *structure* of the emitted text, judged against the BNF written down in
-//! `crates/core/src/emit/krl.rs` and `docs/22-krl-emit.md`. The only judgement in this repository
+//! `crates/kernel/src/emit/krl.rs` and `docs/22-krl-emit.md`. The only judgement in this repository
 //! that Dry did not author is `tools/krl_check.sh`, which parses the golden with an external ANTLR
 //! grammar; even that is a parse, not an execution. Dry's KRL output has never run on a KUKA
 //! controller or on a simulator, and no test here may be named as though it had.
