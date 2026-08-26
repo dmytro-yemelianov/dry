@@ -1,5 +1,8 @@
 import React from 'react';
 import { useStudioStore } from '../store/useStudioStore';
+import { DESIGN_DEFS, FULLCONTROL_GALLERY, RESOLVE_PARAMS } from '../data/designs';
+import { buildExportText, exportFilename } from '../data/exporters';
+import type { DesignDef } from '../types/domain';
 
 /** The /web/ portal pages ship with that deploy only; other mounts (e.g. /gallery/) lack them. */
 const portalIsReachable = import.meta.env.BASE_URL === '/web/';
@@ -9,14 +12,36 @@ export const Header: React.FC = () => {
   const activeMachine = useStudioStore((state) => state.activeMachine);
   const setActiveMachine = useStudioStore((state) => state.setActiveMachine);
   const gcodeLines = useStudioStore((state) => state.gcodeLines);
+  const exportFormat = useStudioStore((state) => state.exportFormat);
+  const macroOptions = useStudioStore((state) => state.macroOptions);
+  const metrics = useStudioStore((state) => state.metrics);
+  const activeDesignKey = useStudioStore((state) => state.activeDesignKey);
+  const activeParams = useStudioStore((state) => state.activeParams);
 
-  const exportGcode = () => {
+  // The button follows the format chosen in the Export panel. Emitting G-code regardless would
+  // quietly ignore that choice and hand back the wrong file type.
+  const exportCurrent = () => {
     if (!gcodeLines || !gcodeLines.length) return;
-    const blob = new Blob([gcodeLines.join('\n')], { type: 'text/plain' });
+    const allDefs: Record<string, DesignDef> = { ...DESIGN_DEFS, ...FULLCONTROL_GALLERY };
+    const def = allDefs[activeDesignKey];
+    const designLabel = def?.title ?? def?.label ?? activeDesignKey;
+    const ops = def?.ops ?? (def?.build ? def.build(activeParams) : []);
+    const text = buildExportText({
+      format: exportFormat,
+      gcodeLines,
+      ops,
+      metrics,
+      macros: macroOptions,
+      machine: activeMachine,
+      params: RESOLVE_PARAMS,
+      designLabel,
+    });
+    if (!text.trim()) return;
+    const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dry_machina_${activeMachine.id}.gcode`;
+    a.download = exportFilename(exportFormat, designLabel);
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -65,7 +90,7 @@ export const Header: React.FC = () => {
             <a href="/web/docs.html" className="btn-action" target="_blank" rel="noreferrer">Docs &amp; Specs</a>
           </>
         )}
-        <button onClick={exportGcode} className="btn-action primary">Export G-Code</button>
+        <button onClick={exportCurrent} className="btn-action primary">Export G-Code</button>
       </div>
     </header>
   );

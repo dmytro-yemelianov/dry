@@ -33,3 +33,13 @@ declare module '*/dry_wasm.js' {
   export function tpms_ops_json(options_json: string): string;
   export function check_machine_compatibility(ops_json: string, params_json: string, capabilities_json: string): string;
 }
+
+declare module '*/thumb.js' {
+  /** Renders a top-down PNG data URL of the resolved toolpath. */
+  export function thumbnail(
+    ops: unknown[],
+    wasm: { resolve_ir: (opsJson: string, paramsJson: string) => string },
+    params: unknown,
+    size?: number,
+  ): string;
+}

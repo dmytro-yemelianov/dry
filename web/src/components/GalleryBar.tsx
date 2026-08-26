@@ -25,7 +25,7 @@ export const GalleryBar: React.FC = () => {
   return (
     <div className="gallery-bar">
       <div className="gallery-bar-identity">
-        <span id="designTitle" className="gallery-title">
+        <span id="designTitle" className="gallery-bar-title">
           {title}
         </span>
         <span id="designLinks" className="gallery-links">

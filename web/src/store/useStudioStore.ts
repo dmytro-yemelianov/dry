@@ -24,6 +24,7 @@ import {
   importGcode,
 } from '../wasm/engine';
 import { DESIGN_DEFS, FULLCONTROL_GALLERY, RESOLVE_PARAMS } from '../data/designs';
+import { DEFAULT_MACRO_OPTIONS, type ExportFormat, type MacroOptions } from '../data/exporters';
 
 const TAU = Math.PI * 2;
 
@@ -351,6 +352,9 @@ interface StudioState {
   activeSectionIndex: number;
   boundsInput: string;
   sourceError: string;
+  exportFormat: ExportFormat;
+  macroOptions: MacroOptions;
+  viewLayout: 'iso' | 'grid';
 
   // Actions
   initStudio: () => Promise<void>;
@@ -381,6 +385,9 @@ interface StudioState {
   importCustomGcode: (text: string, filename: string) => void;
   recompileCurrentDesign: () => void;
   setBoundsInput: (value: string) => void;
+  setExportFormat: (format: ExportFormat) => void;
+  setViewLayout: (layout: 'iso' | 'grid') => void;
+  setMacroOption: <K extends keyof MacroOptions>(key: K, value: MacroOptions[K]) => void;
 }
 
 declare global {
@@ -470,6 +477,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeSectionIndex: 1,
   boundsInput: '',
   sourceError: '',
+  exportFormat: 'gcode',
+  macroOptions: DEFAULT_MACRO_OPTIONS,
+  viewLayout: 'iso',
 
   initStudio: async () => {
     await ensureWasmInitialized();
@@ -501,6 +511,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setBoundsInput: (value: string) => {
     set({ boundsInput: value, sourceError: boundsParseError(value) });
   },
+
+  setExportFormat: (format: ExportFormat) => set({ exportFormat: format }),
+
+  setViewLayout: (layout) => set({ viewLayout: layout }),
+
+  setMacroOption: (key, value) =>
+    set((state) => ({ macroOptions: { ...state.macroOptions, [key]: value } })),
 
   setActiveMachine: (id: string) => {
     const m = get().machines.find((x) => x.id === id);

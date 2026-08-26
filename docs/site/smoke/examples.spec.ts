@@ -106,3 +106,58 @@ test('studio gallery exposes its catalog, machine and playback controls', async 
   const before = await page.locator('#gcode .gline').count();
   expect(before).toBeGreaterThan(0);
 });
+
+// Controls the Studio 2.0 migration dropped and this branch put back. They are asserted against the
+// running app rather than by grepping source, which is what made the old assertions rot silently.
+test('studio gallery restores the export, generator and layout controls', async ({ page }) => {
+  await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+
+  // Five export formats, each producing something. G-code alone was all that survived the migration.
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  const formatSelect = page.locator('#exportFormat');
+  await expect(formatSelect).toBeVisible();
+  expect(await formatSelect.locator('option').count()).toBe(5);
+
+  await formatSelect.selectOption('fullcontrol-py');
+  await expect(page.locator('.export-preview')).toContainText('import fullcontrol as fc');
+
+  // The macro builders only apply to the macro format, and the emitted preamble is real G-code.
+  await formatSelect.selectOption('gcode-macros');
+  expect(await page.locator('.macro-toggle').count()).toBeGreaterThan(5);
+  await expect(page.locator('.export-preview')).toContainText('G21 ; millimeters');
+
+  // The 3+1 layout and its labels.
+  await page.locator('#viewMode').selectOption('grid');
+  await expect(page.locator('.view-grid-labels')).toBeVisible();
+  expect(await page.locator('.view-grid-cell').count()).toBe(4);
+  await page.locator('#viewMode').selectOption('iso');
+
+  await expect(page.locator('#resetView')).toBeVisible();
+  expect(await page.locator('.panel-resizer').count()).toBe(2);
+});
+
+test('TPMS designs expose the full generator parameter set', async ({ page }) => {
+  await page.goto('/gallery/');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+
+  await page.getByRole('button', { name: 'TPMS', exact: true }).click();
+  const card = page.locator('.gallery-card', { hasText: 'TPMS Gyroid Contours' }).first();
+  await card.click();
+  // Parameters live behind the card's toggle pill; selecting the design alone does not open them.
+  await card.locator('.param-toggle-pill').click();
+
+  // Seven sliders survived the migration; bead width, print speed, the two adaptive heights and the
+  // perimeter/adaptive toggles did not.
+  const params = page.locator('.param-row');
+  await expect(params.first()).toBeVisible();
+  expect(await params.count()).toBeGreaterThanOrEqual(13);
+  expect(await page.locator('.param-toggle input[type="checkbox"]').count()).toBe(2);
+
+  // Per-control reset, distinct from the group "Reset to Defaults".
+  expect(await page.locator('.default-reset').count()).toBeGreaterThan(0);
+});

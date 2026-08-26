@@ -72,6 +72,9 @@ export interface MachineProfile {
   };
   max_acceleration: number;
   firmware: string;
+  /** Present in the machine catalog; used to bound the export macros' temperature fields. */
+  max_hotend_temp?: number;
+  max_bed_temp?: number;
 }
 
 export interface ParameterDef {
@@ -83,6 +86,11 @@ export interface ParameterDef {
   step: number;
   unit: string;
   title?: string;
+  /**
+   * How the control is drawn. Toggles still carry a number (0 or 1) so the whole parameter
+   * pipeline — defaults, reset, recompile — stays one `Record<string, number>`.
+   */
+  kind?: 'range' | 'toggle';
 }
 
 export interface DesignDef {
@@ -102,6 +110,8 @@ export interface DesignDef {
   sourceKey?: string;
   /** Attribution: [label, href]. Licensed reconstructions must credit their origin. */
   links?: Array<[string, string]>;
+  /** A standing caveat about this design's parameters, shown alongside its controls. */
+  note?: string;
 }
 
 export type GroupingKind = 'revolution' | 'figure' | 'layer' | 'routine';

@@ -65,6 +65,9 @@ export const ThreeViewport: React.FC = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  // The 3+1 layout needs a camera per panel. Only the iso one is driven by OrbitControls;
+  // the others share its target so all four panels stay locked to the same subject.
+  const panelCamerasRef = useRef<Record<'top' | 'front' | 'side', THREE.PerspectiveCamera> | null>(null);
   const envelopeMeshRef = useRef<THREE.LineSegments | null>(null);
   const toolpathMeshRef = useRef<THREE.Object3D | null>(null);
   const travelMeshRef = useRef<THREE.LineSegments | null>(null);
@@ -76,6 +79,8 @@ export const ThreeViewport: React.FC = () => {
   const effectiveGroupingKind = useStudioStore((state) => state.effectiveGroupingKind);
   const colorMode = useStudioStore((state) => state.colorMode);
   const renderStyle = useStudioStore((state) => state.renderStyle);
+  const viewLayout = useStudioStore((state) => state.viewLayout);
+  const setViewLayout = useStudioStore((state) => state.setViewLayout);
   const setRenderStyle = useStudioStore((state) => state.setRenderStyle);
   const plasticMaterial = useStudioStore((state) => state.plasticMaterial);
   const setPlasticMaterial = useStudioStore((state) => state.setPlasticMaterial);
@@ -116,6 +121,13 @@ export const ThreeViewport: React.FC = () => {
     renderer.toneMappingExposure = 1.15;
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
+
+    panelCamerasRef.current = {
+      top: new THREE.PerspectiveCamera(45, width / height, 0.1, 5000),
+      front: new THREE.PerspectiveCamera(45, width / height, 0.1, 5000),
+      side: new THREE.PerspectiveCamera(45, width / height, 0.1, 5000),
+    };
+    for (const panelCamera of Object.values(panelCamerasRef.current)) panelCamera.up.set(0, 0, 1);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -173,7 +185,47 @@ export const ThreeViewport: React.FC = () => {
         seekTime(nextTime);
       }
 
-      renderer.render(scene, camera);
+      const panels = panelCamerasRef.current;
+      if (store.viewLayout === 'grid' && panels) {
+        const width = renderer.domElement.width;
+        const height = renderer.domElement.height;
+        // Keep the three orthographic panels aimed at whatever the iso view is looking at, at a
+        // distance that matches it, so panning in iso moves every panel together.
+        const target = controls.target;
+        const distance = camera.position.distanceTo(target);
+        const directions: Array<['top' | 'front' | 'side', THREE.Vector3]> = [
+          ['top', new THREE.Vector3(0, 0, 1)],
+          ['front', new THREE.Vector3(0, -1, 0.05)],
+          ['side', new THREE.Vector3(1, 0, 0.05)],
+        ];
+        for (const [key, direction] of directions) {
+          const panelCamera = panels[key];
+          panelCamera.position.copy(target).addScaledVector(direction.normalize(), distance);
+          panelCamera.lookAt(target);
+        }
+
+        const order: Array<THREE.PerspectiveCamera> = [camera, panels.top, panels.front, panels.side];
+        const leftW = Math.floor(width / 2);
+        const bottomH = Math.floor(height / 2);
+        renderer.setScissorTest(true);
+        order.forEach((panelCamera, index) => {
+          const col = index % 2;
+          const row = Math.floor(index / 2);
+          const x = col === 0 ? 0 : leftW;
+          const y = row === 0 ? bottomH : 0;
+          const w = col === 0 ? leftW : width - leftW;
+          const h = row === 0 ? height - bottomH : bottomH;
+          panelCamera.aspect = w / Math.max(h, 1);
+          panelCamera.updateProjectionMatrix();
+          renderer.setViewport(x, y, w, h);
+          renderer.setScissor(x, y, w, h);
+          renderer.render(scene, panelCamera);
+        });
+        renderer.setScissorTest(false);
+        renderer.setViewport(0, 0, width, height);
+      } else {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
@@ -372,18 +424,79 @@ export const ThreeViewport: React.FC = () => {
     toolhead.visible = true;
   }, [currentTime, maxTime, focusedLineIndex, toolpath]);
 
-  const setCameraView = (mode: 'iso' | 'top' | 'front' | 'side') => {
+  /**
+   * Extent of the actual toolpath, or null when there is nothing to frame.
+   *
+   * The view buttons used to move the camera to fixed coordinates and always look at (128, 128, 40)
+   * — the middle of a 256mm bed. A 10mm test square, or anything built away from that point, was
+   * framed by luck. Measuring the geometry is what makes "fit" mean fit.
+   */
+  const toolpathBounds = (): { min: THREE.Vector3; max: THREE.Vector3 } | null => {
+    const segments = toolpath?.segments;
+    if (!segments || !segments.length) return null;
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    let seen = false;
+    for (const seg of segments) {
+      for (const raw of [seg.start, seg.end]) {
+        if (!raw) continue;
+        const [x, y, z] = raw;
+        if (x == null || y == null || z == null) continue;
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+        min.min(new THREE.Vector3(x, y, z));
+        max.max(new THREE.Vector3(x, y, z));
+        seen = true;
+      }
+    }
+    return seen ? { min, max } : null;
+  };
+
+  /** Point the camera along `direction` and back it off far enough to contain the geometry. */
+  const frameAlong = (direction: THREE.Vector3) => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
 
-    if (mode === 'iso') camera.position.set(180, -260, 220);
-    if (mode === 'top') camera.position.set(128, 128, 450);
-    if (mode === 'front') camera.position.set(128, -380, 100);
-    if (mode === 'side') camera.position.set(480, 128, 100);
+    const bounds = toolpathBounds();
+    // With nothing loaded, fall back to the bed centre rather than staring into empty space.
+    const centre = bounds
+      ? new THREE.Vector3().addVectors(bounds.min, bounds.max).multiplyScalar(0.5)
+      : new THREE.Vector3(128, 128, 40);
+    const radius = bounds
+      ? Math.max(new THREE.Vector3().subVectors(bounds.max, bounds.min).length() / 2, 1)
+      : 180;
 
-    controls.target.set(128, 128, 40);
+    // Fit the sphere in the narrower of the two fields of view, then leave a small margin.
+    const vFov = (camera.fov * Math.PI) / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const distance = (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.15;
+
+    camera.position.copy(centre).addScaledVector(direction.clone().normalize(), distance);
+    camera.near = Math.max(distance / 1000, 0.1);
+    camera.far = distance * 10;
+    camera.updateProjectionMatrix();
+    controls.target.copy(centre);
     controls.update();
+  };
+
+  const VIEW_DIRECTIONS: Record<'iso' | 'top' | 'front' | 'side', THREE.Vector3> = {
+    iso: new THREE.Vector3(0.6, -0.8, 0.7),
+    top: new THREE.Vector3(0, 0, 1),
+    front: new THREE.Vector3(0, -1, 0.05),
+    side: new THREE.Vector3(1, 0, 0.05),
+  };
+
+  const setCameraView = (mode: 'iso' | 'top' | 'front' | 'side') => {
+    frameAlong(VIEW_DIRECTIONS[mode]);
+  };
+
+  /** Re-frame without changing the angle the user is already looking from. */
+  const fitView = () => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const direction = new THREE.Vector3().subVectors(camera.position, controls.target);
+    frameAlong(direction.lengthSq() > 0 ? direction : VIEW_DIRECTIONS.iso);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -417,9 +530,32 @@ export const ThreeViewport: React.FC = () => {
         <button className="view-btn" onClick={() => setCameraView('top')}>Top</button>
         <button className="view-btn" onClick={() => setCameraView('front')}>Front</button>
         <button className="view-btn" onClick={() => setCameraView('side')}>Side</button>
+        <button className="view-btn" id="resetView" onClick={fitView} title="Frame the toolpath">Fit</button>
+      </div>
+
+      {/* Labels for the 3+1 panels. Purely descriptive, so it stays out of the accessibility tree
+          and never intercepts a drag meant for the canvas underneath. */}
+      <div
+        className={`view-grid-labels ${viewLayout === 'iso' ? 'is-iso-only' : ''}`}
+        aria-hidden="true"
+      >
+        <div className="view-grid-cell view-grid-cell-iso"><span>Iso</span></div>
+        <div className="view-grid-cell view-grid-cell-top"><span>Top</span></div>
+        <div className="view-grid-cell view-grid-cell-front"><span>Front</span></div>
+        <div className="view-grid-cell view-grid-cell-side"><span>Side</span></div>
       </div>
 
       <div className="color-mode-tools">
+        <select
+          id="viewMode"
+          className="view-mode-select"
+          aria-label="view layout"
+          value={viewLayout}
+          onChange={(e) => setViewLayout(e.target.value as 'iso' | 'grid')}
+        >
+          <option value="grid">3+1 views</option>
+          <option value="iso">Iso only</option>
+        </select>
         <button
           className={`color-mode-btn ${renderStyle === 'beads' ? 'active' : ''}`}
           onClick={() => setRenderStyle('beads')}

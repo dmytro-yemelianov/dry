@@ -206,7 +206,8 @@ html, body, #root, .studio-app-container {
 }
 
 .sidebar-left, .sidebar-right {
-  width: 340px;
+  /* Width is a custom property so the drag handles have exactly one thing to write. */
+  width: var(--left-panel-w, 340px);
   background: var(--bg-panel);
   border-color: var(--border);
   display: flex;
@@ -222,8 +223,67 @@ html, body, #root, .studio-app-container {
 }
 
 .sidebar-right {
-  width: 400px;
+  width: var(--right-panel-w, 400px);
   border-left: 1px solid var(--border);
+}
+
+/* A collapsed panel keeps its header strip so there is something to click to bring it back. */
+.sidebar-left.is-collapsed,
+.sidebar-right.is-collapsed {
+  width: 42px;
+}
+
+.sidebar-left.is-collapsed .panel-content,
+.sidebar-right.is-collapsed .panel-content,
+.sidebar-left.is-collapsed .library-badge,
+.sidebar-left.is-collapsed .panel-header span,
+.sidebar-right.is-collapsed .panel-tabs {
+  display: none;
+}
+
+.panel-collapse-btn {
+  margin-left: auto;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.panel-collapse-btn:hover {
+  border-color: var(--border);
+}
+
+/* Grab strip between a sidebar and the viewport. Wider hit area than its painted line. */
+.panel-resizer {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 15;
+}
+
+.panel-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 2px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.panel-resizer:hover::after,
+body.is-resizing-panels .panel-resizer::after {
+  background: var(--accent, #6ea8fe);
+}
+
+/* While dragging, stop the pointer selecting panel text or the canvas stealing the gesture. */
+body.is-resizing-panels {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .panel-header {
@@ -243,6 +303,20 @@ html, body, #root, .studio-app-container {
 .panel-tabs, .left-tabs {
   display: flex;
   height: 100%;
+  /* One more tab than this strip was sized for; let it scroll rather than clip the last label. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.panel-tabs::-webkit-scrollbar,
+.left-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.panel-tab-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .panel-tab-btn, .left-tab-btn {
@@ -381,7 +455,31 @@ html, body, #root, .studio-app-container {
 
 .gallery-card-header {
   display: flex;
-  flex-direction: column;
+  /* Thumbnail on the left, title and tags filling the rest. */
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gallery-card-header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+/* Reserve the box before the preview resolves so cards do not jump as thumbnails arrive. */
+.design-thumb {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0b1017;
+  border: 1px solid var(--border);
+}
+
+.design-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .gallery-title {
@@ -602,7 +700,7 @@ html, body, #root, .studio-app-container {
   min-width: 0;
 }
 
-.gallery-title {
+.gallery-bar-title {
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -671,6 +769,8 @@ html, body, #root, .studio-app-container {
   top: 14px;
   left: 14px;
   display: flex;
+  /* Stays a vertical stack: `.color-mode-tools` is positioned at left: 80px specifically to clear
+     it, so turning this row horizontal puts the two toolbars on top of each other. */
   flex-direction: column;
   gap: 6px;
   z-index: 20;
@@ -1583,4 +1683,188 @@ html, body, #root, .studio-app-container {
 .check-icon.warn {
   background: var(--warning);
   color: #0d1117;
+}
+
+/* Compact parameter chrome: name, bracketed unit, and a per-control reset. */
+.param-name {
+  font-weight: 600;
+}
+
+.param-unit {
+  font-size: 10px;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+
+.param-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.param-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent, #6ea8fe);
+}
+
+.default-reset {
+  margin-left: auto;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.default-reset:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--fg-bright, inherit);
+}
+
+.default-reset:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.param-note {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent, #6ea8fe);
+  background: rgba(110, 168, 254, 0.07);
+  border-radius: 0 4px 4px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+/* Export panel: format selector, macro toggles, and a short preview of what will be written. */
+.export-panel-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.panel-subhead {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+
+.macro-options {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.macro-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.macro-toggle input {
+  accent-color: var(--accent, #6ea8fe);
+}
+
+.macro-temps {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.macro-temps label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.macro-temps input {
+  width: 72px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input, #0d1219);
+  color: inherit;
+  font: inherit;
+}
+
+.export-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.export-status {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.export-preview {
+  margin: 0;
+  padding: 10px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input, #0d1219);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+/* 3+1 view panel labels, drawn over the single canvas the scissor pass splits into quadrants. */
+.view-grid-labels {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.view-grid-labels.is-iso-only {
+  display: none;
+}
+
+.view-grid-cell {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.view-grid-cell span {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.view-mode-select {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input, #0d1219);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
 }

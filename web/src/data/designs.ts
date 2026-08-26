@@ -78,6 +78,19 @@ const starLatticeParams = (alphaDeg: number): ParameterDef[] => [
   range('layerHeight', 'Layer Height', 0.2, 0.05, 2, 0.001, 'mm'),
 ];
 
+/** A boolean parameter carried as 0/1 so it flows through the same params record as the sliders. */
+const toggle = (id: string, label: string, defaultOn: boolean, title = ''): ParameterDef => ({
+  id,
+  label,
+  defaultValue: defaultOn ? 1 : 0,
+  min: 0,
+  max: 1,
+  step: 1,
+  unit: '',
+  title,
+  kind: 'toggle',
+});
+
 const tpmsParams = (): ParameterDef[] => [
   range('cellSize', 'Cell Size', 22, 4, 80, 0.5, 'mm'),
   range('samplesPerCell', 'Samples/Cell', 16, 4, 64, 1, '1/cell'),
@@ -86,7 +99,34 @@ const tpmsParams = (): ParameterDef[] => [
   range('cellsZ', 'Cells Z', 1, 1, 8, 1, '1'),
   range('layerHeight', 'Layer Height', 0.28, 0.08, 1.4, 0.01, 'mm'),
   range('isoLevel', 'Iso Level', 0, -4, 4, 0.05, '1'),
+  range('beadWidth', 'Bead Width', 0.45, 0.1, 2.0, 0.01, 'mm'),
+  range('printSpeed', 'Print Speed', 1200, 60, 12000, 10, 'mm/min'),
+  toggle('perimeter', 'Infill Perimeter', true, 'Add a single-wall rectangular perimeter around every sliced layer.'),
+  toggle('adaptive', 'Adaptive Slicing', false, 'Insert extra Z slices where intervals are tall or change topology sharply.'),
+  range('adaptiveMinLayerHeight', 'Adaptive Min', 0.14, 0.08, 0.4, 0.01, 'mm'),
+  range('adaptiveMaxLayerHeight', 'Adaptive Max', 0.28, 0.12, 1.4, 0.01, 'mm'),
 ];
+
+/**
+ * Translate the flat numeric parameter record into the engine's TPMS option object.
+ *
+ * Two details are load-bearing and were lost when the gallery moved to Studio 2.0. `beadHeight`
+ * tracks `layerHeight` rather than being independent — an extrusion taller than its layer is not a
+ * shape the slicer should be asked for. And `maxFieldSamples` caps the implicit-field evaluation:
+ * the engine's own default is 6,000,000, which is a batch budget, not an interactive one.
+ */
+const tpmsOptions = (surface: string, params: Record<string, number>): Record<string, unknown> => {
+  const { perimeter, adaptive, layerHeight, ...rest } = params;
+  return {
+    ...rest,
+    surface,
+    layerHeight,
+    beadHeight: layerHeight,
+    perimeter: perimeter === 1,
+    adaptive: adaptive === 1,
+    maxFieldSamples: 3_000_000,
+  };
+};
 
 export const DESIGN_DEFS: Record<string, DesignDef> = {
   // ---- Basics ----
@@ -666,6 +706,10 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'Research Lattices',
     tags: ['research', 'lattice', 'M4', 'auxetic'],
     params: starLatticeParams(45),
+    // M4 is built from row pairs, so the generator rounds an odd row count up: rows 3 and rows 4
+    // produce identical geometry. Saying so is the useful half of the old row-pair control, which
+    // only rewrote the input box — it never changed what was generated.
+    note: 'M4 builds in row pairs: an odd row count produces the same lattice as the next even one.',
     build: (params) => starPolygonLatticeOps({ family: 'M4', ...params }),
   },
 
@@ -676,7 +720,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'gyroid', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'gyroid', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('gyroid', params)),
   },
   tpms_schwarz_p: {
     key: 'tpms_schwarz_p',
@@ -684,7 +728,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'Schwarz P', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'schwarz-p', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('schwarz-p', params)),
   },
   tpms_schwarz_d: {
     key: 'tpms_schwarz_d',
@@ -692,7 +736,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'Schwarz D', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'schwarz-d', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('schwarz-d', params)),
   },
   tpms_iwp: {
     key: 'tpms_iwp',
@@ -700,7 +744,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'I-WP', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'iwp', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('iwp', params)),
   },
   tpms_neovius: {
     key: 'tpms_neovius',
@@ -708,7 +752,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'Neovius', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'neovius', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('neovius', params)),
   },
   tpms_fks: {
     key: 'tpms_fks',
@@ -716,7 +760,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'FKS', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'fischer-koch-s', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('fischer-koch-s', params)),
   },
   tpms_frd: {
     key: 'tpms_frd',
@@ -724,7 +768,7 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
     group: 'TPMS Minimal Surfaces',
     tags: ['TPMS', 'F-RD', 'implicit'],
     params: tpmsParams(),
-    build: (params) => generateTpmsOps({ surface: 'frd', ...params }),
+    build: (params) => generateTpmsOps(tpmsOptions('frd', params)),
   },
 };
 

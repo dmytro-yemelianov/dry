@@ -74,3 +74,6 @@ export function checkMachineCompat(ops: Op[], params: ResolveParams, capabilitie
   const res = check_machine_compatibility(opsJson, paramsJson, capsJson);
   return JSON.parse(res);
 }
+
+/** The shim `thumb.js` expects: just the one IR entry point, so it stays independent of this module. */
+export const thumbnailWasm = { resolve_ir };

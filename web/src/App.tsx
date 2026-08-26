@@ -10,12 +10,15 @@ import { OptimizerDiffs } from './components/RightInspector/OptimizerDiffs';
 import { MacroStudio } from './components/RightInspector/MacroStudio';
 import { SlicerWizard } from './components/RightInspector/SlicerWizard';
 import { ApiPortal } from './components/RightInspector/ApiPortal';
+import { ExportPanel } from './components/RightInspector/ExportPanel';
 import { PlaybackController } from './components/PlaybackController';
 import { GalleryBar } from './components/GalleryBar';
+import { PanelResizer } from './components/PanelResizer';
 
 export const App: React.FC = () => {
   const initStudio = useStudioStore((state) => state.initStudio);
-  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer' | 'macros' | 'slicers' | 'api'>('gcode');
+  const [collapsed, setCollapsed] = useState<{ left: boolean; right: boolean }>({ left: false, right: false });
+  const [rightTab, setRightTab] = useState<'gcode' | 'safety' | 'telemetry' | 'optimizer' | 'macros' | 'slicers' | 'api' | 'export'>('gcode');
 
   useEffect(() => {
     initStudio();
@@ -25,14 +28,23 @@ export const App: React.FC = () => {
     <div className="studio-app-container">
       <Header />
 
-      <main className="studio-main">
+      <main className="studio-main" id="appLayout">
         {/* Left Sidebar: Catalog & Inline Live Parameters */}
-        <aside className="sidebar-left">
+        <aside className={`sidebar-left ${collapsed.left ? 'is-collapsed' : ''}`}>
           <div className="panel-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontWeight: 700, letterSpacing: '0.03em' }}>DESIGN LIBRARY</span>
               <span className="library-badge">60 Models</span>
             </div>
+            <button
+              className="panel-collapse-btn"
+              data-panel-toggle="left"
+              aria-label={collapsed.left ? 'Expand design library' : 'Collapse design library'}
+              aria-expanded={!collapsed.left}
+              onClick={() => setCollapsed((c) => ({ ...c, left: !c.left }))}
+            >
+              {collapsed.left ? '»' : '«'}
+            </button>
           </div>
 
           <div className="panel-content">
@@ -51,15 +63,28 @@ export const App: React.FC = () => {
           </div>
         </aside>
 
+        <PanelResizer side="left" />
+
         {/* Center 3D Viewport */}
         <section className="viewport-column" id="viewport">
           <GalleryBar />
           <ThreeViewport />
         </section>
 
+        <PanelResizer side="right" />
+
         {/* Right Sidebar: Inspector Tabs */}
-        <aside className="sidebar-right">
+        <aside className={`sidebar-right ${collapsed.right ? 'is-collapsed' : ''}`}>
           <div className="panel-header" style={{ padding: 0 }}>
+            <button
+              className="panel-collapse-btn"
+              data-panel-toggle="right"
+              aria-label={collapsed.right ? 'Expand inspector' : 'Collapse inspector'}
+              aria-expanded={!collapsed.right}
+              onClick={() => setCollapsed((c) => ({ ...c, right: !c.right }))}
+            >
+              {collapsed.right ? '«' : '»'}
+            </button>
             <div className="panel-tabs">
               <button
                 className={`panel-tab-btn ${rightTab === 'gcode' ? 'active' : ''}`}
@@ -92,6 +117,12 @@ export const App: React.FC = () => {
                 API & MCP
               </button>
               <button
+                className={`panel-tab-btn ${rightTab === 'export' ? 'active' : ''}`}
+                onClick={() => setRightTab('export')}
+              >
+                Export
+              </button>
+              <button
                 className={`panel-tab-btn ${rightTab === 'safety' ? 'active' : ''}`}
                 onClick={() => setRightTab('safety')}
               >
@@ -112,6 +143,7 @@ export const App: React.FC = () => {
             {rightTab === 'macros' && <MacroStudio />}
             {rightTab === 'slicers' && <SlicerWizard />}
             {rightTab === 'api' && <ApiPortal />}
+            {rightTab === 'export' && <ExportPanel />}
             {rightTab === 'safety' && <SafetyMatrix />}
             {rightTab === 'telemetry' && <TelemetryCard />}
           </div>

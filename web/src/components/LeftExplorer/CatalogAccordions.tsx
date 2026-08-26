@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DesignThumbnail } from './DesignThumbnail';
 import { useStudioStore } from '../../store/useStudioStore';
 import { DESIGN_DEFS, FULLCONTROL_GALLERY } from '../../data/designs';
 import type { DesignDef } from '../../types/domain';
@@ -144,6 +145,7 @@ export const CatalogAccordions: React.FC = () => {
                       }}
                     >
                       <div className="gallery-card-header">
+                        <DesignThumbnail def={item} />
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
                           <div className="gallery-title">{item.label}</div>
                           {isParametric && (
@@ -187,41 +189,73 @@ export const CatalogAccordions: React.FC = () => {
                             </button>
                           </div>
 
+                          {item.note ? <div className="param-note">{item.note}</div> : null}
+
                           <div className="param-fields-compact">
                             {item.params.map((p) => {
                               const val = activeParams[p.id] ?? p.defaultValue;
+                              const modified = val !== p.defaultValue;
                               return (
-                                <div key={p.id} className="param-row-compact">
+                                <div key={p.id} className="param-row param-row-compact" title={p.title || undefined}>
                                   <div className="param-label-wrapper-compact">
-                                    <span className="param-label-compact">{p.label}</span>
-                                    <span className="param-val-badge-compact">
-                                      {val} {p.unit}
-                                    </span>
+                                    <span className="param-label-compact param-name">{p.label}</span>
+                                    {p.unit ? <span className="param-unit">[{p.unit}]</span> : null}
+                                    {p.kind !== 'toggle' && (
+                                      <span className="param-val-badge-compact">
+                                        {val} {p.unit}
+                                      </span>
+                                    )}
+                                    {/* Undo one slider without discarding every other adjustment. */}
+                                    <button
+                                      type="button"
+                                      className="default-reset"
+                                      data-reset-control={p.id}
+                                      aria-label={`Reset ${p.label} to default`}
+                                      title={`Reset to ${p.defaultValue}`}
+                                      disabled={!modified}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateParam(p.id, p.defaultValue);
+                                      }}
+                                    >
+                                      ↺
+                                    </button>
                                   </div>
-                                  <div className="param-input-wrapper-compact">
-                                    <input
-                                      type="range"
-                                      className="param-slider-compact"
-                                      min={p.min}
-                                      max={p.max}
-                                      step={p.step}
-                                      value={val}
-                                      onChange={(e) =>
-                                        updateParam(p.id, parseFloat(e.target.value))
-                                      }
-                                    />
-                                    <input
-                                      type="number"
-                                      className="param-num-input-compact"
-                                      min={p.min}
-                                      max={p.max}
-                                      step={p.step}
-                                      value={val}
-                                      onChange={(e) =>
-                                        updateParam(p.id, parseFloat(e.target.value))
-                                      }
-                                    />
-                                  </div>
+                                  {p.kind === 'toggle' ? (
+                                    <label className="param-toggle">
+                                      <input
+                                        type="checkbox"
+                                        checked={val === 1}
+                                        onChange={(e) => updateParam(p.id, e.target.checked ? 1 : 0)}
+                                      />
+                                      <span>{val === 1 ? 'on' : 'off'}</span>
+                                    </label>
+                                  ) : (
+                                    <div className="param-input-wrapper-compact">
+                                      <input
+                                        type="range"
+                                        className="param-slider-compact"
+                                        min={p.min}
+                                        max={p.max}
+                                        step={p.step}
+                                        value={val}
+                                        onChange={(e) =>
+                                          updateParam(p.id, parseFloat(e.target.value))
+                                        }
+                                      />
+                                      <input
+                                        type="number"
+                                        className="param-num-input-compact"
+                                        min={p.min}
+                                        max={p.max}
+                                        step={p.step}
+                                        value={val}
+                                        onChange={(e) =>
+                                          updateParam(p.id, parseFloat(e.target.value))
+                                        }
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
