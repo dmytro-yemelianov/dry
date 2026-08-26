@@ -39,7 +39,7 @@
     },
     "supportMatrix": {
       "path": "docs/16-support-matrix.md",
-      "sha256": "625e005ec4a4b4e2ae018809df0606cd747bc570361c2e76b6e773e437f7e970"
+      "sha256": "d961b904ea39e74bd721c9766014a1abe1591092a0d6d61978870336df1c28ef"
     }
   },
   "dynamic": {

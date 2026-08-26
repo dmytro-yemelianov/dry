@@ -51,10 +51,14 @@ sha256 = "46d7ded9c8aded6596031301c696ddd4fda465cf9ae6fa412fe8ef4de8795c58"
 [[source]]
 # The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its
 # geometry under the same review gate as the always-on predicates.
+#
+# Re-pinned 2026-08-26: the reviewed diff is the module doc header alone, repointing its work-item
+# citation from a plan section that defines no such item to docs/04-tasks.md. No predicate,
+# constant or rule behaviour changed.
 path = "crates/core/src/verify/collision.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "520060cb6bb25cfdfc1e70df61291b328c0d9f99e92a62c92e6d50a14f5ac7b3"
+sha256 = "ca3daa723650394546aa3f251d0630a05ab1bc0904f776be542bcc0144e11aad"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
