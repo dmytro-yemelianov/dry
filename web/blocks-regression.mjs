@@ -14,6 +14,10 @@ const patternsJs = read('patterns.js');
 const tpmsEngineJs = read('tpms-engine.js');
 const designsJs = read('designs.js');
 const viewerJs = read('viewer.js');
+// Studio 2.0 turned index.html into a Vite entry point, so the gallery assertions that used to
+// live here moved to docs/site/smoke, where they run against the built app in a browser instead of
+// grepping source text. The entry point itself is still shipped, so it stays under the innerHTML
+// hygiene check below.
 const indexHtml = read('index.html');
 const toolUiCss = read('tool-ui.css');
 
@@ -86,25 +90,17 @@ assert(viewerJs.includes('keepLineVisible'), 'viewer should scroll only the g-co
 assert(!viewerJs.includes('scrollIntoView'), 'active g-code line should not scroll parent layout panels');
 assert(viewerJs.includes('view-grid-labels'), 'viewer does not render multi-view labels');
 assert(blocksHtml.includes('.view-grid-labels'), 'blocks page missing multi-view styles');
-assert(indexHtml.includes('.view-grid-labels'), 'gallery page missing multi-view styles');
-assert(indexHtml.includes('tool-ui.css'), 'gallery page does not load shared UI stylesheet');
 assert(blocksHtml.includes('tool-ui.css'), 'blocks page does not load shared UI stylesheet');
-assert(indexHtml.includes('class="topbar"'), 'gallery page missing flex topbar');
 assert(blocksHtml.includes('class="topbar"'), 'blocks page missing flex topbar');
-assert(indexHtml.includes('id="resetView"'), 'gallery page missing reset view control');
 assert(blocksHtml.includes('id="resetView"'), 'blocks page missing reset view control');
-assert(indexHtml.includes('Fit</button>'), 'gallery reset control should use compact Fit label');
 assert(blocksHtml.includes('Fit</button>'), 'blocks reset control should use compact Fit label');
-assert(indexHtml.includes('<div class="speeds" id="speeds"><span class="lbl">speed</span></div>\n    </div>'), 'gallery speed controls should live inside the playback strip');
 assert(blocksHtml.includes('<div class="speeds" id="speeds"><span class="lbl">speed</span></div>\n    </div>'), 'blocks speed controls should live inside the playback strip');
 assert(blocksHtml.includes('id="fitBlocks"'), 'blocks page missing fit workspace control');
 assert(blocksHtml.includes('id="cleanBlocks"'), 'blocks page missing clean workspace control');
 assert(blocksHtml.includes('zoomToFit'), 'blocks page should fit loaded templates into view');
-assert(!indexHtml.includes('<div class="legend">'), 'gallery should not duplicate path toggles with a separate legend');
 assert(!blocksHtml.includes('<div class="legend">'), 'blocks should not duplicate path toggles with a separate legend');
-assert(!indexHtml.includes('.legend'), 'gallery should not retain dead legend CSS');
 assert(!blocksHtml.includes('.legend'), 'blocks should not retain dead legend CSS');
-for (const source of [indexHtml, blocksHtml]) {
+for (const source of [blocksHtml]) {
   for (const layer of ['printed', 'planned', 'travel', 'travelLayer', 'toolhead', 'bed']) {
     assert(source.includes(`data-render-layer="${layer}"`), `render controls missing ${layer} toggle`);
   }
@@ -133,47 +129,15 @@ assert(toolUiCss.includes('.g-section'), 'shared UI stylesheet should style G-co
 assert(toolUiCss.includes('.finding-count'), 'shared UI stylesheet should style grouped verifier counts');
 assert(toolUiCss.includes('.finding-samples'), 'shared UI stylesheet should style grouped verifier examples');
 assert(toolUiCss.includes('grid-template-columns: minmax(8ch, 1fr) minmax(8ch, auto) minmax(5ch, auto)'), 'metrics should use title/value/UOM columns');
-assert(indexHtml.includes('id="source"'), 'web app missing source selector');
-assert(indexHtml.includes('id="sourceCards"'), 'web app missing thumbnail source cards');
-assert(indexHtml.includes('SOURCE_DEFS'), 'source cards should be generated from source metadata');
-assert(indexHtml.includes('renderSourceCards()'), 'web app should render source cards dynamically');
-assert(indexHtml.includes('value="lattice"'), 'web app missing lattice generator source');
-assert(indexHtml.includes('value="tpms"'), 'web app missing TPMS generator source');
-assert(indexHtml.includes('starPolygonLatticeOps'), 'web app does not generate star-polygon lattice ops');
-assert(indexHtml.includes('tpmsOps'), 'web app does not generate TPMS ops');
-assert(indexHtml.includes('id="printerProfile"'), 'web app missing printer selector');
-assert(indexHtml.includes('PRINTER_PROFILES'), 'printer selector should be generated from profile metadata');
-assert(indexHtml.includes('currentResolveParams()'), 'web app should resolve with the selected printer profile');
 assert(viewerJs.includes('getParams = () => params'), 'viewer should accept dynamic resolve parameter getter');
 assert(viewerJs.includes('activeParams = getParams() || params'), 'viewer should resolve with current params');
 assert(viewerJs.includes('params: activeParams'), 'viewer debug/export state should expose current params');
-assert(indexHtml.includes('id="exportFormat"'), 'web app missing export format selector');
-assert(indexHtml.includes('buildExportText()'), 'web app missing export text builder');
-assert(indexHtml.includes('fullControlPython'), 'web app missing FullControl export builder');
-assert(indexHtml.includes('macroPrefixLines'), 'web app missing start macro export builder');
-assert(indexHtml.includes('macroSuffixLines'), 'web app missing finish macro export builder');
 for (const id of ['macroHeader', 'macroHeat', 'macroHome', 'macroPrimeLine', 'macroPrimeBlob', 'macroPresent', 'macroCooldown', 'macroMotorsOff']) {
-  assert(indexHtml.includes(`id="${id}"`), `web app missing optional macro ${id}`);
 }
-assert(indexHtml.includes('id="designCards"'), 'gallery source missing thumbnail design cards');
-assert(indexHtml.includes('renderDesignCards()'), 'gallery design cards should be generated dynamically');
-assert(indexHtml.includes('id="galleryParams"'), 'gallery source missing generated parameter panel');
-assert(indexHtml.includes('renderGalleryParams()'), 'gallery source missing data-driven parameter renderer');
-assert(indexHtml.includes('galleryParamValues(design)'), 'gallery source should read generated parameter values');
-assert(indexHtml.includes('design.build(values)'), 'gallery source should rebuild designs from live parameter values');
 assert(designsJs.includes('DESIGN_DEFS'), 'gallery designs should be defined as metadata');
 assert(designsJs.includes('materializeDesign'), 'gallery designs should materialize default ops from metadata');
 assert(designsJs.includes('params:'), 'gallery designs missing parameter definitions');
 assert(designsJs.includes('build:'), 'gallery designs missing build functions');
-assert(indexHtml.includes('setupDefaultResets()'), 'web app missing default reset setup');
-assert(indexHtml.includes('id="resetLatticeDefaults"'), 'lattice generator missing reset-all control');
-assert(indexHtml.includes('id="resetTpmsDefaults"'), 'TPMS generator missing reset-all control');
-assert(indexHtml.includes('dataset.resetControl'), 'web app missing per-control reset buttons');
-assert(indexHtml.includes('id="latticeAlpha"'), 'lattice generator missing alpha control');
-assert(indexHtml.includes('class="param-name"'), 'generator controls should expose compact parameter names');
-assert(indexHtml.includes('class="param-unit"'), 'generator controls should expose compact unit chips');
-assert(indexHtml.includes('<span class="param-unit">[deg]</span>'), 'generator controls should display bracketed angle units');
-assert(indexHtml.includes('<span class="param-unit">[1]</span>'), 'generator controls should display bracketed dimensionless units');
 assert(toolUiCss.includes('.select-field'), 'shared UI stylesheet should compact select controls');
 assert(toolUiCss.includes('.source-card'), 'shared UI stylesheet should style source cards');
 assert(toolUiCss.includes('.design-card'), 'shared UI stylesheet should style design cards');
@@ -183,34 +147,16 @@ for (const id of [
   'latticeAlpha', 'latticeUnit', 'latticeCols', 'latticeRows',
   'latticeLayers', 'latticeLayerH', 'latticeBead', 'latticeSpeed',
 ]) {
-  assert(indexHtml.includes(`type="range" data-sync="${id}"`), `lattice generator missing slider for ${id}`);
 }
-assert(indexHtml.includes('id="latticeRowPairHint"'), 'lattice generator missing M4 row-pair completion hint');
-assert(indexHtml.includes('completeM4Rows'), 'lattice generator should complete M4 odd rows before generation');
-assert(indexHtml.includes('id="appLayout" class="resizable-layout"'), 'web app missing resizable layout root');
-assert(indexHtml.includes('data-panel-toggle="source"'), 'web app missing source panel collapse toggle');
-assert(indexHtml.includes('class="panel-resizer" data-resize-panel="source"'), 'web app missing source resize handle');
-assert(indexHtml.includes('class="panel-resizer" data-resize-panel="gcode"'), 'web app missing G-code resize handle');
-assert(indexHtml.includes('setupPanelLayout()'), 'web app missing panel layout setup');
 assert(toolUiCss.includes('grid-template-columns: var(--source-w) 7px'), 'resizable app layout should expose source grid width');
 assert(toolUiCss.includes('.panel-region.is-collapsed > :not(.panel-heading)'), 'collapsed panels should hide body content');
 assert(toolUiCss.includes('.range-row input[type="range"]'), 'shared UI stylesheet missing lattice slider styling');
-assert(indexHtml.includes('id="tpmsSurface"'), 'TPMS generator missing surface control');
-assert(!indexHtml.includes('id="tpmsPathMode"'), 'TPMS path mode control should be gone (dropped, no engine equivalent)');
-assert(indexHtml.includes("'tpmsSurface', 'tpmsCell'"), 'TPMS surface should participate in default reset tracking');
 for (const id of [
   'tpmsCell', 'tpmsSamples', 'tpmsCellsX', 'tpmsCellsY', 'tpmsCellsZ',
   'tpmsLayerH', 'tpmsIso', 'tpmsBead', 'tpmsSpeed',
   'tpmsAdaptiveMin', 'tpmsAdaptiveMax',
 ]) {
-  assert(indexHtml.includes(`type="range" data-sync="${id}"`), `TPMS generator missing slider for ${id}`);
 }
-assert(indexHtml.includes('id="tpmsPerimeter"'), 'TPMS generator missing infill perimeter toggle');
-assert(indexHtml.includes('id="tpmsAdaptive"'), 'TPMS generator missing adaptive slicing toggle');
-assert(indexHtml.includes("beadHeight: numValue('tpmsLayerH', 0.28)"), 'TPMS bead height should match layer height in the web app');
-assert(indexHtml.includes('maxFieldSamples: 3_000_000'), 'web TPMS generator should set an interactive resolution budget');
-assert(!indexHtml.includes('pathMode'), 'web app should not reference the dropped TPMS pathMode option');
-assert(!indexHtml.includes('arcFit'), 'web app should not reference the dropped TPMS arcFit* options');
 assert(!designsJs.includes('pathMode'), 'designs.js should not reference the dropped TPMS pathMode option');
 assert(!designsJs.includes('arcFit'), 'designs.js should not reference the dropped TPMS arcFit* options');
 // The former tpms.js reimplementation is gone; TPMS Op generation now delegates to the Rust engine

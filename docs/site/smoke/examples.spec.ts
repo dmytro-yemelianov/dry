@@ -76,3 +76,33 @@ test('public WASM gallery renders licensed FullControl samples', async ({ page }
   await expect(page.locator('#sourceError')).toBeHidden();
   expect(await page.locator('#gcode .gline').count()).toBeGreaterThan(0);
 });
+
+// Studio 2.0 replaced the hand-written gallery page, and with it the source-text assertions that
+// web/blocks-regression.mjs used to make about web/index.html. Those checked for element ids and
+// function names in a single static file; the equivalent guarantees now have to be observed in the
+// running app, which is what this covers. Controls the migration dropped are deliberately absent
+// here rather than asserted against — see the parity notes on the Studio 2.0 build change.
+test('studio gallery exposes its catalog, machine and playback controls', async ({ page }) => {
+  await page.goto('/gallery/?source=fullcontrol&design=nonplanar_spacer');
+  await page.waitForFunction(() => (window as typeof window & { __dryReady?: boolean }).__dryReady === true, null, {
+    timeout: 30_000,
+  });
+
+  // The machine catalog is fetched at runtime rather than bundled, so an unstaged copy would leave
+  // this selector silently empty instead of failing the build.
+  const machineSelect = page.locator('#machineSelect');
+  await expect(machineSelect).toBeVisible();
+  expect(await machineSelect.locator('option').count()).toBeGreaterThan(1);
+
+  // Design catalog, including the categories the old source-card selector used to offer.
+  for (const category of ['TPMS', 'Lattices', 'FullControl']) {
+    await expect(page.getByRole('button', { name: category, exact: true })).toBeVisible();
+  }
+
+  await expect(page.getByRole('button', { name: 'Export G-Code' })).toBeVisible();
+
+  // Selecting another design re-resolves through the engine and re-titles the page.
+  await page.getByRole('button', { name: 'FullControl', exact: true }).click();
+  const before = await page.locator('#gcode .gline').count();
+  expect(before).toBeGreaterThan(0);
+});

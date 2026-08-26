@@ -729,16 +729,36 @@ export const DESIGN_DEFS: Record<string, DesignDef> = {
 };
 
 // FullControl gallery items converted to DesignDefs
+type FullControlItem = {
+  label?: string;
+  name?: string;
+  ops: Op[];
+  tags?: string[];
+  description?: string;
+  links?: Array<[string, string]>;
+};
+
+// These are reconstructions of published FullControl notebooks. The generated data carries the
+// provenance links that credit them, so it has to survive the conversion — dropping it here is how
+// the gallery lost its attribution.
 export const FULLCONTROL_GALLERY: Record<string, DesignDef> = Object.fromEntries(
-  Object.entries(FC_DATA as Record<string, { label?: string; name?: string; ops: Op[]; tags?: string[] }>).map(([key, item]) => [
-    `fc_${key}`,
-    {
-      key: `fc_${key}`,
-      label: `FC: ${item.label || item.name || key}`,
-      group: 'FullControl Gallery',
-      tags: item.tags || ['fullcontrol', 'paper'],
-      params: [],
-      ops: item.ops,
-    }
-  ])
+  Object.entries(FC_DATA as Record<string, FullControlItem>).map(([key, item]) => {
+    const title = item.label || item.name || key;
+    return [
+      `fc_${key}`,
+      {
+        key: `fc_${key}`,
+        label: `FC: ${title}`,
+        title,
+        group: 'FullControl Gallery',
+        tags: item.tags || ['fullcontrol', 'paper'],
+        params: [],
+        ops: item.ops,
+        description: item.description,
+        source: 'fullcontrol',
+        sourceKey: key,
+        links: item.links,
+      },
+    ];
+  })
 );

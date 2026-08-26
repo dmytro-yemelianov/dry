@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 declare module '*/fullcontrol-gallery.generated.js' {
   export const FULLCONTROL_DESIGNS: Record<string, {
     label?: string;
@@ -5,6 +6,8 @@ declare module '*/fullcontrol-gallery.generated.js' {
     description?: string;
     tags?: string[];
     ops: any[];
+    /** Attribution pairs [label, href] for the reconstructed source. */
+    links?: Array<[string, string]>;
   }>;
 }
 

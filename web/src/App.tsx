@@ -11,6 +11,7 @@ import { MacroStudio } from './components/RightInspector/MacroStudio';
 import { SlicerWizard } from './components/RightInspector/SlicerWizard';
 import { ApiPortal } from './components/RightInspector/ApiPortal';
 import { PlaybackController } from './components/PlaybackController';
+import { GalleryBar } from './components/GalleryBar';
 
 export const App: React.FC = () => {
   const initStudio = useStudioStore((state) => state.initStudio);
@@ -51,7 +52,10 @@ export const App: React.FC = () => {
         </aside>
 
         {/* Center 3D Viewport */}
-        <ThreeViewport />
+        <section className="viewport-column" id="viewport">
+          <GalleryBar />
+          <ThreeViewport />
+        </section>
 
         {/* Right Sidebar: Inspector Tabs */}
         <aside className="sidebar-right">

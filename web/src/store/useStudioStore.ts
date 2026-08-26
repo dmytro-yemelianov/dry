@@ -349,6 +349,8 @@ interface StudioState {
   playSpeed: number;
   focusedLineIndex: number | null;
   activeSectionIndex: number;
+  boundsInput: string;
+  sourceError: string;
 
   // Actions
   initStudio: () => Promise<void>;
@@ -378,6 +380,59 @@ interface StudioState {
   prevSection: () => void;
   importCustomGcode: (text: string, filename: string) => void;
   recompileCurrentDesign: () => void;
+  setBoundsInput: (value: string) => void;
+}
+
+declare global {
+  interface Window {
+    __dryReady?: boolean;
+    __galleryInventory?: Record<string, string[]>;
+  }
+}
+
+/**
+ * Parse a `bounds`-style constraint the way the verifier does: a non-empty list of finite numbers,
+ * comma separated. Returns the error message, or '' when the value is acceptable (empty disables
+ * the check). The wording matches the engine-facing parser so one typo reads the same everywhere.
+ */
+export function boundsParseError(value: string, label = 'bounds'): string {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return '';
+  const tokens = trimmed.split(',').map((token) => token.trim());
+  const parts = tokens.map(Number);
+  if (tokens.some((token) => !token) || parts.some((part) => !Number.isFinite(part))) {
+    return `${label} must contain only finite comma-separated numbers`;
+  }
+  return '';
+}
+
+/** Resolve `?source=&design=` into a catalog key, or null when the URL does not name one. */
+function designKeyFromLocation(): string | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const design = params.get('design');
+  if (!design) return null;
+  const source = params.get('source');
+  const candidate = source === 'fullcontrol' ? `fc_${design}` : design;
+  const allDefs: Record<string, DesignDef> = { ...DESIGN_DEFS, ...FULLCONTROL_GALLERY };
+  if (allDefs[candidate]) return candidate;
+  // A bare ?design= should still find a gallery entry rather than silently falling back.
+  return allDefs[`fc_${design}`] ? `fc_${design}` : null;
+}
+
+/** Expose which designs this build actually carries, keyed by source, for callers that check. */
+function publishGalleryInventory(): void {
+  if (typeof window === 'undefined') return;
+  const fullcontrol = Object.values(FULLCONTROL_GALLERY)
+    .map((def) => def.sourceKey)
+    .filter((key): key is string => Boolean(key));
+  window.__galleryInventory = { fullcontrol };
+}
+
+/** Signals that the engine is up and a design has been resolved — not merely that React mounted. */
+function markGalleryReady(): void {
+  if (typeof window === 'undefined') return;
+  window.__dryReady = true;
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
@@ -413,6 +468,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   playSpeed: 1.0,
   focusedLineIndex: null,
   activeSectionIndex: 1,
+  boundsInput: '',
+  sourceError: '',
 
   initStudio: async () => {
     await ensureWasmInitialized();
@@ -430,7 +487,19 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       // Keep defaults
     }
 
-    get().selectDesign('spiral_vase');
+    // The gallery is addressable: /gallery/?source=fullcontrol&design=nonplanar_spacer deep-links
+    // to one reconstruction, which is how the docs site and external references cite a design.
+    get().selectDesign(designKeyFromLocation() ?? 'spiral_vase');
+
+    publishGalleryInventory();
+    markGalleryReady();
+  },
+
+  // `bounds` is a build-volume constraint the verifier takes as a flat list of finite numbers.
+  // Rejecting it here, with the same message the engine path uses, keeps a typo visible instead of
+  // letting it reach the verifier as a silently-dropped check.
+  setBoundsInput: (value: string) => {
+    set({ boundsInput: value, sourceError: boundsParseError(value) });
   },
 
   setActiveMachine: (id: string) => {

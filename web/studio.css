@@ -560,13 +560,104 @@ html, body, #root, .studio-app-container {
 }
 
 /* ---- Viewport 3D ---- */
+/* The viewport column stacks the gallery bar above the 3D canvas; the canvas takes what is left. */
+.viewport-column {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .viewport-center {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   height: 100%;
   position: relative;
   background: #090d13;
   overflow: hidden;
+}
+
+.viewport-column > .viewport-center {
+  height: auto;
+}
+
+.gallery-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.gallery-bar-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gallery-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gallery-links a {
+  color: var(--accent, #6ea8fe);
+  text-decoration: none;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.gallery-links a:hover {
+  text-decoration: underline;
+}
+
+.gallery-bounds {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gallery-bounds input {
+  width: 190px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input, #0d1219);
+  color: inherit;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gallery-error {
+  flex-basis: 100%;
+  color: #ff8a8a;
+  font-size: 11px;
+}
+
+.gallery-error[hidden] {
+  display: none;
 }
 
 #viewport3d {

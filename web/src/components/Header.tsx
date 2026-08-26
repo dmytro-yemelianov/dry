@@ -1,6 +1,9 @@
 import React from 'react';
 import { useStudioStore } from '../store/useStudioStore';
 
+/** The /web/ portal pages ship with that deploy only; other mounts (e.g. /gallery/) lack them. */
+const portalIsReachable = import.meta.env.BASE_URL === '/web/';
+
 export const Header: React.FC = () => {
   const machines = useStudioStore((state) => state.machines);
   const activeMachine = useStudioStore((state) => state.activeMachine);
@@ -53,8 +56,15 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="header-actions">
-        <a href="/web/machines.html" className="btn-action">Machines</a>
-        <a href="/web/docs.html" className="btn-action" target="_blank" rel="noreferrer">Docs & Specs</a>
+        {/* These are product-site portal pages, hardwired to /web/ and served only by that deploy.
+            The same app is also mounted at /gallery/ inside the docs site, where they 404 — so
+            offer them only where they actually resolve rather than shipping dead links. */}
+        {portalIsReachable && (
+          <>
+            <a href="/web/machines.html" className="btn-action">Machines</a>
+            <a href="/web/docs.html" className="btn-action" target="_blank" rel="noreferrer">Docs &amp; Specs</a>
+          </>
+        )}
         <button onClick={exportGcode} className="btn-action primary">Export G-Code</button>
       </div>
     </header>

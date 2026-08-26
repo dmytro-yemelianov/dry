@@ -290,6 +290,7 @@ export const GcodeInspector: React.FC = () => {
       {/* Virtualized G-Code Stream or Table Matrix with Vertical Gantt Chart */}
       <div
         ref={parentRef}
+        id="gcode"
         className="gcode-viewer-table"
         style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
       >
@@ -363,7 +364,7 @@ export const GcodeInspector: React.FC = () => {
                 )}
 
                 <div
-                  className={`gcode-row-wrapper ${gcodeViewFormat === 'table' ? 'table-matrix-row' : 'gcode-row'} ${isActive ? 'active' : ''}`}
+                  className={`gline gcode-row-wrapper ${gcodeViewFormat === 'table' ? 'table-matrix-row' : 'gcode-row'} ${isActive ? 'active' : ''}`}
                   onMouseEnter={() => setHoveredLineIndex(index)}
                   onMouseLeave={() => setHoveredLineIndex(null)}
                   onClick={() => setFocusedLine(index)}

@@ -93,6 +93,15 @@ export interface DesignDef {
   params: ParameterDef[];
   build?: (params: Record<string, number>) => Op[];
   ops?: Op[];
+  /** Display title without the catalog's source prefix. */
+  title?: string;
+  description?: string;
+  /** Which gallery this came from, e.g. 'fullcontrol'. Deep links address a design by source + key. */
+  source?: string;
+  /** The key within that source, unprefixed — what ?design= names. */
+  sourceKey?: string;
+  /** Attribution: [label, href]. Licensed reconstructions must credit their origin. */
+  links?: Array<[string, string]>;
 }
 
 export type GroupingKind = 'revolution' | 'figure' | 'layer' | 'routine';
