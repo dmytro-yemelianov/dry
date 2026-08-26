@@ -5,6 +5,176 @@
 Public TypeScript types and report contracts re-exported by the SDK.
 
 
+## `AxisLine`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export interface AxisLine
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `axis` | `'X' \| 'Y' \| 'Z' \| 'Envelope'` | Yes | Declared in the public API. |
+| `color` | `string` | Yes | Declared in the public API. |
+| `start` | `Point3D` | Yes | Declared in the public API. |
+| `end` | `Point3D` | Yes | Declared in the public API. |
+
+
+## `AxisRange`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface AxisRange
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `min` | `number` | Yes | Declared in the public API. |
+| `max` | `number` | Yes | Declared in the public API. |
+
+
+## `BUILTIN_MACHINES`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export const BUILTIN_MACHINES: Record<string, MachineProfileData>
+```
+
+Built-in official machine presets across all manufacturing domains.
+
+
+## `celsius`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function celsius(value: number): number
+```
+
+Temperature in degrees Celsius (canonical unit).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `cm`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function cm(value: number): number
+```
+
+Length in centimetres -> converted to mm.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `CompatibilityFinding`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface CompatibilityFinding
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `severity` | `'Warning' \| 'Error'` | Yes | Declared in the public API. |
+| `code` | `string` | Yes | Declared in the public API. |
+| `message` | `string` | Yes | Declared in the public API. |
+| `segmentIndex` | `number` | No | Declared in the public API. |
+
+
+## `CompatibilityReport`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface CompatibilityReport
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `compatible` | `boolean` | Yes | Declared in the public API. |
+| `findings` | `CompatibilityFinding[]` | Yes | Declared in the public API. |
+
+
+## `computeSCurveProfile`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function computeSCurveProfile(vStart: number, vTarget: number, maxAcceleration: number, maxJerk: number): SCurveProfile
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `vStart` | `number` |  | Yes |
+| `vTarget` | `number` |  | Yes |
+| `maxAcceleration` | `number` |  | Yes |
+| `maxJerk` | `number` |  | Yes |
+
+Returns: `SCurveProfile`
+
+
+## `deg`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function deg(value: number): number
+```
+
+Angle in degrees -> converted to radians.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
 ## `expandFeatures`
 
 Source: `sdk/ts/src/engine.ts`
@@ -90,6 +260,8 @@ Declared in the public API.
 | `y` | `number` | No | Declared in the public API. |
 | `z` | `number` | No | Declared in the public API. |
 | `rotate_z_deg` | `number` | No | Declared in the public API. |
+| `rotation` | `{ x: number; y: number; z: number; w: number; }` | No | Declared in the public API. |
+| `frame` | `string` | No | Declared in the public API. |
 
 
 ## `FeatureProgram`
@@ -196,6 +368,152 @@ Preserve source order while composing feature nodes.
 Returns: `FeatureNode`
 
 
+## `importStepNc`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function importStepNc(stepNcText: string): Op[]
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `stepNcText` | `string` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `inch`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function inch(value: number): number
+```
+
+Length in inches -> converted to mm.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `MachineCapabilities`
+
+Source: `sdk/ts/src/design.ts`
+
+```ts
+export interface MachineCapabilities
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `name` | `string` | No | Declared in the public API. |
+| `xRange` | `AxisRange` | Yes | Declared in the public API. |
+| `yRange` | `AxisRange` | Yes | Declared in the public API. |
+| `zRange` | `AxisRange` | Yes | Declared in the public API. |
+| `maxFeedrate` | `number` | No | Declared in the public API. |
+| `maxSpindleRpm` | `number` | No | Declared in the public API. |
+
+
+## `MachineCatalog`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export class MachineCatalog
+```
+
+Universal Machine Catalog client with offline built-in fallbacks.
+
+### Method summary
+
+| Method | Signature | Sample | Summary |
+| --- | --- | --- | --- |
+| `get` | `get(id: string): Promise&lt;MachineProfile&gt;` |  | Get machine profile by ID, checking built-in presets first. |
+| `search` | `search(filter?: { vendor?: string; category?: MachineCategory }): MachineProfile[]` |  | Search machines with filter criteria. |
+
+### `get`
+
+```ts
+get(id: string): Promise<MachineProfile>
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `id` | `string` |  | Yes |
+
+Returns: `Promise&lt;MachineProfile&gt;`
+
+Get machine profile by ID, checking built-in presets first.
+
+### `search`
+
+```ts
+search(filter?: { vendor?: string; category?: MachineCategory }): MachineProfile[]
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `filter` | `{ vendor?: string; category?: MachineCategory }` |  | No |
+
+Returns: `MachineProfile[]`
+
+Search machines with filter criteria.
+
+
+## `MachineCategory`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export type MachineCategory = | '3d_printer'
+  | 'cnc_mill'
+  | 'laser_cutter'
+  | 'plasma_waterjet'
+  | 'robot_arm'
+```
+
+Declared in the public API.
+
+
+## `MachineEnvelope`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export interface MachineEnvelope
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `bounds` | `[number, number, number, number, number, number]` | Yes | Declared in the public API. |
+| `origin` | `'front_left' \| 'center' \| 'custom'` | No | Declared in the public API. |
+| `safeTraverseZ` | `number` | No | Declared in the public API. |
+
+
 ## `MachineKinematics`
 
 Source: `sdk/ts/src/engine.ts`
@@ -218,6 +536,124 @@ disables the corresponding check.
 | --- | --- | --- | --- |
 | `max_acceleration_mm_s2` | `number` | No | Declared in the public API. |
 | `max_junction_velocity_mm_s` | `number` | No | Declared in the public API. |
+
+
+## `MachineKinematicsConfig`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export interface MachineKinematicsConfig
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `type` | `KinematicsType` | Yes | Declared in the public API. |
+| `maxFeedrateMmMin` | `{ x: number; y: number; z: number; e?: number }` | Yes | Declared in the public API. |
+| `maxAccelerationMmS2` | `{ x: number; y: number; z: number; e?: number }` | No | Declared in the public API. |
+| `maxJunctionVelocityMmS` | `number` | No | Declared in the public API. |
+
+
+## `MachineProfile`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export class MachineProfile
+```
+
+Machine Profile Model with validation and pre-flight mapping.
+
+### Method summary
+
+| Method | Signature | Sample | Summary |
+| --- | --- | --- | --- |
+| `toCapabilities` | `toCapabilities(): MachineCapabilities` |  | Convert machine profile into runtime capability requirements for pre-flight checking. |
+| `isWithinBounds` | `isWithinBounds(x: number, y: number, z: number): boolean` |  | Check if a 3D coordinate point resides safely within the machine envelope. |
+
+### `toCapabilities`
+
+```ts
+toCapabilities(): MachineCapabilities
+```
+
+Returns: `MachineCapabilities`
+
+Convert machine profile into runtime capability requirements for pre-flight checking.
+
+### `isWithinBounds`
+
+```ts
+isWithinBounds(x: number, y: number, z: number): boolean
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `x` | `number` |  | Yes |
+| `y` | `number` |  | Yes |
+| `z` | `number` |  | Yes |
+
+Returns: `boolean`
+
+Check if a 3D coordinate point resides safely within the machine envelope.
+
+
+## `MachineProfileData`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export interface MachineProfileData
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | Declared in the public API. |
+| `version` | `number` | No | Declared in the public API. |
+| `name` | `string` | Yes | Declared in the public API. |
+| `vendor` | `string` | Yes | Declared in the public API. |
+| `category` | `MachineCategory` | Yes | Declared in the public API. |
+| `envelope` | `MachineEnvelope` | Yes | Declared in the public API. |
+| `firmware` | `{ flavor: FirmwareFlavor; relativeE?: boolean; cannedCycles?: boolean; }` | Yes | Declared in the public API. |
+| `kinematics` | `MachineKinematicsConfig` | Yes | Declared in the public API. |
+| `toolheads` | `MachineToolheadConfig[]` | No | Declared in the public API. |
+| `capabilities` | `{ heatedBed?: { maxTempC: number }; laserPowerW?: number; spindleMaxRpm?: number; multiHeadSyncModes?: string[]; }` | No | Declared in the public API. |
+
+
+## `MachineToolheadConfig`
+
+Source: `sdk/ts/src/machine.ts`
+
+```ts
+export interface MachineToolheadConfig
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `index` | `number` | Yes | Declared in the public API. |
+| `kind` | `'extruder_nozzle' \| 'spindle' \| 'laser_diode' \| 'plasma_torch'` | Yes | Declared in the public API. |
+| `nozzleDiameterMm` | `number` | No | Declared in the public API. |
+| `maxTempC` | `number` | No | Declared in the public API. |
+| `maxVolumetricFlowMm3S` | `number` | No | Declared in the public API. |
+| `maxSpindleRpm` | `number` | No | Declared in the public API. |
+| `offsetXyz` | `[number, number, number]` | No | Declared in the public API. |
 
 
 ## `Metrics`
@@ -246,6 +682,82 @@ Simulation metrics returned by `simulate`.
 | `max_flow_rate` | `number` | Yes | Maximum observed flow rate in cubic mm/s. |
 
 
+## `mm`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function mm(value: number): number
+```
+
+Length in millimetres (canonical unit).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `mm_min`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function mm_min(value: number): number
+```
+
+Feedrate in mm/min (canonical unit).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `mm_s`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function mm_s(value: number): number
+```
+
+Feedrate in mm/s -> converted to mm/min (canonical G-code F value).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `ms`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function ms(value: number): number
+```
+
+Duration in milliseconds -> converted to seconds.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
 ## `Op`
 
 Source: `sdk/ts/src/ops.ts`
@@ -265,6 +777,15 @@ export type Op = | { op: 'geometry'; width: number; height: number }
       clockwise: boolean;
     }
   | { op: 'spline'; points: [number | null, number | null, number | null][] }
+  | {
+      op: 'clothoid';
+      corner_x: number;
+      corner_y: number;
+      x: number | null;
+      y: number | null;
+      z: number | null;
+      blend: number;
+    }
   // process channels (§3): typed, defaulted, propagated by the engine.
   | { op: 'temperature'; nozzle: number }
   | { op: 'fan'; speed: number }
@@ -286,6 +807,46 @@ export type Op = | { op: 'geometry'; width: number; height: number }
 Authoring operation in Dry L1, before resolution into concrete toolpath segments.
 
 
+## `PassSegmentGroup`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export interface PassSegmentGroup
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `role` | `string` | Yes | Declared in the public API. |
+| `color` | `string` | Yes | Declared in the public API. |
+| `segments` | `Segment[]` | Yes | Declared in the public API. |
+
+
+## `Point3D`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export interface Point3D
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `x` | `number` | Yes | Declared in the public API. |
+| `y` | `number` | Yes | Declared in the public API. |
+| `z` | `number` | Yes | Declared in the public API. |
+
+
 ## `PRINTERS`
 
 Source: `sdk/ts/src/ops.ts`
@@ -295,6 +856,84 @@ export const PRINTERS: Record<string, ResolveParams>
 ```
 
 Device defaults (the generic printer). More profiles land with the device-profile work.
+
+
+## `rad`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function rad(value: number): number
+```
+
+Angle in radians (canonical unit).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `renderFrameAxes`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function renderFrameAxes(origin: Point3D = { x: 0, y: 0, z: 0 }, length = 10.0): AxisLine[]
+```
+
+Generate standard RGB 3D coordinate triad axes for visualization (Red=X, Green=Y, Blue=Z).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `origin` | `Point3D` | `{ x: 0, y: 0, z: 0 }` | No |
+| `length` | `any` | `10.0` | No |
+
+Returns: `AxisLine[]`
+
+
+## `renderMachineEnvelope`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function renderMachineEnvelope(bounds: [number, number, number, number, number, number], color = '#64748b'): WireframeBox
+```
+
+Generate 12 3D wireframe bounding box edges representing a machine's physical build envelope.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `bounds` | `[number, number, number, number, number, number]` |  | Yes |
+| `color` | `any` | `'#64748b'` | No |
+
+Returns: `WireframeBox`
+
+
+## `renderPassColorSegments`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function renderPassColorSegments(toolpath: Toolpath): PassSegmentGroup[]
+```
+
+Group toolpath segments by pass role with standard UI color palette.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+
+Returns: `PassSegmentGroup[]`
 
 
 ## `repeat`
@@ -561,6 +1200,48 @@ The optional `kinematics` arg enables the `peak-acceleration` and `junction-velo
 Returns: `Report`
 
 
+## `s`
+
+Source: `sdk/ts/src/units.ts`
+
+```ts
+export function s(value: number): number
+```
+
+Duration in seconds (canonical unit).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `value` | `number` |  | Yes |
+
+Returns: `number`
+
+
+## `SCurveProfile`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface SCurveProfile
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `t_jerk_inc` | `number` | Yes | Declared in the public API. |
+| `t_const_acc` | `number` | Yes | Declared in the public API. |
+| `t_jerk_dec` | `number` | Yes | Declared in the public API. |
+| `total_duration` | `number` | Yes | Declared in the public API. |
+| `total_distance` | `number` | Yes | Declared in the public API. |
+| `peak_acceleration` | `number` | Yes | Declared in the public API. |
+
+
 ## `Segment`
 
 Source: `sdk/ts/src/ops.ts`
@@ -669,3 +1350,21 @@ Optional provenance and invariant metadata attached to a resolved toolpath.
 | `units` | `string` | No | Coordinate and unit convention, normally millimeters. |
 | `source_hash` | `string` | No | Stable source hash when the toolpath was derived from an external artifact. |
 | `invariants` | `string[]` | No | Human-readable invariants the toolpath is expected to satisfy. |
+
+
+## `WireframeBox`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export interface WireframeBox
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `lines` | `AxisLine[]` | Yes | Declared in the public API. |

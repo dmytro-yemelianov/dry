@@ -344,8 +344,8 @@ pub fn resolve_verify(
 /// Compute theoretical surface quality metrics (cusp height and arithmetic roughness Ra).
 #[wasm_bindgen]
 pub fn compute_surface_quality(tool_radius_mm: f64, stepover_mm: f64) -> Result<String, JsError> {
-    let report = dry_core::evaluate_surface_quality(tool_radius_mm, stepover_mm)
-        .map_err(|e| JsError::new(e))?;
+    let report =
+        dry_core::evaluate_surface_quality(tool_radius_mm, stepover_mm).map_err(JsError::new)?;
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -432,14 +432,14 @@ pub fn compute_scurve_profile(
         max_acceleration,
         max_jerk,
     };
-    let profile = dry_core::calculate_scurve_profile(&params).map_err(|e| JsError::new(e))?;
+    let profile = dry_core::calculate_scurve_profile(&params).map_err(JsError::new)?;
     serde_json::to_string(&profile).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Import an ISO 14649 STEP-NC document and lower it into Dry L1 operations JSON.
 #[wasm_bindgen]
 pub fn import_step_nc_to_ops(step_nc_text: &str) -> Result<String, JsError> {
-    let steps = dry_core::parse_step_nc(step_nc_text).map_err(|e| JsError::new(e))?;
+    let steps = dry_core::parse_step_nc(step_nc_text).map_err(JsError::new)?;
     let mut all_ops = Vec::new();
     for step in &steps {
         all_ops.extend(dry_core::lower_workingstep_to_ops(step));

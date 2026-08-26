@@ -36,3 +36,19 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `group` | function | [Module API](/reference/generated/python-sdk/module) |  | Compose feature nodes in source order. |
 | `repeat` | function | [Module API](/reference/generated/python-sdk/module) |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
 | `tpms_gcode` | function | [Module API](/reference/generated/python-sdk/module) | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
+| `pocket_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC pocket/profile milling L1 ops from an options dict. |
+| `pocket_gcode` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC pocket/profile milling g-code from an options dict. |
+| `PocketOptions` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Mapping[str, Any]` |
+| `mm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `cm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `inch` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `deg` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `rad` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `mm_s` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `mm_min` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `celsius` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `s` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `ms` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `MachineProfile` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `MachineCatalog` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `BUILTIN_MACHINES` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |

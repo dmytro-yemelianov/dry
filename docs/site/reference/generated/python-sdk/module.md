@@ -23,6 +23,7 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `Toolpath` | type alias | `Dict[str, Any]` |
 | `TpmsOptions` | type alias | `Mapping[str, Any]` |
 | `TPMS_SURFACES` | constant | `Tuple[str, ...]` |
+| `PocketOptions` | type alias | `Mapping[str, Any]` |
 
 ## Functions
 
@@ -32,6 +33,8 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `group` | `def group(*children: FeatureNode) -&gt; FeatureNode` |  | Compose feature nodes in source order. |
 | `repeat` | `def repeat(child: FeatureNode, count: int, step: Optional[FeaturePose] = None) -&gt; FeatureNode` |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
 | `tpms_gcode` | `def tpms_gcode(options: Optional[TpmsOptions], printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -&gt; List[str]` | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
+| `pocket_ops` | `def pocket_ops(options: PocketOptions) -&gt; List[Op]` |  | Generate CNC pocket/profile milling L1 ops from an options dict. |
+| `pocket_gcode` | `def pocket_gcode(options: PocketOptions, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab') -&gt; List[str]` |  | Generate CNC pocket/profile milling g-code from an options dict. |
 
 ### `feature`
 
@@ -118,3 +121,44 @@ byte-identity contract between them.
 `rotary_axes` is the rotary-axes selector (the ab/ac/bc STRING) for 5-axis emit — NOT the machine
 motion-limits object. `kinematics` is a deprecated alias for `rotary_axes`, kept for backward
 compatibility; when provided (not ``None``) it takes precedence.
+
+### `pocket_ops`
+
+```py
+def pocket_ops(options: PocketOptions) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+
+Returns: `List[Op]`
+
+Generate CNC pocket/profile milling L1 ops from an options dict.
+
+`options` specifies shape (e.g. `{"shape": "rect", "x": 0, "y": 0, "width": 50, "height": 30}`
+or `{"shape": "circle", "cx": 25, "cy": 25, "radius": 20}`), `toolDiameter`, `depth`,
+and optional `stepover`, `depthPerPass`, `safeZ`, `zTop`, `cutFeed`, `plungeFeed`, `mode` ("pocket" | "profile").
+
+### `pocket_gcode`
+
+```py
+def pocket_gcode(options: PocketOptions, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab') -> List[str]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+| `printer` | `str` | `'generic'` | No |
+| `relative_e` | `bool` | `True` | No |
+| `travel_g1_e0` | `bool` | `False` | No |
+| `five_axis` | `bool` | `False` | No |
+| `rotary_axes` | `str` | `'ab'` | No |
+
+Returns: `List[str]`
+
+Generate CNC pocket/profile milling g-code from an options dict.

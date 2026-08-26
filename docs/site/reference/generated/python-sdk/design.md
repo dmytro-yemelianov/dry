@@ -20,6 +20,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `point` | `def point(self, x: Optional[Number] = None, y: Optional[Number] = None, z: Optional[Number] = None) -&gt; 'Design'` |  | Move to a point; an omitted axis is inherited from the running position. |
 | `arc` | `def arc(self, cx: Number, cy: Number, x: Optional[Number] = None, y: Optional[Number] = None, z: Optional[Number] = None, clockwise: bool = False) -&gt; 'Design'` |  | A circular arc about (cx, cy) to an end point; clockwise =&gt; G2, else G3. |
 | `spline` | `def spline(self, points: Sequence[Point]) -&gt; 'Design'` |  | A Catmull-Rom spline from the running position through each (x, y, z) control point. |
+| `clothoid` | `def clothoid(self, corner_x: Number, corner_y: Number, blend: Number, x: Optional[Number] = None, y: Optional[Number] = None, z: Optional[Number] = None) -&gt; 'Design'` |  | A clothoid (Euler-spiral) corner blend around construction corner (corner_x, corner_y), consuming `blend` mm of tangent length from each leg on the way to (x, y, z). |
 | `temperature` | `def temperature(self, nozzle: Number) -&gt; 'Design'` |  | Set the nozzle temperature channel (°C). |
 | `fan` | `def fan(self, speed: Number) -&gt; 'Design'` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `def flow(self, ratio: Number) -&gt; 'Design'` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
@@ -38,6 +39,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `balanced_ir` | `def balanced_ir(self, printer: str = 'generic', kinematics: Optional[Kinematics] = None) -&gt; Toolpath` | [Optimize](/guide/optimize) | Resolve + balanced (kinematics-aware) optimize; returns a dict ({version, segments}). |
 | `binary` | `def binary(self, printer: str = 'generic') -&gt; bytes` |  | Resolve + encode to binary DRY1 format; returns a bytes object. |
 | `verify` | `def verify(self, printer: str = 'generic', max_flow: Optional[Number] = None, min_temp: Optional[Number] = None, bounds: Optional[Bounds] = None, monotonic_z: bool = False, speed_range: Optional[Range] = None, max_retraction_distance: Optional[Number] = None, max_retraction_speed: Optional[Number] = None, max_travel_without_retract: Optional[Number] = None, first_layer_height_range: Optional[Range] = None, first_layer_speed_range: Optional[Range] = None, kinematics: Optional[Kinematics] = None) -&gt; Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns a report dict with findings. |
+| `check_compatibility` | `def check_compatibility(self, capabilities: Mapping[str, Any], printer: str = 'generic') -&gt; Mapping[str, Any]` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
 
 ### `from_ops`
 
@@ -159,6 +161,28 @@ def spline(self, points: Sequence[Point]) -> 'Design'
 Returns: `'Design'`
 
 A Catmull-Rom spline from the running position through each (x, y, z) control point.
+
+### `clothoid`
+
+```py
+def clothoid(self, corner_x: Number, corner_y: Number, blend: Number, x: Optional[Number] = None, y: Optional[Number] = None, z: Optional[Number] = None) -> 'Design'
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `corner_x` | `Number` |  | Yes |
+| `corner_y` | `Number` |  | Yes |
+| `blend` | `Number` |  | Yes |
+| `x` | `Optional[Number]` | `None` | No |
+| `y` | `Optional[Number]` | `None` | No |
+| `z` | `Optional[Number]` | `None` | No |
+
+Returns: `'Design'`
+
+A clothoid (Euler-spiral) corner blend around construction corner (corner_x, corner_y),
+consuming `blend` mm of tangent length from each leg on the way to (x, y, z).
 
 ### `temperature`
 
@@ -517,3 +541,20 @@ Structured limits cross to the engine as native typed contracts (no CSV round-tr
   - `kinematics` — dict with optional `max_acceleration_mm_s2` (mm/s²) and/or
     `max_junction_velocity_mm_s` (mm/s). When supplied, enables the ``peak-acceleration``
     and ``junction-velocity`` verify rules; ``None`` disables them.
+
+### `check_compatibility`
+
+```py
+def check_compatibility(self, capabilities: Mapping[str, Any], printer: str = 'generic') -> Mapping[str, Any]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `capabilities` | `Mapping[str, Any]` |  | Yes |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `Mapping[str, Any]`
+
+Pre-flight check toolpath against machine capabilities (D2.2).

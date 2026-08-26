@@ -26,6 +26,14 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `point` | `point(x: number \| null = null, y: number \| null = null, z: number \| null = null): this` |  | Move to a point; an omitted axis is inherited from the running position. |
 | `arc` | `arc(a: { cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }): this` |  | A circular arc about (cx, cy) to an end point; clockwise =&gt; G2, else G3. |
 | `spline` | `spline(points: [number \| null, number \| null, number \| null][]): this` |  | A Catmull-Rom spline from the running position through each (x, y, z) control point. |
+| `clothoid` | `clothoid(a: {
+    corner_x: number;
+    corner_y: number;
+    blend: number;
+    x?: number \| null;
+    y?: number \| null;
+    z?: number \| null;
+  }): this` |  | A clothoid (Euler-spiral) corner blend around construction corner `(corner_x, corner_y)`, consuming `blend` mm of tangent length from each leg on the way to `(x, y, z)`. |
 | `temperature` | `temperature(nozzle: number): this` |  | Set the nozzle temperature channel (°C). |
 | `fan` | `fan(speed: number): this` |  | Set the part-cooling fan channel (0..1). |
 | `flow` | `flow(ratio: number): this` |  | Set the flow multiplier channel (scales deposited volume; default 1.0). |
@@ -44,6 +52,7 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. |
 | `binary` | `binary(printer = 'generic'): Uint8Array` |  | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
 | `verify` | `verify(printer = 'generic', maxFlow = 0, minTemp = 0, bounds: string \| number[][] = '', monotonicZ = false, speedRange: string \| [number, number] = '', maxRetractionDistance = 0, maxRetractionSpeed = 0, maxTravelWithoutRetract = 0, firstLayerHeightRange: string \| [number, number] = '', firstLayerSpeedRange: string \| [number, number] = '', kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
+| `checkCompatibility` | `checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
 
 ### `fromOps`
 
@@ -159,6 +168,30 @@ spline(points: [number | null, number | null, number | null][]): this
 Returns: `this`
 
 A Catmull-Rom spline from the running position through each (x, y, z) control point.
+
+### `clothoid`
+
+```ts
+clothoid(a: {
+    corner_x: number;
+    corner_y: number;
+    blend: number;
+    x?: number | null;
+    y?: number | null;
+    z?: number | null;
+  }): this
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `a` | `{ corner_x: number; corner_y: number; blend: number; x?: number \| null; y?: number \| null; z?: number \| null; }` |  | Yes |
+
+Returns: `this`
+
+A clothoid (Euler-spiral) corner blend around construction corner `(corner_x, corner_y)`,
+consuming `blend` mm of tangent length from each leg on the way to `(x, y, z)`.
 
 ### `temperature`
 
@@ -504,3 +537,20 @@ structured limits cross to the engine as native typed contracts (no CSV round-tr
  - `kinematics` — machine motion limits (`max_acceleration_mm_s2` and/or
    `max_junction_velocity_mm_s`). When supplied, enables the `peak-acceleration` and
    `junction-velocity` verify rules; omitting it disables them.
+
+### `checkCompatibility`
+
+```ts
+checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `capabilities` | `MachineCapabilities` |  | Yes |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `CompatibilityReport`
+
+Pre-flight check toolpath against machine capabilities (D2.2).

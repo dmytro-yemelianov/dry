@@ -6,8 +6,12 @@ Generated from TypeScript generator exports. The full SDK grouping also lives un
 
 | Export | Kind | Source | Summary |
 | --- | --- | --- | --- |
+| `CutMode` | type | `sdk/ts/src/generators/pocket.ts` | Declared in the public API. |
 | `NormalizedStarPolygonAlpha` | interface | `sdk/ts/src/generators/starPolygonLattice.ts` | Normalized alpha angle and regime classification for a lattice family. |
 | `normalizeStarPolygonAlpha` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Normalize an alpha angle into its effective value and geometric regime. |
+| `pocket` | function | `sdk/ts/src/generators/pocket.ts` | Generate a fluent `Design` wrapping the generated CNC pocket ops. |
+| `pocketOps` | function | `sdk/ts/src/generators/pocket.ts` | Generate an L1 `Op[]` list for a CNC pocket or profile cut. |
+| `PocketOptions` | interface | `sdk/ts/src/generators/pocket.ts` | Declared in the public API. |
 | `STAR_POLYGON_FAMILIES` | const | `sdk/ts/src/generators/starPolygonLattice.ts` | Metadata catalog for the supported star-polygon lattice families. |
 | `StarPolygonBasis` | type | `sdk/ts/src/generators/starPolygonLattice.ts` | Base tiling used by a star-polygon lattice family. |
 | `starPolygonDentRadiusRatio` | function | `sdk/ts/src/generators/starPolygonLattice.ts` | Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon. |
@@ -26,6 +30,17 @@ Generated from TypeScript generator exports. The full SDK grouping also lives un
 | `TpmsSurface` | type | `sdk/ts/src/generators/tpms.ts` | Supported triply periodic minimal surface names for TPMS generation. |
 | `tpmsSurfaceSpec` | function | `sdk/ts/src/generators/tpms.ts` | Return display metadata for a TPMS surface. |
 | `TpmsSurfaceSpec` | interface | `sdk/ts/src/generators/tpms.ts` | Display metadata for a TPMS surface. |
+
+## `CutMode`
+
+Source: `sdk/ts/src/generators/pocket.ts`
+
+```ts
+export type CutMode = 'pocket' | 'profile'
+```
+
+Declared in the public API.
+
 
 ## `NormalizedStarPolygonAlpha`
 
@@ -66,6 +81,78 @@ Normalize an alpha angle into its effective value and geometric regime.
 | `alphaDeg` | `number` |  | Yes |
 
 Returns: `NormalizedStarPolygonAlpha`
+
+
+## `pocket`
+
+Source: `sdk/ts/src/generators/pocket.ts`
+
+```ts
+export function pocket(options: PocketOptions): Design
+```
+
+Generate a fluent `Design` wrapping the generated CNC pocket ops.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+
+Returns: `Design`
+
+
+## `pocketOps`
+
+Source: `sdk/ts/src/generators/pocket.ts`
+
+```ts
+export function pocketOps(options: PocketOptions): Op[]
+```
+
+Generate an L1 `Op[]` list for a CNC pocket or profile cut.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `PocketOptions`
+
+Source: `sdk/ts/src/generators/pocket.ts`
+
+```ts
+export interface PocketOptions
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `shape` | `'rect' \| 'circle'` | Yes | Declared in the public API. |
+| `x` | `number` | No | Declared in the public API. |
+| `y` | `number` | No | Declared in the public API. |
+| `width` | `number` | No | Declared in the public API. |
+| `height` | `number` | No | Declared in the public API. |
+| `cx` | `number` | No | Declared in the public API. |
+| `cy` | `number` | No | Declared in the public API. |
+| `radius` | `number` | No | Declared in the public API. |
+| `mode` | `CutMode` | No | Declared in the public API. |
+| `toolDiameter` | `number` | Yes | Declared in the public API. |
+| `stepover` | `number` | No | Declared in the public API. |
+| `depth` | `number` | Yes | Declared in the public API. |
+| `depthPerPass` | `number` | No | Declared in the public API. |
+| `zTop` | `number` | No | Declared in the public API. |
+| `safeZ` | `number` | No | Declared in the public API. |
+| `cutFeed` | `number` | No | Declared in the public API. |
+| `plungeFeed` | `number` | No | Declared in the public API. |
 
 
 ## `STAR_POLYGON_FAMILIES`
