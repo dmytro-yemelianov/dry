@@ -1,6 +1,6 @@
 schema_version = 1
 model = "verify-numeric-boundaries-v0"
-scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon is defined in verify.rs and imported by crates/core/src/resolve.rs, so its L1 gate is the same constant and is covered by the same pin."
+scope = "The binary64 boundary of the always-on structural rules in crates/core/src/verify.rs, plus the separately-invoked tool-holder collision rule in crates/core/src/verify/collision.rs: the four tolerance-bearing predicates (continuity, segment-length/arc-length, filament-consistency, arc-radius) from Segment inputs through Report findings. The arc-radius epsilon is defined in verify.rs and imported by crates/core/src/resolve.rs, so its L1 gate is the same constant and is covered by the same pin."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0"
 
 [[source]]
@@ -47,6 +47,14 @@ hash_mode = "file"
 # `check_tool_holder_collision` reads none of them — the rule is a plunge-depth-versus-stickout
 # test, not the holder interference check its name implies.
 sha256 = "46d7ded9c8aded6596031301c696ddd4fda465cf9ae6fa412fe8ef4de8795c58"
+
+[[source]]
+# The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its
+# geometry under the same review gate as the always-on predicates.
+path = "crates/core/src/verify/collision.rs"
+role = "implementation"
+hash_mode = "file"
+sha256 = "520060cb6bb25cfdfc1e70df61291b328c0d9f99e92a62c92e6d50a14f5ac7b3"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -185,4 +193,48 @@ claim_ids = ["FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS"]
 profile_entries = [
   "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.COMPARED_COORDINATE_MM",
   "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
+]
+
+# ---------------------------------------------------------------------------------------------
+# The tool-holder collision rule. It is not one of the always-on structural predicates — callers
+# invoke it explicitly and it does not appear in `Report` — but it is binary64 geometry deciding
+# whether a program is safe to run, which is exactly what this inventory exists to pin.
+
+[[boundary]]
+id = "FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH"
+title = "Holder fouling is decided by one subtraction against the stickout length"
+rust_symbol = "check_tool_holder_collision"
+source_path = "crates/core/src/verify/collision.rs"
+source_anchor = "let depth = stock_top_z - z;"
+inputs = [
+  "Segment end coordinates in millimetres",
+  "stock_bounds[0..6] in millimetres",
+  "ToolHolder.stickout_length",
+  "ToolHolder.holder_diameter",
+  "ToolHolder.collet_diameter"
+]
+operation = "Four inclusive comparisons place the segment end inside the stock footprint expanded by the larger of the holder and collet radii, one strict comparison places it below the stock top, then a single subtraction stock_top_z - z is compared against stickout_length. No transcendentals, no tolerance, and no accumulation: each segment end is judged independently."
+classification = "exact-in-range"
+numeric_status = "bounded"
+assumptions = [
+  "Segment end coordinates and stock bounds are finite; the resolver's own gates enforce that upstream.",
+  "The comparisons are IEEE-754 total on finite operands, so a point exactly on a boundary is decided by the stated inclusive/strict split rather than by rounding."
+]
+exclusions = [
+  "The subtraction rounds once when the operands differ widely in magnitude; it is exact under Sterbenz, which covers every depth within a factor of two of the stock top.",
+  "ToolHolder.collet_length, which no rule reads: it bounds the collet upwards and the only obstruction modelled here is the stock top plane, which the holder face reaches first.",
+  "Everything the module name suggests but does not model — fixtures, clamps, the gantry, previously machined pockets, and stock walls other than the top plane.",
+  "Segments whose end coordinates are None, which are skipped rather than treated as a collision or as safe."
+]
+exact_envelope = [
+  "Depths within a factor of two of the stock top, where stock_top_z - z is exact by Sterbenz's lemma."
+]
+next_obligation = "Model the obstructions the module's name implies — at minimum fixture volumes and previously machined stock — so that a holder clearing the top plane is not reported as safe when it fouls a clamp."
+evidence = [
+  "crates/core/tests/collision_checker.rs"
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.STOCK_AND_HOLDER_MM",
+  "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.COLLISION_DEPTH_ABS_ERROR_MM"
 ]

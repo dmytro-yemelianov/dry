@@ -139,3 +139,35 @@ evidence = [
   "crates/core/src/resolve.rs",
 ]
 next_obligation = "Re-derive if either radius stops being computed by the same hypot on the same centre. An emit-side application would need its own budget: the input domain there is an emitted pose, not an IR quantity."
+
+# ---------------------------------------------------------------------------------------------
+# The tool-holder collision rule carries no tolerance of its own: it is comparisons and one
+# subtraction. The budget below is `bounded` at half an ULP because that is the entire numeric
+# error of the rule, not because the rule is a good model of a machine.
+
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.LIMIT.STOCK_AND_HOLDER_MM"
+quantity = "Binary64 stock bound, holder diameter or segment coordinate entering the collision rule"
+lower = -100000.0
+upper = 100000.0
+unit = "millimetre"
+enforcement = "assumption"
+rationale = "Machine envelopes and stock volumes are bounded well inside this range, and staying inside it keeps the single subtraction far from overflow so its only error is one rounding."
+boundary_ids = [
+  "FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH"
+]
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.VERIFY.TOLERANCE.V0.BUDGET.COLLISION_DEPTH_ABS_ERROR_MM"
+metric = "Absolute error, in millimetres, of the reported plunge depth against the exact real difference between the stock top and the segment end"
+unit = "millimetre"
+status = "bounded"
+ceiling = 7.275957614183426e-12
+rationale = "The depth is one binary64 subtraction of two profiled operands, so its error is at most half an ULP at the profiled magnitude limit of 1e5 mm — 2^-37 mm. Within a factor of two of the stock top the subtraction is exact by Sterbenz's lemma, so the ceiling is reached only by depths far larger than any real cut."
+evidence = [
+  "crates/core/tests/collision_checker.rs"
+]
+next_obligation = "Nothing further for the arithmetic. The open work is modelling the obstructions the rule does not yet see, which is a coverage question rather than a numeric one."
+boundary_ids = [
+  "FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH"
+]

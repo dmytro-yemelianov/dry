@@ -44,3 +44,54 @@ fn test_tool_holder_deep_plunge_collision() {
     let findings2 = check_tool_holder_collision(&toolpath, &holder_long, stock_bounds);
     assert_eq!(findings2.len(), 0);
 }
+
+/// The rule exists to catch the holder fouling the stock, and the holder is wider than the cutter.
+/// Testing the tip against the raw stock footprint missed a plunge just outside the stock edge
+/// whose 50mm holder still overhangs it — the declared holder dimensions were never read.
+#[test]
+fn test_holder_overhang_outside_stock_footprint_is_detected() {
+    let mut design = Design::default();
+    // Plunge 35mm deep, 10mm clear of the stock's +X edge. The tip never enters the stock
+    // footprint, but a 50mm-diameter holder reaches 25mm past the tip in every direction.
+    design.ops.push(Op::Move {
+        x: Some(110.0),
+        y: Some(50.0),
+        z: Some(10.0),
+    });
+    design.ops.push(Op::Extruder { on: true });
+    design.ops.push(Op::Speed { print: 1200.0 });
+    design.ops.push(Op::Move {
+        x: Some(110.0),
+        y: Some(50.0),
+        z: Some(-35.0),
+    });
+
+    let toolpath = resolve(&design, &ResolveParams::default());
+    let stock_bounds = [0.0, 100.0, 0.0, 100.0, -50.0, 0.0];
+
+    let wide = ToolHolder {
+        holder_diameter: 50.0,
+        stickout_length: 20.0,
+        collet_diameter: 40.0,
+        collet_length: 30.0,
+    };
+    let findings = check_tool_holder_collision(&toolpath, &wide, stock_bounds);
+    assert_eq!(
+        findings.len(),
+        1,
+        "a 25mm holder radius overhangs a tip 10mm clear of the edge"
+    );
+    assert_eq!(findings[0].code, "TOOL_HOLDER_COLLISION");
+
+    // A slim holder at the same point clears the stock and must not be reported.
+    let slim = ToolHolder {
+        holder_diameter: 6.0,
+        stickout_length: 20.0,
+        collet_diameter: 6.0,
+        collet_length: 30.0,
+    };
+    assert!(
+        check_tool_holder_collision(&toolpath, &slim, stock_bounds).is_empty(),
+        "a 3mm holder radius does not reach the stock from 10mm away"
+    );
+}

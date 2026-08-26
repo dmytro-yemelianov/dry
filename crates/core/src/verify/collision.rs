@@ -1,7 +1,12 @@
 //! Tool holder & spindle collision detection (D2.1 / D4.1, `docs/20-dry-ir-ecosystem-implementation-plan.md` §6.4).
 //!
-//! Verifies that non-cutting tool holders, collet nuts, and spindle housings do not collide
-//! with stock boundaries or previously unmachined stock walls during plunge cuts or rapid traverses.
+//! One rule: the holder assembly must not descend below the top of the stock. The tool tip stands
+//! `stickout_length` proud of the holder face, so a cut deeper than the stickout puts the holder
+//! itself inside the stock.
+//!
+//! What this does not do, despite the name: it models no fixtures, no gantry, no previously
+//! machined pockets, and no stock walls other than the top plane. A holder that clears the stock
+//! top but fouls a clamp is not detected here.
 
 use crate::ir::Toolpath;
 use crate::verify::Severity;
@@ -17,6 +22,11 @@ pub struct ToolHolder {
     /// Maximum diameter of the collet nut / chuck (mm).
     pub collet_diameter: f64,
     /// Length of the collet zone above the stickout (mm).
+    ///
+    /// Declared for callers describing a real assembly, but no rule here reads it: it bounds the
+    /// collet upwards, and the only obstruction this checker models is the stock top plane, which
+    /// the holder face reaches first. Detecting what the collet's upper end fouls needs fixture
+    /// geometry the checker is not given.
     pub collet_length: f64,
 }
 
@@ -50,6 +60,12 @@ pub fn check_tool_holder_collision(
     let mut findings = Vec::new();
     let stock_top_z = stock_bounds[5];
 
+    // The body that can foul the stock is the widest of the assembly, not the cutter. Testing the
+    // tip against the raw footprint misses the case this rule exists for: a cut just outside the
+    // stock edge whose holder still overhangs it. Expand the footprint by the holder radius so the
+    // test asks whether the assembly overlaps the stock, not whether the tip is over it.
+    let holder_radius = f64::max(holder.holder_diameter, holder.collet_diameter).max(0.0) / 2.0;
+
     for (idx, seg) in toolpath.segments.iter().enumerate() {
         let (Some(ex), Some(ey), Some(ez)) = (seg.end[0], seg.end[1], seg.end[2]) else {
             continue;
@@ -59,11 +75,10 @@ pub fn check_tool_holder_collision(
         let y = ey.value();
         let z = ez.value();
 
-        // If cutter is inside stock XY boundary
-        let in_stock_xy = x >= stock_bounds[0]
-            && x <= stock_bounds[1]
-            && y >= stock_bounds[2]
-            && y <= stock_bounds[3];
+        let in_stock_xy = x >= stock_bounds[0] - holder_radius
+            && x <= stock_bounds[1] + holder_radius
+            && y >= stock_bounds[2] - holder_radius
+            && y <= stock_bounds[3] + holder_radius;
 
         if in_stock_xy && z < stock_top_z {
             let depth = stock_top_z - z;
@@ -74,8 +89,9 @@ pub fn check_tool_holder_collision(
                     severity: Severity::Error,
                     code: "TOOL_HOLDER_COLLISION".into(),
                     message: format!(
-                        "Plunge depth {:.2}mm exceeds tool stickout length {:.2}mm; collet collision at (X{:.2}, Y{:.2}, Z{:.2})",
-                        depth, holder.stickout_length, x, y, z
+                        "Plunge depth {depth:.2}mm exceeds tool stickout length {:.2}mm; holder (⌀{:.2}mm) collision at (X{x:.2}, Y{y:.2}, Z{z:.2})",
+                        holder.stickout_length,
+                        holder_radius * 2.0,
                     ),
                     segment_index: idx,
                     plunge_depth: depth,

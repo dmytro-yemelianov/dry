@@ -134,21 +134,29 @@ EXPECTED_BINARY64_BUDGETS = {
     f"{EXPECTED_PROFILE_ID}.BUDGET.ARC_CENTER_COMPONENT_ABS_ERROR_MM": 2**-28,
     f"{EXPECTED_PROFILE_ID}.BUDGET.ORIENTATION_COMPONENT_ABS_ERROR": 2**-29,
 }
-VERIFY_SOURCES = {"crates/core/src/verify.rs"}
+VERIFY_SOURCES = {
+    "crates/core/src/verify.rs",
+    # The collision rule is invoked separately rather than being one of the always-on
+    # structural rules, but it is still binary64 geometry and gets pinned like the rest.
+    "crates/core/src/verify/collision.rs",
+}
 VERIFY_BOUNDARIES = {
     "FM1.F64.VERIFY.CONTINUITY.GAP",
     "FM1.F64.VERIFY.SEGMENT_AND_ARC_LENGTH",
     "FM1.F64.VERIFY.FILAMENT_RATIO",
     "FM1.F64.VERIFY.ARC_RADIUS",
+    "FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH",
 }
 VERIFY_LIMITS = {
     f"{VERIFY_PROFILE_ID}.LIMIT.COMPARED_COORDINATE_MM",
+    f"{VERIFY_PROFILE_ID}.LIMIT.STOCK_AND_HOLDER_MM",
 }
 VERIFY_BUDGETS = {
     f"{VERIFY_PROFILE_ID}.BUDGET.CONTINUITY_GAP_MM",
     f"{VERIFY_PROFILE_ID}.BUDGET.LENGTH_RELATIVE_ERROR",
     f"{VERIFY_PROFILE_ID}.BUDGET.FILAMENT_RATIO_RELATIVE_ERROR",
     f"{VERIFY_PROFILE_ID}.BUDGET.ARC_RADIUS_RELATIVE_ERROR",
+    f"{VERIFY_PROFILE_ID}.BUDGET.COLLISION_DEPTH_ABS_ERROR_MM",
 }
 # The tolerance constants this profile publishes, checked against verify.rs so a constant cannot be
 # retuned without updating the assurance artifact that names it. That pin is the whole point of the
