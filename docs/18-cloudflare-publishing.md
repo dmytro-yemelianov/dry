@@ -124,7 +124,18 @@ the same content without a rebuild.
 
 Every past deployment also remains reachable at its own `<hash>.drymachina.pages.dev` URL, including
 the API endpoints. Replacing the production deployment does not withdraw those. Removing them requires
-deleting the deployments or placing a Cloudflare Access policy over `*.drymachina.pages.dev`.
+deleting the deployments or placing a Cloudflare Access policy over `*.drymachina.pages.dev`, which
+closes the per-deployment URLs while leaving `drymachina.pages.dev` itself public.
+
+`tools/check_pages_exposure.sh` enumerates the stored deployments of a Pages project and reports which
+are still publicly reachable. It is read-only and applies to either project:
+
+```sh
+tools/check_pages_exposure.sh                              # drymachina, probing /api/mcp
+tools/check_pages_exposure.sh dry-public-docs --path /gallery/
+```
+
+It exits non-zero while any deployment still answers, so it can gate a takedown being called done.
 
 ## Automation boundary
 
