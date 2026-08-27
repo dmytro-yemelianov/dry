@@ -6,29 +6,74 @@
   "$defs": {
     "Severity": {
       "type": "string",
-      "enum": ["error", "warning"]
+      "enum": [
+        "error",
+        "warning"
+      ]
     },
     "Finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rule", "severity", "segment", "message"],
+      "required": [
+        "rule",
+        "severity",
+        "segment",
+        "message"
+      ],
       "properties": {
-        "rule": { "type": "string", "description": "stable kebab-case rule id (see the rule catalog)" },
-        "severity": { "$ref": "#/$defs/Severity" },
-        "segment": { "type": ["integer", "null"], "minimum": 0 },
-        "message": { "type": "string" }
+        "rule": {
+          "type": "string",
+          "description": "stable kebab-case rule id (see the rule catalog)"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "segment": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
       }
     },
     "LocatedFinding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rule", "severity", "segment", "source_line", "message"],
+      "required": [
+        "rule",
+        "severity",
+        "segment",
+        "source_line",
+        "message"
+      ],
       "properties": {
-        "rule": { "type": "string" },
-        "severity": { "$ref": "#/$defs/Severity" },
-        "segment": { "type": ["integer", "null"], "minimum": 0 },
-        "source_line": { "type": ["integer", "null"], "minimum": 0 },
-        "message": { "type": "string" }
+        "rule": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "segment": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "source_line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
       }
     },
     "Metrics": {
@@ -46,15 +91,34 @@
         "max_flow_rate"
       ],
       "properties": {
-        "total_time_s": { "type": "number" },
-        "print_time_s": { "type": "number" },
-        "travel_time_s": { "type": "number" },
-        "extruding_distance": { "type": "number" },
-        "travel_distance": { "type": "number" },
-        "extruded_volume": { "type": "number" },
-        "filament_length": { "type": "number" },
-        "segment_count": { "type": "integer", "minimum": 0 },
-        "max_flow_rate": { "type": "number" }
+        "total_time_s": {
+          "type": "number"
+        },
+        "print_time_s": {
+          "type": "number"
+        },
+        "travel_time_s": {
+          "type": "number"
+        },
+        "extruding_distance": {
+          "type": "number"
+        },
+        "travel_distance": {
+          "type": "number"
+        },
+        "extruded_volume": {
+          "type": "number"
+        },
+        "filament_length": {
+          "type": "number"
+        },
+        "segment_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_flow_rate": {
+          "type": "number"
+        }
       }
     },
     "Contracts": {
@@ -66,50 +130,110 @@
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
-          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          }
         },
-        "max_flow": { "type": "number" },
-        "speed_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-        "monotonic_z": { "type": "boolean" },
-        "min_temp": { "type": "number" },
-        "max_retraction_distance": { "type": "number" },
-        "max_retraction_speed": { "type": "number" },
-        "max_travel_without_retract": { "type": "number" },
-        "first_layer_height_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-        "first_layer_speed_range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-        "bead_volume_tolerance": { "type": "number" },
+        "max_flow": {
+          "type": "number"
+        },
+        "speed_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "monotonic_z": {
+          "type": "boolean"
+        },
+        "min_temp": {
+          "type": "number"
+        },
+        "max_retraction_distance": {
+          "type": "number"
+        },
+        "max_retraction_speed": {
+          "type": "number"
+        },
+        "max_travel_without_retract": {
+          "type": "number"
+        },
+        "first_layer_height_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "first_layer_speed_range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "bead_volume_tolerance": {
+          "type": "number"
+        },
         "kinematics": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "max_acceleration_mm_s2": { "type": "number" },
-            "max_junction_velocity_mm_s": { "type": "number" }
+            "max_acceleration_mm_s2": {
+              "type": "number"
+            },
+            "max_junction_velocity_mm_s": {
+              "type": "number"
+            }
           }
         },
         "rotary": {
-          "description": "Rotary-axis limits and reachable workspace of a 5-axis machine. `model` is the rotary mapping the orientations were resolved through — the same one the emitter uses — and is always echoed so the angles in a finding can be reproduced.",
+          "description": "Rotary-axis limits and reachable workspace of a 5-axis machine. `model` is the rotary mapping the orientations were resolved through \u2014 the same one the emitter uses \u2014 and is always echoed so the angles in a finding can be reproduced.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["model"],
+          "required": [
+            "model"
+          ],
           "properties": {
-            "model": { "$ref": "#/$defs/Kinematics" },
+            "model": {
+              "$ref": "#/$defs/Kinematics"
+            },
             "travel_deg": {
               "description": "Per-axis rotary travel [min,max] in degrees, keyed by axis letter. An absent axis is unconstrained.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "a": { "$ref": "#/$defs/Range" },
-                "b": { "$ref": "#/$defs/Range" },
-                "c": { "$ref": "#/$defs/Range" }
+                "a": {
+                  "$ref": "#/$defs/Range"
+                },
+                "b": {
+                  "$ref": "#/$defs/Range"
+                },
+                "c": {
+                  "$ref": "#/$defs/Range"
+                }
               }
             },
-            "max_rotary_feed_deg_min": { "type": "number" },
+            "max_rotary_feed_deg_min": {
+              "type": "number"
+            },
             "envelope_mm": {
-              "description": "[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]] in mm, in MACHINE coordinates (after the rotation is applied) — not the build volume.",
+              "description": "[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]] in mm, in MACHINE coordinates (after the rotation is applied) \u2014 not the build volume.",
               "type": "array",
               "minItems": 3,
               "maxItems": 3,
-              "items": { "$ref": "#/$defs/Range" }
+              "items": {
+                "$ref": "#/$defs/Range"
+              }
             }
           }
         }
@@ -119,103 +243,247 @@
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": { "type": "number" }
+      "items": {
+        "type": "number"
+      }
     },
     "LicenseStamp": {
       "description": "Which licensing mode produced a report. Stamped by the CLI, never by the engine: reports the engine builds carry no `license` key at all, so the property is optional everywhere it appears and older reports stay valid.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode"],
+      "required": [
+        "mode"
+      ],
       "properties": {
-        "mode": { "type": "string", "description": "`licensed` or `evaluation`" },
-        "licensee": { "type": "string" },
-        "tier": { "type": "string" }
+        "mode": {
+          "type": "string",
+          "description": "`licensed` or `evaluation`"
+        },
+        "licensee": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "string"
+        }
       }
     },
     "Kinematics": {
       "description": "A 5-axis rotary model: which two rotary axes carry the toolframe orientation, plus mechanical offsets.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "pivot_offset", "rotary_offset"],
+      "required": [
+        "type",
+        "pivot_offset",
+        "rotary_offset"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["ab", "ac", "bc"] },
+        "type": {
+          "type": "string",
+          "enum": [
+            "ab",
+            "ac",
+            "bc"
+          ]
+        },
         "pivot_offset": {
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
-          "items": { "type": "number" }
+          "items": {
+            "type": "number"
+          }
         },
-        "rotary_offset": { "$ref": "#/$defs/Range" }
+        "rotary_offset": {
+          "$ref": "#/$defs/Range"
+        }
       }
     },
     "VerifyReport": {
       "description": "A verification result. `findings` alone cannot distinguish a clean pass from a vacuous one, so a report also states how much it inspected (`segments_inspected`), which rules were in force (`rules_evaluated`), and against what limits (`contracts`). All three are optional: reports written before Dry 0.5 carry only `findings` and remain valid.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["findings"],
+      "required": [
+        "findings"
+      ],
       "properties": {
-        "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } },
-        "segments_inspected": { "type": "integer", "minimum": 0 },
-        "rules_evaluated": { "type": "array", "items": { "type": "string" } },
-        "contracts": { "$ref": "#/$defs/Contracts" },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Finding"
+          }
+        },
+        "segments_inspected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rules_evaluated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contracts": {
+          "$ref": "#/$defs/Contracts"
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     },
     "ReviewReport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "profile", "segments", "metrics", "findings", "error_count"],
+      "required": [
+        "file",
+        "profile",
+        "segments",
+        "metrics",
+        "findings",
+        "error_count"
+      ],
       "properties": {
-        "file": { "type": ["string", "null"] },
-        "profile": { "type": ["string", "null"] },
-        "segments": { "type": "integer", "minimum": 0 },
-        "metrics": { "$ref": "#/$defs/Metrics" },
-        "findings": { "type": "array", "items": { "$ref": "#/$defs/LocatedFinding" } },
-        "error_count": { "type": "integer", "minimum": 0 },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics": {
+          "$ref": "#/$defs/Metrics"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocatedFinding"
+          }
+        },
+        "error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segments_inspected": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many segments the verify pass inspected. Zero means the pass proved nothing: a clean review over no segments is not the same result as a clean review of a program."
+        },
+        "rules_evaluated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Wire ids of every rule that was in force, in catalog order. Present so a review that ran only the always-on structural rules is distinguishable from one checked against a machine profile."
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     },
     "BatchStatus": {
       "description": "One file's verdict in a batch review. `passed` is inspected with no error-severity finding (warnings do not fail a file); `errored` is a file that could not be inspected at all, which is a distinct verdict rather than a failure.",
       "type": "string",
-      "enum": ["passed", "failed", "errored"]
+      "enum": [
+        "passed",
+        "failed",
+        "errored"
+      ]
     },
     "BatchFileResult": {
-      "description": "One file's entry in a ReviewBatch. Exactly one of `review` / `error` is present — enforced by the `oneOf` below rather than left to prose — and `status` follows from which one: an inspected file is `passed`/`failed` and carries a report, a file that could not be inspected at all is `errored` and carries the error message. The nested report is an ordinary ReviewReport, not a batch-specific shape.",
+      "description": "One file's entry in a ReviewBatch. Exactly one of `review` / `error` is present \u2014 enforced by the `oneOf` below rather than left to prose \u2014 and `status` follows from which one: an inspected file is `passed`/`failed` and carries a report, a file that could not be inspected at all is `errored` and carries the error message. The nested report is an ordinary ReviewReport, not a batch-specific shape.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "status"],
+      "required": [
+        "file",
+        "status"
+      ],
       "properties": {
-        "file": { "type": "string" },
-        "status": { "$ref": "#/$defs/BatchStatus" },
-        "review": { "$ref": "#/$defs/ReviewReport" },
-        "error": { "type": "string", "description": "the read/import error's own message" }
+        "file": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/BatchStatus"
+        },
+        "review": {
+          "$ref": "#/$defs/ReviewReport"
+        },
+        "error": {
+          "type": "string",
+          "description": "the read/import error's own message"
+        }
       },
       "oneOf": [
         {
           "title": "inspected",
-          "required": ["review"],
-          "not": { "required": ["error"] },
-          "properties": { "status": { "enum": ["passed", "failed"] } }
+          "required": [
+            "review"
+          ],
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
+          "properties": {
+            "status": {
+              "enum": [
+                "passed",
+                "failed"
+              ]
+            }
+          }
         },
         {
           "title": "not inspected",
-          "required": ["error"],
-          "not": { "required": ["review"] },
-          "properties": { "status": { "const": "errored" } }
+          "required": [
+            "error"
+          ],
+          "not": {
+            "required": [
+              "review"
+            ]
+          },
+          "properties": {
+            "status": {
+              "const": "errored"
+            }
+          }
         }
       ]
     },
     "RuleTally": {
-      "description": "Per-rule roll-up across a batch. `files` counts files carrying at least one finding for the rule — a rule twice in one file counts one file and two findings.",
+      "description": "Per-rule roll-up across a batch. `files` counts files carrying at least one finding for the rule \u2014 a rule twice in one file counts one file and two findings.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["rule", "errors", "warnings", "files"],
+      "required": [
+        "rule",
+        "errors",
+        "warnings",
+        "files"
+      ],
       "properties": {
-        "rule": { "type": "string" },
-        "errors": { "type": "integer", "minimum": 0 },
-        "warnings": { "type": "integer", "minimum": 0 },
-        "files": { "type": "integer", "minimum": 0 }
+        "rule": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "ReviewBatch": {
@@ -232,14 +500,43 @@
         "results"
       ],
       "properties": {
-        "files_total": { "type": "integer", "minimum": 0 },
-        "files_passed": { "type": "integer", "minimum": 0 },
-        "files_failed": { "type": "integer", "minimum": 0 },
-        "files_errored": { "type": "integer", "minimum": 0 },
-        "profile": { "type": ["string", "null"] },
-        "findings_by_rule": { "type": "array", "items": { "$ref": "#/$defs/RuleTally" } },
-        "results": { "type": "array", "items": { "$ref": "#/$defs/BatchFileResult" } },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "files_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_errored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "findings_by_rule": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RuleTally"
+          }
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BatchFileResult"
+          }
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     },
     "TraceWindow": {
@@ -263,23 +560,68 @@
         "max_flow_mm3_s"
       ],
       "properties": {
-        "index": { "type": "integer", "minimum": 0 },
-        "start_time_s": { "type": "number" },
-        "end_time_s": { "type": "number" },
-        "segment_start": { "type": ["integer", "null"], "minimum": 0 },
-        "segment_end": { "type": ["integer", "null"], "minimum": 0 },
-        "source_line_start": { "type": "integer", "minimum": 0 },
-        "source_line_end": { "type": "integer", "minimum": 0 },
-        "duration_s": { "type": "number" },
-        "print_time_s": { "type": "number" },
-        "travel_time_s": { "type": "number" },
-        "dwell_time_s": { "type": "number" },
-        "extruding_distance_mm": { "type": "number" },
-        "travel_distance_mm": { "type": "number" },
-        "extruded_volume_mm3": { "type": "number" },
-        "filament_mm": { "type": "number" },
-        "max_feedrate_mm_min": { "type": "number" },
-        "max_flow_mm3_s": { "type": "number" }
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_time_s": {
+          "type": "number"
+        },
+        "end_time_s": {
+          "type": "number"
+        },
+        "segment_start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "segment_end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "source_line_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_line_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_s": {
+          "type": "number"
+        },
+        "print_time_s": {
+          "type": "number"
+        },
+        "travel_time_s": {
+          "type": "number"
+        },
+        "dwell_time_s": {
+          "type": "number"
+        },
+        "extruding_distance_mm": {
+          "type": "number"
+        },
+        "travel_distance_mm": {
+          "type": "number"
+        },
+        "extruded_volume_mm3": {
+          "type": "number"
+        },
+        "filament_mm": {
+          "type": "number"
+        },
+        "max_feedrate_mm_min": {
+          "type": "number"
+        },
+        "max_flow_mm3_s": {
+          "type": "number"
+        }
       }
     },
     "TraceSummary": {
@@ -303,30 +645,67 @@
         "layers"
       ],
       "properties": {
-        "window_s": { "type": "number" },
-        "segment_count": { "type": "integer", "minimum": 0 },
-        "moving_segment_count": { "type": "integer", "minimum": 0 },
-        "total_time_s": { "type": "number" },
-        "print_time_s": { "type": "number" },
-        "travel_time_s": { "type": "number" },
-        "dwell_time_s": { "type": "number" },
-        "extruding_distance_mm": { "type": "number" },
-        "travel_distance_mm": { "type": "number" },
-        "extruded_volume_mm3": { "type": "number" },
-        "filament_mm": { "type": "number" },
-        "max_feedrate_mm_min": { "type": "number" },
-        "max_flow_mm3_s": { "type": "number" },
-        "windows": { "type": "array", "items": { "$ref": "#/$defs/TraceWindow" } },
+        "window_s": {
+          "type": "number"
+        },
+        "segment_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moving_segment_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_time_s": {
+          "type": "number"
+        },
+        "print_time_s": {
+          "type": "number"
+        },
+        "travel_time_s": {
+          "type": "number"
+        },
+        "dwell_time_s": {
+          "type": "number"
+        },
+        "extruding_distance_mm": {
+          "type": "number"
+        },
+        "travel_distance_mm": {
+          "type": "number"
+        },
+        "extruded_volume_mm3": {
+          "type": "number"
+        },
+        "filament_mm": {
+          "type": "number"
+        },
+        "max_feedrate_mm_min": {
+          "type": "number"
+        },
+        "max_flow_mm3_s": {
+          "type": "number"
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceWindow"
+          }
+        },
         "layers": {
           "type": "array",
-          "items": { "$ref": "#/$defs/LayerTraceLinkage" },
+          "items": {
+            "$ref": "#/$defs/LayerTraceLinkage"
+          },
           "description": "layers are keyed on the Z of extruding moves, and an empty array means \"this toolpath has no Z-keyed layers\" rather than \"the layer data is missing\": it is empty unless the producer asked for analytics (`trace-gcode --analytics`), and empty even then for a toolpath with no extruding move (travel-only, or subtractive/laser work that deposits nothing) or whose extruding moves carry no Z at all (2D XY-only work). The windows and totals are fully populated in every one of those cases"
         },
-        "analytics": { "$ref": "#/$defs/TraceAnalytics" }
+        "analytics": {
+          "$ref": "#/$defs/TraceAnalytics"
+        }
       }
     },
     "LayerTraceLinkage": {
-      "description": "One layer's segment range and aggregates — a layer is a window whose boundary is Z instead of time, so it carries a TraceWindow's field set minus the time bounds. `segment_end` is exclusive. A layer here is a *pass* in execution order, so a re-visited Z produces a second entry; ForensicsReport.layers.layer_count counts distinct Z levels instead and is therefore ≤ this array's length.",
+      "description": "One layer's segment range and aggregates \u2014 a layer is a window whose boundary is Z instead of time, so it carries a TraceWindow's field set minus the time bounds. `segment_end` is exclusive. A layer here is a *pass* in execution order, so a re-visited Z produces a second entry; ForensicsReport.layers.layer_count counts distinct Z levels instead and is therefore \u2264 this array's length.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -345,37 +724,85 @@
         "max_flow_mm3_s"
       ],
       "properties": {
-        "layer_index": { "type": "integer", "minimum": 0 },
-        "z_mm": { "type": "number" },
-        "segment_start": { "type": "integer", "minimum": 0 },
-        "segment_end": { "type": "integer", "minimum": 0 },
-        "print_time_s": { "type": "number" },
-        "travel_time_s": { "type": "number" },
-        "extruded_volume_mm3": { "type": "number" },
-        "dwell_time_s": { "type": "number" },
-        "extruding_distance_mm": { "type": "number" },
-        "travel_distance_mm": { "type": "number" },
-        "filament_mm": { "type": "number" },
-        "max_feedrate_mm_min": { "type": "number" },
-        "max_flow_mm3_s": { "type": "number" },
-        "source_line_start": { "type": "integer", "minimum": 0 },
-        "source_line_end": { "type": "integer", "minimum": 0 }
+        "layer_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "z_mm": {
+          "type": "number"
+        },
+        "segment_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "print_time_s": {
+          "type": "number"
+        },
+        "travel_time_s": {
+          "type": "number"
+        },
+        "extruded_volume_mm3": {
+          "type": "number"
+        },
+        "dwell_time_s": {
+          "type": "number"
+        },
+        "extruding_distance_mm": {
+          "type": "number"
+        },
+        "travel_distance_mm": {
+          "type": "number"
+        },
+        "filament_mm": {
+          "type": "number"
+        },
+        "max_feedrate_mm_min": {
+          "type": "number"
+        },
+        "max_flow_mm3_s": {
+          "type": "number"
+        },
+        "source_line_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_line_end": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "Percentiles": {
-      "description": "Exact order statistics under one nearest-rank (inverse-CDF, lower) definition: quantile(p) is the first value whose cumulative weight reaches p·ΣW, over samples sorted ascending. No interpolation, so every number here is a value that actually occurred. `p50` is the median under this definition, which differs from ForensicsReport's `median` (that one averages the two middle values on an even count).",
+      "description": "Exact order statistics under one nearest-rank (inverse-CDF, lower) definition: quantile(p) is the first value whose cumulative weight reaches p\u00b7\u03a3W, over samples sorted ascending. No interpolation, so every number here is a value that actually occurred. `p50` is the median under this definition, which differs from ForensicsReport's `median` (that one averages the two middle values on an even count).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["min", "p50", "p95", "max"],
+      "required": [
+        "min",
+        "p50",
+        "p95",
+        "max"
+      ],
       "properties": {
-        "min": { "type": "number" },
-        "p50": { "type": "number" },
-        "p95": { "type": "number" },
-        "max": { "type": "number" }
+        "min": {
+          "type": "number"
+        },
+        "p50": {
+          "type": "number"
+        },
+        "p95": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
       }
     },
     "PhaseStats": {
-      "description": "Time-weighted statistics over the moving segments of one phase (print or travel); dwell time is excluded. A segment whose feedrate or flow was non-finite is counted in `nonfinite_samples` and excluded from the totals and the means (which share one population) and from whichever percentile channel was non-finite — so every number here is a real `number`, never the `null` a non-finite f64 would serialize as. Only `segments` counts those segments, which is why `print.segments + travel.segments` still equals the summary's `moving_segment_count` while the phase totals can fall short of the summary's own totals (those keep propagating non-finite values). A null percentile block means no finite-valued sample carried weight — a phase with no motion has no percentiles, and 0.0 would be indistinguishable from a real stall.",
+      "description": "Time-weighted statistics over the moving segments of one phase (print or travel); dwell time is excluded. A segment whose feedrate or flow was non-finite is counted in `nonfinite_samples` and excluded from the totals and the means (which share one population) and from whichever percentile channel was non-finite \u2014 so every number here is a real `number`, never the `null` a non-finite f64 would serialize as. Only `segments` counts those segments, which is why `print.segments + travel.segments` still equals the summary's `moving_segment_count` while the phase totals can fall short of the summary's own totals (those keep propagating non-finite values). A null percentile block means no finite-valued sample carried weight \u2014 a phase with no motion has no percentiles, and 0.0 would be indistinguishable from a real stall.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -390,37 +817,107 @@
         "nonfinite_samples"
       ],
       "properties": {
-        "segments": { "type": "integer", "minimum": 0 },
-        "time_s": { "type": "number" },
-        "distance_mm": { "type": "number" },
-        "volume_mm3": { "type": "number" },
-        "mean_feedrate_mm_min": { "type": ["number", "null"] },
-        "mean_flow_mm3_s": { "type": ["number", "null"] },
-        "feedrate_mm_min": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
-        "flow_mm3_s": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
-        "nonfinite_samples": { "type": "integer", "minimum": 0 }
+        "segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "time_s": {
+          "type": "number"
+        },
+        "distance_mm": {
+          "type": "number"
+        },
+        "volume_mm3": {
+          "type": "number"
+        },
+        "mean_feedrate_mm_min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mean_flow_mm3_s": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "feedrate_mm_min": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Percentiles"
+            }
+          ]
+        },
+        "flow_mm3_s": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Percentiles"
+            }
+          ]
+        },
+        "nonfinite_samples": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "WindowOutliers": {
-      "description": "Windows whose peak flow stands out against the batch — an observation, never a gate: there is no rule id, no severity and no effect on any exit code. The reference is the already-published TraceAnalytics.window_flow_mm3_s.p50, so the threshold is reproducible from two numbers in the same document. Strictly greater than, so k = 1 on a constant-flow file flags nothing.",
+      "description": "Windows whose peak flow stands out against the batch \u2014 an observation, never a gate: there is no rule id, no severity and no effect on any exit code. The reference is the already-published TraceAnalytics.window_flow_mm3_s.p50, so the threshold is reproducible from two numbers in the same document. Strictly greater than, so k = 1 on a constant-flow file flags nothing.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["k", "threshold_mm3_s", "window_indices"],
+      "required": [
+        "k",
+        "threshold_mm3_s",
+        "window_indices"
+      ],
       "properties": {
-        "k": { "type": "number", "exclusiveMinimum": 0 },
-        "threshold_mm3_s": { "type": ["number", "null"] },
-        "window_indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+        "k": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "threshold_mm3_s": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "window_indices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     },
     "LayerStats": {
       "description": "Order statistics over the per-layer aggregates in TraceSummary.layers (unweighted; one sample per layer).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["layer_count", "print_time_s", "extruded_volume_mm3", "slowest_layer_index"],
+      "required": [
+        "layer_count",
+        "print_time_s",
+        "extruded_volume_mm3",
+        "slowest_layer_index"
+      ],
       "properties": {
-        "layer_count": { "type": "integer", "minimum": 0 },
-        "print_time_s": { "$ref": "#/$defs/Percentiles" },
-        "extruded_volume_mm3": { "$ref": "#/$defs/Percentiles" },
+        "layer_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "print_time_s": {
+          "$ref": "#/$defs/Percentiles"
+        },
+        "extruded_volume_mm3": {
+          "$ref": "#/$defs/Percentiles"
+        },
         "slowest_layer_index": {
           "type": "integer",
           "minimum": 0,
@@ -429,7 +926,7 @@
       }
     },
     "TraceAnalytics": {
-      "description": "Higher-level statistics over a TraceSummary, present only when the caller asked for them (`trace-gcode --analytics`). Window statistics are over per-window *peaks*, unweighted, over windows with duration_s > 0 — zero-duration windows carry no motion and are excluded. `windows_considered`/`segments_considered` are published rather than inferred: a statistic computed over almost nothing must not be indistinguishable from one computed over a whole print.",
+      "description": "Higher-level statistics over a TraceSummary, present only when the caller asked for them (`trace-gcode --analytics`). Window statistics are over per-window *peaks*, unweighted, over windows with duration_s > 0 \u2014 zero-duration windows carry no motion and are excluded. `windows_considered`/`segments_considered` are published rather than inferred: a statistic computed over almost nothing must not be indistinguishable from one computed over a whole print.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -445,50 +942,122 @@
         "segments_considered"
       ],
       "properties": {
-        "print": { "$ref": "#/$defs/PhaseStats" },
-        "travel": { "$ref": "#/$defs/PhaseStats" },
-        "window_flow_mm3_s": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }] },
-        "window_feedrate_mm_min": {
-          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Percentiles" }]
+        "print": {
+          "$ref": "#/$defs/PhaseStats"
         },
-        "flow_outliers": { "$ref": "#/$defs/WindowOutliers" },
-        "layer_stats": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/LayerStats" }] },
+        "travel": {
+          "$ref": "#/$defs/PhaseStats"
+        },
+        "window_flow_mm3_s": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Percentiles"
+            }
+          ]
+        },
+        "window_feedrate_mm_min": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Percentiles"
+            }
+          ]
+        },
+        "flow_outliers": {
+          "$ref": "#/$defs/WindowOutliers"
+        },
+        "layer_stats": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/LayerStats"
+            }
+          ]
+        },
         "layer_z_epsilon_mm": {
           "type": "number",
           "minimum": 0,
-          "description": "the Z tolerance the layer partition ran with, echoed from the options the way flow_outliers.k is — so both tolerances in the document are self-describing. Echoed unconditionally, including when it produced no layers at all"
+          "description": "the Z tolerance the layer partition ran with, echoed from the options the way flow_outliers.k is \u2014 so both tolerances in the document are self-describing. Echoed unconditionally, including when it produced no layers at all"
         },
         "travel_time_ratio": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "travel motion time / total motion time, in [0,1]; null when nothing moved"
         },
-        "windows_considered": { "type": "integer", "minimum": 0 },
-        "segments_considered": { "type": "integer", "minimum": 0 }
+        "windows_considered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segments_considered": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
-
     "TraceReport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "profile", "trace"],
+      "required": [
+        "file",
+        "profile",
+        "trace"
+      ],
       "properties": {
-        "file": { "type": ["string", "null"] },
-        "profile": { "type": ["string", "null"] },
-        "trace": { "$ref": "#/$defs/TraceSummary" }
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trace": {
+          "$ref": "#/$defs/TraceSummary"
+        }
       }
     },
     "Confidence": {
       "type": "string",
-      "enum": ["measured", "from-comment", "inferred"]
+      "enum": [
+        "measured",
+        "from-comment",
+        "inferred"
+      ]
     },
     "Estimate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["value", "confidence", "note"],
+      "required": [
+        "value",
+        "confidence",
+        "note"
+      ],
       "properties": {
-        "value": { "type": ["number", "null"] },
-        "confidence": { "$ref": "#/$defs/Confidence" },
-        "note": { "type": "string" }
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "note": {
+          "type": "string"
+        }
       }
     },
     "FeatureStat": {
@@ -505,74 +1074,167 @@
         "peak_flow_mm3_s"
       ],
       "properties": {
-        "feature": { "type": "string" },
-        "source": { "$ref": "#/$defs/Confidence" },
-        "segments": { "type": "integer", "minimum": 0 },
-        "extruding_distance_mm": { "type": "number" },
-        "time_s": { "type": "number" },
-        "min_speed_mm_min": { "type": "number" },
-        "max_speed_mm_min": { "type": "number" },
-        "peak_flow_mm3_s": { "type": "number" }
+        "feature": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "extruding_distance_mm": {
+          "type": "number"
+        },
+        "time_s": {
+          "type": "number"
+        },
+        "min_speed_mm_min": {
+          "type": "number"
+        },
+        "max_speed_mm_min": {
+          "type": "number"
+        },
+        "peak_flow_mm3_s": {
+          "type": "number"
+        }
       }
     },
     "LayerModel": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["layer_count", "layer_height_mm"],
+      "required": [
+        "layer_count",
+        "layer_height_mm"
+      ],
       "properties": {
-        "layer_count": { "type": "integer", "minimum": 0 },
-        "layer_height_mm": { "$ref": "#/$defs/Estimate" }
+        "layer_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "layer_height_mm": {
+          "$ref": "#/$defs/Estimate"
+        }
       }
     },
     "TravelStat": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["travel_moves", "travel_distance_mm", "retractions"],
+      "required": [
+        "travel_moves",
+        "travel_distance_mm",
+        "retractions"
+      ],
       "properties": {
-        "travel_moves": { "type": "integer", "minimum": 0 },
-        "travel_distance_mm": { "type": "number" },
-        "retractions": { "type": "integer", "minimum": 0 }
+        "travel_moves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "travel_distance_mm": {
+          "type": "number"
+        },
+        "retractions": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "Hotspot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "count", "note"],
+      "required": [
+        "kind",
+        "count",
+        "note"
+      ],
       "properties": {
-        "kind": { "type": "string" },
-        "count": { "type": "integer", "minimum": 0 },
-        "note": { "type": "string" }
+        "kind": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
       }
     },
     "DeclaredSettings": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "layer_height_mm": { "type": ["number", "null"] },
-        "extrusion_width_mm": { "type": ["number", "null"] },
-        "infill_angle_deg": { "type": ["number", "null"] },
-        "infill_density": { "type": ["string", "null"] }
+        "layer_height_mm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "extrusion_width_mm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "infill_angle_deg": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "infill_density": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "SeamHint": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["strategy", "loops", "source"],
+      "required": [
+        "strategy",
+        "loops",
+        "source"
+      ],
       "properties": {
-        "strategy": { "type": "string" },
-        "loops": { "type": "integer", "minimum": 0 },
-        "source": { "$ref": "#/$defs/Confidence" }
+        "strategy": {
+          "type": "string"
+        },
+        "loops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/$defs/Confidence"
+        }
       }
     },
     "TravelStrategy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["z_hops", "retraction_ratio", "hint", "source"],
+      "required": [
+        "z_hops",
+        "retraction_ratio",
+        "hint",
+        "source"
+      ],
       "properties": {
-        "z_hops": { "type": "integer", "minimum": 0 },
-        "retraction_ratio": { "type": "number" },
-        "hint": { "type": "string" },
-        "source": { "$ref": "#/$defs/Confidence" }
+        "z_hops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retraction_ratio": {
+          "type": "number"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Confidence"
+        }
       }
     },
     "ForensicsReport": {
@@ -595,20 +1257,59 @@
         "hotspots"
       ],
       "properties": {
-        "slicer": { "type": "string" },
-        "source_lines": { "type": "integer", "minimum": 0 },
-        "segment_count": { "type": "integer", "minimum": 0 },
-        "layers": { "$ref": "#/$defs/LayerModel" },
-        "line_width_mm": { "$ref": "#/$defs/Estimate" },
-        "declared": { "$ref": "#/$defs/DeclaredSettings" },
-        "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureStat" } },
-        "infill_angles_deg": { "type": "array", "items": { "type": "number" } },
-        "infill_spacing_mm": { "$ref": "#/$defs/Estimate" },
-        "extrusion_multiplier": { "$ref": "#/$defs/Estimate" },
-        "seam": { "$ref": "#/$defs/SeamHint" },
-        "travel": { "$ref": "#/$defs/TravelStat" },
-        "travel_strategy": { "$ref": "#/$defs/TravelStrategy" },
-        "hotspots": { "type": "array", "items": { "$ref": "#/$defs/Hotspot" } }
+        "slicer": {
+          "type": "string"
+        },
+        "source_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "layers": {
+          "$ref": "#/$defs/LayerModel"
+        },
+        "line_width_mm": {
+          "$ref": "#/$defs/Estimate"
+        },
+        "declared": {
+          "$ref": "#/$defs/DeclaredSettings"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeatureStat"
+          }
+        },
+        "infill_angles_deg": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "infill_spacing_mm": {
+          "$ref": "#/$defs/Estimate"
+        },
+        "extrusion_multiplier": {
+          "$ref": "#/$defs/Estimate"
+        },
+        "seam": {
+          "$ref": "#/$defs/SeamHint"
+        },
+        "travel": {
+          "$ref": "#/$defs/TravelStat"
+        },
+        "travel_strategy": {
+          "$ref": "#/$defs/TravelStrategy"
+        },
+        "hotspots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hotspot"
+          }
+        }
       }
     },
     "RewriteSpanResult": {
@@ -622,11 +1323,27 @@
         "new_error_rules"
       ],
       "properties": {
-        "span_index": { "type": "integer", "minimum": 0 },
-        "accepted": { "type": "boolean" },
-        "segment_count_before": { "type": "integer", "minimum": 0 },
-        "segment_count_after": { "type": "integer", "minimum": 0 },
-        "new_error_rules": { "type": "array", "items": { "type": "string" } }
+        "span_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "segment_count_before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_count_after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "new_error_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "RewriteReport": {
@@ -646,100 +1363,237 @@
         "spans"
       ],
       "properties": {
-        "file": { "type": ["string", "null"] },
-        "profile": { "type": ["string", "null"] },
-        "mode": { "type": "string" },
-        "spans_total": { "type": "integer", "minimum": 0 },
-        "spans_accepted": { "type": "integer", "minimum": 0 },
-        "spans_rejected": { "type": "integer", "minimum": 0 },
-        "segment_count_before": { "type": "integer", "minimum": 0 },
-        "segment_count_after": { "type": "integer", "minimum": 0 },
-        "metrics_before": { "$ref": "#/$defs/Metrics" },
-        "metrics_after": { "$ref": "#/$defs/Metrics" },
-        "spans": { "type": "array", "items": { "$ref": "#/$defs/RewriteSpanResult" } },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mode": {
+          "type": "string"
+        },
+        "spans_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spans_accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spans_rejected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_count_before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_count_after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics_before": {
+          "$ref": "#/$defs/Metrics"
+        },
+        "metrics_after": {
+          "$ref": "#/$defs/Metrics"
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RewriteSpanResult"
+          }
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     },
     "ExplainReports": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["trace", "forensics", "verify"],
+      "required": [
+        "trace",
+        "forensics",
+        "verify"
+      ],
       "properties": {
-        "trace": { "$ref": "#/$defs/TraceReport" },
-        "forensics": { "$ref": "#/$defs/ForensicsReport" },
-        "verify": { "$ref": "#/$defs/ReviewReport" }
+        "trace": {
+          "$ref": "#/$defs/TraceReport"
+        },
+        "forensics": {
+          "$ref": "#/$defs/ForensicsReport"
+        },
+        "verify": {
+          "$ref": "#/$defs/ReviewReport"
+        }
       }
     },
     "ExplainBundle": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "profile", "profiled", "reports", "prompt"],
+      "required": [
+        "file",
+        "profile",
+        "profiled",
+        "reports",
+        "prompt"
+      ],
       "properties": {
-        "file": { "type": ["string", "null"] },
-        "profile": { "type": ["string", "null"] },
-        "profiled": { "type": "boolean" },
-        "reports": { "$ref": "#/$defs/ExplainReports" },
-        "prompt": { "type": "string" },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profiled": {
+          "type": "boolean"
+        },
+        "reports": {
+          "$ref": "#/$defs/ExplainReports"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     },
     "ScalarDelta": {
-      "description": "before/after for a numeric metric. `pct` is `null` when `before` is zero — there is no percent change from nothing, and the delta says so rather than reporting 0 or an infinity.",
+      "description": "before/after for a numeric metric. `pct` is `null` when `before` is zero \u2014 there is no percent change from nothing, and the delta says so rather than reporting 0 or an infinity.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["before", "after", "abs", "pct"],
+      "required": [
+        "before",
+        "after",
+        "abs",
+        "pct"
+      ],
       "properties": {
-        "before": { "type": "number" },
-        "after": { "type": "number" },
-        "abs": { "type": "number", "description": "after - before" },
-        "pct": { "type": ["number", "null"] }
+        "before": {
+          "type": "number"
+        },
+        "after": {
+          "type": "number"
+        },
+        "abs": {
+          "type": "number",
+          "description": "after - before"
+        },
+        "pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
       }
     },
     "StringChange": {
       "description": "before/after for a categorical value; only constructed when the two differ.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["before", "after"],
+      "required": [
+        "before",
+        "after"
+      ],
       "properties": {
-        "before": { "type": "string" },
-        "after": { "type": "string" }
+        "before": {
+          "type": "string"
+        },
+        "after": {
+          "type": "string"
+        }
       }
     },
     "TimeDelta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total", "print", "travel"],
+      "required": [
+        "total",
+        "print",
+        "travel"
+      ],
       "properties": {
-        "total": { "$ref": "#/$defs/ScalarDelta" },
-        "print": { "$ref": "#/$defs/ScalarDelta" },
-        "travel": { "$ref": "#/$defs/ScalarDelta" }
+        "total": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "print": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "travel": {
+          "$ref": "#/$defs/ScalarDelta"
+        }
       }
     },
     "SettingChange": {
       "description": "One changed forensics setting (declared or inferred), as a labelled before/after string pair. An absent value on either side renders as an em dash rather than being omitted.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["field", "before", "after"],
+      "required": [
+        "field",
+        "before",
+        "after"
+      ],
       "properties": {
-        "field": { "type": "string" },
-        "before": { "type": "string" },
-        "after": { "type": "string" }
+        "field": {
+          "type": "string"
+        },
+        "before": {
+          "type": "string"
+        },
+        "after": {
+          "type": "string"
+        }
       }
     },
     "FindingsDelta": {
-      "description": "Verify findings added (present only in `after`) and removed (present only in `before`), each keyed `\"<rule>@<source_line>\"` — a finding that moved lines is reported as removed+added rather than silently kept.",
+      "description": "Verify findings added (present only in `after`) and removed (present only in `before`), each keyed `\"<rule>@<source_line>\"` \u2014 a finding that moved lines is reported as removed+added rather than silently kept.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["before_count", "after_count", "added", "removed"],
+      "required": [
+        "before_count",
+        "after_count",
+        "added",
+        "removed"
+      ],
       "properties": {
-        "before_count": { "type": "integer", "minimum": 0 },
-        "after_count": { "type": "integer", "minimum": 0 },
-        "added": { "type": "array", "items": { "type": "string" } },
-        "removed": { "type": "array", "items": { "type": "string" } }
+        "before_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "after_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "CompareDelta": {
-      "description": "The deterministic two-file forensic diff behind `dry compare --json` (docs/11 §3.7). `slicer` is `null` when the detected slicer is unchanged; `settings` lists only the fields that differ. `layer_count` and `retractions` are counts carried as `ScalarDelta` so every metric in the envelope has the same shape. The `--llm` narrative envelope wraps this one and is not part of this schema — model output is not drift-gated.",
+      "description": "The deterministic two-file forensic diff behind `dry compare --json` (docs/11 \u00a73.7). `slicer` is `null` when the detected slicer is unchanged; `settings` lists only the fields that differ. `layer_count` and `retractions` are counts carried as `ScalarDelta` so every metric in the envelope has the same shape. The `--llm` narrative envelope wraps this one and is not part of this schema \u2014 model output is not drift-gated.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -754,16 +1608,42 @@
       ],
       "properties": {
         "slicer": {
-          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/StringChange" }]
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/StringChange"
+            }
+          ]
         },
-        "time": { "$ref": "#/$defs/TimeDelta" },
-        "peak_flow_mm3_s": { "$ref": "#/$defs/ScalarDelta" },
-        "layer_count": { "$ref": "#/$defs/ScalarDelta" },
-        "travel_distance_mm": { "$ref": "#/$defs/ScalarDelta" },
-        "retractions": { "$ref": "#/$defs/ScalarDelta" },
-        "settings": { "type": "array", "items": { "$ref": "#/$defs/SettingChange" } },
-        "findings": { "$ref": "#/$defs/FindingsDelta" },
-        "license": { "$ref": "#/$defs/LicenseStamp" }
+        "time": {
+          "$ref": "#/$defs/TimeDelta"
+        },
+        "peak_flow_mm3_s": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "layer_count": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "travel_distance_mm": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "retractions": {
+          "$ref": "#/$defs/ScalarDelta"
+        },
+        "settings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SettingChange"
+          }
+        },
+        "findings": {
+          "$ref": "#/$defs/FindingsDelta"
+        },
+        "license": {
+          "$ref": "#/$defs/LicenseStamp"
+        }
       }
     }
   }
