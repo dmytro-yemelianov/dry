@@ -50,5 +50,19 @@
       "message": "declared length 10 disagrees with the arc implied by its radius and swept angle (15.034185 mm)"
     }
   ],
-  "error_count": 4
+  "error_count": 4,
+  "segments_inspected": 6,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ]
 }

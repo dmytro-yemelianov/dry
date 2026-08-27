@@ -17,6 +17,43 @@ pub enum LaserMode {
     Dynamic, // M4
 }
 
+/// Why a toolpath cannot be emitted as a laser program.
+///
+/// These are refusals rather than repairs. The previous behaviour substituted
+/// `params.max_power_s` for a segment whose power was never commanded — and, because `f64::min`
+/// returns its non-NaN operand, for a NaN power too — so the least-informed input produced the most
+/// dangerous output a laser can be given. `crate::ir::Segment::power` documents `None` as "never
+/// commanded", distinct from `Some(0.0)` meaning commanded off; inventing full beam power for it is
+/// not a defensible reading of that.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LaserError {
+    /// A cutting move carried no commanded power.
+    UncommandedPower { segment: usize },
+    /// A commanded power that is NaN or infinite.
+    NonFinitePower { segment: usize, value: f64 },
+    /// A negative commanded power, which was previously emitted verbatim as `S-5`.
+    NegativePower { segment: usize, value: f64 },
+}
+
+impl std::fmt::Display for LaserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UncommandedPower { segment } => write!(
+                f,
+                "segment {segment} cuts but commands no laser power; set it explicitly (0 means off)"
+            ),
+            Self::NonFinitePower { segment, value } => {
+                write!(f, "segment {segment} commands a non-finite laser power ({value})")
+            }
+            Self::NegativePower { segment, value } => {
+                write!(f, "segment {segment} commands a negative laser power ({value})")
+            }
+        }
+    }
+}
+
+impl std::error::Error for LaserError {}
+
 /// Configuration parameters for GRBL laser emission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LaserParams {
@@ -36,7 +73,10 @@ impl Default for LaserParams {
 }
 
 /// Emit GRBL laser motion G-code from an L2 [`Toolpath`].
-pub fn emit_grbl_laser(toolpath: &Toolpath, params: &LaserParams) -> Vec<String> {
+pub fn emit_grbl_laser(
+    toolpath: &Toolpath,
+    params: &LaserParams,
+) -> Result<Vec<String>, LaserError> {
     let mut lines = Vec::new();
     lines.push("; Dry GRBL Laser Program".into());
     lines.push("G21 ; Millimetres".into());
@@ -51,7 +91,7 @@ pub fn emit_grbl_laser(toolpath: &Toolpath, params: &LaserParams) -> Vec<String>
     let mut last_speed = 0.0;
     let mut last_power = -1.0;
 
-    for seg in &toolpath.segments {
+    for (index, seg) in toolpath.segments.iter().enumerate() {
         let is_rapid = seg.travel || seg.speed.value() == 0.0;
 
         let [Some(ex), Some(ey), _] = [seg.end[0], seg.end[1], seg.end[2]] else {
@@ -68,10 +108,25 @@ pub fn emit_grbl_laser(toolpath: &Toolpath, params: &LaserParams) -> Vec<String>
             }
             lines.push(format!("G0 X{x:.3} Y{y:.3}"));
         } else {
-            let power_val = seg
+            // Refuse rather than invent. Clamping the *upper* end is still right — a commanded
+            // power above the machine's maximum is a request the hardware cannot honour — but the
+            // lower and undefined ends are the caller's to state.
+            let commanded = seg
                 .power
-                .unwrap_or(params.max_power_s)
-                .min(params.max_power_s);
+                .ok_or(LaserError::UncommandedPower { segment: index })?;
+            if !commanded.is_finite() {
+                return Err(LaserError::NonFinitePower {
+                    segment: index,
+                    value: commanded,
+                });
+            }
+            if commanded < 0.0 {
+                return Err(LaserError::NegativePower {
+                    segment: index,
+                    value: commanded,
+                });
+            }
+            let power_val = commanded.min(params.max_power_s);
             let speed = if seg.speed.value() > 0.0 {
                 seg.speed.value()
             } else {
@@ -98,5 +153,5 @@ pub fn emit_grbl_laser(toolpath: &Toolpath, params: &LaserParams) -> Vec<String>
     }
     lines.push("M2 ; End of program".into());
 
-    lines
+    Ok(lines)
 }

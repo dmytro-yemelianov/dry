@@ -2,7 +2,15 @@
 
 A thin, logic-free front-end onto the **Dry engine** (Rust, compiled to wasm). You build an L1 design
 with the fluent API; `resolve` / `simulate` / `emit` run entirely in the engine — the **same** engine
-the native CLI and the Python SDK use, so the g-code is **byte-identical** across all three.
+the native CLI and the Python SDK use, so the g-code is **byte-identical** across all three *for the
+same settings*.
+
+One default is not shared, and it changes the program rather than only its wording. With
+`fiveAxis` set and no rotary model given, this SDK and the Python SDK fall back to `ab`
+(`Kinematics::default()`), while `dry emit --five-axis` falls back to the reference `bc` machine.
+The `bc` model rotates the workpiece frame, so the linear axes land elsewhere too — the two outputs
+are different programs, not different spellings. Pass `rotaryAxes` (or `--rotary-axes`) explicitly
+whenever you compare across front-ends or care which machine model applies.
 
 ```ts
 import { Design } from '@dry/sdk';

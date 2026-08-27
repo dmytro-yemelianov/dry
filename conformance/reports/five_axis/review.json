@@ -36,5 +36,22 @@
       "message": "at C0.000 B90.000 the point [100, 0, 0.2] sits at machine Z = -100.000, outside the reachable envelope [-50, 300]"
     }
   ],
-  "error_count": 2
+  "error_count": 2,
+  "segments_inspected": 5,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency",
+    "rotary-travel",
+    "rotary-feed",
+    "orientation-reachability"
+  ]
 }

@@ -303,6 +303,13 @@ enum Cmd {
         format: EmitOutputFormat,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
         /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
+        ///
+        /// Defaults to the reference `bc` machine. Note that the Python and TypeScript SDKs default
+        /// to `ab` instead, as does the `five_axis_drape` conformance vector, so the same IR emits a
+        /// different 5-axis program depending on the front-end — `bc` rotates the workpiece frame,
+        /// so the linear axes move too. State this explicitly when comparing across front-ends.
+        /// `robot-krl` output is unaffected: that emitter resolves orientation through its own
+        /// fixed `Bc` model regardless of this flag.
         #[arg(long, visible_alias = "kinematics", value_enum)]
         rotary_axes: Option<RotaryAxesArg>,
         /// Also write a STEP-NC intent file with the same program to this path.
@@ -1170,14 +1177,43 @@ fn run(cli: Cli) -> ExitCode {
             caps.max_spindle_rpm = max_spindle_rpm;
             let report = dry_core::check_compatibility(&tp, &caps);
 
+            // `compatible` is false only for Error findings, and the two limits this subcommand
+            // advertises — `--max-feedrate` and `--max-spindle-rpm` — only ever produce Warnings.
+            // Reporting "fully compatible with machine limits" while holding a finding that says a
+            // feedrate is thirty times the machine maximum is the report contradicting itself, so
+            // findings are printed whatever their severity and the all-clear is claimed only when
+            // there are none.
+            let warnings = report
+                .findings
+                .iter()
+                .filter(|f| f.severity != dry_core::CompatibilitySeverity::Error)
+                .count();
+            let errors = report.findings.len() - warnings;
+
+            // Which limits were actually supplied. An envelope is always checked because the axis
+            // ranges have defaults; the other two are opt-in, and a clean result that never looked
+            // at them should not read like one that did.
+            let mut checked = vec![format!("envelope {max_x}x{max_y}x{max_z}mm")];
+            if max_feedrate.is_some() {
+                checked.push("max feedrate".into());
+            }
+            if max_spindle_rpm.is_some() {
+                checked.push("max spindle rpm".into());
+            }
+
             if json {
                 println!("{}", serde_json::to_string_pretty(&report).unwrap());
-            } else if report.compatible {
-                println!("OK: Toolpath '{file}' is fully compatible with machine limits.");
+            } else if report.findings.is_empty() {
+                println!(
+                    "OK: Toolpath '{file}' is within the limits checked ({}).",
+                    checked.join(", ")
+                );
             } else {
+                let stream_label = if errors > 0 { "FAIL" } else { "WARN" };
                 eprintln!(
-                    "FAIL: Toolpath '{file}' violates machine limits ({} findings):",
-                    report.findings.len()
+                    "{stream_label}: Toolpath '{file}' has {} finding(s) against the limits checked ({}):",
+                    report.findings.len(),
+                    checked.join(", ")
                 );
                 for finding in &report.findings {
                     eprintln!(
@@ -1187,10 +1223,13 @@ fn run(cli: Cli) -> ExitCode {
                 }
             }
 
-            if report.compatible {
-                ExitCode::SUCCESS
-            } else {
+            // Exit status is unchanged: only an Error-severity finding fails the gate, so existing
+            // callers that treat a warning as advisory keep working. What changed is that a warning
+            // is now visible instead of being reported as full compatibility.
+            if errors > 0 {
                 ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
             }
         }
         Cmd::Schema { dialect } => match dry_core::get_dialect_schema(&dialect) {
@@ -1276,6 +1315,15 @@ fn run(cli: Cli) -> ExitCode {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
             let profile = load_profile(profile.as_deref());
+            // The fallback is deliberately the reference BC machine, not `Kinematics::default()`
+            // (`Ab`) — see "harden 5-axis defaults and add BC fallback regression" and the test
+            // `emit_five_axis_defaults_to_reference_bc_when_no_kinematics_provided`.
+            //
+            // Both SDKs fall back to `Ab` instead, so the same IR emits a different 5-axis program
+            // depending on the front-end, and `bc` rotates the workpiece frame so the linear axes
+            // move too. That divergence is real and is documented on the flag below and in the SDK
+            // guide rather than silently reconciled here: choosing which model is canonical is a
+            // machine-model decision, and this fallback was chosen on purpose.
             let kinematics = rotary_axes
                 .map(Into::into)
                 .or_else(|| profile.as_ref().and_then(|p| p.machine.five_axis))
@@ -1616,6 +1664,20 @@ fn run(cli: Cli) -> ExitCode {
                     metrics.extruded_volume.value()
                 );
                 println!("  peak flow: {:.2}mm^3/s", metrics.max_flow_rate.value());
+                // Say what was checked, not just that nothing was found. With no profile and no
+                // override flags only the always-on structural rules run, so "OK (no findings)"
+                // over a program with a 7653mm^3/s peak flow was true and useless. `dry verify`
+                // already states its coverage; these two commands did not.
+                println!(
+                    "  checked:   {} segment(s) against {} rule(s){}",
+                    review.segments_inspected,
+                    review.rules_evaluated.len(),
+                    if review.profile.is_some() {
+                        ""
+                    } else {
+                        " (no profile: structural rules only)"
+                    }
+                );
                 if review.findings.is_empty() {
                     println!("  verify:    OK (no findings)");
                 } else {
@@ -2721,8 +2783,13 @@ fn render_batch_human(batch: &dry_core::ReviewBatch) -> String {
                     "FAIL"
                 };
                 let warnings = review.findings.len() - review.error_count;
+                // "no findings" alone does not distinguish a clean file from an unchecked one, so
+                // a PASS states how many rules were actually in force.
                 let detail = if review.findings.is_empty() {
-                    "no findings".to_string()
+                    format!(
+                        "no findings against {} rule(s)",
+                        review.rules_evaluated.len()
+                    )
                 } else {
                     format!("{} error(s), {warnings} warning(s)", review.error_count)
                 };

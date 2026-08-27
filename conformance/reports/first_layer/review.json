@@ -29,5 +29,21 @@
       "message": "first layer speed 3000.000 mm/min is outside the range [500.000, 2000.000]"
     }
   ],
-  "error_count": 0
+  "error_count": 0,
+  "segments_inspected": 3,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "first-layer-height",
+    "first-layer-speed",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ]
 }

@@ -41,6 +41,8 @@ Options:
       --rotary-axes <ROTARY_AXES>
           Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)
 
+          Defaults to the reference `bc` machine. Note that the Python and TypeScript SDKs default to `ab` instead, as does the `five_axis_drape` conformance vector, so the same IR emits a different 5-axis program depending on the front-end — `bc` rotates the workpiece frame, so the linear axes move too. State this explicitly when comparing across front-ends. `robot-krl` output is unaffected: that emitter resolves orientation through its own fixed `Bc` model regardless of this flag.
+
           [aliases: --kinematics]
           [possible values: ab, ac, bc]
 

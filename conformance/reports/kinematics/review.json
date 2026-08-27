@@ -29,5 +29,21 @@
       "message": "arc centripetal accel 10000 mm/s² exceeds max 500"
     }
   ],
-  "error_count": 1
+  "error_count": 1,
+  "segments_inspected": 4,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "peak-acceleration",
+    "junction-velocity",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ]
 }

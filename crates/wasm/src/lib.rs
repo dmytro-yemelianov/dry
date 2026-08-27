@@ -439,7 +439,7 @@ pub fn compute_scurve_profile(
 /// Import an ISO 14649 STEP-NC document and lower it into Dry L1 operations JSON.
 #[wasm_bindgen]
 pub fn import_step_nc_to_ops(step_nc_text: &str) -> Result<String, JsError> {
-    let steps = dry_core::parse_step_nc(step_nc_text).map_err(JsError::new)?;
+    let steps = dry_core::parse_step_nc(step_nc_text).map_err(|e| JsError::new(&e))?;
     let mut all_ops = Vec::new();
     for step in &steps {
         all_ops.extend(dry_core::lower_workingstep_to_ops(step));

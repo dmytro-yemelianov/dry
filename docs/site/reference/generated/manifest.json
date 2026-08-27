@@ -3,7 +3,7 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "9f1b619dbed9c52b18f9c60d404a40aa95722ff996e5564d9aebd35aba7036ef"
+      "sha256": "2f6e2601bf45e95c4d020543eb3f70c342c3e3a0e2e4e061aa3e27efa00c0003"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
@@ -23,7 +23,7 @@
     },
     "cliMain": {
       "path": "crates/cli/src/main.rs",
-      "sha256": "87b2756428717a636a7085453de14fd51ebe13ef25a38a5bee52e091eee6f09f"
+      "sha256": "4bd771b196f4dc13752f2b8a4d5642054eea1d438087ec904f22d6c18f39ca23"
     },
     "cliCookbook": {
       "path": "docs/15-cli-cookbook.md",
@@ -45,7 +45,7 @@
   "dynamic": {
     "cliHelp": {
       "command": "cargo run -q -p dry-cli -- --help",
-      "sha256": "47f19c000070f03a5ec5b5e48d527035a962ab177ab43f87901be1fbb4b648e1"
+      "sha256": "da8fdc14fb3830b7d9bc22a69b5211c794ef3e1cadce356d2c9d3e873125e968"
     }
   }
 }

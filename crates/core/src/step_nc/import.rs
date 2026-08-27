@@ -43,10 +43,10 @@ pub struct StepNcWorkingstep {
 }
 
 /// Parse STEP-NC / ISO 14649 document text (XML or JSON format).
-pub fn parse_step_nc(text: &str) -> Result<Vec<StepNcWorkingstep>, &'static str> {
+pub fn parse_step_nc(text: &str) -> Result<Vec<StepNcWorkingstep>, String> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
-        return Err("empty STEP-NC document");
+        return Err("empty STEP-NC document".to_string());
     }
 
     // JSON format support
@@ -66,36 +66,33 @@ pub fn parse_step_nc(text: &str) -> Result<Vec<StepNcWorkingstep>, &'static str>
         if l.starts_with("<workingstep ") || l.starts_with("<workingstep>") {
             let id = extract_attr(l, "id").unwrap_or_else(|| format!("ws-{}", steps.len() + 1));
             let step_type = extract_attr(l, "type").unwrap_or_default();
-            let x = extract_attr_f64(l, "x").unwrap_or(0.0);
-            let y = extract_attr_f64(l, "y").unwrap_or(0.0);
-            let depth = extract_attr_f64(l, "depth").unwrap_or(5.0);
-            let diam = extract_attr_f64(l, "diameter").unwrap_or(6.0);
-            let width = extract_attr_f64(l, "width").unwrap_or(20.0);
-            let length = extract_attr_f64(l, "length").unwrap_or(30.0);
-            let feed = extract_attr_f64(l, "feed");
-            let rpm = extract_attr_f64(l, "rpm");
+            // Every geometric attribute is required for the feature that uses it. Anything present
+            // but unparseable or non-finite is refused wherever it appears, including on attributes
+            // this feature type ignores — a malformed number is a malformed document.
+            let feed = read_attr_f64(l, "feed", &id)?;
+            let rpm = read_attr_f64(l, "rpm", &id)?;
 
             let feature = if step_type == "hole" || step_type == "drilling" {
                 StepNcFeature::RoundHole {
-                    x,
-                    y,
-                    diameter: diam,
-                    depth,
+                    x: require_attr_f64(l, "x", &id, "hole")?,
+                    y: require_attr_f64(l, "y", &id, "hole")?,
+                    diameter: require_attr_f64(l, "diameter", &id, "hole")?,
+                    depth: require_attr_f64(l, "depth", &id, "hole")?,
                 }
             } else if step_type == "pocket" {
                 StepNcFeature::ClosedPocket {
-                    x,
-                    y,
-                    length,
-                    width,
-                    depth,
+                    x: require_attr_f64(l, "x", &id, "pocket")?,
+                    y: require_attr_f64(l, "y", &id, "pocket")?,
+                    length: require_attr_f64(l, "length", &id, "pocket")?,
+                    width: require_attr_f64(l, "width", &id, "pocket")?,
+                    depth: require_attr_f64(l, "depth", &id, "pocket")?,
                 }
             } else {
                 StepNcFeature::PlanarFace {
-                    x,
-                    y,
-                    length,
-                    width,
+                    x: require_attr_f64(l, "x", &id, "face")?,
+                    y: require_attr_f64(l, "y", &id, "face")?,
+                    length: require_attr_f64(l, "length", &id, "face")?,
+                    width: require_attr_f64(l, "width", &id, "face")?,
                 }
             };
 
@@ -111,7 +108,7 @@ pub fn parse_step_nc(text: &str) -> Result<Vec<StepNcWorkingstep>, &'static str>
 
     if steps.is_empty() {
         // Fallback default hole step if no structured lines matched
-        return Err("no valid workingsteps found in document");
+        return Err("no valid workingsteps found in document".to_string());
     }
 
     Ok(steps)
@@ -125,8 +122,37 @@ fn extract_attr(line: &str, attr: &str) -> Option<String> {
     Some(rem[..end].to_string())
 }
 
-fn extract_attr_f64(line: &str, attr: &str) -> Option<f64> {
-    extract_attr(line, attr)?.parse::<f64>().ok()
+/// Read a numeric attribute, distinguishing "absent" from "present but unusable".
+///
+/// The previous reader collapsed the two: `extract_attr(..).parse().ok()` returned `None` for a
+/// missing attribute and for `depth="12,5"` alike, and every caller then substituted a hard-coded
+/// default. A European decimal comma, a unit suffix, or a typo therefore produced a valid-looking
+/// program machined to the wrong depth in the wrong place, with nothing reported. `.parse::<f64>()`
+/// also accepts `NaN` and `inf`, which reached the geometry unchallenged.
+fn read_attr_f64(line: &str, attr: &str, id: &str) -> Result<Option<f64>, String> {
+    let Some(raw) = extract_attr(line, attr) else {
+        return Ok(None);
+    };
+    let value: f64 = raw
+        .trim()
+        .parse()
+        .map_err(|_| format!("workingstep '{id}': attribute {attr}=\"{raw}\" is not a number"))?;
+    if !value.is_finite() {
+        return Err(format!(
+            "workingstep '{id}': attribute {attr}=\"{raw}\" is not finite"
+        ));
+    }
+    Ok(Some(value))
+}
+
+/// Read an attribute the feature's geometry cannot be placed without.
+///
+/// There is no safe default for a position or a depth: substituting one machines a real part at
+/// coordinates nobody wrote.
+fn require_attr_f64(line: &str, attr: &str, id: &str, feature: &str) -> Result<f64, String> {
+    read_attr_f64(line, attr, id)?.ok_or_else(|| {
+        format!("workingstep '{id}': a {feature} requires attribute {attr}, which is absent")
+    })
 }
 
 /// Lower an ISO 14649 workingstep into Dry L1 operations.

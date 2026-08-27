@@ -69,6 +69,16 @@ pub struct ReviewReport {
     pub findings: Vec<LocatedFinding>,
     /// Number of `error`-severity findings (warnings are not counted).
     pub error_count: usize,
+    /// How many segments the verify pass actually looked at. Zero means it proved nothing.
+    ///
+    /// Carried for the same reason [`Report`] carries it: a clean review over no contracts is not
+    /// the same result as a clean review against a machine profile, and a report that cannot tell
+    /// them apart invites the first to be read as the second.
+    #[serde(default)]
+    pub segments_inspected: usize,
+    /// The wire ids of every rule that was in force, in catalog order.
+    #[serde(default)]
+    pub rules_evaluated: Vec<String>,
     /// The licensing mode this report was produced under, when the caller stamped one.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -100,6 +110,8 @@ impl ReviewReport {
             metrics,
             findings,
             error_count: report.error_count(),
+            segments_inspected: report.segments_inspected,
+            rules_evaluated: report.rules_evaluated.clone(),
             license: None,
         }
     }
@@ -385,6 +397,8 @@ mod tests {
             metrics: Metrics::default(),
             findings,
             error_count,
+            segments_inspected: 3,
+            rules_evaluated: Vec::new(),
             license: None,
         }
     }

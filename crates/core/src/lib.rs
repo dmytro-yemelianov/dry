@@ -63,9 +63,9 @@ pub use emit::emit;
 pub use emit::{
     emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc,
     emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle,
-    EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserMode,
-    LaserParams, LeadInType, PeckDrillCycle, TemplateContext, REFERENCE_FIVE_AXIS_LIMITS,
-    REFERENCE_FIVE_AXIS_MACHINE,
+    EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserError,
+    LaserMode, LaserParams, LeadInType, PeckDrillCycle, TemplateContext,
+    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};

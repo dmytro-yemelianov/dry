@@ -14,5 +14,26 @@
     "max_flow_rate": 1.9242255003237483
   },
   "findings": [],
-  "error_count": 0
+  "error_count": 0,
+  "segments_inspected": 7,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "bounds",
+    "max-flow",
+    "speed",
+    "cold-extrusion",
+    "retraction-distance",
+    "retraction-speed",
+    "travel-without-retraction",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ]
 }

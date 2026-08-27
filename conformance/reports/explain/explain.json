@@ -193,7 +193,21 @@
           "message": "extruding move has a non-positive bead (width 0, height 0)"
         }
       ],
-      "error_count": 8
+      "error_count": 8,
+      "segments_inspected": 13,
+      "rules_evaluated": [
+        "finite",
+        "travel-extrudes",
+        "bead",
+        "orientation-not-unit",
+        "arc-radius",
+        "unmodeled-gcode",
+        "continuity",
+        "negative-quantity",
+        "segment-length",
+        "arc-length",
+        "filament-consistency"
+      ]
     }
   },
   "prompt": "You are a senior 3D-printing / CNC process engineer. Below this prompt are three deterministic analyses of a sliced G-code toolpath, produced by the Dry compiler: a TRACE (per-window motion/time series), a FORENSICS report (slicer + settings inference, every value confidence-tagged `from-comment`/`measured`/`inferred`), and a VERIFY report (machine-safety findings).\n\nGround rules — do not violate:\n- The numbers in the reports are ground truth from a deterministic engine. Do not recompute, estimate, or invent metrics; cite the reports.\n- Respect every forensics confidence tag — never state an `inferred` value as certain.\n- Any setting or profile change you propose is a HYPOTHESIS, not a verified fix: it MUST be re-checked by re-running `dry verify` / `dry review-gcode` against the profile before it is trusted. Never present a change as safe without that gate.\n\nContext: file `sliced-prusa-sample.gcode`, no profile (verify ran with default contracts).\n\nDo the following, in order:\n1. WHAT IS THIS PRINT? Summarise from the forensics report (slicer, layer model, line width, infill angle/spacing, seam, travel strategy), noting confidence where it matters.\n2. WHERE DOES THE TIME GO, AND WHY IS IT SLOW? Use the trace windows — name the slowest windows and the dominant cost (print vs travel vs dwell), and the feedrate/flow ceilings.\n3. WHAT'S RISKY? Summarise the verify findings by severity and what each implies for the print.\n4. RECOMMENDATIONS. Propose a prioritised table — columns: Change | Expected effect | How to re-verify with dry — ordered by impact, each naming the exact profile field or slicer setting.\n\nThis analysis works best with a frontier model: Claude Opus 4.8 (`claude-opus-4-8`); use Claude Fable 5 (`claude-fable-5`) for the most demanding analysis."

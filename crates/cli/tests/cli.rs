@@ -3138,3 +3138,180 @@ fn slicer_corpus_manifest_sha256_matches_committed_files() {
         );
     }
 }
+
+/// `dry check` must not report compatibility it did not measure.
+///
+/// `CompatibilityReport::compatible` is false only for Error-severity findings, and the two limits
+/// this subcommand advertises — `--max-feedrate` and `--max-spindle-rpm` — only ever produce
+/// Warnings. So the human-readable branch printed "fully compatible with machine limits" while the
+/// `--json` branch beside it listed a feedrate thirty times the machine maximum.
+mod check_reports_what_it_measured {
+    use super::*;
+
+    /// A single segment far outside any sane feedrate or spindle ceiling.
+    fn excessive_ir() -> PathBuf {
+        // Process id as well as the clock: two tests in the same binary can read the same
+        // nanosecond on a coarse timer, and a shared path makes them delete each other's fixture.
+        let path = std::env::temp_dir().join(format!(
+            "dry-check-{}-{}.json",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(
+            &path,
+            r#"{"segments":[{"kind":"line","start":[0.0,0.0,0.2],"end":[10.0,0.0,0.2],
+               "speed":90000.0,"length":10.0,"volume":1.2,"filament":0.5,"travel":false,
+               "power":40000.0}]}"#,
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn warning_findings_are_reported_not_reported_as_compatible() {
+        let ir = excessive_ir();
+        let out = Command::new(bin())
+            .args([
+                "check",
+                ir.to_str().unwrap(),
+                "--max-feedrate",
+                "3000",
+                "--max-spindle-rpm",
+                "12000",
+            ])
+            .output()
+            .expect("run dry check");
+
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        assert!(
+            !combined.contains("fully compatible"),
+            "must not claim full compatibility while holding findings:\n{combined}"
+        );
+        assert!(
+            combined.contains("EXCEEDS_MAX_FEEDRATE"),
+            "the measured feedrate violation must be visible:\n{combined}"
+        );
+        assert!(
+            combined.contains("EXCEEDS_MAX_SPINDLE_RPM"),
+            "the measured spindle violation must be visible:\n{combined}"
+        );
+        // Exit status is deliberately unchanged: a warning is advisory, so callers gating on the
+        // exit code keep their current behaviour. What changed is that it is no longer invisible.
+        assert!(out.status.success(), "a warning must not fail the gate");
+
+        let _ = std::fs::remove_file(&ir);
+    }
+
+    #[test]
+    fn the_all_clear_names_only_the_limits_actually_supplied() {
+        let ir = excessive_ir();
+
+        // With no optional limits, only the envelope is checked — saying more would be the same
+        // overclaim in a quieter form.
+        let out = Command::new(bin())
+            .args(["check", ir.to_str().unwrap()])
+            .output()
+            .expect("run dry check");
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        assert!(
+            stdout.contains("envelope"),
+            "must name the envelope: {stdout}"
+        );
+        assert!(
+            !stdout.contains("max feedrate") && !stdout.contains("max spindle"),
+            "must not imply it checked limits nobody supplied: {stdout}"
+        );
+
+        // Supplied and satisfied: both are named.
+        let out = Command::new(bin())
+            .args([
+                "check",
+                ir.to_str().unwrap(),
+                "--max-feedrate",
+                "200000",
+                "--max-spindle-rpm",
+                "60000",
+            ])
+            .output()
+            .expect("run dry check");
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        assert!(stdout.starts_with("OK:"), "expected an all-clear: {stdout}");
+        assert!(
+            stdout.contains("max feedrate") && stdout.contains("max spindle rpm"),
+            "{stdout}"
+        );
+
+        let _ = std::fs::remove_file(&ir);
+    }
+}
+
+/// The CLI's 5-axis fallback differs from the SDKs', deliberately, and this pins that.
+///
+/// `dry emit --five-axis` falls back to the reference `Bc` machine — chosen on purpose in "harden
+/// 5-axis defaults and add BC fallback regression" — while `Design.gcode({fiveAxis:true})` in both
+/// SDKs falls back to `Kinematics::default()`, which is `Ab`. The `five_axis_drape` conformance
+/// vector states `Ab` explicitly, so the CLI's default output does NOT match that golden.
+///
+/// This is a real divergence and the SDK README documents it. The test exists so it cannot drift
+/// further unnoticed in either direction: reconciling the defaults should fail here and force the
+/// documentation to be updated with the decision.
+#[test]
+fn five_axis_default_diverges_from_the_ab_golden_by_design() {
+    let dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../conformance/vectors/five_axis_drape");
+    let vector: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("vector.json")).unwrap()).unwrap();
+    let declared = vector["emit_params"]["kinematics"].as_str().unwrap();
+    assert!(
+        declared.starts_with("Ab"),
+        "vector declares {declared}; this test reasons about the Ab/Bc split"
+    );
+
+    let default_out = Command::new(bin())
+        .args([
+            "emit",
+            dir.join("input.json").to_str().unwrap(),
+            "--five-axis",
+        ])
+        .output()
+        .expect("run dry emit");
+    assert!(default_out.status.success());
+    let default_gcode = String::from_utf8_lossy(&default_out.stdout)
+        .trim_end()
+        .to_string();
+    let golden = std::fs::read_to_string(dir.join("expected.gcode"))
+        .unwrap()
+        .trim_end()
+        .to_string();
+
+    assert_ne!(
+        default_gcode, golden,
+        "if the defaults have been reconciled, update sdk/ts/README.md and delete this test"
+    );
+
+    // Asking for the SDKs' model explicitly reproduces the golden exactly, which is what makes the
+    // divergence a default choice rather than an engine difference.
+    let explicit = Command::new(bin())
+        .args([
+            "emit",
+            dir.join("input.json").to_str().unwrap(),
+            "--five-axis",
+            "--rotary-axes",
+            "ab",
+        ])
+        .output()
+        .expect("run dry emit --rotary-axes ab");
+    assert_eq!(
+        String::from_utf8_lossy(&explicit.stdout).trim_end(),
+        golden,
+        "the engine agrees across front-ends once the model is stated explicitly"
+    );
+}

@@ -1,7 +1,16 @@
 //! Low-latency chunked streaming G-code emitter (D3.1, `docs/04-tasks.md` — unplanned series D2–D4).
 //!
-//! Emits G-code in bounded line-chunks, suitable for direct WebSocket/HTTP streaming to
-//! Klipper Moonraker, OctoPrint, or CNC serial controllers with constant $O(1)$ memory usage.
+//! Splits an emitted program into bounded line-chunks, sized for WebSocket/HTTP delivery to
+//! Klipper Moonraker, OctoPrint, or CNC serial controllers.
+//!
+//! Chunking here is about *message size*, not memory. The header used to promise "constant $O(1)$
+//! memory usage", which this function does not provide and cannot: it emits the whole program
+//! through [`emit_stream`] — which itself buffers every line — and returns a `Vec<String>` of all
+//! chunks, so the caller holds the entire program at once. Measured peak allocation grows with the
+//! segment count (roughly 13x for 10x the segments, 27x for 30x), not flat.
+//!
+//! For genuinely bounded memory use [`super::emit_stream_to_writer`], which writes each line out
+//! as it is produced and never accumulates the program.
 
 use super::{emit_stream, EmitParams};
 use crate::codec::CodecError;

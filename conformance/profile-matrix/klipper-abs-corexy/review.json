@@ -43,5 +43,26 @@
       "message": "extruding at nozzle temperature 210 (< 230 °C)"
     }
   ],
-  "error_count": 4
+  "error_count": 4,
+  "segments_inspected": 7,
+  "rules_evaluated": [
+    "finite",
+    "travel-extrudes",
+    "bead",
+    "orientation-not-unit",
+    "arc-radius",
+    "bounds",
+    "max-flow",
+    "speed",
+    "monotonic-z",
+    "cold-extrusion",
+    "retraction-distance",
+    "retraction-speed",
+    "unmodeled-gcode",
+    "continuity",
+    "negative-quantity",
+    "segment-length",
+    "arc-length",
+    "filament-consistency"
+  ]
 }
