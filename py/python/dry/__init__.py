@@ -57,7 +57,16 @@ __all__ = [
     "MachineProfile",
     "MachineCatalog",
     "BUILTIN_MACHINES",
+    "toolpath_to_obj",
+    "toolpath_to_svg",
+    "toolpath_to_interactive_html",
 ]
+
+from .visualizer import (
+    toolpath_to_interactive_html,
+    toolpath_to_obj,
+    toolpath_to_svg,
+)
 
 from .machine import (
     BUILTIN_MACHINES,
@@ -271,6 +280,11 @@ class Design:
         self.ops.append(op)
         return self
 
+    def pocket(self, options: PocketOptions) -> "Design":
+        "Append CNC pocket/profile milling ops generated from an options dict."
+        self.ops.extend(pocket_ops(options))
+        return self
+
     # ---- engine calls ----
     def gcode(
         self,
@@ -447,6 +461,45 @@ class Design:
             "compatible": not any(f["severity"] == "Error" for f in findings),
             "findings": findings,
         }
+
+    # ---- 3D Visualization and Export Helpers ----
+    def to_obj(self, include_travel: bool = False, printer: str = "generic") -> str:
+        """Export toolpath as 3D Wavefront OBJ mesh string."""
+        return toolpath_to_obj(self.ir(printer), include_travel=include_travel)
+
+    def export_obj(self, path: str, include_travel: bool = False, printer: str = "generic") -> None:
+        """Save toolpath as 3D Wavefront OBJ mesh file."""
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_obj(include_travel=include_travel, printer=printer))
+
+    def to_svg(self, width: int = 800, height: int = 800, printer: str = "generic") -> str:
+        """Export toolpath as 2D vector SVG projection string."""
+        return toolpath_to_svg(self.ir(printer), width=width, height=height)
+
+    def export_svg(self, path: str, width: int = 800, height: int = 800, printer: str = "generic") -> None:
+        """Save toolpath as 2D vector SVG projection file."""
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_svg(width=width, height=height, printer=printer))
+
+    def to_html(
+        self,
+        title: str = "Dry 3D Toolpath Viewer",
+        bounds: Optional[Sequence[Sequence[float]]] = None,
+        printer: str = "generic",
+    ) -> str:
+        """Export toolpath as an interactive 3D WebGL HTML viewer string."""
+        return toolpath_to_interactive_html(self.ir(printer), title=title, bounds=bounds)
+
+    def export_html(
+        self,
+        path: str,
+        title: str = "Dry 3D Toolpath Viewer",
+        bounds: Optional[Sequence[Sequence[float]]] = None,
+        printer: str = "generic",
+    ) -> None:
+        """Save toolpath as an interactive 3D WebGL HTML viewer file."""
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_html(title=title, bounds=bounds, printer=printer))
 
 
 def feature(

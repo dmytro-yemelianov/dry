@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  verify-runner:
+    build:
+      context: ..
+      dockerfile: containers/verify-runner/Dockerfile
+    image: ghcr.io/dmytro-yemelianov/dry-verify-runner:latest
+    container_name: dry-verify-runner
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=verify_runner=info,tower_http=info
+      - ALLOWED_REGISTRY_HOST=127.0.0.1
+      - MAX_BODY_BYTES=209715200 # 200MB
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4096M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

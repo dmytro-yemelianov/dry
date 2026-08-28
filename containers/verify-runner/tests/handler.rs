@@ -669,3 +669,169 @@ async fn verify_missing_allowed_registry_host_env_returns_502_profile_unavailabl
     assert_eq!(json["stage"], "profile-unavailable");
     assert!(json["error"].is_string());
 }
+
+#[tokio::test]
+async fn readyz_returns_status_and_configuration() {
+    let _allow = EnvVarGuard::set("ALLOWED_REGISTRY_HOST", LOOPBACK_HOST);
+    let response = app(AppState::new())
+        .oneshot(
+            Request::builder()
+                .uri("/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = response_json(response).await;
+    assert_eq!(json["ready"], true);
+    assert_eq!(json["allowed_registry_host"], LOOPBACK_HOST);
+    assert_eq!(json["service"], "dry-verify-runner");
+}
+
+#[tokio::test]
+async fn readyz_reports_not_ready_when_allowed_registry_host_unset() {
+    let _allow = EnvVarGuard::unset("ALLOWED_REGISTRY_HOST");
+    let response = app(AppState::new())
+        .oneshot(
+            Request::builder()
+                .uri("/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = response_json(response).await;
+    assert_eq!(json["ready"], false);
+    assert!(json["allowed_registry_host"].is_null());
+}
+
+#[tokio::test]
+async fn metrics_endpoint_returns_prometheus_format() {
+    let response = app(AppState::new())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(text.contains("dry_verify_requests_total"));
+    assert!(text.contains("dry_verify_active_requests"));
+    assert!(text.contains("dry_verify_segments_inspected_total"));
+}
+
+#[tokio::test]
+async fn request_id_is_propagated_or_generated() {
+    let app = app(AppState::new());
+
+    // 1. Given explicit X-Request-ID
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .header("x-request-id", "test-custom-trace-id-12345")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let echoed_id = response.headers().get("x-request-id").unwrap().to_str().unwrap();
+    assert_eq!(echoed_id, "test-custom-trace-id-12345");
+
+    // 2. Generated when omitted
+    let response2 = app
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response2.status(), StatusCode::OK);
+    let gen_id = response2.headers().get("x-request-id").unwrap().to_str().unwrap();
+    assert!(gen_id.starts_with("req-"));
+}
+
+#[tokio::test]
+async fn verify_with_valid_bearer_token_stamps_licensed_mode() {
+    let _allow = EnvVarGuard::apply(&[
+        ("ALLOWED_REGISTRY_HOST", Some(LOOPBACK_HOST)),
+        ("DRY_LICENSE_ALLOW_TEST_KEY", Some("1")),
+    ]);
+    let valid_token = "DRY-LICENSE-V1.eyJpZCI6IjAxVEVTVEZJWFRVUkUiLCJsaWNlbnNlZSI6IlRlc3QgQ28iLCJlbWFpbCI6InRAZXhhbXBsZS5jb20iLCJ0aWVyIjoidGVhbSIsIm1hY2hpbmVzIjoyNSwiaXNzdWVkIjoiMjAyNi0wNy0yOCIsImV4cGlyZXMiOiIyMTAwLTAxLTAxIiwiaXNzdWVkX3VuaXgiOjE3ODUwMDAwMDAsImV4cGlyZXNfdW5peCI6NDEwMjQ0NDgwMCwia2V5X2lkIjoidGVzdC0xIn0.zvNIVMZ_Ox-L2Aqa9wlDdtQfdEnqPvw2VqlOjMVmt4d679DVKd_dm79uT99H_zh9O-7Hfv459PhhuiDBuiZ2BQ";
+
+    let profile_text = fixture_profile_text();
+    let gcode = std::fs::read(fixture_gcode_path()).unwrap();
+    let (registry, _server) = spawn_stub_registry(
+        "HTTP/1.1 200 OK",
+        profile_text,
+        "GET /v1/profiles/marlin-pla-i3/0.1.0/marlin-pla-i3 ",
+    );
+
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!(
+            "/verify?pack=marlin-pla-i3&version=0.1.0&profile=marlin-pla-i3&registry={registry}"
+        ))
+        .header("authorization", format!("Bearer {valid_token}"))
+        .body(Body::from(gcode))
+        .unwrap();
+
+    let response = app(AppState::new()).oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let json = response_json(response).await;
+    assert_eq!(json["license"]["mode"], "licensed");
+    assert_eq!(json["license"]["licensee"], "Test Co");
+    assert_eq!(json["license"]["tier"], "team");
+}
+
+#[tokio::test]
+async fn verify_with_invalid_bearer_token_returns_401_unauthorized() {
+    let _allow = EnvVarGuard::set("ALLOWED_REGISTRY_HOST", LOOPBACK_HOST);
+    let gcode = std::fs::read(fixture_gcode_path()).unwrap();
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/verify?pack=marlin-pla-i3&version=0.1.0&profile=marlin-pla-i3&registry=http://127.0.0.1")
+        .header("authorization", "Bearer DRY-LICENSE-V1.malformed.payload")
+        .body(Body::from(gcode))
+        .unwrap();
+
+    let response = app(AppState::new()).oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let json = response_json(response).await;
+    assert_eq!(json["stage"], "input-invalid");
+    assert!(json["error"].as_str().unwrap().contains("invalid license token"));
+}
+
+#[tokio::test]
+async fn verify_rate_limiting_enforcement() {
+    use verify_runner::RateLimiter;
+    let limiter = RateLimiter::default();
+    let now = std::time::Instant::now();
+    for _ in 0..10 {
+        assert!(limiter.check_and_record("client-a", 10, now));
+    }
+    // 11th request in the same window is rejected
+    assert!(!limiter.check_and_record("client-a", 10, now));
+    // Different client succeeds
+    assert!(limiter.check_and_record("client-b", 10, now));
+}
+

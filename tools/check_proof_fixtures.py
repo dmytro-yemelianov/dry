@@ -131,7 +131,21 @@ def evaluate(lean_fixture: str, *arguments: str) -> str:
         text=True,
     )
     if result.returncode:
-        raise RuntimeError(result.stderr or result.stdout)
+        error_msg = result.stderr or result.stdout
+        if any(
+            pattern in error_msg
+            for pattern in (
+                "unknown module prefix 'Dry'",
+                "Dry.olean",
+                ".olean' of module Dry",
+                "does not exist",
+            )
+        ):
+            error_msg += (
+                "\n\nHint: Lean module artifacts for Dry are not built. "
+                "Run `lake exe cache get && lake build` inside `formal/` first."
+            )
+        raise RuntimeError(error_msg)
     return result.stdout
 
 

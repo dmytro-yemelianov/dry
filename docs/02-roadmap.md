@@ -187,6 +187,39 @@ marked empirical/pending; Rust passes independent refinement checks; FFF and the
 workflow satisfy the bounded conditional compiler theorem; and an independent reviewer reproduces the
 proof build, numeric profiles, boundary inventory and claim registry.
 
+## Track C — Industrial Standards & Certification
+
+**Goal:** Qualify the Dry engine, IR, and container services against tier-1 manufacturing, aerospace, medical, and cybersecurity standards. See [`26-industrial-certification-and-standards.md`](26-industrial-certification-and-standards.md).
+
+* **Additive & Subtractive CAM Standards**:
+  * **ISO/ASTM 52915 (3MF Core & Toolpath Extension)**: Official 3MF Consortium Compliance Seal for lossless interchange with Siemens NX, Netfabb, and OEM slicing engines.
+  * **ISO 14649 (STEP-NC AP 238)**: Full semantic workingstep compliance for high-precision 5-axis aerospace machining.
+  * **ISO 6983-1 / DIN 66025 (RS-274)**: Modal block conflict auditing and independent LinuxCNC / Fanuc conformance.
+* **Safety-Critical & Formal Verification Standards**:
+  * **DO-178C / DO-333 (Level A/B/C)**: Formal Methods Evidence Kit based on Lean 4 machine-checked proofs for flight-critical additive manufacturing path planning.
+  * **IEC 62304 (Class B/C)**: Medical device software life cycle qualification for patient-specific orthopedic and dental implants.
+  * **ISO 26262 (ASIL D)**: Automotive functional safety Tool Confidence Level (TCL 2/3) qualification.
+* **Cybersecurity, Cloud & Supply Chain**:
+  * **SOC 2 Type II**: Security, Availability, and Zero-Retention confidentiality certification for `dry-verify-runner`.
+  * **SLSA Level 3/4 & NIST SP 800-218 (SSDF)**: Verifiable cryptographic container provenance, Sigstore/Cosign container signing, and SPDX/CycloneDX SBOM generation.
+
+## Track E — Advanced CAM & Computational Geometry Expansion
+
+**Goal:** Expand the CAM kernel from 2.5D prismatic milling and analytic draping into adaptive high-speed machining, arbitrary mesh heightfields, and functionally graded metamaterials.
+
+* **E1.1 (Radial Tool Engagement & Trochoidal Milling)**: Dynamically calculate radial cutter engagement angle $\theta_e(s)$ and automatically generate trochoidal peeling loops in $90^\circ+$ internal corners to maintain constant cutting load ($\text{MRR} = \text{const}$).
+* **E1.2 (Helical Ramp Entry & Plunge Protection)**: Automatic helical spiral ramp-in before pocket clearing in hard materials (aluminum/steel/titanium).
+* **E1.3 (Mesh Heightfield 5-Axis Drape)**: Ray-surface BVH (Bounding Volume Hierarchy) accelerated projection over imported STL/OBJ triangle meshes for conformal non-planar 3D printing and 5-axis subtractive milling.
+* **E1.4 (Functionally Graded TPMS Metamaterials)**: Spatially varying scalar density field $c(x,y,z)$ modulating TPMS isovalue smoothly across parts.
+
+## Track M — Deepened Mathematical Assurance (FM2)
+
+**Goal:** Formally connect machine-checked Lean 4 semantics with IEEE-754 floating-point execution and kinematic singularities.
+
+* **FM2.1 (IEEE 754 Floating-Point Refinement)**: Formally prove that the Rust `f64` implementation refines the exact rational $\mathbb{Q}$ semantics within a computable error bound $\varepsilon$: $|\text{Rust}_{\text{vol}}(f64) - \text{Lean}_{\text{vol}}(\mathbb{Q})| \le \varepsilon$.
+* **FM2.2 (Euler Spiral / Fresnel Curvature Linearity)**: Formally prove bounded curvature derivative error ($d\kappa/ds = \text{const}$) in Lean 4 across full deflection intervals.
+* **FM2.3 (5-Axis Polar Singularity Hold)**: Formally verify polar hold invariance ($k = \pm 1$) in BC kinematics proving zero-division immunity.
+
 ## Risk register
 
 | Risk | Likelihood | Impact | Mitigation |
@@ -198,24 +231,18 @@ proof build, numeric profiles, boundary inventory and claim registry.
 | **Second-system over-design** | medium | medium | Anchor every abstraction to an *oracle-validated behaviour* (architecture §10); if it isn't reused or conformance-tested, defer it. |
 | **Two codebases to maintain** (fork + new) until P6 | certain | medium | Freeze the fork to maintenance-only once P1 starts; all new feature work goes to the new core. |
 | **Parity gates ≠ robustness gates** (the conformance suite proves Dry matches the oracle on *well-formed* input; nothing in it exercises malformed, degenerate or hostile input) | certain | high | Confirmed by the 2026-07-31 core audit: every conformance corpus is oracle-generated and therefore well-formed by construction, so defects reachable only from hand-built IR, imported g-code, the binary codec or the SDKs' raw JSON were invisible to a green suite — including non-finite values printed verbatim into g-code. Mitigation: the **H1 hardening workstream** (`04-tasks.md`) validates at every ingress and at emit; add degenerate-input vectors to `conformance/` rather than relying on oracle-generated corpora alone. |
+| **Compliance drift across regulatory targets** (aerospace vs medical vs cloud) | medium | high | Maintain standardized, machine-verifiable evidence kits in `docs/26-industrial-certification-and-standards.md` generated automatically by CI. |
 
 ## Sequencing & dependencies
 
 ```
-P0 ──► P1 ──► P2 ──────────► P6 (cut)
-         └──► P3 ──► P4 ──┘
-                     └► P5 (parallel, lands before/with P6)
-
-P2.3 ─┐
-P4.3 ─┼──► D1 activation ──► language foundations ──► target loop ──► ecosystem + hardware gates
-P5.3/4┘
+P0 ──► P1 ──► P2 ──────────► P6 (cut: standalone Dry ecosystem)
+         └──► P3 ──► P4 ──┘       │
+                     └► P5 ───────┼──► Track E (Advanced CAM / Trochoidal / Mesh Drape)
+                                  ├──► Track M (FM2 Deepened Lean 4 Refinements)
+                                  └──► Track C (Industrial Standards & Certification)
 ```
 
-D1 remains outside the current critical path. Its activation consumes the published L2 contract,
-feature-expansion experience and one accepted non-FFF prototype; it does not delay finishing P6.
-Critical path: **P0 → P1 → P2 → P6**. P3 (engine surface + web) and P4 (multi-SDK + standard) branch off
-P1/P2 and can run in parallel. P5 (generalisation) depends on P1's toolframe design and lands alongside
-P6. The cut (P6) requires the full conformance suite green — i.e. P2 (gallery) + P1 (output) + P4
-(cross-SDK) gates all passing.
+Critical path: **P0 → P1 → P2 → P6** (Completed). Tracks C, E, and M build upon the stabilized v0.7.0 core.
 
-See `03-conformance.md` for how the gates are defined and `04-tasks.md` for the actionable backlog.
+See `03-conformance.md` for how the gates are defined, `04-tasks.md` for the actionable backlog, and `26-industrial-certification-and-standards.md` for certification criteria.

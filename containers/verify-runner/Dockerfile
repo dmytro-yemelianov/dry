@@ -28,6 +28,9 @@ FROM debian:bookworm-slim AS runtime
 # base image for ALL users, not just root, so the non-root user below can still stream request
 # bodies there — no extra chmod needed.
 #
+# Install curl for container healthcheck probe.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # Run as a fixed-uid, non-root, non-login system user (defense in depth: a dry-core panic or an
 # engine bug in the request path shouldn't hand an attacker root inside the container).
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin runner
@@ -36,4 +39,7 @@ COPY --from=build /src/containers/verify-runner/target/release/dry-verify-runner
 
 USER runner
 EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://127.0.0.1:8080/healthz || exit 1
+
 ENTRYPOINT ["/usr/local/bin/dry-verify-runner"]

@@ -53,3 +53,22 @@ test('pocket throws descriptive error when tool is larger than pocket', () => {
   };
   assert.throws(() => pocketOps(options), /tool_diameter|pocket/);
 });
+
+test('Design.pocket fluent builder method appends pocket ops', () => {
+  const { Design } = require('../src/index');
+  const d = new Design();
+  d.pocket({
+    shape: 'rect',
+    x: 0,
+    y: 0,
+    width: 40,
+    height: 30,
+    toolDiameter: 6,
+    depth: 5,
+    depthPerPass: 2.5,
+  });
+  assert.ok(d.ops.length > 5, 'Design.pocket should append ops to design');
+  const ir = d.ir();
+  assert.ok(ir.segments.length > 5, 'Design with pocket should resolve to toolpath');
+});
+

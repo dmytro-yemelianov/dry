@@ -51,3 +51,21 @@ def test_pocket_tool_larger_than_geometry_raises():
     }
     with pytest.raises(ValueError):
         dry.pocket_ops(options)
+
+
+def test_design_pocket_fluent_builder():
+    d = dry.Design()
+    d.pocket({
+        "shape": "rect",
+        "x": 0.0,
+        "y": 0.0,
+        "width": 30.0,
+        "height": 20.0,
+        "toolDiameter": 4.0,
+        "depth": 2.0,
+        "depthPerPass": 1.0,
+    })
+    assert len(d.ops) > 0
+    ir = d.ir()
+    assert len(ir["segments"]) > 0
+

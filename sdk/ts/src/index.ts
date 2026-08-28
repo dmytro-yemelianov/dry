@@ -81,5 +81,13 @@ export type {
 } from './machine';
 
 export type { AxisRange, CompatibilityFinding, CompatibilityReport, MachineCapabilities } from './design';
-export { renderFrameAxes, renderMachineEnvelope, renderPassColorSegments } from './visualizer';
+export {
+  renderFrameAxes,
+  renderMachineEnvelope,
+  renderPassColorSegments,
+  toolpathToInteractiveHtml,
+  toolpathToObj,
+  toolpathToSvg,
+} from './visualizer';
 export type { AxisLine, PassSegmentGroup, Point3D, WireframeBox } from './visualizer';
+

@@ -12,6 +12,13 @@ import {
   resolveVerify,
 } from './engine';
 import type { MachineKinematics } from './engine';
+import { pocketOps } from './generators/pocket';
+import type { PocketOptions } from './generators/pocket';
+import {
+  toolpathToInteractiveHtml,
+  toolpathToObj,
+  toolpathToSvg,
+} from './visualizer';
 
 function params(printer: string) {
   const p = PRINTERS[printer];
@@ -379,6 +386,12 @@ export class Design {
     return this;
   }
 
+  /** Append CNC pocket/profile milling ops generated from options. */
+  pocket(options: PocketOptions): this {
+    this.ops.push(...pocketOps(options));
+    return this;
+  }
+
   // ---- engine calls ----
 
   /**
@@ -569,6 +582,25 @@ export class Design {
       compatible: !findings.some((f) => f.severity === 'Error'),
       findings,
     };
+  }
+
+  /** Export toolpath as a 3D Wavefront .obj mesh string. */
+  toObj(includeTravel = false, printer = 'generic'): string {
+    return toolpathToObj(this.ir(printer), includeTravel);
+  }
+
+  /** Export toolpath as a 2D (XY) vector SVG projection string. */
+  toSvg(width = 800, height = 800, padding = 40.0, printer = 'generic'): string {
+    return toolpathToSvg(this.ir(printer), width, height, padding);
+  }
+
+  /** Export toolpath as a standalone interactive 3D WebGL HTML viewer string. */
+  toHtml(
+    title = 'Dry 3D Toolpath Viewer',
+    bounds?: [number, number, number, number, number, number],
+    printer = 'generic'
+  ): string {
+    return toolpathToInteractiveHtml(this.ir(printer), title, bounds);
   }
 }
 

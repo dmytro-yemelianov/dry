@@ -37,7 +37,7 @@
 
 use axum::{
     extract::{Query, Request, State},
-    http::StatusCode,
+    http::{HeaderName, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -48,10 +48,76 @@ use serde::Deserialize;
 use std::io;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio_util::io::StreamReader;
 use tower_http::limit::RequestBodyLimitLayer;
+
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+/// Header name used for end-to-end distributed request tracing.
+pub static X_REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
+
+/// In-memory sliding-window rate limiter per client key.
+#[derive(Default, Debug)]
+pub struct RateLimiter {
+    clients: Mutex<HashMap<String, Vec<Instant>>>,
+}
+
+impl RateLimiter {
+    pub fn check_and_record(&self, key: &str, limit_per_minute: usize, now: Instant) -> bool {
+        let mut map = self.clients.lock().unwrap_or_else(|p| p.into_inner());
+        let timestamps = map.entry(key.to_string()).or_default();
+        let window = Duration::from_secs(60);
+        timestamps.retain(|&t| now.duration_since(t) < window);
+        if timestamps.len() >= limit_per_minute {
+            false
+        } else {
+            timestamps.push(now);
+            true
+        }
+    }
+}
+
+/// Production public keys trusted by this runner.
+pub const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[(
+    "dry-prod-2026-08",
+    [
+        0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41, 0x60,
+        0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03, 0x5f, 0x37,
+        0x7b, 0xcd,
+    ],
+)];
+
+/// The verification keys accepted: production keys always, plus test key in debug/opt-in mode.
+pub fn license_keys() -> Vec<(&'static str, [u8; 32])> {
+    let mut keys: Vec<(&'static str, [u8; 32])> = PRODUCTION_KEYS.to_vec();
+    let allow_test = cfg!(debug_assertions)
+        || std::env::var("DRY_LICENSE_ALLOW_TEST_KEY").is_ok_and(|v| v == "1");
+    if allow_test {
+        keys.push((dry_license::TEST_KEY_ID, dry_license::TEST_VERIFYING_KEY));
+    }
+    keys
+}
+
+fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Server telemetry and runtime metrics tracker.
+#[derive(Default, Debug)]
+pub struct ServerMetrics {
+    pub requests_total: AtomicU64,
+    pub requests_success: AtomicU64,
+    pub requests_error: AtomicU64,
+    pub segments_inspected_total: AtomicU64,
+    pub active_requests: AtomicU64,
+}
 
 /// Worker enforces a 100MB `Content-Length` cap upstream; this is deliberate headroom, not the
 /// product limit (see the task's Global Constraints).
@@ -76,10 +142,12 @@ const PROFILE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 /// [`fetch_profile`]).
 const ALLOWED_REGISTRY_HOST_ENV: &str = "ALLOWED_REGISTRY_HOST";
 
-/// Shared server state: just the reqwest client (connection-pooled, reused across requests).
+/// Shared server state: connection-pooled reqwest client, rate limiter, and server metrics.
 #[derive(Clone)]
 pub struct AppState {
     http: reqwest::Client,
+    metrics: Arc<ServerMetrics>,
+    rate_limiter: Arc<RateLimiter>,
 }
 
 impl AppState {
@@ -88,7 +156,15 @@ impl AppState {
             .timeout(PROFILE_FETCH_TIMEOUT)
             .build()
             .expect("reqwest client with rustls-tls backend builds");
-        AppState { http }
+        AppState {
+            http,
+            metrics: Arc::new(ServerMetrics::default()),
+            rate_limiter: Arc::new(RateLimiter::default()),
+        }
+    }
+
+    pub fn metrics(&self) -> &ServerMetrics {
+        &self.metrics
     }
 }
 
@@ -98,11 +174,37 @@ impl Default for AppState {
     }
 }
 
+/// Middleware that extracts or assigns an `X-Request-ID` and attaches it to response headers.
+async fn request_id_middleware(request: Request, next: axum::middleware::Next) -> Response {
+    let req_id = request
+        .headers()
+        .get(&X_REQUEST_ID)
+        .and_then(|val| val.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            static COUNTER: AtomicU64 = AtomicU64::new(1);
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_micros())
+                .unwrap_or(0);
+            let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+            format!("req-{ts:x}-{seq:x}")
+        });
+
+    let header_val = HeaderValue::from_str(&req_id).unwrap_or_else(|_| HeaderValue::from_static("unknown"));
+
+    let mut response = next.run(request).await;
+    response.headers_mut().insert(X_REQUEST_ID.clone(), header_val);
+    response
+}
+
 /// Build the axum router. Shared by `main.rs` (bound to a real socket) and the integration tests
 /// (driven in-process via `tower::ServiceExt::oneshot`).
 pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
+        .route("/metrics", get(metrics_handler))
         .route("/verify", post(verify_handler))
         // NOT `axum::extract::DefaultBodyLimit`: that only caps `Bytes`-based extractors, and
         // `verify_handler` reads the raw body itself (see step 1 below). `RequestBodyLimitLayer`
@@ -118,6 +220,7 @@ pub fn app(state: AppState) -> Router {
         // streaming-overrun path already uses (the `tokio::io::copy` error arm in `verify_handler`).
         // Any other status passes through unchanged.
         .layer(axum::middleware::map_response(map_body_limit_response))
+        .layer(axum::middleware::from_fn(request_id_middleware))
         .with_state(Arc::new(state))
 }
 
@@ -136,8 +239,51 @@ async fn map_body_limit_response(response: Response) -> Response {
     )
 }
 
+/// Liveness probe: returns basic status ok.
 async fn healthz() -> impl IntoResponse {
     Json(serde_json::json!({ "ok": true }))
+}
+
+/// Readiness probe: reports whether the runner is configured and ready to accept verification requests.
+async fn readyz() -> impl IntoResponse {
+    let allowed_host = std::env::var(ALLOWED_REGISTRY_HOST_ENV).ok();
+    let is_ready = allowed_host.is_some();
+    Json(serde_json::json!({
+        "ready": is_ready,
+        "allowed_registry_host": allowed_host,
+        "max_body_bytes": effective_max_body_bytes(),
+        "service": "dry-verify-runner",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
+/// Prometheus telemetry metrics handler.
+async fn metrics_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let total = state.metrics.requests_total.load(Ordering::Relaxed);
+    let success = state.metrics.requests_success.load(Ordering::Relaxed);
+    let error = state.metrics.requests_error.load(Ordering::Relaxed);
+    let active = state.metrics.active_requests.load(Ordering::Relaxed);
+    let segments = state.metrics.segments_inspected_total.load(Ordering::Relaxed);
+
+    let prometheus_text = format!(
+        "# HELP dry_verify_requests_total Total number of verify requests processed\n\
+         # TYPE dry_verify_requests_total counter\n\
+         dry_verify_requests_total{{status=\"total\"}} {total}\n\
+         dry_verify_requests_total{{status=\"success\"}} {success}\n\
+         dry_verify_requests_total{{status=\"error\"}} {error}\n\
+         # HELP dry_verify_active_requests Current active in-flight requests\n\
+         # TYPE dry_verify_active_requests gauge\n\
+         dry_verify_active_requests {active}\n\
+         # HELP dry_verify_segments_inspected_total Total G-code segments verified\n\
+         # TYPE dry_verify_segments_inspected_total counter\n\
+         dry_verify_segments_inspected_total {segments}\n"
+    );
+
+    (
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        prometheus_text,
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -176,11 +322,138 @@ fn error_response(status: StatusCode, stage: Stage, message: impl std::fmt::Disp
     (status, Json(body)).into_response()
 }
 
+/// RAII guard for the temporary g-code file uploaded during verification.
+/// Ensures the file is unlinked immediately when dropped, even on error or panic.
+pub struct EphemeralGcodeFile {
+    inner: Option<tempfile::NamedTempFile>,
+}
+
+impl EphemeralGcodeFile {
+    pub fn new(file: tempfile::NamedTempFile) -> Self {
+        Self { inner: Some(file) }
+    }
+
+    pub fn path(&self) -> Option<&Path> {
+        self.inner.as_ref().map(|f| f.path())
+    }
+
+    pub fn close(mut self) {
+        if let Some(f) = self.inner.take() {
+            let path = f.path().to_path_buf();
+            let _ = f.close();
+            tracing::debug!(path = %path.display(), "ephemeral g-code file securely unlinked from disk");
+        }
+    }
+}
+
+impl Drop for EphemeralGcodeFile {
+    fn drop(&mut self) {
+        if let Some(f) = self.inner.take() {
+            let path = f.path().to_path_buf();
+            let _ = f.close();
+            tracing::debug!(path = %path.display(), "ephemeral g-code file dropped and unlinked");
+        }
+    }
+}
+
 async fn verify_handler(
     State(state): State<Arc<AppState>>,
     Query(params): Query<VerifyParams>,
     request: Request,
 ) -> Response {
+    let start_time = Instant::now();
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+    state.metrics.active_requests.fetch_add(1, Ordering::Relaxed);
+
+    struct ActiveGuard(Arc<ServerMetrics>);
+    impl Drop for ActiveGuard {
+        fn drop(&mut self) {
+            self.0.active_requests.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
+    let _active_guard = ActiveGuard(state.metrics.clone());
+
+    // 0. Authenticate & Resolve License Mode
+    let auth_header = request
+        .headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok());
+
+    let (license_stamp, client_key, is_licensed) = match auth_header {
+        Some(header) if header.starts_with("Bearer ") || header.starts_with("bearer ") => {
+            let token = header[7..].trim();
+            let keys = license_keys();
+            match dry_license::verify_token(token, &keys, now_unix()) {
+                Ok(verified) => match verified.state {
+                    dry_license::LicenseState::Expired => {
+                        state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+                        tracing::warn!(licensee = %verified.payload.licensee, "license expired past grace period");
+                        return error_response(
+                            StatusCode::UNAUTHORIZED,
+                            Stage::InputInvalid,
+                            format!("license for {} expired and is past grace period", verified.payload.licensee),
+                        );
+                    }
+                    _ => {
+                        let stamp = dry_core::LicenseStamp {
+                            mode: "licensed".to_string(),
+                            licensee: Some(verified.payload.licensee.clone()),
+                            tier: Some(verified.payload.tier.to_string()),
+                        };
+                        let key = format!("lic:{}", verified.payload.licensee);
+                        (Some(stamp), key, true)
+                    }
+                },
+                Err(err) => {
+                    state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+                    tracing::warn!(error = %err, "invalid license token");
+                    return error_response(
+                        StatusCode::UNAUTHORIZED,
+                        Stage::InputInvalid,
+                        format!("invalid license token: {err}"),
+                    );
+                }
+            }
+        }
+        Some(_) => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            return error_response(
+                StatusCode::UNAUTHORIZED,
+                Stage::InputInvalid,
+                "malformed Authorization header; expected 'Bearer <token>'",
+            );
+        }
+        None => {
+            // Unauthenticated / Evaluation Mode
+            (None, "anonymous".to_string(), false)
+        }
+    };
+
+    // 0.1 Rate Limiting Check
+    let rpm_limit = if is_licensed { 1200 } else { 120 };
+    if !state.rate_limiter.check_and_record(&client_key, rpm_limit, Instant::now()) {
+        state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+        tracing::warn!(client = %client_key, limit = rpm_limit, "rate limit exceeded");
+        let mut resp = error_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            Stage::InputInvalid,
+            "rate limit exceeded; try again later",
+        );
+        resp.headers_mut().insert(
+            axum::http::header::RETRY_AFTER,
+            axum::http::HeaderValue::from_static("60"),
+        );
+        return resp;
+    }
+
+    tracing::info!(
+        pack = %params.pack,
+        version = %params.version,
+        profile = %params.profile,
+        licensed = is_licensed,
+        "starting verify request"
+    );
+
     // 1. Stream the raw g-code body to a tempfile under /tmp — never buffer the whole upload in
     // one `Vec<u8>`. The spike (docs/superpowers/specs/2026-07-28-cloud-spike-findings.md) found
     // that holding the raw body in memory *in addition to* dry-core's own ~43-50x import blowup is
@@ -193,21 +466,25 @@ async fn verify_handler(
     {
         Ok(f) => f,
         Err(e) => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            tracing::error!(error = %e, "cannot create tempfile");
             return error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Stage::EngineError,
                 format!("cannot create tempfile: {e}"),
-            )
+            );
         }
     };
     let write_fd = match named_file.reopen() {
         Ok(f) => f,
         Err(e) => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            tracing::error!(error = %e, "cannot reopen tempfile for write");
             return error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Stage::EngineError,
                 format!("cannot reopen tempfile for write: {e}"),
-            )
+            );
         }
     };
     let mut sink = tokio::fs::File::from_std(write_fd);
@@ -217,6 +494,8 @@ async fn verify_handler(
         .map_err(io::Error::other);
     let mut reader = StreamReader::new(data_stream);
     if let Err(e) = tokio::io::copy(&mut reader, &mut sink).await {
+        state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+        tracing::warn!(error = %e, "failed reading request body");
         // Covers both a genuinely malformed/truncated stream AND `RequestBodyLimitLayer` rejecting
         // an over-cap body (surfaced here as a stream read error, not a separate rejection type) —
         // both are `input-invalid`, so both get the same 422 every other `Stage::InputInvalid`
@@ -228,6 +507,8 @@ async fn verify_handler(
         );
     }
     drop(sink);
+
+    let ephemeral = EphemeralGcodeFile::new(named_file);
 
     // 2. Fetch the resolved profile from the registry (see the module doc for the profile=<id>
     // decision). Any failure — network error, non-2xx, unparseable body — is profile-unavailable.
@@ -241,36 +522,77 @@ async fn verify_handler(
     let profile = match fetch_profile(&state.http, &profile_url).await {
         Ok(profile) => profile,
         Err(message) => {
-            return error_response(StatusCode::BAD_GATEWAY, Stage::ProfileUnavailable, message)
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            tracing::warn!(url = %profile_url, error = %message, "failed to fetch profile");
+            return error_response(StatusCode::BAD_GATEWAY, Stage::ProfileUnavailable, message);
         }
     };
 
     // 3. Import + verify on a blocking thread (dry-core is synchronous, CPU-bound, and can take
     // ~1s/50MB per the spike's native-baseline numbers — keep it off the async reactor).
-    let path = named_file.path().to_path_buf();
-    let outcome = tokio::task::spawn_blocking(move || run_verify(&path, &profile)).await;
-    drop(named_file); // deletes the tempfile now that reading is done.
+    let path = match ephemeral.path() {
+        Some(p) => p.to_path_buf(),
+        None => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            return error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Stage::EngineError,
+                "ephemeral tempfile path missing",
+            );
+        }
+    };
+    let outcome = tokio::task::spawn_blocking(move || run_verify(&path, &profile, license_stamp)).await;
+    ephemeral.close(); // Explicitly delete the ephemeral file as soon as reading finishes.
 
     match outcome {
-        Ok(Ok(report_bytes)) => (
-            StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, "application/json")],
-            report_bytes,
-        )
-            .into_response(),
+        Ok(Ok((report_bytes, segment_count))) => {
+            let elapsed = start_time.elapsed();
+            state.metrics.requests_success.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .segments_inspected_total
+                .fetch_add(segment_count as u64, Ordering::Relaxed);
+
+            tracing::info!(
+                pack = %params.pack,
+                version = %params.version,
+                profile = %params.profile,
+                segments_inspected = segment_count,
+                duration_ms = elapsed.as_millis(),
+                "verify request completed successfully"
+            );
+
+            (
+                StatusCode::OK,
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                report_bytes,
+            )
+                .into_response()
+        }
         Ok(Err((stage, message))) => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
             let status = match stage {
                 Stage::InputInvalid => StatusCode::UNPROCESSABLE_ENTITY,
                 Stage::EngineError => StatusCode::INTERNAL_SERVER_ERROR,
                 Stage::ProfileUnavailable => StatusCode::BAD_GATEWAY,
             };
+            tracing::warn!(
+                stage = stage.as_str(),
+                status = status.as_u16(),
+                error = %message,
+                "verify request failed"
+            );
             error_response(status, stage, message)
         }
-        Err(join_error) => error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Stage::EngineError,
-            format!("verify worker task failed: {join_error}"),
-        ),
+        Err(join_error) => {
+            state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
+            tracing::error!(error = %join_error, "verify worker task failed");
+            error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Stage::EngineError,
+                format!("verify worker task failed: {join_error}"),
+            )
+        }
     }
 }
 
@@ -342,7 +664,11 @@ async fn fetch_profile(client: &reqwest::Client, url: &str) -> Result<Profile, S
 /// when the profile omits them. Absent profile process fields (`process.line_width`,
 /// `process.layer_height`) are left `None` here exactly as they are in that CLI composition — no
 /// forced defaults.
-fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)> {
+fn run_verify(
+    path: &Path,
+    profile: &Profile,
+    license_stamp: Option<dry_core::LicenseStamp>,
+) -> Result<(Vec<u8>, usize), (Stage, String)> {
     let file = std::fs::File::open(path).map_err(|e| {
         (
             Stage::EngineError,
@@ -355,27 +681,20 @@ fn run_verify(path: &Path, profile: &Profile) -> Result<Vec<u8>, (Stage, String)
     let imported = import_gcode_reader_with_map(file, &params)
         .map_err(|e| (Stage::InputInvalid, e.to_string()))?;
 
+    let segment_count = imported.toolpath.segments.len();
     let contracts = profile.contracts();
     let mut report = catch_unwind(AssertUnwindSafe(|| verify(&imported.toolpath, &contracts)))
         .map_err(|_| (Stage::EngineError, "dry-core verify panicked".to_string()))?;
-    // This container has no license resolution of its own (no env, no config file — see
-    // `crates/cli/src/main.rs`'s `resolve_license`), so it always stamps evaluation mode. That
-    // matches the reference composition in CI/tests, which never sets `DRY_LICENSE`; the CLI
-    // stamps every `dry verify --json` report (eval or licensed — see `license_stamp` in
-    // `crates/cli/src/main.rs`), so byte-identity requires this shim to do the same.
-    //
-    // Product decision: this is deliberate, not a gap to close here. The runner mirrors the
-    // CLI's unlicensed output byte-for-byte; cloud-side licensing is out of scope while the
-    // cloud surface is an archived spike (see `crates/cloud/README.md`). A future paid cloud
-    // surface must stamp the report from the dispatching layer (the service that knows which
-    // customer/license issued the request), not from this container.
-    report.license = Some(dry_core::LicenseStamp {
-        mode: "evaluation".to_string(),
-        licensee: None,
-        tier: None,
+
+    report.license = license_stamp.or_else(|| {
+        Some(dry_core::LicenseStamp {
+            mode: "evaluation".to_string(),
+            licensee: None,
+            tier: None,
+        })
     });
 
     let json = serde_json::to_string_pretty(&report)
         .map_err(|e| (Stage::EngineError, format!("cannot serialize report: {e}")))?;
-    Ok(format!("{json}\n").into_bytes())
+    Ok((format!("{json}\n").into_bytes(), segment_count))
 }
