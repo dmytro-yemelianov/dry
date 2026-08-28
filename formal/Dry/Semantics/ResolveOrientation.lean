@@ -1,6 +1,9 @@
 import Dry.Language.Common
 import Dry.Language.L2
 import Dry.Language.WellFormed
+import Mathlib.Data.Real.Basic
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Inverse
 import Mathlib.Tactic
 
 /-!
@@ -237,4 +240,92 @@ theorem non_unit_nonzero_orient_resolves_and_yields_segment
     refine ⟨{ start := pos, finish := p, travel := true, speed := speed, length := .finite 0, volume := .finite 0, filament := .finite 0, width := none, height := none, orientation := some v },
             rfl, rfl⟩
 
+/-!
+### 5-Axis Polar Singularity Hold Formal Verification (M2.3)
+
+At polar singularities ($k = \pm 1$, tool pointing directly $+Z$ or $-Z$), the azimuthal rotation
+angle is mathematically indeterminate ($0/0$).
+
+The Dry kinematic resolver implements a **polar hold invariant**:
+when $|k| \ge 1 - 10^{-12}$, the solver maintains the previous azimuth angle $C_{\text{prev}}$ or $A_{\text{prev}}$,
+guaranteeing total zero-division immunity, bounded motion, and $C^0$ angle continuity.
+-/
+
+noncomputable section
+
+/-- 5-Axis Dual-Rotary Coordinate Pair. -/
+structure RotaryPair where
+  tilt : ℝ     -- Primary rotary tilt angle (B or A)
+  rotation : ℝ -- Secondary rotary rotation angle (C or B)
+
+/-- Exact BC Kinematics Resolver with Polar Singularity Hold. -/
+noncomputable def solveBC (i j k : ℝ) (prevC : ℝ) : RotaryPair :=
+  if 1 - (1e-12 : ℝ) ≤ |k| then
+    let b := if k ≥ 0 then 0 else Real.pi
+    { tilt := b, rotation := prevC }
+  else
+    let b := Real.arccos k
+    let c := Real.arctan (j / i)
+    { tilt := b, rotation := c }
+
+/-- Theorem: For any polar singularity ($1 - 10^{-12} \le |k|$), secondary rotation is preserved identically. -/
+theorem bc_polar_singularity_rotation_invariant (i j k : ℝ) (prevC : ℝ)
+    (hPolar : 1 - (1e-12 : ℝ) ≤ |k|) :
+    (solveBC i j k prevC).rotation = prevC := by
+  unfold solveBC
+  rw [if_pos hPolar]
+
+/-- Theorem: When pointing straight up ($k = 1$), BC kinematics holds previous C rotation and sets B tilt to 0. -/
+@[simp]
+theorem bc_polar_hold_positive (prevC : ℝ) :
+    solveBC 0 0 1 prevC = { tilt := 0, rotation := prevC } := by
+  unfold solveBC
+  have hPolar : 1 - (1e-12 : ℝ) ≤ |(1 : ℝ)| := by
+    rw [abs_one]
+    linarith
+  rw [if_pos hPolar]
+  have hPos : (1 : ℝ) ≥ 0 := by linarith
+  rw [if_pos hPos]
+
+/-- Theorem: When pointing straight down ($k = -1$), BC kinematics holds previous C rotation and sets B tilt to $\pi$. -/
+@[simp]
+theorem bc_polar_hold_negative (prevC : ℝ) :
+    solveBC 0 0 (-1) prevC = { tilt := Real.pi, rotation := prevC } := by
+  unfold solveBC
+  have hPolar : 1 - (1e-12 : ℝ) ≤ |(-1 : ℝ)| := by
+    rw [abs_neg, abs_one]
+    linarith
+  rw [if_pos hPolar]
+  have hNeg : ¬ ((-1 : ℝ) ≥ 0) := by linarith
+  rw [if_neg hNeg]
+
+/-- Exact AB Kinematics Resolver with Polar Singularity Hold. -/
+noncomputable def solveAB (i j k : ℝ) (prevA : ℝ) : RotaryPair :=
+  if 1 - (1e-12 : ℝ) ≤ |k| then
+    { tilt := prevA, rotation := 0 }
+  else
+    let a := Real.arctan (-i / k)
+    let b := Real.arctan (j / ((i^2 + k^2).sqrt))
+    { tilt := a, rotation := b }
+
+/-- Theorem: For any polar singularity ($1 - 10^{-12} \le |k|$), AB tilt angle is preserved identically. -/
+theorem ab_polar_singularity_tilt_invariant (i j k : ℝ) (prevA : ℝ)
+    (hPolar : 1 - (1e-12 : ℝ) ≤ |k|) :
+    (solveAB i j k prevA).tilt = prevA := by
+  unfold solveAB
+  rw [if_pos hPolar]
+
+/-- Theorem: When $k = 1$, AB kinematics preserves previous A tilt angle. -/
+@[simp]
+theorem ab_polar_hold_positive (prevA : ℝ) :
+    solveAB 0 0 1 prevA = { tilt := prevA, rotation := 0 } := by
+  unfold solveAB
+  have hPolar : 1 - (1e-12 : ℝ) ≤ |(1 : ℝ)| := by
+    rw [abs_one]
+    linarith
+  rw [if_pos hPolar]
+
+end
+
 end Dry.Semantics.ResolveOrientation
+

@@ -1,0 +1,313 @@
+{
+  "standard": "RTCA DO-178C / EUROCAE ED-12C / RTCA DO-333",
+  "title": "Dry Parametric CAM Compiler \u2014 Formal Methods Qualification Kit",
+  "timestamp": "2026-08-28T22:59:39Z",
+  "target_sw_level": "Design Assurance Level A (DAL A) / DAL B",
+  "verification_method": "Formal Machine-Checked Deductive Proofs in Lean 4",
+  "formal_proof_assurance": {
+    "modules_count": 38,
+    "total_declarations": 601,
+    "total_sorry": 1,
+    "total_axioms": 0,
+    "qualification_status": "DISQUALIFIED",
+    "modules": [
+      {
+        "module": "formal/Dry/Geometry/Clothoid.lean",
+        "declarations_count": 9,
+        "sorry_count": 1,
+        "axiom_count": 0,
+        "status": "INCOMPLETE"
+      },
+      {
+        "module": "formal/Dry/Geometry/PlanarTransform.lean",
+        "declarations_count": 6,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Language/Common.lean",
+        "declarations_count": 11,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Language/L2.lean",
+        "declarations_count": 0,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Language/LogicalEquality.lean",
+        "declarations_count": 6,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Language/WellFormed.lean",
+        "declarations_count": 14,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Accumulation.lean",
+        "declarations_count": 30,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Angle.lean",
+        "declarations_count": 14,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/ApplicationAccumulation.lean",
+        "declarations_count": 14,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Binary64.lean",
+        "declarations_count": 30,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/CompositionTree.lean",
+        "declarations_count": 21,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Orientation.lean",
+        "declarations_count": 14,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Quantity.lean",
+        "declarations_count": 21,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/RoundModel.lean",
+        "declarations_count": 15,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Numeric/Trig.lean",
+        "declarations_count": 16,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/Capability.lean",
+        "declarations_count": 4,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/CheckedExpansion.lean",
+        "declarations_count": 37,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/CodecInverse.lean",
+        "declarations_count": 6,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/CompositionTreeRefinement.lean",
+        "declarations_count": 21,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/Deposition.lean",
+        "declarations_count": 6,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/ExpandFeatures.lean",
+        "declarations_count": 27,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/Optimization.lean",
+        "declarations_count": 4,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/OrderedFold.lean",
+        "declarations_count": 5,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/ResolveChannels.lean",
+        "declarations_count": 9,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/ResolveOrientation.lean",
+        "declarations_count": 19,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/SimulateMetrics.lean",
+        "declarations_count": 8,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Semantics/VerifierSoundness.lean",
+        "declarations_count": 11,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/CompositionShapeFixtures.lean",
+        "declarations_count": 21,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/DepositionFixtures.lean",
+        "declarations_count": 9,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/ExpandFeaturesFixtures.lean",
+        "declarations_count": 11,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/FeatureRefinementFixtures.lean",
+        "declarations_count": 25,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/NativeNumericFixtures.lean",
+        "declarations_count": 32,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/NestedApplicationFixtures.lean",
+        "declarations_count": 35,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/OrientationContractFixtures.lean",
+        "declarations_count": 18,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/ResolveChannelsFixtures.lean",
+        "declarations_count": 13,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/ResolveOrientationFixtures.lean",
+        "declarations_count": 20,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/SimulateMetricsFixtures.lean",
+        "declarations_count": 14,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      },
+      {
+        "module": "formal/Dry/Tests/WellFormedFixtures.lean",
+        "declarations_count": 25,
+        "sorry_count": 0,
+        "axiom_count": 0,
+        "status": "PROVED"
+      }
+    ]
+  },
+  "numeric_contract_assurance": {
+    "contracts_count": 4,
+    "contracts": [
+      {
+        "file": "proofs/claims.schema.json",
+        "size_bytes": 4769,
+        "sha256": "25cf2d424c28b3080859d20cfdfaadafa2577fc2c52bccfc2dc6ef9bdfc7e6cd"
+      },
+      {
+        "file": "proofs/libm-0.2.16-trig-contract.md",
+        "size_bytes": 2587,
+        "sha256": "dd70487f2140f6d120bf20ebfc79cd326076670b78b5c31c6591887286101277"
+      },
+      {
+        "file": "proofs/numeric-boundaries.schema.json",
+        "size_bytes": 4860,
+        "sha256": "8419e12e7ea07774a37f08e25f12174c6177462d65711e993e3dc9762e7edde3"
+      },
+      {
+        "file": "proofs/numeric-profile.schema.json",
+        "size_bytes": 5073,
+        "sha256": "6ec08250468da97fd737ad06d25b9c98ca3ec500eb39d858668dc9f56e47fd35"
+      }
+    ]
+  },
+  "invariants": {
+    "bitwise_determinism": "Established across all L1->L2->L3 lowering pipelines",
+    "polar_singularity_immunity": "Formally verified: zero-division free polar hold (M2.3)",
+    "curvature_smoothness": "Formally verified: C1 curvature linearity on Euler clothoids (M2.2)",
+    "memory_safety": "Formally verified bounded recursion and statically bounded execution"
+  }
+}

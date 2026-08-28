@@ -45,6 +45,8 @@ __all__ = [
     "pocket_ops",
     "pocket_gcode",
     "PocketOptions",
+    "drape_ops",
+    "parse_obj_mesh",
     "mm",
     "cm",
     "inch",
@@ -685,6 +687,20 @@ def pocket_gcode(
         bool(five_axis),
         str(rotary_axes),
     )
+
+
+def drape_ops(options: Dict[str, Any]) -> List[Op]:
+    """Generate 5-axis conformal mesh draping L1 ops over a 3D triangle mesh.
+
+    `options` specifies `mesh` (dict with `triangles`), and optional `stepover`, `resolution`,
+    `standoffOffset`, `safeZ`, `feedrate`, `plungeFeed`, `pattern` ("raster-x", "raster-y", "zigzag-x").
+    """
+    return json.loads(_native.drape_ops_json(json.dumps(options)))
+
+
+def parse_obj_mesh(obj_text: str) -> Dict[str, Any]:
+    """Parse Wavefront OBJ format string into a serialized TriangleMesh dict."""
+    return json.loads(_native.parse_obj_mesh_json(obj_text))
 
 
 def _params(printer: str) -> str:

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "mode": "review-only",
+  "objective": "Review the current conscious-chess branch and its repository-wide contract/parity dependency cone",
+  "base_sha": "68bb61f8c607b0e28a08fc8c39d097083eff508a",
+  "head_sha": "e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb",
+  "branch": "conscious-chess",
+  "graph_project": "dry-conscious-chess",
+  "graph_head_sha": "e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb",
+  "state": "ACCEPTED",
+  "active_slice": "R12",
+  "dirty_baseline": [
+    {
+      "path": "docs/04-tasks.md",
+      "status": "modified",
+      "owner": "user",
+      "preserve": true
+    }
+  ],
+  "authorized_phase0_paths": [
+    "AGENTS.md",
+    ".claude/agents/",
+    "tools/validate_agent_contracts.py",
+    "review/ralph/"
+  ],
+  "no_progress_limit": 3,
+  "independent_review_required": true
+}

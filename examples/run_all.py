@@ -13,6 +13,7 @@ EXAMPLES = [
     "examples/python/06_export_3d_and_visualizations.py",
     "examples/python/07_trochoidal_pocket.py",
     "examples/python/08_graded_tpms_infill.py",
+    "examples/python/09_mesh_bvh_5axis_drape.py",
 ]
 
 def main():

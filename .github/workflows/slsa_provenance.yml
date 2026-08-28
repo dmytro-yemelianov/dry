@@ -1,0 +1,40 @@
+name: SLSA Level 3 Provenance & SBOM Attestation
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  sbom:
+    name: Generate & Attest SBOMs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Generate CycloneDX & SPDX SBOMs
+        run: python3 tools/generate_sbom.py
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+        with:
+          name: sbom-artifacts
+          path: docs/compliance/*.json
+
+  provenance:
+    needs: sbom
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: "${{ needs.sbom.outputs.hashes }}"
+      provenance-name: "dry-provenance.intoto.jsonl"

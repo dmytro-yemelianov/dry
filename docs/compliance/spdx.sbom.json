@@ -1,0 +1,25 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "dry-0.7.0",
+  "documentNamespace": "https://github.com/dmytro-yemelianov/dry/spdx/dry-0.7.0",
+  "creationInfo": {
+    "creators": [
+      "Tool: dry-sbom-generator-0.7.0",
+      "Organization: Dry Tooling"
+    ],
+    "created": "2026-08-28T22:59:45Z"
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-dry-core",
+      "name": "dry-core",
+      "versionInfo": "0.7.0",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "filesAnalyzed": false
+    }
+  ]
+}

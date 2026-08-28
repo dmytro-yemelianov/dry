@@ -28,6 +28,7 @@ pub fn emit_step_nc(
         "<stepnc xmlns=\"urn:iso:std:iso-10303-14649\"\n  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n",
     );
     out.push_str("  <program name=\"dry-program\">\n");
+    out.push_str("    <header schema=\"ISO-10303-238:2020\" standard=\"ISO 14649-10/11\" standard_name=\"STEP-NC AP238\"/>\n");
     out.push_str("    <workpiece unit=\"mm\"/>");
 
     let mut cursor = [0.0; 3];

@@ -3,6 +3,7 @@
 //! Python SDK (`py/python/dry/`) stays logic-free and just builds the ops. Isolated from the core cargo
 //! workspace (this crate links Python); the engine itself never depends on PyO3.
 
+use dry_core::generate::drape::{drape_ops, DrapeOptions, TriangleMesh};
 use dry_core::{
     balanced_pipeline, emit_stream, expand_features as expand_feature_program, optimize_pipeline,
     resolve_checked, safe_pipeline, simulate, try_pocket_ops, try_tpms_ops, verify, Contracts,
@@ -368,6 +369,22 @@ fn resolve_verify(
     serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Generate L1 draping ops over a 3D mesh.
+#[pyfunction]
+fn drape_ops_json(options_json: &str) -> PyResult<String> {
+    let options: DrapeOptions = serde_json::from_str(options_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid drape options: {e}")))?;
+    let ops = drape_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Parse OBJ text into serialized TriangleMesh JSON.
+#[pyfunction]
+fn parse_obj_mesh_json(obj_text: &str) -> PyResult<String> {
+    let mesh = TriangleMesh::from_obj(obj_text).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&mesh).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
@@ -376,6 +393,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_tpms_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(pocket_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_pocket_gcode, m)?)?;
+    m.add_function(wrap_pyfunction!(drape_ops_json, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_obj_mesh_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;
@@ -384,3 +403,4 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }
+

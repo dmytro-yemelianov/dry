@@ -73,6 +73,12 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
         if let Some(z) = seg.end[2] {
             xml.push_str(&format!(" z=\"{:.4}\"", z.0));
         }
+        if let Some(w) = seg.width {
+            xml.push_str(&format!(" width=\"{:.4}\"", w.0));
+        }
+        if let Some(h) = seg.height {
+            xml.push_str(&format!(" height=\"{:.4}\"", h.0));
+        }
         // A moving segment must carry its feedrate even when that feedrate is zero: the importer
         // refuses motion with no `feedrate` attribute, and a zero-speed moving segment is exactly
         // what the G-code importer preserves for motion before the first `F` (see `gcode/lift.rs`).
@@ -85,6 +91,18 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
         }
         if let Some(temp) = seg.temperature {
             xml.push_str(&format!(" temp=\"{temp:.1}\""));
+        }
+        if let Some(fan) = seg.fan {
+            xml.push_str(&format!(" fan=\"{fan:.1}\""));
+        }
+        if let Some([i, j, k]) = seg.orientation {
+            xml.push_str(&format!(" i=\"{i:.6}\" j=\"{j:.6}\" k=\"{k:.6}\""));
+        }
+        if let Some(c) = seg.centre {
+            xml.push_str(&format!(" cx=\"{:.4}\" cy=\"{:.4}\" cw=\"{}\"", c[0].0, c[1].0, seg.clockwise));
+        }
+        if let Some(dwell) = seg.dwell_s {
+            xml.push_str(&format!(" dwell=\"{dwell:.3}\""));
         }
         xml.push_str("/>\n");
     }
@@ -111,6 +129,8 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
             let x = parse_length_attr(trimmed, "x=")?;
             let y = parse_length_attr(trimmed, "y=")?;
             let z = parse_length_attr(trimmed, "z=")?;
+            let width = parse_length_attr(trimmed, "width=")?;
+            let height = parse_length_attr(trimmed, "height=")?;
             let feedrate = parse_attr(trimmed, "feedrate=")?;
             if feedrate.is_some_and(|f| f < 0.0) {
                 return Err(ThreeMfError {
@@ -121,6 +141,43 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
                 .map(Volume)
                 .unwrap_or(Volume::ZERO);
             let temperature = parse_attr(trimmed, "temp=")?;
+            let fan = parse_attr(trimmed, "fan=")?;
+
+            let orientation = match (
+                parse_attr(trimmed, "i=")?,
+                parse_attr(trimmed, "j=")?,
+                parse_attr(trimmed, "k=")?,
+            ) {
+                (Some(i), Some(j), Some(k)) => Some([i, j, k]),
+                _ => None,
+            };
+
+            let cx = parse_length_attr(trimmed, "cx=")?;
+            let cy = parse_length_attr(trimmed, "cy=")?;
+            let centre = match (cx, cy) {
+                (Some(c0), Some(c1)) => Some([c0, c1]),
+                _ => None,
+            };
+            let clockwise = trimmed.contains("cw=\"true\"");
+            let dwell_s = parse_attr(trimmed, "dwell=")?;
+
+            let kind = if dwell_s.is_some() || trimmed.contains("type=\"dwell\"") {
+                SegmentKind::Dwell
+            } else if centre.is_some() || trimmed.contains("type=\"arc\"") {
+                SegmentKind::Arc
+            } else if trimmed.contains("type=\"retract\"") {
+                SegmentKind::Retract
+            } else if trimmed.contains("type=\"unretract\"") {
+                SegmentKind::Unretract
+            } else if trimmed.contains("type=\"deposit\"") {
+                SegmentKind::Deposit
+            } else if trimmed.contains("type=\"manual\"") {
+                SegmentKind::ManualGcode
+            } else if trimmed.contains("type=\"spline\"") {
+                SegmentKind::Spline
+            } else {
+                SegmentKind::Line
+            };
 
             let end_pos = [
                 x.or(current_pos[0]),
@@ -166,21 +223,19 @@ pub fn import_3mf_xml(xml: &str) -> Result<Toolpath, ThreeMfError> {
                 length,
                 volume,
                 filament: Length::ZERO,
-                width: None,
-                height: None,
-                kind: SegmentKind::Line,
-                centre: None,
-                clockwise: false,
+                width,
+                height,
+                kind,
+                centre,
+                clockwise,
                 temperature,
-                fan: None,
+                fan,
                 flow: None,
                 tool: None,
-                // 3MF carries only the temperature/fan/orientation subset of the channels; power
-                // joins flow and tool in the set this exchange format does not express.
                 power: None,
-                dwell_s: None,
+                dwell_s,
                 manual_gcode: None,
-                orientation: None,
+                orientation,
                 control_points: None,
             });
 

@@ -369,7 +369,7 @@ fn rect_passes(cx: f64, cy: f64, rings: &[RectPass], r: &Resolved) -> Vec<Op> {
         });
         ops.push(Op::Extruder { on: true });
         if r.helical_entry {
-            let r_helix = (r.tool_r * 0.5).min(2.0).max(0.1);
+            let r_helix = (r.tool_r * 0.5).clamp(0.1, 2.0);
             let steps = 16;
             for s in 1..=steps {
                 let frac = s as f64 / steps as f64;
@@ -495,7 +495,7 @@ fn circle_passes(cx: f64, cy: f64, radii: &[f64], r: &Resolved) -> Vec<Op> {
         });
         ops.push(Op::Extruder { on: true });
         if r.helical_entry {
-            let r_helix = (r.tool_r * 0.5).min(2.0).max(0.1);
+            let r_helix = (r.tool_r * 0.5).clamp(0.1, 2.0);
             let steps = 16;
             for s in 1..=steps {
                 let frac = s as f64 / steps as f64;

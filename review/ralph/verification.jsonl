@@ -1,0 +1,11 @@
+{"kind":"graph-index","project":"dry-conscious-chess","branch":"conscious-chess","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","mode":"full","nodes":28689,"edges":63234,"result":"passed"}
+{"kind":"command","command":"python3 -m py_compile tools/validate_agent_contracts.py","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed"}
+{"kind":"command","command":"python3 tools/validate_agent_contracts.py","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"9 roles, 4 standalone Cargo roots, 4 required CI jobs"}
+{"kind":"command","command":"scripts/check-version.sh v0.7.0","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed"}
+{"kind":"command","command":"git diff --check","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed"}
+{"kind":"command","command":"cargo clippy --all-targets --all-features -- -D warnings","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"0 warnings across all workspace crates"}
+{"kind":"command","command":"cargo test -p dry-core && cargo test -p dry-cli","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"304 Rust unit/integration tests passed"}
+{"kind":"command","command":"(cd crates/wasm && cargo test) && (cd containers/verify-runner && cargo test)","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"WASM and Verify-Runner roots validated"}
+{"kind":"command","command":"python3 -m pytest py/tests && (cd sdk/ts && npm test)","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"Python and TypeScript SDK parity tests passed"}
+{"kind":"command","command":"python3 tools/validate_vectors.py conformance/vectors && python3 tools/validate_reports.py .","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"14 public vectors + 37 golden reports + 14 profiles validated"}
+{"kind":"command","command":"python3 tools/check_proof_fixtures.py && python3 examples/run_all.py","directory":".","head_sha":"e2ab6f7b5f8ccb3226cbd91fabbb4487138fefdb","result":"passed","summary":"15 proof fixture categories + 8 end-to-end examples passed"}
