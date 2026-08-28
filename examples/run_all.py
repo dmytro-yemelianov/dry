@@ -11,6 +11,8 @@ EXAMPLES = [
     "examples/python/04_cnc_pocket_milling.py",
     "examples/python/05_machine_catalog_preflight.py",
     "examples/python/06_export_3d_and_visualizations.py",
+    "examples/python/07_trochoidal_pocket.py",
+    "examples/python/08_graded_tpms_infill.py",
 ]
 
 def main():

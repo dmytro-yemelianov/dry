@@ -40,6 +40,7 @@ __all__ = [
     "feature",
     "group",
     "repeat",
+    "tpms_ops",
     "tpms_gcode",
     "pocket_ops",
     "pocket_gcode",
@@ -618,6 +619,11 @@ def _range_to_list(rng: Optional[Range]) -> Any:
     if not isinstance(rng, str):
         return _finite_all("range", rng)
     return _csv_floats("range", rng, 2, "'min,max'")
+
+
+def tpms_ops(options: Optional[TpmsOptions] = None) -> List[Op]:
+    """Generate TPMS cellular lattice L1 ops from an options dict."""
+    return json.loads(_native.tpms_ops_json(json.dumps(options or {})))
 
 
 def tpms_gcode(

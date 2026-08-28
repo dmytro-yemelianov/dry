@@ -233,6 +233,9 @@ enum GenerateCmd {
         /// Plunge feed, mm/min (default cut_feed / 3).
         #[arg(long)]
         plunge_feed: Option<f64>,
+        /// Use helical ramp-in descent for plunge protection.
+        #[arg(long)]
+        helical_entry: Option<bool>,
         /// Machine/material profile JSON (supplies ResolveParams defaults).
         #[arg(long)]
         profile: Option<String>,
@@ -1484,6 +1487,7 @@ fn run(cli: Cli) -> ExitCode {
                     safe_z,
                     cut_feed,
                     plunge_feed,
+                    helical_entry,
                     profile,
                     out,
                 },
@@ -1516,6 +1520,7 @@ fn run(cli: Cli) -> ExitCode {
                 safe_z,
                 cut_feed,
                 plunge_feed,
+                helical_entry,
             };
             let design = try_pocket_design(&options)
                 .unwrap_or_else(|e| die(format!("cannot generate pocket: {e}")));

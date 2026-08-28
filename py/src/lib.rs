@@ -129,6 +129,15 @@ fn resolve_tpms_gcode(
     .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Generate a TPMS infill design and return its L1 `Op` list as a JSON string.
+#[pyfunction]
+fn tpms_ops_json(tpms_options_json: &str) -> PyResult<String> {
+    let options: TpmsOptions = serde_json::from_str(tpms_options_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid tpms options: {e}")))?;
+    let ops = try_tpms_ops(&options).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Generate a CNC pocket/profile milling design and return its L1 `Op` list as a JSON string.
 #[pyfunction]
 fn pocket_ops_json(pocket_options_json: &str) -> PyResult<String> {
@@ -363,6 +372,7 @@ fn resolve_verify(
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_gcode, m)?)?;
+    m.add_function(wrap_pyfunction!(tpms_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_tpms_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(pocket_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_pocket_gcode, m)?)?;

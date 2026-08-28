@@ -29,6 +29,7 @@ fn opts() -> PocketOptions {
         safe_z: Some(5.0),
         cut_feed: Some(300.0),
         plunge_feed: Some(100.0),
+        helical_entry: None,
     }
 }
 

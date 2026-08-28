@@ -214,6 +214,7 @@ pub fn lower_workingstep_to_ops(step: &StepNcWorkingstep) -> Vec<Op> {
                 safe_z: Some(5.0),
                 cut_feed: Some(feed),
                 plunge_feed: Some(feed * 0.4),
+                helical_entry: None,
             };
             let pocket_ops = pocket_ops(&opts);
             ops.extend(pocket_ops);

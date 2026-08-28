@@ -74,16 +74,18 @@ pub struct PocketOptions {
     pub safe_z: Option<f64>,
     pub cut_feed: Option<f64>,
     pub plunge_feed: Option<f64>,
+    #[serde(default)]
+    pub helical_entry: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PocketError {
-    message: String,
+    pub message: String,
 }
 
 impl PocketError {
-    fn new(message: impl Into<String>) -> Self {
-        PocketError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
             message: message.into(),
         }
     }
@@ -107,6 +109,7 @@ struct Resolved {
     safe_z: f64,
     cut_feed: f64,
     plunge_feed: f64,
+    helical_entry: bool,
 }
 
 fn positive(name: &str, v: f64) -> Result<f64, PocketError> {
@@ -267,6 +270,7 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
         safe_z,
         cut_feed,
         plunge_feed,
+        helical_entry: o.helical_entry.unwrap_or(false),
     })
 }
 
@@ -364,11 +368,28 @@ fn rect_passes(cx: f64, cy: f64, rings: &[RectPass], r: &Resolved) -> Vec<Op> {
             print: r.plunge_feed,
         });
         ops.push(Op::Extruder { on: true });
-        ops.push(Op::Move {
-            x: None,
-            y: None,
-            z: Some(z),
-        });
+        if r.helical_entry {
+            let r_helix = (r.tool_r * 0.5).min(2.0).max(0.1);
+            let steps = 16;
+            for s in 1..=steps {
+                let frac = s as f64 / steps as f64;
+                let angle = frac * 2.0 * std::f64::consts::PI;
+                let hz = r.z_top - frac * (r.z_top - z);
+                let hx = entry_xy.0 + r_helix * (angle.cos() - 1.0);
+                let hy = entry_xy.1 + r_helix * angle.sin();
+                ops.push(Op::Move {
+                    x: Some(hx),
+                    y: Some(hy),
+                    z: Some(hz),
+                });
+            }
+        } else {
+            ops.push(Op::Move {
+                x: None,
+                y: None,
+                z: Some(z),
+            });
+        }
         ops.push(Op::Speed { print: r.cut_feed });
         for pass in rings {
             match *pass {
@@ -473,11 +494,28 @@ fn circle_passes(cx: f64, cy: f64, radii: &[f64], r: &Resolved) -> Vec<Op> {
             print: r.plunge_feed,
         });
         ops.push(Op::Extruder { on: true });
-        ops.push(Op::Move {
-            x: None,
-            y: None,
-            z: Some(z),
-        });
+        if r.helical_entry {
+            let r_helix = (r.tool_r * 0.5).min(2.0).max(0.1);
+            let steps = 16;
+            for s in 1..=steps {
+                let frac = s as f64 / steps as f64;
+                let angle = frac * 2.0 * std::f64::consts::PI;
+                let hz = r.z_top - frac * (r.z_top - z);
+                let hx = entry.0 + r_helix * (angle.cos() - 1.0);
+                let hy = entry.1 + r_helix * angle.sin();
+                ops.push(Op::Move {
+                    x: Some(hx),
+                    y: Some(hy),
+                    z: Some(hz),
+                });
+            }
+        } else {
+            ops.push(Op::Move {
+                x: None,
+                y: None,
+                z: Some(z),
+            });
+        }
         ops.push(Op::Speed { print: r.cut_feed });
         for &ri in radii {
             // stepover link to the ring start, then two half circles (G2/G3 exercised)
@@ -624,6 +662,7 @@ mod tests {
             safe_z: None,
             cut_feed: None,
             plunge_feed: None,
+            helical_entry: None,
         }
     }
 
@@ -1259,4 +1298,27 @@ mod tests {
         let arcs = ops.iter().filter(|op| matches!(op, Op::Arc { .. })).count();
         assert_eq!(arcs, 2); // one ring = two half circles, single depth pass
     }
+
+    #[test]
+    fn helical_entry_emits_ramp_moves() {
+        let mut o = rect_opts();
+        o.helical_entry = Some(true);
+        let ops = try_pocket_ops(&o).unwrap();
+        // Should have 16 ramp steps per depth level
+        let ramp_moves = ops
+            .iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    Op::Move {
+                        x: Some(_),
+                        y: Some(_),
+                        z: Some(z_val)
+                    } if *z_val < 5.0 && *z_val >= -5.0
+                )
+            })
+            .count();
+        assert!(ramp_moves >= 16);
+    }
 }
+

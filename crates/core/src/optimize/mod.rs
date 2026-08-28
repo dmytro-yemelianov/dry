@@ -29,7 +29,9 @@ pub use self::adaptive_speed::{
 };
 pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};
-pub use self::engagement::optimize_corner_feedrate;
+pub use self::engagement::{
+    calculate_radial_engagement_angle, optimize_corner_feedrate, optimize_radial_engagement,
+};
 pub use self::merge::merge_collinear;
 pub use self::scurve::{calculate_scurve_profile, SCurveParams, SCurveProfile};
 pub use self::travel::travel_reorder;
