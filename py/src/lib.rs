@@ -385,6 +385,24 @@ fn parse_obj_mesh_json(obj_text: &str) -> PyResult<String> {
     serde_json::to_string(&mesh).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Slice a STEP ISO 10303-21 CAD file directly into L1 ops.
+#[pyfunction]
+fn slice_step_solid_json(
+    step_content: &str,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> PyResult<String> {
+    let solid = dry_core::BrepSolid::parse_step_iso10303(step_content)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let ops = solid
+        .slice_to_l1_ops(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
@@ -395,6 +413,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_pocket_gcode, m)?)?;
     m.add_function(wrap_pyfunction!(drape_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_mesh_json, m)?)?;
+    m.add_function(wrap_pyfunction!(slice_step_solid_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;

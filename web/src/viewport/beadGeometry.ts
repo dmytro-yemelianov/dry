@@ -98,7 +98,8 @@ export function buildStadiumBeadsGeometry(
     if (len < 1e-6) continue;
 
     const dir: Vec3 = [d[0] / len, d[1] / len, d[2] / len];
-    let side = vcross(dir, UP);
+    const upVector: Vec3 = seg.orientation ? [seg.orientation[0], seg.orientation[1], seg.orientation[2]] : UP;
+    let side = vcross(dir, upVector);
     if (vlen(side) < 1e-5) side = vcross(dir, [1, 0, 0]);
     side = vnorm(side);
     const vn = vnorm(vcross(side, dir));

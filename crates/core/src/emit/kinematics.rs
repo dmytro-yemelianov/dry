@@ -755,11 +755,254 @@ mod tests {
                 + described[1] * direction[1]
                 + described[2] * direction[2];
             worst_measured = worst_measured.max(libm::acos(dot.clamp(-1.0, 1.0)));
+            assert!(
+                worst_measured <= worst_case_rad,
+                "measured worst-case direction error {worst_measured} exceeds the published \
+                 {worst_case_rad} rad bound"
+            );
         }
-        assert!(
-            worst_measured <= worst_case_rad,
-            "measured worst-case direction error {worst_measured} exceeds the published \
-             {worst_case_rad} rad bound"
-        );
     }
+}
+
+/// Standard Denavit-Hartenberg (DH) parameter for a revolute robot joint.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct DhParam {
+    /// Link length $a_{i-1}$ (mm).
+    pub a: f64,
+    /// Link twist $\alpha_{i-1}$ (radians).
+    pub alpha: f64,
+    /// Link offset $d_i$ (mm).
+    pub d: f64,
+    /// Joint angle offset $\theta_{\text{offset}}$ (radians).
+    pub theta_offset: f64,
+}
+
+impl DhParam {
+    pub const fn new(a: f64, alpha: f64, d: f64, theta_offset: f64) -> Self {
+        Self {
+            a,
+            alpha,
+            d,
+            theta_offset,
+        }
+    }
+}
+
+/// 6-Axis robot joint angles in degrees $(J_1 \dots J_6)$.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub struct RobotJoints6 {
+    pub j1_deg: f64,
+    pub j2_deg: f64,
+    pub j3_deg: f64,
+    pub j4_deg: f64,
+    pub j5_deg: f64,
+    pub j6_deg: f64,
+}
+
+impl RobotJoints6 {
+    pub const fn new(j1: f64, j2: f64, j3: f64, j4: f64, j5: f64, j6: f64) -> Self {
+        Self {
+            j1_deg: j1,
+            j2_deg: j2,
+            j3_deg: j3,
+            j4_deg: j4,
+            j5_deg: j5,
+            j6_deg: j6,
+        }
+    }
+
+    pub fn to_radians(&self) -> [f64; 6] {
+        [
+            self.j1_deg.to_radians(),
+            self.j2_deg.to_radians(),
+            self.j3_deg.to_radians(),
+            self.j4_deg.to_radians(),
+            self.j5_deg.to_radians(),
+            self.j6_deg.to_radians(),
+        ]
+    }
+}
+
+/// 6-Axis articulated serial robot arm model with analytical FK and IK.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Robot6AxisModel {
+    pub name: String,
+    pub dh: [DhParam; 6],
+    pub joint_limits_deg: [(f64, f64); 6],
+}
+
+impl Robot6AxisModel {
+    /// Create reference KUKA KR6 R900 robot arm model.
+    pub fn kuka_kr6_r900() -> Self {
+        use std::f64::consts::FRAC_PI_2;
+        Self {
+            name: "KUKA KR6 R900 sixx".into(),
+            dh: [
+                DhParam::new(25.0, -FRAC_PI_2, 400.0, 0.0),
+                DhParam::new(455.0, 0.0, 0.0, 0.0),
+                DhParam::new(35.0, -FRAC_PI_2, 0.0, 0.0),
+                DhParam::new(0.0, FRAC_PI_2, 420.0, 0.0),
+                DhParam::new(0.0, -FRAC_PI_2, 0.0, 0.0),
+                DhParam::new(0.0, 0.0, 80.0, 0.0),
+            ],
+            joint_limits_deg: [
+                (-170.0, 170.0),
+                (-190.0, 45.0),
+                (-120.0, 156.0),
+                (-185.0, 185.0),
+                (-120.0, 120.0),
+                (-350.0, 350.0),
+            ],
+        }
+    }
+
+    /// Compute Forward Kinematics (FK): maps joint angles to Cartesian Tool Center Point (TCP) $[x, y, z]$.
+    pub fn solve_fk(&self, joints: &RobotJoints6) -> [f64; 3] {
+        let (pos, _) = self.solve_fk_pose(joints);
+        pos
+    }
+
+    /// Compute Forward Kinematics (FK) returning both TCP position $[x, y, z]$ and toolframe $Z$-axis vector $[i, j, k]$.
+    pub fn solve_fk_pose(&self, joints: &RobotJoints6) -> ([f64; 3], [f64; 3]) {
+        let rads = joints.to_radians();
+        let mut transform = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
+
+        for (i, &rad) in rads.iter().enumerate() {
+            let theta = rad + self.dh[i].theta_offset;
+            let ct = libm::cos(theta);
+            let st = libm::sin(theta);
+            let ca = libm::cos(self.dh[i].alpha);
+            let sa = libm::sin(self.dh[i].alpha);
+            let a = self.dh[i].a;
+            let d = self.dh[i].d;
+
+            let a_mat = [
+                [ct, -st * ca, st * sa, a * ct],
+                [st, ct * ca, -ct * sa, a * st],
+                [0.0, sa, ca, d],
+                [0.0, 0.0, 0.0, 1.0],
+            ];
+
+            transform = mat4_mul(&transform, &a_mat);
+        }
+
+        let pos = [transform[0][3], transform[1][3], transform[2][3]];
+        let orient = [transform[0][2], transform[1][2], transform[2][2]];
+        (pos, orient)
+    }
+
+    /// Compute Inverse Kinematics (IK) with spherical wrist singularity hold ($J_5 \approx 0$).
+    pub fn solve_ik(
+        &self,
+        tcp_pos: [f64; 3],
+        tool_orient: [f64; 3],
+        prev_joints: &RobotJoints6,
+    ) -> Result<RobotJoints6, String> {
+        let d6 = self.dh[5].d;
+        // Wrist center position
+        let wx = tcp_pos[0] - d6 * tool_orient[0];
+        let wy = tcp_pos[1] - d6 * tool_orient[1];
+        let wz = tcp_pos[2] - d6 * tool_orient[2];
+
+        // J1 = atan2(wy, wx)
+        let j1_rad = libm::atan2(wy, wx);
+
+        // Position relative to shoulder (J1)
+        let d1 = self.dh[0].d;
+        let a1 = self.dh[0].a;
+        let r = libm::hypot(wx, wy) - a1;
+        let s = d1 - wz;
+        let d_sq = r * r + s * s;
+
+        let a2 = self.dh[1].a;
+        let a3 = self.dh[2].a;
+        let d4 = self.dh[3].d;
+        let l3 = libm::hypot(a3, d4);
+
+        let cos_phi = (d_sq - a2 * a2 - l3 * l3) / (2.0 * a2 * l3);
+        if cos_phi.abs() > 1.0 {
+            return Err("Target point is outside robot reachable workspace envelope".into());
+        }
+
+        let delta = libm::atan2(d4, a3);
+        let sin_phi = (1.0 - cos_phi * cos_phi).max(0.0).sqrt();
+        let phi = libm::atan2(sin_phi, cos_phi);
+        let j3_rad = phi - delta;
+
+        let j2_rad = libm::atan2(s, r) - libm::atan2(l3 * sin_phi, a2 + l3 * cos_phi);
+
+        let mut t03 = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
+        let thetas = [j1_rad, j2_rad, j3_rad];
+        for (i, &th) in thetas.iter().enumerate() {
+            let theta = th + self.dh[i].theta_offset;
+            let ct = libm::cos(theta);
+            let st = libm::sin(theta);
+            let ca = libm::cos(self.dh[i].alpha);
+            let sa = libm::sin(self.dh[i].alpha);
+            let a = self.dh[i].a;
+            let d = self.dh[i].d;
+
+            let a_mat = [
+                [ct, -st * ca, st * sa, a * ct],
+                [st, ct * ca, -ct * sa, a * st],
+                [0.0, sa, ca, d],
+                [0.0, 0.0, 0.0, 1.0],
+            ];
+            t03 = mat4_mul(&t03, &a_mat);
+        }
+
+        // Relative tool orientation in frame 3: R03^T * tool_orient
+        let r03_t_orient = [
+            t03[0][0] * tool_orient[0] + t03[1][0] * tool_orient[1] + t03[2][0] * tool_orient[2],
+            t03[0][1] * tool_orient[0] + t03[1][1] * tool_orient[1] + t03[2][1] * tool_orient[2],
+            t03[0][2] * tool_orient[0] + t03[1][2] * tool_orient[1] + t03[2][2] * tool_orient[2],
+        ];
+
+        // In standard DH with alpha4=+PI/2, alpha5=-PI/2:
+        // When J4=0, J5=0: tool points along frame 3 +Z axis
+        let r_xy = libm::hypot(r03_t_orient[0], r03_t_orient[1]);
+        let mut j5_rad = libm::atan2(r_xy, r03_t_orient[2]);
+        let j4_rad: f64;
+        let j6_rad: f64 = 0.0;
+
+        // Wrist singularity handling: if J5 is near 0 rad, hold J4 to previous state
+        if j5_rad.abs() < 1e-5 {
+            j4_rad = prev_joints.j4_deg.to_radians();
+            j5_rad = 0.0;
+        } else {
+            j4_rad = libm::atan2(r03_t_orient[1], r03_t_orient[0]);
+        }
+
+        let joints = RobotJoints6::new(
+            j1_rad.to_degrees(),
+            j2_rad.to_degrees(),
+            j3_rad.to_degrees(),
+            j4_rad.to_degrees(),
+            j5_rad.to_degrees(),
+            j6_rad.to_degrees(),
+        );
+
+        Ok(joints)
+    }
+}
+
+fn mat4_mul(a: &[[f64; 4]; 4], b: &[[f64; 4]; 4]) -> [[f64; 4]; 4] {
+    let mut res = [[0.0; 4]; 4];
+    for i in 0..4 {
+        for j in 0..4 {
+            res[i][j] =
+                a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j] + a[i][3] * b[3][j];
+        }
+    }
+    res
 }

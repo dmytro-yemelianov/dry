@@ -10,6 +10,7 @@ export type Op =
   | { op: 'unretract'; distance: number; speed: number }
   | { op: 'spline'; points: [number, number, number][] }
   | { op: 'dwell'; seconds: number }
+  | { op: 'orient'; i: number; j: number; k: number }
   | { op: 'spindle'; speed: number; clockwise?: boolean }
   | { op: 'laser'; power: number };
 
@@ -47,6 +48,7 @@ export interface Segment {
   height?: number;
   centre?: [number, number] | null;
   clockwise?: boolean;
+  orientation?: [number, number, number] | null;
   tags?: RowGroupTags;
 }
 

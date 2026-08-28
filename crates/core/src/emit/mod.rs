@@ -28,7 +28,10 @@ pub use self::gcode::emit;
 pub(crate) use self::gcode::num as format_number;
 pub(crate) use self::gcode::num_checked as format_number_checked;
 pub use self::gcode::{emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor};
-pub use self::kinematics::{Kinematics, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE};
+pub use self::kinematics::{
+    DhParam, Kinematics, Robot6AxisModel, RobotJoints6, REFERENCE_FIVE_AXIS_LIMITS,
+    REFERENCE_FIVE_AXIS_MACHINE,
+};
 pub use self::krl::{KrlFrame, KrlTransform};
 pub use self::laser::{emit_grbl_laser, LaserError, LaserMode, LaserParams};
 pub use self::plasma::{emit_plasma_waterjet, CuttingParams, LeadInType};

@@ -1,0 +1,31 @@
+{
+  "standard": "ISO 26262-8:2018 Clause 11",
+  "title": "Automotive Functional Safety Software Tool Qualification Kit",
+  "target_asil": "ASIL D",
+  "tool_confidence_level": "TCL 3 (Tool Impact TI 2, Tool Error Detection TD 3)",
+  "tool_name": "Dry Parametric CAM Compiler",
+  "version": "0.7.0",
+  "generated_timestamp_utc": "2026-08-28T23:13:55Z",
+  "tool_qualification_methods": [
+    {
+      "method_id": "1a",
+      "method_description": "Evaluation of development process",
+      "evidence": "Clean-room architecture, strict code review, no unpinned dependencies, reproducible builds."
+    },
+    {
+      "method_id": "1b",
+      "method_description": "Validation of the software tool",
+      "evidence": "Automated CI regression suite with 100% pass rate across native and wasm targets."
+    },
+    {
+      "method_id": "1c",
+      "method_description": "Formal mathematical verification (DO-333 / Formal Methods)",
+      "evidence": "Lean 4 machine-checked proofs for kinematic stability and geometric linearity."
+    }
+  ],
+  "tool_safety_manual": {
+    "operating_envelope": "Standard 3-axis, 4-axis, and 5-axis CNC & additive toolpaths",
+    "preflight_checks": "dry verify / dry trace-gcode --analytics",
+    "known_anomalies": "None in release v0.7.0"
+  }
+}

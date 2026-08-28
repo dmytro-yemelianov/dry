@@ -10,10 +10,12 @@
 //! CNC pocket/profile cutter ([`pocket`]); the PyO3, wasm and TS-SDK exposures are deferred
 //! follow-ups.
 
+pub mod brep;
 pub mod drape;
 pub mod pocket;
 pub mod tpms;
 
+pub use brep::{BrepError, BrepSolid, Point3D, SurfacePrimitive, Vector3D};
 pub use drape::{
     drape_design, drape_ops, Aabb, DrapeError, DrapeOptions, DrapePattern, Triangle, TriangleMesh,
 };

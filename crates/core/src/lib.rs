@@ -65,6 +65,7 @@ pub use emit::{
     emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle,
     EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserError,
     LaserMode, LaserParams, LeadInType, PeckDrillCycle, TemplateContext,
+    DhParam, RobotJoints6, Robot6AxisModel,
     REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
@@ -87,9 +88,10 @@ pub use gcode::{
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 pub use generate::{
-    pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops, try_pocket_design,
-    try_pocket_ops, try_tpms_design, try_tpms_ops, CutMode, PocketError, PocketOptions,
-    PocketShape, Surface, TpmsError, TpmsOptions,
+    drape_design, drape_ops, pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops,
+    try_pocket_design, try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepError, BrepSolid,
+    CutMode, DrapeError, DrapeOptions, DrapePattern, PocketError, PocketOptions, PocketShape,
+    Point3D, Surface, SurfacePrimitive, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};

@@ -47,6 +47,7 @@ __all__ = [
     "PocketOptions",
     "drape_ops",
     "parse_obj_mesh",
+    "slice_step_solid",
     "mm",
     "cm",
     "inch",
@@ -701,6 +702,27 @@ def drape_ops(options: Dict[str, Any]) -> List[Op]:
 def parse_obj_mesh(obj_text: str) -> Dict[str, Any]:
     """Parse Wavefront OBJ format string into a serialized TriangleMesh dict."""
     return json.loads(_native.parse_obj_mesh_json(obj_text))
+
+
+def slice_step_solid(
+    step_content: str,
+    z_start: float = 0.0,
+    z_end: float = 10.0,
+    layer_height: float = 0.2,
+    samples_per_slice: int = 36,
+    feedrate: float = 1800.0,
+) -> List[Op]:
+    """Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals."""
+    return json.loads(
+        _native.slice_step_solid_json(
+            step_content,
+            float(z_start),
+            float(z_end),
+            float(layer_height),
+            int(samples_per_slice),
+            float(feedrate),
+        )
+    )
 
 
 def _params(printer: str) -> str:
