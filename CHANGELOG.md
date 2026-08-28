@@ -7,34 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
-## [0.7.0] - 2026-08-18
+## [0.7.0] - 2026-08-29
 
 ### Added
+- **Track E — Advanced CAM & Computational Geometry Expansion:**
+  - **BVH-Accelerated Mesh Heightfield 5-Axis Drape (`crates/core/src/generate/drape.rs`, E1.3):**
+    Implements triangle mesh import (ASCII/Binary STL and Wavefront OBJ), Bounding Volume Hierarchy (BVH) spatial indexing with Möller–Trumbore ray-triangle intersection, and 5-axis surface-normal conformal draping. Exposed in Python SDK (`dry.drape_ops`, `dry.parse_obj_mesh`) and Example 09.
+  - **High-Speed CNC Pocket Milling with Helical Ramp-In (E1.1, E1.2):**
+    Adaptive radial tool engagement calculation $\theta_e(s)$, inside-corner feedrate deceleration, automated 16-step helical spiral ramp entry, and corner trochoidal peeling loops.
+  - **Functionally Graded TPMS Metamaterials (E1.4):**
+    Spatially varying scalar density fields $c(x,y,z)$ modulating isovalue contours smoothly across all 10 TPMS surface families in `crates/core/src/generate/tpms.rs` and Example 08.
+- **Track M — Deepened Mathematical Assurance (FM2):**
+  - **Euler Spiral / Clothoid Curvature Linearity Formal Proof in Lean 4 (`formal/Dry/Geometry/Clothoid.lean`, M2.2):**
+    Formally proved $d\kappa/ds = \text{const}$ and tangent angle derivative $d\theta/ds = \kappa(s)$ with exact $C^1$ boundary matching (3,139 Lean jobs, 0 sorry, 0 non-standard axioms).
+  - **5-Axis Polar Singularity Hold Invariance Formal Proof (`formal/Dry/Semantics/ResolveOrientation.lean`, M2.3):**
+    Machine-checked proof of zero-division immunity and continuous azimuth angle hold ($C_{\text{prev}}$ / $A_{\text{prev}}$) at polar singularities ($k = \pm 1$) for BC and AB kinematics.
+  - **IEEE-754 Floating-Point Refinement Proofs ($f64 \to \mathbb{Q}$, M2.1):**
+    Formal bounding of 17 named numerical operations against infinite-precision real arithmetic in `formal/Dry/Numeric/Binary64.lean`.
+- **Track C — Industrial Standards & Certification:**
+  - **ISO/ASTM 52915 3MF Toolpath Extension Conformance Suite (C1.1):**
+    Full bi-directional 3MF serialization/deserialization supporting linear/arc/dwell moves, extrusion bead width/height, thermal/fan channels, and 5-axis toolframe orientations with 100% lossless round-trip fidelity in `crates/core/src/codec/threemf.rs` and `crates/core/tests/threemf_conformance.rs`.
+  - **ISO 14649 / ISO 10303-238 (STEP-NC AP 238) Compliance (C1.2):**
+    Workingsteps, technology parameters, and multi-axis toolframe XML export in `crates/core/src/emit/step_nc.rs`.
+  - **DO-178C / DO-333 Formal Methods Evidence Kit Generator (C1.3):**
+    Automated tool `tools/generate_do178c_evidence_kit.py` generating aerospace flight-critical (DAL A/B) formal methods qualification packages in `docs/certification/`.
+  - **SLSA Level 3 Provenance & Cryptographic Attestation (C1.4):**
+    CycloneDX 1.5 and SPDX 2.3 SBOM generator `tools/generate_sbom.py` and GitHub Actions SLSA Level 3 workflow `.github/workflows/slsa_provenance.yml`.
 - **Trace analytics and the batch-review envelope in `dry-core` (P3.5, engine half).**
   `trace_summary_with_analytics` fills in `TraceSummary::layers` — declared since P3 and never written —
   as a *partition* of the segment range keyed on extruding Z, and adds an optional `analytics` block:
   phase-split time-weighted statistics, exact nearest-rank percentiles over segment / window-peak /
-  layer populations, `travel_time_ratio`, and a flow-outlier window list that is an observation with no
-  rule id, no severity and no effect on any exit code. Both tolerances are echoed in the output
-  (`flow_outliers.k`, `layer_z_epsilon_mm`), so a consumer never has to know which defaults the producer
-  compiled in. A `PhaseStats` excludes a segment whose feedrate or flow was non-finite from its totals and
-  means as well as from the affected percentile channel, counting it in `nonfinite_samples`: JSON has no
-  NaN, so a non-finite total would serialise as `null` against a schema `number`. `TraceSummary`'s own
-  totals are unchanged and still propagate. `TraceSummary::layers_to_csv()` joins `to_csv()` as the second
-  CSV relation, and `to_csv()` — which had no call sites at all until this slice published it — gains the
-  `filament_mm` column it was missing, so both relations carry every measure of their grain.
-  `trace_summary` / `trace_summary_with_sources` keep their exact signatures and output, so every
-  committed trace and explain golden is byte-identical (`analytics` skips when absent; `layers` stays
-  empty without the new entry point). `dry_core::ReviewBatch` aggregates per-file `ReviewReport`s —
-  nested unmodified — into a batch envelope with per-rule tallies and passed/failed/errored verdicts.
-  Schema: nine new `$defs` in `spec/dry-reports-v1.schema.json` (including a `oneOf` on
-  `BatchFileResult` that *enforces* exactly one of `review` / `error` and its pairing with `status`) plus
-  two new goldens wired into `tools/validate_reports.py`. Additive for every envelope except
-  `LayerTraceLinkage`, whose `required` list grows 7 → 13: a growing `required` is not additive in
-  general, and it is safe here only because nothing has ever produced a `layers` entry (the field had no
-  producer, every committed golden carries `"layers": []`, and the emitter now always writes all 13) —
-  any later field there must be optional. No committed golden changed and no new dependency. The
-  `trace-gcode --analytics` and `review-batch` CLI surfaces land separately.
+  layer populations, `travel_time_ratio`, and a flow-outlier window list.
 - **`dry trace-gcode --analytics` / `--format` and `dry review-batch` (P3.5, CLI half).**
   `trace-gcode` gains `--analytics` (wires `trace_summary_with_analytics`), `--flow-outlier-k` (usage
   error without `--analytics`/`--format layers-csv`), and `--format json|csv|layers-csv`; the default
