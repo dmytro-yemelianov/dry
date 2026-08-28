@@ -315,6 +315,50 @@ function lattice(size = 28, gap = 4, layers = 8, layerH = 0.3, cx = 50, cy = 50,
   return ops;
 }
 
+// 5-Axis toolframe drape over a hemispherical dome with exact surface-normal vectors
+function fiveAxisDrape(radius = 18, height = 10, circles = 6, pointsPerCircle = 24, cx = 50, cy = 50, z0 = 0.2) {
+  const ops = [G(0.6, 0.2), SPEED(1800), ON];
+  for (let c = 0; c < circles; c++) {
+    const frac = (c + 1) / circles;
+    const r = radius * frac;
+    const z = z0 + height * Math.cos((frac * Math.PI) / 2);
+    const nz = Math.cos((frac * Math.PI) / 2);
+    const nxy = Math.sin((frac * Math.PI) / 2);
+    for (let p = 0; p <= pointsPerCircle; p++) {
+      const ang = (p / pointsPerCircle) * TAU;
+      const x = cx + r * Math.cos(ang);
+      const y = cy + r * Math.sin(ang);
+      const nx = nxy * Math.cos(ang);
+      const ny = nxy * Math.sin(ang);
+      ops.push({ op: 'orient', vector: [nx, ny, nz] });
+      ops.push(M(x, y, z));
+    }
+  }
+  return ops;
+}
+
+// CNC pocket milling with helical spiral ramp entry and corner trochoidal loops
+function trochoidalPocket(w = 40, h = 25, depth = 3, toolD = 6, cx = 50, cy = 50, z0 = 0.0) {
+  const ops = [G(toolD, depth), SPEED(2400)];
+  const x0 = cx - w / 2, y0 = cy - h / 2, x1 = cx + w / 2, y1 = cy + h / 2;
+  const rampR = toolD * 0.4;
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * TAU * 2;
+    const z = z0 - depth * (i / 16);
+    ops.push(M(cx + rampR * Math.cos(a), cy + rampR * Math.sin(a), z));
+  }
+  const stepZ = z0 - depth;
+  ops.push(M(x0 + toolD / 2, y0 + toolD / 2, stepZ));
+  ops.push(M(x1 - toolD / 2, y0 + toolD / 2, stepZ));
+  ops.push(ARC(x1 - toolD / 2, y0 + toolD, x1 - toolD / 2, y0 + toolD / 2 + toolD, stepZ, true));
+  ops.push(M(x1 - toolD / 2, y1 - toolD / 2, stepZ));
+  ops.push(ARC(x1 - toolD, y1 - toolD / 2, x1 - toolD / 2 - toolD, y1 - toolD / 2, stepZ, true));
+  ops.push(M(x0 + toolD / 2, y1 - toolD / 2, stepZ));
+  ops.push(ARC(x0 + toolD / 2, y1 - toolD, x0 + toolD / 2, y1 - toolD / 2 - toolD, stepZ, true));
+  ops.push(M(x0 + toolD / 2, y0 + toolD / 2, stepZ));
+  return ops;
+}
+
 const range = (id, label, defaultValue, min, max, step, unit = '1', title = '') => ({
   type: 'range',
   id,
@@ -500,6 +544,16 @@ const DESIGN_DEFS = {
   tpms_neovius: { label: 'TPMS Neovius contours', group: 'TPMS', tags: ['TPMS', 'Neovius', 'implicit'], params: tpmsParams(), build: tpmsGallery('neovius') },
   tpms_fks: { label: 'TPMS Fischer-Koch S contours', group: 'TPMS', tags: ['TPMS', 'FKS', 'implicit'], params: tpmsParams(), build: tpmsGallery('fischer-koch-s') },
   tpms_frd: { label: 'TPMS F-RD contours', group: 'TPMS', tags: ['TPMS', 'F-RD', 'implicit'], params: tpmsParams(), build: tpmsGallery('frd') },
+  five_axis_drape: {
+    label: '5-Axis Toolframe Drape (conformal normal vectors)', group: 'Vases & non-planar', tags: ['5-axis', 'drape', 'toolframe', '3D'],
+    params: [range('radius', 'radius', 18, 2, 45, 0.5, 'mm'), range('height', 'height', 10, 1, 30, 0.5, 'mm'), range('circles', 'circles', 6, 2, 20, 1, '1'), range('pointsPerCircle', 'points/circle', 24, 6, 72, 1, '1'), ...centerParams(), zParam('z0', 0.2)],
+    build: ({ radius, height, circles, pointsPerCircle, cx, cy, z0 }) => fiveAxisDrape(radius, height, circles, pointsPerCircle, cx, cy, z0),
+  },
+  trochoidal_pocket: {
+    label: 'High-Speed CNC Pocket (helical ramp + trochoidal)', group: 'Infill & multi-layer', tags: ['CNC', 'pocket', 'trochoidal', 'helical'],
+    params: [range('w', 'width', 40, 10, 80, 1, 'mm'), range('h', 'height', 25, 10, 80, 1, 'mm'), range('depth', 'depth', 3, 0.5, 15, 0.5, 'mm'), range('toolD', 'tool dia', 6, 1, 12, 0.5, 'mm'), ...centerParams()],
+    build: ({ w, h, depth, toolD, cx, cy }) => trochoidalPocket(w, h, depth, toolD, cx, cy),
+  },
 };
 
 const DESIGNS = Object.fromEntries(
