@@ -46,6 +46,15 @@ pub struct PrintResponse {
     pub job_started: bool,
 }
 
+/// Real-time operational telemetry and thermal status from Moonraker/Klipper.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PrinterLiveStatus {
+    pub state: String,
+    pub nozzle_temp_c: f64,
+    pub bed_temp_c: f64,
+    pub progress: f64,
+}
+
 /// Fixed multipart boundary — deterministic for testing; long+unique to avoid g-code collisions.
 pub const MULTIPART_BOUNDARY: &str = "dry7c0d3moonrakerboundary8f3a1e9d";
 
@@ -162,6 +171,36 @@ fn post(
     }
 }
 
+fn get(
+    cfg: &MoonrakerConfig,
+    path: &str,
+) -> Result<serde_json::Value, MoonrakerError> {
+    let mut req = ureq::get(&join_url(&cfg.base_url, path))
+        .timeout(cfg.timeout);
+    if let Some(k) = &cfg.api_key {
+        req = req.set("X-Api-Key", k);
+    }
+    match req.call() {
+        Ok(r) => {
+            let bytes = read_response_limited(r.into_reader(), MAX_JSON_RESPONSE_BYTES)?;
+            serde_json::from_slice(&bytes)
+                .map_err(|e| MoonrakerError::Decode(format!("invalid JSON: {e}")))
+        }
+        Err(ureq::Error::Status(code, r)) => {
+            let mut bytes = Vec::new();
+            r.into_reader()
+                .take(MAX_ERROR_SNIPPET_BYTES)
+                .read_to_end(&mut bytes)
+                .map_err(|error| MoonrakerError::Transport(error.to_string()))?;
+            Err(MoonrakerError::Http(
+                code,
+                String::from_utf8_lossy(&bytes).into_owned(),
+            ))
+        }
+        Err(ureq::Error::Transport(t)) => Err(MoonrakerError::Transport(t.to_string())),
+    }
+}
+
 fn read_response_limited(reader: impl Read, limit: usize) -> Result<Vec<u8>, MoonrakerError> {
     let mut bytes = Vec::new();
     reader
@@ -215,6 +254,78 @@ pub fn start_print(cfg: &MoonrakerConfig, filename: &str) -> Result<PrintRespons
         body.as_bytes(),
     )?;
     decode_print_start(&response)
+}
+
+/// Query the live operational and thermal status of the printer from Moonraker. Network.
+pub fn get_printer_status(cfg: &MoonrakerConfig) -> Result<PrinterLiveStatus, MoonrakerError> {
+    let response = get(
+        cfg,
+        "/printer/objects/query?print_stats&extruder&heater_bed",
+    )?;
+    decode_printer_status(&response)
+}
+
+/// Send live dynamic G-code script / pressure advance tuning command to Klipper via Moonraker. Network.
+pub fn set_pressure_advance(cfg: &MoonrakerConfig, advance: f64) -> Result<bool, MoonrakerError> {
+    if !advance.is_finite() || advance < 0.0 {
+        return Err(MoonrakerError::InvalidInput(
+            "pressure advance must be non-negative and finite".into(),
+        ));
+    }
+    let script = format!("SET_PRESSURE_ADVANCE ADVANCE={advance:.5}");
+    let body = serde_json::json!({ "script": script }).to_string();
+    let response = post(
+        cfg,
+        "/printer/gcode/script",
+        "application/json",
+        body.as_bytes(),
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("command rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(true)
+}
+
+fn decode_printer_status(v: &serde_json::Value) -> Result<PrinterLiveStatus, MoonrakerError> {
+    let status = v
+        .get("result")
+        .and_then(|r| r.get("status"))
+        .ok_or_else(|| MoonrakerError::Decode("missing result.status in Moonraker response".into()))?;
+
+    let state = status
+        .get("print_stats")
+        .and_then(|ps| ps.get("state"))
+        .and_then(|s| s.as_str())
+        .unwrap_or("standby")
+        .to_string();
+
+    let progress = status
+        .get("print_stats")
+        .and_then(|ps| ps.get("progress"))
+        .and_then(|p| p.as_f64())
+        .unwrap_or(0.0);
+
+    let nozzle_temp_c = status
+        .get("extruder")
+        .and_then(|ex| ex.get("temperature"))
+        .and_then(|t| t.as_f64())
+        .unwrap_or(0.0);
+
+    let bed_temp_c = status
+        .get("heater_bed")
+        .and_then(|hb| hb.get("temperature"))
+        .and_then(|t| t.as_f64())
+        .unwrap_or(0.0);
+
+    Ok(PrinterLiveStatus {
+        state,
+        nozzle_temp_c,
+        bed_temp_c,
+        progress,
+    })
 }
 
 #[cfg(test)]
@@ -361,6 +472,46 @@ mod tests {
         assert!(matches!(
             read_response_limited(std::io::Cursor::new(bytes), 16),
             Err(MoonrakerError::Decode(message)) if message.contains("exceeds 16 bytes")
+        ));
+    }
+    #[test]
+    fn decode_printer_status_parses_temperatures_and_state() {
+        let json = serde_json::json!({
+            "result": {
+                "status": {
+                    "print_stats": {
+                        "state": "printing",
+                        "progress": 0.42
+                    },
+                    "extruder": {
+                        "temperature": 215.5
+                    },
+                    "heater_bed": {
+                        "temperature": 60.0
+                    }
+                }
+            }
+        });
+        let status = decode_printer_status(&json).unwrap();
+        assert_eq!(status.state, "printing");
+        assert_eq!(status.progress, 0.42);
+        assert_eq!(status.nozzle_temp_c, 215.5);
+        assert_eq!(status.bed_temp_c, 60.0);
+    }
+    #[test]
+    fn invalid_pressure_advance_is_rejected() {
+        let cfg = MoonrakerConfig {
+            base_url: "http://localhost:7125".into(),
+            api_key: None,
+            timeout: Duration::from_secs(1),
+        };
+        assert!(matches!(
+            set_pressure_advance(&cfg, -0.5),
+            Err(MoonrakerError::InvalidInput(_))
+        ));
+        assert!(matches!(
+            set_pressure_advance(&cfg, f64::NAN),
+            Err(MoonrakerError::InvalidInput(_))
         ));
     }
 }
