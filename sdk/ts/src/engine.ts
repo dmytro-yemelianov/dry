@@ -57,6 +57,15 @@ export interface DryWasm {
     maxJerk: number
   ): string;
   import_step_nc_to_ops(stepNcText: string): string;
+  generate_lathe_facing_ops_wasm(paramsJson: string): string;
+  generate_lathe_od_turning_ops_wasm(paramsJson: string): string;
+  check_tool_holder_collision_wasm(
+    toolpathJson: string,
+    holderJson: string,
+    stockBoundsJson: string
+  ): string;
+  reverse_toolpath_wasm(toolpathJson: string): string;
+  verify_gcode_to_report_wasm(gcodeText: string, contractsJson: string): string;
 }
 
 // The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
@@ -234,4 +243,42 @@ export function computeSCurveProfile(
 
 export function importStepNc(stepNcText: string): Op[] {
   return JSON.parse(bind().import_step_nc_to_ops(stepNcText));
+}
+
+export function latheFacingOps(params: import('./ops').LatheFacingParams): Op[] {
+  return JSON.parse(bind().generate_lathe_facing_ops_wasm(JSON.stringify(params)));
+}
+
+export function latheTurningOps(params: import('./ops').LatheTurningParams): Op[] {
+  return JSON.parse(bind().generate_lathe_od_turning_ops_wasm(JSON.stringify(params)));
+}
+
+export function checkToolHolderCollision(
+  toolpath: Toolpath,
+  holder: import('./ops').ToolHolder,
+  stockBounds: [number, number, number, number, number, number]
+): import('./ops').CollisionFinding[] {
+  return JSON.parse(
+    bind().check_tool_holder_collision_wasm(
+      JSON.stringify(toolpath),
+      JSON.stringify(holder),
+      JSON.stringify(stockBounds)
+    )
+  );
+}
+
+export function reverseToolpath(toolpath: Toolpath): Op[] {
+  return JSON.parse(bind().reverse_toolpath_wasm(JSON.stringify(toolpath)));
+}
+
+/**
+ * Directly verify raw G-code text against safety contracts without server or container infrastructure.
+ * Parses G-code, simulates motion, and executes all verification passes in-process via Wasm.
+ */
+export function verifyGcode(
+  gcodeText: string,
+  contracts?: Record<string, unknown>
+): Report {
+  const contractsJson = contracts !== undefined ? JSON.stringify(contracts) : '';
+  return JSON.parse(bind().verify_gcode_to_report_wasm(gcodeText, contractsJson));
 }

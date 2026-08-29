@@ -52,3 +52,25 @@ fn test_rest_machining_rejects_invalid_tool_sizes() {
 
     assert!(generate_corner_rest_machining_ops(&params).is_err());
 }
+
+#[test]
+fn test_rest_machining_non_orthogonal_corners() {
+    for &angle in &[60.0, 120.0, 135.0] {
+        let params = RestMachiningParams {
+            rough_tool_diameter: 10.0,
+            rest_tool_diameter: 4.0,
+            corner_vertex: [50.0, 50.0],
+            corner_angle_deg: angle,
+            z_cut: -2.0,
+            z_clearance: 5.0,
+            feedrate: 800.0,
+            radial_passes: 2,
+        };
+
+        let ops = generate_corner_rest_machining_ops(&params).expect("Failed non-orthogonal rest ops");
+        assert!(!ops.is_empty());
+        let design = Design { ops };
+        let toolpath = resolve(&design, &ResolveParams::default());
+        assert!(!toolpath.segments.is_empty());
+    }
+}

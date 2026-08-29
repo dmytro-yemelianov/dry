@@ -11,6 +11,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod channel;
 pub mod clothoid;
 pub mod codec;
 pub mod compare;
@@ -45,6 +46,7 @@ pub mod trace;
 pub mod units;
 pub mod verify;
 
+pub use channel::{ChannelDefinition, ChannelKind, ChannelRegistry, ChannelValue};
 pub use clothoid::{corner_blend, fresnel, ClothoidError, CornerBlend, FRESNEL_SERIES_EPSILON};
 pub use codec::{
     decode_any_streaming, decode_any_streaming_with_limits, decode_chunked_streaming,
@@ -90,11 +92,12 @@ pub use gcode::{
 };
 pub use generate::{
     drape_design, drape_ops, generate_chamfer_ops, generate_corner_rest_machining_ops,
-    generate_thread_milling_ops, pocket_design, pocket_ops, pocket_stepped_ops, tpms_design,
-    tpms_ops, try_pocket_design, try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepError,
-    BrepSolid, ChamferParams, CutMode, DrapeError, DrapeOptions, DrapePattern, PocketError,
-    PocketOptions, PocketShape, Point3D, RestMachiningParams, Surface, SurfacePrimitive,
-    ThreadMillParams, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
+    generate_lathe_facing_ops, generate_lathe_od_turning_ops, generate_thread_milling_ops,
+    pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops, try_pocket_design,
+    try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepError, BrepSolid, ChamferParams,
+    CutMode, DrapeError, DrapeOptions, DrapePattern, LatheFacingParams, LatheTurningParams,
+    PocketError, PocketOptions, PocketShape, Point3D, RestMachiningParams, Surface,
+    SurfacePrimitive, ThreadMillParams, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};

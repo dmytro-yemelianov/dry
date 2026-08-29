@@ -33,9 +33,27 @@ fn review_import_params() -> GcodeImportParams {
 #[event(fetch)]
 async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Router::new()
+        .post_async("/verify", worker_verify)
         .post_async("/spike/verify", spike_verify)
         .run(req, env)
         .await
+}
+
+async fn worker_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Result<Response> {
+    let body: Vec<u8> = req.bytes().await?;
+    let params = review_import_params();
+    let imported = match import_gcode_reader_with_map(body.as_slice(), &params) {
+        Ok(imported) => imported,
+        Err(e) => {
+            return Response::error(format!("import failed: {e}"), 422);
+        }
+    };
+    let contracts = match req.headers().get("X-Dry-Contracts")? {
+        Some(contracts_str) => serde_json::from_str(&contracts_str).unwrap_or_default(),
+        None => Contracts::default(),
+    };
+    let report = verify(&imported.toolpath, &contracts);
+    Response::from_json(&report)
 }
 
 async fn spike_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Result<Response> {

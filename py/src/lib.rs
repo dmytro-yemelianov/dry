@@ -69,7 +69,7 @@ fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKin
 /// `validate_design` does not require) — raises `ValueError`. It previously came back as an empty
 /// list, which callers read as a successfully emitted zero-line program.
 #[pyfunction]
-#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab"))]
+#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab", flavor=None))]
 fn resolve_gcode(
     ops_json: &str,
     params_json: &str,
@@ -77,11 +77,20 @@ fn resolve_gcode(
     travel_g1_e0: bool,
     five_axis: bool,
     rotary_axes: &str,
+    flavor: Option<&str>,
 ) -> PyResult<Vec<String>> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
         Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let firmware_flavor = match flavor {
+        Some("grbl" | "GRBL") => dry_core::FirmwareFlavor::Grbl,
+        Some("rs274" | "RS274" | "linuxcnc") => dry_core::FirmwareFlavor::Rs274,
+        Some("klipper") => dry_core::FirmwareFlavor::Klipper,
+        Some("duet") => dry_core::FirmwareFlavor::Duet,
+        Some("krl") => dry_core::FirmwareFlavor::RobotKrl,
+        _ => dry_core::FirmwareFlavor::Marlin,
+    };
     emit_stream(
         tp.segments.iter().cloned().map(Ok),
         &EmitParams {
@@ -89,6 +98,7 @@ fn resolve_gcode(
             travel_g1_e0,
             five_axis,
             kinematics,
+            flavor: firmware_flavor,
             ..EmitParams::default()
         },
     )
@@ -403,6 +413,53 @@ fn slice_step_solid_json(
     serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Generate CNC Lathe Facing operations from parameters JSON.
+#[pyfunction]
+fn lathe_facing_ops_json(params_json: &str) -> PyResult<String> {
+    let params: dry_core::LatheFacingParams = serde_json::from_str(params_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid lathe facing params: {e}")))?;
+    let ops = dry_core::generate_lathe_facing_ops(&params)
+        .map_err(PyValueError::new_err)?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Generate CNC Lathe OD Roughing & Finishing operations from parameters JSON.
+#[pyfunction]
+fn lathe_od_turning_ops_json(params_json: &str) -> PyResult<String> {
+    let params: dry_core::LatheTurningParams = serde_json::from_str(params_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid lathe turning params: {e}")))?;
+    let ops = dry_core::generate_lathe_od_turning_ops(&params)
+        .map_err(PyValueError::new_err)?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Check toolpath for tool holder collision against stock volume bounds.
+#[pyfunction]
+fn check_tool_holder_collision_json(
+    toolpath_json: &str,
+    holder_json: &str,
+    stock_bounds_json: &str,
+) -> PyResult<String> {
+    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
+    let holder: dry_core::ToolHolder = serde_json::from_str(holder_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid tool holder: {e}")))?;
+    let stock_bounds: [f64; 6] = serde_json::from_str(stock_bounds_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid stock bounds: {e}")))?;
+    let findings = dry_core::check_tool_holder_collision(&toolpath, &holder, stock_bounds);
+    serde_json::to_string(&findings).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Reverse-engineer an L1 Design JSON from a resolved L2 Toolpath JSON.
+#[pyfunction]
+fn reverse_toolpath_json(toolpath_json: &str) -> PyResult<String> {
+    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
+    let design = dry_core::reverse::reverse(&toolpath)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&design.ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
@@ -414,6 +471,10 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(drape_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_mesh_json, m)?)?;
     m.add_function(wrap_pyfunction!(slice_step_solid_json, m)?)?;
+    m.add_function(wrap_pyfunction!(lathe_facing_ops_json, m)?)?;
+    m.add_function(wrap_pyfunction!(lathe_od_turning_ops_json, m)?)?;
+    m.add_function(wrap_pyfunction!(check_tool_holder_collision_json, m)?)?;
+    m.add_function(wrap_pyfunction!(reverse_toolpath_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_binary, m)?)?;

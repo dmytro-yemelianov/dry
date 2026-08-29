@@ -835,3 +835,28 @@ async fn verify_rate_limiting_enforcement() {
     assert!(limiter.check_and_record("client-b", 10, now));
 }
 
+#[tokio::test]
+async fn verify_with_revoked_bearer_token_returns_401_unauthorized() {
+    let _allow = EnvVarGuard::apply(&[
+        ("ALLOWED_REGISTRY_HOST", Some(LOOPBACK_HOST)),
+        ("DRY_LICENSE_ALLOW_TEST_KEY", Some("1")),
+        ("DRY_LICENSE_REVOKED_IDS", Some("01TESTFIXTURE,OTHER_REVOKED")),
+    ]);
+    let valid_token = "DRY-LICENSE-V1.eyJpZCI6IjAxVEVTVEZJWFRVUkUiLCJsaWNlbnNlZSI6IlRlc3QgQ28iLCJlbWFpbCI6InRAZXhhbXBsZS5jb20iLCJ0aWVyIjoidGVhbSIsIm1hY2hpbmVzIjoyNSwiaXNzdWVkIjoiMjAyNi0wNy0yOCIsImV4cGlyZXMiOiIyMTAwLTAxLTAxIiwiaXNzdWVkX3VuaXgiOjE3ODUwMDAwMDAsImV4cGlyZXNfdW5peCI6NDEwMjQ0NDgwMCwia2V5X2lkIjoidGVzdC0xIn0.zvNIVMZ_Ox-L2Aqa9wlDdtQfdEnqPvw2VqlOjMVmt4d679DVKd_dm79uT99H_zh9O-7Hfv459PhhuiDBuiZ2BQ";
+
+    let gcode = std::fs::read(fixture_gcode_path()).unwrap();
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/verify?pack=marlin-pla-i3&version=0.1.0&profile=marlin-pla-i3&registry=http://127.0.0.1")
+        .header("authorization", format!("Bearer {valid_token}"))
+        .body(Body::from(gcode))
+        .unwrap();
+
+    let response = app(AppState::new()).oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let json = response_json(response).await;
+    assert_eq!(json["stage"], "input-invalid");
+    assert!(json["error"].as_str().unwrap().contains("revoked"));
+}
+

@@ -44,7 +44,7 @@ export type Op =
   | { op: 'unretract'; distance: number | null; speed: number | null }
   | { op: 'deposit'; volume: number; speed: number };
 
-/** The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. */
+/** The lowering defaults (print/travel feedrate, filament diameter, retraction) — mirrors the engine's ResolveParams. */
 export interface ResolveParams {
   /** Default extrusion feedrate in mm/min. */
   print_speed: number;
@@ -52,6 +52,10 @@ export interface ResolveParams {
   travel_speed: number;
   /** Filament diameter in mm. */
   dia: number;
+  /** Default retraction speed in mm/min. */
+  retraction_speed?: number;
+  /** Default retraction distance in mm. */
+  retraction_distance?: number;
 }
 
 /** Simulation metrics returned by `simulate`. */
@@ -170,6 +174,49 @@ export interface Report {
   license?: { mode: string; licensee?: string; tier?: string };
 }
 
+/** Parameters for CNC Lathe Facing operation. */
+export interface LatheFacingParams {
+  stock_diameter: number;
+  target_z?: number;
+  clearance_x?: number;
+  clearance_z?: number;
+  feedrate?: number;
+  spindle_rpm?: number;
+  passes?: number;
+  depth_per_pass?: number;
+}
+
+/** Parameters for CNC Lathe Outer Diameter (OD) Roughing & Finishing. */
+export interface LatheTurningParams {
+  raw_diameter: number;
+  target_diameter: number;
+  cut_length: number;
+  depth_of_cut?: number;
+  finish_allowance?: number;
+  clearance_x?: number;
+  clearance_z?: number;
+  rough_feedrate?: number;
+  finish_feedrate?: number;
+  spindle_rpm?: number;
+}
+
+/** Physical dimensions of a tool holder assembly for collision detection. */
+export interface ToolHolder {
+  holder_diameter: number;
+  stickout_length: number;
+  collet_diameter?: number;
+  collet_length?: number;
+}
+
+/** Collision finding for tool holder interference. */
+export interface CollisionFinding {
+  severity: Severity;
+  code: string;
+  message: string;
+  segment_index: number;
+  plunge_depth: number;
+}
+
 /** Device defaults (the generic printer). More profiles land with the device-profile work. */
 export const PRINTERS: Record<string, ResolveParams> = {
   generic: { print_speed: 1000, travel_speed: 8000, dia: 1.75 },
@@ -177,3 +224,4 @@ export const PRINTERS: Record<string, ResolveParams> = {
 
 /** Default resolver parameters for the generic built-in printer profile. */
 export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
+

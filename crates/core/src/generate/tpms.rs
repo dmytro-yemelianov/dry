@@ -831,26 +831,31 @@ impl Tpms {
                 let v11 = scrub_zero(value_at(i + 1, j + 1));
                 let v01 = scrub_zero(value_at(i, j + 1));
 
-                let mut crossings: Vec<Point> = Vec::with_capacity(4);
+                let mut crossings = [Point { x: 0.0, y: 0.0 }; 4];
+                let mut n_crossings = 0;
                 if crosses(v00, v10) {
-                    crossings.push(interpolate(p00, p10, v00, v10));
+                    crossings[n_crossings] = interpolate(p00, p10, v00, v10);
+                    n_crossings += 1;
                 }
                 if crosses(v10, v11) {
-                    crossings.push(interpolate(p10, p11, v10, v11));
+                    crossings[n_crossings] = interpolate(p10, p11, v10, v11);
+                    n_crossings += 1;
                 }
                 if crosses(v11, v01) {
-                    crossings.push(interpolate(p11, p01, v11, v01));
+                    crossings[n_crossings] = interpolate(p11, p01, v11, v01);
+                    n_crossings += 1;
                 }
                 if crosses(v01, v00) {
-                    crossings.push(interpolate(p01, p00, v01, v00));
+                    crossings[n_crossings] = interpolate(p01, p00, v01, v00);
+                    n_crossings += 1;
                 }
 
-                if crossings.len() == 2 {
+                if n_crossings == 2 {
                     segments.push(Seg2 {
                         a: crossings[0],
                         b: crossings[1],
                     });
-                } else if crossings.len() == 4 {
+                } else if n_crossings == 4 {
                     let xc = ((i as f64 + 0.5) * self.dx / self.cell_size + self.phase_x)
                         * std::f64::consts::TAU;
                     let yc = ((j as f64 + 0.5) * self.dy / self.cell_size + self.phase_y)
@@ -1037,27 +1042,48 @@ fn extend_path(
     used: &mut [bool],
     at_start: bool,
 ) {
-    loop {
-        let endpoint = if at_start {
-            path[0]
-        } else {
-            path[path.len() - 1]
-        };
-        let key = point_key(endpoint);
-        let next = endpoints
-            .get(&key)
-            .and_then(|list| list.iter().copied().find(|&idx| !used[idx]));
-        let Some(next) = next else { return };
-        used[next] = true;
-        let seg = &segments[next];
-        let next_point = if point_key(seg.a) == key {
-            seg.b
-        } else {
-            seg.a
-        };
-        if at_start {
-            path.insert(0, next_point);
-        } else {
+    if at_start {
+        let mut prefix = Vec::new();
+        loop {
+            let endpoint = if prefix.is_empty() {
+                path[0]
+            } else {
+                prefix[prefix.len() - 1]
+            };
+            let key = point_key(endpoint);
+            let next = endpoints
+                .get(&key)
+                .and_then(|list| list.iter().copied().find(|&idx| !used[idx]));
+            let Some(next) = next else { break };
+            used[next] = true;
+            let seg = &segments[next];
+            let next_point = if point_key(seg.a) == key {
+                seg.b
+            } else {
+                seg.a
+            };
+            prefix.push(next_point);
+        }
+        if !prefix.is_empty() {
+            prefix.reverse();
+            prefix.append(path);
+            *path = prefix;
+        }
+    } else {
+        loop {
+            let endpoint = path[path.len() - 1];
+            let key = point_key(endpoint);
+            let next = endpoints
+                .get(&key)
+                .and_then(|list| list.iter().copied().find(|&idx| !used[idx]));
+            let Some(next) = next else { return };
+            used[next] = true;
+            let seg = &segments[next];
+            let next_point = if point_key(seg.a) == key {
+                seg.b
+            } else {
+                seg.a
+            };
             path.push(next_point);
         }
     }
@@ -1071,39 +1097,43 @@ fn order_paths(paths: Vec<Path>, cursor: Option<Point>) -> Vec<Path> {
     let mut current = cursor;
     while !remaining.is_empty() {
         let mut best_index = 0;
-        let mut best = orient_path(&remaining[0], current);
-        let mut best_distance = current.map_or(0.0, |c| distance(c, best.points[0]));
-        for (i, candidate_path) in remaining.iter().enumerate().skip(1) {
-            let candidate = orient_path(candidate_path, current);
-            let d = current.map_or(0.0, |c| distance(c, candidate.points[0]));
+        let mut best_reverse = false;
+        let mut best_distance = f64::INFINITY;
+
+        for (i, candidate) in remaining.iter().enumerate() {
+            let (d, rev) = candidate_distance(candidate, current);
             if d < best_distance {
                 best_index = i;
-                best = candidate;
+                best_reverse = rev;
                 best_distance = d;
             }
         }
-        current = best.points.last().copied();
-        ordered.push(best);
-        remaining.remove(best_index);
+
+        let mut path = remaining.remove(best_index);
+        if best_reverse {
+            path.points.reverse();
+        }
+        current = path.points.last().copied();
+        ordered.push(path);
     }
     ordered
 }
 
-fn orient_path(path: &Path, cursor: Option<Point>) -> Path {
+fn candidate_distance(path: &Path, cursor: Option<Point>) -> (f64, bool) {
     let Some(cursor) = cursor else {
-        return path.clone();
+        return (0.0, false);
     };
-    if path.points.len() < 2 {
-        return path.clone();
+    if path.points.is_empty() {
+        return (0.0, false);
     }
     let first = path.points[0];
     let last = path.points[path.points.len() - 1];
-    if distance(cursor, last) < distance(cursor, first) {
-        let mut points = path.points.clone();
-        points.reverse();
-        Path { points }
+    let d_first = distance(cursor, first);
+    let d_last = distance(cursor, last);
+    if d_last < d_first {
+        (d_last, true)
     } else {
-        path.clone()
+        (d_first, false)
     }
 }
 

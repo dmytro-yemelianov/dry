@@ -418,6 +418,29 @@ pub fn import_gcode_to_ir(gcode_text: &str) -> Result<String, JsError> {
     serde_json::to_string(&imported).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Directly verify raw G-code text against safety contracts without container or server infrastructure.
+#[wasm_bindgen]
+pub fn verify_gcode_to_report_wasm(
+    gcode_text: &str,
+    contracts_json: &str,
+) -> Result<String, JsError> {
+    let import_params = dry_core::GcodeImportParams {
+        line_width: Some(0.45),
+        layer_height: Some(0.2),
+        ..dry_core::GcodeImportParams::default()
+    };
+    let imported = dry_core::import_gcode(gcode_text, &import_params)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    let contracts: Contracts = if contracts_json.trim().is_empty() {
+        Contracts::default()
+    } else {
+        serde_json::from_str(contracts_json)
+            .map_err(|e| JsError::new(&format!("contracts: {e}")))?
+    };
+    let report = verify(&imported, &contracts);
+    serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
 /// Compute a 7-phase jerk-bounded S-curve trajectory profile.
 #[wasm_bindgen]
 pub fn compute_scurve_profile(
@@ -445,6 +468,53 @@ pub fn import_step_nc_to_ops(step_nc_text: &str) -> Result<String, JsError> {
         all_ops.extend(dry_core::lower_workingstep_to_ops(step));
     }
     serde_json::to_string(&all_ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Generate CNC Lathe Facing operations from parameters JSON.
+#[wasm_bindgen]
+pub fn generate_lathe_facing_ops_wasm(params_json: &str) -> Result<String, JsError> {
+    let params: dry_core::LatheFacingParams = serde_json::from_str(params_json)
+        .map_err(|e| JsError::new(&format!("lathe facing params: {e}")))?;
+    let ops = dry_core::generate_lathe_facing_ops(&params)
+        .map_err(|e| JsError::new(&e))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Generate CNC Lathe OD Roughing & Finishing operations from parameters JSON.
+#[wasm_bindgen]
+pub fn generate_lathe_od_turning_ops_wasm(params_json: &str) -> Result<String, JsError> {
+    let params: dry_core::LatheTurningParams = serde_json::from_str(params_json)
+        .map_err(|e| JsError::new(&format!("lathe turning params: {e}")))?;
+    let ops = dry_core::generate_lathe_od_turning_ops(&params)
+        .map_err(|e| JsError::new(&e))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Check toolpath for tool holder collision against stock volume bounds.
+#[wasm_bindgen]
+pub fn check_tool_holder_collision_wasm(
+    toolpath_json: &str,
+    holder_json: &str,
+    stock_bounds_json: &str,
+) -> Result<String, JsError> {
+    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
+    let holder: dry_core::ToolHolder = serde_json::from_str(holder_json)
+        .map_err(|e| JsError::new(&format!("tool holder: {e}")))?;
+    let stock_bounds: [f64; 6] = serde_json::from_str(stock_bounds_json)
+        .map_err(|e| JsError::new(&format!("stock bounds [min_x, max_x, min_y, max_y, min_z, max_z]: {e}")))?;
+    let findings = dry_core::check_tool_holder_collision(&toolpath, &holder, stock_bounds);
+    serde_json::to_string(&findings).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Reverse-engineer an L1 Design JSON from a resolved L2 Toolpath JSON.
+#[wasm_bindgen]
+pub fn reverse_toolpath_wasm(toolpath_json: &str) -> Result<String, JsError> {
+    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
+    let design = dry_core::reverse::reverse(&toolpath)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&design.ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
 #[cfg(test)]

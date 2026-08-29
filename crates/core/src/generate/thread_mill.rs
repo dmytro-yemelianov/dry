@@ -85,72 +85,130 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
     let total_revolutions = (params.thread_depth / params.pitch).ceil() as usize;
     let z_bottom = start_z - params.thread_depth;
 
-    // Lead-in tangential arc radius
-    let lead_in_r = orbit_radius / 2.0;
+    // Handedness and climb direction
+    // For internal right-hand climb: CCW (clockwise: false), ascending +Z
+    let clockwise = if params.right_hand {
+        !params.climb
+    } else {
+        params.climb
+    };
 
-    // 1. Rapid move to clearance center above hole
-    ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 2.0) });
+    if params.is_internal {
+        // Internal Threading (Hole)
+        let lead_in_r = orbit_radius / 2.0;
 
-    // 2. Plunge down hole center to bottom Z
-    ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(z_bottom) });
+        // 1. Rapid move to clearance center above hole
+        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 2.0) });
 
-    // 3. Tangential lead-in arc (180 deg semi-circle from center to orbit edge)
-    // Starts at (center_x, center_y, z_bottom), sweeps to (center_x + orbit_radius, center_y, z_bottom + pitch / 4.0)
-    let lead_in_x = center_x + orbit_radius;
-    let lead_in_y = center_y;
-    let lead_in_z = z_bottom + params.pitch * 0.25;
+        // 2. Plunge down hole center to bottom Z
+        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(z_bottom) });
 
-    ops.push(Op::Arc {
-        cx: center_x + lead_in_r,
-        cy: center_y,
-        x: Some(lead_in_x),
-        y: Some(lead_in_y),
-        z: Some(lead_in_z),
-        clockwise: false,
-    });
-
-    // 4. Helical thread cutting passes (each 360 deg circle rises by exactly 1.0 pitch)
-    let mut current_z = lead_in_z;
-    for _ in 0..total_revolutions {
-        let next_z = current_z + params.pitch;
-        // 360-degree full circle via two 180-degree arcs to guarantee exact non-degenerate geometry
-        let mid_x = center_x - orbit_radius;
-        let mid_z = current_z + params.pitch * 0.5;
+        // 3. Tangential lead-in arc (180 deg semi-circle from center to orbit edge)
+        let lead_in_x = center_x + orbit_radius;
+        let lead_in_y = center_y;
+        let lead_in_z = z_bottom + params.pitch * 0.25;
 
         ops.push(Op::Arc {
-            cx: center_x,
-            cy: center_y,
-            x: Some(mid_x),
-            y: Some(center_y),
-            z: Some(mid_z),
-            clockwise: false,
-        });
-
-        ops.push(Op::Arc {
-            cx: center_x,
+            cx: center_x + lead_in_r,
             cy: center_y,
             x: Some(lead_in_x),
-            y: Some(center_y),
-            z: Some(next_z),
-            clockwise: false,
+            y: Some(lead_in_y),
+            z: Some(lead_in_z),
+            clockwise,
         });
 
-        current_z = next_z;
+        // 4. Helical thread cutting passes
+        let mut current_z = lead_in_z;
+        for _ in 0..total_revolutions {
+            let next_z = current_z + params.pitch;
+            let mid_x = center_x - orbit_radius;
+            let mid_z = current_z + params.pitch * 0.5;
+
+            ops.push(Op::Arc {
+                cx: center_x,
+                cy: center_y,
+                x: Some(mid_x),
+                y: Some(center_y),
+                z: Some(mid_z),
+                clockwise,
+            });
+
+            ops.push(Op::Arc {
+                cx: center_x,
+                cy: center_y,
+                x: Some(lead_in_x),
+                y: Some(center_y),
+                z: Some(next_z),
+                clockwise,
+            });
+
+            current_z = next_z;
+        }
+
+        // 5. Tangential lead-out arc back to center
+        let lead_out_z = current_z + params.pitch * 0.25;
+        ops.push(Op::Arc {
+            cx: center_x + lead_in_r,
+            cy: center_y,
+            x: Some(center_x),
+            y: Some(center_y),
+            z: Some(lead_out_z),
+            clockwise,
+        });
+
+        // 6. Retract to top clearance
+        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 5.0) });
+    } else {
+        // External Threading (Rod / Bolt)
+        let standoff = 2.0; // 2mm outside clearance
+        let start_orbit_x = center_x + orbit_radius + standoff;
+        let lead_in_x = center_x + orbit_radius;
+        let lead_in_z = z_bottom + params.pitch * 0.25;
+
+        // 1. Rapid to external clearance above part
+        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(start_z + 2.0) });
+
+        // 2. Plunge down outside workpiece
+        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(z_bottom) });
+
+        // 3. Move linearly/tangentially to orbit perimeter
+        ops.push(Op::Move { x: Some(lead_in_x), y: Some(center_y), z: Some(lead_in_z) });
+
+        // 4. Helical thread cutting passes around outside diameter
+        let mut current_z = lead_in_z;
+        for _ in 0..total_revolutions {
+            let next_z = current_z + params.pitch;
+            let mid_x = center_x - orbit_radius;
+            let mid_z = current_z + params.pitch * 0.5;
+
+            ops.push(Op::Arc {
+                cx: center_x,
+                cy: center_y,
+                x: Some(mid_x),
+                y: Some(center_y),
+                z: Some(mid_z),
+                clockwise,
+            });
+
+            ops.push(Op::Arc {
+                cx: center_x,
+                cy: center_y,
+                x: Some(lead_in_x),
+                y: Some(center_y),
+                z: Some(next_z),
+                clockwise,
+            });
+
+            current_z = next_z;
+        }
+
+        // 5. Tangential lead-out back outward
+        let lead_out_z = current_z + params.pitch * 0.25;
+        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(lead_out_z) });
+
+        // 6. Retract to top clearance
+        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(start_z + 5.0) });
     }
-
-    // 5. Tangential lead-out arc back to center
-    let lead_out_z = current_z + params.pitch * 0.25;
-    ops.push(Op::Arc {
-        cx: center_x + lead_in_r,
-        cy: center_y,
-        x: Some(center_x),
-        y: Some(center_y),
-        z: Some(lead_out_z),
-        clockwise: false,
-    });
-
-    // 6. Retract to top clearance
-    ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 5.0) });
 
     Ok(ops)
 }
@@ -185,7 +243,7 @@ impl Default for ChamferParams {
     }
 }
 
-/// Generates a constant-load 3D chamfer toolpath along a 2D polyline contour.
+/// Generates a constant-load 3D chamfer toolpath along a 2D polyline contour with outward flute offset.
 pub fn generate_chamfer_ops(
     params: &ChamferParams,
     contour_points: &[[f64; 2]],
@@ -197,6 +255,9 @@ pub fn generate_chamfer_ops(
     if params.chamfer_width <= 0.0 || !params.chamfer_width.is_finite() {
         return Err("Chamfer width must be positive and finite".into());
     }
+    if params.chamfer_angle_deg <= 0.0 || params.chamfer_angle_deg >= 90.0 || !params.chamfer_angle_deg.is_finite() {
+        return Err("Chamfer angle must be in (0, 90) degrees".into());
+    }
 
     // Offset calculation along tool flute to avoid machining with 0-velocity dead center tip
     let tip_radius = params.tip_diameter / 2.0;
@@ -205,23 +266,43 @@ pub fn generate_chamfer_ops(
     let depth_offset = radial_offset * (params.chamfer_angle_deg.to_radians()).tan();
     let cutting_z = z_surface - depth_offset;
 
+    // Calculate normal offsets for all vertices along the contour
+    let mut offset_points = Vec::with_capacity(contour_points.len());
+    for i in 0..contour_points.len() {
+        let prev = if i == 0 { contour_points[0] } else { contour_points[i - 1] };
+        let next = if i + 1 < contour_points.len() { contour_points[i + 1] } else { contour_points[i] };
+        let dx = next[0] - prev[0];
+        let dy = next[1] - prev[1];
+        let len = libm::hypot(dx, dy);
+        let (nx, ny) = if len > 1e-6 {
+            // Outward normal 90 degrees clockwise to direction of travel
+            (dy / len, -dx / len)
+        } else {
+            (0.0, 0.0)
+        };
+        offset_points.push([
+            contour_points[i][0] + nx * radial_offset,
+            contour_points[i][1] + ny * radial_offset,
+        ]);
+    }
+
     let mut ops = vec![
         Op::Power { level: params.spindle_rpm },
         Op::Speed { print: params.feedrate },
         Op::Move {
-            x: Some(contour_points[0][0]),
-            y: Some(contour_points[0][1]),
+            x: Some(offset_points[0][0]),
+            y: Some(offset_points[0][1]),
             z: Some(z_surface + 5.0),
         },
         Op::Move {
-            x: Some(contour_points[0][0]),
-            y: Some(contour_points[0][1]),
+            x: Some(offset_points[0][0]),
+            y: Some(offset_points[0][1]),
             z: Some(cutting_z),
         },
     ];
 
-    // Trace along contour
-    for pt in &contour_points[1..] {
+    // Trace along offset contour
+    for pt in &offset_points[1..] {
         ops.push(Op::Move {
             x: Some(pt[0]),
             y: Some(pt[1]),
@@ -231,8 +312,8 @@ pub fn generate_chamfer_ops(
 
     // Retract
     ops.push(Op::Move {
-        x: Some(contour_points.last().unwrap()[0]),
-        y: Some(contour_points.last().unwrap()[1]),
+        x: Some(offset_points.last().unwrap()[0]),
+        y: Some(offset_points.last().unwrap()[1]),
         z: Some(z_surface + 5.0),
     });
 

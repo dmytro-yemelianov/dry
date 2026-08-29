@@ -15,7 +15,7 @@ used in Dry's corner blending pipeline (`crates/core/src/optimize/clothoid.rs`).
 - `clothoid_curvature_linear`: Curvature $\kappa(s) = c \cdot s + \kappa_0$ has constant derivative $d\kappa/ds = c$.
 - `clothoid_tangent_deriv`: Tangent angle $\theta(s) = \frac{1}{2} c s^2 + \kappa_0 s + \theta_0$ has derivative $\theta'(s) = \kappa(s)$.
 - `clothoid_boundary_curvature`: Boundary values at blend entry ($s = 0$) and exit ($s = L$) match straight line ($\kappa = 0$) and target arc ($\kappa = 1/R$).
-- All theorems proved with 0 axioms and 0 sorry.
+- All theorems proved with 0 axioms and 0 placeholder tactics.
 -/
 
 namespace Dry.Geometry.Clothoid

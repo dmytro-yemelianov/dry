@@ -9,7 +9,7 @@
       "Tool: dry-sbom-generator-0.7.0",
       "Organization: Dry Tooling"
     ],
-    "created": "2026-08-28T22:59:45Z"
+    "created": "2026-08-29T11:46:42Z"
   },
   "packages": [
     {
@@ -17,8 +17,8 @@
       "name": "dry-core",
       "versionInfo": "0.7.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "Apache-2.0 OR MIT",
-      "licenseDeclared": "Apache-2.0 OR MIT",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
       "filesAnalyzed": false
     }
   ]

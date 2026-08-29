@@ -73,3 +73,25 @@ fn test_3d_chamfering_contour_e2e() {
     let toolpath = resolve_checked(&design, &resolve_params).expect("Chamfer ops must resolve");
     assert_eq!(toolpath.segments.len(), 7);
 }
+
+#[test]
+fn test_external_thread_milling_and_left_hand() {
+    let params_ext = ThreadMillParams {
+        nominal_diameter: 20.0,
+        pitch: 2.0,
+        thread_depth: 10.0,
+        tool_diameter: 6.0,
+        is_internal: false,
+        right_hand: false, // Left-hand
+        climb: false,      // Conventional
+        feedrate: 600.0,
+        spindle_rpm: 4000.0,
+    };
+
+    let ops = generate_thread_milling_ops(&params_ext, 50.0, 50.0, 0.0).expect("External thread mill failed");
+    assert!(!ops.is_empty());
+
+    let design = dry_core::Design { ops };
+    let toolpath = resolve_checked(&design, &ResolveParams::default()).expect("External thread resolves");
+    assert!(!toolpath.segments.is_empty());
+}

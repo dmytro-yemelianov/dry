@@ -11,6 +11,7 @@ import {
   resolveGcode,
   resolveIr,
   resolveMetrics,
+  resolveMetricsIr,
   type ResolveParams,
   RESOLVE_PARAMS,
   starPolygonDentRadiusRatio,
@@ -542,4 +543,28 @@ test('the oriented drape vector reproduces its committed metrics and orientation
   ir.segments.forEach((seg: any, i: number) => {
     assert.deepEqual(seg.orientation ?? null, wantIr.segments[i].orientation ?? null);
   });
+});
+
+test('TypeScript SDK validates all 14 public conformance vectors from MANIFEST.json', () => {
+  const manifestPath = path.join(CONF, 'vectors', 'MANIFEST.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assert.ok(Array.isArray(manifest.vectors), 'manifest.vectors must be an array');
+  assert.equal(manifest.vectors.length, 14, 'must have exactly 14 conformance vectors');
+
+  for (const vec of manifest.vectors) {
+    const vecDir = path.join(CONF, 'vectors', vec.name);
+    const inputJson = JSON.parse(fs.readFileSync(path.join(vecDir, 'input.json'), 'utf8'));
+    assert.equal(inputJson.version, 0, `vector ${vec.name} must be IR version 0`);
+    assert.ok(Array.isArray(inputJson.segments), `vector ${vec.name} must have segments array`);
+
+    if (fs.existsSync(path.join(vecDir, 'metrics.json'))) {
+      const wantMetrics = JSON.parse(fs.readFileSync(path.join(vecDir, 'metrics.json'), 'utf8'));
+      const simMetrics = resolveMetricsIr(JSON.stringify(inputJson));
+      assert.equal(simMetrics.segment_count, wantMetrics.segment_count, `segment_count mismatch on ${vec.name}`);
+      assert.ok(
+        Math.abs(simMetrics.total_time_s - wantMetrics.total_time_s) <= 1e-6,
+        `total_time_s mismatch on ${vec.name}`,
+      );
+    }
+  }
 });

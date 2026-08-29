@@ -31,11 +31,19 @@ export {
   resolveVerify,
   computeSCurveProfile,
   importStepNc,
+  latheFacingOps,
+  latheTurningOps,
+  checkToolHolderCollision,
+  reverseToolpath,
+  verifyGcode,
 } from './engine';
 export type { MachineKinematics, SCurveProfile } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type {
+  CollisionFinding,
   Finding,
+  LatheFacingParams,
+  LatheTurningParams,
   Metrics,
   Op,
   Report,
@@ -43,6 +51,7 @@ export type {
   Segment,
   SegmentKind,
   Severity,
+  ToolHolder,
   Toolpath,
   ToolpathMeta,
 } from './ops';

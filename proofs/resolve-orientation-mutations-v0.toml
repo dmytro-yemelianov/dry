@@ -5,7 +5,7 @@ source = "crates/core/src/resolve.rs"
 # overflows to infinity, which `mag <= 0.0` let through and which normalises to exactly
 # (0, 0, 0) downstream. The mutation below is re-pointed at the widened condition so it still
 # removes the whole guard.
-source_sha256 = "7fc4fa0ede1e6394fc20ebae1e31f70a561a3de9db2db61b3f9ae3ab40ece9c0"
+source_sha256 = "58b7c5918e81f81bb5551b94539cf2c4c6c4644904392460ef56a33fd6c2a7df"
 test = "crates/core/tests/resolve_orientation_refinement.rs"
 
 [[mutation]]

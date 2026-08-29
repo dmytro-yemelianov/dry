@@ -1,44 +1,54 @@
-Dry Proprietary Notice
-Version 1.0 — 25 July 2026
+Functional Source License, Version 1.1, MIT Future License
 
 Copyright (c) 2026 Dmytro Yemelianov. All rights reserved.
 
-Dry, including its source code, executable code, packages, schemas, examples,
-generated artifacts, visual assets, and other software materials (the
-"Software"), is source-available and proprietary.
+The Licensor hereby grants you the right to copy, modify, create derivative works,
+publicly display, publicly perform, and distribute the Software, so long as you
+comply with the Exclusion (below) and other terms of this license.
 
-No copyright, patent, trademark, trade-secret, or other license is granted by
-this notice. You may not use, copy, modify, distribute, publish, sublicense,
-sell, disclose, reverse engineer, decompile, disassemble, or create derivative
-works of the Software except as expressly permitted below or by a separate
-written agreement signed by the copyright holder.
+1. Exclusion: You may not use the Software to provide a Competing Service. A
+   "Competing Service" is a product or service whose primary purpose or core
+   value proposition is to provide parametric toolpath compilation, G-code
+   verification, or CAM motion generation that competes with the Software or
+   services offered by the Licensor.
 
-Publicly hosted Dry documentation and demonstrations may be accessed, viewed,
-and interacted with for evaluation. Source code published in a public
-repository may be viewed and forked only as permitted by the hosting
-platform's terms. These limited permissions do not authorize local execution,
-compilation, modification, distribution, commercial use, or use of Dry names
-or marks.
+2. Change Date and Change License: Two years after the initial release date of
+   this version of the Software (and specifically on August 29, 2028 for version
+   0.7.0), this license will automatically convert to the Change License, which
+   is the MIT License (below). As of the Change Date, the Exclusion will no
+   longer apply, and you may use the Software under the terms of the Change
+   License.
 
-Authorized customers, evaluators, employees, and contractors may use the
-Software only within the scope and term of their applicable written agreement.
-If that agreement conflicts with this notice, the signed agreement controls.
+3. Termination: This license will terminate automatically if you fail to comply
+   with its terms and do not cure such failure within thirty (30) days of
+   becoming aware of it.
 
-Third-party components are not licensed under this notice. They remain subject
-to their respective license terms and notices; see NOTICE and
-third_party/licenses/.
+4. Disclaimer: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+   EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
 
-THE SOFTWARE IS PROVIDED "AS IS" TO THE MAXIMUM EXTENT PERMITTED BY LAW,
-WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
-NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER
-WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
-PUNITIVE DAMAGES, OR FOR LOSS OF DATA, PROFITS, REVENUE, OR BUSINESS, ARISING
-FROM OR RELATED TO THE SOFTWARE.
+---
 
-Versions or copies previously distributed under another license remain
-governed by the license terms attached to those versions or copies. This
-notice applies prospectively to the version in which it appears.
+Change License: MIT License
 
-For commercial licensing, evaluation rights, or other permissions, contact
-the copyright holder through the repository owner.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

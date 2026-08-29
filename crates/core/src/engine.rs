@@ -68,6 +68,34 @@ pub(crate) fn segment_motion_time(s: &crate::ir::Segment) -> Option<Time> {
     Some(distance / s.speed)
 }
 
+#[inline]
+pub(crate) fn fold_segment(m: &mut Metrics, s: &crate::ir::Segment) {
+    // material accrues on every move (a zero-length move deposits nothing).
+    m.extruded_volume = m.extruded_volume + s.volume;
+    m.filament_length = m.filament_length + s.filament;
+
+    // a dwell contributes only time (it does not move).
+    if let Some(secs) = s.dwell_s {
+        m.total_time_s = m.total_time_s + Time(secs);
+    }
+
+    if let Some(t) = segment_motion_time(s) {
+        m.total_time_s = m.total_time_s + t;
+        m.segment_count += 1;
+        if s.travel {
+            m.travel_time_s = m.travel_time_s + t;
+            m.travel_distance = m.travel_distance + s.length;
+        } else {
+            m.print_time_s = m.print_time_s + t;
+            m.extruding_distance = m.extruding_distance + s.length;
+        }
+        let flow = s.volume / t; // mm³/s
+        if flow > m.max_flow_rate {
+            m.max_flow_rate = flow;
+        }
+    }
+}
+
 /// Fold a streaming iterator of segments into print metrics.
 pub fn simulate_stream<I>(segments: I) -> Result<Metrics, crate::codec::CodecError>
 where
@@ -76,35 +104,16 @@ where
     let mut m = Metrics::default();
     for res in segments {
         let s = res?;
-        // material accrues on every move (a zero-length move deposits nothing).
-        m.extruded_volume = m.extruded_volume + s.volume;
-        m.filament_length = m.filament_length + s.filament;
-
-        // a dwell contributes only time (it does not move).
-        if let Some(secs) = s.dwell_s {
-            m.total_time_s = m.total_time_s + Time(secs);
-        }
-
-        if let Some(t) = segment_motion_time(&s) {
-            m.total_time_s = m.total_time_s + t;
-            m.segment_count += 1;
-            if s.travel {
-                m.travel_time_s = m.travel_time_s + t;
-                m.travel_distance = m.travel_distance + s.length;
-            } else {
-                m.print_time_s = m.print_time_s + t;
-                m.extruding_distance = m.extruding_distance + s.length;
-            }
-            let flow = s.volume / t; // mm³/s
-            if flow > m.max_flow_rate {
-                m.max_flow_rate = flow;
-            }
-        }
+        fold_segment(&mut m, &s);
     }
     Ok(m)
 }
 
-/// Fold a toolpath into its print metrics.
+/// Fold a toolpath into its print metrics (zero-copy).
 pub fn simulate(tp: &Toolpath) -> Metrics {
-    simulate_stream(tp.segments.iter().cloned().map(Ok)).unwrap()
+    let mut m = Metrics::default();
+    for s in &tp.segments {
+        fold_segment(&mut m, s);
+    }
+    m
 }

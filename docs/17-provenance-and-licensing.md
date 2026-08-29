@@ -6,21 +6,15 @@ be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 
 *(Engineering record, not legal advice — confirm with counsel before external commercial distribution.)*
 
-## 0. Public-access proprietary distribution policy
+## 0. Functional Source License (FSL-1.1-MIT) Distribution Policy
 
-Dry source, binaries, wheels, npm tarballs, browser/WASM engine, and executable gallery are proprietary
-product artifacts. Source, tagged GitHub Releases, and the hosted browser product are publicly
-accessible; Cargo, npm, and PyPI registry publication remains disabled by policy and release
-configuration.
+Dry source, binaries, wheels, npm tarballs, browser/WASM engine, and executable gallery are licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**.
 
-Public visibility grants access to inspect and download the product but does not grant a software
-licence. Use, modification, redistribution, and production deployment remain subject to `LICENSE` and
-a separate written commercial agreement.
+- **Developer & Internal Freedom:** Free for developers, researchers, hobbyists, internal enterprise manufacturing, prototyping, and non-competing applications.
+- **Competing Use Protection:** A commercial license is required only for providing a Competing Service (e.g. offering a hosted toolpath compilation/verification API or white-labeled CAM SaaS).
+- **2-Year Automatic MIT Conversion:** Every release automatically converts to the standard permissive MIT License exactly two (2) years after release date.
 
-Dry-authored work uses the custom SPDX expression `LicenseRef-Dry-Proprietary` where the ecosystem
-supports it, Cargo packages point to their proprietary `LICENSE`, and the unpublished npm package uses
-the standard `UNLICENSED` marker. Versions already distributed under Apache-2.0 retain that licence;
-the change is prospective. Customer evaluation and production use require a separate signed agreement.
+Dry-authored packages declare the standard SPDX identifier `FSL-1.1-MIT` across Cargo, npm, and PyPI packaging manifests. All third-party runtime dependencies remain strictly under permissive licenses (MIT, Apache-2.0, BSD-3-Clause).
 
 ## 1. Corpus provenance ledger
 

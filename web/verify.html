@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>In-Browser G-Code Verifier — Dry Machina (Tier 1 Wasm)</title>
+<meta name="description" content="100% Client-Side In-Browser G-code Verification powered by Rust WebAssembly. Zero servers, zero containers, zero network lag." />
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-hover: #1f2630;
+    --line: #30363d;
+    --line-focus: #58a6ff;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3fb950;
+    --core: #58a6ff;
+    --warning: #d29922;
+    --danger: #f85149;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .topbar {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .brand span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  nav {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 13px;
+    transition: color 0.15s;
+  }
+  nav a:hover, nav a.active {
+    color: var(--fg);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .hero {
+    margin-bottom: 24px;
+  }
+  .hero h2 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    letter-spacing: -0.4px;
+  }
+  .hero p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 800px;
+  }
+
+  .badge-tier1 {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(63, 185, 80, 0.4);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+  }
+
+  textarea {
+    width: 100%;
+    height: 280px;
+    background: #090d13;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: #e6edf3;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    padding: 10px;
+    resize: vertical;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--line-focus);
+  }
+
+  .samples {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  button.btn-sample {
+    background: var(--panel-hover);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.btn-sample:hover {
+    background: #28313e;
+    border-color: var(--muted);
+  }
+
+  .btn-verify {
+    background: #238636;
+    color: #ffffff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .btn-verify:hover {
+    background: #2ea043;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    background: #090d13;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--fg);
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--line-focus);
+  }
+
+  .metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .metric-box {
+    background: #090d13;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .metric-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--fg);
+  }
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .finding-card {
+    background: #090d13;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--warning);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .finding-card.error {
+    border-left-color: var(--danger);
+  }
+  .finding-card.warning {
+    border-left-color: var(--warning);
+  }
+  .finding-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .finding-rule {
+    color: var(--core);
+  }
+  .finding-msg {
+    color: #e6edf3;
+  }
+
+  .pass-card {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.4);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    color: var(--accent);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <h1>Dry Machina — In-Browser Verification</h1>
+      <span>Deterministic Parametric CAD/CAM Toolpath Engine</span>
+    </div>
+    <nav>
+      <a href="index.html">Studio</a>
+      <a href="verify.html" class="active">Verifier</a>
+      <a href="machines.html">Machines</a>
+      <a href="api.html">API</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<div class="container">
+  <div class="hero">
+    <h2>Client-Side Toolpath Verifier (Tier 1 Wasm)</h2>
+    <p>
+      Verify raw CNC and 3D printing G-code directly in your browser against machine kinematic limits, travel bounds, retraction rates, and geometric invariants.
+    </p>
+    <div class="badge-tier1">
+      ⚡ 100% In-Browser WebAssembly · Zero Network Requests · Private & Instant
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Left: Input and Contracts -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">G-Code Input</h3>
+        <span id="engineStatus" style="font-size: 12px; color: var(--muted);">Loading Wasm Engine...</span>
+      </div>
+      <textarea id="gcodeText" placeholder="Paste G-code here or select a sample below..."></textarea>
+
+      <div class="samples">
+        <span style="font-size: 12px; color: var(--muted); align-self: center;">Samples:</span>
+        <button class="btn-sample" onclick="loadSample('clean')">Compliant 3D Print</button>
+        <button class="btn-sample" onclick="loadSample('outOfBounds')">Out-of-Bounds Error</button>
+        <button class="btn-sample" onclick="loadSample('speedBreach')">Speed Overshoot</button>
+      </div>
+
+      <h3 class="card-title" style="margin-top: 16px; margin-bottom: 8px;">Safety Contracts</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max X Dimension (mm)</label>
+          <input type="number" id="maxX" value="200" />
+        </div>
+        <div class="form-group">
+          <label>Max Y Dimension (mm)</label>
+          <input type="number" id="maxY" value="200" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max Z Height (mm)</label>
+          <input type="number" id="maxZ" value="180" />
+        </div>
+        <div class="form-group">
+          <label>Max Feedrate (mm/min)</label>
+          <input type="number" id="maxSpeed" value="18000" />
+        </div>
+      </div>
+
+      <button class="btn-verify" id="btnVerify" onclick="runVerification()">
+        <span>Run In-Browser Verification</span>
+      </button>
+    </div>
+
+    <!-- Right: Results & Findings -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Verification Report</h3>
+        <span id="timingBadge" style="font-size: 12px; color: var(--accent); font-weight: 600;"></span>
+      </div>
+
+      <div class="metrics-bar">
+        <div class="metric-box">
+          <div class="metric-val" id="metricSegments">-</div>
+          <div class="metric-label">Segments</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val" id="metricRules">-</div>
+          <div class="metric-label">Rules Run</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val" id="metricErrors">-</div>
+          <div class="metric-label">Errors</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val" id="metricWarnings">-</div>
+          <div class="metric-label">Warnings</div>
+        </div>
+      </div>
+
+      <div id="findingsContainer" style="overflow-y: auto; max-height: 420px;">
+        <div style="color: var(--muted); text-align: center; padding: 40px 0;">
+          Load G-code and click "Run In-Browser Verification" to inspect toolpath safety.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import init, { verify_gcode_to_report_wasm } from './pkg/dry_wasm.js';
+
+let wasmReady = false;
+
+async function bootstrap() {
+  try {
+    await init();
+    wasmReady = true;
+    document.getElementById('engineStatus').textContent = '✓ Wasm Engine Ready';
+    document.getElementById('engineStatus').style.color = 'var(--accent)';
+    loadSample('clean');
+  } catch (err) {
+    document.getElementById('engineStatus').textContent = '✗ Failed to load Wasm';
+    document.getElementById('engineStatus').style.color = 'var(--danger)';
+    console.error(err);
+  }
+}
+
+const SAMPLES = {
+  clean: `; Dry Machina Compliant 3D Print
+G92 E0
+G1 F1200 X0 Y0 Z0.2 E0
+G1 F1800 X20 Y0 Z0.2 E0.8
+G1 F1800 X20 Y20 Z0.2 E1.6
+G1 F1800 X0 Y20 Z0.2 E2.4
+G1 F1800 X0 Y0 Z0.2 E3.2
+G1 F1200 X0 Y0 Z0.4 E3.2
+G1 F1800 X20 Y0 Z0.4 E4.0
+G1 F1800 X20 Y20 Z0.4 E4.8
+G1 F1800 X0 Y20 Z0.4 E5.6
+G1 F1800 X0 Y0 Z0.4 E6.4
+`,
+  outOfBounds: `; Out of bounds sample move to X=450mm
+G92 E0
+G1 F1200 X0 Y0 Z0.2 E0
+G1 F1800 X450 Y0 Z0.2 E12.0
+G1 F1800 X450 Y450 Z0.2 E24.0
+`,
+  speedBreach: `; Speed limit breach (F30000 = 500 mm/s)
+G92 E0
+G1 F30000 X100 Y100 Z0.2 E1.0
+`
+};
+
+window.loadSample = function(key) {
+  if (SAMPLES[key]) {
+    document.getElementById('gcodeText').value = SAMPLES[key];
+    runVerification();
+  }
+};
+
+window.runVerification = function() {
+  if (!wasmReady) return;
+  const gcode = document.getElementById('gcodeText').value;
+  if (!gcode.trim()) return;
+
+  const maxX = parseFloat(document.getElementById('maxX').value) || 200.0;
+  const maxY = parseFloat(document.getElementById('maxY').value) || 200.0;
+  const maxZ = parseFloat(document.getElementById('maxZ').value) || 180.0;
+  const maxSpeed = parseFloat(document.getElementById('maxSpeed').value) || 18000.0;
+
+  const contracts = {
+    bounds: [[0.0, maxX], [0.0, maxY], [0.0, maxZ]],
+    speed_range: [1.0, maxSpeed]
+  };
+
+  const t0 = performance.now();
+  try {
+    const reportJson = verify_gcode_to_report_wasm(gcode, JSON.stringify(contracts));
+    const report = JSON.parse(reportJson);
+    const dt = (performance.now() - t0).toFixed(2);
+
+    document.getElementById('timingBadge').textContent = `Verified in ${dt} ms`;
+    document.getElementById('metricSegments').textContent = report.segments_inspected;
+    document.getElementById('metricRules').textContent = report.rules_evaluated.length;
+
+    const errors = report.findings.filter(f => f.severity === 'error');
+    const warnings = report.findings.filter(f => f.severity === 'warning');
+
+    document.getElementById('metricErrors').textContent = errors.length;
+    document.getElementById('metricWarnings').textContent = warnings.length;
+
+    const container = document.getElementById('findingsContainer');
+    if (report.findings.length === 0) {
+      container.innerHTML = `
+        <div class="pass-card">
+          <div style="font-size: 20px; margin-bottom: 4px;">✓ ALL SAFETY CONTRACTS PASSED</div>
+          <div style="font-size: 13px; color: var(--fg); opacity: 0.8;">
+            Inspected ${report.segments_inspected} motion segments against ${report.rules_evaluated.length} active verification rules. Zero violations detected.
+          </div>
+        </div>
+      `;
+    } else {
+      let html = '';
+      for (const f of report.findings) {
+        html += `
+          <div class="finding-card ${f.severity}">
+            <div class="finding-header">
+              <span class="finding-rule">${f.rule.toUpperCase()} (${f.severity.toUpperCase()})</span>
+              <span style="color: var(--muted); font-size: 11px;">Segment #${f.segment}</span>
+            </div>
+            <div class="finding-msg">${f.message}</div>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+  } catch (err) {
+    document.getElementById('findingsContainer').innerHTML = `
+      <div style="color: var(--danger); padding: 20px; background: rgba(248,81,73,0.1); border-radius: 6px;">
+        <strong>Verification Error:</strong> ${err.message || err}
+      </div>
+    `;
+  }
+};
+
+bootstrap();
+</script>
+</body>
+</html>

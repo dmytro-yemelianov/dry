@@ -48,6 +48,10 @@ __all__ = [
     "drape_ops",
     "parse_obj_mesh",
     "slice_step_solid",
+    "lathe_facing_ops",
+    "lathe_turning_ops",
+    "check_tool_holder_collision",
+    "reverse_toolpath",
     "mm",
     "cm",
     "inch",
@@ -228,10 +232,8 @@ class Design:
         channel. Only the `grbl` flavor renders it; the others refuse a toolpath that carries it
         rather than silently dropping the command.
 
-        NOTE: ``gcode()`` here always emits with the default (Marlin) flavor, so it *refuses* a
-        design carrying this channel. The channel is still authored into ``ir()`` /
-        ``optimized_ir()`` / ``verify()``; to render it, emit through the CLI
-        (``dry emit --format grbl``) or a profile whose ``firmware.flavor`` is ``grbl``.
+        NOTE: To render spindle/laser power channels, emit with ``design.gcode(flavor="grbl")`` or
+        ``design.gcode(flavor="rs274")``, or emit through the CLI (``dry emit --format grbl``).
         """
         self.ops.append({"op": "power", "level": level})
         return self
@@ -298,6 +300,7 @@ class Design:
         five_axis: bool = False,
         rotary_axes: str = "ab",
         kinematics: Optional[str] = None,
+        flavor: Optional[str] = None,
     ) -> List[str]:
         """Resolve + emit motion g-code (a list of lines).
 
@@ -306,6 +309,7 @@ class Design:
         machine motion-limits object (see ``balanced_ir`` / ``verify``'s ``kinematics`` for that).
         `kinematics` is a deprecated alias for `rotary_axes`, kept for backward compatibility; when
         provided (not ``None``) it takes precedence.
+        `flavor` specifies the firmware target dialect ("marlin", "klipper", "duet", "grbl", "rs274", "krl").
         """
         rotary = kinematics if kinematics is not None else rotary_axes
         return _native.resolve_gcode(
@@ -314,7 +318,8 @@ class Design:
             relative_e,
             bool(travel_g1_e0),
             bool(five_axis),
-            str(rotary)
+            str(rotary),
+            flavor,
         )
 
     def simulate(self, printer: str = "generic") -> Metrics:
@@ -723,6 +728,38 @@ def slice_step_solid(
             float(feedrate),
         )
     )
+
+
+def lathe_facing_ops(params: Dict[str, Any]) -> List[Op]:
+    """Generate CNC Lathe Facing L1 ops from parameters dict."""
+    return json.loads(_native.lathe_facing_ops_json(json.dumps(params)))
+
+
+def lathe_turning_ops(params: Dict[str, Any]) -> List[Op]:
+    """Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict."""
+    return json.loads(_native.lathe_od_turning_ops_json(json.dumps(params)))
+
+
+def check_tool_holder_collision(
+    toolpath: Union[Toolpath, Dict[str, Any]],
+    holder: Dict[str, Any],
+    stock_bounds: Sequence[float],
+) -> List[Dict[str, Any]]:
+    """Check toolpath for tool holder collisions against stock volume bounds."""
+    tp_json = toolpath if isinstance(toolpath, str) else json.dumps(toolpath)
+    return json.loads(
+        _native.check_tool_holder_collision_json(
+            tp_json,
+            json.dumps(holder),
+            json.dumps(list(stock_bounds)),
+        )
+    )
+
+
+def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -> List[Op]:
+    """Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON."""
+    tp_json = toolpath if isinstance(toolpath, str) else json.dumps(toolpath)
+    return json.loads(_native.reverse_toolpath_json(tp_json))
 
 
 def _params(printer: str) -> str:

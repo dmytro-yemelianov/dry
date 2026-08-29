@@ -271,7 +271,10 @@ def validate_formal_sources(root: Path, errors: list[str]) -> None:
         return
     for path in sorted(formal_root.rglob("*.lean")):
         source = path.read_text(encoding="utf-8")
-        match = PLACEHOLDER.search(source)
+        # Strip block comments /- ... -/ and line comments -- ...
+        clean_source = re.sub(r"/-\s*!?(?:(?!--/).)*?-/", "", source, flags=re.DOTALL)
+        clean_source = re.sub(r"--[^\n]*", "", clean_source)
+        match = PLACEHOLDER.search(clean_source)
         if match:
             relative = path.relative_to(root)
             errors.append(

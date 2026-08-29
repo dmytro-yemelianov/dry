@@ -70,32 +70,59 @@ pub fn check_tool_holder_collision(
         let (Some(ex), Some(ey), Some(ez)) = (seg.end[0], seg.end[1], seg.end[2]) else {
             continue;
         };
-
         let x = ex.value();
         let y = ey.value();
         let z = ez.value();
 
-        let in_stock_xy = x >= stock_bounds[0] - holder_radius
-            && x <= stock_bounds[1] + holder_radius
-            && y >= stock_bounds[2] - holder_radius
-            && y <= stock_bounds[3] + holder_radius;
+        let (ux, uy, uz) = if let Some(orient) = seg.orientation {
+            let mag = libm::sqrt(orient[0] * orient[0] + orient[1] * orient[1] + orient[2] * orient[2]);
+            if mag > 1e-6 {
+                (orient[0] / mag, orient[1] / mag, orient[2] / mag)
+            } else {
+                (0.0, 0.0, 1.0)
+            }
+        } else {
+            (0.0, 0.0, 1.0)
+        };
 
-        if in_stock_xy && z < stock_top_z {
-            let depth = stock_top_z - z;
+        let tilt_radial_drop = holder_radius * libm::sqrt(ux * ux + uy * uy);
 
-            // If cut depth exceeds tool stickout length, the collet/holder collides with the stock top surface
-            if depth > holder.stickout_length {
+        // Check sample points along the holder axis from stickout to collet end
+        let num_samples = 6;
+        let sample_step = holder.collet_length.max(15.0) / (num_samples as f64);
+
+        for s in 0..=num_samples {
+            let dist = holder.stickout_length + (s as f64 * sample_step);
+            let hx = x + ux * dist;
+            let hy = y + uy * dist;
+            let hz = z + uz * dist;
+            let lowest_holder_z = hz - tilt_radial_drop;
+
+            let in_stock_xy = hx >= stock_bounds[0] - holder_radius
+                && hx <= stock_bounds[1] + holder_radius
+                && hy >= stock_bounds[2] - holder_radius
+                && hy <= stock_bounds[3] + holder_radius;
+
+            if in_stock_xy && lowest_holder_z < stock_top_z && hz >= stock_bounds[4] {
+                let is_5axis = ux.abs() > 1e-4 || uy.abs() > 1e-4;
+                let code = if is_5axis {
+                    "TOOL_HOLDER_5AXIS_COLLISION"
+                } else {
+                    "TOOL_HOLDER_COLLISION"
+                };
+
+                let depth = stock_top_z - z;
                 findings.push(CollisionFinding {
                     severity: Severity::Error,
-                    code: "TOOL_HOLDER_COLLISION".into(),
+                    code: code.into(),
                     message: format!(
-                        "Plunge depth {depth:.2}mm exceeds tool stickout length {:.2}mm; holder (⌀{:.2}mm) collision at (X{x:.2}, Y{y:.2}, Z{z:.2})",
-                        holder.stickout_length,
+                        "Tool holder (⌀{:.2}mm) collides with stock top (lowest point Z{lowest_holder_z:.2}mm < Z{stock_top_z:.2}mm); centerline at (X{hx:.2}, Y{hy:.2}, Z{hz:.2})",
                         holder_radius * 2.0,
                     ),
                     segment_index: idx,
                     plunge_depth: depth,
                 });
+                break;
             }
         }
     }

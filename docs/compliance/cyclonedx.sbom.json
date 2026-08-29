@@ -5,7 +5,7 @@
   "serialNumber": "urn:uuid:3d926ae4-0fce-4f65-9923-f72f39229b8b",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-28T22:59:45Z",
+    "timestamp": "2026-08-29T11:46:42Z",
     "tools": [
       {
         "vendor": "Dry Team",
@@ -21,12 +21,7 @@
       "licenses": [
         {
           "license": {
-            "id": "Apache-2.0"
-          }
-        },
-        {
-          "license": {
-            "id": "MIT"
+            "id": "FSL-1.1-MIT"
           }
         }
       ],
@@ -39,6 +34,13 @@
       "name": "dry-core",
       "version": "0.7.0",
       "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
       "purl": "pkg:cargo/dry-core@0.7.0",
       "description": "Core deterministic toolpath lowering engine"
     },
@@ -47,6 +49,13 @@
       "name": "dry-cli",
       "version": "0.7.0",
       "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
       "purl": "pkg:cargo/dry-cli@0.7.0",
       "description": "CLI interface for Dry engine"
     },
@@ -55,6 +64,13 @@
       "name": "dry-wasm",
       "version": "0.7.0",
       "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
       "purl": "pkg:cargo/dry-wasm@0.7.0",
       "description": "WebAssembly engine bindings"
     },
@@ -63,6 +79,13 @@
       "name": "dry-py",
       "version": "0.7.0",
       "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
       "purl": "pkg:pypi/dry@0.7.0",
       "description": "Python SDK bindings via PyO3"
     },
@@ -71,6 +94,13 @@
       "name": "@dry/sdk",
       "version": "0.7.0",
       "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
       "purl": "pkg:npm/@dry/sdk@0.7.0",
       "description": "TypeScript / JavaScript SDK"
     }

@@ -95,3 +95,33 @@ fn test_holder_overhang_outside_stock_footprint_is_detected() {
         "a 3mm holder radius does not reach the stock from 10mm away"
     );
 }
+
+#[test]
+fn test_tilted_5axis_toolholder_collision() {
+    let mut design = Design::default();
+    // Tool tilted at 45 degrees
+    design.ops.push(Op::Orient {
+        i: std::f64::consts::FRAC_1_SQRT_2,
+        j: 0.0,
+        k: std::f64::consts::FRAC_1_SQRT_2,
+    });
+    design.ops.push(Op::Move {
+        x: Some(50.0),
+        y: Some(50.0),
+        z: Some(-10.0),
+    });
+
+    let toolpath = resolve(&design, &ResolveParams::default());
+    let stock_bounds = [0.0, 100.0, 0.0, 100.0, -50.0, 0.0];
+
+    let holder = ToolHolder {
+        holder_diameter: 50.0,
+        stickout_length: 15.0,
+        collet_diameter: 40.0,
+        collet_length: 30.0,
+    };
+
+    let findings = check_tool_holder_collision(&toolpath, &holder, stock_bounds);
+    assert!(!findings.is_empty());
+    assert_eq!(findings[0].code, "TOOL_HOLDER_5AXIS_COLLISION");
+}

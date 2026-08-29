@@ -15,6 +15,7 @@ EXAMPLES = [
     "examples/python/08_graded_tpms_infill.py",
     "examples/python/09_mesh_bvh_5axis_drape.py",
     "examples/python/10_step_brep_direct_slicing.py",
+    "examples/python/11_cnc_lathe_turning.py",
 ]
 
 def main():

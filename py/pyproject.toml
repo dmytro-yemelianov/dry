@@ -7,7 +7,7 @@ name = "dry"
 version = "0.7.0"
 description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
 requires-python = ">=3.9"
-license = "LicenseRef-Dry-Proprietary"
+license = "FSL-1.1-MIT"
 license-files = ["LICENSE", "NOTICE", "third_party/licenses/*.txt"]
 
 [tool.maturin]

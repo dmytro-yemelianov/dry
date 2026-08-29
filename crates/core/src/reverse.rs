@@ -28,6 +28,8 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
     let mut current_tool: Option<u32> = None;
     let mut current_power: Option<f64> = None;
     let mut current_orient: Option<[f64; 3]> = None;
+    let mut current_extruder_on: Option<bool> = None;
+    let mut current_speed: Option<f64> = None;
 
     for (idx, seg) in toolpath.segments.iter().enumerate() {
         // Temperature channel
@@ -75,6 +77,23 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
                 ops.push(Op::Orient { i, j, k });
                 current_orient = Some([i, j, k]);
             }
+        }
+
+        // Extruder state
+        let is_extruding = !seg.travel || matches!(seg.kind, SegmentKind::Deposit);
+        if current_extruder_on != Some(is_extruding) {
+            ops.push(Op::Extruder { on: is_extruding });
+            current_extruder_on = Some(is_extruding);
+        }
+
+        // Speed / Feedrate
+        let speed_val = seg.speed.0;
+        if seg.kind != SegmentKind::Dwell
+            && speed_val > 0.0
+            && current_speed.map(|s| (s - speed_val).abs() > 1e-6).unwrap_or(true)
+        {
+            ops.push(Op::Speed { print: speed_val });
+            current_speed = Some(speed_val);
         }
 
         // Motion / Dwell ops

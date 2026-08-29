@@ -92,7 +92,7 @@ pub fn emit_grbl_laser(
     let mut last_power = -1.0;
 
     for (index, seg) in toolpath.segments.iter().enumerate() {
-        let is_rapid = seg.travel || seg.speed.value() == 0.0;
+        let is_rapid = seg.travel || seg.speed <= crate::units::Feedrate::ZERO;
 
         let [Some(ex), Some(ey), _] = [seg.end[0], seg.end[1], seg.end[2]] else {
             continue;
@@ -127,13 +127,13 @@ pub fn emit_grbl_laser(
                 });
             }
             let power_val = commanded.min(params.max_power_s);
-            let speed = if seg.speed.value() > 0.0 {
+            let speed = if seg.speed > crate::units::Feedrate::ZERO {
                 seg.speed.value()
             } else {
                 params.default_feedrate
             };
 
-            if !laser_active || (power_val != last_power) {
+            if !laser_active || (power_val - last_power).abs() > 1e-6 {
                 lines.push(format!("{mode_cmd} S{power_val:.0}"));
                 laser_active = true;
                 last_power = power_val;

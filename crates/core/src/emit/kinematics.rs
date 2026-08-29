@@ -896,6 +896,40 @@ impl Robot6AxisModel {
         (pos, orient)
     }
 
+    /// Compute 3D Cartesian coordinates for all 6 link frame origins along the kinematic chain.
+    pub fn solve_all_link_positions(&self, joints: &RobotJoints6) -> [[f64; 3]; 6] {
+        let rads = joints.to_radians();
+        let mut transform = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
+        let mut links = [[0.0; 3]; 6];
+
+        for (i, &rad) in rads.iter().enumerate() {
+            let theta = rad + self.dh[i].theta_offset;
+            let ct = libm::cos(theta);
+            let st = libm::sin(theta);
+            let ca = libm::cos(self.dh[i].alpha);
+            let sa = libm::sin(self.dh[i].alpha);
+            let a = self.dh[i].a;
+            let d = self.dh[i].d;
+
+            let a_mat = [
+                [ct, -st * ca, st * sa, a * ct],
+                [st, ct * ca, -ct * sa, a * st],
+                [0.0, sa, ca, d],
+                [0.0, 0.0, 0.0, 1.0],
+            ];
+
+            transform = mat4_mul(&transform, &a_mat);
+            links[i] = [transform[0][3], transform[1][3], transform[2][3]];
+        }
+
+        links
+    }
+
     /// Compute Inverse Kinematics (IK) with spherical wrist singularity hold ($J_5 \approx 0$).
     pub fn solve_ik(
         &self,

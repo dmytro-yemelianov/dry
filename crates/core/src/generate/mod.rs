@@ -12,6 +12,7 @@
 
 pub mod brep;
 pub mod drape;
+pub mod lathe;
 pub mod pocket;
 pub mod rest_machining;
 pub mod thread_mill;
@@ -20,6 +21,9 @@ pub mod tpms;
 pub use brep::{BrepError, BrepSolid, Point3D, SurfacePrimitive, Vector3D};
 pub use drape::{
     drape_design, drape_ops, Aabb, DrapeError, DrapeOptions, DrapePattern, Triangle, TriangleMesh,
+};
+pub use lathe::{
+    generate_lathe_facing_ops, generate_lathe_od_turning_ops, LatheFacingParams, LatheTurningParams,
 };
 pub use pocket::{
     pocket_design, pocket_ops, pocket_stepped_ops, try_pocket_design, try_pocket_ops, CutMode,

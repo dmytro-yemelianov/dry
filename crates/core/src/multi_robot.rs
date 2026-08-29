@@ -54,7 +54,7 @@ pub struct DualRobotCollisionResult {
     pub closest_link_pair: (usize, usize),
 }
 
-/// Checks safety clearance and collision between two 6-axis robots at given joint configurations.
+/// Checks safety clearance and collision between two 6-axis robots across all 6 intermediate link spheres.
 pub fn check_dual_robot_clearance(
     r1: &WorkcellRobot,
     j1: &RobotJoints6,
@@ -62,34 +62,48 @@ pub fn check_dual_robot_clearance(
     j2: &RobotJoints6,
     safety_margin_mm: f64,
 ) -> DualRobotCollisionResult {
-    // Compute TCP for both robots
-    let tcp1 = r1.model.solve_fk(j1);
-    let tcp2 = r2.model.solve_fk(j2);
+    let links1 = r1.model.solve_all_link_positions(j1);
+    let links2 = r2.model.solve_all_link_positions(j2);
 
-    let world_tcp1 = [
-        tcp1[0] + r1.base_offset[0],
-        tcp1[1] + r1.base_offset[1],
-        tcp1[2] + r1.base_offset[2],
-    ];
+    let mut min_distance = f64::INFINITY;
+    let mut closest_pair = (5, 5);
+    let mut overall_safe = true;
 
-    let world_tcp2 = [
-        tcp2[0] + r2.base_offset[0],
-        tcp2[1] + r2.base_offset[1],
-        tcp2[2] + r2.base_offset[2],
-    ];
+    for (i, l1) in links1.iter().enumerate() {
+        let w1 = [
+            l1[0] + r1.base_offset[0],
+            l1[1] + r1.base_offset[1],
+            l1[2] + r1.base_offset[2],
+        ];
 
-    let dx = world_tcp1[0] - world_tcp2[0];
-    let dy = world_tcp1[1] - world_tcp2[1];
-    let dz = world_tcp1[2] - world_tcp2[2];
-    let dist = libm::sqrt(dx * dx + dy * dy + dz * dz);
+        for (j, l2) in links2.iter().enumerate() {
+            let w2 = [
+                l2[0] + r2.base_offset[0],
+                l2[1] + r2.base_offset[1],
+                l2[2] + r2.base_offset[2],
+            ];
 
-    let required_clearance = r1.link_radii[5] + r2.link_radii[5] + safety_margin_mm;
-    let safe = dist >= required_clearance;
+            let dx = w1[0] - w2[0];
+            let dy = w1[1] - w2[1];
+            let dz = w1[2] - w2[2];
+            let dist = libm::sqrt(dx * dx + dy * dy + dz * dz);
+
+            let required_clearance = r1.link_radii[i] + r2.link_radii[j] + safety_margin_mm;
+            if dist < required_clearance {
+                overall_safe = false;
+            }
+
+            if dist < min_distance {
+                min_distance = dist;
+                closest_pair = (i, j);
+            }
+        }
+    }
 
     DualRobotCollisionResult {
-        safe,
-        min_distance_mm: dist,
-        closest_link_pair: (5, 5),
+        safe: overall_safe,
+        min_distance_mm: min_distance,
+        closest_link_pair: closest_pair,
     }
 }
 

@@ -59,16 +59,8 @@ pub fn generate_corner_rest_machining_ops(params: &RestMachiningParams) -> Resul
     let r_rest = params.rest_tool_diameter / 2.0;
 
     let half_angle_rad = (params.corner_angle_deg / 2.0).to_radians();
-    let sin_half = half_angle_rad.sin();
-
-    // Distance from corner vertex to tool center at tangency
-    let d_rough = r_rough / sin_half;
-    let d_rest = r_rest / sin_half;
-
-    let total_delta_d = d_rough - d_rest;
-    if total_delta_d < 1e-4 {
-        return Ok(Vec::new());
-    }
+    let angle_rad = params.corner_angle_deg.to_radians();
+    let tan_half = half_angle_rad.tan();
 
     let num_passes = params.radial_passes.max(1);
     let step_r = (r_rough - r_rest) / (num_passes as f64);
@@ -78,9 +70,13 @@ pub fn generate_corner_rest_machining_ops(params: &RestMachiningParams) -> Resul
 
     let mut ops = Vec::new();
 
+    // Center of rough boundary
+    let c_rough_x = vx + r_rough / tan_half;
+    let c_rough_y = vy + r_rough;
+
     // Initial positioning at roughing boundary
-    let start_x = vx + r_rough;
-    let start_y = vy + (r_rough - step_r);
+    let start_x = c_rough_x + (r_rough - step_r);
+    let start_y = c_rough_y;
 
     ops.push(Op::Speed { print: params.feedrate });
     ops.push(Op::Extruder { on: false });
@@ -103,10 +99,13 @@ pub fn generate_corner_rest_machining_ops(params: &RestMachiningParams) -> Resul
         let r_k = r_rough - (pass as f64 * step_r);
         let arc_r = r_rough - r_k;
 
-        let pass_start_x = vx + r_rough;
-        let pass_start_y = vy + r_k;
-        let pass_end_x = vx + r_k;
-        let pass_end_y = vy + r_rough;
+        let ck_x = vx + r_k / tan_half;
+        let ck_y = vy + r_k;
+
+        let pass_start_x = ck_x + arc_r;
+        let pass_start_y = ck_y;
+        let pass_end_x = ck_x + arc_r * libm::cos(angle_rad);
+        let pass_end_y = ck_y + arc_r * libm::sin(angle_rad);
 
         // Move to start of this pass
         ops.push(Op::Move {
@@ -116,10 +115,10 @@ pub fn generate_corner_rest_machining_ops(params: &RestMachiningParams) -> Resul
         });
 
         if arc_r > 1e-4 {
-            // Circular arc centered at (vx + r_k, vy + r_k) with exact radius (r_rough - r_k)
+            // Circular arc centered at (ck_x, ck_y) sweeping through angle_rad
             ops.push(Op::Arc {
-                cx: vx + r_k,
-                cy: vy + r_k,
+                cx: ck_x,
+                cy: ck_y,
                 x: Some(pass_end_x),
                 y: Some(pass_end_y),
                 z: Some(params.z_cut),

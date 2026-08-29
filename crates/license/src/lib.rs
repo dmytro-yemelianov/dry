@@ -23,6 +23,17 @@ pub enum Tier {
     Pilot,
 }
 
+impl Tier {
+    /// Recommended request quota per minute for this license tier.
+    pub fn rate_limit_per_minute(&self) -> usize {
+        match self {
+            Tier::Solo => 60,
+            Tier::Team => 300,
+            Tier::Pilot => 1200,
+        }
+    }
+}
+
 impl std::fmt::Display for Tier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -61,11 +72,12 @@ pub struct VerifiedLicense {
     pub state: LicenseState,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum LicenseError {
     Malformed(String),
     UnknownKeyId(String),
     BadSignature,
+    Revoked(String),
 }
 
 impl std::fmt::Display for LicenseError {
@@ -76,14 +88,17 @@ impl std::fmt::Display for LicenseError {
                 write!(f, "license signed with unknown key id '{k}' (upgrade dry?)")
             }
             LicenseError::BadSignature => f.write_str("license signature verification failed"),
+            LicenseError::Revoked(id) => write!(f, "license ID '{id}' has been revoked"),
         }
     }
 }
 
-pub fn verify_token(
+/// Verifies a license token against trusted verifying keys and optional revocation list.
+pub fn verify_token_with_revocation(
     token: &str,
     keys: &[(&str, [u8; 32])],
     now_unix: u64,
+    revoked_ids: &[&str],
 ) -> Result<VerifiedLicense, LicenseError> {
     let mut parts = token.trim().splitn(3, '.');
     let (prefix, payload_b64, sig_b64) = match (parts.next(), parts.next(), parts.next()) {
@@ -104,6 +119,11 @@ pub fn verify_token(
         .map_err(|e| LicenseError::Malformed(format!("payload base64: {e}")))?;
     let payload: LicensePayload = serde_json::from_slice(&payload_bytes)
         .map_err(|e| LicenseError::Malformed(format!("payload json: {e}")))?;
+
+    if revoked_ids.iter().any(|&r| r == payload.id) {
+        return Err(LicenseError::Revoked(payload.id));
+    }
+
     let sig_bytes = URL_SAFE_NO_PAD
         .decode(sig_b64)
         .map_err(|e| LicenseError::Malformed(format!("signature base64: {e}")))?;
@@ -129,6 +149,14 @@ pub fn verify_token(
         LicenseState::Expired
     };
     Ok(VerifiedLicense { payload, state })
+}
+
+pub fn verify_token(
+    token: &str,
+    keys: &[(&str, [u8; 32])],
+    now_unix: u64,
+) -> Result<VerifiedLicense, LicenseError> {
+    verify_token_with_revocation(token, keys, now_unix, &[])
 }
 
 #[cfg(test)]
@@ -236,18 +264,40 @@ mod tests {
         let (_, vk) = keypair();
         for bad in [
             "",
-            "DRY-LICENSE-V1.only-two",
-            "WRONG-PREFIX.a.b",
-            "DRY-LICENSE-V1.!!!.!!!",
-            "DRY-LICENSE-V1.bm90anNvbg.c2ln",
+            "DRY-LICENSE-V1",
+            "DRY-LICENSE-V1.foo",
+            "DRY-LICENSE-V1.foo.bar.extra",
+            "OTHER-V1.foo.bar",
+            "DRY-LICENSE-V1.not-b64.not-b64",
+            "DRY-LICENSE-V1.e30.e30", // empty JSON object (missing required fields)
         ] {
             assert!(
-                matches!(
-                    verify_token(bad, &[("k1", vk)], NOW),
-                    Err(LicenseError::Malformed(_))
-                ),
-                "expected Malformed for {bad:?}"
+                matches!(verify_token(bad, &[("k1", vk)], NOW), Err(LicenseError::Malformed(_))),
+                "failed on bad token: '{bad}'"
             );
         }
+    }
+
+    #[test]
+    fn revocation_list_blocks_revoked_license() {
+        let (sk, vk) = keypair();
+        let tok = make_token(&sk, &payload_json(NOW + 1000, "k1"));
+        let keys = [("k1", vk)];
+
+        // Unrevoked
+        assert!(verify_token_with_revocation(&tok, &keys, NOW, &[]).is_ok());
+        assert!(verify_token_with_revocation(&tok, &keys, NOW, &["OTHER"]).is_ok());
+
+        // Revoked
+        let res = verify_token_with_revocation(&tok, &keys, NOW, &["01TEST"]);
+        assert_eq!(res.unwrap_err(), LicenseError::Revoked("01TEST".to_string()));
+    }
+
+    #[test]
+    fn tier_rate_limits_and_display() {
+        assert_eq!(Tier::Solo.rate_limit_per_minute(), 60);
+        assert_eq!(Tier::Team.rate_limit_per_minute(), 300);
+        assert_eq!(Tier::Pilot.rate_limit_per_minute(), 1200);
+        assert_eq!(Tier::Solo.to_string(), "solo");
     }
 }

@@ -1,23 +1,47 @@
-Dry — toolpath compiler infrastructure
-Copyright 2026 Dmytro Yemelianov. All rights reserved.
+Dry — Parametric Design/CAM DSL & Deterministic Toolpath Compiler
+Copyright (c) 2026 Dmytro Yemelianov. All rights reserved.
 
-Dry-authored software is proprietary and is governed by LICENSE and any
-separate written commercial agreement.
+Licensed under the Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT).
+See LICENSE for details.
 
-Third-party software remains under its own terms:
+================================================================================
+Licensing Summary
+================================================================================
 
-- Three.js and OrbitControls, vendored under web/vendor/: MIT License.
-  Copyright 2010-2023 Three.js Authors.
-- Blockly, vendored under web/vendor/blockly/: Apache License 2.0.
-- Package-manager dependencies retain the licenses recorded by their authors.
+- FREE for developers, researchers, hobbyists, internal enterprise manufacturing,
+  and non-competing products and services.
+- A commercial license is required ONLY for providing a Competing Service (e.g.
+  offering a hosted toolpath compilation/verification API or white-labeled CAM SaaS).
+- Converts automatically to the standard MIT License two (2) years after release.
 
-The standard MIT and Apache-2.0 texts are preserved in third_party/licenses/.
-Those licenses apply only to the corresponding third-party components, not to
-Dry-authored software.
+================================================================================
+Third-Party Software Attribution
+================================================================================
 
-Provenance: Dry is an independent, clean-room implementation. FullControl
-(https://github.com/FullControlXYZ/fullcontrol, GPLv3) and its fork are used only as
-(a) design inspiration and (b) a dev/CI-time behavioural ORACLE that generates expected
-outputs for Dry's conformance tests. No FullControl source code is copied into Dry, and
-FullControl is not shipped, linked into, or part of any Dry release artifact. See
-docs/CLEANROOM.md.
+This software includes components under permissive open-source licenses:
+
+1. Three.js and OrbitControls (vendored under web/vendor/):
+   - License: MIT License
+   - Copyright (c) 2010-2023 Three.js Authors
+
+2. Blockly (vendored under web/vendor/blockly/):
+   - License: Apache License 2.0
+   - Copyright (c) Google LLC
+
+3. Direct runtime dependencies (serde, miniz_oxide, libm, clap, pyo3, axum, etc.):
+   - Licensed under MIT, Apache-2.0, BSD-3-Clause, or Zlib.
+   - Complete license texts are preserved in third_party/licenses/.
+
+================================================================================
+Clean-Room Provenance Statement
+================================================================================
+
+Dry is an independent, clean-room implementation authored from specification and
+first principles. FullControl (GPLv3, https://github.com/FullControlXYZ/fullcontrol)
+is used solely as:
+(a) Architectural inspiration for the multi-level dialect design, and
+(b) A dev/CI-time behavioural test oracle generating expected outputs for regression gates.
+
+No source code from FullControl is copied into Dry. FullControl is quarantined under
+`conformance/oracle/` and is NOT shipped, linked into, or included in any Dry release
+artifact. See docs/CLEANROOM.md.

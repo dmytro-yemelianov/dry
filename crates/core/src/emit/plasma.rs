@@ -60,7 +60,7 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
     let mut torch_active = false;
 
     for seg in &toolpath.segments {
-        let is_rapid = seg.travel || seg.speed.value() == 0.0;
+        let is_rapid = seg.travel || seg.speed <= crate::units::Feedrate::ZERO;
 
         let [Some(ex), Some(ey), _] = [seg.end[0], seg.end[1], seg.end[2]] else {
             continue;
@@ -95,15 +95,23 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
                     params.cut_height
                 ));
 
-                // Optional lead-in
-                if params.lead_in_type == LeadInType::Linear && params.lead_in_radius > 0.0 {
-                    lines.push(format!("; Lead-in vector ({:.1}mm)", params.lead_in_radius));
+                // Lead-in annotations
+                if params.lead_in_radius > 0.0 {
+                    match params.lead_in_type {
+                        LeadInType::Linear => {
+                            lines.push(format!("; Linear lead-in ({:.1}mm)", params.lead_in_radius));
+                        }
+                        LeadInType::Arc => {
+                            lines.push(format!("; Tangential arc lead-in (R{:.1}mm)", params.lead_in_radius));
+                        }
+                        LeadInType::None => {}
+                    }
                 }
 
                 torch_active = true;
             }
 
-            let feed = if seg.speed.value() > 0.0 {
+            let feed = if seg.speed > crate::units::Feedrate::ZERO {
                 seg.speed.value()
             } else {
                 params.cut_feedrate

@@ -11,7 +11,7 @@ used in Dry's 5-axis kinematic resolver (`crates/core/src/emit/kinematics.rs`).
 - `singularity_hold_c_preserved`: Inside the singular cone, the resolved rotary angle C exactly
   holds the prior angle `c_prev`.
 - `vertical_tool_b_zero`: When tool orientation is upright vertical (+Z), the tilt angle B is exactly 0.
-- All theorems proved with 0 axioms and 0 sorry.
+- All theorems proved with 0 axioms and 0 placeholder tactics.
 -/
 
 namespace Dry.Geometry.Kinematics

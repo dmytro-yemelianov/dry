@@ -206,6 +206,12 @@ pub fn generate_trochoidal_slot(
             y: Some(start[1]),
             z: Some(z_cut),
         },
+        // Lead-in move to the orbit perimeter
+        crate::resolve::Op::Move {
+            x: Some(start[0] - nx * orbit_radius),
+            y: Some(start[1] - ny * orbit_radius),
+            z: Some(z_cut),
+        },
     ];
 
     for i in 0..=num_steps {
