@@ -64,3 +64,37 @@ fn test_dual_robot_sync_waypoints() {
     assert!(krl_master.iter().any(|line| line.contains("$FLAG[5] = TRUE")));
     assert!(krl_slave.iter().any(|line| line.contains("WAIT FOR $FLAG[5]")));
 }
+
+#[test]
+fn test_dual_robot_waypoint_interpolation_and_velocity_scaling() {
+    use dry_core::{calculate_clearance_velocity_scale, interpolate_dual_robot_waypoint};
+
+    let w1 = DualRobotWaypoint {
+        time_s: 0.0,
+        joints_1: RobotJoints6 { j1_deg: 0.0, j2_deg: 0.0, j3_deg: 0.0, j4_deg: 0.0, j5_deg: 0.0, j6_deg: 0.0 },
+        joints_2: RobotJoints6 { j1_deg: 100.0, j2_deg: 0.0, j3_deg: 0.0, j4_deg: 0.0, j5_deg: 0.0, j6_deg: 0.0 },
+        sync_flag: None,
+    };
+
+    let w2 = DualRobotWaypoint {
+        time_s: 10.0,
+        joints_1: RobotJoints6 { j1_deg: 50.0, j2_deg: 20.0, j3_deg: 0.0, j4_deg: 0.0, j5_deg: 0.0, j6_deg: 0.0 },
+        joints_2: RobotJoints6 { j1_deg: 150.0, j2_deg: 40.0, j3_deg: 0.0, j4_deg: 0.0, j5_deg: 0.0, j6_deg: 0.0 },
+        sync_flag: Some(8),
+    };
+
+    // Halfway interpolation at t=5.0
+    let w_mid = interpolate_dual_robot_waypoint(&w1, &w2, 5.0);
+    assert_eq!(w_mid.time_s, 5.0);
+    assert!((w_mid.joints_1.j1_deg - 25.0).abs() < 1e-4);
+    assert!((w_mid.joints_2.j1_deg - 125.0).abs() < 1e-4);
+
+    // Dynamic clearance scaling
+    // Large distance (600mm >= 500mm safe) -> 1.0 (no scaling)
+    assert_eq!(calculate_clearance_velocity_scale(600.0, 100.0, 500.0, 0.2), 1.0);
+    // Critical distance (50mm <= 100mm) -> min_scale 0.2
+    assert_eq!(calculate_clearance_velocity_scale(50.0, 100.0, 500.0, 0.2), 0.2);
+    // Intermediate distance (300mm halfway) -> 0.6
+    let scale_mid = calculate_clearance_velocity_scale(300.0, 100.0, 500.0, 0.2);
+    assert!((scale_mid - 0.6).abs() < 1e-4);
+}

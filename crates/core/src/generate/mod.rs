@@ -13,6 +13,7 @@
 pub mod brep;
 pub mod drape;
 pub mod pocket;
+pub mod rest_machining;
 pub mod thread_mill;
 pub mod tpms;
 
@@ -24,6 +25,7 @@ pub use pocket::{
     pocket_design, pocket_ops, pocket_stepped_ops, try_pocket_design, try_pocket_ops, CutMode,
     PocketError, PocketOptions, PocketShape,
 };
+pub use rest_machining::{generate_corner_rest_machining_ops, RestMachiningParams};
 pub use thread_mill::{
     generate_chamfer_ops, generate_thread_milling_ops, ChamferParams, ThreadMillParams,
 };

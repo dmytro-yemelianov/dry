@@ -110,6 +110,66 @@ pub fn emit_dual_robot_sync_krl(flag_id: u32, is_master: bool) -> Vec<String> {
     }
 }
 
+/// Interpolates joint states linearly between two dual-robot waypoints.
+pub fn interpolate_dual_robot_waypoint(
+    w1: &DualRobotWaypoint,
+    w2: &DualRobotWaypoint,
+    t: f64,
+) -> DualRobotWaypoint {
+    let alpha = if (w2.time_s - w1.time_s).abs() < 1e-6 {
+        0.0
+    } else {
+        ((t - w1.time_s) / (w2.time_s - w1.time_s)).clamp(0.0, 1.0)
+    };
+
+    let lerp = |a: f64, b: f64| a + alpha * (b - a);
+
+    let j1 = RobotJoints6 {
+        j1_deg: lerp(w1.joints_1.j1_deg, w2.joints_1.j1_deg),
+        j2_deg: lerp(w1.joints_1.j2_deg, w2.joints_1.j2_deg),
+        j3_deg: lerp(w1.joints_1.j3_deg, w2.joints_1.j3_deg),
+        j4_deg: lerp(w1.joints_1.j4_deg, w2.joints_1.j4_deg),
+        j5_deg: lerp(w1.joints_1.j5_deg, w2.joints_1.j5_deg),
+        j6_deg: lerp(w1.joints_1.j6_deg, w2.joints_1.j6_deg),
+    };
+
+    let j2 = RobotJoints6 {
+        j1_deg: lerp(w1.joints_2.j1_deg, w2.joints_2.j1_deg),
+        j2_deg: lerp(w1.joints_2.j2_deg, w2.joints_2.j2_deg),
+        j3_deg: lerp(w1.joints_2.j3_deg, w2.joints_2.j3_deg),
+        j4_deg: lerp(w1.joints_2.j4_deg, w2.joints_2.j4_deg),
+        j5_deg: lerp(w1.joints_2.j5_deg, w2.joints_2.j5_deg),
+        j6_deg: lerp(w1.joints_2.j6_deg, w2.joints_2.j6_deg),
+    };
+
+    DualRobotWaypoint {
+        time_s: t,
+        joints_1: j1,
+        joints_2: j2,
+        sync_flag: if alpha >= 1.0 { w2.sync_flag } else { None },
+    }
+}
+
+/// Dynamically scales cooperative velocity factor based on minimum observed inter-arm distance.
+///
+/// When inter-arm clearance approaches `critical_dist_mm`, feedrate automatically scales down
+/// towards `min_scale` to prevent high-speed collisions in shared workspaces.
+pub fn calculate_clearance_velocity_scale(
+    current_dist_mm: f64,
+    critical_dist_mm: f64,
+    safe_dist_mm: f64,
+    min_scale: f64,
+) -> f64 {
+    if current_dist_mm >= safe_dist_mm {
+        1.0
+    } else if current_dist_mm <= critical_dist_mm {
+        min_scale.clamp(0.05, 1.0)
+    } else {
+        let frac = (current_dist_mm - critical_dist_mm) / (safe_dist_mm - critical_dist_mm);
+        (min_scale + frac * (1.0 - min_scale)).clamp(min_scale, 1.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
