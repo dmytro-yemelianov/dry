@@ -761,7 +761,41 @@ enum Cmd {
         /// Dialect name or identifier.
         dialect: String,
     },
+    /// Query Moonraker live printer status or send dynamic tuning commands to fleet.
+    Fleet {
+        #[command(subcommand)]
+        cmd: FleetCmd,
+    },
 }
+
+#[derive(Subcommand)]
+enum FleetCmd {
+    /// Query live Moonraker printer status (state, progress, temperatures).
+    Status {
+        /// Moonraker base URL, for example `http://voron.local`.
+        #[arg(long)]
+        url: String,
+        /// Environment variable containing the optional Moonraker API key.
+        #[arg(long, default_value = "MOONRAKER_API_KEY")]
+        api_key_env: String,
+        /// Print formatted JSON output.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Set Klipper dynamic pressure advance on a live printer.
+    Tune {
+        /// Moonraker base URL, for example `http://voron.local`.
+        #[arg(long)]
+        url: String,
+        /// Pressure advance value (e.g. 0.045).
+        #[arg(long)]
+        pressure_advance: f64,
+        /// Environment variable containing the optional Moonraker API key.
+        #[arg(long, default_value = "MOONRAKER_API_KEY")]
+        api_key_env: String,
+    },
+}
+
 
 fn die(msg: String) -> ! {
     eprintln!("error: {msg}");
@@ -2448,6 +2482,7 @@ fn run(cli: Cli) -> ExitCode {
                 ExitCode::from(1)
             }
         }
+        Cmd::Fleet { cmd } => run_fleet_cmd(cmd),
     }
 }
 
@@ -2494,45 +2529,39 @@ fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
                 .get("totalCount")
                 .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0);
-            println!("{total} matching printer(s)");
-            for printer in connection
-                .get("nodes")
+            let edges = connection
+                .get("edges")
                 .and_then(serde_json::Value::as_array)
-                .into_iter()
-                .flatten()
-            {
-                let id = printer
-                    .get("id")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("?");
-                let name = printer
-                    .get("name")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or(id);
-                let version = first_version(printer);
-                let version_label = version
-                    .and_then(|value| value.get("version"))
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("?");
-                println!("{id}  {name}  v{version_label}");
-                if let Some(capabilities) = version.and_then(|value| value.get("capabilities")) {
-                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
-                    let machine = capabilities.get("machine");
-                    let kinematics = machine
-                        .and_then(|value| value.get("kinematics"))
+                .cloned()
+                .unwrap_or_default();
+            println!("Printers ({total} matching):");
+            if edges.is_empty() {
+                println!("  (no matching printers)");
+            } else {
+                for edge in edges {
+                    let node = edge.get("node").unwrap_or(&edge);
+                    let id = node
+                        .get("id")
                         .and_then(serde_json::Value::as_str)
                         .unwrap_or("?");
-                    let volume = machine
-                        .and_then(|value| value.get("buildVolume"))
-                        .map(format_build_volume)
-                        .unwrap_or_else(|| "?×?×? mm".into());
-                    let materials = strings_at(capabilities, &["materials"], "family");
+                    let name = node
+                        .get("name")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or(id);
+                    let kinematics = node
+                        .get("kinematics")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?");
+                    let volume = node
+                        .get("buildVolume")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?");
+                    let materials = strings_at(node, &["supportedMaterials"], "name");
                     println!(
-                        "  {} | {} | {} | {}",
-                        if firmware.is_empty() {
-                            "?".into()
-                        } else {
-                            firmware.join(", ")
+                        "  {name} ({id}) — {} {} {} [{}]",
+                        match node.get("vendor").and_then(serde_json::Value::as_str) {
+                            Some(vendor) if !vendor.is_empty() => vendor,
+                            _ => "generic",
                         },
                         kinematics,
                         volume,
@@ -2559,60 +2588,39 @@ fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or(&id);
             println!("{name} ({id})");
-            println!(
-                "  kind:      {}",
-                printer
-                    .get("kind")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("?")
-            );
             for version in printer
                 .get("versions")
                 .and_then(serde_json::Value::as_array)
                 .into_iter()
                 .flatten()
             {
-                println!(
-                    "  version:   {} [{} / {}]",
-                    version
-                        .get("version")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("?"),
-                    version
-                        .get("trustLevel")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("?"),
-                    version
-                        .get("supportStatus")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("?"),
-                );
-                if let Some(capabilities) = version.get("capabilities") {
-                    let firmware = strings_at(capabilities, &["firmware"], "flavor");
-                    let machine = capabilities.get("machine");
-                    println!(
-                        "  machine:   {} | {}",
-                        machine
-                            .and_then(|value| value.get("kinematics"))
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("?"),
-                        machine
-                            .and_then(|value| value.get("buildVolume"))
-                            .map(format_build_volume)
-                            .unwrap_or_else(|| "?×?×? mm".into())
-                    );
-                    println!("  firmware:  {}", firmware.join(", "));
-                    println!(
-                        "  graph:     {} hardware, {} materials, {} macros, {} profiles",
-                        array_len(capabilities, "hardware"),
-                        array_len(capabilities, "materials"),
-                        array_len(capabilities, "macroBindings"),
-                        array_len(version, "profiles"),
-                    );
+                let ver_str = version
+                    .get("version")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                println!("  version:   {ver_str}");
+            }
+            if let Some(v) = first_version(&printer) {
+                let kin = v
+                    .get("kinematics")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                let vol = v
+                    .get("buildVolume")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("?");
+                println!("  motion:    {kin} ({vol})");
+                let nozzles = strings_at(v, &["nozzles"], "diameterMm");
+                if !nozzles.is_empty() {
+                    println!("  nozzles:   {} mm", nozzles.join(", "));
                 }
-                if let Some(url) = version.get("packUrl").and_then(serde_json::Value::as_str) {
-                    println!("  pack:      {url}");
+                let mats = strings_at(v, &["materials"], "name");
+                if !mats.is_empty() {
+                    println!("  materials: {}", mats.join(", "));
                 }
+                let macros_count = array_len(v, "macros");
+                let hw_count = array_len(v, "hardware");
+                println!("  details:   {macros_count} macro(s), {hw_count} hardware item(s)");
             }
             ExitCode::SUCCESS
         }
@@ -2663,6 +2671,7 @@ fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
     }
 }
 
+
 fn first_version(printer: &serde_json::Value) -> Option<&serde_json::Value> {
     printer
         .get("versions")
@@ -2695,23 +2704,6 @@ fn strings_at(value: &serde_json::Value, path: &[&str], field: &str) -> Vec<Stri
         .collect()
 }
 
-fn format_build_volume(volume: &serde_json::Value) -> String {
-    let axis = |name: &str| {
-        volume
-            .get(name)
-            .and_then(|value| value.get("sizeMm"))
-            .and_then(serde_json::Value::as_f64)
-            .map(|value| {
-                if value.fract() == 0.0 {
-                    format!("{value:.0}")
-                } else {
-                    value.to_string()
-                }
-            })
-            .unwrap_or_else(|| "?".into())
-    };
-    format!("{}×{}×{} mm", axis("x"), axis("y"), axis("z"))
-}
 
 fn load_profile(path: Option<&str>) -> Option<Profile> {
     path.map(|path| {
@@ -3494,6 +3486,56 @@ fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::Ex
     }
     std::process::ExitCode::SUCCESS
 }
+
+#[cfg(not(feature = "moonraker"))]
+fn run_fleet_cmd(_cmd: FleetCmd) -> std::process::ExitCode {
+    die("this build was compiled without moonraker support; rebuild with `cargo build --features moonraker`".into());
+}
+
+#[cfg(feature = "moonraker")]
+fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
+    match cmd {
+        FleetCmd::Status { url, api_key_env, json } => {
+            let api_key = std::env::var(&api_key_env).ok();
+            let cfg = dry_moonraker::MoonrakerConfig {
+                base_url: url.clone(),
+                api_key,
+                timeout: std::time::Duration::from_secs(15),
+            };
+            match dry_moonraker::get_printer_status(&cfg) {
+                Ok(status) => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&status).unwrap());
+                    } else {
+                        println!("Printer Fleet Telemetry ({url}):");
+                        println!("  State:       {}", status.state);
+                        println!("  Progress:    {:.1}%", status.progress * 100.0);
+                        println!("  Nozzle Temp: {:.1}°C", status.nozzle_temp_c);
+                        println!("  Bed Temp:    {:.1}°C", status.bed_temp_c);
+                    }
+                    std::process::ExitCode::SUCCESS
+                }
+                Err(e) => die(format!("failed to query printer status at {url}: {e}")),
+            }
+        }
+        FleetCmd::Tune { url, pressure_advance, api_key_env } => {
+            let api_key = std::env::var(&api_key_env).ok();
+            let cfg = dry_moonraker::MoonrakerConfig {
+                base_url: url.clone(),
+                api_key,
+                timeout: std::time::Duration::from_secs(15),
+            };
+            match dry_moonraker::set_pressure_advance(&cfg, pressure_advance) {
+                Ok(_) => {
+                    println!("Tuned printer at {url}: pressure_advance set to {pressure_advance:.5}");
+                    std::process::ExitCode::SUCCESS
+                }
+                Err(e) => die(format!("failed to set pressure advance at {url}: {e}")),
+            }
+        }
+    }
+}
+
 
 #[cfg(feature = "llm")]
 fn run_compare_llm(args: CompareLlmArgs) -> std::process::ExitCode {

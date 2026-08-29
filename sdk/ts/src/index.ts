@@ -36,6 +36,8 @@ export {
   checkToolHolderCollision,
   reverseToolpath,
   verifyGcode,
+  sliceStepSolid,
+  sliceBrepAssembly,
 } from './engine';
 export type { MachineKinematics, SCurveProfile } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';

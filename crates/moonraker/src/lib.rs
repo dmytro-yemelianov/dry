@@ -1,7 +1,7 @@
 //! `dry-moonraker` — Dry's Moonraker upload client. The only network code for the upload feature;
 //! mirrors `dry-llm`'s feature-gated, ureq-based structure. `dry-core` stays pure.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::time::Duration;
 
@@ -47,7 +47,7 @@ pub struct PrintResponse {
 }
 
 /// Real-time operational telemetry and thermal status from Moonraker/Klipper.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PrinterLiveStatus {
     pub state: String,
     pub nozzle_temp_c: f64,

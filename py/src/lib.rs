@@ -460,6 +460,30 @@ fn reverse_toolpath_json(toolpath_json: &str) -> PyResult<String> {
     serde_json::to_string(&design.ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Slice an analytical B-Rep multi-solid assembly into continuous L1 operations JSON.
+#[pyfunction]
+fn slice_brep_assembly_json(
+    assembly_json: &str,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> PyResult<String> {
+    let step_solids: Vec<String> = serde_json::from_str(assembly_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid assembly json: {e}")))?;
+    let mut asm = dry_core::generate::BrepAssembly::new("python_brep_assembly");
+    for step in step_solids {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::AdditiveBody);
+    }
+    let ops = asm
+        .slice_to_l1_ops(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
@@ -471,6 +495,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(drape_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_mesh_json, m)?)?;
     m.add_function(wrap_pyfunction!(slice_step_solid_json, m)?)?;
+    m.add_function(wrap_pyfunction!(slice_brep_assembly_json, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_facing_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_od_turning_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(check_tool_holder_collision_json, m)?)?;

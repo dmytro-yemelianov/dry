@@ -66,6 +66,22 @@ export interface DryWasm {
   ): string;
   reverse_toolpath_wasm(toolpathJson: string): string;
   verify_gcode_to_report_wasm(gcodeText: string, contractsJson: string): string;
+  slice_step_solid_wasm(
+    stepContent: string,
+    zStart: number,
+    zEnd: number,
+    layerHeight: number,
+    samplesPerSlice: number,
+    feedrate: number
+  ): string;
+  slice_brep_assembly_wasm(
+    assemblyJson: string,
+    zStart: number,
+    zEnd: number,
+    layerHeight: number,
+    samplesPerSlice: number,
+    feedrate: number
+  ): string;
 }
 
 // The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
@@ -282,3 +298,50 @@ export function verifyGcode(
   const contractsJson = contracts !== undefined ? JSON.stringify(contracts) : '';
   return JSON.parse(bind().verify_gcode_to_report_wasm(gcodeText, contractsJson));
 }
+
+/**
+ * Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals.
+ */
+export function sliceStepSolid(
+  stepContent: string,
+  zStart: number = 0.0,
+  zEnd: number = 10.0,
+  layerHeight: number = 0.2,
+  samplesPerSlice: number = 36,
+  feedrate: number = 1800.0
+): Op[] {
+  return JSON.parse(
+    bind().slice_step_solid_wasm(
+      stepContent,
+      zStart,
+      zEnd,
+      layerHeight,
+      samplesPerSlice,
+      feedrate
+    )
+  );
+}
+
+/**
+ * Slice a multi-solid B-Rep assembly directly into L1 ops with 5-axis surface normals.
+ */
+export function sliceBrepAssembly(
+  stepSolids: string[],
+  zStart: number = 0.0,
+  zEnd: number = 10.0,
+  layerHeight: number = 0.2,
+  samplesPerSlice: number = 36,
+  feedrate: number = 1800.0
+): Op[] {
+  return JSON.parse(
+    bind().slice_brep_assembly_wasm(
+      JSON.stringify(stepSolids),
+      zStart,
+      zEnd,
+      layerHeight,
+      samplesPerSlice,
+      feedrate
+    )
+  );
+}
+

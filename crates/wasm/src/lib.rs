@@ -517,6 +517,48 @@ pub fn reverse_toolpath_wasm(toolpath_json: &str) -> Result<String, JsError> {
     serde_json::to_string(&design.ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Slice an ISO 10303-21 STEP CAD solid directly into L1 ops JSON.
+#[wasm_bindgen]
+pub fn slice_step_solid_wasm(
+    step_content: &str,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> Result<String, JsError> {
+    let solid = dry_core::BrepSolid::parse_step_iso10303(step_content)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    let ops = solid
+        .slice_to_l1_ops(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Slice a multi-solid B-Rep assembly into L1 ops JSON.
+#[wasm_bindgen]
+pub fn slice_brep_assembly_wasm(
+    assembly_json: &str,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> Result<String, JsError> {
+    let step_solids: Vec<String> = serde_json::from_str(assembly_json)
+        .map_err(|e| JsError::new(&format!("invalid assembly json: {e}")))?;
+    let mut asm = dry_core::generate::BrepAssembly::new("wasm_brep_assembly");
+    for step in step_solids {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::AdditiveBody);
+    }
+    let ops = asm
+        .slice_to_l1_ops(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -730,6 +730,28 @@ def slice_step_solid(
     )
 
 
+def slice_brep_assembly(
+    step_solids: Sequence[str],
+    z_start: float = 0.0,
+    z_end: float = 10.0,
+    layer_height: float = 0.2,
+    samples_per_slice: int = 36,
+    feedrate: float = 1800.0,
+) -> List[Op]:
+    """Slice a multi-solid B-Rep assembly directly into L1 ops with 5-axis surface normals."""
+    return json.loads(
+        _native.slice_brep_assembly_json(
+            json.dumps(list(step_solids)),
+            float(z_start),
+            float(z_end),
+            float(layer_height),
+            int(samples_per_slice),
+            float(feedrate),
+        )
+    )
+
+
+
 def lathe_facing_ops(params: Dict[str, Any]) -> List[Op]:
     """Generate CNC Lathe Facing L1 ops from parameters dict."""
     return json.loads(_native.lathe_facing_ops_json(json.dumps(params)))
