@@ -115,3 +115,43 @@ fn test_brep_assembly_multi_solid_slicing() {
     assert!(!tp.segments.is_empty());
 }
 
+#[test]
+fn test_brep_assembly_csg_boolean_subtraction() {
+    use dry_core::generate::{BrepAssembly, BrepBodyRole};
+
+    let mut asm = BrepAssembly::new("bushing_with_bore");
+
+    // Outer solid cylinder radius 30 mm
+    let mut outer_cylinder = BrepSolid::new("outer_body");
+    outer_cylinder.add_surface(SurfacePrimitive::Cylinder {
+        origin: Point3D::new(0.0, 0.0, 0.0),
+        axis: Vector3D::unit_z(),
+        radius: 30.0,
+        height: 20.0,
+    });
+
+    // Subtractive center cavity/bore cylinder radius 10 mm
+    let mut bore = BrepSolid::new("center_bore");
+    bore.add_surface(SurfacePrimitive::Cylinder {
+        origin: Point3D::new(0.0, 0.0, 0.0),
+        axis: Vector3D::unit_z(),
+        radius: 10.0,
+        height: 20.0,
+    });
+
+    asm.add_solid(outer_cylinder, BrepBodyRole::AdditiveBody);
+    asm.add_solid(bore, BrepBodyRole::SubtractiveVoid);
+
+    let ops = asm
+        .slice_with_csg(2.0, 10.0, 4.0, 36, 1800.0)
+        .expect("CSG assembly slicing should succeed");
+
+    assert!(!ops.is_empty());
+
+    let mut design = Design::default();
+    design.ops.extend(ops);
+    let tp = resolve(&design, &ResolveParams::default());
+    assert!(!tp.segments.is_empty());
+}
+
+

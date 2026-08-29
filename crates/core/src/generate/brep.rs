@@ -396,5 +396,130 @@ impl BrepAssembly {
         }
         Ok(all_ops)
     }
+
+    /// Check if a point (x, y, z) falls inside any subtractive void in this assembly.
+    pub fn is_point_in_void(&self, pt: Point3D) -> bool {
+        for (solid, role) in &self.solids {
+            if *role == BrepBodyRole::SubtractiveVoid {
+                for surf in &solid.surfaces {
+                    match surf {
+                        SurfacePrimitive::Cylinder {
+                            origin,
+                            radius,
+                            height,
+                            ..
+                        } => {
+                            if pt.z >= origin.z && pt.z <= origin.z + height {
+                                let dist_xy = libm::hypot(pt.x - origin.x, pt.y - origin.y);
+                                if dist_xy < *radius {
+                                    return true;
+                                }
+                            }
+                        }
+                        SurfacePrimitive::Sphere { center, radius } => {
+                            let dx = pt.x - center.x;
+                            let dy = pt.y - center.y;
+                            let dz = pt.z - center.z;
+                            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+                            if dist < *radius {
+                                return true;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Slice assembly with CSG boolean subtraction of voids from additive solids.
+    pub fn slice_with_csg(
+        &self,
+        z_start: f64,
+        z_end: f64,
+        layer_height: f64,
+        samples_per_slice: usize,
+        feedrate: f64,
+    ) -> Result<Vec<Op>, BrepError> {
+        if layer_height <= 0.0 || !layer_height.is_finite() {
+            return Err(BrepError {
+                message: "layer_height must be positive and finite".into(),
+            });
+        }
+        let mut all_ops = Vec::new();
+        let mut z = z_start;
+
+        while z <= z_end + 1e-9 {
+            for (solid, role) in &self.solids {
+                if *role == BrepBodyRole::AdditiveBody {
+                    for surf in &solid.surfaces {
+                        let contour = surf.slice_at_z(z, samples_per_slice);
+                        let valid_points: Vec<(Point3D, Vector3D)> = contour
+                            .into_iter()
+                            .filter(|(pt, _)| !self.is_point_in_void(*pt))
+                            .collect();
+
+                        if !valid_points.is_empty() {
+                            let first = &valid_points[0];
+                            all_ops.push(Op::Extruder { on: false });
+                            all_ops.push(Op::Move {
+                                x: Some(first.0.x),
+                                y: Some(first.0.y),
+                                z: Some(first.0.z),
+                            });
+                            all_ops.push(Op::Extruder { on: true });
+                            all_ops.push(Op::Speed { print: feedrate });
+
+                            for (pt, norm) in valid_points {
+                                all_ops.push(Op::Orient {
+                                    i: norm.x,
+                                    j: norm.y,
+                                    k: norm.z,
+                                });
+                                all_ops.push(Op::Move {
+                                    x: Some(pt.x),
+                                    y: Some(pt.y),
+                                    z: Some(pt.z),
+                                });
+                            }
+                        }
+                    }
+                } else if *role == BrepBodyRole::SubtractiveVoid {
+                    for surf in &solid.surfaces {
+                        let void_contour = surf.slice_at_z(z, samples_per_slice);
+                        if !void_contour.is_empty() {
+                            let first = &void_contour[0];
+                            all_ops.push(Op::Extruder { on: false });
+                            all_ops.push(Op::Move {
+                                x: Some(first.0.x),
+                                y: Some(first.0.y),
+                                z: Some(first.0.z),
+                            });
+                            all_ops.push(Op::Extruder { on: true });
+                            all_ops.push(Op::Speed { print: feedrate });
+
+                            for (pt, norm) in void_contour {
+                                all_ops.push(Op::Orient {
+                                    i: -norm.x,
+                                    j: -norm.y,
+                                    k: -norm.z,
+                                });
+                                all_ops.push(Op::Move {
+                                    x: Some(pt.x),
+                                    y: Some(pt.y),
+                                    z: Some(pt.z),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            z += layer_height;
+        }
+
+        Ok(all_ops)
+    }
 }
+
 

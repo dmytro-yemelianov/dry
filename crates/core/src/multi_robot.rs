@@ -197,9 +197,148 @@ pub fn calculate_clearance_velocity_scale(
     }
 }
 
+/// Minimum Euclidean distance between two 3D line segments `[p1, p2]` and `[q1, q2]`.
+pub fn segment_to_segment_distance_3d(
+    p1: [f64; 3],
+    p2: [f64; 3],
+    q1: [f64; 3],
+    q2: [f64; 3],
+) -> f64 {
+    let u = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
+    let v = [q2[0] - q1[0], q2[1] - q1[1], q2[2] - q1[2]];
+    let w = [p1[0] - q1[0], p1[1] - q1[1], p1[2] - q1[2]];
+
+    let a = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    let b = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    let c = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    let d = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+    let e = v[0] * w[0] + v[1] * w[1] + v[2] * w[2];
+
+    let d_denom = a * c - b * b;
+    let (t_n, t_d) = if d_denom < 1e-12 {
+        (e, c)
+    } else {
+        let s_n = b * e - c * d;
+        if s_n < 0.0 {
+            (e, c)
+        } else if s_n > d_denom {
+            (e + b, c)
+        } else {
+            (a * e - b * d, d_denom)
+        }
+    };
+
+    let tc = if t_n < 0.0 {
+        0.0
+    } else if t_n > t_d {
+        1.0
+    } else if t_d.abs() < 1e-12 {
+        0.0
+    } else {
+        t_n / t_d
+    };
+
+    let sc = if a.abs() < 1e-12 {
+        0.0
+    } else {
+        ((b * tc - d) / a).clamp(0.0, 1.0)
+    };
+
+    let dx = w[0] + (sc * u[0]) - (tc * v[0]);
+    let dy = w[1] + (sc * u[1]) - (tc * v[1]);
+    let dz = w[2] + (sc * u[2]) - (tc * v[2]);
+
+    (dx * dx + dy * dy + dz * dz).sqrt()
+}
+
+/// Continuous swept-capsule collision check between two dual-robot motion spans.
+pub fn check_continuous_dual_robot_trajectory(
+    r1: &WorkcellRobot,
+    w1_start: &DualRobotWaypoint,
+    w1_end: &DualRobotWaypoint,
+    r2: &WorkcellRobot,
+    w2_start: &DualRobotWaypoint,
+    w2_end: &DualRobotWaypoint,
+    safety_margin_mm: f64,
+) -> DualRobotCollisionResult {
+    let links1_start = r1.model.solve_all_link_positions(&w1_start.joints_1);
+    let links1_end = r1.model.solve_all_link_positions(&w1_end.joints_1);
+    let links2_start = r2.model.solve_all_link_positions(&w2_start.joints_2);
+    let links2_end = r2.model.solve_all_link_positions(&w2_end.joints_2);
+
+    let mut min_distance = f64::INFINITY;
+    let mut closest_pair = (5, 5);
+    let mut overall_safe = true;
+
+    for i in 0..links1_start.len().min(links1_end.len()) {
+        let p1 = [
+            links1_start[i][0] + r1.base_offset[0],
+            links1_start[i][1] + r1.base_offset[1],
+            links1_start[i][2] + r1.base_offset[2],
+        ];
+        let p2 = [
+            links1_end[i][0] + r1.base_offset[0],
+            links1_end[i][1] + r1.base_offset[1],
+            links1_end[i][2] + r1.base_offset[2],
+        ];
+
+        for j in 0..links2_start.len().min(links2_end.len()) {
+            let q1 = [
+                links2_start[j][0] + r2.base_offset[0],
+                links2_start[j][1] + r2.base_offset[1],
+                links2_start[j][2] + r2.base_offset[2],
+            ];
+            let q2 = [
+                links2_end[j][0] + r2.base_offset[0],
+                links2_end[j][1] + r2.base_offset[1],
+                links2_end[j][2] + r2.base_offset[2],
+            ];
+
+            let dist = segment_to_segment_distance_3d(p1, p2, q1, q2);
+            let required_clearance = r1.link_radii[i] + r2.link_radii[j] + safety_margin_mm;
+
+            if dist < required_clearance {
+                overall_safe = false;
+            }
+
+            if dist < min_distance {
+                min_distance = dist;
+                closest_pair = (i, j);
+            }
+        }
+    }
+
+    DualRobotCollisionResult {
+        safe: overall_safe,
+        min_distance_mm: min_distance,
+        closest_link_pair: closest_pair,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_segment_to_segment_distance_parallel_and_skew() {
+        // Parallel segments separated by 10mm in Z
+        let d_parallel = segment_to_segment_distance_3d(
+            [0.0, 0.0, 0.0],
+            [10.0, 0.0, 0.0],
+            [0.0, 0.0, 10.0],
+            [10.0, 0.0, 10.0],
+        );
+        assert!((d_parallel - 10.0).abs() < 1e-5);
+
+        // Orthogonal skew segments intersecting in XY projection with 5mm Z clearance
+        let d_skew = segment_to_segment_distance_3d(
+            [-5.0, 0.0, 0.0],
+            [5.0, 0.0, 0.0],
+            [0.0, -5.0, 5.0],
+            [0.0, 5.0, 5.0],
+        );
+        assert!((d_skew - 5.0).abs() < 1e-5);
+    }
 
     #[test]
     fn test_dual_robot_workcell_safety_check() {
@@ -232,3 +371,4 @@ mod tests {
         assert!(slave_lines[1].contains("WAIT FOR $FLAG[10]"));
     }
 }
+
