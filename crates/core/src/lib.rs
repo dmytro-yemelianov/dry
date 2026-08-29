@@ -25,6 +25,7 @@ pub mod gcode;
 pub mod generate;
 pub mod ir;
 pub mod multi_head;
+pub mod multi_robot;
 pub mod optimize;
 pub mod pass;
 pub mod pipeline;
@@ -96,10 +97,15 @@ pub use generate::{
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
+pub use multi_robot::{
+    check_dual_robot_clearance, emit_dual_robot_sync_krl, DualRobotCollisionResult,
+    DualRobotWaypoint, WorkcellRobot,
+};
 pub use optimize::{
-    adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params, apply_gated,
-    apply_safe_gated, arc_fit, balanced_pipeline, calculate_scurve_profile, coasting,
-    coasting_with_dist, max_pipeline, merge_collinear, optimize_aggressive_pipeline,
+    adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,
+    apply_chip_thinning_compensation, apply_gated, apply_safe_gated, arc_fit, balanced_pipeline,
+    calculate_chip_thinning_multiplier, calculate_scurve_profile, coasting, coasting_with_dist,
+    generate_trochoidal_slot, max_pipeline, merge_collinear, optimize_aggressive_pipeline,
     optimize_corner_feedrate, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
     z_hop_with_params, GatedResult, OptimizeMode, SCurveParams, SCurveProfile,
 };

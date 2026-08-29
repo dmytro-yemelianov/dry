@@ -4,7 +4,7 @@
 //! around sharp internal corners where the radial width of cut spikes.
 
 use crate::ir::Toolpath;
-use crate::units::Feedrate;
+use crate::units::{Feedrate, Length};
 
 /// Computes the radial engagement angle $\theta_e$ of a cylindrical milling tool cutter (in radians).
 ///
@@ -136,6 +136,105 @@ pub fn optimize_radial_engagement(
     }
 }
 
+/// Computes the Dynamic Chip Thinning Compensation (DCTC) multiplier for small radial stepover $s = a_e / D \in (0, 0.5]$.
+///
+/// When $s < 0.5$, chip thickness $h_{\text{max}} = f_z \cdot 2 \sqrt{s(1 - s)}$. To maintain constant chip load:
+/// $\text{multiplier} = \frac{1}{2 \sqrt{s(1 - s)}}$.
+/// For $s \ge 0.5$, the multiplier is 1.0 (no chip thinning).
+pub fn calculate_chip_thinning_multiplier(stepover_ratio: f64) -> f64 {
+    let s = stepover_ratio.clamp(0.001, 1.0);
+    if s >= 0.5 {
+        1.0
+    } else {
+        let denom = 2.0 * (s * (1.0 - s)).sqrt();
+        if denom > 1e-4 {
+            (1.0 / denom).min(3.5) // Cap maximum feedrate scaling to 350% for machine safety
+        } else {
+            1.0
+        }
+    }
+}
+
+/// Applies Dynamic Chip Thinning Compensation across all cutting segments of a toolpath given a nominal radial stepover ratio.
+pub fn apply_chip_thinning_compensation(toolpath: &mut Toolpath, stepover_ratio: f64) {
+    let multiplier = calculate_chip_thinning_multiplier(stepover_ratio);
+    if (multiplier - 1.0).abs() < 1e-4 {
+        return;
+    }
+    for seg in &mut toolpath.segments {
+        if !seg.travel && seg.length > Length::ZERO {
+            let current = seg.speed.value();
+            seg.speed = Feedrate(current * multiplier);
+        }
+    }
+}
+
+/// Generates progressive trochoidal peeling arc moves along a straight slot channel.
+pub fn generate_trochoidal_slot(
+    start: [f64; 2],
+    end: [f64; 2],
+    z_cut: f64,
+    slot_width: f64,
+    tool_diameter: f64,
+    step_forward: f64,
+    feedrate: f64,
+) -> Result<Vec<crate::resolve::Op>, String> {
+    if tool_diameter <= 0.0 || slot_width <= tool_diameter {
+        return Err("Slot width must be greater than tool diameter".into());
+    }
+    let dx = end[0] - start[0];
+    let dy = end[1] - start[1];
+    let total_len = libm::hypot(dx, dy);
+    if total_len < 1e-4 {
+        return Err("Slot length must be positive".into());
+    }
+
+    let ux = dx / total_len;
+    let uy = dy / total_len;
+    let nx = -uy;
+    let ny = ux;
+
+    let orbit_radius = (slot_width - tool_diameter) / 2.0;
+    let step = step_forward.clamp(0.1, tool_diameter * 0.5);
+    let num_steps = (total_len / step).ceil() as usize;
+
+    let mut ops = vec![
+        crate::resolve::Op::Speed { print: feedrate },
+        crate::resolve::Op::Extruder { on: true },
+        crate::resolve::Op::Move {
+            x: Some(start[0]),
+            y: Some(start[1]),
+            z: Some(z_cut),
+        },
+    ];
+
+    for i in 0..=num_steps {
+        let progress = (i as f64 * step).min(total_len);
+        let cx = start[0] + ux * progress;
+        let cy = start[1] + uy * progress;
+
+        // Circular trochoidal cutting loop around (cx, cy)
+        ops.push(crate::resolve::Op::Arc {
+            cx,
+            cy,
+            x: Some(cx + nx * orbit_radius),
+            y: Some(cy + ny * orbit_radius),
+            z: Some(z_cut),
+            clockwise: false,
+        });
+        ops.push(crate::resolve::Op::Arc {
+            cx,
+            cy,
+            x: Some(cx - nx * orbit_radius),
+            y: Some(cy - ny * orbit_radius),
+            z: Some(z_cut),
+            clockwise: false,
+        });
+    }
+
+    Ok(ops)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +249,24 @@ mod tests {
         // 90 deg inside corner turn -> theta_e increases
         let corner = calculate_radial_engagement_angle(0.5, std::f64::consts::FRAC_PI_2);
         assert!(corner > straight_90);
+    }
+
+    #[test]
+    fn test_chip_thinning_calculation() {
+        // At 50% stepover, chip thinning factor is 1.0 (nominal)
+        assert_eq!(calculate_chip_thinning_multiplier(0.5), 1.0);
+
+        // At 10% stepover, chip thinning factor is > 1.6x
+        let factor_10 = calculate_chip_thinning_multiplier(0.1);
+        assert!(factor_10 > 1.6);
+    }
+
+    #[test]
+    fn test_trochoidal_slot_generation() {
+        let ops = generate_trochoidal_slot([0.0, 0.0], [50.0, 0.0], -2.0, 12.0, 6.0, 1.0, 1500.0);
+        assert!(ops.is_ok());
+        let op_list = ops.unwrap();
+        assert!(op_list.len() > 20, "Should generate progressive trochoidal peeling arcs");
     }
 
     #[test]
@@ -181,5 +298,6 @@ mod tests {
         assert!(tp.segments[1].speed.value() >= 400.0);
     }
 }
+
 
 
