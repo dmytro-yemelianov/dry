@@ -31,8 +31,8 @@ pub use self::arc::arc_fit;
 pub use self::coasting::{coasting, coasting_with_dist};
 pub use self::engagement::{
     apply_chip_thinning_compensation, calculate_chip_thinning_multiplier,
-    calculate_radial_engagement_angle, generate_trochoidal_slot, optimize_corner_feedrate,
-    optimize_radial_engagement,
+    calculate_radial_engagement_angle, generate_trochoidal_corner_peel, generate_trochoidal_slot,
+    optimize_constant_mrr, optimize_corner_feedrate, optimize_radial_engagement,
 };
 pub use self::merge::merge_collinear;
 pub use self::scurve::{calculate_scurve_profile, SCurveParams, SCurveProfile};

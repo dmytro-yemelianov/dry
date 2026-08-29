@@ -241,6 +241,60 @@ pub fn generate_trochoidal_slot(
     Ok(ops)
 }
 
+/// Generate adaptive trochoidal peeling loops to clear corner material buildup.
+pub fn generate_trochoidal_corner_peel(
+    corner: [f64; 2],
+    v_in: [f64; 2],
+    v_out: [f64; 2],
+    z_cut: f64,
+    tool_radius: f64,
+    step_radius: f64,
+    feedrate: f64,
+) -> Vec<crate::resolve::Op> {
+    let mut ops = Vec::new();
+    let num_loops = ((tool_radius / step_radius.max(0.1)).ceil() as usize).clamp(1, 8);
+    for i in 1..=num_loops {
+        let r = i as f64 * step_radius;
+        ops.push(crate::resolve::Op::Speed { print: feedrate });
+        ops.push(crate::resolve::Op::Move {
+            x: Some(corner[0] - v_in[0] * r),
+            y: Some(corner[1] - v_in[1] * r),
+            z: Some(z_cut),
+        });
+        ops.push(crate::resolve::Op::Arc {
+            cx: corner[0],
+            cy: corner[1],
+            x: Some(corner[0] + v_out[0] * r),
+            y: Some(corner[1] + v_out[1] * r),
+            z: Some(z_cut),
+            clockwise: false,
+        });
+    }
+    ops
+}
+
+/// Optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR).
+pub fn optimize_constant_mrr(
+    toolpath: &mut Toolpath,
+    depth_of_cut: f64,
+    target_mrr_mm3_min: f64,
+    min_feedrate: f64,
+    max_feedrate: f64,
+) {
+    if depth_of_cut <= 0.0 || target_mrr_mm3_min <= 0.0 {
+        return;
+    }
+    for seg in &mut toolpath.segments {
+        if !seg.travel && seg.length > Length::ZERO {
+            let width = seg.width.map(|w| w.value()).unwrap_or(1.0).max(0.1);
+            let computed_feed = target_mrr_mm3_min / (depth_of_cut * width);
+            let clamped_feed = computed_feed.clamp(min_feedrate, max_feedrate);
+            seg.speed = Feedrate(clamped_feed);
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,7 +357,57 @@ mod tests {
         assert!(tp.segments[1].speed.value() < 1000.0);
         assert!(tp.segments[1].speed.value() >= 400.0);
     }
+
+    #[test]
+    fn test_trochoidal_corner_peel() {
+        let peel_ops = generate_trochoidal_corner_peel(
+            [10.0, 10.0],
+            [1.0, 0.0],
+            [0.0, 1.0],
+            -1.0,
+            3.0,
+            1.0,
+            1200.0,
+        );
+        assert!(!peel_ops.is_empty());
+        assert_eq!(peel_ops.len(), 3 * 3); // 3 loops, each 3 ops (speed, move, arc)
+    }
+
+    #[test]
+    fn test_optimize_constant_mrr() {
+        let design = Design {
+            ops: vec![
+                Op::Geometry {
+                    width: Some(0.5),
+                    height: Some(0.2),
+                },
+                Op::Speed { print: 1000.0 },
+                Op::Extruder { on: true },
+                Op::Move {
+                    x: Some(0.0),
+                    y: Some(0.0),
+                    z: Some(0.0),
+                },
+                Op::Move {
+                    x: Some(50.0),
+                    y: Some(0.0),
+                    z: Some(0.0),
+                },
+            ],
+        };
+        let mut tp = resolve(&design, &ResolveParams::default());
+        // width = 0.5, depth = 2.0 -> area = 1.0 mm2
+        // target MRR = 800 mm3/min -> feedrate = 800 / 1.0 = 800 mm/min
+        optimize_constant_mrr(&mut tp, 2.0, 800.0, 200.0, 3000.0);
+        let cut_seg = tp
+            .segments
+            .iter()
+            .find(|s| !s.travel && s.length > Length::ZERO)
+            .expect("cutting segment");
+        assert!((cut_seg.speed.value() - 800.0).abs() < 1e-5);
+    }
 }
+
 
 
 

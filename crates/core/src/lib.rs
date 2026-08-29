@@ -110,9 +110,10 @@ pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,
     apply_chip_thinning_compensation, apply_gated, apply_safe_gated, arc_fit, balanced_pipeline,
     calculate_chip_thinning_multiplier, calculate_scurve_profile, coasting, coasting_with_dist,
-    generate_trochoidal_slot, max_pipeline, merge_collinear, optimize_aggressive_pipeline,
-    optimize_corner_feedrate, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
-    z_hop_with_params, GatedResult, OptimizeMode, SCurveParams, SCurveProfile,
+    generate_trochoidal_corner_peel, generate_trochoidal_slot, max_pipeline, merge_collinear,
+    optimize_aggressive_pipeline, optimize_constant_mrr, optimize_corner_feedrate,
+    optimize_pipeline, safe_pipeline, travel_reorder, z_hop, z_hop_with_params, GatedResult,
+    OptimizeMode, SCurveParams, SCurveProfile,
 };
 pub use pass::PassRole;
 pub use pipeline::{lower_document_envelope, PipelineError};

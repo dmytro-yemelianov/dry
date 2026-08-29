@@ -539,6 +539,8 @@ pub enum DrapePattern {
     ZigZagX,
     #[serde(alias = "zigzag-y", alias = "zigzag_y", alias = "zigzagY")]
     ZigZagY,
+    #[serde(alias = "spiral-concentric", alias = "spiral_concentric", alias = "spiralConcentric")]
+    SpiralConcentric,
 }
 
 /// Configuration options for mesh draping toolpath generation.
@@ -660,43 +662,79 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
     });
     ops.push(Op::Extruder { on: false });
 
-    // Generate grid lines
-    let y_steps = ((y_bounds[1] - y_bounds[0]) / options.stepover).ceil() as usize;
-    let x_samples = ((x_bounds[1] - x_bounds[0]) / options.resolution).ceil() as usize;
+    // Generate passes based on pattern
+    let passes: Vec<Vec<([f64; 3], [f64; 3])>> = match options.pattern {
+        DrapePattern::SpiralConcentric => {
+            let cx = (x_bounds[0] + x_bounds[1]) / 2.0;
+            let cy = (y_bounds[0] + y_bounds[1]) / 2.0;
+            let max_radius = ((x_bounds[1] - x_bounds[0]).hypot(y_bounds[1] - y_bounds[0])) / 2.0;
+            let num_rings = ((max_radius / options.stepover).ceil() as usize).max(1);
+            let mut all_passes = Vec::new();
+
+            for ring in 1..=num_rings {
+                let radius = ring as f64 * options.stepover;
+                let circumference = 2.0 * std::f64::consts::PI * radius;
+                let num_samples = (circumference / options.resolution).ceil().max(12.0) as usize;
+                let mut pass_points = Vec::new();
+
+                for s in 0..=num_samples {
+                    let angle = 2.0 * std::f64::consts::PI * (s as f64 / num_samples as f64);
+                    let x = cx + radius * angle.cos();
+                    let y = cy + radius * angle.sin();
+                    if let Some((hit_z, normal)) = mesh.project_point(x, y, safe_z) {
+                        let px = x + options.standoff_offset * normal[0];
+                        let py = y + options.standoff_offset * normal[1];
+                        let pz = hit_z + options.standoff_offset * normal[2];
+                        pass_points.push(([px, py, pz], normal));
+                    }
+                }
+                if !pass_points.is_empty() {
+                    all_passes.push(pass_points);
+                }
+            }
+            all_passes
+        }
+        _ => {
+            let mut all_passes = Vec::new();
+            let y_steps = ((y_bounds[1] - y_bounds[0]) / options.stepover).ceil() as usize;
+            let x_samples = ((x_bounds[1] - x_bounds[0]) / options.resolution).ceil() as usize;
+
+            for yi in 0..=y_steps {
+                let y = (y_bounds[0] + yi as f64 * options.stepover).min(y_bounds[1]);
+                let reverse_x = (options.pattern == DrapePattern::ZigZagX) && (yi % 2 == 1);
+                let mut pass_points = Vec::new();
+
+                for xi in 0..=x_samples {
+                    let sample_idx = if reverse_x { x_samples - xi } else { xi };
+                    let x = (x_bounds[0] + sample_idx as f64 * options.resolution).min(x_bounds[1]);
+
+                    if let Some((hit_z, normal)) = mesh.project_point(x, y, safe_z) {
+                        let px = x + options.standoff_offset * normal[0];
+                        let py = y + options.standoff_offset * normal[1];
+                        let pz = hit_z + options.standoff_offset * normal[2];
+                        pass_points.push(([px, py, pz], normal));
+                    }
+                }
+                if !pass_points.is_empty() {
+                    all_passes.push(pass_points);
+                }
+            }
+            all_passes
+        }
+    };
 
     let mut total_hits = 0;
 
-    for yi in 0..=y_steps {
-        let y = (y_bounds[0] + yi as f64 * options.stepover).min(y_bounds[1]);
-        let reverse_x = (options.pattern == DrapePattern::ZigZagX) && (yi % 2 == 1);
-
-        let mut pass_points: Vec<([f64; 3], [f64; 3])> = Vec::new();
-
-        for xi in 0..=x_samples {
-            let sample_idx = if reverse_x { x_samples - xi } else { xi };
-            let x = (x_bounds[0] + sample_idx as f64 * options.resolution).min(x_bounds[1]);
-
-            if let Some((hit_z, normal)) = mesh.project_point(x, y, safe_z) {
-                // Apply normal standoff offset
-                let px = x + options.standoff_offset * normal[0];
-                let py = y + options.standoff_offset * normal[1];
-                let pz = hit_z + options.standoff_offset * normal[2];
-                pass_points.push(([px, py, pz], normal));
-            }
-        }
-
-        if pass_points.is_empty() {
-            continue;
-        }
-
+    for pass_points in passes {
         total_hits += pass_points.len();
 
-        // Safe rapid transit to first point of this pass
         let (first_p, first_n) = pass_points[0];
 
         // 1. Retract/travel at safe_z
         ops.push(Op::Extruder { on: false });
-        ops.push(Op::Speed { print: options.feedrate * 2.0 });
+        ops.push(Op::Speed {
+            print: options.feedrate * 2.0,
+        });
         ops.push(Op::Move {
             x: Some(first_p[0]),
             y: Some(first_p[1]),
@@ -711,7 +749,9 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
         });
 
         // 3. Plunge down
-        ops.push(Op::Speed { print: options.plunge_feed });
+        ops.push(Op::Speed {
+            print: options.plunge_feed,
+        });
         ops.push(Op::Move {
             x: Some(first_p[0]),
             y: Some(first_p[1]),
@@ -720,7 +760,9 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
 
         // 4. Trace conformal surface
         ops.push(Op::Extruder { on: true });
-        ops.push(Op::Speed { print: options.feedrate });
+        ops.push(Op::Speed {
+            print: options.feedrate,
+        });
 
         for (pt, n) in pass_points.iter().skip(1) {
             ops.push(Op::Orient {
@@ -735,6 +777,7 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
             });
         }
     }
+
 
     if total_hits == 0 {
         return Err(DrapeError::NoSurfaceHit(
@@ -758,3 +801,40 @@ pub fn drape_design(options: &DrapeOptions) -> Result<Design, DrapeError> {
     let ops = drape_ops(options)?;
     Ok(Design { ops })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_dome_mesh() -> TriangleMesh {
+        // Two triangles forming a simple roof/dome
+        let t1 = Triangle::new([0.0, 0.0, 5.0], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0]);
+        let t2 = Triangle::new([0.0, 0.0, 5.0], [20.0, 20.0, 0.0], [0.0, 20.0, 5.0]);
+        TriangleMesh::new(vec![t1, t2])
+    }
+
+    #[test]
+    fn test_drape_spiral_concentric() {
+        let mesh = sample_dome_mesh();
+        let opts = DrapeOptions {
+            mesh,
+            pattern: DrapePattern::SpiralConcentric,
+            x_range: Some([5.0, 15.0]),
+            y_range: Some([5.0, 15.0]),
+            stepover: 2.0,
+            resolution: 1.0,
+            standoff_offset: 0.5,
+            safe_z: Some(15.0),
+            feedrate: 1800.0,
+            plunge_feed: 600.0,
+            width: 0.45,
+            height: 0.2,
+        };
+        let ops = drape_ops(&opts).expect("should generate spiral concentric drape ops");
+        assert!(!ops.is_empty());
+        // Verify tool orientations are generated
+        let orient_count = ops.iter().filter(|op| matches!(op, Op::Orient { .. })).count();
+        assert!(orient_count > 5);
+    }
+}
+

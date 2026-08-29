@@ -55,6 +55,28 @@ pub struct PrinterLiveStatus {
     pub progress: f64,
 }
 
+/// Typed Moonraker WebSocket notification event.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub enum PrinterEvent {
+    StatusUpdate {
+        state: Option<String>,
+        progress: Option<f64>,
+        nozzle_temp_c: Option<f64>,
+        bed_temp_c: Option<f64>,
+    },
+    GcodeResponse {
+        message: String,
+    },
+    ProcStatUpdate {
+        cpu_usage: f64,
+        memory_used_kb: u64,
+    },
+    Unknown {
+        method: String,
+    },
+}
+
 /// Fixed multipart boundary — deterministic for testing; long+unique to avoid g-code collisions.
 pub const MULTIPART_BOUNDARY: &str = "dry7c0d3moonrakerboundary8f3a1e9d";
 
@@ -328,6 +350,95 @@ fn decode_printer_status(v: &serde_json::Value) -> Result<PrinterLiveStatus, Moo
     })
 }
 
+/// Parse a Moonraker WebSocket JSON-RPC notification frame.
+pub fn parse_websocket_event(json_text: &str) -> Result<PrinterEvent, MoonrakerError> {
+    let v: serde_json::Value = serde_json::from_str(json_text)
+        .map_err(|e| MoonrakerError::Decode(format!("invalid json event: {e}")))?;
+
+    let method = v.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    let params = v.get("params").and_then(|p| p.as_array());
+
+    match method {
+        "notify_status_update" => {
+            if let Some(first_param) = params.and_then(|arr| arr.first()) {
+                let state = first_param
+                    .get("print_stats")
+                    .and_then(|ps| ps.get("state"))
+                    .and_then(|s| s.as_str())
+                    .map(str::to_string);
+                let progress = first_param
+                    .get("display_status")
+                    .and_then(|ds| ds.get("progress"))
+                    .and_then(|p| p.as_f64());
+                let nozzle_temp_c = first_param
+                    .get("extruder")
+                    .and_then(|e| e.get("temperature"))
+                    .and_then(|t| t.as_f64());
+                let bed_temp_c = first_param
+                    .get("heater_bed")
+                    .and_then(|b| b.get("temperature"))
+                    .and_then(|t| t.as_f64());
+
+                Ok(PrinterEvent::StatusUpdate {
+                    state,
+                    progress,
+                    nozzle_temp_c,
+                    bed_temp_c,
+                })
+            } else {
+                Ok(PrinterEvent::Unknown {
+                    method: method.to_string(),
+                })
+            }
+        }
+        "notify_gcode_response" => {
+            let msg = params
+                .and_then(|arr| arr.first())
+                .and_then(|m| m.as_str())
+                .unwrap_or("")
+                .to_string();
+            Ok(PrinterEvent::GcodeResponse { message: msg })
+        }
+        "notify_proc_stat_update" => {
+            let cpu = params
+                .and_then(|arr| arr.first())
+                .and_then(|s| s.get("system_cpu_usage"))
+                .and_then(|c| c.as_f64())
+                .unwrap_or(0.0);
+            let mem = params
+                .and_then(|arr| arr.first())
+                .and_then(|s| s.get("system_memory"))
+                .and_then(|m| m.get("used"))
+                .and_then(|u| u.as_u64())
+                .unwrap_or(0);
+            Ok(PrinterEvent::ProcStatUpdate {
+                cpu_usage: cpu,
+                memory_used_kb: mem,
+            })
+        }
+        _ => Ok(PrinterEvent::Unknown {
+            method: method.to_string(),
+        }),
+    }
+}
+
+/// Dynamic closed-loop pressure advance calculation based on nozzle temperature compensation and print speed.
+pub fn calculate_auto_tuned_pressure_advance(
+    base_advance: f64,
+    nozzle_temp_c: f64,
+    target_temp_c: f64,
+    speed_factor: f64,
+) -> f64 {
+    let mut advance = base_advance;
+    if target_temp_c > 100.0 && nozzle_temp_c > 100.0 {
+        let temp_delta = nozzle_temp_c - target_temp_c;
+        let temp_scale = (1.0 - temp_delta * 0.005).clamp(0.7, 1.3);
+        advance *= temp_scale;
+    }
+    let speed_scale = speed_factor.clamp(0.5, 2.0);
+    (advance * speed_scale).clamp(0.0, 0.2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -514,4 +625,50 @@ mod tests {
             Err(MoonrakerError::InvalidInput(_))
         ));
     }
+    #[test]
+    fn test_parse_websocket_event() {
+        let event_json = r#"{
+            "jsonrpc": "2.0",
+            "method": "notify_status_update",
+            "params": [
+                {
+                    "print_stats": { "state": "printing" },
+                    "display_status": { "progress": 0.75 },
+                    "extruder": { "temperature": 220.0 },
+                    "heater_bed": { "temperature": 65.0 }
+                },
+                1725000000.0
+            ]
+        }"#;
+        let parsed = parse_websocket_event(event_json).expect("should parse websocket status event");
+        match parsed {
+            PrinterEvent::StatusUpdate {
+                state,
+                progress,
+                nozzle_temp_c,
+                bed_temp_c,
+            } => {
+                assert_eq!(state, Some("printing".to_string()));
+                assert_eq!(progress, Some(0.75));
+                assert_eq!(nozzle_temp_c, Some(220.0));
+                assert_eq!(bed_temp_c, Some(65.0));
+            }
+            _ => panic!("Expected StatusUpdate event"),
+        }
+    }
+    #[test]
+    fn test_calculate_auto_tuned_pressure_advance() {
+        // Base advance 0.040 at nominal temp 210 -> tuned advance = 0.040
+        let nominal = calculate_auto_tuned_pressure_advance(0.040, 210.0, 210.0, 1.0);
+        assert!((nominal - 0.040).abs() < 1e-5);
+
+        // 1.5x speed factor increases advance
+        let high_speed = calculate_auto_tuned_pressure_advance(0.040, 210.0, 210.0, 1.5);
+        assert!((high_speed - 0.060).abs() < 1e-5);
+
+        // Overheated nozzle (230°C vs 210°C target) lowers advance to reduce ooze
+        let hot = calculate_auto_tuned_pressure_advance(0.040, 230.0, 210.0, 1.0);
+        assert!(hot < nominal);
+    }
 }
+
