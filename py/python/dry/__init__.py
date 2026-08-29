@@ -784,6 +784,93 @@ def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -> List[Op]:
     return json.loads(_native.reverse_toolpath_json(tp_json))
 
 
+def slice_brep_assembly_csg(
+    step_additives: Sequence[str],
+    step_voids: Sequence[str],
+    z_start: float = 0.0,
+    z_end: float = 10.0,
+    layer_height: float = 0.2,
+    samples_per_slice: int = 36,
+    feedrate: float = 1800.0,
+) -> List[Op]:
+    """Slice a multi-solid B-Rep assembly with CSG boolean void subtraction in Python."""
+    return json.loads(
+        _native.slice_brep_assembly_csg_json(
+            json.dumps(list(step_additives)),
+            json.dumps(list(step_voids)),
+            float(z_start),
+            float(z_end),
+            float(layer_height),
+            int(samples_per_slice),
+            float(feedrate),
+        )
+    )
+
+
+def optimize_constant_mrr(
+    toolpath: Union[Toolpath, Dict[str, Any]],
+    depth_of_cut: float,
+    target_mrr_mm3_min: float,
+    min_feedrate: float = 100.0,
+    max_feedrate: float = 5000.0,
+) -> Toolpath:
+    """Optimize toolpath feedrates to maintain Constant Material Removal Rate (MRR)."""
+    tp_json = toolpath if isinstance(toolpath, str) else json.dumps(toolpath)
+    return json.loads(
+        _native.optimize_constant_mrr_json(
+            tp_json,
+            float(depth_of_cut),
+            float(target_mrr_mm3_min),
+            float(min_feedrate),
+            float(max_feedrate),
+        )
+    )
+
+
+def simulate_dexel_stock(
+    toolpath: Union[Toolpath, Dict[str, Any]],
+    stock_bounds: Sequence[float],
+    resolution_mm: float = 1.0,
+    tool_radius: float = 3.0,
+    is_ballnose: bool = False,
+) -> Dict[str, Any]:
+    """Simulate 3D Dexel grid stock subtraction against a toolpath."""
+    tp_json = toolpath if isinstance(toolpath, str) else json.dumps(toolpath)
+    b = list(stock_bounds)
+    return json.loads(
+        _native.simulate_dexel_stock_json(
+            tp_json,
+            float(b[0]),
+            float(b[1]),
+            float(b[2]),
+            float(b[3]),
+            float(b[4]),
+            float(b[5]),
+            float(resolution_mm),
+            float(tool_radius),
+            bool(is_ballnose),
+        )
+    )
+
+
+def segment_to_segment_distance_3d(
+    p1: Sequence[float],
+    p2: Sequence[float],
+    q1: Sequence[float],
+    q2: Sequence[float],
+) -> float:
+    """Calculate minimum Euclidean distance between two 3D line segments."""
+    return float(
+        _native.segment_to_segment_distance_3d_py(
+            [float(p1[0]), float(p1[1]), float(p1[2])],
+            [float(p2[0]), float(p2[1]), float(p2[2])],
+            [float(q1[0]), float(q1[1]), float(q1[2])],
+            [float(q2[0]), float(q2[1]), float(q2[2])],
+        )
+    )
+
+
+
 def _params(printer: str) -> str:
     if printer not in PRINTERS:
         raise KeyError(f"unknown printer {printer!r}; known: {sorted(PRINTERS)}")

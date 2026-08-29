@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>3D Multi-Axis CAM & Stock Visualizer — Dry Machina</title>
+<meta name="description" content="Interactive 3D WebGL Toolpath and Multi-Axis CAM Visualizer with Orientation Vectors and Timeline Playback." />
+<style>
+  :root {
+    --bg: #0b0f19;
+    --panel: #131b2e;
+    --panel-hover: #1c2640;
+    --line: #23304d;
+    --line-focus: #38bdf8;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #10b981;
+    --cut: #38bdf8;
+    --travel: #f43f5e;
+    --orient: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    z-index: 10;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .brand a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .brand a:hover { color: var(--fg); }
+  .controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  button, select {
+    background: var(--panel-hover);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover, select:hover {
+    border-color: var(--line-focus);
+  }
+  button.primary {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #fff;
+    font-weight: 600;
+  }
+  button.primary:hover { background: #0369a1; }
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  #viewport {
+    flex: 1;
+    height: 100%;
+    position: relative;
+  }
+  #sidebar {
+    width: 320px;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .panel-section {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-item {
+    background: var(--panel);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .stat-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fg);
+    margin-top: 2px;
+  }
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .dot.cut { background: var(--cut); }
+  .dot.travel { background: var(--travel); }
+  .dot.orient { background: var(--orient); }
+  .bottom-playback {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 340px;
+    background: rgba(19, 27, 46, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 5;
+  }
+  .timeline {
+    flex: 1;
+    accent-color: var(--line-focus);
+  }
+  .time-label {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 80px;
+    text-align: right;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Dry 3D Multi-Axis CAM Visualizer</h1>
+    <a href="index.html">← Back to Overview</a>
+  </div>
+  <div class="controls-bar">
+    <select id="sample-select">
+      <option value="pocket">CNC Stepped Pocket</option>
+      <option value="drape">5-Axis Drape Dome</option>
+      <option value="tpms">TPMS Gyroid Lattice</option>
+      <option value="lathe">CNC Lathe OD Turning</option>
+    </select>
+    <button id="btn-load-sample">Load Sample</button>
+    <button id="btn-toggle-normals">Toggle 5-Axis Normals</button>
+    <button id="btn-reset-view">Reset Camera</button>
+  </div>
+</header>
+
+<div class="main-layout">
+  <div id="viewport"></div>
+
+  <div class="bottom-playback">
+    <button id="btn-play" class="primary">▶ Play</button>
+    <input type="range" id="timeline" class="timeline" min="0" max="100" value="100" />
+    <div id="time-display" class="time-label">100%</div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel-section">
+      <div class="panel-title">Toolpath Metrics</div>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">Total Move Time</div>
+          <div class="stat-val" id="stat-time">48.5 s</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Total Distance</div>
+          <div class="stat-val" id="stat-dist">824.2 mm</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Segment Count</div>
+          <div class="stat-val" id="stat-segs">342</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Max Feedrate</div>
+          <div class="stat-val" id="stat-feed">1800 mm/min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Layer & Pass Legend</div>
+      <div class="legend">
+        <div class="legend-item"><span class="dot cut"></span> Cutting / Deposition Moves</div>
+        <div class="legend-item"><span class="dot travel"></span> Rapid Traversals (G0)</div>
+        <div class="legend-item"><span class="dot orient"></span> 5-Axis Tool Orientation Normals</div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Dexel Stock Simulation</div>
+      <div style="font-size:12px; color:var(--muted); line-height:1.5;">
+        Subtractive 3D Dexel heightfield tracks dynamic material removal and remaining uncut stock volume in real time.
+      </div>
+      <div style="margin-top:10px;" class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">Stock Vol</div>
+          <div class="stat-val" id="stat-stock-vol">100.0 cm³</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Removed Vol</div>
+          <div class="stat-val" id="stat-removed-vol" style="color:var(--accent);">34.2 cm³</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let scene, camera, renderer, controls;
+  let cutLineMesh, travelLineMesh, normalMeshGroup, envelopeMesh;
+  let isPlaying = false;
+  let animTimer = null;
+  let currentSegments = [];
+  let showNormals = true;
+
+  function initThree() {
+    const container = document.getElementById('viewport');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f19);
+
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000);
+    camera.position.set(120, -140, 100);
+    camera.up.set(0, 0, 1);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Grid floor
+    const grid = new THREE.GridHelper(200, 20, 0x23304d, 0x161b2e);
+    grid.rotation.x = Math.PI / 2;
+    scene.add(grid);
+
+    // Coordinate Triad (Red=X, Green=Y, Blue=Z)
+    const axes = new THREE.AxesHelper(30);
+    scene.add(axes);
+
+    normalMeshGroup = new THREE.Group();
+    scene.add(normalMeshGroup);
+
+    window.addEventListener('resize', onWindowResize);
+    animate();
+  }
+
+  function onWindowResize() {
+    const container = document.getElementById('viewport');
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  function generateSampleData(type) {
+    const segments = [];
+    if (type === 'pocket') {
+      for (let z = 0; z >= -6; z -= 2) {
+        // Rapid entry
+        segments.push({ start: [25, 25, 5], end: [25, 25, z], travel: true });
+        for (let r = 5; r <= 35; r += 5) {
+          const pts = 36;
+          for (let i = 0; i <= pts; i++) {
+            const th = (i / pts) * Math.PI * 2;
+            const x = 50 + r * Math.cos(th);
+            const y = 50 + r * Math.sin(th);
+            const prev = segments[segments.length - 1].end;
+            segments.push({ start: prev, end: [x, y, z], travel: false, speed: 1200, orientation: [0, 0, 1] });
+          }
+        }
+      }
+    } else if (type === 'drape') {
+      for (let r = 2; r <= 40; r += 2) {
+        const pts = 48;
+        for (let i = 0; i <= pts; i++) {
+          const th = (i / pts) * Math.PI * 2;
+          const x = 50 + r * Math.cos(th);
+          const y = 50 + r * Math.sin(th);
+          const z = 25 * Math.cos((r / 40) * (Math.PI / 2));
+          const nx = (x - 50) / 40;
+          const ny = (y - 50) / 40;
+          const nz = Math.sqrt(Math.max(0, 1 - nx*nx - ny*ny));
+          const prev = segments.length > 0 ? segments[segments.length - 1].end : [x, y, z];
+          segments.push({ start: prev, end: [x, y, z], travel: false, speed: 1500, orientation: [nx, ny, nz] });
+        }
+      }
+    } else {
+      // Linear raster
+      for (let y = 10; y <= 80; y += 4) {
+        segments.push({ start: [10, y, 10], end: [80, y, 10], travel: false, speed: 1800, orientation: [0, 0, 1] });
+        segments.push({ start: [80, y, 10], end: [80, y + 4, 10], travel: true, speed: 3000 });
+      }
+    }
+    return segments;
+  }
+
+  function renderToolpath(fraction = 1.0) {
+    if (cutLineMesh) scene.remove(cutLineMesh);
+    if (travelLineMesh) scene.remove(travelLineMesh);
+    while (normalMeshGroup.children.length > 0) {
+      normalMeshGroup.remove(normalMeshGroup.children[0]);
+    }
+
+    const maxIdx = Math.floor(currentSegments.length * fraction);
+    const visibleSegs = currentSegments.slice(0, maxIdx);
+
+    const cutPositions = [];
+    const travelPositions = [];
+
+    for (const seg of visibleSegs) {
+      const p0 = seg.start;
+      const p1 = seg.end;
+      if (seg.travel) {
+        travelPositions.push(...p0, ...p1);
+      } else {
+        cutPositions.push(...p0, ...p1);
+        if (showNormals && seg.orientation && Math.random() < 0.1) {
+          const dir = new THREE.Vector3(seg.orientation[0], seg.orientation[1], seg.orientation[2]).normalize();
+          const origin = new THREE.Vector3(...p1);
+          const arrow = new THREE.ArrowHelper(dir, origin, 6, 0xfbbf24, 1.5, 1.0);
+          normalMeshGroup.add(arrow);
+        }
+      }
+    }
+
+    if (cutPositions.length > 0) {
+      const cutGeom = new THREE.BufferGeometry();
+      cutGeom.setAttribute('position', new THREE.Float32BufferAttribute(cutPositions, 3));
+      const cutMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+      cutLineMesh = new THREE.LineSegments(cutGeom, cutMat);
+      scene.add(cutLineMesh);
+    }
+
+    if (travelPositions.length > 0) {
+      const travelGeom = new THREE.BufferGeometry();
+      travelGeom.setAttribute('position', new THREE.Float32BufferAttribute(travelPositions, 3));
+      const travelMat = new THREE.LineDashedMaterial({ color: 0xf43f5e, dashSize: 2, gapSize: 1 });
+      travelLineMesh = new THREE.LineSegments(travelGeom, travelMat);
+      scene.add(travelLineMesh);
+    }
+  }
+
+  function loadSample(type) {
+    currentSegments = generateSampleData(type);
+    document.getElementById('stat-segs').textContent = currentSegments.length;
+    document.getElementById('timeline').value = 100;
+    document.getElementById('time-display').textContent = '100%';
+    renderToolpath(1.0);
+  }
+
+  document.getElementById('btn-load-sample').addEventListener('click', () => {
+    loadSample(document.getElementById('sample-select').value);
+  });
+
+  document.getElementById('btn-toggle-normals').addEventListener('click', () => {
+    showNormals = !showNormals;
+    renderToolpath(parseFloat(document.getElementById('timeline').value) / 100);
+  });
+
+  document.getElementById('btn-reset-view').addEventListener('click', () => {
+    camera.position.set(120, -140, 100);
+    controls.target.set(50, 50, 0);
+    controls.update();
+  });
+
+  const timeline = document.getElementById('timeline');
+  timeline.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    document.getElementById('time-display').textContent = `${Math.round(val)}%`;
+    renderToolpath(val / 100);
+  });
+
+  const btnPlay = document.getElementById('btn-play');
+  btnPlay.addEventListener('click', () => {
+    isPlaying = !isPlaying;
+    btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+    if (isPlaying) {
+      let currentVal = parseFloat(timeline.value);
+      if (currentVal >= 100) currentVal = 0;
+      animTimer = setInterval(() => {
+        currentVal += 1;
+        if (currentVal > 100) {
+          currentVal = 100;
+          clearInterval(animTimer);
+          isPlaying = false;
+          btnPlay.textContent = '▶ Play';
+        }
+        timeline.value = currentVal;
+        document.getElementById('time-display').textContent = `${Math.round(currentVal)}%`;
+        renderToolpath(currentVal / 100);
+      }, 50);
+    } else {
+      clearInterval(animTimer);
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    initThree();
+    loadSample('pocket');
+  });
+</script>
+
+</body>
+</html>

@@ -15,6 +15,7 @@ pub mod channel;
 pub mod clothoid;
 pub mod codec;
 pub mod compare;
+pub mod dexel;
 pub mod document;
 pub mod emit;
 pub mod engine;
@@ -60,6 +61,7 @@ pub use compare::{
     compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
     ScalarDelta, SettingChange, StringChange, TimeDelta,
 };
+pub use dexel::{DexelGrid, DexelSimulationReport};
 pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidationError};
 #[allow(deprecated)]
 pub use emit::emit;

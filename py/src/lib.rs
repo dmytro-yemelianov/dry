@@ -484,6 +484,94 @@ fn slice_brep_assembly_json(
     serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Slice a multi-solid B-Rep assembly with CSG boolean void subtraction in Python.
+#[pyfunction]
+fn slice_brep_assembly_csg_json(
+    additives_json: &str,
+    voids_json: &str,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> PyResult<String> {
+    let step_additives: Vec<String> = serde_json::from_str(additives_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid additives json: {e}")))?;
+    let step_voids: Vec<String> = serde_json::from_str(voids_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid voids json: {e}")))?;
+
+    let mut asm = dry_core::generate::BrepAssembly::new("python_csg_assembly");
+    for step in step_additives {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::AdditiveBody);
+    }
+    for step in step_voids {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::SubtractiveVoid);
+    }
+    let ops = asm
+        .slice_with_csg(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Optimize toolpath for Constant Material Removal Rate (MRR) in Python.
+#[pyfunction]
+fn optimize_constant_mrr_json(
+    toolpath_json: &str,
+    depth_of_cut: f64,
+    target_mrr_mm3_min: f64,
+    min_feedrate: f64,
+    max_feedrate: f64,
+) -> PyResult<String> {
+    let mut tp: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
+    dry_core::optimize::optimize_constant_mrr(
+        &mut tp,
+        depth_of_cut,
+        target_mrr_mm3_min,
+        min_feedrate,
+        max_feedrate,
+    );
+    serde_json::to_string(&tp).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Simulate 3D Dexel grid stock subtraction in Python and return volumetric report.
+#[pyfunction]
+fn simulate_dexel_stock_json(
+    toolpath_json: &str,
+    min_x: f64,
+    min_y: f64,
+    min_z: f64,
+    max_x: f64,
+    max_y: f64,
+    max_z: f64,
+    resolution_mm: f64,
+    tool_radius: f64,
+    is_ballnose: bool,
+) -> PyResult<String> {
+    let tp: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
+    let mut stock = dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
+    let report = stock.generate_report();
+    serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Compute Euclidean distance between two 3D line segments in Python.
+#[pyfunction]
+fn segment_to_segment_distance_3d_py(
+    p1: [f64; 3],
+    p2: [f64; 3],
+    q1: [f64; 3],
+    q2: [f64; 3],
+) -> f64 {
+    dry_core::segment_to_segment_distance_3d(p1, p2, q1, q2)
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_features, m)?)?;
@@ -496,6 +584,10 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_obj_mesh_json, m)?)?;
     m.add_function(wrap_pyfunction!(slice_step_solid_json, m)?)?;
     m.add_function(wrap_pyfunction!(slice_brep_assembly_json, m)?)?;
+    m.add_function(wrap_pyfunction!(slice_brep_assembly_csg_json, m)?)?;
+    m.add_function(wrap_pyfunction!(optimize_constant_mrr_json, m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_dexel_stock_json, m)?)?;
+    m.add_function(wrap_pyfunction!(segment_to_segment_distance_3d_py, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_facing_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_od_turning_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(check_tool_holder_collision_json, m)?)?;
@@ -508,4 +600,5 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }
+
 

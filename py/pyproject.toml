@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "dry"
 version = "0.7.0"
 description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
-readme = "../README.md"
+readme = "README.md"
 authors = [{ name = "Dmytro Yemelianov", email = "dmytro@yemelianov.dev" }]
 requires-python = ">=3.9"
 license = "FSL-1.1-MIT"

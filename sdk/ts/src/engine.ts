@@ -82,6 +82,42 @@ export interface DryWasm {
     samplesPerSlice: number,
     feedrate: number
   ): string;
+  slice_brep_assembly_csg_wasm(
+    additivesJson: string,
+    voidsJson: string,
+    zStart: number,
+    zEnd: number,
+    layerHeight: number,
+    samplesPerSlice: number,
+    feedrate: number
+  ): string;
+  optimize_constant_mrr_wasm(
+    opsJson: string,
+    paramsJson: string,
+    depthOfCut: number,
+    targetMrrMm3Min: number,
+    minFeedrate: number,
+    maxFeedrate: number
+  ): string;
+  simulate_dexel_stock_wasm(
+    opsJson: string,
+    paramsJson: string,
+    minX: number,
+    minY: number,
+    minZ: number,
+    maxX: number,
+    maxY: number,
+    maxZ: number,
+    resolutionMm: number,
+    toolRadius: number,
+    isBallnose: boolean
+  ): string;
+  segment_to_segment_distance_3d_wasm(
+    p1: Float64Array,
+    p2: Float64Array,
+    q1: Float64Array,
+    q2: Float64Array
+  ): number;
 }
 
 // The wasm binding is injected by a platform loader (engine.node.ts on Node, engine.web.ts in the
@@ -344,4 +380,112 @@ export function sliceBrepAssembly(
     )
   );
 }
+
+/**
+ * Slice a multi-solid B-Rep assembly with CSG boolean subtraction of voids from additive solids.
+ */
+export function sliceBrepAssemblyCsg(
+  stepAdditives: string[],
+  stepVoids: string[],
+  zStart: number = 0.0,
+  zEnd: number = 10.0,
+  layerHeight: number = 0.2,
+  samplesPerSlice: number = 36,
+  feedrate: number = 1800.0
+): Op[] {
+  return JSON.parse(
+    bind().slice_brep_assembly_csg_wasm(
+      JSON.stringify(stepAdditives),
+      JSON.stringify(stepVoids),
+      zStart,
+      zEnd,
+      layerHeight,
+      samplesPerSlice,
+      feedrate
+    )
+  );
+}
+
+/**
+ * Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR).
+ */
+export function optimizeConstantMrr(
+  ops: Op[],
+  params: Partial<ResolveParams> | undefined,
+  depthOfCut: number,
+  targetMrrMm3Min: number,
+  minFeedrate: number = 100.0,
+  maxFeedrate: number = 5000.0
+): Toolpath {
+  const opsJson = JSON.stringify(ops);
+  const paramsJson = params !== undefined ? JSON.stringify(params) : '{}';
+  return JSON.parse(
+    bind().optimize_constant_mrr_wasm(
+      opsJson,
+      paramsJson,
+      depthOfCut,
+      targetMrrMm3Min,
+      minFeedrate,
+      maxFeedrate
+    )
+  );
+}
+
+export interface DexelSimulationReport {
+  initial_volume_mm3: number;
+  remaining_volume_mm3: number;
+  removed_volume_mm3: number;
+  material_removal_ratio: number;
+  min_height_mm: number;
+  max_height_mm: number;
+}
+
+/**
+ * Simulate 3D Dexel grid stock subtraction against a toolpath.
+ */
+export function simulateDexelStock(
+  ops: Op[],
+  params: Partial<ResolveParams> | undefined,
+  stockBounds: [number, number, number, number, number, number],
+  resolutionMm: number = 1.0,
+  toolRadius: number = 3.0,
+  isBallnose: boolean = false
+): DexelSimulationReport {
+  const opsJson = JSON.stringify(ops);
+  const paramsJson = params !== undefined ? JSON.stringify(params) : '{}';
+  const [minX, minY, minZ, maxX, maxY, maxZ] = stockBounds;
+  return JSON.parse(
+    bind().simulate_dexel_stock_wasm(
+      opsJson,
+      paramsJson,
+      minX,
+      minY,
+      minZ,
+      maxX,
+      maxY,
+      maxZ,
+      resolutionMm,
+      toolRadius,
+      isBallnose
+    )
+  );
+}
+
+/**
+ * Calculate minimum Euclidean distance between two 3D line segments.
+ */
+export function segmentToSegmentDistance3d(
+  p1: [number, number, number],
+  p2: [number, number, number],
+  q1: [number, number, number],
+  q2: [number, number, number]
+): number {
+  return bind().segment_to_segment_distance_3d_wasm(
+    new Float64Array(p1),
+    new Float64Array(p2),
+    new Float64Array(q1),
+    new Float64Array(q2)
+  );
+}
+
 

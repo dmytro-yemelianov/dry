@@ -38,8 +38,12 @@ export {
   verifyGcode,
   sliceStepSolid,
   sliceBrepAssembly,
+  sliceBrepAssemblyCsg,
+  optimizeConstantMrr,
+  simulateDexelStock,
+  segmentToSegmentDistance3d,
 } from './engine';
-export type { MachineKinematics, SCurveProfile } from './engine';
+export type { MachineKinematics, SCurveProfile, DexelSimulationReport } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type {
   CollisionFinding,

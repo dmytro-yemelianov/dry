@@ -559,6 +559,98 @@ pub fn slice_brep_assembly_wasm(
     serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Slice a multi-solid B-Rep assembly with CSG boolean void subtraction in Wasm.
+#[wasm_bindgen]
+pub fn slice_brep_assembly_csg_wasm(
+    step_additives: Vec<String>,
+    step_voids: Vec<String>,
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    feedrate: f64,
+) -> Result<String, JsError> {
+    let mut asm = dry_core::generate::BrepAssembly::new("wasm_csg_assembly");
+    for step in step_additives {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::AdditiveBody);
+    }
+    for step in step_voids {
+        let solid = dry_core::BrepSolid::parse_step_iso10303(&step)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        asm.add_solid(solid, dry_core::generate::BrepBodyRole::SubtractiveVoid);
+    }
+    let ops = asm
+        .slice_with_csg(z_start, z_end, layer_height, samples_per_slice, feedrate)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Optimize toolpath for Constant Material Removal Rate (MRR) in Wasm.
+#[wasm_bindgen]
+pub fn optimize_constant_mrr_wasm(
+    ops_json: &str,
+    params_json: &str,
+    depth_of_cut: f64,
+    target_mrr_mm3_min: f64,
+    min_feedrate: f64,
+    max_feedrate: f64,
+) -> Result<String, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let mut tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    dry_core::optimize::optimize_constant_mrr(
+        &mut tp,
+        depth_of_cut,
+        target_mrr_mm3_min,
+        min_feedrate,
+        max_feedrate,
+    );
+    serde_json::to_string(&tp).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Simulate 3D Dexel grid stock subtraction in Wasm and return the volumetric report.
+#[wasm_bindgen]
+pub fn simulate_dexel_stock_wasm(
+    ops_json: &str,
+    params_json: &str,
+    min_x: f64,
+    min_y: f64,
+    min_z: f64,
+    max_x: f64,
+    max_y: f64,
+    max_z: f64,
+    resolution_mm: f64,
+    tool_radius: f64,
+    is_ballnose: bool,
+) -> Result<String, JsError> {
+    let (d, p) = parse(ops_json, params_json)?;
+    let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
+    let mut stock = dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
+        .map_err(|e| JsError::new(&e))?;
+    stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
+    let report = stock.generate_report();
+    serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Calculate minimum Euclidean distance between two 3D line segments in Wasm.
+#[wasm_bindgen]
+pub fn segment_to_segment_distance_3d_wasm(
+    p1: Box<[f64]>,
+    p2: Box<[f64]>,
+    q1: Box<[f64]>,
+    q2: Box<[f64]>,
+) -> Result<f64, JsError> {
+    if p1.len() < 3 || p2.len() < 3 || q1.len() < 3 || q2.len() < 3 {
+        return Err(JsError::new("Each segment point must have at least 3 coordinates [x, y, z]"));
+    }
+    let p1_arr = [p1[0], p1[1], p1[2]];
+    let p2_arr = [p2[0], p2[1], p2[2]];
+    let q1_arr = [q1[0], q1[1], q1[2]];
+    let q2_arr = [q2[0], q2[1], q2[2]];
+    Ok(dry_core::segment_to_segment_distance_3d(p1_arr, p2_arr, q1_arr, q2_arr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
