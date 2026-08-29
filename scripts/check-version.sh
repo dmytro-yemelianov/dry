@@ -25,6 +25,7 @@ cloud_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" 
 verify_runner_cargo_ver="$(awk '/^\[package\]/{f=1} f&&/^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}' "$ROOT/containers/verify-runner/Cargo.toml")"
 ts_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/sdk/ts/package.json" | head -1)"
 ts_lock_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/sdk/ts/package-lock.json" | head -1)"
+mcp_ver="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ROOT/sdk/mcp/package.json" | head -1)"
 
 status=0
 check() {
@@ -45,6 +46,7 @@ check "crates/cloud/Cargo.toml" "$cloud_cargo_ver"
 check "containers/verify-runner/Cargo.toml" "$verify_runner_cargo_ver"
 check "sdk/ts/package.json" "$ts_ver"
 check "sdk/ts/package-lock.json" "$ts_lock_ver"
+check "sdk/mcp/package.json" "$mcp_ver"
 
 if ! grep -Fq "## [$VER]" "$ROOT/CHANGELOG.md"; then
   echo "MISMATCH: CHANGELOG.md has no release heading '## [$VER]'" >&2

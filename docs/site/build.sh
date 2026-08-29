@@ -17,6 +17,11 @@ fi
 
 (
   cd "$HERE"
+  # Synchronize The Dry Book chapters
+  mkdir -p "$HERE/book"
+  cp "$ROOT/docs/book/README.md" "$HERE/book/index.md"
+  cp "$ROOT/docs/book/"0*.md "$HERE/book/"
+
   if [ "$MODE" = "public" ]; then
     node scripts/stage-public-assets.mjs
     DRY_DOCS_MODE=public ./node_modules/.bin/vitepress build

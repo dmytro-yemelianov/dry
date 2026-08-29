@@ -79,7 +79,7 @@ Mixed-unit arithmetic without explicit dimensional operators fails at compilatio
 
 ## 5. Industrial Standards & Qualification Framework
 
-The platform architecture complies with formal industrial and safety-critical standards documented in [`docs/26-industrial-certification-and-standards.md`](../26-industrial-certification-and-standards.md):
+The platform architecture complies with formal industrial and safety-critical standards:
 
 * **ISO/ASTM 52915 (3MF)**: Toolpath Extension XML interchange.
 * **ISO 14649 (STEP-NC AP 238)**: Feature-based CNC process plans.

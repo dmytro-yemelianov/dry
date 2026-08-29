@@ -514,6 +514,20 @@ jobs:
           npm run typecheck
           npm test
 
+  docs:
+    name: docs & book (vitepress build + link verification)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      - name: install dependencies
+        working-directory: docs/site
+        run: npm ci
+      - name: build public docs site and The Dry Book
+        run: bash docs/site/build.sh public
+
   linuxcnc:
     name: linuxcnc (reference interpreter accepts the CNC goldens)
     runs-on: ubuntu-latest

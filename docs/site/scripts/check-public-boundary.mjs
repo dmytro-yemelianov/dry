@@ -54,6 +54,7 @@ const allowedPublicSourceFiles = new Set([
   ...[...documentedPreviews].map((preview) => `public-url:/${preview}`),
 ]);
 const allowedPublicContentPrefixes = [
+  'docs/site/book/',
   'docs/site/cloud/',
   'docs/site/guide/',
   'docs/site/marketing/',

@@ -194,9 +194,77 @@ jobs:
           name: npm
           path: dist-npm/*.tgz
 
+  mcp:
+    name: mcp (npm package)
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      - name: build + pack MCP server
+        working-directory: sdk/mcp
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../../dist-mcp
+          npm pack --pack-destination ../../dist-mcp
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mcp
+          path: dist-mcp/*.tgz
+
+  wasm:
+    name: wasm (standalone web bundle)
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          targets: wasm32-unknown-unknown
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" --locked
+      - name: build standalone wasm package
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          bash web/build.sh web pkg-dist
+          mkdir -p "dist-wasm/dry-wasm-${ver}"
+          cp pkg-dist/* "dist-wasm/dry-wasm-${ver}/"
+          cp LICENSE NOTICE "dist-wasm/dry-wasm-${ver}/"
+          tar -C dist-wasm -czf "dist-wasm/dry-wasm-${ver}.tar.gz" "dry-wasm-${ver}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wasm
+          path: dist-wasm/*.tar.gz
+
+  book:
+    name: book (the dry book & architecture specs)
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: package the dry book & specs
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          mkdir -p "dist-book/dry-book-${ver}"
+          cp -r docs/book/* "dist-book/dry-book-${ver}/"
+          mkdir -p "dist-book/dry-book-${ver}/specifications"
+          cp docs/0*.md docs/1*.md docs/2*.md "dist-book/dry-book-${ver}/specifications/"
+          cp LICENSE NOTICE "dist-book/dry-book-${ver}/"
+          tar -C dist-book -czf "dist-book/dry-book-${ver}.tar.gz" "dry-book-${ver}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: book
+          path: dist-book/*.tar.gz
+
   release:
     name: github release
-    needs: [cli, wheels, sdist, ts]
+    needs: [cli, wheels, sdist, ts, mcp, wasm, book]
     runs-on: ubuntu-latest
     permissions:
       contents: write

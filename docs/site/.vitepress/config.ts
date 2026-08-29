@@ -94,6 +94,7 @@ export default defineConfig({
       label: 'On this page',
     },
     nav: [
+      { text: 'Book', link: '/book/' },
       { text: 'Guide', link: '/guide/' },
       { text: 'Cloud', link: '/cloud/' },
       { text: 'Reference', link: '/reference/' },
@@ -102,6 +103,19 @@ export default defineConfig({
       ...(!publicDocumentationBuild ? [{ text: 'Gallery', link: '/gallery/' }] : []),
     ],
     sidebar: {
+      '/book/': [
+        {
+          text: 'The Dry Book',
+          items: [
+            { text: 'Overview & Table of Contents', link: '/book/' },
+            { text: '1. System Specification', link: '/book/01_system_specification' },
+            { text: '2. Algorithmic Authoring', link: '/book/02_algorithmic_authoring' },
+            { text: '3. Multi-Axis CAM & Subtractive', link: '/book/03_multi_axis_and_subtractive' },
+            { text: '4. Production & Cloud Operations', link: '/book/04_production_and_cloud_operations' },
+            { text: '5. Executable Examples', link: '/book/05_executable_examples' },
+          ],
+        },
+      ],
       '/guide/': [
         {
           text: 'Guide',
