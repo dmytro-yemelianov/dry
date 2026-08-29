@@ -110,6 +110,19 @@ pub fn emit_dual_robot_sync_krl(flag_id: u32, is_master: bool) -> Vec<String> {
     }
 }
 
+/// Generates ABB RAPID MultiMove multi-task synchronization barrier commands.
+pub fn emit_dual_robot_sync_rapid(sync_id: &str, task_list: &[&str]) -> Vec<String> {
+    let task_ids = if task_list.is_empty() {
+        "tasks_all".to_string()
+    } else {
+        task_list.join(", ")
+    };
+    vec![
+        format!("! --- ABB MultiMove Sync Barrier \"{sync_id}\" ---"),
+        format!("WaitSyncTask {sync_id}, [{task_ids}];"),
+    ]
+}
+
 /// Interpolates joint states linearly between two dual-robot waypoints.
 pub fn interpolate_dual_robot_waypoint(
     w1: &DualRobotWaypoint,

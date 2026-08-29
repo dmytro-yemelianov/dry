@@ -1521,6 +1521,8 @@ fn run(cli: Cli) -> ExitCode {
                 cut_feed,
                 plunge_feed,
                 helical_entry,
+                trochoidal: None,
+                chip_thinning: None,
             };
             let design = try_pocket_design(&options)
                 .unwrap_or_else(|e| die(format!("cannot generate pocket: {e}")));

@@ -98,3 +98,12 @@ fn test_dual_robot_waypoint_interpolation_and_velocity_scaling() {
     let scale_mid = calculate_clearance_velocity_scale(300.0, 100.0, 500.0, 0.2);
     assert!((scale_mid - 0.6).abs() < 1e-4);
 }
+
+#[test]
+fn test_abb_rapid_dual_robot_sync() {
+    use dry_core::emit_dual_robot_sync_rapid;
+
+    let rapid_lines = emit_dual_robot_sync_rapid("sync_point_1", &["T_ROB1", "T_ROB2"]);
+    assert_eq!(rapid_lines.len(), 2);
+    assert!(rapid_lines[1].contains("WaitSyncTask sync_point_1, [T_ROB1, T_ROB2];"));
+}

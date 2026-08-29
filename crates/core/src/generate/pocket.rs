@@ -76,6 +76,10 @@ pub struct PocketOptions {
     pub plunge_feed: Option<f64>,
     #[serde(default)]
     pub helical_entry: Option<bool>,
+    #[serde(default)]
+    pub trochoidal: Option<bool>,
+    #[serde(default)]
+    pub chip_thinning: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -261,6 +265,12 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
             }
         }
     }
+    let effective_cut_feed = if o.chip_thinning.unwrap_or(false) {
+        cut_feed * crate::optimize::calculate_chip_thinning_multiplier(stepover)
+    } else {
+        cut_feed
+    };
+
     Ok(Resolved {
         tool_r: d / 2.0,
         step: stepover * d,
@@ -268,7 +278,7 @@ fn validate(o: &PocketOptions) -> Result<Resolved, PocketError> {
         depth_per_pass,
         z_top,
         safe_z,
-        cut_feed,
+        cut_feed: effective_cut_feed,
         plunge_feed,
         helical_entry: o.helical_entry.unwrap_or(false),
     })
@@ -663,6 +673,8 @@ mod tests {
             cut_feed: None,
             plunge_feed: None,
             helical_entry: None,
+            trochoidal: None,
+            chip_thinning: None,
         }
     }
 
@@ -1313,12 +1325,31 @@ mod tests {
                     Op::Move {
                         x: Some(_),
                         y: Some(_),
-                        z: Some(z_val)
+                        z: Some(z_val),
                     } if *z_val < 5.0 && *z_val >= -5.0
                 )
             })
             .count();
         assert!(ramp_moves >= 16);
+    }
+
+    #[test]
+    fn test_pocket_chip_thinning_feedrate() {
+        let mut o = rect_opts();
+        o.cut_feed = Some(1000.0);
+        o.stepover = Some(0.2); // Low stepover -> significant chip thinning
+        o.chip_thinning = Some(true);
+
+        let ops = try_pocket_ops(&o).unwrap();
+        // Check that Speed op has compensated feedrate > 1000.0
+        let speed_ops: Vec<f64> = ops
+            .iter()
+            .filter_map(|op| match op {
+                Op::Speed { print } => Some(*print),
+                _ => None,
+            })
+            .collect();
+        assert!(speed_ops.iter().any(|&s| s > 1200.0));
     }
 }
 

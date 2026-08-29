@@ -100,7 +100,8 @@ pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
 pub use multi_robot::{
     calculate_clearance_velocity_scale, check_dual_robot_clearance, emit_dual_robot_sync_krl,
-    DualRobotCollisionResult, DualRobotWaypoint, WorkcellRobot, interpolate_dual_robot_waypoint,
+    emit_dual_robot_sync_rapid, DualRobotCollisionResult, DualRobotWaypoint, WorkcellRobot,
+    interpolate_dual_robot_waypoint,
 };
 pub use optimize::{
     adaptive_speed, adaptive_speed_with_kinematics, adaptive_speed_with_params,

@@ -19,6 +19,8 @@ fn test_stepped_pocket_multi_level_generation() {
         cut_feed: Some(1500.0),
         plunge_feed: Some(500.0),
         helical_entry: None,
+        trochoidal: None,
+        chip_thinning: None,
     };
 
     // Cut total depth 6mm with 2mm max stepdown -> 3 depth levels (-2, -4, -6)

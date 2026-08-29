@@ -30,6 +30,8 @@ fn opts() -> PocketOptions {
         cut_feed: Some(300.0),
         plunge_feed: Some(100.0),
         helical_entry: None,
+        trochoidal: None,
+        chip_thinning: None,
     }
 }
 
