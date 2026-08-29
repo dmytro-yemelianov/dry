@@ -48,7 +48,7 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
 ## Phase 4 — Multi-front-end + the IR standard
 
 - `[x]` **P4.1** (L) **TypeScript SDK** (oracle: `ts/`) emitting Dry IR. *Accept (met):* fixed TS designs match Python/core behavior through wasm and conformance tests.
-- `[ ]` **P4.2** (M) **Rust authoring SDK**. *Dep: P2.1. Accept:* same design == Python/TS Dry IR.
+- `[x]` **P4.2** (M) **Rust authoring SDK**. *Dep: P2.1. Accept:* same design == Python/TS Dry IR.
 - `[x]` **P4.3** (M) Publish **Dry IR spec** (versioned, JSON+binary, semver) + conformance **test vectors**. **Landed:** the normative `10-dry-ir-v0-spec.md`, JSON Schema, positive/negative vector corpus with manifest hashes, Rust drift gates and the `dry-core`-free `tools/validate_vectors.py` reader/writer. *Dep: P0.3. Accept (met):* the independent Python implementation validates and semantically round-trips all 12 JSON/`DRY0`/`DRY1` vectors.
 - `[x]` **P4.4** (M) **3MF Toolpath** import/export reference (`crates/core/src/codec/threemf.rs`). *Accept (met):* extruding path round-trips within tolerance; documented lossiness.
 

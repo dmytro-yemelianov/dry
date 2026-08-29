@@ -305,6 +305,8 @@ pub enum RuleId {
     RotaryFeed,
     /// The machine position an orientation implies is outside the machine's reachable envelope.
     OrientationReachability,
+    /// The spindle or laser power is active (> 0) during a rapid traversal move (travel: true).
+    LaserPowerDuringTravel,
 }
 
 /// One rule's catalog entry.
@@ -317,7 +319,7 @@ pub struct Rule {
 
 impl RuleId {
     /// Every rule, in catalog order.
-    pub const ALL: [RuleId; 27] = [
+    pub const ALL: [RuleId; 28] = [
         RuleId::Finite,
         RuleId::TravelExtrudes,
         RuleId::Bead,
@@ -345,6 +347,7 @@ impl RuleId {
         RuleId::RotaryTravel,
         RuleId::RotaryFeed,
         RuleId::OrientationReachability,
+        RuleId::LaserPowerDuringTravel,
     ];
 
     /// The stable kebab-case wire id.
@@ -377,6 +380,7 @@ impl RuleId {
             RuleId::RotaryTravel => "rotary-travel",
             RuleId::RotaryFeed => "rotary-feed",
             RuleId::OrientationReachability => "orientation-reachability",
+            RuleId::LaserPowerDuringTravel => "laser-power-during-travel",
         }
     }
 
@@ -393,40 +397,8 @@ impl RuleId {
             | RuleId::FirstLayerSpeed
             | RuleId::JunctionVelocity
             | RuleId::UnmodeledGcode
-            // `travel` is a *classification*, and this rule states that the classification disagrees
-            // with the deposited volume — not that anything unsafe happens. Three facts settle the
-            // severity, all of them about who sets the flag:
-            //
-            //  - No in-tree producer can violate it. Every travel `resolve` and `optimize` emit
-            //    carries `Volume::ZERO`, so `travel: true` from Dry is an *assertion*, and error
-            //    severity never gated Dry-authored IR at all — only imported and hand-authored IR,
-            //    where the flag is *inferred*.
-            //  - For imported G-code the inference is `G0 || no E word` (`gcode::lift`), and `G0` is
-            //    not a "do not extrude" command on the firmware these programs run: Marlin, Klipper
-            //    and RepRapFirmware execute `G0` as an ordinary coordinated move and honour an `E`
-            //    word in it. OrcaSlicer's stock start G-code relies on exactly that to write its
-            //    purge/prime lines — in the Bambu X1C profile and the Prusa MK4 one alike — so stock
-            //    output trips this rule 4-21 times per file while commanding precisely what its
-            //    author intended.
-            //  - What the finding *does* buy is real but advisory: a move counted as travel while
-            //    depositing corrupts travel-derived accounting (travel time/distance in `simulate`,
-            //    and `travel-without-retraction`, itself a warning). That is process/quality
-            //    character, which is the criterion this doc comment already states for warning.
-            //
-            // Severity is deliberately *not* scoped to provenance, even though `Toolpath.meta`
-            // records `imported-from-gcode`: `verify_stream` cannot see `meta` by construction, so
-            // the same bytes would verify differently through `dry verify` than through
-            // `dry review-gcode`; `Report` echoes `contracts` but not `meta`, so the difference
-            // would be invisible in the report; and `meta` is producer-declared, so keying severity
-            // off it would let an input choose the severity the verifier assigns it.
             | RuleId::TravelExtrudes
-            // The controller does not refuse a rotary axis it cannot drive fast enough — it slows the
-            // whole synchronised move down. The program still runs and still cuts the commanded path;
-            // what is wrong is the plan, not the geometry. Same character as `junction-velocity`.
             | RuleId::RotaryFeed
-            // Ships as a warning for one minor release before promotion to error (design §8):
-            // multi-diameter / multi-material IR is unusual but not ill-formed, and no in-tree
-            // producer makes any, so we have no evidence either way yet.
             | RuleId::FilamentConsistency => Severity::Warning,
             _ => Severity::Error,
         }
@@ -484,6 +456,9 @@ impl RuleId {
             RuleId::OrientationReachability => {
                 "an orientation puts the tool outside the machine's reachable envelope"
             }
+            RuleId::LaserPowerDuringTravel => {
+                "spindle or laser power is active (> 0) during a rapid traversal move"
+            }
         }
     }
 
@@ -505,7 +480,8 @@ impl RuleId {
             | RuleId::NegativeQuantity
             | RuleId::SegmentLength
             | RuleId::ArcLength
-            | RuleId::FilamentConsistency => true,
+            | RuleId::FilamentConsistency
+            | RuleId::LaserPowerDuringTravel => true,
             // A ceiling is only in force if it can actually decide anything. Every comparison
             // against a NaN ceiling is false, so a rule carrying one can never fire — and reporting
             // it as evaluated is exactly the vacuous pass `rules_evaluated` exists to rule out
@@ -994,6 +970,17 @@ where
                 format!(
                     "travel move deposits {:.4} mm³ (should be 0)",
                     s.volume.value()
+                ),
+            );
+        }
+        if s.travel && s.power.unwrap_or(0.0) > 0.0 {
+            push_finding(
+                &mut r,
+                RuleId::LaserPowerDuringTravel,
+                Some(i),
+                format!(
+                    "travel move has active spindle/laser power (level {:.4})",
+                    s.power.unwrap_or(0.0)
                 ),
             );
         }
@@ -1908,10 +1895,10 @@ mod tests {
             .collect();
         assert_eq!(
             can_fail.len(),
-            8,
+            9,
             "error-severity always-on rules: {can_fail:?}"
         );
-        assert_eq!(RuleId::ALL.len(), 27);
+        assert_eq!(RuleId::ALL.len(), 28);
     }
 
     #[test]

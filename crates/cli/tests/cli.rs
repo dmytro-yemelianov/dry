@@ -2467,7 +2467,7 @@ fn verify_runs_and_reports_findings() {
     // --json. `--bounds` is supplied here, so `bounds` is in force on top of the structural set.
     assert!(text.contains("segment(s) inspected"), "{text}");
     assert!(!text.contains("0 segment(s) inspected"), "{text}");
-    assert!(text.contains("12 rule(s) in force"), "{text}");
+    assert!(text.contains("13 rule(s) in force"), "{text}");
 
     // out-of-bounds path should fail (non-zero exit code)
     let out_bad = Command::new(bin())

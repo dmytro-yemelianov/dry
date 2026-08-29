@@ -422,6 +422,113 @@ pub fn parse_websocket_event(json_text: &str) -> Result<PrinterEvent, MoonrakerE
     }
 }
 
+/// Emergency stop trigger (M112 shutdown via Moonraker `/printer/emergency_stop`). Network.
+pub fn emergency_stop(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
+    let response = post(
+        cfg,
+        "/printer/emergency_stop",
+        "application/json",
+        b"{}",
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("emergency stop rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(true)
+}
+
+/// Pause the currently active print job via `/printer/print/pause`. Network.
+pub fn pause_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
+    let response = post(
+        cfg,
+        "/printer/print/pause",
+        "application/json",
+        b"{}",
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("pause rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(true)
+}
+
+/// Resume a paused print job via `/printer/print/resume`. Network.
+pub fn resume_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
+    let response = post(
+        cfg,
+        "/printer/print/resume",
+        "application/json",
+        b"{}",
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("resume rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(true)
+}
+
+/// Cancel the active print job via `/printer/print/cancel`. Network.
+pub fn cancel_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
+    let response = post(
+        cfg,
+        "/printer/print/cancel",
+        "application/json",
+        b"{}",
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("cancel rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(true)
+}
+
+/// Build a JSON-RPC 2.0 message for subscribing to printer objects over WebSocket.
+pub fn subscribe_objects_rpc(request_id: u64, objects: &[&str]) -> String {
+    let mut obj_map = serde_json::Map::new();
+    for obj in objects {
+        obj_map.insert(obj.to_string(), serde_json::Value::Null);
+    }
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "printer.objects.subscribe",
+        "params": {
+            "objects": obj_map
+        },
+        "id": request_id
+    })
+    .to_string()
+}
+
+/// Stream a chunk of G-code commands to Moonraker `/printer/gcode/script`. Network.
+pub fn stream_gcode_chunk(cfg: &MoonrakerConfig, gcode_lines: &[String]) -> Result<usize, MoonrakerError> {
+    if gcode_lines.is_empty() {
+        return Ok(0);
+    }
+    let script = gcode_lines.join("\n");
+    let body = serde_json::json!({ "script": script }).to_string();
+    let response = post(
+        cfg,
+        "/printer/gcode/script",
+        "application/json",
+        body.as_bytes(),
+    )?;
+    if response.get("error").is_some() {
+        let msg = response["error"]["message"]
+            .as_str()
+            .unwrap_or("stream chunk rejected");
+        return Err(MoonrakerError::Rejected(msg.to_string()));
+    }
+    Ok(gcode_lines.len())
+}
+
 /// Dynamic closed-loop pressure advance calculation based on nozzle temperature compensation and print speed.
 pub fn calculate_auto_tuned_pressure_advance(
     base_advance: f64,
@@ -669,6 +776,14 @@ mod tests {
         // Overheated nozzle (230°C vs 210°C target) lowers advance to reduce ooze
         let hot = calculate_auto_tuned_pressure_advance(0.040, 230.0, 210.0, 1.0);
         assert!(hot < nominal);
+    }
+    #[test]
+    fn test_subscribe_objects_rpc() {
+        let rpc = subscribe_objects_rpc(42, &["toolhead", "extruder", "heater_bed"]);
+        assert!(rpc.contains("\"id\":42"));
+        assert!(rpc.contains("\"method\":\"printer.objects.subscribe\""));
+        assert!(rpc.contains("\"toolhead\":null"));
+        assert!(rpc.contains("\"extruder\":null"));
     }
 }
 

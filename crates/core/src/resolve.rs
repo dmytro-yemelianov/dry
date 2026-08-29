@@ -42,7 +42,7 @@ impl std::error::Error for ResolveError {}
 
 /// One L1 authoring op (the resolution-independent design layer). The Python/TS/Rust SDKs emit these
 /// (serialised internally-tagged: `{"op":"move","x":..,"y":..,"z":..}`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Set the extrusion bead cross-section (mm).
@@ -126,7 +126,7 @@ pub enum Op {
 pub const SAMPLES: usize = 16;
 
 /// A design: an ordered list of L1 ops.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
 pub struct Design {
     pub ops: Vec<Op>,
 }
@@ -301,9 +301,47 @@ impl Design {
         self
     }
 
+    /// Move to (x, y, z) — alias for move_to matching Python/TS SDK point().
+    pub fn point(self, x: f64, y: f64, z: f64) -> Self {
+        self.move_to(x, y, z)
+    }
+
+    /// Set print feedrate (mm/min) — alias for feedrate matching Python/TS SDK speed().
+    pub fn speed(self, print: f64) -> Self {
+        self.feedrate(print)
+    }
+
+    /// Lower design to L2 Toolpath IR using default ResolveParams.
+    pub fn ir(&self) -> Result<Toolpath, ResolveError> {
+        self.resolve(&ResolveParams::default())
+    }
+
     /// Lower design to L2 Toolpath IR.
     pub fn resolve(&self, params: &ResolveParams) -> Result<Toolpath, ResolveError> {
         resolve_checked(self, params)
+    }
+
+    /// Simulates motion metrics from the resolved design.
+    pub fn simulate(&self) -> Result<crate::engine::Metrics, ResolveError> {
+        let tp = self.ir()?;
+        Ok(crate::engine::simulate(&tp))
+    }
+
+    /// Emits G-code strings using the specified firmware flavor.
+    pub fn gcode(&self, flavor: crate::emit::FirmwareFlavor) -> Result<Vec<String>, String> {
+        let tp = self.ir().map_err(|e| e.to_string())?;
+        let params = crate::emit::EmitParams {
+            flavor,
+            ..Default::default()
+        };
+        crate::emit::emit_stream(tp.segments.into_iter().map(Ok), &params)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Evaluates safety contracts on the resolved design.
+    pub fn verify(&self, contracts: &crate::verify::Contracts) -> Result<crate::verify::Report, ResolveError> {
+        let tp = self.ir()?;
+        Ok(crate::verify::verify(&tp, contracts))
     }
 }
 

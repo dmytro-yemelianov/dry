@@ -108,6 +108,16 @@ impl DesignBuilder {
         self.move_to(Some(x), Some(y), Some(z))
     }
 
+    /// Convenience method to move to explicit `(x, y, z)` coordinates in mm (aliases `move_xyz` and matches Python/TS SDK `point`).
+    pub fn point(self, x: f64, y: f64, z: f64) -> Self {
+        self.move_xyz(x, y, z)
+    }
+
+    /// Convenience method to move along XY plane keeping Z unchanged.
+    pub fn point_xy(self, x: f64, y: f64) -> Self {
+        self.move_to(Some(x), Some(y), None)
+    }
+
     /// Adds a circular arc move centered at `(cx, cy)`.
     pub fn arc_to(
         mut self,
@@ -127,6 +137,11 @@ impl DesignBuilder {
             clockwise,
         });
         self
+    }
+
+    /// Adds a circular arc to explicit `(x, y, z)` coordinates.
+    pub fn arc(self, cx: f64, cy: f64, x: f64, y: f64, z: f64, clockwise: bool) -> Self {
+        self.arc_to(cx, cy, Some(x), Some(y), Some(z), clockwise)
     }
 
     /// Adds a Catmull-Rom spline with given control points.
@@ -206,11 +221,70 @@ impl DesignBuilder {
     pub fn build(self) -> Design {
         Design { ops: self.ops }
     }
+
+    /// Resolves the design into an L2 [`Toolpath`](crate::ir::Toolpath) with default resolve parameters.
+    pub fn ir(self) -> Result<crate::ir::Toolpath, crate::resolve::ResolveError> {
+        let design = self.build();
+        crate::resolve::resolve_checked(&design, &crate::resolve::ResolveParams::default())
+    }
+
+    /// Resolves the design and simulates metrics.
+    pub fn simulate(self) -> Result<crate::engine::Metrics, crate::resolve::ResolveError> {
+        let tp = self.ir()?;
+        Ok(crate::engine::simulate(&tp))
+    }
+
+    /// Resolves the design and emits G-code strings using the specified firmware flavor.
+    pub fn gcode(self, flavor: crate::emit::FirmwareFlavor) -> Result<Vec<String>, String> {
+        let tp = self.ir().map_err(|e| e.to_string())?;
+        let params = crate::emit::EmitParams {
+            flavor,
+            ..Default::default()
+        };
+        crate::emit::emit_stream(tp.segments.into_iter().map(Ok), &params)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Resolves the design and evaluates safety contracts.
+    pub fn verify(self, contracts: &crate::verify::Contracts) -> Result<crate::verify::Report, crate::resolve::ResolveError> {
+        let tp = self.ir()?;
+        Ok(crate::verify::verify(&tp, contracts))
+    }
+}
+
+/// Declarative macro for authoring Dry designs with clean syntax in Rust.
+///
+/// # Example
+/// ```
+/// use dry_core::design;
+///
+/// let d = design! {
+///     geometry(0.4, 0.2);
+///     speed(1500.0);
+///     extruder(true);
+///     point(0.0, 0.0, 0.2);
+///     point(10.0, 0.0, 0.2);
+///     point(10.0, 10.0, 0.2);
+///     point(0.0, 10.0, 0.2);
+///     point(0.0, 0.0, 0.2);
+/// };
+/// assert_eq!(d.ops.len(), 8);
+/// ```
+#[macro_export]
+macro_rules! design {
+    ( $( $method:ident ( $( $arg:expr ),* ) );* $(;)? ) => {{
+        let mut builder = $crate::sdk::DesignBuilder::new();
+        $(
+            builder = builder.$method( $( $arg ),* );
+        )*
+        builder.build()
+    }};
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::emit::FirmwareFlavor;
 
     #[test]
     fn builder_constructs_expected_design() {
@@ -220,7 +294,7 @@ mod tests {
             .speed(1800.0)
             .temperature(215.0)
             .fan(0.8)
-            .move_xyz(10.0, 20.0, 0.2)
+            .point(10.0, 20.0, 0.2)
             .dwell(1.5)
             .build();
 
@@ -233,4 +307,38 @@ mod tests {
             _ => panic!("expected Geometry op"),
         }
     }
+
+    #[test]
+    fn macro_constructs_and_resolves_design() {
+        let d = design! {
+            geometry(0.4, 0.2);
+            speed(1500.0);
+            extruder(true);
+            point(0.0, 0.0, 0.2);
+            point(10.0, 0.0, 0.2);
+            point(10.0, 10.0, 0.2);
+            point(0.0, 10.0, 0.2);
+            point(0.0, 0.0, 0.2);
+        };
+        assert_eq!(d.ops.len(), 8);
+
+        let tp = crate::resolve::resolve_checked(&d, &crate::resolve::ResolveParams::default()).unwrap();
+        assert!(!tp.segments.is_empty());
+        let metrics = crate::engine::simulate(&tp);
+        assert!(metrics.extruding_distance.value() > 0.0);
+    }
+
+    #[test]
+    fn builder_ir_gcode_simulate_helpers() {
+        let builder = DesignBuilder::new()
+            .geometry(0.4, 0.2)
+            .speed(1500.0)
+            .extruder(true)
+            .point(0.0, 0.0, 0.2)
+            .point(10.0, 0.0, 0.2);
+
+        let gcode = builder.gcode(FirmwareFlavor::Marlin).unwrap();
+        assert!(!gcode.is_empty());
+    }
 }
+
