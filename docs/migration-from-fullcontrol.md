@@ -46,7 +46,7 @@ gcode_lines = fc.gcode(steps)
 
 For new designs and refactored code, we recommend using Dry's fluent builder API:
 
-### Python ([py/](py/))
+### Python ([py/](../py/))
 ```python
 import dry
 
@@ -69,7 +69,7 @@ metrics = design.simulate()
 print(f"Total print time: {metrics['total_time_s']}s, Volume: {metrics['extruded_volume']}mm³")
 ```
 
-### TypeScript ([sdk/ts/](sdk/ts/))
+### TypeScript ([sdk/ts/](../sdk/ts/))
 ```typescript
 import { Design, pocket } from '@dry/sdk';
 

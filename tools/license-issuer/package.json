@@ -1,8 +1,8 @@
 {
-  "name": "@dry/license-issuer",
-  "version": "0.1.0",
+  "name": "dry-license-issuer",
+  "version": "0.7.0",
   "private": true,
-  "license": "SEE LICENSE IN ../../LICENSE",
+  "license": "FSL-1.1-MIT",
   "type": "module",
   "scripts": {
     "test": "vitest run",

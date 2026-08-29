@@ -1,6 +1,7 @@
 {
   "name": "@dry/mcp",
-  "version": "2.3.0",
+  "version": "0.7.0",
+  "private": true,
   "description": "Dry Machina Safe AI-to-Manufacturing Model Context Protocol (MCP) Server",
   "main": "dist/index.js",
   "bin": {
@@ -10,7 +11,15 @@
     "build": "tsc",
     "start": "node dist/index.js"
   },
-  "keywords": ["mcp", "cam", "gcode", "manufacturing", "3d-printing", "ai"],
-  "author": "Dry Machina Team",
-  "license": "MIT"
+  "keywords": [
+    "mcp",
+    "cam",
+    "gcode",
+    "manufacturing",
+    "3d-printing",
+    "ai"
+  ],
+  "author": "Dmytro Yemelianov <dmytro@yemelianov.dev>",
+  "license": "FSL-1.1-MIT",
+  "repository": "https://github.com/dmytro-yemelianov/dry"
 }

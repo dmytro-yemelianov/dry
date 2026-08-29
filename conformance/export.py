@@ -7,8 +7,13 @@ import shutil
 import sys
 import glob
 
-# Ensure we can import fullcontrol by pointing to sibling repo
-sys.path.insert(0, '/Users/dmytro/Documents/github/fullcontrol')
+HERE = os.path.dirname(os.path.abspath(__file__))
+DRY_ROOT = os.path.abspath(os.path.join(HERE, '..'))
+FULLCONTROL_ROOT = os.environ.get('FULLCONTROL_ROOT', os.path.abspath(os.path.join(DRY_ROOT, '..', 'fullcontrol')))
+
+# Ensure we can import fullcontrol by pointing to sibling repo or env override
+if os.path.exists(FULLCONTROL_ROOT):
+    sys.path.insert(0, FULLCONTROL_ROOT)
 
 import fullcontrol as fc
 from fullcontrol.gcode.state import State
@@ -18,10 +23,6 @@ from fullcontrol.ir.toolpath import Segment
 from fullcontrol.ir.kernel import emit_gcode_moves_rust, emit_gcode_rust
 from fullcontrol.simulate.run import simulate_from_ir
 from fullcontrol.gcode.import_printer import resolve_initialization_data, load_json
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-DRY_ROOT = os.path.join(HERE, '..')
-FULLCONTROL_ROOT = '/Users/dmytro/Documents/github/fullcontrol'
 
 # Create target directories
 for name in ['golden', 'gcode', 'gallery', 'profiles', 'roundtrip', 'simulate']:

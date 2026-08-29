@@ -70,7 +70,7 @@ def main():
         max_flow=20.0,
     )
     errors = [f for f in report["findings"] if f["severity"] == "error"]
-    print(f"✓ Kinematic Preflight: {len(report['findings'])} findings, {len(errors)} errors.")
+    print(f"✓ Pre-Flight Verification Evaluated: {len(report['findings'])} findings ({len(errors)} errors caught by safety rules).")
 
     # 4. Simulate metrics
     metrics = d.simulate()

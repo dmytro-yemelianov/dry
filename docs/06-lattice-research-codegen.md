@@ -1,6 +1,6 @@
 # Star-Polygon Lattice Code Generator
 
-This records how `/Users/dmytro/Downloads/lattice-research.pdf` and the public
+This records how the star-polygon lattice research literature and the public
 `star_polygon_lattice_colab.py` notebook path recipe were turned into Dry code. The source paper is
 Soyarslan, Gleadall, Yan, Argeso and Sozumert, "Elastostatics of star-polygon tile-based architectured
 planar lattices". The current generator is a Dry implementation of the notebook's print-walk semantics,

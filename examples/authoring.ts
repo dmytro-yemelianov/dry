@@ -14,9 +14,8 @@ const design = new Design()
   .point(0, 20, 0.2); // finish with a straight line
 
 // 1) verify against a machine envelope BEFORE emitting.
-//    verify() takes positional args; `bounds` is structured [[x0,x1],[y0,y1],[z0,z1]] in mm
-//    (a CSV string "x0,x1,y0,y1,z0,z1" is also accepted).
-const report = design.verify('generic', 0, 0, [[0, 200], [0, 200], [0, 200]]);
+//    bounds is structured [[x0,x1],[y0,y1],[z0,z1]] in mm.
+const report = design.verify({ bounds: [[0, 200], [0, 200], [0, 200]] });
 const errors = report.findings.filter((f) => f.severity === 'error');
 console.log(`verify: ${report.findings.length} finding(s), ${errors.length} error(s)`);
 if (errors.length) {

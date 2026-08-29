@@ -179,7 +179,7 @@ rl.on('line', (line: string) => {
           capabilities: { tools: {} },
           serverInfo: {
             name: 'dry-mcp',
-            version: '2.3.0',
+            version: '0.7.0',
           },
         },
       };

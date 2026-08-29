@@ -1,194 +1,179 @@
-# Dry
+# Dry (DryMachina)
 
-**Toolpath compiler infrastructure** — a typed, units-aware, multi-level intermediate representation
-(the **Dry IR**) and a Rust engine for *algorithmic* machine toolpaths, with thin authoring front-ends
-in several languages. Think **LLVM/MLIR for machine motion**.
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](Cargo.toml)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](LICENSE)
+[![Rust: 1.88+](https://img.shields.io/badge/rust-1.88+-orange.svg)](https://www.rust-lang.org/)
+[![Python: 3.9+](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
+[![TypeScript: 5.6+](https://img.shields.io/badge/typescript-5.6+-blue.svg)](https://www.typescriptlang.org/)
+[![Formal: Lean 4](https://img.shields.io/badge/formal-Lean%204-purple.svg)](formal/)
 
-A design is a *program* that produces motion + process intent. Dry lowers that intent through a typed
-IR — design → path → motion → target — and `simulate`s, `verify`s, `optimise`s, `emit`s and `parse`s it,
-the way a compiler lowers a program. The IR is the product; authoring **languages** (Python / TypeScript
-/ Rust) and target **machines** (FFF g-code, CNC, laser, robot) are interchangeable front-ends and
-back-ends.
+**Deterministic Toolpath Compiler & Verification Engine** — a typed, units-aware, multi-level intermediate representation (the **Dry IR**) with a high-performance Rust kernel, formal numeric assurance proofs, and native front-ends in Python, TypeScript, WebAssembly, and AI Model Context Protocol (MCP).
 
-> **Status: working foundations.** The core engine, CLI, Python binding, TypeScript SDK, wasm binding,
-> browser gallery, visual authoring page, verifier, optimizer, JSON/binary IR codecs and conformance
-> fixtures are implemented at v0. The broader roadmap in [`docs/`](docs/) still tracks unfinished
-> targets such as richer import/export, device profiles, reverse engineering and non-FFF backends.
+Think **LLVM/MLIR for machine motion & precision CAM**.
 
-## Why
+---
 
-No established interface represents *algorithmic, arc-native, non-planar, variable-width* toolpaths with
-provenance, invariants and a multi-language story (the survey: `docs/` references the FullControl fork's
-prior-art study). g-code is the lossy target; slicer IRs are planar/polyline/internal; STEP-NC is
-subtractive; 3MF Toolpath is unreleased and linear-only. Dry fills that gap and interoperates with the
-rest.
+## 1. Why Dry?
 
-## Architecture (one screen)
+Traditional CAM and slicing tools treat toolpaths as lossy polyline G-code without semantic typing, dynamic safety contracts, or multi-axis awareness. 
+
+Dry solves this by treating machine motion as a **formal compiler pipeline**:
+- **Multi-Level Dialects**: Progressive lowering from L0 Features $\rightarrow$ L1 Operations $\rightarrow$ L2 Kinematic Toolpaths $\rightarrow$ L3 Dialect Machine Code.
+- **Dimensional Type System**: Lengths, Speeds, Volumes, Flow Rates, Angles, and Temperatures are enforced at compile time.
+- **Formal Verification & Safety Contracts**: Lean 4 verified proofs for curvature continuity and singularity avoidance, paired with continuous bounding volume checks.
+- **Multi-Modal Motion**: Native support for Additive (FFF), High-Speed CNC Milling (Trochoidal/Helical), CNC Lathe Turning/Facing, 5-Axis Non-Planar Draping, and 6-Axis Industrial Robotics (KUKA KRL, ABB RAPID).
+
+---
+
+## 2. Architecture & Capabilities Matrix
 
 ```
- authoring SDKs            the engine (Rust → native + wasm)           targets
- Python │ TS │ Rust  ─►  L0 design → L1 path → L2 motion → L3 target ─► FFF g-code · CNC · laser · robot
-   (emit Dry IR)           lower · simulate · verify · optimise · emit · parse · reverse        · 3MF
+  Authoring Front-Ends                Rust Core Engine                       Target Machine Dialects
+┌──────────────────────┐    ┌───────────────────────────────────┐    ┌───────────────────────────────────┐
+│ • Python SDK (PyO3)  │───►│ L0: Feature Program & STEP Solids │───►│ • 3D Printing: Marlin, Klipper,   │
+│ • TypeScript / Wasm  │    │ L1: Ordered Ops (Arc/Clothoid)    │    │   Duet, RepRapFirmware            │
+│ • Rust Native API    │    │ L2: Kinematic Toolpaths & Physics │    │ • CNC Milling/Lathe: RS-274, GRBL │
+│ • AI MCP Agent Server│    │ L3: Optimizer & Verifier Engine   │    │ • Industrial Robotics: KUKA KRL,  │
+└──────────────────────┘    └───────────────────────────────────┘    │   ABB RAPID, STEP-NC AP238        │
+                                                                     └───────────────────────────────────┘
 ```
 
-- **Multi-level IR** with progressive lowering (MLIR-style dialects).
-- **Toolframe** (position + orientation) so **non-planar and 5-axis are native**, not bolted on.
-- **Units are types** (Length/Speed/Volume/Flow/Temperature) — mixed units are a compile error.
-- **Pure functional core**: `design(params) → IR`; deposition/state is an explicit pass, not authoring
-  state. Deterministic, content-addressable, and streamable through chunked binary archives.
-- **Provenance + invariants are first-class** — designs declare contracts the compiler enforces.
+| Manufacturing Domain | Primitives & Capabilities | Target Dialects |
+|---|---|---|
+| **Additive Manufacturing** | Helical vase, continuous perimeter, retraction kinematics, volumetric flow clamping | Marlin, Klipper, Duet, Bambu Lab, Prusa |
+| **High-Speed CNC Milling** | Rectangular/circular pockets, trochoidal milling, helical ramps, corner chip thinning | RS-274 / LinuxCNC, GRBL, ISO 14649 STEP-NC |
+| **CNC Lathe Turning** | Multi-pass facing, stepped outer-diameter (OD) roughing & finishing, spindle speed sync | RS-274, GRBL Lathe ($XZ$ plane) |
+| **5-Axis & Surface CAM** | Surface normal draping, tilted toolholder collision detection, table kinematics (AC/BC/AB) | 5-Axis G-code, ISO 14649 STEP-NC AP238 |
+| **Industrial Robotics** | Forward/Inverse kinematics, wrist singularity hold, synchronized multi-robot workcells | KUKA KRL, ABB RAPID |
+| **Cellular Metamaterials** | Triply Periodic Minimal Surfaces (Gyroid, Schwarz P/D, Lidinoid, Neovius, Fischer-Koch) | Direct contour slicing to G-code / IR |
 
-Full detail in [`docs/01-architecture.md`](docs/01-architecture.md).
+---
 
-## Documentation
+## 3. Quickstart
 
-| | |
-|---|---|
-| [`docs/00-vision-and-scope.md`](docs/00-vision-and-scope.md) | thesis, scope, success criteria, the honest risk |
-| [`docs/01-architecture.md`](docs/01-architecture.md) | the IR dialects, toolframe, units/channels, passes, engine, SDKs, targets, reuse map |
-| [`docs/02-roadmap.md`](docs/02-roadmap.md) | phases P0–P6 with exit gates; risk register; critical path |
-| [`docs/03-conformance.md`](docs/03-conformance.md) | bootstrapping correctness from the FullControl fork; the parity gates |
-| [`docs/04-tasks.md`](docs/04-tasks.md) | the sized, dependency-ordered backlog + the immediate next 5 |
-| [`docs/05-product-directions.md`](docs/05-product-directions.md) | product directions: slicer vs workbench, post-slicer review, reverse engineering, time-series + LLM |
-| [`docs/06-lattice-research-codegen.md`](docs/06-lattice-research-codegen.md) | the star-polygon lattice research PDF mapped into a Dry code generator |
-| [`docs/07-tpms-codegen.md`](docs/07-tpms-codegen.md) | TPMS implicit-field contour generation for gyroid, Schwarz P/D, I-WP, Neovius, Fischer-Koch, F-RD and related surfaces |
-| [`docs/08-production-transition.md`](docs/08-production-transition.md) | transition plan from working v0 foundation to production-ready releases, pilots, gates and support boundaries |
-| [`docs/09-customer-readiness.md`](docs/09-customer-readiness.md) | customer/user readiness matrix, pilot templates and segment-specific production gates |
-| [`docs/10-dry-ir-v0-spec.md`](docs/10-dry-ir-v0-spec.md) | normative Dry IR v0 spec (JSON + DRY0/DRY1 binary), versioning & compatibility policy, conformance model; paired with [`spec/dry-ir-v0.schema.json`](spec/dry-ir-v0.schema.json) and the public [`conformance/vectors/`](conformance/vectors) |
-| [`docs/11-profiles-and-reports.md`](docs/11-profiles-and-reports.md) | profile schema, the verification rule catalog (stable ids + severities), and the verify/review/trace report schemas; paired with [`spec/dry-profile-v1.schema.json`](spec/dry-profile-v1.schema.json), [`spec/dry-reports-v1.schema.json`](spec/dry-reports-v1.schema.json) and [`conformance/reports/`](conformance/reports) |
-| [`docs/12-releasing.md`](docs/12-releasing.md) | the tagged-release process (`release.yml`): CLI binaries + checksums, Python wheels, npm package, and install-without-source instructions |
-| [`docs/13-performance-and-scale.md`](docs/13-performance-and-scale.md) | the memory model (which ops stream vs materialize), criterion benchmarks, and the deterministic bounded-memory scale gate |
-| [`docs/14-known-limitations.md`](docs/14-known-limitations.md) | an honest account of what Dry does **not** do (no slicing, FFF-only targets, experimental 5-axis, v0 IR) and the sharp edges in what it does |
-| [`docs/15-cli-cookbook.md`](docs/15-cli-cookbook.md) | copy-pasteable, verified recipes for every CLI command |
-| [`docs/pilots/`](docs/pilots/) | three pilot guides — [authoring](docs/pilots/authoring.md), [post-slicer review](docs/pilots/post-slicer-review.md), [SDK integration](docs/pilots/sdk-integration.md) — with runnable [`examples/`](examples/) |
-| [`docs/16-support-matrix.md`](docs/16-support-matrix.md) | what's Supported / Experimental / Out-of-scope across firmware, formats, targets, platforms and workflows |
-| [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) | auditable corpus-provenance ledger + dependency-license audit (no GPL ships) |
-| [`docs/18-cloudflare-publishing.md`](docs/18-cloudflare-publishing.md) | public Cloudflare Pages product deployment and its static artifact boundary |
-| [`docs/19-printer-registry-api.md`](docs/19-printer-registry-api.md) | Cloudflare Worker GraphQL API for printer, firmware, hardware, filament, macro, process, calibration, proof and provenance data |
-| [`docs/20-dry-ir-ecosystem-implementation-plan.md`](docs/20-dry-ir-ecosystem-implementation-plan.md) | deferred Dry IR language/ecosystem implementation plan: compatibility, work packets, dependencies, conformance and qualification |
-| [`docs/21-mathematical-assurance-plan.md`](docs/21-mathematical-assurance-plan.md) | formal-methods roadmap for language semantics, numeric error bounds, compiler-pass proofs and Rust refinement |
-| [`docs/site/reference/fullcontrol-sources.md`](docs/site/reference/fullcontrol-sources.md) | audited mapping from the live FullControl catalogue, upstream notebooks and gists to Dry fixtures |
+### A. Rust CLI (`dry-cli`)
+```bash
+# Build the standalone compiler binary
+cargo build -p dry-cli --release
 
-Contributing? See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the security policy in [`SECURITY.md`](SECURITY.md).
+# Inspect & simulate a design
+cargo run -p dry-cli --bin dry -- inspect conformance/gcode/square.json
+cargo run -p dry-cli --bin dry -- simulate conformance/gcode/square.json
 
-## Clean-room relationship to FullControl
+# Pre-flight G-code verification against machine safety contracts
+cargo run -p dry-cli --bin dry -- review-gcode examples/part.gcode --bounds 0,250,0,210,0,220 --max-feedrate 18000
 
-The **FullControl fork** (`dmytro-yemelianov/fullcontrol`) is a GPLv3 development oracle only. Dry's
-engine, IR, passes and tests are independently implemented from observed behaviour and first principles;
-no FullControl source is retained in Dry. Device profiles are regenerated from primary-source machine
-specifications. Output-only G-code, metrics and report corpora are retained as conformance evidence with
-their provenance recorded in [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md).
-The gallery contains 28 Dry-authored reconstructions covering the 27-design registry plus the separately
-published Overhang Challenge Plus variant. The GPL oracle is excluded from every customer artifact.
-
-## Licence and distribution
-
-**Proprietary — all rights reserved** (see [`LICENSE`](LICENSE) / [`NOTICE`](NOTICE)). Source and
-installable GitHub Release artifacts are publicly readable, as are the documentation, browser gallery,
-WebAssembly renderer, SDK implementations, and interface contracts. Public visibility does not grant a
-software licence: use, modification, redistribution, or production deployment still requires a written
-commercial agreement.
-
-Dry remains an **independent, clean-room** implementation: FullControl (GPLv3) is used only as design
-*inspiration* and a dev/CI *behavioural oracle* — never copied into Dry's source, shipped, or linked
-into a release. See [`docs/CLEANROOM.md`](docs/CLEANROOM.md). Earlier copies distributed under
-Apache-2.0 retain their original terms; this change is prospective. *(Engineering policy, not legal
-advice—have counsel approve customer agreements.)*
-
-## Quickstart
-
-CLI (over a Dry IR file):
-```
-cargo run -p dry-cli --bin dry -- emit conformance/gcode/square.json   # motion g-code
-cargo run -p dry-cli --bin dry -- import-gcode examples/part.gcode -o part.dry.json
-cargo run -p dry-cli --bin dry -- review-gcode examples/part.gcode --bounds 0,250,0,210,0,220
-cargo run -p dry-cli --bin dry -- review-gcode examples/part.gcode --profile docs/profile-example.json
-cargo run -p dry-cli --bin dry -- trace-gcode examples/part.gcode --window-s 5 > trace.json
-cargo run -p dry-cli --bin dry -- rewrite-gcode examples/part.gcode -o normalized.gcode
+# Optimize G-code (S-Curves, Clothoid blending, Arc fitting)
 cargo run -p dry-cli --bin dry -- rewrite-gcode examples/part.gcode --optimize -o optimized.gcode
-cargo run -p dry-cli --bin dry -- printer search voron --firmware klipper --material ABS
-cargo run -p dry-cli --bin dry -- printer inspect voron-2.4-350-klipper
-cargo run -p dry-cli --bin dry -- printer resolve voron-2.4-350-klipper --material dry:material/abs --nozzle 0.4 -o profile.json
 ```
 
-Profile-aware review/verify accepts a versioned machine/material/process JSON:
+### B. Python SDK (`py/`)
+```python
+import dry
+
+# Build a parametric toolpath with arc-native moves
+design = (
+    dry.Design()
+    .geometry(width=0.6, height=0.2)
+    .extruder(True)
+    .point(0, 0, 0.2)
+    .point(50, 0, 0.2)
+    .arc(cx=50, cy=25, x=50, y=50) # G3 arc
+    .point(0, 50, 0.2)
+)
+
+# Simulate physics and kinematic cycle time
+metrics = design.simulate()
+print(f"Machining Time: {metrics['total_time_s']:.1f}s, Segments: {metrics['segment_count']}")
+
+# Verify safety contracts
+report = design.verify(bounds=[[0, 200], [0, 200], [0, 200]], max_feedrate=18000)
+print(f"Safety Violations: {len(report['findings'])}")
+
+# Emit machine-ready G-code
+gcode_lines = design.gcode(flavor="klipper")
+```
+
+### C. TypeScript & In-Browser WebAssembly SDK (`sdk/ts/` & `web/`)
+```typescript
+import { Design, pocket_ops, lathe_facing_ops } from '@dry/sdk';
+
+const design = new Design()
+  .geometry(0.6, 0.2)
+  .extruder(true)
+  .point(10, 0, 0.2)
+  .arc({ cx: 0, cy: 0, x: 0, y: 10 })
+  .point(0, 20, 0.2);
+
+// Client-side simulation & verification via WebAssembly
+const report = design.verify({ bounds: [[0, 200], [0, 200], [0, 200]] });
+console.log(design.gcode().join('\n'));
+```
+
+### D. Docker Container Verification Daemon (`containers/verify-runner`)
+```bash
+# Build multi-arch container image
+docker build -f containers/verify-runner/Dockerfile -t dry-verify-runner .
+
+# Run high-throughput streaming verification daemon
+docker run -p 8080:8080 dry-verify-runner
+
+# Verify G-code payload via HTTP API
+curl -X POST http://localhost:8080/verify \
+  -H "Content-Type: text/plain" \
+  -H "X-Dry-Contracts: {\"bounds\":[[0,250],[0,210],[0,220]],\"max_feedrate\":18000}" \
+  --data-binary @examples/part.gcode
+```
+
+### E. AI Model Context Protocol (MCP) Server (`sdk/mcp/`)
+Connect Claude Desktop, Cursor, or autonomous AI agents directly to Dry:
 ```json
 {
-  "version": 1,
-  "name": "voron24-abs",
-  "firmware": { "flavor": "klipper" },
-  "machine": {
-    "build_volume": [[0, 350], [0, 350], [0, 250]],
-    "feedrate_range": [300, 18000]
-  },
-  "material": {
-    "filament_diameter": 1.75,
-    "max_volumetric_flow_mm3_s": 24,
-    "min_nozzle_temperature_c": 230
-  },
-  "process": { "line_width": 0.45, "layer_height": 0.2 }
+  "mcpServers": {
+    "dry": {
+      "command": "node",
+      "args": ["/path/to/dry/sdk/mcp/dist/index.js"]
+    }
+  }
 }
 ```
 
-Python — author a design, the Rust engine resolves + emits it:
-```python
-import dry
-d = (dry.Design()
-     .geometry(width=0.6, height=0.2).extruder(on=True)
-     .point(10, 0, 0.2).arc(cx=0, cy=0, x=0, y=10).point(0, 20, 0.2))   # a line, a G3 arc, a line
-print("\n".join(d.gcode()))   # -> G1 ... / G3 X0 Y10 I-10 J0 E0.783673 / G1 ...
-print(d.simulate())           # -> {time, distances, material, peak flow, ...}
-```
+---
 
-Reusable planar features expand in the same Rust engine:
+## 4. Documentation Index
 
-```python
-line = dry.Design().geometry(0.6, 0.2).extruder(True).point(0, 0, 0.2).point(10)
-d = (dry.FeatureProgram()
-     .add(dry.repeat(dry.feature(line, {"x": 5}), count=3, step={"x": 20}))
-     .expand())
-print(d.ir())
-```
+| Guide / Specification | Topic & Scope |
+|---|---|
+| [`docs/00-vision-and-scope.md`](docs/00-vision-and-scope.md) | Thesis, core architecture, success criteria, and non-goals |
+| [`docs/01-architecture.md`](docs/01-architecture.md) | Detailed IR dialect specifications (L0–L3), toolframe, and units |
+| [`docs/02-roadmap.md`](docs/02-roadmap.md) | Multi-phase development roadmap and milestone gates |
+| [`docs/03-conformance.md`](docs/03-conformance.md) | Conformance oracle testing and parity gates |
+| [`docs/06-lattice-research-codegen.md`](docs/06-lattice-research-codegen.md) | Star-polygon architectured planar lattice generators |
+| [`docs/07-tpms-codegen.md`](docs/07-tpms-codegen.md) | TPMS minimal surface implicit-field contour generators |
+| [`docs/10-dry-ir-v0-spec.md`](docs/10-dry-ir-v0-spec.md) | Normative Dry IR v0 specification (JSON + DRY0/DRY1 binary) |
+| [`docs/11-profiles-and-reports.md`](docs/11-profiles-and-reports.md) | Machine profiles and verification report schemas |
+| [`docs/13-performance-and-scale.md`](docs/13-performance-and-scale.md) | Memory model, streaming codecs, and benchmarks |
+| [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md) | Auditable corpus-provenance ledger & dependency audit |
+| [`docs/22-krl-emit.md`](docs/22-krl-emit.md) | KUKA Robot Language (KRL) kinematics and emission |
+| [`docs/26-industrial-certification-and-standards.md`](docs/26-industrial-certification-and-standards.md) | Industrial compliance evidence kits (DO-178C, ISO 26262, IEC 62304) |
+| [`docs/27-verification-deployment-architecture.md`](docs/27-verification-deployment-architecture.md) | 3-Tier Multi-Modal Verification Architecture (Wasm, Edge, Container) |
+| [`docs/CLEANROOM.md`](docs/CLEANROOM.md) | Clean-room provenance policy and oracle quarantine rules |
+| [`AUTHORS.md`](AUTHORS.md) | Authors, maintainers, academic research citations, and DCO 1.1 |
 
-Each feature must define its local coordinates before inheriting them; process/channel state still
-follows normal ordered L1 semantics. P2.3 poses support XYZ translation and rotation about Z; full 3D
-named coordinate frames remain planned under D1.3.
+---
 
-Build the module: `cd py && maturin develop` (in a venv).
+## 5. Clean-Room Provenance & Oracle Isolation
 
-Browser / wasm — the *same* Rust engine, compiled to wasm, resolving a design client-side:
-```bash
-bash web/build.sh        # -> web/pkg/ (wasm + JS glue)
-python3 -m http.server   # then open http://localhost:8000/web/  (design picker + canvas + g-code + metrics)
-```
-The wasm output is byte-identical to the CLI and the Python SDK — proven in CI, where Node runs the
-wasm engine against the conformance oracle (`web/smoke.cjs`).
+Dry is an **independent, clean-room implementation** authored from specification and first principles. FullControl (GPLv3) is used solely as an external dev/CI-time test oracle generating reference outputs for regression verification. No FullControl source code is copied into or shipped with Dry. See [`docs/CLEANROOM.md`](docs/CLEANROOM.md) and [`docs/17-provenance-and-licensing.md`](docs/17-provenance-and-licensing.md).
 
-TypeScript — the same fluent API as Python, over the same wasm engine:
-```ts
-import { Design } from '@dry/sdk';
-const d = new Design().geometry(0.6, 0.2).extruder(true)
-  .point(10, 0, 0.2).arc({ cx: 0, cy: 0, x: 0, y: 10 }).point(0, 20, 0.2);   // a line, a G3 arc, a line
-console.log(d.gcode().join('\n'));   // byte-identical to the CLI / Python / wasm
-```
+---
 
-`FeatureProgram`, `feature`, `group` and `repeat` provide the equivalent L0 feature surface.
+## 6. License & Commercial Terms
 
-Build the SDK: `cd sdk/ts && npm ci && npm run build` (see [`sdk/ts/README.md`](sdk/ts/README.md)).
+Dry is licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**.
 
-## Repository layout
+- **Free for Developers & Startups:** You may freely copy, modify, distribute, and integrate Dry into non-competing applications, internal manufacturing, research, and hobby projects.
+- **Competing Use Protection:** A commercial license is required only if you use Dry to provide a competing CAM, slicing, or toolpath compilation/verification service or proprietary OEM hardware bundling.
+- **2-Year Automatic MIT Conversion:** Every release automatically converts to standard permissive **MIT License** exactly two (2) years after release (August 29, 2028 for v0.7.0).
 
-```
-docs/            the specification, roadmap, conformance plan, task backlog
-crates/
-  core/          the dependency-light Dry IR + engine (no PyO3/numpy)  [done: features/ir/resolve/simulate/emit/codec/verify/optimize/import/profile/trace; unit-typed]
-  cli/           the `dry` command (inspect/simulate/emit[/--five-axis]/import-gcode/review-gcode/rewrite-gcode/optimize/pack/unpack/verify)  [done]
-  wasm/          the wasm-bindgen binding                              [done]
-web/             the browser demo (build.sh, index.html, node smoke)   [done]
-py/              the PyO3 binding + Python authoring SDK (`dry`)        [done]
-sdk/
-  ts/            the TypeScript authoring SDK (over the wasm engine)   [done]
-conformance/     corpora generated by the FullControl oracle + tests   [done: simulate + gcode]
-formal/          pinned Lean/Mathlib abstract semantics and proofs      [FM1]
-proofs/          machine-readable assurance claim registry              [FM1]
-```
+See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`AUTHORS.md`](AUTHORS.md) for full terms.

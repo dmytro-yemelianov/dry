@@ -78,6 +78,6 @@ graph TD
 
 ## 4. Verification Evidence & Contracts
 
-- **Tier 1 (Wasm):** Tested in [sdk/ts/test/verify_gcode.test.ts](sdk/ts/test/verify_gcode.test.ts).
-- **Tier 2 (Serverless):** Tested in [crates/cloud/src/lib.rs](crates/cloud/src/lib.rs).
-- **Tier 3 (Container):** Tested in [containers/verify-runner/tests/handler.rs](containers/verify-runner/tests/handler.rs) and [containers/verify-runner/tests/load_benchmark.rs](containers/verify-runner/tests/load_benchmark.rs).
+- **Tier 1 (Wasm):** Tested in [sdk/ts/test/verify_gcode.test.ts](../sdk/ts/test/verify_gcode.test.ts).
+- **Tier 2 (Serverless):** Tested in [crates/cloud/src/lib.rs](../crates/cloud/src/lib.rs).
+- **Tier 3 (Container):** Tested in [containers/verify-runner/tests/handler.rs](../containers/verify-runner/tests/handler.rs) and [containers/verify-runner/tests/load_benchmark.rs](../containers/verify-runner/tests/load_benchmark.rs).

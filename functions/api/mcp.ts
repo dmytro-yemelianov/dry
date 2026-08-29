@@ -56,7 +56,7 @@ const MCP_TOOLS = [
 export const onRequestGet: PagesFunction<Env> = async () => {
   return new Response(JSON.stringify({
     service: 'Dry Machina Remote MCP Server',
-    version: '2.3.0',
+    version: '0.7.0',
     protocol: 'model-context-protocol-jsonrpc-2.0',
     endpoint_usage: 'Send JSON-RPC 2.0 POST requests to this URL or configure in Claude Desktop / Cursor IDE.',
     tools_count: MCP_TOOLS.length,
@@ -82,7 +82,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request }) => {
           capabilities: { tools: {} },
           serverInfo: {
             name: 'dry-mcp-cloud',
-            version: '2.3.0',
+            version: '0.7.0',
           },
         },
       }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
