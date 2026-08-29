@@ -1,6 +1,7 @@
 import Dry.Geometry.Clothoid
 import Dry.Geometry.Kinematics
 import Dry.Geometry.PlanarTransform
+import Dry.Geometry.Brep
 import Dry.Language.Common
 import Dry.Language.L2
 import Dry.Language.WellFormed
@@ -14,6 +15,7 @@ import Dry.Numeric.CompositionTree
 import Dry.Numeric.Quantity
 import Dry.Numeric.RoundModel
 import Dry.Numeric.Trig
+import Dry.Numeric.SCurve
 import Dry.Semantics.CheckedExpansion
 import Dry.Semantics.CompositionTreeRefinement
 import Dry.Semantics.ExpandFeatures
@@ -26,3 +28,4 @@ import Dry.Semantics.VerifierSoundness
 import Dry.Semantics.Optimization
 import Dry.Semantics.CodecInverse
 import Dry.Semantics.Capability
+import Dry.Semantics.TpmsOptions

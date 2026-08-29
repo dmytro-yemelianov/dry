@@ -72,3 +72,46 @@ END-ISO-10303-21;
     let solid = BrepSolid::parse_step_iso10303(step_mock).expect("parsing STEP should succeed");
     assert_eq!(solid.surfaces.len(), 2);
 }
+
+#[test]
+fn test_brep_assembly_multi_solid_slicing() {
+    use dry_core::generate::{BrepAssembly, BrepBodyRole};
+
+    let mut asm = BrepAssembly::new("aerospace_bracket_assembly");
+
+    let mut outer_cylinder = BrepSolid::new("outer_body");
+    outer_cylinder.add_surface(SurfacePrimitive::Cylinder {
+        origin: Point3D::new(0.0, 0.0, 0.0),
+        axis: Vector3D::unit_z(),
+        radius: 25.0,
+        height: 10.0,
+    });
+
+    let mut dome = BrepSolid::new("top_dome");
+    dome.add_surface(SurfacePrimitive::Sphere {
+        center: Point3D::new(0.0, 0.0, 10.0),
+        radius: 25.0,
+    });
+
+    let mut obstacle = BrepSolid::new("clamp_keepout");
+    obstacle.add_surface(SurfacePrimitive::Plane {
+        origin: Point3D::new(50.0, 50.0, 0.0),
+        normal: Vector3D::unit_z(),
+    });
+
+    asm.add_solid(outer_cylinder, BrepBodyRole::AdditiveBody);
+    asm.add_solid(dome, BrepBodyRole::AdditiveBody);
+    asm.add_solid(obstacle, BrepBodyRole::KeepoutObstacle);
+
+    let ops = asm
+        .slice_to_l1_ops(2.0, 8.0, 2.0, 36, 1800.0)
+        .expect("slicing assembly should succeed");
+
+    assert!(!ops.is_empty());
+
+    let mut design = Design::default();
+    design.ops.extend(ops);
+    let tp = resolve(&design, &ResolveParams::default());
+    assert!(!tp.segments.is_empty());
+}
+

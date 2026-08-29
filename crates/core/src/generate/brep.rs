@@ -339,3 +339,62 @@ impl BrepSolid {
         Ok(solid)
     }
 }
+
+/// Role of a solid body in a multi-body B-Rep assembly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BrepBodyRole {
+    /// Additive deposition solid body.
+    AdditiveBody,
+    /// Subtractive cavity/hole to be carved out.
+    SubtractiveVoid,
+    /// Keepout / obstacle boundary for toolholder collision avoidance.
+    KeepoutObstacle,
+}
+
+/// A multi-solid B-Rep CAD assembly.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BrepAssembly {
+    pub name: String,
+    pub solids: Vec<(BrepSolid, BrepBodyRole)>,
+}
+
+impl BrepAssembly {
+    /// Create a new empty B-Rep assembly.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            solids: Vec::new(),
+        }
+    }
+
+    /// Add a solid body with its manufacturing intent role to the assembly.
+    pub fn add_solid(&mut self, solid: BrepSolid, role: BrepBodyRole) {
+        self.solids.push((solid, role));
+    }
+
+    /// Slice all additive solid bodies in the assembly, with exact 5-axis surface normals.
+    pub fn slice_to_l1_ops(
+        &self,
+        z_start: f64,
+        z_end: f64,
+        layer_height: f64,
+        samples_per_slice: usize,
+        feedrate: f64,
+    ) -> Result<Vec<Op>, BrepError> {
+        let mut all_ops = Vec::new();
+        for (solid, role) in &self.solids {
+            if *role == BrepBodyRole::AdditiveBody {
+                let ops = solid.slice_to_l1_ops(
+                    z_start,
+                    z_end,
+                    layer_height,
+                    samples_per_slice,
+                    feedrate,
+                )?;
+                all_ops.extend(ops);
+            }
+        }
+        Ok(all_ops)
+    }
+}
+

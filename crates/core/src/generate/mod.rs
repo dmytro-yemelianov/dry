@@ -18,7 +18,7 @@ pub mod rest_machining;
 pub mod thread_mill;
 pub mod tpms;
 
-pub use brep::{BrepError, BrepSolid, Point3D, SurfacePrimitive, Vector3D};
+pub use brep::{BrepAssembly, BrepBodyRole, BrepError, BrepSolid, Point3D, SurfacePrimitive, Vector3D};
 pub use drape::{
     drape_design, drape_ops, Aabb, DrapeError, DrapeOptions, DrapePattern, Triangle, TriangleMesh,
 };
