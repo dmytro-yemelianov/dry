@@ -78,6 +78,22 @@ jobs:
         id: mutations
         continue-on-error: true
         run: python3 tools/check_feature_mutations.py
+      - name: kill bounded channel source mutations
+        id: channel_mutations
+        continue-on-error: true
+        run: python3 tools/check_resolve_channels_mutations.py
+      - name: kill bounded orientation source mutations
+        id: orientation_mutations
+        continue-on-error: true
+        run: python3 tools/check_resolve_orientation_mutations.py
+      - name: validate formal proof claims registry
+        id: proof_claims
+        continue-on-error: true
+        run: python3 tools/validate_proof_claims.py
+      - name: verify FSL-1.1-MIT license headers & attribution
+        id: license_headers
+        continue-on-error: true
+        run: python3 tools/check_license_headers.py
       - name: compile the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
@@ -96,6 +112,10 @@ jobs:
             wasm-bindgen-install=${{ steps.wasm_bindgen.outcome }}
             test=${{ steps.test.outcome }}
             feature-mutations=${{ steps.mutations.outcome }}
+            channel-mutations=${{ steps.channel_mutations.outcome }}
+            orientation-mutations=${{ steps.orientation_mutations.outcome }}
+            proof-claims=${{ steps.proof_claims.outcome }}
+            license-headers=${{ steps.license_headers.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
             wasm-build=${{ steps.wasm_build.outcome }}
         run: |

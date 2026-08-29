@@ -6,6 +6,21 @@ dev/CI, never shipped — see `CLEANROOM.md`), grow the SDKs and targets, and dr
 once Dry is self-consistent. Each phase has a goal, deliverables, and a hard **exit gate** (you don't
 proceed until it's green). Phases overlap where dependencies allow; the critical path is P0 → P1 → P2 → P6.
 
+## Version Horizons & Milestones Mapping
+
+Roadmap deliverables and issue remediations map directly to **Semantic Versioning (`MAJOR.MINOR.PATCH`)** horizons:
+
+| Version Horizon | Target Milestone | Scope & Deliverables | Status |
+|---|---|---|---|
+| **`v0.1.0` – `v0.5.0`** | **Phases 0–5** | Rust kernel foundations, L0–L3 lowering, Python & TS SDKs, Wasm runtime, 5-axis toolframe kinematics, CNC & Robot emitters. | **Completed** |
+| **`v0.6.0`** | **Phase 6 / Baseline** | Commercial licensing (`crates/license`), offline Ed25519 token verification, cloud eval gate, and FullControl oracle retirement. | **Completed** |
+| **`v0.7.0`** | **Production Opening (Current)** | **FSL-1.1-MIT licensing adoption**, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Active Release** |
+| **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **In Progress** |
+| **`v0.8.0`** | **Next Minor Horizon** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Planned** |
+| **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
+
+---
+
 ## Phase 0 — Foundations & conformance harness
 **Goal:** a standalone Rust `core` crate (no PyO3/numpy coupling) + the Dry IR v0 spec + a conformance
 harness seeded from the fork.

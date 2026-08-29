@@ -41,3 +41,15 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 k6 run tests/load/k6-verify.js
 ```
+
+---
+
+## 5. Release Governance & Version Verification
+
+Dry releases follow **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)** with lockstep synchronization across all crates and language bindings:
+
+* **Patch Horizon (`0.7.x`)**: Bug fixes, security CVE patches, link fixes, and test expansions.
+* **Minor Horizon (`0.8.0`)**: Strategic roadmap deliverables, new CAM generator dialects, and backward-compatible IR extensions.
+* **Major Horizon (`1.0.0`)**: Normative Dry IR standard freeze, formal verification certification, and public LTS guarantee.
+
+All package manifests (`Cargo.toml`, `py/pyproject.toml`, `sdk/ts/package.json`, `sdk/mcp/package.json`, `containers/verify-runner/Cargo.toml`) are validated in CI prior to any release via `bash scripts/check-version.sh <vX.Y.Z>`.

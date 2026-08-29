@@ -1,0 +1,55 @@
+name: CodeQL Security Analysis
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'crates/**'
+      - 'containers/**'
+      - 'py/**'
+      - 'sdk/**'
+      - 'web/**'
+      - 'services/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'crates/**'
+      - 'containers/**'
+      - 'py/**'
+      - 'sdk/**'
+      - 'web/**'
+      - 'services/**'
+  schedule:
+    - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: CodeQL Analysis (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
