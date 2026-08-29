@@ -126,9 +126,185 @@ pub enum Op {
 pub const SAMPLES: usize = 16;
 
 /// A design: an ordered list of L1 ops.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Design {
     pub ops: Vec<Op>,
+}
+
+impl Design {
+    /// Create a new empty design.
+    pub fn new() -> Self {
+        Self { ops: Vec::new() }
+    }
+
+    /// Create a design from an existing op sequence.
+    pub fn from_ops(ops: Vec<Op>) -> Self {
+        Self { ops }
+    }
+
+    /// Append an arbitrary L1 operation.
+    pub fn push(&mut self, op: Op) -> &mut Self {
+        self.ops.push(op);
+        self
+    }
+
+    /// Rapid move to (x, y, z).
+    pub fn move_to(mut self, x: f64, y: f64, z: f64) -> Self {
+        self.ops.push(Op::Move {
+            x: Some(x),
+            y: Some(y),
+            z: Some(z),
+        });
+        self
+    }
+
+    /// Move in XY plane only, inheriting running Z.
+    pub fn move_to_xy(mut self, x: f64, y: f64) -> Self {
+        self.ops.push(Op::Move {
+            x: Some(x),
+            y: Some(y),
+            z: None,
+        });
+        self
+    }
+
+    /// Move along Z axis only, inheriting running XY.
+    pub fn move_to_z(mut self, z: f64) -> Self {
+        self.ops.push(Op::Move {
+            x: None,
+            y: None,
+            z: Some(z),
+        });
+        self
+    }
+
+    /// Linear cutting/extruding move to (x, y, z).
+    pub fn line_to(self, x: f64, y: f64, z: f64) -> Self {
+        self.move_to(x, y, z)
+    }
+
+    /// Circular arc around center (cx, cy) to endpoint (x, y, z).
+    pub fn arc_to(mut self, cx: f64, cy: f64, x: f64, y: f64, z: f64, clockwise: bool) -> Self {
+        self.ops.push(Op::Arc {
+            cx,
+            cy,
+            x: Some(x),
+            y: Some(y),
+            z: Some(z),
+            clockwise,
+        });
+        self
+    }
+
+    /// Clothoid (Euler spiral) smooth corner blend.
+    pub fn clothoid_to(
+        mut self,
+        corner_x: f64,
+        corner_y: f64,
+        x: f64,
+        y: f64,
+        z: f64,
+        blend: f64,
+    ) -> Self {
+        self.ops.push(Op::Clothoid {
+            corner_x,
+            corner_y,
+            x: Some(x),
+            y: Some(y),
+            z: Some(z),
+            blend,
+        });
+        self
+    }
+
+    /// Set extruder active state.
+    pub fn extruder(mut self, on: bool) -> Self {
+        self.ops.push(Op::Extruder { on });
+        self
+    }
+
+    /// Set print feedrate (mm/min).
+    pub fn feedrate(mut self, speed_mm_min: f64) -> Self {
+        self.ops.push(Op::Speed { print: speed_mm_min });
+        self
+    }
+
+    /// Set extrusion bead cross-section (width, height in mm).
+    pub fn geometry(mut self, width: f64, height: f64) -> Self {
+        self.ops.push(Op::Geometry {
+            width: Some(width),
+            height: Some(height),
+        });
+        self
+    }
+
+    /// Set nozzle temperature (°C).
+    pub fn temperature(mut self, nozzle_c: f64) -> Self {
+        self.ops.push(Op::Temperature { nozzle: nozzle_c });
+        self
+    }
+
+    /// Set part cooling fan speed (0.0 to 1.0).
+    pub fn fan(mut self, speed: f64) -> Self {
+        self.ops.push(Op::Fan { speed });
+        self
+    }
+
+    /// Set flow multiplier ratio (default 1.0).
+    pub fn flow(mut self, ratio: f64) -> Self {
+        self.ops.push(Op::Flow { ratio });
+        self
+    }
+
+    /// Select active tool index.
+    pub fn tool(mut self, index: u32) -> Self {
+        self.ops.push(Op::Tool { index });
+        self
+    }
+
+    /// Set spindle / laser power level (RPM or laser power).
+    pub fn power(mut self, level: f64) -> Self {
+        self.ops.push(Op::Power { level });
+        self
+    }
+
+    /// Set 5-axis toolframe orientation vector (i, j, k).
+    pub fn orient(mut self, i: f64, j: f64, k: f64) -> Self {
+        self.ops.push(Op::Orient { i, j, k });
+        self
+    }
+
+    /// Pause in place for specified seconds.
+    pub fn dwell(mut self, seconds: f64) -> Self {
+        self.ops.push(Op::Dwell { seconds });
+        self
+    }
+
+    /// Explicit retraction move.
+    pub fn retract(mut self, distance: Option<f64>, speed: Option<f64>) -> Self {
+        self.ops.push(Op::Retract { distance, speed });
+        self
+    }
+
+    /// Explicit unretraction/prime move.
+    pub fn unretract(mut self, distance: Option<f64>, speed: Option<f64>) -> Self {
+        self.ops.push(Op::Unretract { distance, speed });
+        self
+    }
+
+    /// Stationary deposit.
+    pub fn deposit(mut self, volume_mm3: f64, speed_mm_min: f64) -> Self {
+        self.ops.push(Op::Deposit {
+            volume: volume_mm3,
+            speed: speed_mm_min,
+        });
+        self
+    }
+
+    /// Lower design to L2 Toolpath IR.
+    pub fn resolve(&self, params: &ResolveParams) -> Result<Toolpath, ResolveError> {
+        resolve_checked(self, params)
+    }
 }
 
 /// Machine/material defaults the lowering needs (from the device profile).

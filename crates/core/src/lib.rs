@@ -88,10 +88,11 @@ pub use gcode::{
     ParsedGcodeLine, ProcessCommand, StateCommand, UnitMode,
 };
 pub use generate::{
-    drape_design, drape_ops, pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops,
-    try_pocket_design, try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepError, BrepSolid,
-    CutMode, DrapeError, DrapeOptions, DrapePattern, PocketError, PocketOptions, PocketShape,
-    Point3D, Surface, SurfacePrimitive, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
+    drape_design, drape_ops, generate_chamfer_ops, generate_thread_milling_ops, pocket_design,
+    pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops, try_pocket_design, try_pocket_ops,
+    try_tpms_design, try_tpms_ops, Aabb, BrepError, BrepSolid, ChamferParams, CutMode, DrapeError,
+    DrapeOptions, DrapePattern, PocketError, PocketOptions, PocketShape, Point3D, Surface,
+    SurfacePrimitive, ThreadMillParams, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};

@@ -1,4 +1,5 @@
 import Dry.Geometry.Clothoid
+import Dry.Geometry.Kinematics
 import Dry.Geometry.PlanarTransform
 import Dry.Language.Common
 import Dry.Language.L2

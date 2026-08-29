@@ -13,6 +13,7 @@
 pub mod brep;
 pub mod drape;
 pub mod pocket;
+pub mod thread_mill;
 pub mod tpms;
 
 pub use brep::{BrepError, BrepSolid, Point3D, SurfacePrimitive, Vector3D};
@@ -22,6 +23,9 @@ pub use drape::{
 pub use pocket::{
     pocket_design, pocket_ops, pocket_stepped_ops, try_pocket_design, try_pocket_ops, CutMode,
     PocketError, PocketOptions, PocketShape,
+};
+pub use thread_mill::{
+    generate_chamfer_ops, generate_thread_milling_ops, ChamferParams, ThreadMillParams,
 };
 pub use tpms::{
     tpms_design, tpms_ops, try_tpms_design, try_tpms_ops, Surface, TpmsError, TpmsOptions,
