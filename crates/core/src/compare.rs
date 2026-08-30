@@ -7,7 +7,7 @@ use crate::explain::ExplainReports;
 use serde::{Deserialize, Serialize};
 
 /// before/after for a numeric metric, with absolute and (when `before != 0`) percent change.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ScalarDelta {
     pub before: f64,
     pub after: f64,
@@ -33,14 +33,14 @@ impl ScalarDelta {
 }
 
 /// before/after for a categorical value; only constructed when the two differ.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StringChange {
     pub before: String,
     pub after: String,
 }
 
 /// Trace-derived timing deltas.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimeDelta {
     pub total: ScalarDelta,
     pub print: ScalarDelta,
@@ -48,7 +48,7 @@ pub struct TimeDelta {
 }
 
 /// One changed forensics setting (declared or inferred), as a labelled before/after string pair.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SettingChange {
     pub field: String,
     pub before: String,
@@ -57,7 +57,7 @@ pub struct SettingChange {
 
 /// Verify findings added (present only in `after`) and removed (present only in `before`), keyed by
 /// `"<rule>@<line>"` so a finding that moved lines is reported as removed+added rather than silently kept.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FindingsDelta {
     pub before_count: usize,
     pub after_count: usize,
@@ -65,8 +65,19 @@ pub struct FindingsDelta {
     pub removed: Vec<String>,
 }
 
+/// Layer-by-layer motion trace difference.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LayerTraceDelta {
+    pub layer_index: usize,
+    pub z_mm: f64,
+    pub print_time_s: ScalarDelta,
+    pub travel_time_s: ScalarDelta,
+    pub extruded_volume_mm3: ScalarDelta,
+    pub max_flow_mm3_s: ScalarDelta,
+}
+
 /// The full two-file diff.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompareDelta {
     /// `Some` when the detected slicer changed.
     pub slicer: Option<StringChange>,
@@ -78,11 +89,71 @@ pub struct CompareDelta {
     /// Declared/inferred forensics settings that changed.
     pub settings: Vec<SettingChange>,
     pub findings: FindingsDelta,
+    /// Layer-by-layer motion trace differences.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layer_deltas: Vec<LayerTraceDelta>,
     /// The licensing mode this delta was produced under, when the caller stamped one
     /// (see [`crate::LicenseStamp`]) — never set by the engine.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub license: Option<crate::report::LicenseStamp>,
+}
+
+/// Diff layer linkages from two trace summaries.
+pub fn compare_layer_traces(
+    before_layers: &[crate::trace::LayerTraceLinkage],
+    after_layers: &[crate::trace::LayerTraceLinkage],
+) -> Vec<LayerTraceDelta> {
+    let mut deltas = Vec::new();
+    let max_len = before_layers.len().max(after_layers.len());
+    for i in 0..max_len {
+        let (z_mm, b_print, a_print, b_travel, a_travel, b_vol, a_vol, b_flow, a_flow) =
+            match (before_layers.get(i), after_layers.get(i)) {
+                (Some(b), Some(a)) => (
+                    a.z_mm,
+                    b.print_time_s,
+                    a.print_time_s,
+                    b.travel_time_s,
+                    a.travel_time_s,
+                    b.extruded_volume_mm3,
+                    a.extruded_volume_mm3,
+                    b.max_flow_mm3_s,
+                    a.max_flow_mm3_s,
+                ),
+                (Some(b), None) => (
+                    b.z_mm,
+                    b.print_time_s,
+                    0.0,
+                    b.travel_time_s,
+                    0.0,
+                    b.extruded_volume_mm3,
+                    0.0,
+                    b.max_flow_mm3_s,
+                    0.0,
+                ),
+                (None, Some(a)) => (
+                    a.z_mm,
+                    0.0,
+                    a.print_time_s,
+                    0.0,
+                    a.travel_time_s,
+                    0.0,
+                    a.extruded_volume_mm3,
+                    0.0,
+                    a.max_flow_mm3_s,
+                ),
+                (None, None) => continue,
+            };
+        deltas.push(LayerTraceDelta {
+            layer_index: i,
+            z_mm,
+            print_time_s: ScalarDelta::new(b_print, a_print),
+            travel_time_s: ScalarDelta::new(b_travel, a_travel),
+            extruded_volume_mm3: ScalarDelta::new(b_vol, a_vol),
+            max_flow_mm3_s: ScalarDelta::new(b_flow, a_flow),
+        });
+    }
+    deltas
 }
 
 /// Diff two analysed files. `before` is `<fileA>`, `after` is `<fileB>`. Pure and deterministic.
@@ -163,6 +234,8 @@ pub fn compare_reports(before: &ExplainReports, after: &ExplainReports) -> Compa
         removed: bset.difference(&aset).cloned().collect(),
     };
 
+    let layer_deltas = compare_layer_traces(&bt.layers, &at.layers);
+
     CompareDelta {
         slicer,
         time: TimeDelta {
@@ -179,6 +252,7 @@ pub fn compare_reports(before: &ExplainReports, after: &ExplainReports) -> Compa
         retractions: ScalarDelta::new(bf.travel.retractions as f64, af.travel.retractions as f64),
         settings,
         findings,
+        layer_deltas,
         license: None,
     }
 }
@@ -224,6 +298,42 @@ pub fn render_markdown(delta: &CompareDelta) -> String {
     }
     for r in &delta.findings.removed {
         let _ = writeln!(md, "- − {r}");
+    }
+    if !delta.layer_deltas.is_empty() {
+        let _ = writeln!(md, "\n## Layer-by-Layer Motion Deltas\n");
+        let _ = writeln!(
+            md,
+            "| Layer | Z (mm) | Print Time (s) | Travel Time (s) | Extruded Vol (mm³) | Max Flow (mm³/s) |"
+        );
+        let _ = writeln!(md, "|---|---|---|---|---|---|");
+        for l in &delta.layer_deltas {
+            let p_pct = l
+                .print_time_s
+                .pct
+                .map(|p| format!(" ({p:+.1}%)"))
+                .unwrap_or_default();
+            let t_pct = l
+                .travel_time_s
+                .pct
+                .map(|p| format!(" ({p:+.1}%)"))
+                .unwrap_or_default();
+            let _ = writeln!(
+                md,
+                "| {} | {:.2} | {:.2} → {:.2} ({:+.2}s{p_pct}) | {:.2} → {:.2} ({:+.2}s{t_pct}) | {:.2} → {:.2} | {:.2} → {:.2} |",
+                l.layer_index,
+                l.z_mm,
+                l.print_time_s.before,
+                l.print_time_s.after,
+                l.print_time_s.abs,
+                l.travel_time_s.before,
+                l.travel_time_s.after,
+                l.travel_time_s.abs,
+                l.extruded_volume_mm3.before,
+                l.extruded_volume_mm3.after,
+                l.max_flow_mm3_s.before,
+                l.max_flow_mm3_s.after,
+            );
+        }
     }
     md
 }
@@ -290,5 +400,14 @@ mod tests {
         let md = render_markdown(&compare_reports(&reports(SLOW), &reports(FAST)));
         assert!(md.contains("# Dry compare"));
         assert!(md.contains("Time") && md.contains("Peak flow"));
+    }
+
+    #[test]
+    fn test_layer_trace_deltas_computed_and_rendered() {
+        let d = compare_reports(&reports(SLOW), &reports(FAST));
+        let md = render_markdown(&d);
+        if !d.layer_deltas.is_empty() {
+            assert!(md.contains("Layer-by-Layer Motion Deltas"));
+        }
     }
 }

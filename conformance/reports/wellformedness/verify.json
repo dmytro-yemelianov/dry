@@ -50,7 +50,8 @@
     "segment-length",
     "arc-length",
     "filament-consistency",
-    "bead-volume"
+    "bead-volume",
+    "laser-power-during-travel"
   ],
   "contracts": {
     "monotonic_z": false,

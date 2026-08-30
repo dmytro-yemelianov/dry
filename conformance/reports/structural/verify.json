@@ -29,9 +29,21 @@
       "severity": "error",
       "segment": 5,
       "message": "declared length 10 disagrees with the arc implied by its radius and swept angle (15.034185 mm)"
+    },
+    {
+      "rule": "travel-extrudes",
+      "severity": "warning",
+      "segment": 7,
+      "message": "travel move deposits 0.8000 mm³ (should be 0)"
+    },
+    {
+      "rule": "laser-power-during-travel",
+      "severity": "error",
+      "segment": 7,
+      "message": "travel move has active spindle/laser power (level 1000.0000)"
     }
   ],
-  "segments_inspected": 6,
+  "segments_inspected": 8,
   "rules_evaluated": [
     "finite",
     "travel-extrudes",
@@ -43,7 +55,8 @@
     "negative-quantity",
     "segment-length",
     "arc-length",
-    "filament-consistency"
+    "filament-consistency",
+    "laser-power-during-travel"
   ],
   "contracts": {
     "monotonic_z": false

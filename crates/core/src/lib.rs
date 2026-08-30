@@ -58,8 +58,9 @@ pub use codec::{
 };
 
 pub use compare::{
-    compare_reports, render_markdown as render_compare_markdown, CompareDelta, FindingsDelta,
-    ScalarDelta, SettingChange, StringChange, TimeDelta,
+    compare_layer_traces, compare_reports, render_markdown as render_compare_markdown,
+    CompareDelta, FindingsDelta, LayerTraceDelta, ScalarDelta, SettingChange, StringChange,
+    TimeDelta,
 };
 pub use dexel::{DexelGrid, DexelSimulationReport};
 pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidationError};

@@ -34,7 +34,8 @@
     "filament-consistency",
     "rotary-travel",
     "rotary-feed",
-    "orientation-reachability"
+    "orientation-reachability",
+    "laser-power-during-travel"
   ],
   "contracts": {
     "monotonic_z": false,

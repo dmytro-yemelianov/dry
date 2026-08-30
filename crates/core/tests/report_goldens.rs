@@ -185,6 +185,12 @@ fn cases() -> Vec<Case> {
                 centre: Some([Length::mm(1.0), Length::mm(0.0)]),
                 ..base()
             },
+            // travel with active spindle/laser power
+            Segment {
+                travel: true,
+                power: Some(1000.0),
+                ..base()
+            },
         ]),
         contracts: Contracts::default(),
         full: true,

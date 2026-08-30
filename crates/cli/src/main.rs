@@ -37,6 +37,7 @@ enum EmitOutputFormat {
     /// Emit existing CNC/RS-274 output.
     Rs274,
     /// Emit GRBL (laser) output.
+    #[value(alias = "laser")]
     Grbl,
     /// Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md).
     #[value(alias = "krl")]
@@ -302,7 +303,7 @@ enum Cmd {
         #[arg(long)]
         five_axis: bool,
         /// Emit RS-274 / GRBL / KRL output instead of the default FFF G-code target.
-        #[arg(long, default_value = "gcode", value_enum)]
+        #[arg(long, visible_alias = "flavor", default_value = "gcode", value_enum)]
         format: EmitOutputFormat,
         /// Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the
         /// legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)

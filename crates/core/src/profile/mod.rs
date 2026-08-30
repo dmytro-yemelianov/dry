@@ -126,6 +126,12 @@ pub struct MachineProfile {
     /// rotary verifier rules unevaluated — a 5-axis model with no stated limits can judge nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotary: Option<MachineRotary>,
+    /// Optional laser/spindle power ceiling (`max_spindle_rpm` / GRBL `$30` / spindle max RPM).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_spindle_rpm: Option<f64>,
+    /// Optional max laser power level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_laser_power: Option<f64>,
 }
 
 /// Rotary-axis limits and reachable workspace for a 5-axis machine.

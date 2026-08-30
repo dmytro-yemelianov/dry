@@ -52,6 +52,7 @@
     "filament-consistency",
     "rotary-travel",
     "rotary-feed",
-    "orientation-reachability"
+    "orientation-reachability",
+    "laser-power-during-travel"
   ]
 }

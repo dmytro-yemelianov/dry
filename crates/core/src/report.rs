@@ -12,7 +12,7 @@ use crate::verify::{Finding, Report, RuleId, Severity};
 use serde::{Deserialize, Serialize};
 
 /// A [`Finding`] resolved to its original source line (when the toolpath came from imported G-code).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LocatedFinding {
     /// Stable kebab-case rule id (see [`crate::RuleId`]).
     pub rule: String,
@@ -44,7 +44,7 @@ impl LocatedFinding {
 /// exists here so the wire shape of a stamped report is part of the same typed contract as the rest.
 /// A report the engine built carries `None`, which serializes away entirely, so the golden reports
 /// under `conformance/reports/` are byte-identical with and without the field.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LicenseStamp {
     /// `"licensed"` or `"evaluation"`.
     pub mode: String,
@@ -57,7 +57,7 @@ pub struct LicenseStamp {
 }
 
 /// The `review-gcode` report: metrics plus located safety findings for an imported G-code file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReviewReport {
     /// Source file label (when reviewing a file).
     pub file: Option<String>,

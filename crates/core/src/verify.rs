@@ -1881,6 +1881,7 @@ mod tests {
                 "segment-length",
                 "arc-length",
                 "filament-consistency",
+                "laser-power-during-travel",
             ],
             "the always-on structural set changed"
         );
@@ -1923,15 +1924,15 @@ mod tests {
         };
         assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
 
-        // The point of `rules_evaluated`: "clean" under 11 rules is a different claim from "clean"
-        // under 27, and until H1.3 the two reports were byte-identical.
+        // The point of `rules_evaluated`: "clean" under 12 rules is a different claim from "clean"
+        // under 28, and until H1.3 the two reports were byte-identical.
         let tp = Toolpath {
             version: 0,
             meta: None,
             segments: Vec::new(),
         };
-        assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 11);
-        assert_eq!(verify(&tp, &c).rules_evaluated.len(), 27);
+        assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 12);
+        assert_eq!(verify(&tp, &c).rules_evaluated.len(), 28);
     }
 
     /// A rotary contract that states a limit but not the one a rule needs must leave that rule

@@ -1,16 +1,16 @@
 {
   "file": null,
   "profile": null,
-  "segments": 6,
+  "segments": 8,
   "metrics": {
-    "total_time_s": 1.7999999999999998,
+    "total_time_s": 2.3,
     "print_time_s": 1.2000000000000002,
-    "travel_time_s": 0.6,
+    "travel_time_s": 1.1,
     "extruding_distance": 30.0,
-    "travel_distance": 30.0,
-    "extruded_volume": 2.9000000000000004,
-    "filament_length": 1.32,
-    "segment_count": 6,
+    "travel_distance": 50.0,
+    "extruded_volume": 3.7,
+    "filament_length": 1.6500000000000001,
+    "segment_count": 8,
     "max_flow_rate": 2.0
   },
   "findings": [
@@ -48,10 +48,24 @@
       "segment": 5,
       "source_line": null,
       "message": "declared length 10 disagrees with the arc implied by its radius and swept angle (15.034185 mm)"
+    },
+    {
+      "rule": "travel-extrudes",
+      "severity": "warning",
+      "segment": 7,
+      "source_line": null,
+      "message": "travel move deposits 0.8000 mm³ (should be 0)"
+    },
+    {
+      "rule": "laser-power-during-travel",
+      "severity": "error",
+      "segment": 7,
+      "source_line": null,
+      "message": "travel move has active spindle/laser power (level 1000.0000)"
     }
   ],
-  "error_count": 4,
-  "segments_inspected": 6,
+  "error_count": 5,
+  "segments_inspected": 8,
   "rules_evaluated": [
     "finite",
     "travel-extrudes",
@@ -63,6 +77,7 @@
     "negative-quantity",
     "segment-length",
     "arc-length",
-    "filament-consistency"
+    "filament-consistency",
+    "laser-power-during-travel"
   ]
 }
