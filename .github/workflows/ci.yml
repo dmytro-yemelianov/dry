@@ -101,6 +101,12 @@ jobs:
         id: capability_parity
         continue-on-error: true
         run: python3 tools/check_capability_parity.py
+      # An ordering comparison is false for NaN, so a guard written as one fails open. This review
+      # found that shape seven times, three of them in safety checks.
+      - name: NaN-permeable ordering guards
+        id: nan_guards
+        continue-on-error: true
+        run: python3 tools/check_nan_guards.py
       - name: compile the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
@@ -124,6 +130,7 @@ jobs:
             proof-claims=${{ steps.proof_claims.outcome }}
             license-headers=${{ steps.license_headers.outcome }}
             capability-parity=${{ steps.capability_parity.outcome }}
+            nan-guards=${{ steps.nan_guards.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
             wasm-build=${{ steps.wasm_build.outcome }}
         run: |

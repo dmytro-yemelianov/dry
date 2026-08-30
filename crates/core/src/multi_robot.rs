@@ -223,6 +223,26 @@ pub fn calculate_clearance_velocity_scale(
     safe_dist_mm: f64,
     min_scale: f64,
 ) -> f64 {
+    // Fail slow. `current_dist_mm >= safe_dist_mm` is false for a `NaN` clearance, and so is the
+    // `<=` below, so a non-finite input fell through to the interpolation and returned `NaN` — a
+    // scale factor that silently destroys whatever feedrate it multiplies. The conservative answer
+    // for a clearance nobody can measure is the slowest one this function is allowed to return,
+    // which is the same answer it gives inside the critical distance.
+    if !current_dist_mm.is_finite()
+        || !critical_dist_mm.is_finite()
+        || !safe_dist_mm.is_finite()
+        || !min_scale.is_finite()
+    {
+        // Not `min_scale.clamp(..)`: `clamp` returns NaN for a NaN self, so when `min_scale` is
+        // itself the non-finite argument, clamping it would return the NaN this branch exists to
+        // avoid. `SLOWEST` is the floor the finite path already clamps to.
+        const SLOWEST: f64 = 0.05;
+        return if min_scale.is_finite() {
+            min_scale.clamp(SLOWEST, 1.0)
+        } else {
+            SLOWEST
+        };
+    }
     if current_dist_mm >= safe_dist_mm {
         1.0
     } else if current_dist_mm <= critical_dist_mm {

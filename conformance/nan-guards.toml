@@ -1,0 +1,160 @@
+# Every public `f64` parameter compared by an ordering operator, and what happens when it is `NaN`.
+#
+# An ordering comparison is **false** when either side is `NaN`. A guard written as one therefore
+# lets `NaN` through silently — and if the guard's `false` branch means "no problem here", the check
+# fails *open*. This review found the shape seven times, three of them in safety checks:
+#
+#   check_dual_robot_clearance          reported `safe = true` on a NaN joint angle
+#   detect_anomalies                    reported a healthy printer on a NaN thermistor reading
+#   calculate_clearance_velocity_scale  returned NaN instead of slowing down
+#   optimize_constant_mrr               wrote NaN and negative feedrates past `depth_of_cut <= 0.0`
+#   BrepSolid::slice_to_l1_ops          accepted a NaN Z bound past `z_end < z_start`
+#   DexelGrid::new_stock                accepted a NaN bound past `max_x <= min_x`
+#   generate_trochoidal_slot            emitted a non-finite coordinate past the width guard
+#
+# `generate/tpms.rs` and `clothoid.rs` already carried source notes about exactly this class, so it
+# had been found and fixed locally twice without ever being generalised. This file is that
+# generalisation: `tools/check_nan_guards.py` enumerates the candidates, and every one must be
+# accounted for here. A new candidate that is not recorded fails CI; a recorded site the detector no
+# longer finds also fails, so the manifest cannot rot.
+
+schema_version = 1
+
+# ---------------------------------------------------------------------------------------------
+# guarded — non-finite input is refused or declined before the ordering comparison decides anything
+# ---------------------------------------------------------------------------------------------
+
+# `calculate_auto_tuned_pressure_advance`, `corner_blend`, `check_dual_robot_clearance` and the
+# thermal reading checks are deliberately NOT listed: each calls `is_finite`/`is_nan` on the parameter
+# directly, so the detector no longer proposes them. That is the intended end state — this manifest
+# carries only what the detector cannot see for itself.
+
+[[site]]
+function = "detect_anomalies"
+parameter = "target_nozzle_temp"
+status = "guarded"
+how = "A non-finite reading *or target* is reported as SENSOR_READING_INVALID (critical) before the deviation tests, which additionally require finite values. A NaN target previously skipped the whole nozzle check: a printer at 250 C against a NaN target reported only its bed anomaly."
+
+[[site]]
+function = "detect_anomalies"
+parameter = "target_bed_temp"
+status = "guarded"
+how = "Same guard as target_nozzle_temp above."
+
+[[site]]
+function = "new_stock"
+parameter = "min_x"
+status = "guarded"
+how = "Every bound is checked for finiteness before the `max <= min` ordering test, which a NaN bound previously walked past."
+
+[[site]]
+function = "new_stock"
+parameter = "min_y"
+status = "guarded"
+how = "Same finiteness loop as min_x."
+
+[[site]]
+function = "new_stock"
+parameter = "min_z"
+status = "guarded"
+how = "Same finiteness loop as min_x."
+
+[[site]]
+function = "new_stock"
+parameter = "max_x"
+status = "guarded"
+how = "Same finiteness loop as min_x."
+
+[[site]]
+function = "new_stock"
+parameter = "max_y"
+status = "guarded"
+how = "Same finiteness loop as min_x."
+
+[[site]]
+function = "new_stock"
+parameter = "max_z"
+status = "guarded"
+how = "Same finiteness loop as min_x."
+
+[[site]]
+function = "optimize_constant_mrr"
+parameter = "depth_of_cut"
+status = "guarded"
+how = "`honourable()` requires every parameter finite before the ordering guards run; the pass then declines rather than writing NaN or negative speeds."
+
+[[site]]
+function = "optimize_constant_mrr"
+parameter = "target_mrr_mm3_min"
+status = "guarded"
+how = "Same `honourable()` check as depth_of_cut."
+
+[[site]]
+function = "optimize_constant_mrr"
+parameter = "min_feedrate"
+status = "guarded"
+how = "Same `honourable()` check as depth_of_cut."
+
+[[site]]
+function = "optimize_constant_mrr"
+parameter = "max_feedrate"
+status = "guarded"
+how = "Same `honourable()` check as depth_of_cut."
+
+[[site]]
+function = "apply_chip_thinning_compensation"
+parameter = "stepover_ratio"
+status = "guarded"
+how = "`honourable()` plus an explicit `(0, 1]` range test; the pass declines instead of clamping a nonsensical stepover to 0.001 and commanding 350% feedrate."
+
+[[site]]
+function = "generate_trochoidal_slot"
+parameter = "slot_width"
+status = "guarded"
+how = "`honourable()` over every parameter precedes the `slot_width <= tool_diameter` test, which a NaN width walked past into a non-finite emitted coordinate."
+
+[[site]]
+function = "generate_trochoidal_slot"
+parameter = "tool_diameter"
+status = "guarded"
+how = "Same `honourable()` check as slot_width."
+
+[[site]]
+function = "slice_at_z"
+parameter = "z0"
+status = "guarded"
+how = "Reached only through `slice_to_l1_ops`, which refuses non-finite Z bounds, a non-positive layer height, and a request over the contour-sample budget before iterating."
+
+[[site]]
+function = "slice_with_csg"
+parameter = "z_end"
+status = "guarded"
+how = "Delegates to `BrepSolid::slice_to_l1_ops`, which performs the finiteness and budget checks."
+
+# ---------------------------------------------------------------------------------------------
+# safe — the ordering result is fail-safe, or a non-finite value cannot reach the comparison
+# ---------------------------------------------------------------------------------------------
+
+[[site]]
+function = "contains"
+parameter = "val"
+status = "safe"
+why = "`AxisRange::contains` answers 'is this point inside the envelope'. `NaN >= min && NaN <= max` is false, so a non-finite coordinate is reported *outside* the envelope — the conservative answer. Fail-safe by the polarity of the question, not by accident, but worth recording so a future inversion of that polarity is noticed."
+
+[[site]]
+function = "adaptive_speed_with_kinematics"
+parameter = "a_limit"
+status = "safe"
+why = "Measured: a NaN, negative or zero acceleration limit leaves every segment speed unchanged. The limit is only ever used to compute a ceiling that is then compared against the existing speed, and every such comparison is false for NaN, so the pass declines by construction rather than by a guard."
+
+[[site]]
+function = "carve_segment"
+parameter = "tool_radius"
+status = "safe"
+why = "The public entry point is `simulate_toolpath`, which refuses a non-finite or non-positive radius before calling this. Called directly with a NaN radius it carves nothing, which is the same outcome as the refusal it now sits behind."
+
+[[site]]
+function = "new"
+parameter = "w"
+status = "safe"
+why = "`Quaternion::new` computes `norm` first and returns IDENTITY when it is zero or non-finite, so the `w < 0.0` sign test only ever sees a finite value."

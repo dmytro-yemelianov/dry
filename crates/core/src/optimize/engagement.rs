@@ -211,6 +211,22 @@ pub fn generate_trochoidal_slot(
     step_forward: f64,
     feedrate: f64,
 ) -> Result<Vec<crate::resolve::Op>, String> {
+    // Finiteness first: `slot_width <= tool_diameter` is false when either is `NaN`, so a `NaN`
+    // width walked past this guard and the generator emitted a non-finite coordinate into the op
+    // stream.
+    if !honourable(&[
+        start[0],
+        start[1],
+        end[0],
+        end[1],
+        z_cut,
+        slot_width,
+        tool_diameter,
+        step_forward,
+        feedrate,
+    ]) {
+        return Err("every trochoidal slot parameter must be finite".into());
+    }
     if tool_diameter <= 0.0 || slot_width <= tool_diameter {
         return Err("Slot width must be greater than tool diameter".into());
     }
