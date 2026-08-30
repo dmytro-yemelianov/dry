@@ -26,7 +26,7 @@ schema_version = 1
 id = "tpms"
 title = "TPMS lattice infill generation"
 core = { path = "crates/core/src/generate/tpms.rs", symbol = "pub fn try_tpms_ops", status = "reachable" }
-cli = { path = "crates/cli/src/main.rs", symbol = "tpms", status = "absent", note = "No CLI surface — the string `tpms` does not appear in the CLI at all. `dry generate` carries only `pocket`. Notable because H1.4 called TPMS \"the most-exposed generator (wasm + PyO3 + TS)\"; it is exposed everywhere except the shipping product." }
+cli = { path = "crates/cli/src/main.rs", symbol = "GenerateCmd::Tpms", status = "reachable" }
 python = { path = "py/src/lib.rs", symbol = "tpms_ops_json", status = "reachable" }
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "tpms_ops_json", status = "reachable" }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "export function tpmsOps", status = "reachable" }

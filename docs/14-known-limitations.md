@@ -60,7 +60,7 @@ additions are reachable only from `dry-core` and, in part, the CLI:
 
 | Capability | `dry-core` | CLI | Python | wasm | TS |
 |---|---|---|---|---|---|
-| TPMS lattice infill | yes | **no** | yes | yes | yes |
+| TPMS lattice infill | yes | yes | yes | yes | yes |
 | Pocket / profile milling | yes | yes | yes | yes | yes |
 | 5-axis jerk-limited lookahead | yes | **no** | yes | yes | yes |
 | Machining physics | yes | **no** | yes | yes | yes |
@@ -87,12 +87,16 @@ rather than bare motion. Python and TypeScript are cross-checked against *each o
 same physics numbers through two different FFI paths (native PyO3 and wasm), and they agree bit for
 bit.
 
-**What remains is the CLI column**, and it is wider than previously recorded. Beyond B-Rep slicing,
-dexel simulation, lookahead and physics, the CLI has no surface for TPMS at all — the string `tpms`
-does not appear in it, and `dry generate` carries only `pocket`. That is worth stating plainly,
-because H1.4 called TPMS "the most-exposed generator (wasm + PyO3 + TS)": it is exposed everywhere
-except the product that actually ships. Mesh drape is the one capability missing from wasm and TS as
-well as the CLI.
+**What remains is the CLI column.** TPMS is now reachable as `dry generate tpms` — it previously had
+no CLI surface at all, which was worth fixing first because H1.4 called it "the most-exposed
+generator (wasm + PyO3 + TS)": it was exposed everywhere except the product that actually ships. It
+takes the option bundle as camelCase JSON (a file, or stdin) rather than a flag per field, because
+`TpmsOptions` carries 26 fields and a hand-maintained flag set would drift from it immediately; the
+same bundle is portable to every other surface and to `conformance/vectors`.
+
+Still absent from the CLI: B-Rep slicing, dexel simulation, the lookahead optimiser, the physics
+simulator, mesh drape, lathe turning/facing and tool-holder collision. Mesh drape is the one
+capability missing from wasm and TypeScript as well.
 
 ## Sharp edges in what Dry does do
 
