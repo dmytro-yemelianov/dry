@@ -2467,7 +2467,9 @@ fn verify_runs_and_reports_findings() {
     // --json. `--bounds` is supplied here, so `bounds` is in force on top of the structural set.
     assert!(text.contains("segment(s) inspected"), "{text}");
     assert!(!text.contains("0 segment(s) inspected"), "{text}");
-    assert!(text.contains("13 rule(s) in force"), "{text}");
+    // 11 always-on structural rules + `bounds`. It was 12 + bounds until `laser-power-during-travel`
+    // was moved off the always-on set and onto `process.travel_must_be_dark`.
+    assert!(text.contains("12 rule(s) in force"), "{text}");
 
     // out-of-bounds path should fail (non-zero exit code)
     let out_bad = Command::new(bin())
@@ -3147,18 +3149,24 @@ fn slicer_corpus_manifest_sha256_matches_committed_files() {
 /// `--json` branch beside it listed a feedrate thirty times the machine maximum.
 mod check_reports_what_it_measured {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A single segment far outside any sane feedrate or spindle ceiling.
     fn excessive_ir() -> PathBuf {
-        // Process id as well as the clock: two tests in the same binary can read the same
-        // nanosecond on a coarse timer, and a shared path makes them delete each other's fixture.
+        // Unique by construction, not by luck. The clock alone collided: `process::id()` is the
+        // *same* for every test in one binary, so it discriminates nothing here, and `as_nanos()`
+        // reports whatever resolution the platform clock actually has — microseconds on macOS — so
+        // the two tests in this module started inside one tick often enough to share a path and
+        // delete each other's fixture roughly half the time. A monotonic counter cannot collide.
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
         let path = std::env::temp_dir().join(format!(
-            "dry-check-{}-{}.json",
+            "dry-check-{}-{}-{}.json",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::write(
             &path,

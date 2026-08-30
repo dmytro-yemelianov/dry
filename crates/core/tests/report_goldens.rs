@@ -630,9 +630,44 @@ fn cases() -> Vec<Case> {
         full: true,
     };
 
+    // --- beam_travel: the process-gated laser-power-during-travel rule, under the contract that
+    // turns it on. `structural` above carries the same lit travel with no contracts and reports
+    // nothing for it, which is the other half of the same claim: a spindle turning through a rapid
+    // is not a finding, and only a profile that declares a beam-based process makes it one.
+    let beam_travel = Case {
+        name: "beam_travel",
+        toolpath: tp(vec![
+            // cutting move with the beam on
+            Segment {
+                power: Some(1000.0),
+                ..base()
+            },
+            // travel with the beam still on: the finding
+            Segment {
+                travel: true,
+                volume: Volume::ZERO,
+                power: Some(1000.0),
+                ..base()
+            },
+            // travel with the beam commanded off: clean
+            Segment {
+                travel: true,
+                volume: Volume::ZERO,
+                power: Some(0.0),
+                ..base()
+            },
+        ]),
+        contracts: Contracts {
+            travel_must_be_dark: Some(true),
+            ..Contracts::default()
+        },
+        full: true,
+    };
+
     vec![
         non_finite,
         structural,
+        beam_travel,
         contracts_case,
         retraction,
         first_layer,

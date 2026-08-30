@@ -1,20 +1,32 @@
 schema_version = 1
 model = "emit-numeric-boundaries-v0"
-scope = "The binary64 boundary of the tolerance-bearing predicate in crates/core/src/emit/kinematics.rs: the singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the words its two consumers emit - the rotary and linear words of crates/core/src/emit/gcode.rs, and the KUKA A/B angles of crates/core/src/emit/krl.rs. Only kinematics.rs is hash-pinned below: the consumers are recorded as evidence, so a consumer drifting off resolve_c is caught by its own tests and not by this file."
+scope = "The binary64 boundaries of the tolerance-bearing and refusing predicates in crates/core/src/emit/kinematics.rs. Two subjects, not one. (1) The 5-axis singular-cone test that decides whether a toolframe orientation determines the C rotary axis, from Segment.orientation through the words its two consumers emit - the rotary and linear words of crates/core/src/emit/gcode.rs, and the KUKA A/B angles of crates/core/src/emit/krl.rs. (2) The 6-axis robot solver Robot6AxisModel: the wrist-singularity hold that decides whether a pose determines J4, and the law-of-cosines reach refusal, from a commanded TCP pose through the joint angles a robot post-processor consumes. Only kinematics.rs is hash-pinned below: the consumers are recorded as evidence, so a consumer drifting off resolve_c is caught by its own tests and not by this file."
 numeric_profile_id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0"
 
 [[source]]
 path = "crates/core/src/emit/kinematics.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "fd09ca3524609fffd2a87e934decc015f7642e7bc39de574105663a1b08138c1"
+# Re-pinned 2026-08-30. The reviewed diff is 591ccf0's 6-axis robot solver — DH link parameters, a
+# forward solve, and a closed-form inverse solve — plus naming its wrist epsilon
+# `WRIST_SINGULAR_J5_RAD` so the profile can pin it. The 5-axis singular-cone predicate, its constant
+# and its budgets are untouched; the two new predicates the commit introduced are registered at the
+# end of this file. Also folded in: the assertion moved inside its sampling loop in the
+# `worst_measured` test (a running max, so the check is equivalent), and a rustfmt-only reformat.
+sha256 = "c116dc07dee25fe615c7cab13f401560d7b5d414f98c5327e0cc49c67f3d758e"
 
 # ---------------------------------------------------------------------------------------------
-# The emit side owns exactly one tolerance-bearing predicate, and this is it. Everything else in
-# `emit/kinematics.rs` is an exact comparison (`magnitude > 0.0`, `is_finite`) or a total function of
-# the normalised direction, so nothing else here carries an epsilon. The same holds of the KRL
-# renderer's own refusals (`!= 0.0`, `> 0.0`, "does the formatted literal denote zero"): all exact,
-# none an epsilon, so none registered here.
+# The 5-axis side owns exactly one tolerance-bearing predicate, and this is it. Everything else on
+# that path in `emit/kinematics.rs` is an exact comparison (`magnitude > 0.0`, `is_finite`) or a total
+# function of the normalised direction, so nothing else there carries an epsilon. The same holds of
+# the KRL renderer's own refusals (`!= 0.0`, `> 0.0`, "does the formatted literal denote zero"): all
+# exact, none an epsilon, so none registered here.
+#
+# That sentence read "the emit side owns exactly one" until 591ccf0 added `Robot6AxisModel` to this
+# file, at which point it was simply false: the 6-axis solver carries a second epsilon and a refusal
+# of its own. Both are registered at the end of this file. The claim is now scoped to the 5-axis path
+# rather than to the file, so adding a third predicate anywhere in `kinematics.rs` contradicts nothing
+# here and is caught by the hash pin instead.
 #
 # What is pinned is `emit/kinematics.rs` alone. `gcode.rs` and `krl.rs` consume `resolve_c` and are
 # listed as evidence, not as `[[source]]`, so this file does not detect a consumer drifting away
@@ -61,4 +73,79 @@ profile_entries = [
   "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.LIMIT.TOOL_DIRECTION_COMPONENT",
   "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.SINGULAR_CONE_SIN_TILT",
   "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.HELD_C_TOOL_DIRECTION_ERROR_RAD",
+]
+
+# ---------------------------------------------------------------------------------------------
+# 6-axis robot solver (591ccf0). The two entries below are the numeric-boundary review that commit
+# owed and did not file: it added ~281 lines of binary64 geometry — DH link transforms, a forward
+# solve, and a closed-form inverse solve — to a file this inventory pins precisely because it holds
+# binary64 geometry under review. The pin fired on the next CI run, which is what it is for.
+# ---------------------------------------------------------------------------------------------
+
+[[boundary]]
+id = "FM1.F64.EMIT.ROBOT6.WRIST_SINGULAR_HOLD"
+title = "J4 is held, not recomputed, where the wrist pose stops determining it"
+rust_symbol = "Robot6AxisModel::solve_ik"
+source_path = "crates/core/src/emit/kinematics.rs"
+source_anchor = "const WRIST_SINGULAR_J5_RAD: f64 = 1e-5;"
+inputs = [
+  "tcp_pos: the commanded TCP point in millimetres",
+  "tool_orient: the tool-direction vector",
+  "prev_joints: the joint state the previous segment left behind",
+  "Robot6AxisModel.dh: the six DhParam link parameters",
+]
+operation = "The tool direction is expressed in frame 3 as R03^T * tool_orient; J5 is atan2(hypot(x, y), z) of that vector. When |J5| < 1e-5 rad the wrist is colinear, J5 is snapped to exactly 0 and J4 is taken unchanged from prev_joints.j4_deg; otherwise J4 is atan2(y, x). J6 is not solved and is returned as 0 in both branches."
+classification = "interval-bounded"
+numeric_status = "bounded"
+assumptions = [
+  "prev_joints carries a J4 the caller actually reached; the solver cannot tell a seeded default from a measured state, exactly as RotaryState's C is seeded at the identity.",
+  "tool_orient is treated as a direction; solve_ik does not normalise it, unlike unit_orientation on the 5-axis path, so a non-unit vector shifts the wrist centre by d6*(|v|-1).",
+  "The DH convention is standard (not modified) DH, with alpha4 = +PI/2 and alpha5 = -PI/2 as the doc comment states.",
+]
+exclusions = [
+  "The worst-case TCP displacement caused by substituting the held J4 at the threshold: not derived, which is why the linked budget is `policy` rather than `bounded`.",
+  "J6 entirely. The solver returns a six-joint struct whose sixth element is always 0.0, so this is a five-degree-of-freedom solve presented in a six-joint shape; tool roll is neither solved nor preserved.",
+  "The elbow/shoulder configuration choice. Only the positive-sin_phi (elbow-up) branch is produced; the mirrored solutions of the same pose are never considered, so the solver cannot follow a path that requires reconfiguration.",
+  "Joint travel limits and self-collision: solve_ik refuses only points outside the arm's reach, not poses the arm cannot legally adopt.",
+]
+next_obligation = "Derive the TCP error implied by the held J4 and promote the budget to `bounded`, or tighten the threshold to what the derivation supports. Solving J6 (or renaming the result to state that it is a 5-DOF solve) is the separate correctness obligation."
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+  "crates/core/tests/robot_6axis_kinematics.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.WRIST_SINGULAR_J5_RAD",
+]
+
+[[boundary]]
+id = "FM1.F64.EMIT.ROBOT6.REACH_REJECTION"
+title = "A target beyond the arm's reach is refused by a cosine that rounds past one"
+rust_symbol = "Robot6AxisModel::solve_ik"
+source_path = "crates/core/src/emit/kinematics.rs"
+source_anchor = "if cos_phi.abs() > 1.0 {"
+inputs = [
+  "tcp_pos and tool_orient, through the wrist centre",
+  "Robot6AxisModel.dh link lengths a1, a2, a3, d1, d4, d6",
+]
+operation = "The elbow angle is recovered from the law of cosines: cos_phi = (d_sq - a2^2 - l3^2) / (2*a2*l3), where d_sq is the squared shoulder-to-wrist distance and l3 = hypot(a3, d4). |cos_phi| > 1.0 means no triangle closes, and the solve returns Err rather than a pose. Immediately after, sin_phi is (1 - cos_phi^2).max(0.0).sqrt(), whose clamp is load-bearing: cos_phi*cos_phi can exceed 1 in binary64 for a cos_phi within an ULP of +/-1, which would otherwise make the radicand negative and sin_phi NaN."
+classification = "rejected"
+numeric_status = "not-applicable"
+assumptions = [
+  "The refusal is exact in the comparison but not in the quantity compared: cos_phi is the result of three multiplications, two subtractions and a division, so a target exactly at full extension can land on either side of 1.0 by rounding.",
+  "a2 and l3 are non-zero for every shipped model, so the division is finite; a model with a2 = 0 or a3 = d4 = 0 would divide by zero and is not guarded.",
+]
+exclusions = [
+  "How far outside reach a refused point is: the error carries no distance, so a caller cannot tell a target 0.1 mm past the envelope from one a metre past it.",
+  "The interior of the workspace. Reachability here is the elbow triangle alone; joint travel limits, the shoulder singularity at r = 0, and self-collision are all unmodelled, so an accepted solve is not a claim that the pose is attainable.",
+  "Non-finite input: a NaN tcp_pos makes cos_phi NaN, and NaN.abs() > 1.0 is false, so the refusal does not fire and the solve proceeds to return NaN joints.",
+]
+next_obligation = "Decide whether solve_ik should refuse non-finite input explicitly, the way unit_orientation refuses a zero or non-finite orientation on the 5-axis path; today the two entry points into this file disagree about that."
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+  "crates/core/tests/robot_6axis_kinematics.rs",
+]
+claim_ids = []
+profile_entries = [
+  "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.LIMIT.ELBOW_COSINE",
 ]

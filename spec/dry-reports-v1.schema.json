@@ -184,6 +184,10 @@
         "bead_volume_tolerance": {
           "type": "number"
         },
+        "travel_must_be_dark": {
+          "description": "The process is beam-based, so the spindle/laser power channel must read 0 on every travel (`laser-power-during-travel`). Absent for a spindle process, where power through a rapid is correct.",
+          "type": "boolean"
+        },
         "kinematics": {
           "type": "object",
           "additionalProperties": false,

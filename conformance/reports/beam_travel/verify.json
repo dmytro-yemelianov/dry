@@ -1,13 +1,13 @@
 {
   "findings": [
     {
-      "rule": "finite",
+      "rule": "laser-power-during-travel",
       "severity": "error",
-      "segment": 0,
-      "message": "segment carries a non-finite value"
+      "segment": 2,
+      "message": "travel move has active spindle/laser power (level 1000.0000)"
     }
   ],
-  "segments_inspected": 1,
+  "segments_inspected": 5,
   "rules_evaluated": [
     "finite",
     "travel-extrudes",
@@ -19,9 +19,11 @@
     "negative-quantity",
     "segment-length",
     "arc-length",
-    "filament-consistency"
+    "filament-consistency",
+    "laser-power-during-travel"
   ],
   "contracts": {
-    "monotonic_z": false
+    "monotonic_z": false,
+    "travel_must_be_dark": true
   }
 }

@@ -59,6 +59,76 @@ pub struct CollisionFinding {
     pub plunge_depth: f64,
 }
 
+/// One sampled point on the holder axis, and the stock it is being tested against.
+///
+/// Both holder paths — the stepped-section profile and the single-body fallback — ask exactly this
+/// question and differ only in which radius they ask it with, so the geometry lives here once. That
+/// is also a hard requirement rather than a tidiness preference: the numeric-boundary inventory pins
+/// this decision by *source anchor* (`FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH`, `proofs/verify-numeric-
+/// boundaries-v0.toml`), and an anchor must occur exactly once in the file.
+struct HolderSample {
+    /// Sampled point on the holder centreline (mm).
+    centre: [f64; 3],
+    /// Radius of the holder body at this sample (mm).
+    radius: f64,
+    /// Z of the tool tip for the segment under test (mm) — the plunge datum, not the sample.
+    tip_z: f64,
+    /// Unit tool-direction vector, used only to classify the finding as 3- or 5-axis.
+    axis: [f64; 3],
+}
+
+impl HolderSample {
+    /// The lowest point of the holder body at this sample: the centreline dropped by the radial
+    /// component the tilt swings below it. Vertical (`axis = +Z`) leaves it at the centreline.
+    fn lowest_z(&self) -> f64 {
+        let tilt = libm::sqrt(self.axis[0] * self.axis[0] + self.axis[1] * self.axis[1]);
+        self.centre[2] - self.radius * tilt
+    }
+
+    /// Does the body at this sample overlap the stock top plane?
+    ///
+    /// The footprint is expanded by this sample's radius so the test asks whether the *assembly*
+    /// overlaps the stock, not whether the centreline is over it.
+    fn collides(&self, stock_bounds: [f64; 6]) -> bool {
+        let [hx, hy, hz] = self.centre;
+        let in_stock_xy = hx >= stock_bounds[0] - self.radius
+            && hx <= stock_bounds[1] + self.radius
+            && hy >= stock_bounds[2] - self.radius
+            && hy <= stock_bounds[3] + self.radius;
+        in_stock_xy && self.lowest_z() < stock_bounds[5] && hz >= stock_bounds[4]
+    }
+
+    /// Build the finding for a sample [`Self::collides`] has already accepted. `label` is the only
+    /// thing the two holder paths disagree about.
+    fn finding(
+        &self,
+        stock_bounds: [f64; 6],
+        label: &str,
+        segment_index: usize,
+    ) -> CollisionFinding {
+        let stock_top_z = stock_bounds[5];
+        let lowest_holder_z = self.lowest_z();
+        let [hx, hy, hz] = self.centre;
+        let is_5axis = self.axis[0].abs() > 1e-4 || self.axis[1].abs() > 1e-4;
+        let code = if is_5axis {
+            "TOOL_HOLDER_5AXIS_COLLISION"
+        } else {
+            "TOOL_HOLDER_COLLISION"
+        };
+        let depth = stock_top_z - self.tip_z;
+        CollisionFinding {
+            severity: Severity::Error,
+            code: code.into(),
+            message: format!(
+                "{label} (⌀{:.2}mm) collides with stock top (lowest point Z{lowest_holder_z:.2}mm < Z{stock_top_z:.2}mm); centerline at (X{hx:.2}, Y{hy:.2}, Z{hz:.2})",
+                self.radius * 2.0,
+            ),
+            segment_index,
+            plunge_depth: depth,
+        }
+    }
+}
+
 /// Check toolpath for tool holder & collet interference against a defined stock volume `[min_x, max_x, min_y, max_y, min_z, max_z]`.
 pub fn check_tool_holder_collision(
     toolpath: &Toolpath,
@@ -66,7 +136,6 @@ pub fn check_tool_holder_collision(
     stock_bounds: [f64; 6],
 ) -> Vec<CollisionFinding> {
     let mut findings = Vec::new();
-    let stock_top_z = stock_bounds[5];
 
     // The body that can foul the stock is the widest of the assembly, not the cutter. Testing the
     // tip against the raw footprint misses the case this rule exists for: a cut just outside the
@@ -94,46 +163,23 @@ pub fn check_tool_holder_collision(
             (0.0, 0.0, 1.0)
         };
 
-        let tilt_radial_drop = holder_radius * libm::sqrt(ux * ux + uy * uy);
-
         if let Some(ref sections) = holder.sections {
             let mut cumulative_dist = holder.stickout_length;
             let mut collided = false;
             for sec in sections {
                 let sec_radius = sec.diameter.max(0.0) / 2.0;
-                let sec_drop = sec_radius * libm::sqrt(ux * ux + uy * uy);
                 let num_sec_samples = 3;
                 let step = sec.length.max(1.0) / (num_sec_samples as f64);
                 for s in 0..=num_sec_samples {
                     let dist = cumulative_dist + (s as f64 * step);
-                    let hx = x + ux * dist;
-                    let hy = y + uy * dist;
-                    let hz = z + uz * dist;
-                    let lowest_holder_z = hz - sec_drop;
-
-                    let in_stock_xy = hx >= stock_bounds[0] - sec_radius
-                        && hx <= stock_bounds[1] + sec_radius
-                        && hy >= stock_bounds[2] - sec_radius
-                        && hy <= stock_bounds[3] + sec_radius;
-
-                    if in_stock_xy && lowest_holder_z < stock_top_z && hz >= stock_bounds[4] {
-                        let is_5axis = ux.abs() > 1e-4 || uy.abs() > 1e-4;
-                        let code = if is_5axis {
-                            "TOOL_HOLDER_5AXIS_COLLISION"
-                        } else {
-                            "TOOL_HOLDER_COLLISION"
-                        };
-                        let depth = stock_top_z - z;
-                        findings.push(CollisionFinding {
-                            severity: Severity::Error,
-                            code: code.into(),
-                            message: format!(
-                                "Tool holder section (⌀{:.2}mm) collides with stock top (lowest point Z{lowest_holder_z:.2}mm < Z{stock_top_z:.2}mm); centerline at (X{hx:.2}, Y{hy:.2}, Z{hz:.2})",
-                                sec_radius * 2.0,
-                            ),
-                            segment_index: idx,
-                            plunge_depth: depth,
-                        });
+                    let sample = HolderSample {
+                        centre: [x + ux * dist, y + uy * dist, z + uz * dist],
+                        radius: sec_radius,
+                        tip_z: z,
+                        axis: [ux, uy, uz],
+                    };
+                    if sample.collides(stock_bounds) {
+                        findings.push(sample.finding(stock_bounds, "Tool holder section", idx));
                         collided = true;
                         break;
                     }
@@ -154,35 +200,14 @@ pub fn check_tool_holder_collision(
 
         for s in 0..=num_samples {
             let dist = holder.stickout_length + (s as f64 * sample_step);
-            let hx = x + ux * dist;
-            let hy = y + uy * dist;
-            let hz = z + uz * dist;
-            let lowest_holder_z = hz - tilt_radial_drop;
-
-            let in_stock_xy = hx >= stock_bounds[0] - holder_radius
-                && hx <= stock_bounds[1] + holder_radius
-                && hy >= stock_bounds[2] - holder_radius
-                && hy <= stock_bounds[3] + holder_radius;
-
-            if in_stock_xy && lowest_holder_z < stock_top_z && hz >= stock_bounds[4] {
-                let is_5axis = ux.abs() > 1e-4 || uy.abs() > 1e-4;
-                let code = if is_5axis {
-                    "TOOL_HOLDER_5AXIS_COLLISION"
-                } else {
-                    "TOOL_HOLDER_COLLISION"
-                };
-
-                let depth = stock_top_z - z;
-                findings.push(CollisionFinding {
-                    severity: Severity::Error,
-                    code: code.into(),
-                    message: format!(
-                        "Tool holder (⌀{:.2}mm) collides with stock top (lowest point Z{lowest_holder_z:.2}mm < Z{stock_top_z:.2}mm); centerline at (X{hx:.2}, Y{hy:.2}, Z{hz:.2})",
-                        holder_radius * 2.0,
-                    ),
-                    segment_index: idx,
-                    plunge_depth: depth,
-                });
+            let sample = HolderSample {
+                centre: [x + ux * dist, y + uy * dist, z + uz * dist],
+                radius: holder_radius,
+                tip_z: z,
+                axis: [ux, uy, uz],
+            };
+            if sample.collides(stock_bounds) {
+                findings.push(sample.finding(stock_bounds, "Tool holder", idx));
                 break;
             }
         }

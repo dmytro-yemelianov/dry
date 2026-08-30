@@ -79,6 +79,23 @@ pub struct Contracts {
     /// orientation-reachability rules. `None` disables all three.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotary: Option<RotaryContracts>,
+    /// Require the spindle/laser power channel to read `0` on every travel segment
+    /// (`laser-power-during-travel`).
+    ///
+    /// Contract-gated rather than always-on, by the same test `RotaryContracts` states: it is a
+    /// property of the **process**, not of the IR. `Op::Power` is one channel with two meanings —
+    /// "the target controller's `S` word value: RPM for a spindle, PWM counts for a laser" — and the
+    /// two disagree about travel. A lit beam crossing a travel burns a line the design never asked
+    /// for; a spindle turning through a rapid is not a hazard but mandatory practice, and stopping it
+    /// between passes would be wrong. An always-on rule cannot tell them apart from `Segment.power`
+    /// alone, so it errored on both: on an ordinary milling rapid at `S8000`, and on Dry's own
+    /// resolved laser output, since the channel is sticky and no in-tree producer forces travels
+    /// dark. Only a profile knows which process it is describing, so only a profile may turn this on.
+    ///
+    /// Whether `resolve` should itself force travels dark is a separate, still-open question
+    /// (`docs/04-tasks.md`); gating the rule does not decide it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub travel_must_be_dark: Option<bool>,
 }
 
 /// Kinematic limits checked by the `peak-acceleration` (arc centripetal) and `junction-velocity`
@@ -482,8 +499,11 @@ impl RuleId {
             | RuleId::NegativeQuantity
             | RuleId::SegmentLength
             | RuleId::ArcLength
-            | RuleId::FilamentConsistency
-            | RuleId::LaserPowerDuringTravel => true,
+            | RuleId::FilamentConsistency => true,
+            // Process-gated: see `Contracts::travel_must_be_dark`. A spindle running through a rapid
+            // and a laser burning through one are the same `Segment.power`; only a profile knows
+            // which it is.
+            RuleId::LaserPowerDuringTravel => c.travel_must_be_dark.is_some_and(|dark| dark),
             // A ceiling is only in force if it can actually decide anything. Every comparison
             // against a NaN ceiling is false, so a rule carrying one can never fire — and reporting
             // it as evaluated is exactly the vacuous pass `rules_evaluated` exists to rule out
@@ -975,7 +995,10 @@ where
                 ),
             );
         }
-        if s.travel && s.power.unwrap_or(0.0) > 0.0 {
+        if c.travel_must_be_dark.is_some_and(|dark| dark)
+            && s.travel
+            && s.power.unwrap_or(0.0) > 0.0
+        {
             push_finding(
                 &mut r,
                 RuleId::LaserPowerDuringTravel,
@@ -1883,14 +1906,14 @@ mod tests {
                 "segment-length",
                 "arc-length",
                 "filament-consistency",
-                "laser-power-during-travel",
             ],
             "the always-on structural set changed"
         );
 
         // Of those, the ones that can flip `ok()`. Before H1.3 this was 5 of 18; H1.3 took it to 9 of
         // 11, and downgrading `travel-extrudes` to a warning takes it to 8 — a rule leaving this
-        // count is the same decision as one joining it.
+        // count is the same decision as one joining it. `laser-power-during-travel` briefly made it
+        // 9 while it was always-on; process-gating it returns the always-on error set to 8.
         let can_fail: Vec<&str> = evaluated
             .iter()
             .copied()
@@ -1898,7 +1921,7 @@ mod tests {
             .collect();
         assert_eq!(
             can_fail.len(),
-            9,
+            8,
             "error-severity always-on rules: {can_fail:?}"
         );
         assert_eq!(RuleId::ALL.len(), 28);
@@ -1923,6 +1946,7 @@ mod tests {
                 max_junction_velocity_mm_s: Some(8.0),
             }),
             rotary: Some(crate::emit::REFERENCE_FIVE_AXIS_LIMITS),
+            travel_must_be_dark: Some(true),
         };
         assert!(RuleId::ALL.into_iter().all(|r| r.is_evaluated(&c)));
 
@@ -1933,7 +1957,7 @@ mod tests {
             meta: None,
             segments: Vec::new(),
         };
-        assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 12);
+        assert_eq!(verify(&tp, &Contracts::default()).rules_evaluated.len(), 11);
         assert_eq!(verify(&tp, &c).rules_evaluated.len(), 28);
     }
 

@@ -43,6 +43,7 @@ are warnings.
 | `rotary-travel` | error | a rotary axis is commanded outside its travel range | `machine.rotary.travel_deg` |
 | `rotary-feed` | **warning** | a rotary axis would have to turn faster than its rate limit to keep up with the move | `machine.rotary.max_feed_deg_min` |
 | `orientation-reachability` | error | an orientation puts the tool outside the machine's reachable envelope | `machine.rotary.envelope_mm` |
+| `laser-power-during-travel` | error | the spindle/laser power channel is non-zero on a travel move | `process.travel_must_be_dark` |
 
 The rule set is **closed**: a reader MAY treat an unknown rule id as a forward-compatible addition, but
 the engine only emits ids from this table. Adding a rule is a minor change; removing or re-typing one, or
@@ -74,6 +75,24 @@ time — a zero-length reorientation states no duration to divide by, which is a
 machine-limit violation. `rotary-feed` is a **warning** because a controller does not refuse a rotary axis
 it cannot drive fast enough: it slows the whole synchronised move down, so what is wrong is the plan, not
 the geometry.
+
+**`laser-power-during-travel`** is contract-gated by the same test, and it is worth stating why, because
+it shipped always-on first and that was wrong in both directions. `Op::Power` is a single channel with two
+meanings — "the target controller's `S` word value: RPM for a spindle, PWM counts for a laser" — and the
+two disagree about travel. A lit beam crossing a travel burns a line the design never asked for; a spindle
+turning through a rapid is not a hazard but mandatory practice, and stopping it between passes would be
+wrong. Nothing in `Segment.power` distinguishes them, so an always-on rule errored on an ordinary milling
+rapid at `S8000` *and* on Dry's own resolved laser output — the power channel is sticky and no in-tree
+producer forces travels dark, which is precisely the "a Dry producer can violate it" test for not
+always-on. Only a profile knows which process it describes, so only `process.travel_must_be_dark` may turn
+it on. There is deliberately **no CLI flag**, matching `process.bead_volume_tolerance`: a flag would let a
+caller assert "this is a laser" about a file it knows nothing about, which is the same
+producer-picks-its-own-severity hazard recorded for `travel-extrudes` below. Under the contract the rule
+is an **error**, and the authoring pattern it enforces is an explicit `power(0.0)` before the travel.
+
+Note what this does *not* settle: whether `resolve` should force travels dark on its own, so that a lit
+travel could never reach the IR in the first place. That remains open (`docs/04-tasks.md`); gating the
+rule makes it correct for what it checks without deciding the producer's semantics.
 
 `travel-extrudes` stays always-on but is a **warning**, because it states a disagreement inside the IR
 rather than an unsafe program. `travel` is a *classification*: every travel `resolve` and `optimize`

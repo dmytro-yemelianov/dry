@@ -129,6 +129,17 @@ fn test_tilted_5axis_toolholder_collision() {
     let findings = check_tool_holder_collision(&toolpath, &holder, stock_bounds);
     assert!(!findings.is_empty());
     assert_eq!(findings[0].code, "TOOL_HOLDER_5AXIS_COLLISION");
+    // The message text was untested until the two holder paths were folded onto one
+    // `HolderSample` (so `FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH` could keep a unique source
+    // anchor). Pin it, so a later refactor cannot reword a finding operators read without saying so.
+    // Z-17.07 is the original formula's own value, which is the point: the widest body radius
+    // (⌀50/2 = 25 mm) swung through 45° drops 25·sin45° = 17.678 mm below the sampled centreline at
+    // Z0.61. Folding the two paths together changed no arithmetic.
+    assert_eq!(
+        findings[0].message,
+        "Tool holder (⌀50.00mm) collides with stock top (lowest point Z-17.07mm < Z0.00mm); \
+         centerline at (X60.61, Y50.00, Z0.61)"
+    );
 }
 
 #[test]

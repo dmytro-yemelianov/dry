@@ -39,6 +39,7 @@ schema validates the canonical names.
 | `process` | `max_travel_without_retraction` | mm > 0 | — | |
 | `process` | `first_layer_height_range` | `[min,max]` mm ≥ 0 | — | |
 | `process` | `first_layer_speed_range` | `[min,max]` mm/min ≥ 0 | — | |
+| `process` | `travel_must_be_dark` | bool | — | beam-based process: require zero spindle/laser power on every travel |
 | — | `start_gcode` / `end_gcode` | string \| `[string]` | — | a multi-line string or a list of command lines |
 
 Validation rules (enforced by `Profile::validate`): `version == 1`; every range has `lo ≤ hi`; positive

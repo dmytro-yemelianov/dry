@@ -372,6 +372,10 @@ fn resolve_verify(
         // Rotary limits are machine facts that arrive with a profile; this entry point takes loose
         // kwargs and has no profile, so the three rotary rules stay unevaluated here.
         rotary: None,
+        // Whether travels must be dark is a fact about the *process*, and arrives with a profile for
+        // the same reason the rotary limits do. Left unset here, so `laser-power-during-travel` stays
+        // unevaluated rather than firing on a spindle program whose rapids are correct.
+        travel_must_be_dark: None,
     };
 
     let tp = resolve_checked(&design, &params).map_err(|e| PyValueError::new_err(e.to_string()))?;

@@ -226,6 +226,14 @@ pub struct ProcessProfile {
     /// `E` while the bead comes from a user-supplied constant, so it cannot be checked always-on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bead_volume_tolerance: Option<f64>,
+    /// Require the spindle/laser power channel to read `0` on every travel (`laser-power-during-travel`).
+    ///
+    /// Opt-in, and only a *process* can opt in: `Op::Power` carries spindle RPM and laser PWM alike,
+    /// and a spindle turning through a rapid is correct while a lit beam crossing one is not. Set it
+    /// on a laser/plasma/waterjet profile; leave it unset for milling. See
+    /// `Contracts::travel_must_be_dark`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub travel_must_be_dark: Option<bool>,
 }
 
 /// A profile parse or validation error.
@@ -417,6 +425,7 @@ impl Profile {
             first_layer_height_range: self.process.first_layer_height_range,
             first_layer_speed_range: self.process.first_layer_speed_range,
             bead_volume_tolerance: self.process.bead_volume_tolerance,
+            travel_must_be_dark: self.process.travel_must_be_dark,
             kinematics: self.machine.kinematics.as_ref().map(|k| {
                 crate::verify::KinematicContracts {
                     max_acceleration_mm_s2: k.max_acceleration_mm_s2,

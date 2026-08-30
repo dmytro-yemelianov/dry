@@ -194,11 +194,19 @@ verifier, so `emit` is the last gate.
    is heavily gated and the product is not deployable: no authentication, no observability, no deploy
    pipeline, and two divergent sketches of one service. That roadmap, not this list, is where the next
    phase of work lives.
-2. **A "beam on during travel" verify rule, if `resolve` is changed first.** Declined during P5.4
-   with evidence: `resolve` emits a lit travel from a legal design because the channel is sticky, so
-   an always-on rule would refuse Dry's own output — and only 1 of 50 frozen toolpaths carries the
-   channel, with no travel segments, so a corpus probe would return the vacuous pass H1.3 exists to
-   expose. Closing it needs a semantics decision about whether `resolve` should force travels dark.
+2. **Should `resolve` force travels dark?** The narrower question — a "beam on during travel" verify
+   rule — is now **closed**; this is the half that remains. `laser-power-during-travel` landed in
+   `b2a05ef` as an always-on **error**, against the P5.4 decision recorded here, and was wrong in
+   both directions until it was gated on `process.travel_must_be_dark`. The P5.4 evidence held
+   exactly as written — `resolve` emits a lit travel from a legal design because the channel is
+   sticky, so the always-on rule refused Dry's own laser output — and a second failure had been
+   missed: `Op::Power` is *one* channel carrying spindle RPM as well as laser PWM, so the rule also
+   errored on an ordinary milling rapid at `S8000`, where a turning spindle is mandatory practice
+   rather than a hazard. Only a profile knows which process it is describing, so only a profile may
+   turn the rule on (`docs/11-profiles-and-reports.md`). **Still open, and unaffected by that
+   gating:** whether `resolve` should force travels dark at the producer, so a lit travel could never
+   reach the IR. Deciding yes would change emitted laser output and its goldens, which is why it was
+   not folded into the gating fix.
 3. **A Lean model for the resolve channels** — `proofs/fixtures/resolve-channels-refinement-v0.json`
    is generated from a semantics with no `power` channel, which is *why* a `power-does-not-propagate`
    mutation cannot be added: it would survive and fail the checker. Until the model learns the

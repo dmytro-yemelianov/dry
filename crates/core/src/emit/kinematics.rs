@@ -764,6 +764,24 @@ mod tests {
     }
 }
 
+/// The `J5` magnitude, in radians, at or below which the spherical wrist is treated as singular and
+/// `J4` is held at its previous value rather than recomputed.
+///
+/// Same shape as [`SINGULAR_CONE_SIN_TILT`] and the same reason: at `J5 = 0` the wrist's fourth and
+/// sixth axes become colinear, so `atan2(r03_t_orient[1], r03_t_orient[0])` is reading a direction
+/// the pose no longer determines, and spinning `J4` to whatever it returns is motion with no
+/// geometric meaning. Deliberately **much coarser** than the `1e-9` cone threshold, and it is worth
+/// being explicit about why the two differ by four orders of magnitude rather than leaving the
+/// asymmetry to be rediscovered: the cone epsilon is bounded by what a `{v:.6}` G-code word can
+/// print, whereas this one guards a *joint-space* solve whose consumers are robot post-processors
+/// with their own interpolation. `1e-5` rad is 5.7e-4°, which is above a typical robot's repeatability
+/// but small enough that the substituted `J4` cannot move the TCP appreciably.
+///
+/// Recorded as `policy` rather than `bounded` in the numeric profile: unlike the cone threshold, no
+/// worst-case TCP error has been derived for it. That derivation is the open obligation registered
+/// with `FM1.F64.EMIT.ROBOT6.WRIST_SINGULAR_HOLD`.
+const WRIST_SINGULAR_J5_RAD: f64 = 1e-5;
+
 /// Standard Denavit-Hartenberg (DH) parameter for a revolute robot joint.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct DhParam {
@@ -1010,7 +1028,7 @@ impl Robot6AxisModel {
         let j6_rad: f64 = 0.0;
 
         // Wrist singularity handling: if J5 is near 0 rad, hold J4 to previous state
-        if j5_rad.abs() < 1e-5 {
+        if j5_rad.abs() < WRIST_SINGULAR_J5_RAD {
             j4_rad = prev_joints.j4_deg.to_radians();
             j5_rad = 0.0;
         } else {

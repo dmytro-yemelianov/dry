@@ -52,7 +52,6 @@
     "negative-quantity",
     "segment-length",
     "arc-length",
-    "filament-consistency",
-    "laser-power-during-travel"
+    "filament-consistency"
   ]
 }
