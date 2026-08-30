@@ -125,8 +125,38 @@ impl FleetManager {
     ) -> Vec<TelemetryAnomaly> {
         let mut anomalies = Vec::new();
 
+        // A reading that is not a number is itself the anomaly, and must be reported *before* the
+        // deviation tests below — because they cannot report it. `(NaN - target).abs()` is `NaN`,
+        // and `NaN > 15.0` is false, so a printing machine whose thermistor reads `NaN` came back
+        // with an empty anomaly list: healthy. A disconnected or failed thermistor is precisely the
+        // fault a thermal-runaway detector exists to catch, so failing open there is the worst
+        // available behaviour. (An infinite reading was already caught, since `inf > 15.0` holds —
+        // only `NaN` slipped through, which is what makes this the kind of gap that survives
+        // testing.)
+        if telemetry.state == "printing" {
+            for (name, value) in [
+                ("nozzle_temp_c", telemetry.nozzle_temp_c),
+                ("bed_temp_c", telemetry.bed_temp_c),
+            ] {
+                if !value.is_finite() {
+                    anomalies.push(TelemetryAnomaly {
+                        severity: "critical".into(),
+                        code: "SENSOR_READING_INVALID".into(),
+                        message: format!(
+                            "{name} reported {value}, which is not a temperature;                              the printer's thermal state cannot be assessed"
+                        ),
+                        metric_name: name.into(),
+                        observed_value: value,
+                    });
+                }
+            }
+        }
+
         // Check nozzle temperature runaway or under-temp when printing
-        if telemetry.state == "printing" && target_nozzle_temp > 0.0 {
+        if telemetry.state == "printing"
+            && target_nozzle_temp > 0.0
+            && telemetry.nozzle_temp_c.is_finite()
+        {
             let nozzle_error = (telemetry.nozzle_temp_c - target_nozzle_temp).abs();
             if nozzle_error > 15.0 {
                 anomalies.push(TelemetryAnomaly {
@@ -143,7 +173,10 @@ impl FleetManager {
         }
 
         // Check bed temperature runaway
-        if telemetry.state == "printing" && target_bed_temp > 0.0 {
+        if telemetry.state == "printing"
+            && target_bed_temp > 0.0
+            && telemetry.bed_temp_c.is_finite()
+        {
             let bed_error = (telemetry.bed_temp_c - target_bed_temp).abs();
             if bed_error > 10.0 {
                 anomalies.push(TelemetryAnomaly {
