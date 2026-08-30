@@ -1,6 +1,6 @@
 {
   "name": "@dry/sdk",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the Dry engine (Rust, via wasm).",
   "license": "FSL-1.1-MIT",

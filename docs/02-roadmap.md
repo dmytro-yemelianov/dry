@@ -14,18 +14,18 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 |---|---|---|---|
 | **`v0.1.0` – `v0.5.0`** | **Phases 0–5** | Rust kernel foundations, L0–L3 lowering, Python & TS SDKs, Wasm runtime, 5-axis toolframe kinematics, CNC & Robot emitters. | **Completed** |
 | **`v0.6.0`** | **Phase 6 / Baseline** | Commercial licensing (`crates/license`), offline Ed25519 token verification, cloud eval gate, and FullControl oracle retirement. | **Completed** |
-| **`v0.7.0`** | **Production Opening (Current)** | **FSL-1.1-MIT licensing adoption**, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Active Release** |
-| **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **Active Release** |
-| **`v0.8.0`** | **Next Minor Horizon** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Merged, not released** |
+| **`v0.7.0`** | **Production Opening** | **FSL-1.1-MIT licensing adoption**, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Superseded by v0.9.0** |
+| **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **Superseded by v0.9.0** |
+| **`v0.8.0`** | **Phase 7** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Released within v0.9.0** |
+| **`v0.9.0`** | **Phase 8 (Current)** | Industrial CNC & robot post-processors (Sinumerik, Haas, Heidenhain, ABB RAPID), digital-twin physics simulator, generative CAM assistant, 3D WebGL visualizer — plus full CLI/SDK capability parity and a gate that enforces it. | **Active Release** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
-> **Version status (2026-08-30).** "Merged" and "released" are not the same claim, and this table had
-> been making the stronger one. `Cargo.toml` reads **`0.7.0`**, and `CHANGELOG.md`'s newest versioned
-> entry is `[0.7.0]`; the v0.8.0 and Phase 8 (v0.9.0) work is merged to `main` but carries no version
-> stamp, no changelog entry under its own heading and no release. The merged-but-unreleased work is
-> recorded under `[Unreleased]` in `CHANGELOG.md` pending that decision. Deciding what to call it —
-> and whether the `laser-power-during-travel` gating and the `solve_ik` narrowing make it a minor or a
-> patch — is a release-engineering call, not a documentation fix.
+> **Version status (2026-08-30).** Released as **v0.9.0**, which carries both this table's v0.8.0
+> (Phase 7) and v0.9.0 (Phase 8) horizons: both were merged to `main` and neither was ever cut, so one
+> release covers them rather than tagging the same tree twice. `Cargo.toml` and every published
+> manifest read `0.9.0` (`scripts/check-version.sh v0.9.0`), and `CHANGELOG.md` carries the matching
+> `[0.9.0]` heading. Earlier this table showed v0.8.0 as "Completed (Merged)" in a Status column read
+> as released — merged and released are different claims, and the wording now separates them.
 
 
 ---
