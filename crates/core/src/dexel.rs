@@ -167,7 +167,24 @@ impl DexelGrid {
     }
 
     /// Simulates a full toolpath against the stock workpiece.
-    pub fn simulate_toolpath(&mut self, toolpath: &Toolpath, tool_radius: f64, is_ballnose: bool) {
+    /// Carve every cutting segment of `toolpath` out of the stock.
+    ///
+    /// Refuses a `tool_radius` that is not finite and positive. Returning `Ok(())` after carving
+    /// nothing would be indistinguishable from a toolpath that genuinely misses the stock: the report
+    /// would read `removed_volume_mm3 = 0.0`, a finite and entirely plausible number, and a caller
+    /// would reasonably conclude the program does not cut. `new_stock` already refuses a
+    /// non-positive resolution for the same reason; this closes the other half.
+    pub fn simulate_toolpath(
+        &mut self,
+        toolpath: &Toolpath,
+        tool_radius: f64,
+        is_ballnose: bool,
+    ) -> Result<(), String> {
+        if !(tool_radius.is_finite() && tool_radius > 0.0) {
+            return Err(format!(
+                "tool_radius must be finite and > 0, got {tool_radius}"
+            ));
+        }
         for seg in &toolpath.segments {
             if !seg.travel {
                 let start_pt = [
@@ -183,6 +200,7 @@ impl DexelGrid {
                 self.carve_segment(start_pt, end_pt, tool_radius, is_ballnose);
             }
         }
+        Ok(())
     }
 
     /// Calculates total initial stock volume (mm³).

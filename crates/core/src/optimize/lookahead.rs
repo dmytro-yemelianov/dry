@@ -50,6 +50,20 @@ pub fn optimize_five_axis_lookahead(
     if toolpath.segments.is_empty() {
         return toolpath.clone();
     }
+    // Same contract as the engagement passes: limits that describe no machine are declined rather
+    // than applied. A zero or non-finite limit already no-ops here by arithmetic accident, but a
+    // *negative* acceleration was being honoured and slowed the path — an answer derived from a
+    // parameter that means nothing. Returning the input unchanged is the safe, consistent response.
+    let limits = [
+        params.max_linear_accel,
+        params.max_linear_jerk,
+        params.max_rotary_speed_deg_s,
+        params.max_rotary_accel_deg_s2,
+        params.max_rotary_jerk_deg_s3,
+    ];
+    if !limits.iter().all(|v| v.is_finite() && *v > 0.0) {
+        return toolpath.clone();
+    }
 
     let n = toolpath.segments.len();
     let mut max_entry_speeds = vec![0.0; n];
