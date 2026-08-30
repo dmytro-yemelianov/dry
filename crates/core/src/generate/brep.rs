@@ -257,6 +257,38 @@ pub struct BrepSolid {
     pub surfaces: Vec<SurfacePrimitive>,
 }
 
+/// Contour-sample budget guardrail for interactive and untrusted use.
+///
+/// The same protection `generate/tpms.rs` has carried since H1.4 (`DEFAULT_MAX_FIELD_SAMPLES`), and
+/// which B-Rep slicing had none of. `slice_to_l1_ops` walks `z` from `z_start` to `z_end` in
+/// `layer_height` steps, sampling every surface at each: `z_start = 0, z_end = 1e9,
+/// layer_height = 1e-6` is 10^15 slices, and the process is killed rather than answering. This
+/// surface is exposed on every SDK including wasm, so that is a browser tab that never comes back.
+const MAX_CONTOUR_SAMPLES: f64 = 6_000_000.0;
+
+/// Reject a slice request whose sample count blows the guardrail, before doing any of the work.
+fn assert_slice_budget(
+    z_start: f64,
+    z_end: f64,
+    layer_height: f64,
+    samples_per_slice: usize,
+    surfaces: usize,
+) -> Result<(), BrepError> {
+    let layers = ((z_end - z_start) / layer_height).floor() + 1.0;
+    let estimated = layers * samples_per_slice as f64 * surfaces.max(1) as f64;
+    if estimated <= MAX_CONTOUR_SAMPLES {
+        return Ok(());
+    }
+    Err(BrepError {
+        message: format!(
+            "B-Rep slice budget exceeded ({} contour samples > {}). \
+             Raise the layer height, narrow the Z range, or reduce samples_per_slice.",
+            libm::ceil(estimated),
+            libm::ceil(MAX_CONTOUR_SAMPLES)
+        ),
+    })
+}
+
 impl BrepSolid {
     /// Create a new empty B-Rep solid.
     pub fn new(name: impl Into<String>) -> Self {
@@ -285,11 +317,41 @@ impl BrepSolid {
                 message: "layer_height must be positive and finite".into(),
             });
         }
+        // `z_end < z_start` is false when either is NaN, so the ordering check below cannot stand
+        // alone: a NaN bound produced an empty op list, which is the vacuous-program class rather
+        // than a refusal.
+        if !z_start.is_finite() || !z_end.is_finite() {
+            return Err(BrepError {
+                message: format!(
+                    "slice bounds must be finite, got z_start={z_start} z_end={z_end}"
+                ),
+            });
+        }
         if z_end < z_start {
             return Err(BrepError {
                 message: "z_end cannot be less than z_start".into(),
             });
         }
+        // The feedrate is written straight into `Op::Speed`, so an unchecked value put invalid IR
+        // into the op stream for `resolve` to reject later — or, for a negative feed, reintroduced
+        // exactly what ingress validation refuses.
+        if !feedrate.is_finite() || feedrate <= 0.0 {
+            return Err(BrepError {
+                message: format!("feedrate must be finite and > 0, got {feedrate}"),
+            });
+        }
+        if samples_per_slice == 0 {
+            return Err(BrepError {
+                message: "samples_per_slice must be > 0".into(),
+            });
+        }
+        assert_slice_budget(
+            z_start,
+            z_end,
+            layer_height,
+            samples_per_slice,
+            self.surfaces.len(),
+        )?;
 
         let mut ops = Vec::new();
         let mut z = z_start;
