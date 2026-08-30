@@ -25,6 +25,23 @@ Do not rely on Dry for any of these today:
     extrusion is not carried at all, and the default identity `$TOOL` puts the TCP at the flange, so
     the emitted coordinates ignore tool length until a real `$TOOL` is supplied. Full boundary:
     [`22-krl-emit.md`](22-krl-emit.md).
+  - **The Phase 8 industrial dialects have had no controller contact at all.** Siemens Sinumerik
+    840D/ONE, Haas NextGen, Heidenhain TNC and ABB RAPID emit structurally plausible programs and are
+    covered by unit tests over their own output — which is weaker evidence than KRL has, since KRL is
+    at least parsed by an external grammar. No independent interpreter checks any of the four, and
+    none has been loaded on a control. Only RS-274 is gated by a genuine external interpreter
+    (LinuxCNC `rs274`, CI job `linuxcnc`).
+- **A production robot kinematics solver.** `Robot6AxisModel::solve_ik` is a **five**-degree-of-freedom
+  solve returned in a six-joint shape: `J6` is never determined and always reads `0.0`, because a TCP
+  point plus a tool *direction* does not fix the roll about the tool axis and the signature takes no
+  roll reference. It produces only the elbow-up branch, so it cannot follow a path requiring
+  reconfiguration, and it checks reach but neither joint travel limits nor self-collision — an
+  accepted solve is not a claim that the pose is attainable.
+- **The digital-twin physics simulator is analytic, not validated.** Cutting force, tool deflection,
+  shear-zone temperature, Taylor tool life and chatter boundaries are closed-form estimates from
+  textbook models with published coefficients. Nothing in this repo compares them against a
+  dynamometer, a thermocouple or a real cut. Treat the numbers as indicative, not as a process
+  guarantee.
 - **A complete non-planar / 5-axis workflow.** The toolframe orientation is a first-class IR property and
   5-axis rotary emission exists, but there is no kinematics validation, collision/singularity handling, or
   real-machine gating. Treat 5-axis as experimental.
@@ -34,6 +51,26 @@ Do not rely on Dry for any of these today:
 - **Safety guarantees beyond the documented rules.** `verify` enforces exactly the rule catalog in
   `docs/11-profiles-and-reports.md` — nothing more. A clean report means "none of these rules fired", not
   "safe to print unattended".
+
+## Cross-target parity is not uniform
+
+Dry's SDKs do **not** all expose the same engine. The Python, wasm and TypeScript bindings carry the
+FFF authoring surface, the generators, B-Rep slicing and dexel simulation — but the Phase 7/8
+additions are reachable only from `dry-core` and, in part, the CLI:
+
+| Capability | `dry-core` | CLI | Python | wasm | TS |
+|---|---|---|---|---|---|
+| 5-axis jerk-limited lookahead (`optimize_five_axis_lookahead`) | yes | no | no | no | no |
+| Machining physics (`analyze_machining_physics`) | yes | no | no | no | no |
+| Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | no | no | no |
+| B-Rep multi-solid + CSG slicing | yes | **no** | yes | yes | yes |
+| Dexel stock simulation | yes | **no** | yes | yes | yes |
+
+The gap runs in **both** directions, which is the part worth noticing: the newest kernel work has not
+reached the bindings, and B-Rep slicing and dexel simulation reach all three bindings but have no CLI
+surface at all. Nothing gates either direction — no test or CI job asserts that a capability added to
+the kernel reaches the bindings, or the CLI — so this table is a snapshot rather than a contract.
+Check it against the source before relying on a capability from any one surface.
 
 ## Sharp edges in what Dry does do
 

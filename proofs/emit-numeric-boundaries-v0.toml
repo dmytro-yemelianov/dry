@@ -13,7 +13,13 @@ hash_mode = "file"
 # and its budgets are untouched; the two new predicates the commit introduced are registered at the
 # end of this file. Also folded in: the assertion moved inside its sampling loop in the
 # `worst_measured` test (a running max, so the check is equivalent), and a rustfmt-only reformat.
-sha256 = "c116dc07dee25fe615c7cab13f401560d7b5d414f98c5327e0cc49c67f3d758e"
+#
+# Re-pinned again the same day for the follow-up that review produced: `solve_ik` now refuses a
+# non-finite TCP point, a zero or non-finite tool direction and a non-finite previous joint state,
+# and normalises the direction through `unit_orientation`. Both are narrowings — the refused inputs
+# previously returned `Ok` with `NaN` in every joint, and a non-unit direction silently displaced the
+# wrist centre by `d6·(‖v‖ − 1)`. Neither touches the cone predicate or either 6-axis threshold.
+sha256 = "d0c36119fd551ff3b11552011dd4bf7c2a7f4640d1ed686e4f0fbdb80c8a3e5d"
 
 # ---------------------------------------------------------------------------------------------
 # The 5-axis side owns exactly one tolerance-bearing predicate, and this is it. Everything else on
@@ -99,7 +105,7 @@ classification = "interval-bounded"
 numeric_status = "bounded"
 assumptions = [
   "prev_joints carries a J4 the caller actually reached; the solver cannot tell a seeded default from a measured state, exactly as RotaryState's C is seeded at the identity.",
-  "tool_orient is treated as a direction; solve_ik does not normalise it, unlike unit_orientation on the 5-axis path, so a non-unit vector shifts the wrist centre by d6*(|v|-1).",
+  "tool_orient is normalised through unit_orientation before use, exactly as the 5-axis path does, so a direction's length cannot shift the wrist centre; a zero or non-finite direction is refused rather than solved.",
   "The DH convention is standard (not modified) DH, with alpha4 = +PI/2 and alpha5 = -PI/2 as the doc comment states.",
 ]
 exclusions = [
@@ -108,7 +114,7 @@ exclusions = [
   "The elbow/shoulder configuration choice. Only the positive-sin_phi (elbow-up) branch is produced; the mirrored solutions of the same pose are never considered, so the solver cannot follow a path that requires reconfiguration.",
   "Joint travel limits and self-collision: solve_ik refuses only points outside the arm's reach, not poses the arm cannot legally adopt.",
 ]
-next_obligation = "Derive the TCP error implied by the held J4 and promote the budget to `bounded`, or tighten the threshold to what the derivation supports. Solving J6 (or renaming the result to state that it is a 5-DOF solve) is the separate correctness obligation."
+next_obligation = "Derive the TCP error implied by the held J4 and promote the budget to `bounded`, or tighten the threshold to what the derivation supports. J6 is now documented as unsolved on solve_ik itself and pinned by solve_ik_does_not_determine_j6; actually solving it needs a roll reference this signature does not take, so it remains a design question rather than a bug."
 evidence = [
   "crates/core/src/emit/kinematics.rs",
   "crates/core/tests/robot_6axis_kinematics.rs",
@@ -138,9 +144,9 @@ assumptions = [
 exclusions = [
   "How far outside reach a refused point is: the error carries no distance, so a caller cannot tell a target 0.1 mm past the envelope from one a metre past it.",
   "The interior of the workspace. Reachability here is the elbow triangle alone; joint travel limits, the shoulder singularity at r = 0, and self-collision are all unmodelled, so an accepted solve is not a claim that the pose is attainable.",
-  "Non-finite input: a NaN tcp_pos makes cos_phi NaN, and NaN.abs() > 1.0 is false, so the refusal does not fire and the solve proceeds to return NaN joints.",
+  "Non-finite input reaching *this* comparison: it cannot. A NaN tcp_pos would make cos_phi NaN and NaN.abs() > 1.0 is false, so this refusal alone never fired on it — solve_ik now rejects a non-finite TCP point, a zero or non-finite tool direction and a non-finite previous joint state at entry instead, so the reach test only ever sees finite input.",
 ]
-next_obligation = "Decide whether solve_ik should refuse non-finite input explicitly, the way unit_orientation refuses a zero or non-finite orientation on the 5-axis path; today the two entry points into this file disagree about that."
+next_obligation = "Settled: solve_ik now refuses non-finite input at entry and normalises its tool direction through unit_orientation, so both entry points into this file agree. The forward solves (solve_fk, solve_fk_pose, solve_all_link_positions) still return plain values and have no error channel to refuse into, which is the remaining asymmetry."
 evidence = [
   "crates/core/src/emit/kinematics.rs",
   "crates/core/tests/robot_6axis_kinematics.rs",

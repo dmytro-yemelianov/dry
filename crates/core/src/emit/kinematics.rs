@@ -949,12 +949,37 @@ impl Robot6AxisModel {
     }
 
     /// Compute Inverse Kinematics (IK) with spherical wrist singularity hold ($J_5 \approx 0$).
+    ///
+    /// **This is a five-degree-of-freedom solve returned in a six-joint shape.** `J6` is not solved
+    /// and is always `0.0`: the tool roll about its own axis is not determined by a TCP point plus a
+    /// tool *direction*, and this signature takes no roll reference to determine it from. A caller
+    /// that needs roll must set it themselves. Likewise only the elbow-up branch is produced, so the
+    /// solver cannot follow a path that requires reconfiguration.
+    ///
+    /// Refuses what carries no pose, on the same terms as [`unit_orientation`] on the 5-axis path:
+    /// a non-finite TCP point, a zero or non-finite tool direction, or a non-finite previous joint
+    /// state. Before this the refusals disagreed — `NaN.abs() > 1.0` is false, so the reach check
+    /// below never fired on non-finite input and the solve returned `Ok` with `NaN` in every joint,
+    /// which is the class `H1.1`/`H1.2` closed everywhere else. The direction is also *normalised*
+    /// here rather than used raw: it scales the wrist-centre offset `d6`, so a non-unit vector
+    /// silently displaced the wrist centre by `d6·(‖v‖ − 1)` and returned confidently wrong joints.
     pub fn solve_ik(
         &self,
         tcp_pos: [f64; 3],
         tool_orient: [f64; 3],
         prev_joints: &RobotJoints6,
     ) -> Result<RobotJoints6, String> {
+        if !tcp_pos.iter().all(|v| v.is_finite()) {
+            return Err(format!(
+                "TCP position [{}, {}, {}] must be finite",
+                tcp_pos[0], tcp_pos[1], tcp_pos[2]
+            ));
+        }
+        if !prev_joints.to_radians().iter().all(|v| v.is_finite()) {
+            return Err("previous joint state must be finite in every joint".to_string());
+        }
+        let tool_orient = unit_orientation(Some(tool_orient))?;
+
         let d6 = self.dh[5].d;
         // Wrist center position
         let wx = tcp_pos[0] - d6 * tool_orient[0];
