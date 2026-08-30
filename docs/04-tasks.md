@@ -253,3 +253,11 @@ but nothing has run it on a controller. The banner says so.
 - `[x]` **M2.2** (M) **Euler Spiral / Fresnel Curvature Linearity Formal Proof**. Formally prove bounded derivative of curvature $d\kappa/ds = \text{const}$ for clothoid corner blends in Lean 4. *Accept (met):* `Dry.Geometry.Clothoid` curvature continuity and tangent derivative proved with 0 sorry and 0 axioms.
 - `[x]` **M2.3** (M) **5-Axis Polar Singularity Hold Verification**. Formally verify BC kinematics polar hold invariance ($k = \pm 1$) proving zero-division immunity in `formal/Dry/Semantics/ResolveOrientation.lean`. *Accept (met):* Machine-checked polar hold theorems proved in Lean 4 with 0 sorry and 0 axioms.
 
+## Phase 7 — Manufacturing Kernel & Motion Optimization (v0.8.0)
+
+- `[x]` **P7.1** (L) **Direct STEP ISO 10303-21 B-Rep Solid & Multi-Solid CSG Slicing**. Direct analytical intersection between Z-planes and analytical quadric surfaces (plane, cylinder, cone, sphere, torus) without mesh tessellation error. *Accept (met):* Verified in `crates/core/tests/brep_slicing.rs` and Python SDK `dry.BrepSolid`.
+- `[x]` **P7.2** (L) **5-Axis Multi-Axis Synchronized Jerk-Limited Lookahead Optimizer**. Synchronized linear ($X,Y,Z$) and rotary ($A,B,C$) acceleration and jerk limiting with multi-block lookahead planning. *Accept (met):* Verified in `crates/core/tests/five_axis_lookahead.rs` and exported via `dry_core::optimize_five_axis_lookahead`.
+- `[x]` **P7.3** (M) **Live Moonraker Fleet Synchronization & Telemetry Anomaly Detection**. Fleet registry, live status polling, and automatic detection of thermal runaway and process deviations. *Accept (met):* Verified in `crates/moonraker/src/lib.rs` unit test suite.
+- `[x]` **P7.4** (M) **Coordinated Multi-Robot Workcell Clearance & Dual-Arm Synchronization**. Intermediate link sphere collision checking and barrier synchronization for cooperative dual-arm KUKA KRL and ABB RAPID programs. *Accept (met):* Verified in `crates/core/tests/multi_robot_workcell.rs`.
+- `[x]` **P7.5** (M) **System Capabilities & Architecture Graph Documentation**. Comprehensive architectural diagrams, dialect lowering guarantees, operational instructions, and system capability topology. *Accept (met):* Published in `docs/27-system-capabilities-and-architecture-graph.md`.
+

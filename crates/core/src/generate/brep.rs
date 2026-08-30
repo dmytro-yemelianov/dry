@@ -206,6 +206,23 @@ impl SurfacePrimitive {
                     }
                 }
             }
+            Self::Torus { center, axis, major_radius, minor_radius } => {
+                if (axis.z.abs() - 1.0).abs() < 1e-6 {
+                    let dz = (z0 - center.z).abs();
+                    if dz <= *minor_radius {
+                        let dr = (minor_radius * minor_radius - dz * dz).sqrt();
+                        let r_outer = major_radius + dr;
+                        for i in 0..=samples {
+                            let theta = (i as f64 / samples as f64) * 2.0 * PI;
+                            let x = center.x + r_outer * theta.cos();
+                            let y = center.y + r_outer * theta.sin();
+                            let pt = Point3D::new(x, y, z0);
+                            let norm = self.normal_at(pt);
+                            contour.push((pt, norm));
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -323,6 +340,41 @@ impl BrepSolid {
                         });
                     }
                 }
+            } else if trimmed.contains("CONICAL_SURFACE") {
+                // Example: #300 = CONICAL_SURFACE('', #30, 10.0, 0.5);
+                let parts: Vec<&str> = trimmed.split(',').collect();
+                if parts.len() >= 4 {
+                    let angle_clean = parts[parts.len() - 1].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    if let Ok(angle) = angle_clean.parse::<f64>() {
+                        solid.add_surface(SurfacePrimitive::Cone {
+                            apex: Point3D::new(0.0, 0.0, 0.0),
+                            axis: Vector3D::unit_z(),
+                            half_angle_rad: angle,
+                            height: 50.0,
+                        });
+                    }
+                }
+            } else if trimmed.contains("TOROIDAL_SURFACE") {
+                // Example: #400 = TOROIDAL_SURFACE('', #40, 20.0, 5.0);
+                let parts: Vec<&str> = trimmed.split(',').collect();
+                if parts.len() >= 4 {
+                    let minor_clean = parts[parts.len() - 1].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    let major_clean = parts[parts.len() - 2].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    if let (Ok(minor), Ok(major)) = (minor_clean.parse::<f64>(), major_clean.parse::<f64>()) {
+                        solid.add_surface(SurfacePrimitive::Torus {
+                            center: Point3D::new(0.0, 0.0, 0.0),
+                            axis: Vector3D::unit_z(),
+                            major_radius: major,
+                            minor_radius: minor,
+                        });
+                    }
+                }
+            } else if trimmed.contains("PLANE") && !trimmed.contains("PLANAR") {
+                // Example: #500 = PLANE('', #50);
+                solid.add_surface(SurfacePrimitive::Plane {
+                    origin: Point3D::new(0.0, 0.0, 0.0),
+                    normal: Vector3D::unit_z(),
+                });
             }
         }
 

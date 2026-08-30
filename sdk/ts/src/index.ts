@@ -58,6 +58,7 @@ export type {
   SegmentKind,
   Severity,
   ToolHolder,
+  ToolHolderSection,
   Toolpath,
   ToolpathMeta,
 } from './ops';

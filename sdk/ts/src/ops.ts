@@ -200,12 +200,19 @@ export interface LatheTurningParams {
   spindle_rpm?: number;
 }
 
+/** A defined axial segment along a stepped/tapered tool holder assembly. */
+export interface ToolHolderSection {
+  diameter: number;
+  length: number;
+}
+
 /** Physical dimensions of a tool holder assembly for collision detection. */
 export interface ToolHolder {
   holder_diameter: number;
   stickout_length: number;
   collet_diameter?: number;
   collet_length?: number;
+  sections?: ToolHolderSection[];
 }
 
 /** Collision finding for tool holder interference. */

@@ -97,10 +97,11 @@ pub use generate::{
     drape_design, drape_ops, generate_chamfer_ops, generate_corner_rest_machining_ops,
     generate_lathe_facing_ops, generate_lathe_od_turning_ops, generate_thread_milling_ops,
     pocket_design, pocket_ops, pocket_stepped_ops, tpms_design, tpms_ops, try_pocket_design,
-    try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepError, BrepSolid, ChamferParams,
-    CutMode, DrapeError, DrapeOptions, DrapePattern, LatheFacingParams, LatheTurningParams,
-    PocketError, PocketOptions, PocketShape, Point3D, RestMachiningParams, Surface,
-    SurfacePrimitive, ThreadMillParams, TpmsError, TpmsOptions, Triangle, TriangleMesh, Vector3D,
+    try_pocket_ops, try_tpms_design, try_tpms_ops, Aabb, BrepAssembly, BrepBodyRole, BrepError,
+    BrepSolid, ChamferParams, CutMode, DrapeError, DrapeOptions, DrapePattern, LatheFacingParams,
+    LatheTurningParams, PocketError, PocketOptions, PocketShape, Point3D, RestMachiningParams,
+    Surface, SurfacePrimitive, ThreadMillParams, TpmsError, TpmsOptions, Triangle, TriangleMesh,
+    Vector3D,
 };
 pub use ir::{Meta, Segment, SegmentKind, Toolpath};
 pub use multi_head::{emit_idex_mode, emit_select_head, HeadConfig, HeadMode};
@@ -116,8 +117,9 @@ pub use optimize::{
     calculate_chip_thinning_multiplier, calculate_scurve_profile, coasting, coasting_with_dist,
     generate_trochoidal_corner_peel, generate_trochoidal_slot, max_pipeline, merge_collinear,
     optimize_aggressive_pipeline, optimize_constant_mrr, optimize_corner_feedrate,
-    optimize_pipeline, safe_pipeline, travel_reorder, z_hop, z_hop_with_params, GatedResult,
-    OptimizeMode, SCurveParams, SCurveProfile,
+    optimize_five_axis_lookahead, optimize_pipeline, safe_pipeline, travel_reorder, z_hop,
+    z_hop_with_params, FiveAxisLookaheadParams, GatedResult, OptimizeMode, SCurveParams,
+    SCurveProfile,
 };
 pub use pass::PassRole;
 pub use pipeline::{lower_document_envelope, PipelineError};

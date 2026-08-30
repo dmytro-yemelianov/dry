@@ -77,6 +77,92 @@ pub enum PrinterEvent {
     },
 }
 
+/// A printer instance registered in a Moonraker fleet.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FleetMember {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub tags: Vec<String>,
+}
+
+/// Anomaly detected in live printer telemetry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TelemetryAnomaly {
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+    pub metric_name: String,
+    pub observed_value: f64,
+}
+
+/// Manages multiple Moonraker machines and provides unified fleet status and anomaly detection.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct FleetManager {
+    pub members: Vec<FleetMember>,
+}
+
+impl FleetManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_member(&mut self, member: FleetMember) {
+        self.members.push(member);
+    }
+
+    pub fn get_member(&self, id: &str) -> Option<&FleetMember> {
+        self.members.iter().find(|m| m.id == id || m.name == id)
+    }
+
+    /// Check a printer's telemetry for thermal and process anomalies.
+    pub fn detect_anomalies(
+        &self,
+        telemetry: &PrinterLiveStatus,
+        target_nozzle_temp: f64,
+        target_bed_temp: f64,
+    ) -> Vec<TelemetryAnomaly> {
+        let mut anomalies = Vec::new();
+
+        // Check nozzle temperature runaway or under-temp when printing
+        if telemetry.state == "printing" && target_nozzle_temp > 0.0 {
+            let nozzle_error = (telemetry.nozzle_temp_c - target_nozzle_temp).abs();
+            if nozzle_error > 15.0 {
+                anomalies.push(TelemetryAnomaly {
+                    severity: "critical".into(),
+                    code: "NOZZLE_THERMAL_DEVIATION".into(),
+                    message: format!(
+                        "Nozzle temperature ({:.1}°C) deviates from target ({:.1}°C) by {:.1}°C",
+                        telemetry.nozzle_temp_c, target_nozzle_temp, nozzle_error
+                    ),
+                    metric_name: "nozzle_temp_c".into(),
+                    observed_value: telemetry.nozzle_temp_c,
+                });
+            }
+        }
+
+        // Check bed temperature runaway
+        if telemetry.state == "printing" && target_bed_temp > 0.0 {
+            let bed_error = (telemetry.bed_temp_c - target_bed_temp).abs();
+            if bed_error > 10.0 {
+                anomalies.push(TelemetryAnomaly {
+                    severity: "warning".into(),
+                    code: "BED_THERMAL_DEVIATION".into(),
+                    message: format!(
+                        "Bed temperature ({:.1}°C) deviates from target ({:.1}°C) by {:.1}°C",
+                        telemetry.bed_temp_c, target_bed_temp, bed_error
+                    ),
+                    metric_name: "bed_temp_c".into(),
+                    observed_value: telemetry.bed_temp_c,
+                });
+            }
+        }
+
+        anomalies
+    }
+}
+
 /// Fixed multipart boundary — deterministic for testing; long+unique to avoid g-code collisions.
 pub const MULTIPART_BOUNDARY: &str = "dry7c0d3moonrakerboundary8f3a1e9d";
 
@@ -785,5 +871,44 @@ mod tests {
         assert!(rpc.contains("\"toolhead\":null"));
         assert!(rpc.contains("\"extruder\":null"));
     }
+
+    #[test]
+    fn test_fleet_manager_anomaly_detection() {
+        let mut fleet = FleetManager::new();
+        fleet.add_member(FleetMember {
+            id: "printer-01".into(),
+            name: "Voron 2.4".into(),
+            base_url: "http://192.168.1.100".into(),
+            api_key: None,
+            tags: vec!["abs".into(), "enclosed".into()],
+        });
+
+        assert_eq!(fleet.members.len(), 1);
+        assert!(fleet.get_member("printer-01").is_some());
+
+        let nominal_status = PrinterLiveStatus {
+            state: "printing".into(),
+            nozzle_temp_c: 245.0,
+            bed_temp_c: 100.0,
+            progress: 0.50,
+        };
+
+        // Nominal temperature matches target -> 0 anomalies
+        let anomalies_ok = fleet.detect_anomalies(&nominal_status, 245.0, 100.0);
+        assert!(anomalies_ok.is_empty());
+
+        // Severe temperature drop (thermal runaway risk) -> anomaly flagged
+        let runaway_status = PrinterLiveStatus {
+            state: "printing".into(),
+            nozzle_temp_c: 210.0,
+            bed_temp_c: 100.0,
+            progress: 0.50,
+        };
+        let anomalies_bad = fleet.detect_anomalies(&runaway_status, 245.0, 100.0);
+        assert_eq!(anomalies_bad.len(), 1);
+        assert_eq!(anomalies_bad[0].code, "NOZZLE_THERMAL_DEVIATION");
+        assert_eq!(anomalies_bad[0].severity, "critical");
+    }
 }
+
 

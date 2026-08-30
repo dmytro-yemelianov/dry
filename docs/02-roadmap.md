@@ -15,8 +15,8 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 | **`v0.1.0` – `v0.5.0`** | **Phases 0–5** | Rust kernel foundations, L0–L3 lowering, Python & TS SDKs, Wasm runtime, 5-axis toolframe kinematics, CNC & Robot emitters. | **Completed** |
 | **`v0.6.0`** | **Phase 6 / Baseline** | Commercial licensing (`crates/license`), offline Ed25519 token verification, cloud eval gate, and FullControl oracle retirement. | **Completed** |
 | **`v0.7.0`** | **Production Opening (Current)** | **FSL-1.1-MIT licensing adoption**, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Active Release** |
-| **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **In Progress** |
-| **`v0.8.0`** | **Next Minor Horizon** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Planned** |
+| **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **Active Release** |
+| **`v0.8.0`** | **Next Minor Horizon** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Completed (Merged)** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
 ---

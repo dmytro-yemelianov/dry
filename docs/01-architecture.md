@@ -1,8 +1,10 @@
 # Dry — architecture
 
 > **Implementation status.** This document describes Dry's target multi-level architecture as well as
-> implemented pieces. The normative public contract today is the resolved L2 Dry IR v0 in
-> [`10-dry-ir-v0-spec.md`](10-dry-ir-v0-spec.md). L0/L1 public interchange, named coordinate frames,
+> implemented pieces. For a comprehensive diagram of all dialects, pipelines, and subsystems, see
+> [27-system-capabilities-and-architecture-graph.md](27-system-capabilities-and-architecture-graph.md).
+> The normative public contract today is the resolved L2 Dry IR v0 in
+> [10-dry-ir-v0-spec.md](10-dry-ir-v0-spec.md). L0/L1 public interchange, named coordinate frames,
 > general capabilities, production non-FFF targets and bidirectional target lifting remain planned
 > work. Their evidence-gated evolution is tracked under the deferred
 > [Dry IR language and ecosystem initiative](02-roadmap.md) and its
