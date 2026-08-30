@@ -94,6 +94,13 @@ jobs:
         id: license_headers
         continue-on-error: true
         run: python3 tools/check_license_headers.py
+      # The parity gap opened silently in BOTH directions — kernel capabilities that never reached a
+      # binding, and binding capabilities that never got a CLI surface — because nothing asserted
+      # anything. This checks `conformance/capability-parity.toml` against the tree both ways.
+      - name: capability parity across CLI and bindings
+        id: capability_parity
+        continue-on-error: true
+        run: python3 tools/check_capability_parity.py
       - name: compile the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
@@ -116,6 +123,7 @@ jobs:
             orientation-mutations=${{ steps.orientation_mutations.outcome }}
             proof-claims=${{ steps.proof_claims.outcome }}
             license-headers=${{ steps.license_headers.outcome }}
+            capability-parity=${{ steps.capability_parity.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
             wasm-build=${{ steps.wasm_build.outcome }}
         run: |

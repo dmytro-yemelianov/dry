@@ -1,0 +1,122 @@
+# Cross-target capability reachability — the contract `docs/14-known-limitations.md` describes.
+#
+# The parity gap in this repo opened silently and in both directions: kernel capabilities landed
+# without reaching any binding (the Phase 7/8 lookahead optimiser and physics simulator), and other
+# capabilities reached every binding while never getting a CLI surface (B-Rep slicing, dexel
+# simulation). Nothing caught either, because nothing asserted anything — the docs carried a table
+# that was a snapshot of whatever happened to be true when someone last looked, and it was wrong in
+# two cells the first time it was written.
+#
+# This file is that table made executable. `tools/check_capability_parity.py` reads it and checks
+# every declared cell against the source, in BOTH directions:
+#
+#   status = "reachable"  ⇒ `symbol` MUST appear in `path`
+#   status = "absent"     ⇒ `symbol` MUST NOT appear in `path`
+#
+# So adding a binding without recording it fails, and recording one without adding it fails. An
+# `absent` row is a deliberate, reviewed gap, not an oversight — each carries a `note` saying so.
+#
+# Surfaces legitimately call different entry points (the CLI reaches pocket generation through
+# `try_pocket_design` while the bindings use `try_pocket_ops`), so the symbol is recorded per
+# surface rather than assumed to be shared.
+
+schema_version = 1
+
+[[capability]]
+id = "tpms"
+title = "TPMS lattice infill generation"
+core = { path = "crates/core/src/generate/tpms.rs", symbol = "pub fn try_tpms_ops", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "tpms", status = "absent", note = "No CLI surface — the string `tpms` does not appear in the CLI at all. `dry generate` carries only `pocket`. Notable because H1.4 called TPMS \"the most-exposed generator (wasm + PyO3 + TS)\"; it is exposed everywhere except the shipping product." }
+python = { path = "py/src/lib.rs", symbol = "tpms_ops_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "tpms_ops_json", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function tpmsOps", status = "reachable" }
+
+[[capability]]
+id = "pocket"
+title = "Contour-parallel CNC pocket / profile milling"
+core = { path = "crates/core/src/generate/pocket.rs", symbol = "pub fn try_pocket_ops", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "try_pocket_design", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "pocket_ops_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "pocket_ops_json", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function pocketOps", status = "reachable" }
+
+[[capability]]
+id = "five-axis-lookahead"
+title = "5-axis synchronised jerk-limited lookahead optimiser (P7.2)"
+core = { path = "crates/core/src/optimize/lookahead.rs", symbol = "pub fn optimize_five_axis_lookahead", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "optimize_five_axis_lookahead", status = "absent", note = "No CLI surface. `dry optimize` exposes the L2 pipeline modes, not this 5-axis pass." }
+python = { path = "py/src/lib.rs", symbol = "optimize_five_axis_lookahead_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "optimize_five_axis_lookahead_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function optimizeFiveAxisLookahead", status = "reachable" }
+
+[[capability]]
+id = "machining-physics"
+title = "Digital-twin cutting force / deflection / thermal / wear simulator (P8.2)"
+core = { path = "crates/core/src/physics.rs", symbol = "pub fn analyze_machining_physics", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "analyze_machining_physics", status = "absent", note = "No CLI surface." }
+python = { path = "py/src/lib.rs", symbol = "analyze_machining_physics_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "analyze_machining_physics_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function analyzeMachiningPhysics", status = "reachable" }
+
+[[capability]]
+id = "industrial-flavors"
+title = "Siemens / Haas / Heidenhain / ABB RAPID emit (P8.1)"
+core = { path = "crates/core/src/emit/gcode.rs", symbol = "pub fn named", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "EmitOutputFormat::Siemens", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "FirmwareFlavor::named", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "FirmwareFlavor::named", status = "reachable" }
+ts = { path = "sdk/ts/src/design.ts", symbol = "flavor?: FirmwareFlavor", status = "reachable" }
+
+[[capability]]
+id = "cnc-frame"
+title = "CNC machine preamble (work offset, tool change, spindle, coolant)"
+core = { path = "crates/core/src/emit/gcode.rs", symbol = "pub struct CncFrame", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "cnc_frame", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "cnc_frame_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "cnc_frame_json", status = "reachable" }
+ts = { path = "sdk/ts/src/design.ts", symbol = "cncFrame?: CncFrame", status = "reachable" }
+
+[[capability]]
+id = "brep-slicing"
+title = "Direct STEP B-Rep multi-solid + CSG slicing (P7.1)"
+core = { path = "crates/core/src/generate/brep.rs", symbol = "pub struct BrepAssembly", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "BrepAssembly", status = "absent", note = "No CLI surface: STEP slicing is reachable only from the bindings." }
+python = { path = "py/src/lib.rs", symbol = "slice_brep_assembly_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "slice_brep_assembly_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function sliceBrepAssembly", status = "reachable" }
+
+[[capability]]
+id = "dexel-simulation"
+title = "3D dexel stock-removal simulation"
+core = { path = "crates/core/src/dexel.rs", symbol = "pub struct DexelGrid", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "DexelGrid", status = "absent", note = "No CLI surface." }
+python = { path = "py/src/lib.rs", symbol = "simulate_dexel_stock_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "simulate_dexel_stock_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function simulateDexelStock", status = "reachable" }
+
+[[capability]]
+id = "mesh-drape"
+title = "BVH-accelerated mesh heightfield 5-axis drape (E1.3)"
+core = { path = "crates/core/src/generate/drape.rs", symbol = "pub fn drape_ops", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "drape_ops", status = "absent", note = "No CLI surface." }
+python = { path = "py/src/lib.rs", symbol = "drape_ops_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "drape_ops_json", status = "absent", note = "Not exposed to wasm; the browser cannot read an STL/OBJ from disk, and no caller has needed it through a string yet." }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "drapeOps", status = "absent", note = "Follows wasm: the TS SDK delegates to the wasm binding, which does not carry it." }
+
+[[capability]]
+id = "lathe"
+title = "CNC lathe turning / facing generation"
+core = { path = "crates/core/src/generate/lathe.rs", symbol = "pub fn generate_lathe_facing_ops", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "generate_lathe_facing_ops", status = "absent", note = "No CLI surface." }
+python = { path = "py/src/lib.rs", symbol = "lathe_facing_ops_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "generate_lathe_facing_ops_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function latheFacingOps", status = "reachable" }
+
+[[capability]]
+id = "tool-holder-collision"
+title = "Tool holder / collet collision checking against stock"
+core = { path = "crates/core/src/verify/collision.rs", symbol = "pub fn check_tool_holder_collision", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "check_tool_holder_collision", status = "absent", note = "No CLI surface." }
+python = { path = "py/src/lib.rs", symbol = "check_tool_holder_collision_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "check_tool_holder_collision", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function checkToolHolderCollision", status = "reachable" }

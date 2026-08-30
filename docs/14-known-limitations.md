@@ -60,25 +60,39 @@ additions are reachable only from `dry-core` and, in part, the CLI:
 
 | Capability | `dry-core` | CLI | Python | wasm | TS |
 |---|---|---|---|---|---|
-| 5-axis jerk-limited lookahead (`optimize_five_axis_lookahead`) | yes | **no** | yes | yes | yes |
-| Machining physics (`analyze_machining_physics`) | yes | **no** | yes | yes | yes |
+| TPMS lattice infill | yes | **no** | yes | yes | yes |
+| Pocket / profile milling | yes | yes | yes | yes | yes |
+| 5-axis jerk-limited lookahead | yes | **no** | yes | yes | yes |
+| Machining physics | yes | **no** | yes | yes | yes |
 | Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | yes | yes | yes |
 | CNC machine preamble (`cnc_frame`) | yes | profile | yes | yes | yes |
 | B-Rep multi-solid + CSG slicing | yes | **no** | yes | yes | yes |
 | Dexel stock simulation | yes | **no** | yes | yes | yes |
+| Mesh heightfield 5-axis drape | yes | **no** | yes | **no** | **no** |
+| Lathe turning / facing | yes | **no** | yes | yes | yes |
+| Tool holder collision | yes | **no** | yes | yes | yes |
 
-**What is left is the CLI column.** The binding gap is closed: the lookahead optimiser, the physics
-simulator and all four Phase 8 dialects now reach Python, wasm and TypeScript, with the `cnc_frame`
-they need to emit a machine preamble rather than bare motion. Python and TypeScript are cross-checked
-against each other — `py/tests/test_physics_and_lookahead.py` and
-`sdk/ts/test/physics_and_lookahead.test.ts` assert the same physics numbers through two different
-FFI paths (native PyO3 and wasm), which agree bit for bit.
+**This table is no longer hand-maintained.** It mirrors
+[`conformance/capability-parity.toml`](../conformance/capability-parity.toml), which
+`tools/check_capability_parity.py` checks against the source **in both directions** on every CI run:
+a cell recorded reachable whose symbol is gone fails, and a surface that *gains* a capability recorded
+absent fails too. Every absent cell carries a note saying why it is a reviewed gap rather than an
+oversight. That gate exists because this table was previously a snapshot and was wrong in two cells
+the first time it was written — and the manifest's first run caught three more.
 
-What remains is the other direction: B-Rep slicing, dexel simulation, the lookahead optimiser and the
-physics simulator have **no CLI surface at all**. And nothing gates either direction — no test or CI
-job asserts that a capability added to the kernel reaches the bindings, or the CLI — so this table is
-a snapshot rather than a contract. Check it against the source before relying on a capability from any
-one surface.
+**The binding gap is closed.** The lookahead optimiser, the physics simulator and all four Phase 8
+dialects reach Python, wasm and TypeScript, with the `cnc_frame` they need to emit a machine preamble
+rather than bare motion. Python and TypeScript are cross-checked against *each other*:
+`py/tests/test_physics_and_lookahead.py` and `sdk/ts/test/physics_and_lookahead.test.ts` assert the
+same physics numbers through two different FFI paths (native PyO3 and wasm), and they agree bit for
+bit.
+
+**What remains is the CLI column**, and it is wider than previously recorded. Beyond B-Rep slicing,
+dexel simulation, lookahead and physics, the CLI has no surface for TPMS at all — the string `tpms`
+does not appear in it, and `dry generate` carries only `pocket`. That is worth stating plainly,
+because H1.4 called TPMS "the most-exposed generator (wasm + PyO3 + TS)": it is exposed everywhere
+except the product that actually ships. Mesh drape is the one capability missing from wasm and TS as
+well as the CLI.
 
 ## Sharp edges in what Dry does do
 
