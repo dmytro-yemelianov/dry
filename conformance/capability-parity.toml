@@ -109,8 +109,8 @@ title = "BVH-accelerated mesh heightfield 5-axis drape (E1.3)"
 core = { path = "crates/core/src/generate/drape.rs", symbol = "pub fn drape_ops", status = "reachable" }
 cli = { path = "crates/cli/src/main.rs", symbol = "GenerateCmd::Drape", status = "reachable" }
 python = { path = "py/src/lib.rs", symbol = "drape_ops_json", status = "reachable" }
-wasm = { path = "crates/wasm/src/lib.rs", symbol = "drape_ops_json", status = "absent", note = "Not exposed to wasm; the browser cannot read an STL/OBJ from disk, and no caller has needed it through a string yet." }
-ts = { path = "sdk/ts/src/engine.ts", symbol = "drapeOps", status = "absent", note = "Follows wasm: the TS SDK delegates to the wasm binding, which does not carry it." }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "drape_ops_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function drapeOps", status = "reachable" }
 
 [[capability]]
 id = "lathe"

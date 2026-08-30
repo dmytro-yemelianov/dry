@@ -12,6 +12,8 @@ import {
   Design,
   analyzeMachiningPhysics,
   optimizeFiveAxisLookahead,
+  drapeOps,
+  parseObjMesh,
   type CuttingToolGeometry,
   type MachiningOperationParams,
 } from '../src/index';
@@ -40,6 +42,16 @@ describe('Machining physics', () => {
     assert.ok(r.material_removal_rate_cm3_min > 0);
     assert.ok(r.tangential_force_n > 0);
     assert.equal(typeof r.chatter_risk, 'boolean');
+  });
+
+  it('reports a clamped result as saturated rather than as a prediction', () => {
+    const r = analyzeMachiningPhysics(tool, 'TitaniumTi6Al4V', params);
+    assert.equal(r.model_saturated, true);
+    assert.equal(r.estimated_tool_life_min, 0.1);
+    assert.equal(r.shear_temperature_c, 1220);
+
+    const sane = { ...params, spindle_rpm: 6000, feedrate_mm_min: 900, axial_depth_ap_mm: 2, radial_depth_ae_mm: 3 };
+    assert.equal(analyzeMachiningPhysics(tool, 'Aluminum6061', sane).model_saturated, false);
   });
 
   it('distinguishes a hard alloy from aluminium', () => {
@@ -118,5 +130,31 @@ describe('Industrial dialects from TypeScript', () => {
   it('refuses an invalid cncFrame', () => {
     assert.throws(() => square().gcode({ flavor: 'siemens', cncFrame: { wcs: 99 } }));
     assert.throws(() => square().gcode({ flavor: 'siemens', cncFrame: { spindle_rpm: 0 } }));
+  });
+});
+
+describe('Mesh drape from TypeScript', () => {
+  const PLANE = 'v 0 0 5\nv 40 0 5\nv 40 40 5\nv 0 40 5\nf 1 2 3\nf 1 3 4\n';
+
+  it('projects a toolpath over a mesh parsed from OBJ text', () => {
+    const mesh = parseObjMesh(PLANE);
+    const ops = drapeOps({
+      mesh,
+      pattern: 'raster-x',
+      stepover: 5,
+      resolution: 2,
+      standoff_offset: 0,
+      feedrate: 1800,
+      plunge_feed: 600,
+      width: 0.45,
+      height: 0.2,
+    });
+    assert.ok(ops.length > 10, `expected real motion, got ${ops.length} ops`);
+  });
+
+  it('refuses OBJ text with no triangles rather than returning an empty path', () => {
+    // A toolpath export: vertices and lines, no faces. Silently draping nothing would look like a
+    // successful zero-length program.
+    assert.throws(() => parseObjMesh('v 0 0 0\nv 1 0 0\nl 1 2\n'));
   });
 });

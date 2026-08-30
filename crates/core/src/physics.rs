@@ -124,10 +124,27 @@ pub struct PhysicsAnalysisReport {
     pub spindle_power_kw: f64,
     pub spindle_torque_nm: f64,
     pub tool_deflection_um: f64,
+    /// Shear-zone temperature (°C). **Clamped:** the modelled rise is bounded to 1200 °C above
+    /// ambient, so a result at `ambient + 1200` is the ceiling rather than a prediction — check
+    /// [`Self::model_saturated`] before reading it as one.
     pub shear_temperature_c: f64,
+    /// Taylor tool life (minutes). **Clamped** to `[0.1, 10000.0]`; `0.1` is the floor, not an
+    /// estimate that the tool lasts six seconds. See [`Self::model_saturated`].
     pub estimated_tool_life_min: f64,
     pub surface_roughness_ra_um: f64,
     pub chatter_risk: bool,
+    /// True when a clamp bound the result, so at least one field above is a guardrail rather than a
+    /// computed value.
+    ///
+    /// The clamps are deliberate — they stop absurd inputs producing absurd numbers — but a clamped
+    /// value is indistinguishable from a real one in the report, and both of these are read as
+    /// process predictions. Titanium at 251 m/min (roughly five times any sane cutting speed for it)
+    /// saturates *both* at once: `shear_temperature_c` pegs at 1220 and `estimated_tool_life_min` at
+    /// 0.1. Those are the model declining to answer, and a caller is entitled to know that.
+    ///
+    /// Same principle as [`crate::verify::Report::rules_evaluated`]: a result must say what it
+    /// actually established.
+    pub model_saturated: bool,
 }
 
 /// Run full digital twin physics simulation.
@@ -169,15 +186,25 @@ pub fn analyze_machining_physics(
     let rho = material.density_kg_m3();
     let cp = material.specific_heat_j_kg_k();
     let thermal_rise = (0.85 * ft * (vc / 60.0)) / (rho * (mrr * 1e-6 / 60.0).max(1e-12) * cp);
-    let shear_temp_c = params.ambient_temp_c + thermal_rise.clamp(0.0, 1200.0);
+    const MAX_MODELLED_RISE_C: f64 = 1200.0;
+    let clamped_rise = thermal_rise.clamp(0.0, MAX_MODELLED_RISE_C);
+    let temp_saturated = thermal_rise > MAX_MODELLED_RISE_C || !thermal_rise.is_finite();
+    let shear_temp_c = params.ambient_temp_c + clamped_rise;
 
     // 6. Taylor tool life: T = (C / vc)^(1/n)
     let c_taylor = material.taylor_constant_c();
     let n_taylor = material.taylor_exponent_n();
-    let tool_life_min = if vc > 1.0 {
-        (c_taylor / vc).powf(1.0 / n_taylor).clamp(0.1, 10000.0)
+    const MIN_TOOL_LIFE_MIN: f64 = 0.1;
+    const MAX_TOOL_LIFE_MIN: f64 = 10000.0;
+    let (tool_life_min, life_saturated) = if vc > 1.0 {
+        let raw = (c_taylor / vc).powf(1.0 / n_taylor);
+        (
+            raw.clamp(MIN_TOOL_LIFE_MIN, MAX_TOOL_LIFE_MIN),
+            !(MIN_TOOL_LIFE_MIN..=MAX_TOOL_LIFE_MIN).contains(&raw) || !raw.is_finite(),
+        )
     } else {
-        10000.0
+        // Below 1 m/min there is no meaningful Taylor curve; the ceiling is a stand-in, not a result.
+        (MAX_TOOL_LIFE_MIN, true)
     };
 
     // 7. Theoretical surface roughness: Ra = fz^2 / (32 * r_eps)
@@ -200,5 +227,6 @@ pub fn analyze_machining_physics(
         estimated_tool_life_min: tool_life_min,
         surface_roughness_ra_um: ra_um,
         chatter_risk,
+        model_saturated: temp_saturated || life_saturated,
     }
 }

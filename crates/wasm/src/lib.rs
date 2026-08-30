@@ -671,6 +671,27 @@ pub fn simulate_dexel_stock_wasm(
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// Generate L1 draping ops over a 3D mesh.
+///
+/// `options_json` is the serialized `DrapeOptions`, mesh included — the same wire form the Python
+/// binding takes. Use [`parse_obj_mesh_wasm`] to turn OBJ text into the `mesh` field.
+#[wasm_bindgen]
+pub fn drape_ops_wasm(options_json: &str) -> Result<String, JsError> {
+    let options: dry_core::generate::drape::DrapeOptions = serde_json::from_str(options_json)
+        .map_err(|e| JsError::new(&format!("invalid drape options: {e}")))?;
+    let ops =
+        dry_core::generate::drape::drape_ops(&options).map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Parse OBJ text into serialized `TriangleMesh` JSON.
+#[wasm_bindgen]
+pub fn parse_obj_mesh_wasm(obj_text: &str) -> Result<String, JsError> {
+    let mesh = dry_core::generate::drape::TriangleMesh::from_obj(obj_text)
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&mesh).map_err(|e| JsError::new(&e.to_string()))
+}
+
 /// Run the digital-twin machining physics analysis and return the report as JSON.
 ///
 /// `material` is the wire name of the workpiece material (`Aluminum6061`, `Steel4140`,

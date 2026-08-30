@@ -416,12 +416,50 @@ impl RuleId {
             | RuleId::FirstLayerSpeed
             | RuleId::JunctionVelocity
             | RuleId::UnmodeledGcode
+            // `travel` is a *classification*, and this rule states that the classification disagrees
+            // with the deposited volume — not that anything unsafe happens. Three facts settle the
+            // severity, all of them about who sets the flag:
+            //
+            //  - No in-tree producer can violate it. Every travel `resolve` and `optimize` emit
+            //    carries `Volume::ZERO`, so `travel: true` from Dry is an *assertion*, and error
+            //    severity never gated Dry-authored IR at all — only imported and hand-authored IR,
+            //    where the flag is *inferred*.
+            //  - For imported G-code the inference is `G0 || no E word` (`gcode::lift`), and `G0` is
+            //    not a "do not extrude" command on the firmware these programs run: Marlin, Klipper
+            //    and RepRapFirmware execute `G0` as an ordinary coordinated move and honour an `E`
+            //    word in it. OrcaSlicer's stock start G-code relies on exactly that to write its
+            //    purge/prime lines — in the Bambu X1C profile and the Prusa MK4 one alike — so stock
+            //    output trips this rule 4-21 times per file while commanding precisely what its
+            //    author intended.
+            //  - What the finding *does* buy is real but advisory: a move counted as travel while
+            //    depositing corrupts travel-derived accounting (travel time/distance in `simulate`,
+            //    and `travel-without-retraction`, itself a warning). That is process/quality
+            //    character, which is the criterion this doc comment already states for warning.
+            //
+            // Severity is deliberately *not* scoped to provenance, even though `Toolpath.meta`
+            // records `imported-from-gcode`: `verify_stream` cannot see `meta` by construction, so
+            // the same bytes would verify differently through `dry verify` than through
+            // `dry review-gcode`; `Report` echoes `contracts` but not `meta`, so the difference
+            // would be invisible in the report; and `meta` is producer-declared, so keying severity
+            // off it would let an input choose the severity the verifier assigns it.
             | RuleId::TravelExtrudes
+            // The controller does not refuse a rotary axis it cannot drive fast enough — it slows the
+            // whole synchronised move down. The program still runs and still cuts the commanded path;
+            // what is wrong is the plan, not the geometry. Same character as `junction-velocity`.
             | RuleId::RotaryFeed
+            // Ships as a warning for one minor release before promotion to error (design §8):
+            // multi-diameter / multi-material IR is unusual but not ill-formed, and no in-tree
+            // producer makes any, so we have no evidence either way yet.
             | RuleId::FilamentConsistency => Severity::Warning,
             _ => Severity::Error,
         }
     }
+
+    // The three rationales above were deleted wholesale by 02ed2dc and restored on 2026-08-30. They
+    // are not commentary: `docs/11-profiles-and-reports.md` mirrors them, and a severity that states
+    // no reason is exactly how `travel-extrudes` came to be argued about twice. Losing them cost
+    // nothing at the time because the docs still carried the reasoning — which is precisely why the
+    // deletion went unnoticed through review.
 
     /// A one-line human summary for the catalog/docs.
     pub fn summary(self) -> &'static str {

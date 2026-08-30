@@ -33,6 +33,9 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `deg` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Angle in degrees -&gt; converted to radians. |
 | `Design` | class | [Design](/reference/generated/typescript-sdk/design) | `sdk/ts/src/design.ts` |  | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
 | `DexelSimulationReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
+| `drapeOps` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Project a conformal 5-axis toolpath over a triangle mesh (BVH-accelerated ray casting). |
+| `DrapeOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Options for {@link drapeOps}. |
+| `DrapePattern` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Toolpath patterns `drapeOps` can project over a mesh. |
 | `expandFeatures` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Expand a bounded L0 feature graph into the canonical L1 op list. |
 | `feature` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
 | `FeatureNode` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
@@ -70,8 +73,9 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `Op` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
 | `optimizeConstantMrr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR). |
 | `optimizeFiveAxisLookahead` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath. |
+| `parseObjMesh` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Parse OBJ text into the serialized `TriangleMesh` that {@link DrapeOptions.mesh} expects. |
 | `PassSegmentGroup` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
-| `PhysicsAnalysisReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
+| `PhysicsAnalysisReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | True when a clamp bound the result, so `shear_temperature_c` or `estimated_tool_life_min` is a guardrail rather than a computed value. |
 | `pocket` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate a fluent `Design` wrapping the generated CNC pocket ops. |
 | `pocketOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate an L1 `Op[]` list for a CNC pocket or profile cut. |
 | `PocketOptions` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Declared in the public API. |
