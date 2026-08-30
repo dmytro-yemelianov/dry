@@ -1,6 +1,15 @@
 # Deployment roadmap — from a gated engine to a production-grade service
 
-**Status:** proposed, 2026-08-02 · **Owner:** unassigned · **Precedes:** Phase 6 (retire the oracle)
+**Status:** proposed 2026-08-02, reconciled against the code 2026-08-30 · **Owner:** unassigned ·
+**Precedes:** Phase 6 (retire the oracle)
+
+> **Reconciliation note (2026-08-30).** D2, D3 and D5 described a service that no longer exists: the
+> runner had grown observability, bearer-token auth with revocation, rate limiting and a load
+> benchmark without this document following. Those sections now state what is built and what is
+> genuinely left. This repo's recurring defect is a claim outrunning its behaviour; a roadmap that
+> *understates* what shipped is the same defect pointed the other way, and it hides which gaps are
+> real. **D1 and D4 are unchanged and remain the blockers:** nothing deploys any of this, and whether
+> there should be a hosted service at all is still an open decision.
 
 ## Why this document exists
 
@@ -25,9 +34,9 @@ treatment as the others: stated in pieces, each with an acceptance test that can
 | CLI (`dry`) | Released binaries for 4 targets, checksummed | **Yes** — this is the shipping product |
 | Python wheel / npm tarball | Built and attached to GitHub Releases | Yes, as downloads — not registry-published, deliberately |
 | Public docs + gallery | Cloudflare Pages, built from source in CI | Yes |
-| `containers/verify-runner` | axum service, 14 handler tests, **no authn, no rate limit, no observability** | No |
+| `containers/verify-runner` | axum service, 22 handler tests + a load benchmark; bearer-token auth with revocation, a sliding-window rate limiter, request ids, structured `tracing` and a Prometheus `/metrics` endpoint | Not yet — nothing deploys it (D4) |
 | `crates/cloud` | Explicitly a *feasibility spike* — returns timing JSON, not a `Report` | No |
-| `crates/license` | `verify_token` exists; no issuance, rotation or revocation path | No |
+| `crates/license` | `verify_token` + `verify_token_with_revocation`, consumed by the runner; issuance lives in `tools/license-issuer`. No **rotation** path | Library, not a service |
 
 ## The honest gap list
 
@@ -35,9 +44,10 @@ These are ordered by what blocks a paying user, not by effort.
 
 ### D1 — There is no service to deploy (L)
 
-`verify-runner` is an MVP-shaped handler: it fetches a profile from a registry, imports g-code, runs
-`verify`, and returns the report. It has **no authentication**, no rate limiting, no quota, no request
-identity, and no persistence. `crates/cloud` is a spike whose own header says it is not production.
+`verify-runner` fetches a profile from a registry, imports g-code, runs `verify`, and returns the
+report. It began as an MVP-shaped handler with no authentication, rate limiting, quota or request
+identity; it has since grown all four (see D2 and D3) and still has no persistence. `crates/cloud` is
+a spike whose own header says it is not production.
 
 Neither is a service; they are two different sketches of one. **Deciding which one is the product —
 and deleting the other — is the first deliverable**, because maintaining two divergent sketches of the
@@ -63,27 +73,42 @@ against one service shape rather than two. See
 [`24-operations-and-data-handling.md`](24-operations-and-data-handling.md), which notes that findings
 quote coordinates and feedrates, so the answer is not "everything".
 
-### D2 — Nothing is observable (M)
-
-`grep -rl "tracing\|opentelemetry" crates/ containers/` returns nothing outside build artifacts. A
-service with no structured logs, no request ids, no latency or error-rate metrics, and no way to
-answer "was this program refused, and why" cannot be operated — only restarted.
-
-The engine already produces the right *content*: `Report` now carries `segments_inspected`,
-`rules_evaluated` and `contracts`, which is exactly the shape a "why was this refused" trace needs.
+### D2 — Observability (M) — **largely landed in the service; no dashboard**
 
 *Accept:* a request id on every response and log line; structured logs; latency, error-rate and
 refusal-reason metrics exported; a dashboard that answers "what is failing and for whom" without a
 code change.
 
-### D3 — No authentication, authorisation or quota (L)
+**Landed.** The paragraph this section opened with — that `grep -rl "tracing\|opentelemetry" crates/
+containers/` returned nothing — has been false since the runner grew its observability layer.
+`containers/verify-runner` now depends on `tracing`/`tracing-subscriber` (JSON + env-filter) and
+`tower-http`'s `request-id`/`trace`, stamps a request id through `request_id_middleware`, and serves
+`GET /metrics` in Prometheus text format. The counters are the refusal-reason shape this section
+asked for, not just a request total: `dry_verify_errors_total` is split by `stage`
+(`profile-unavailable`, `input-invalid`, `engine-error`, `unauthorized`, `rate_limited`), alongside
+active requests, cumulative duration and segments inspected.
 
-`crates/license::verify_token` exists in isolation: no issuance, no rotation, no revocation, no
-binding between a token and a quota. The licence is proprietary and the artifacts are public
-downloads, so today the commercial boundary is **legal, not technical**.
+**Remaining:** the dashboard, and the logging policy that has to precede it — the one this roadmap
+already flagged, since findings quote customer coordinates and feedrates
+([`24-operations-and-data-handling.md`](24-operations-and-data-handling.md)). Metrics exported by a
+service nobody deploys (D4) are also not yet observability in the operational sense.
+
+### D3 — Authentication, authorisation and quota (L) — **accept clause largely met; no rotation**
 
 *Accept:* a token can be issued, scoped, rate-limited, revoked, and its revocation takes effect
 without a redeploy. A revoked token is refused; the test proves it.
+
+**Most of the accept clause is met at the service.** `verify_token` is no longer in isolation: the
+runner reads a `Bearer` token, verifies it through `dry_license::verify_token_with_revocation`, binds
+the licensee to a per-client sliding-window rate limit, and stamps the resulting mode onto the
+report. Four handler tests cover the branches this clause names — a valid token, an invalid one, a
+**revoked** one, and rate-limit enforcement — so "a revoked token is refused; the test proves it" is
+literally satisfied. `tools/license-issuer` supplies issuance and has its own CI job.
+
+**Remaining:** rotation, and "takes effect without a redeploy" — the revocation list is read by the
+process rather than from a live source, so revoking still means restarting something. And the
+commercial boundary for the **CLI** remains legal rather than technical, unchanged: the artifacts are
+public downloads.
 
 ### D4 — No deployment pipeline or rollback (M)
 
@@ -94,14 +119,21 @@ covers *publishing* and explicitly stops there.
 *Accept:* a versioned deploy to staging on merge, promotion to production on tag, a rollback that has
 been *executed* in a drill and not merely written down.
 
-### D5 — Nothing measures capacity (M)
-
-`benches/` is a **compile gate** — it proves the benchmarks build, not that anything is fast. Peak
-memory is bounded and proven (`memory_scale`, 1M segments under a counting allocator), which is real
-and unusual. Throughput, concurrency and tail latency under load are entirely unmeasured.
+### D5 — Measuring capacity (M) — **a load test exists; it asserts nothing**
 
 *Accept:* a published throughput/latency curve against program size, a documented concurrency limit,
 and a load test in CI that fails on regression rather than reporting a number nobody reads.
+
+`benches/` is still a **compile gate** — it proves the benchmarks build, not that anything is fast.
+Peak memory is bounded and proven (`memory_scale`, 1M segments under a counting allocator), which is
+real and unusual.
+
+**Partly landed.** `containers/verify-runner/tests/load_benchmark.rs` drives concurrent clients
+against the real handler and measures throughput and p50/p95/p99 latency, and it runs in the
+`verify-runner` CI job. **Remaining, and it is the half that matters:** it reports numbers rather
+than asserting them, so nothing fails on regression; there is no curve against *program size*; and
+no concurrency limit is documented. A load test whose numbers nobody reads is precisely what this
+clause was written against.
 
 ### D6 — Supply chain is partly covered (S)
 

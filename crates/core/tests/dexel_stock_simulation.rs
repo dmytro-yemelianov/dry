@@ -6,8 +6,8 @@ use dry_core::{resolve, ResolveParams};
 
 #[test]
 fn test_dexel_grid_initialization_and_volume() {
-    let stock = DexelGrid::new_stock(0.0, 0.0, 0.0, 100.0, 100.0, 50.0, 1.0)
-        .expect("valid stock grid");
+    let stock =
+        DexelGrid::new_stock(0.0, 0.0, 0.0, 100.0, 100.0, 50.0, 1.0).expect("valid stock grid");
 
     assert_eq!(stock.nx, 100);
     assert_eq!(stock.ny, 100);
@@ -22,8 +22,8 @@ fn test_dexel_grid_initialization_and_volume() {
 
 #[test]
 fn test_dexel_single_pass_slot_carving() {
-    let mut stock = DexelGrid::new_stock(0.0, 0.0, 0.0, 100.0, 50.0, 20.0, 0.5)
-        .expect("valid stock grid");
+    let mut stock =
+        DexelGrid::new_stock(0.0, 0.0, 0.0, 100.0, 50.0, 20.0, 0.5).expect("valid stock grid");
 
     // Flat endmill radius 5mm cutting along X=20 to X=80 at Y=25, Z=15 (depth 5mm)
     stock.carve_segment([20.0, 25.0, 15.0], [80.0, 25.0, 15.0], 5.0, false);
@@ -37,8 +37,8 @@ fn test_dexel_single_pass_slot_carving() {
 
 #[test]
 fn test_dexel_full_toolpath_simulation() {
-    let mut stock = DexelGrid::new_stock(0.0, 0.0, 0.0, 60.0, 60.0, 20.0, 1.0)
-        .expect("valid stock grid");
+    let mut stock =
+        DexelGrid::new_stock(0.0, 0.0, 0.0, 60.0, 60.0, 20.0, 1.0).expect("valid stock grid");
 
     let design = Design {
         ops: vec![

@@ -246,7 +246,10 @@ impl DesignBuilder {
     }
 
     /// Resolves the design and evaluates safety contracts.
-    pub fn verify(self, contracts: &crate::verify::Contracts) -> Result<crate::verify::Report, crate::resolve::ResolveError> {
+    pub fn verify(
+        self,
+        contracts: &crate::verify::Contracts,
+    ) -> Result<crate::verify::Report, crate::resolve::ResolveError> {
         let tp = self.ir()?;
         Ok(crate::verify::verify(&tp, contracts))
     }
@@ -322,7 +325,8 @@ mod tests {
         };
         assert_eq!(d.ops.len(), 8);
 
-        let tp = crate::resolve::resolve_checked(&d, &crate::resolve::ResolveParams::default()).unwrap();
+        let tp =
+            crate::resolve::resolve_checked(&d, &crate::resolve::ResolveParams::default()).unwrap();
         assert!(!tp.segments.is_empty());
         let metrics = crate::engine::simulate(&tp);
         assert!(metrics.extruding_distance.value() > 0.0);
@@ -341,4 +345,3 @@ mod tests {
         assert!(!gcode.is_empty());
     }
 }
-

@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
+## [Unreleased]
+
+Everything since `bced638` ("document v0.7.0 features"). `Cargo.toml` still reads `0.7.0`, so none of
+this has been released or version-stamped — while `docs/02-roadmap.md` already describes v0.8.0 as
+"Completed (Merged)" and Phase 8 as v0.9.0. **That disagreement is real and is a release decision, not
+an oversight to be quietly resolved here**; this section exists so the work is at least recorded
+against a version-neutral heading until someone makes the call.
+
+### Added
+- **Phase 7 — Manufacturing kernel & motion optimisation.** Direct STEP ISO 10303-21 B-Rep solid and
+  multi-solid CSG slicing (analytic plane/cylinder/cone/sphere/torus intersection, no tessellation
+  error); a 5-axis synchronised jerk-limited lookahead optimiser; live Moonraker fleet
+  synchronisation with thermal-runaway and process-deviation detection; coordinated multi-robot
+  workcell clearance with swept-capsule distance checking; and
+  `docs/27-system-capabilities-and-architecture-graph.md`.
+- **Phase 8 — Industrial dialects, physics and generative CAM.** Emitters for Siemens Sinumerik
+  840D/ONE (`TRAORI`/`TRAFOOF`), Haas NextGen (`G187 P2 E0.025` HSM, `G43 H`), Heidenhain TNC
+  (`BEGIN PGM`/`TOOL CALL`) and ABB RAPID (`MoveL`/`MoveC` robtargets with quaternions); an analytic
+  cutting-force / tool-deflection / thermal / Taylor-wear / chatter simulator (`crates/core/src/physics.rs`);
+  a prompt-to-design planner (`crates/llm`); and a WebGL 2.0 toolpath viewer (`web/visualizer.html`).
+- **CAM and geometry.** Radial tool engagement with corner trochoidal peeling, helical ramp entry,
+  BVH-accelerated mesh heightfield 5-axis drape, graded TPMS metamaterials, CNC lathe turning/facing,
+  thread milling, rest machining, chip-thinning compensation, and 3D dexel stock simulation.
+- **Robotics.** 6-axis DH forward/inverse kinematics with a spherical-wrist singularity hold, dual-arm
+  trajectory interpolation and multi-robot barrier synchronisation.
+- **Assurance and compliance.** Lean 4 proofs for clothoid curvature linearity, 5-axis polar hold and
+  IEEE-754 refinement; ISO/ASTM 52915 3MF and ISO 14649 STEP-NC AP238 conformance suites; DO-178C/DO-333,
+  IEC 62304 and ISO 26262 evidence kits; SLSA L3 provenance, CycloneDX/SPDX SBOMs, CodeQL and Gitleaks.
+- **Ecosystem.** Integrations for Fusion 360, FreeCAD, LinuxCNC, Mastercam/NX, slicers, Blender, RoboDK,
+  OctoPrint and Moonraker; FSL-1.1-MIT licensing adoption; a 3-tier verification architecture with an
+  in-browser wasm verifier.
+- **`Contracts::travel_must_be_dark` / `process.travel_must_be_dark`** — opt in to
+  `laser-power-during-travel` for a beam-based process.
+
+### Changed
+- **`laser-power-during-travel` is process-gated rather than always-on.** *Behavioural change to
+  `verify`.* It shipped as an always-on `Severity::Error` and was wrong in both directions: `Op::Power`
+  carries spindle RPM as well as laser PWM, so it errored on an ordinary milling rapid at `S8000`, and
+  it errored on Dry's own resolved laser output because the power channel is sticky. It now fires only
+  under `process.travel_must_be_dark`. The always-on rule set drops from 12 to 11 and its
+  error-severity subset from 9 to 8, so **a contract-free `verify` certifies slightly less than
+  before** — deliberately, since what it certified was partly wrong. Six profile-matrix reports and
+  fourteen report goldens no longer list the rule in `rules_evaluated`.
+- **`Robot6AxisModel::solve_ik` refuses input that carries no pose.** *Breaking, on a surface with no
+  in-tree callers.* A non-finite TCP point, a zero or non-finite tool direction, or a non-finite
+  previous joint state now return `Err`; previously they returned `Ok` with `NaN` in every joint,
+  because `NaN.abs() > 1.0` is false and the reach check never fired. The tool direction is also
+  normalised, so its length no longer displaces the wrist centre by `d6·(‖v‖ − 1)`.
+
+### Fixed
+- CI's `fmt`, `clippy`, reference-docs and Lean `--wfail` gates, red across five jobs.
+- `FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH`'s duplicated source anchor: both tool-holder paths now share
+  one `HolderSample`, with the finding message pinned.
+- A test fixture path that collided about half the time, making the CLI suite intermittently red.
+
+### Known limitations recorded, not fixed
+- `solve_ik` is a **5-DOF solve in a six-joint shape**: `J6` is never determined and always reads `0.0`.
+  Only the elbow-up branch is produced.
+- `Robot6AxisModel`'s forward solves (`solve_fk`, `solve_fk_pose`, `solve_all_link_positions`) return
+  plain values with no error channel, so they still propagate non-finite input.
+- Phase 7/8 additions — the lookahead optimiser, the physics simulator and the industrial CNC/robot
+  flavors — are reachable from `dry-core` and (partly) the CLI, but are **not exposed** in the Python,
+  wasm or TypeScript SDKs.
+
 ## [0.7.0] - 2026-08-29
 
 ### Added

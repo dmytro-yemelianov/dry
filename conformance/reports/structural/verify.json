@@ -35,12 +35,6 @@
       "severity": "warning",
       "segment": 7,
       "message": "travel move deposits 0.8000 mm³ (should be 0)"
-    },
-    {
-      "rule": "laser-power-during-travel",
-      "severity": "error",
-      "segment": 7,
-      "message": "travel move has active spindle/laser power (level 1000.0000)"
     }
   ],
   "segments_inspected": 8,
@@ -55,8 +49,7 @@
     "negative-quantity",
     "segment-length",
     "arc-length",
-    "filament-consistency",
-    "laser-power-during-travel"
+    "filament-consistency"
   ],
   "contracts": {
     "monotonic_z": false

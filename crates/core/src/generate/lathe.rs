@@ -103,8 +103,12 @@ pub fn generate_lathe_facing_ops(params: &LatheFacingParams) -> Result<Vec<Op>, 
     let r_stock = params.stock_diameter / 2.0;
     let start_x = r_stock + params.clearance_x;
 
-    ops.push(Op::Power { level: params.spindle_rpm });
-    ops.push(Op::Speed { print: params.feedrate });
+    ops.push(Op::Power {
+        level: params.spindle_rpm,
+    });
+    ops.push(Op::Speed {
+        print: params.feedrate,
+    });
     ops.push(Op::Extruder { on: false });
 
     // Initial positioning in safe clearance
@@ -115,7 +119,8 @@ pub fn generate_lathe_facing_ops(params: &LatheFacingParams) -> Result<Vec<Op>, 
     });
 
     for pass in 0..params.passes {
-        let current_z = params.target_z + ((params.passes - 1 - pass) as f64 * params.depth_per_pass);
+        let current_z =
+            params.target_z + ((params.passes - 1 - pass) as f64 * params.depth_per_pass);
 
         // Move to start X at clearance
         ops.push(Op::Move {
@@ -194,8 +199,12 @@ pub fn generate_lathe_od_turning_ops(params: &LatheTurningParams) -> Result<Vec<
         0.0
     };
 
-    ops.push(Op::Power { level: params.spindle_rpm });
-    ops.push(Op::Speed { print: params.rough_feedrate });
+    ops.push(Op::Power {
+        level: params.spindle_rpm,
+    });
+    ops.push(Op::Speed {
+        print: params.rough_feedrate,
+    });
     ops.push(Op::Extruder { on: false });
 
     let safe_x = r_raw + params.clearance_x;
@@ -244,7 +253,9 @@ pub fn generate_lathe_od_turning_ops(params: &LatheTurningParams) -> Result<Vec<
 
     // Finishing pass (if finish allowance > 0)
     if params.finish_allowance > 0.0 {
-        ops.push(Op::Speed { print: params.finish_feedrate });
+        ops.push(Op::Speed {
+            print: params.finish_feedrate,
+        });
 
         // Position at target radius
         ops.push(Op::Move {

@@ -38,6 +38,7 @@ Commands:
   verify              Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found. Flags: `--bounds`, `--max-flow`, `--speed-range`, `--monotonic-z`, `--min-temp`, `--max-retraction-distance`, `--max-retraction-speed`, `--max-travel-without-retract`, `--first-layer-height-range`, `--first-layer-speed-range`, `--max-accel`, `--junction-velocity`, `--json`
   check               Check a toolpath against machine capabilities for physical limits and boundaries
   schema              Export JSON Schema for a versioned Dry dialect (e.g. intent/1, path/1, motion/1, tool/1)
+  fleet               Query Moonraker live printer status or send dynamic tuning commands to fleet
   help                Print this message or the help of the given subcommand(s)
 
 Options:
@@ -73,3 +74,4 @@ Options:
 | [`verify`](/reference/generated/cli/verify) | [Verify](/guide/verify) | Check a Dry IR file against machine-safety contracts; exits 1 if any errors are found. Flags: `--bounds`, `--max-flow`, `--speed-range`, `--monotonic-z`, `--min-temp`, `--max-retraction-distance`, `--max-retraction-speed`, `--max-travel-without-retract`, `--first-layer-height-range`, `--first-layer-speed-range`, `--max-accel`, `--junction-velocity`, `--json` |
 | [`check`](/reference/generated/cli/check) |  | Check a toolpath against machine capabilities for physical limits and boundaries |
 | [`schema`](/reference/generated/cli/schema) |  | Export JSON Schema for a versioned Dry dialect (e.g. intent/1, path/1, motion/1, tool/1) |
+| [`fleet`](/reference/generated/cli/fleet) |  | Query Moonraker live printer status or send dynamic tuning commands to fleet |

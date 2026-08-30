@@ -55,7 +55,15 @@ hash_mode = "file"
 # design note (H1.3 section 3.5) exists to prevent. It changes no tolerance, no epsilon and no
 # predicate: the four boundaries pinned below are always-on rules, unaffected by contract
 # presence, and none of their `operation` text moves.
-sha256 = "0d5d413075a7c5efd6e275793e15ed8994b375868478e35bd77de8d5b4f0c49e"
+# Re-pinned 2026-08-30 for the `laser-power-during-travel` rule, which reached main in b2a05ef as an
+# always-on Error and is now gated on `Contracts::travel_must_be_dark`. That DOES change what a
+# contract-free `verify` certifies and the diff should be read as such: the always-on set drops from
+# 12 rules to 11 and its error-severity subset from 9 to 8. It changes no tolerance, no epsilon and
+# no predicate — none of the four boundaries pinned below is contract-gated, and none of their
+# `operation` text moves. Reviewed because the always-on version was wrong in both directions: it
+# refused an ordinary milling rapid with the spindle running, and refused Dry's own resolved laser
+# output. See docs/11-profiles-and-reports.md.
+sha256 = "f7602ce39ce7905e38c245ce62984cc3f96ebffc4a1cfff19f65bd0892763e4b"
 
 [[source]]
 # The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its
@@ -67,7 +75,13 @@ sha256 = "0d5d413075a7c5efd6e275793e15ed8994b375868478e35bd77de8d5b4f0c49e"
 path = "crates/core/src/verify/collision.rs"
 role = "implementation"
 hash_mode = "file"
-sha256 = "ca3daa723650394546aa3f251d0630a05ab1bc0904f776be542bcc0144e11aad"
+# Re-pinned 2026-08-30. Two reviewed changes. 02ed2dc added the stepped-toolholder path, which
+# duplicated this file's depth subtraction and broke the exactly-once source-anchor rule below; both
+# holder paths are now folded onto one `HolderSample`, restoring a single anchor and removing the
+# duplicated predicate. The arithmetic is unchanged — the drop moved from a hoisted local into
+# `HolderSample::lowest_z` with the same inputs — and the finding message is now pinned by
+# `collision_checker.rs` so a later refactor cannot reword it silently. Plus a rustfmt-only reformat.
+sha256 = "1fe92becc2a2633199b88ee42dcfaea59b87b68c1b9a8a820c6b85ba709fc697"
 
 # ---------------------------------------------------------------------------------------------
 # H1.3 added six structural rules to `verify`. Three of them carry a tolerance, and under ADR 0001 a
@@ -218,7 +232,7 @@ id = "FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH"
 title = "Holder fouling is decided by one subtraction against the stickout length"
 rust_symbol = "check_tool_holder_collision"
 source_path = "crates/core/src/verify/collision.rs"
-source_anchor = "let depth = stock_top_z - z;"
+source_anchor = "let depth = stock_top_z - self.tip_z;"
 inputs = [
   "Segment end coordinates in millimetres",
   "stock_bounds[0..6] in millimetres",

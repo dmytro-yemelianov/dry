@@ -121,12 +121,7 @@ impl Triangle {
         } else {
             [0.0, 0.0, 1.0]
         };
-        Self {
-            v0,
-            v1,
-            v2,
-            normal,
-        }
+        Self { v0, v1, v2, normal }
     }
 
     pub fn aabb(&self) -> Aabb {
@@ -427,7 +422,9 @@ impl TriangleMesh {
         // Try ASCII STL first if it decodes as UTF-8 and contains STL keywords
         if let Ok(text) = std::str::from_utf8(bytes) {
             let trimmed = text.trim();
-            if trimmed.starts_with("solid") && (trimmed.contains("facet") || trimmed.contains("vertex")) {
+            if trimmed.starts_with("solid")
+                && (trimmed.contains("facet") || trimmed.contains("vertex"))
+            {
                 return Self::from_stl_ascii(trimmed);
             }
         }
@@ -482,7 +479,8 @@ impl TriangleMesh {
     }
 
     fn from_stl_binary(bytes: &[u8]) -> Result<Self, DrapeError> {
-        let num_triangles = u32::from_le_bytes([bytes[80], bytes[81], bytes[82], bytes[83]]) as usize;
+        let num_triangles =
+            u32::from_le_bytes([bytes[80], bytes[81], bytes[82], bytes[83]]) as usize;
         let expected_len = 84 + num_triangles * 50;
         if bytes.len() < expected_len {
             return Err(DrapeError::InvalidMesh(format!(
@@ -496,12 +494,8 @@ impl TriangleMesh {
 
         for _ in 0..num_triangles {
             let read_f32 = |off: usize| -> f64 {
-                f32::from_le_bytes([
-                    bytes[off],
-                    bytes[off + 1],
-                    bytes[off + 2],
-                    bytes[off + 3],
-                ]) as f64
+                f32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]])
+                    as f64
             };
 
             let v0 = [
@@ -539,7 +533,11 @@ pub enum DrapePattern {
     ZigZagX,
     #[serde(alias = "zigzag-y", alias = "zigzag_y", alias = "zigzagY")]
     ZigZagY,
-    #[serde(alias = "spiral-concentric", alias = "spiral_concentric", alias = "spiralConcentric")]
+    #[serde(
+        alias = "spiral-concentric",
+        alias = "spiral_concentric",
+        alias = "spiralConcentric"
+    )]
     SpiralConcentric,
 }
 
@@ -626,10 +624,14 @@ impl std::error::Error for DrapeError {}
 /// Generate conformal 5-axis draping ops over the provided mesh.
 pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
     if options.stepover <= 0.0 || !options.stepover.is_finite() {
-        return Err(DrapeError::InvalidParameters("stepover must be positive and finite".into()));
+        return Err(DrapeError::InvalidParameters(
+            "stepover must be positive and finite".into(),
+        ));
     }
     if options.resolution <= 0.0 || !options.resolution.is_finite() {
-        return Err(DrapeError::InvalidParameters("resolution must be positive and finite".into()));
+        return Err(DrapeError::InvalidParameters(
+            "resolution must be positive and finite".into(),
+        ));
     }
 
     let mut mesh = options.mesh.clone();
@@ -642,12 +644,12 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
         .y_range
         .unwrap_or([mesh.bounds.min[1], mesh.bounds.max[1]]);
 
-    let safe_z = options
-        .safe_z
-        .unwrap_or(mesh.bounds.max[2] + 10.0);
+    let safe_z = options.safe_z.unwrap_or(mesh.bounds.max[2] + 10.0);
 
     if x_bounds[0] >= x_bounds[1] || y_bounds[0] >= y_bounds[1] {
-        return Err(DrapeError::InvalidParameters("invalid bounding interval".into()));
+        return Err(DrapeError::InvalidParameters(
+            "invalid bounding interval".into(),
+        ));
     }
 
     let mut ops = Vec::new();
@@ -778,7 +780,6 @@ pub fn drape_ops(options: &DrapeOptions) -> Result<Vec<Op>, DrapeError> {
         }
     }
 
-
     if total_hits == 0 {
         return Err(DrapeError::NoSurfaceHit(
             "no surface intersections found across requested bounding domain".into(),
@@ -833,8 +834,10 @@ mod tests {
         let ops = drape_ops(&opts).expect("should generate spiral concentric drape ops");
         assert!(!ops.is_empty());
         // Verify tool orientations are generated
-        let orient_count = ops.iter().filter(|op| matches!(op, Op::Orient { .. })).count();
+        let orient_count = ops
+            .iter()
+            .filter(|op| matches!(op, Op::Orient { .. }))
+            .count();
         assert!(orient_count > 5);
     }
 }
-

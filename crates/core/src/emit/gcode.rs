@@ -28,6 +28,35 @@ pub enum FirmwareFlavor {
 }
 
 impl FirmwareFlavor {
+    /// Resolve a flavor from its wire name, refusing anything not in the catalog.
+    ///
+    /// One parser, so the bindings cannot drift apart from each other or from the CLI's `--format`.
+    /// They did: each binding carried its own `match` ending in `_ => FirmwareFlavor::Marlin`, so a
+    /// caller asking for a flavor that binding had not learned yet — every one added after it was
+    /// written, and every typo — was silently answered with **Marlin**. Emitting FFF G-code for a
+    /// program that asked for a 5-axis mill or a robot is the kind of quiet substitution this repo
+    /// refuses elsewhere at emit; an unknown name is an error here for the same reason.
+    ///
+    /// Names match the CLI's `--format` values and their documented aliases.
+    pub fn named(name: &str) -> Result<Self, String> {
+        match name.to_ascii_lowercase().as_str() {
+            "marlin" | "gcode" => Ok(FirmwareFlavor::Marlin),
+            "klipper" => Ok(FirmwareFlavor::Klipper),
+            "duet" => Ok(FirmwareFlavor::Duet),
+            "rs274" | "linuxcnc" => Ok(FirmwareFlavor::Rs274),
+            "grbl" | "laser" => Ok(FirmwareFlavor::Grbl),
+            "krl" | "robot-krl" | "robotkrl" => Ok(FirmwareFlavor::RobotKrl),
+            "siemens" | "sinumerik" => Ok(FirmwareFlavor::Siemens),
+            "heidenhain" | "tnc" => Ok(FirmwareFlavor::Heidenhain),
+            "haas" => Ok(FirmwareFlavor::Haas),
+            "rapid" | "robot-rapid" | "robotrapid" => Ok(FirmwareFlavor::Rapid),
+            other => Err(format!(
+                "unknown firmware flavor: {other} (expected one of: marlin, klipper, duet, rs274, \
+                 grbl, krl, siemens, heidenhain, haas, rapid)"
+            )),
+        }
+    }
+
     /// Whether the target has a filament (E) axis. CNC, laser and robot controllers reject `E`.
     pub fn has_extruder(self) -> bool {
         matches!(

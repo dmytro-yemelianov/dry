@@ -67,7 +67,8 @@ fn test_rest_machining_non_orthogonal_corners() {
             radial_passes: 2,
         };
 
-        let ops = generate_corner_rest_machining_ops(&params).expect("Failed non-orthogonal rest ops");
+        let ops =
+            generate_corner_rest_machining_ops(&params).expect("Failed non-orthogonal rest ops");
         assert!(!ops.is_empty());
         let design = Design { ops };
         let toolpath = resolve(&design, &ResolveParams::default());

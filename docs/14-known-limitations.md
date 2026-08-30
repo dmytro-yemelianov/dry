@@ -25,6 +25,23 @@ Do not rely on Dry for any of these today:
     extrusion is not carried at all, and the default identity `$TOOL` puts the TCP at the flange, so
     the emitted coordinates ignore tool length until a real `$TOOL` is supplied. Full boundary:
     [`22-krl-emit.md`](22-krl-emit.md).
+  - **The Phase 8 industrial dialects have had no controller contact at all.** Siemens Sinumerik
+    840D/ONE, Haas NextGen, Heidenhain TNC and ABB RAPID emit structurally plausible programs and are
+    covered by unit tests over their own output — which is weaker evidence than KRL has, since KRL is
+    at least parsed by an external grammar. No independent interpreter checks any of the four, and
+    none has been loaded on a control. Only RS-274 is gated by a genuine external interpreter
+    (LinuxCNC `rs274`, CI job `linuxcnc`).
+- **A production robot kinematics solver.** `Robot6AxisModel::solve_ik` is a **five**-degree-of-freedom
+  solve returned in a six-joint shape: `J6` is never determined and always reads `0.0`, because a TCP
+  point plus a tool *direction* does not fix the roll about the tool axis and the signature takes no
+  roll reference. It produces only the elbow-up branch, so it cannot follow a path requiring
+  reconfiguration, and it checks reach but neither joint travel limits nor self-collision — an
+  accepted solve is not a claim that the pose is attainable.
+- **The digital-twin physics simulator is analytic, not validated.** Cutting force, tool deflection,
+  shear-zone temperature, Taylor tool life and chatter boundaries are closed-form estimates from
+  textbook models with published coefficients. Nothing in this repo compares them against a
+  dynamometer, a thermocouple or a real cut. Treat the numbers as indicative, not as a process
+  guarantee.
 - **A complete non-planar / 5-axis workflow.** The toolframe orientation is a first-class IR property and
   5-axis rotary emission exists, but there is no kinematics validation, collision/singularity handling, or
   real-machine gating. Treat 5-axis as experimental.
@@ -34,6 +51,52 @@ Do not rely on Dry for any of these today:
 - **Safety guarantees beyond the documented rules.** `verify` enforces exactly the rule catalog in
   `docs/11-profiles-and-reports.md` — nothing more. A clean report means "none of these rules fired", not
   "safe to print unattended".
+
+## Cross-target parity is not uniform
+
+Dry's SDKs do **not** all expose the same engine. The Python, wasm and TypeScript bindings carry the
+FFF authoring surface, the generators, B-Rep slicing and dexel simulation — but the Phase 7/8
+additions are reachable only from `dry-core` and, in part, the CLI:
+
+| Capability | `dry-core` | CLI | Python | wasm | TS |
+|---|---|---|---|---|---|
+| TPMS lattice infill | yes | yes | yes | yes | yes |
+| Pocket / profile milling | yes | yes | yes | yes | yes |
+| 5-axis jerk-limited lookahead | yes | **no** | yes | yes | yes |
+| Machining physics | yes | **no** | yes | yes | yes |
+| Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | yes | yes | yes |
+| CNC machine preamble (`cnc_frame`) | yes | profile | yes | yes | yes |
+| B-Rep multi-solid + CSG slicing | yes | **no** | yes | yes | yes |
+| Dexel stock simulation | yes | **no** | yes | yes | yes |
+| Mesh heightfield 5-axis drape | yes | **no** | yes | **no** | **no** |
+| Lathe turning / facing | yes | **no** | yes | yes | yes |
+| Tool holder collision | yes | **no** | yes | yes | yes |
+
+**This table is no longer hand-maintained.** It mirrors
+[`conformance/capability-parity.toml`](../conformance/capability-parity.toml), which
+`tools/check_capability_parity.py` checks against the source **in both directions** on every CI run:
+a cell recorded reachable whose symbol is gone fails, and a surface that *gains* a capability recorded
+absent fails too. Every absent cell carries a note saying why it is a reviewed gap rather than an
+oversight. That gate exists because this table was previously a snapshot and was wrong in two cells
+the first time it was written — and the manifest's first run caught three more.
+
+**The binding gap is closed.** The lookahead optimiser, the physics simulator and all four Phase 8
+dialects reach Python, wasm and TypeScript, with the `cnc_frame` they need to emit a machine preamble
+rather than bare motion. Python and TypeScript are cross-checked against *each other*:
+`py/tests/test_physics_and_lookahead.py` and `sdk/ts/test/physics_and_lookahead.test.ts` assert the
+same physics numbers through two different FFI paths (native PyO3 and wasm), and they agree bit for
+bit.
+
+**What remains is the CLI column.** TPMS is now reachable as `dry generate tpms` — it previously had
+no CLI surface at all, which was worth fixing first because H1.4 called it "the most-exposed
+generator (wasm + PyO3 + TS)": it was exposed everywhere except the product that actually ships. It
+takes the option bundle as camelCase JSON (a file, or stdin) rather than a flag per field, because
+`TpmsOptions` carries 26 fields and a hand-maintained flag set would drift from it immediately; the
+same bundle is portable to every other surface and to `conformance/vectors`.
+
+Still absent from the CLI: B-Rep slicing, dexel simulation, the lookahead optimiser, the physics
+simulator, mesh drape, lathe turning/facing and tool-holder collision. Mesh drape is the one
+capability missing from wasm and TypeScript as well.
 
 ## Sharp edges in what Dry does do
 

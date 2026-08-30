@@ -12,8 +12,16 @@ fn iso_14649_step_nc_ap238_conformance() {
         segments: vec![
             // Segment 0: 5-Axis Rapid Transit
             Segment {
-                start: [Some(Length::mm(0.0)), Some(Length::mm(0.0)), Some(Length::mm(50.0))],
-                end: [Some(Length::mm(10.0)), Some(Length::mm(20.0)), Some(Length::mm(25.0))],
+                start: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(50.0)),
+                ],
+                end: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(25.0)),
+                ],
                 travel: true,
                 speed: Feedrate(6000.0),
                 length: Length::mm(30.4138),
@@ -36,8 +44,16 @@ fn iso_14649_step_nc_ap238_conformance() {
             },
             // Segment 1: Multi-Axis 5-Axis Milling Pass with Tool Orientation
             Segment {
-                start: [Some(Length::mm(10.0)), Some(Length::mm(20.0)), Some(Length::mm(25.0))],
-                end: [Some(Length::mm(30.0)), Some(Length::mm(40.0)), Some(Length::mm(20.0))],
+                start: [
+                    Some(Length::mm(10.0)),
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(25.0)),
+                ],
+                end: [
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(40.0)),
+                    Some(Length::mm(20.0)),
+                ],
                 travel: false,
                 speed: Feedrate(1500.0),
                 length: Length::mm(28.7228),
@@ -61,7 +77,8 @@ fn iso_14649_step_nc_ap238_conformance() {
         ],
     };
 
-    let xml = emit_step_nc(&tp, &dry_core::emit::EmitParams::default()).expect("STEP-NC emit must succeed");
+    let xml = emit_step_nc(&tp, &dry_core::emit::EmitParams::default())
+        .expect("STEP-NC emit must succeed");
 
     assert!(xml.contains("xmlns=\"urn:iso:std:iso-10303-14649\""));
     assert!(xml.contains("schema=\"ISO-10303-238:2020\""));

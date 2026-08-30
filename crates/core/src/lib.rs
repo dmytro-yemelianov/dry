@@ -69,11 +69,10 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 pub use emit::emit;
 pub use emit::{
     emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc,
-    emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DrillCycle,
-    EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform, LaserError,
-    LaserMode, LaserParams, LeadInType, PeckDrillCycle, TemplateContext,
-    DhParam, RobotJoints6, Robot6AxisModel,
-    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DhParam,
+    DrillCycle, EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform,
+    LaserError, LaserMode, LaserParams, LeadInType, PeckDrillCycle, Robot6AxisModel, RobotJoints6,
+    TemplateContext, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};

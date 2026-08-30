@@ -11,7 +11,7 @@ import {
   resolveOptimizedIr,
   resolveVerify,
 } from './engine';
-import type { MachineKinematics } from './engine';
+import type { MachineKinematics, FirmwareFlavor, CncFrame } from './engine';
 import { pocketOps } from './generators/pocket';
 import type { PocketOptions } from './generators/pocket';
 import {
@@ -154,6 +154,10 @@ export interface GcodeOptions {
   fiveAxis?: boolean;
   /** Rotary axis pair to emit when `fiveAxis` is set. Defaults to `'ab'`. */
   rotaryAxes?: string;
+  /** Target controller dialect. Defaults to `'marlin'`; an unknown name throws. */
+  flavor?: FirmwareFlavor;
+  /** Machine preamble for the CNC dialects (work offset, tool, spindle, coolant). */
+  cncFrame?: CncFrame;
 }
 
 const GCODE_OPTION_KEYS: readonly (keyof GcodeOptions)[] = [
@@ -162,6 +166,8 @@ const GCODE_OPTION_KEYS: readonly (keyof GcodeOptions)[] = [
   'travelG1E0',
   'fiveAxis',
   'rotaryAxes',
+  'flavor',
+  'cncFrame',
 ];
 
 function isGcodeOptions(value: unknown): value is GcodeOptions {
@@ -429,7 +435,9 @@ export class Design {
       o.relativeE ?? true,
       o.travelG1E0 ?? false,
       o.fiveAxis ?? false,
-      o.rotaryAxes ?? 'ab'
+      o.rotaryAxes ?? 'ab',
+      o.flavor,
+      o.cncFrame
     );
   }
 

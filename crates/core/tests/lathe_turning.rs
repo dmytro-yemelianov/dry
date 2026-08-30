@@ -24,10 +24,14 @@ fn test_lathe_facing_operations() {
     assert!(!toolpath.segments.is_empty());
 
     // Verify facing passes cross through center
-    let has_center_pass = toolpath.segments.iter().any(|seg| {
-        seg.end[0].map(|x| x.value() <= 0.0).unwrap_or(false)
-    });
-    assert!(has_center_pass, "Facing operation must cut across the center axis");
+    let has_center_pass = toolpath
+        .segments
+        .iter()
+        .any(|seg| seg.end[0].map(|x| x.value() <= 0.0).unwrap_or(false));
+    assert!(
+        has_center_pass,
+        "Facing operation must cut across the center axis"
+    );
 }
 
 #[test]
@@ -53,16 +57,25 @@ fn test_lathe_od_roughing_and_finishing() {
     assert!(!toolpath.segments.is_empty());
 
     // Verify deepest cutting reach
-    let has_target_reach = toolpath.segments.iter().any(|seg| {
-        seg.end[2].map(|z| z.value() <= -50.0).unwrap_or(false)
-    });
-    assert!(has_target_reach, "OD turning must reach the commanded cut length");
+    let has_target_reach = toolpath
+        .segments
+        .iter()
+        .any(|seg| seg.end[2].map(|z| z.value() <= -50.0).unwrap_or(false));
+    assert!(
+        has_target_reach,
+        "OD turning must reach the commanded cut length"
+    );
 
     // Verify finished radius
     let has_final_radius = toolpath.segments.iter().any(|seg| {
-        seg.end[0].map(|x| (x.value() - 20.0).abs() < 1e-4).unwrap_or(false)
+        seg.end[0]
+            .map(|x| (x.value() - 20.0).abs() < 1e-4)
+            .unwrap_or(false)
     });
-    assert!(has_final_radius, "Finishing pass must cut at target radius 20mm (diameter 40mm)");
+    assert!(
+        has_final_radius,
+        "Finishing pass must cut at target radius 20mm (diameter 40mm)"
+    );
 }
 
 #[test]

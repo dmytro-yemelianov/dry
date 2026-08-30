@@ -145,8 +145,8 @@ pub fn analyze_machining_physics(
 
     // 1. Kinematics
     let vc = (PI * d_mm * rpm) / 1000.0; // m/min
-    let fz = vf / (rpm * z);            // mm/tooth
-    let mrr = (ap * ae * vf) / 1000.0;  // cm^3/min
+    let fz = vf / (rpm * z); // mm/tooth
+    let mrr = (ap * ae * vf) / 1000.0; // cm^3/min
 
     // 2. Cutting forces (Kienzle model)
     let kc = material.specific_cutting_force_n_mm2();
@@ -160,7 +160,7 @@ pub fn analyze_machining_physics(
     // 4. Cantilever deflection: delta = (F * L^3) / (3 * E * I)
     let core_d = d_mm * tool.core_diameter_ratio;
     let i_second_moment = (PI * core_d.powi(4)) / 64.0; // mm^4
-    let e_n_mm2 = tool.modulus_gpa * 1000.0;           // GPa -> N/mm^2
+    let e_n_mm2 = tool.modulus_gpa * 1000.0; // GPa -> N/mm^2
     let l_mm = tool.stickout_length_mm;
     let deflection_mm = (ft * l_mm.powi(3)) / (3.0 * e_n_mm2 * i_second_moment);
     let deflection_um = deflection_mm * 1000.0;

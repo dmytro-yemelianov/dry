@@ -31,12 +31,17 @@ Options:
           Emit RS-274 / GRBL / KRL output instead of the default FFF G-code target
 
           Possible values:
-          - gcode:     Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile)
-          - rs274:     Emit existing CNC/RS-274 output
-          - grbl:      Emit GRBL (laser) output
-          - robot-krl: Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md)
+          - gcode:       Emit existing FFF-style G-code (Marlin/Klipper/Duet depending on flavor/profile)
+          - rs274:       Emit existing CNC/RS-274 output
+          - grbl:        Emit GRBL (laser) output
+          - robot-krl:   Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md)
+          - siemens:     Emit Siemens Sinumerik 840D / ONE CNC format
+          - heidenhain:  Emit Heidenhain TNC conversational CNC format
+          - haas:        Emit Haas NextGen CNC format
+          - robot-rapid: Emit ABB RAPID robot module format
 
           [default: gcode]
+          [aliases: --flavor]
 
       --rotary-axes <ROTARY_AXES>
           Rotary axes (ab/ac/bc) that carry the toolframe orientation for 5-axis words. (Accepts the legacy `--kinematics` alias; this is the rotary-axes STRING, not the motion-limits object.)

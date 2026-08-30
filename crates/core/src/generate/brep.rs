@@ -73,10 +73,7 @@ impl Vector3D {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SurfacePrimitive {
     /// Infinite or bounded plane.
-    Plane {
-        origin: Point3D,
-        normal: Vector3D,
-    },
+    Plane { origin: Point3D, normal: Vector3D },
     /// Right circular cylinder.
     Cylinder {
         origin: Point3D,
@@ -85,10 +82,7 @@ pub enum SurfacePrimitive {
         height: f64,
     },
     /// Sphere.
-    Sphere {
-        center: Point3D,
-        radius: f64,
-    },
+    Sphere { center: Point3D, radius: f64 },
     /// Right circular cone.
     Cone {
         apex: Point3D,
@@ -125,7 +119,12 @@ impl SurfacePrimitive {
                 let dz = p.z - center.z;
                 Vector3D::new(dx, dy, dz).unwrap_or(Vector3D::unit_z())
             }
-            Self::Cone { apex, axis, half_angle_rad, .. } => {
+            Self::Cone {
+                apex,
+                axis,
+                half_angle_rad,
+                ..
+            } => {
                 let v = [p.x - apex.x, p.y - apex.y, p.z - apex.z];
                 let proj = v[0] * axis.x + v[1] * axis.y + v[2] * axis.z;
                 let rx = v[0] - proj * axis.x;
@@ -139,13 +138,19 @@ impl SurfacePrimitive {
                 let nz = r_unit.z * cos_a - axis.z * sin_a;
                 Vector3D::new(nx, ny, nz).unwrap_or(Vector3D::unit_z())
             }
-            Self::Torus { center, axis, major_radius, .. } => {
+            Self::Torus {
+                center,
+                axis,
+                major_radius,
+                ..
+            } => {
                 let v = [p.x - center.x, p.y - center.y, p.z - center.z];
                 let proj = v[0] * axis.x + v[1] * axis.y + v[2] * axis.z;
                 let radial_x = v[0] - proj * axis.x;
                 let radial_y = v[1] - proj * axis.y;
                 let radial_z = v[2] - proj * axis.z;
-                let radial_unit = Vector3D::new(radial_x, radial_y, radial_z).unwrap_or(Vector3D::unit_z());
+                let radial_unit =
+                    Vector3D::new(radial_x, radial_y, radial_z).unwrap_or(Vector3D::unit_z());
                 let tube_center_x = center.x + major_radius * radial_unit.x;
                 let tube_center_y = center.y + major_radius * radial_unit.y;
                 let tube_center_z = center.z + major_radius * radial_unit.z;
@@ -163,7 +168,12 @@ impl SurfacePrimitive {
         let samples = num_points.max(16);
 
         match self {
-            Self::Cylinder { origin, axis, radius, height } => {
+            Self::Cylinder {
+                origin,
+                axis,
+                radius,
+                height,
+            } => {
                 // If cylinder is upright (axis == +Z)
                 if (axis.z.abs() - 1.0).abs() < 1e-6 && z0 >= origin.z && z0 <= origin.z + height {
                     for i in 0..=samples {
@@ -190,7 +200,12 @@ impl SurfacePrimitive {
                     }
                 }
             }
-            Self::Cone { apex, axis, half_angle_rad, height } => {
+            Self::Cone {
+                apex,
+                axis,
+                half_angle_rad,
+                height,
+            } => {
                 if (axis.z.abs() - 1.0).abs() < 1e-6 {
                     let rel_z = z0 - apex.z;
                     if rel_z >= 0.0 && rel_z <= *height {
@@ -206,7 +221,12 @@ impl SurfacePrimitive {
                     }
                 }
             }
-            Self::Torus { center, axis, major_radius, minor_radius } => {
+            Self::Torus {
+                center,
+                axis,
+                major_radius,
+                minor_radius,
+            } => {
                 if (axis.z.abs() - 1.0).abs() < 1e-6 {
                     let dz = (z0 - center.z).abs();
                     if dz <= *minor_radius {
@@ -319,7 +339,8 @@ impl BrepSolid {
             if trimmed.contains("SPHERICAL_SURFACE") {
                 // Example: #100 = SPHERICAL_SURFACE('', #10, 25.0);
                 if let Some(r_str) = trimmed.split(',').next_back() {
-                    let r_clean = r_str.trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    let r_clean =
+                        r_str.trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
                     if let Ok(radius) = r_clean.parse::<f64>() {
                         solid.add_surface(SurfacePrimitive::Sphere {
                             center: Point3D::new(0.0, 0.0, 0.0),
@@ -330,7 +351,8 @@ impl BrepSolid {
             } else if trimmed.contains("CYLINDRICAL_SURFACE") {
                 // Example: #200 = CYLINDRICAL_SURFACE('', #20, 15.0);
                 if let Some(r_str) = trimmed.split(',').next_back() {
-                    let r_clean = r_str.trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    let r_clean =
+                        r_str.trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
                     if let Ok(radius) = r_clean.parse::<f64>() {
                         solid.add_surface(SurfacePrimitive::Cylinder {
                             origin: Point3D::new(0.0, 0.0, 0.0),
@@ -344,7 +366,8 @@ impl BrepSolid {
                 // Example: #300 = CONICAL_SURFACE('', #30, 10.0, 0.5);
                 let parts: Vec<&str> = trimmed.split(',').collect();
                 if parts.len() >= 4 {
-                    let angle_clean = parts[parts.len() - 1].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    let angle_clean = parts[parts.len() - 1]
+                        .trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
                     if let Ok(angle) = angle_clean.parse::<f64>() {
                         solid.add_surface(SurfacePrimitive::Cone {
                             apex: Point3D::new(0.0, 0.0, 0.0),
@@ -358,9 +381,13 @@ impl BrepSolid {
                 // Example: #400 = TOROIDAL_SURFACE('', #40, 20.0, 5.0);
                 let parts: Vec<&str> = trimmed.split(',').collect();
                 if parts.len() >= 4 {
-                    let minor_clean = parts[parts.len() - 1].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
-                    let major_clean = parts[parts.len() - 2].trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
-                    if let (Ok(minor), Ok(major)) = (minor_clean.parse::<f64>(), major_clean.parse::<f64>()) {
+                    let minor_clean = parts[parts.len() - 1]
+                        .trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    let major_clean = parts[parts.len() - 2]
+                        .trim_matches(|c: char| c == ')' || c == ';' || c == ' ' || c == '\'');
+                    if let (Ok(minor), Ok(major)) =
+                        (minor_clean.parse::<f64>(), major_clean.parse::<f64>())
+                    {
                         solid.add_surface(SurfacePrimitive::Torus {
                             center: Point3D::new(0.0, 0.0, 0.0),
                             axis: Vector3D::unit_z(),
@@ -573,5 +600,3 @@ impl BrepAssembly {
         Ok(all_ops)
     }
 }
-
-

@@ -1,8 +1,6 @@
 //! Industrial CNC Post-Processor Flavors & Robotics Dialect Tests.
 
-use dry_core::{
-    emit_stream, CncFrame, Design, EmitParams, FirmwareFlavor, Op, ResolveParams,
-};
+use dry_core::{emit_stream, CncFrame, Design, EmitParams, FirmwareFlavor, Op, ResolveParams};
 
 #[test]
 fn test_siemens_sinumerik_emission() {
@@ -22,7 +20,6 @@ fn test_siemens_sinumerik_emission() {
             tool: Some(3),
             spindle_rpm: Some(8000.0),
             coolant: Some(true),
-            ..Default::default()
         }),
         five_axis: true,
         ..Default::default()
@@ -55,7 +52,6 @@ fn test_haas_cnc_emission() {
             tool: Some(1),
             spindle_rpm: Some(10000.0),
             coolant: Some(true),
-            ..Default::default()
         }),
         ..Default::default()
     };
@@ -120,7 +116,51 @@ fn test_abb_rapid_robot_emission() {
     let lines = emit_stream(tp.segments.iter().cloned().map(Ok), &params).unwrap();
     assert!(lines.iter().any(|l| l.contains("MODULE DryProgram")));
     assert!(lines.iter().any(|l| l.contains("PROC main()")));
-    assert!(lines.iter().any(|l| l.contains("MoveL [[100.000, 200.000, 300.000]")));
+    assert!(lines
+        .iter()
+        .any(|l| l.contains("MoveL [[100.000, 200.000, 300.000]")));
     assert!(lines.iter().any(|l| l.contains("ENDPROC")));
     assert!(lines.iter().any(|l| l.contains("ENDMODULE")));
+}
+
+/// `FirmwareFlavor::named` is the single parser the bindings share.
+///
+/// It exists because each binding carried its own `match` ending in `_ => Marlin`: a caller asking
+/// for a flavor that binding had not learned — every one added after it was written, and every typo
+/// — was answered with FFF G-code. For a program that asked for a 5-axis mill or a robot, that is a
+/// silent substitution of the wrong machine.
+#[test]
+fn every_flavor_has_a_name_and_an_unknown_one_is_refused() {
+    use dry_core::FirmwareFlavor as F;
+
+    for (name, expected) in [
+        ("marlin", F::Marlin),
+        ("gcode", F::Marlin),
+        ("klipper", F::Klipper),
+        ("duet", F::Duet),
+        ("rs274", F::Rs274),
+        ("linuxcnc", F::Rs274),
+        ("grbl", F::Grbl),
+        ("laser", F::Grbl),
+        ("krl", F::RobotKrl),
+        ("siemens", F::Siemens),
+        ("sinumerik", F::Siemens),
+        ("heidenhain", F::Heidenhain),
+        ("tnc", F::Heidenhain),
+        ("haas", F::Haas),
+        ("rapid", F::Rapid),
+    ] {
+        assert_eq!(F::named(name).unwrap(), expected, "flavor {name}");
+        // Case is not significant, so a caller passing "Siemens" or "GRBL" is not silently wrong.
+        assert_eq!(
+            F::named(&name.to_uppercase()).unwrap(),
+            expected,
+            "{name} uppercased"
+        );
+    }
+
+    for bad in ["", "marlni", "sinumerik840d", "fanuc", "siemen"] {
+        let err = F::named(bad).expect_err("an unknown flavor must be refused, not defaulted");
+        assert!(err.contains("unknown firmware flavor"), "{err}");
+    }
 }

@@ -5,6 +5,31 @@
 Public TypeScript types and report contracts re-exported by the SDK.
 
 
+## `analyzeMachiningPhysics`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function analyzeMachiningPhysics(tool: CuttingToolGeometry, material: WorkpieceMaterial, params: MachiningOperationParams): PhysicsAnalysisReport
+```
+
+Run the digital-twin machining physics analysis.
+
+The estimates are analytic closed-form models with textbook coefficients; nothing in this repo
+validates them against a dynamometer, a thermocouple or a real cut. Treat them as indicative,
+not as a process guarantee (`docs/14-known-limitations.md`).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `tool` | `CuttingToolGeometry` |  | Yes |
+| `material` | `WorkpieceMaterial` |  | Yes |
+| `params` | `MachiningOperationParams` |  | Yes |
+
+Returns: `PhysicsAnalysisReport`
+
+
 ## `AxisLine`
 
 Source: `sdk/ts/src/visualizer.ts`
@@ -75,6 +100,27 @@ Temperature in degrees Celsius (canonical unit).
 Returns: `number`
 
 
+## `checkToolHolderCollision`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function checkToolHolderCollision(toolpath: Toolpath, holder: import('./ops').ToolHolder, stockBounds: [number, number, number, number, number, number]): import('./ops').CollisionFinding[]
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+| `holder` | `import('./ops').ToolHolder` |  | Yes |
+| `stockBounds` | `[number, number, number, number, number, number]` |  | Yes |
+
+Returns: `import('./ops').CollisionFinding[]`
+
+
 ## `cm`
 
 Source: `sdk/ts/src/units.ts`
@@ -92,6 +138,50 @@ Length in centimetres -> converted to mm.
 | `value` | `number` |  | Yes |
 
 Returns: `number`
+
+
+## `CncFrame`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface CncFrame
+```
+
+Machine preamble for the CNC dialects. Without it those flavors emit motion lines and no work
+offset, tool change or spindle start (and no `TRAORI` under `fiveAxis`).
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `wcs` | `number` | No | Work coordinate system, 54..=59 → `G54..G59`. |
+| `tool` | `number` | No | Tool number for the tool-change line. |
+| `spindle_rpm` | `number` | No | Spindle speed in RPM; must be positive. |
+| `coolant` | `boolean` | No | Flood coolant on/off. |
+
+
+## `CollisionFinding`
+
+Source: `sdk/ts/src/ops.ts`
+
+```ts
+export interface CollisionFinding
+```
+
+Collision finding for tool holder interference.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `severity` | `Severity` | Yes | Declared in the public API. |
+| `code` | `string` | Yes | Declared in the public API. |
+| `message` | `string` | Yes | Declared in the public API. |
+| `segment_index` | `number` | Yes | Declared in the public API. |
+| `plunge_depth` | `number` | Yes | Declared in the public API. |
 
 
 ## `CompatibilityFinding`
@@ -156,6 +246,29 @@ Declared in the public API.
 Returns: `SCurveProfile`
 
 
+## `CuttingToolGeometry`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface CuttingToolGeometry
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `diameter_mm` | `number` | Yes | Declared in the public API. |
+| `flute_count` | `number` | Yes | Declared in the public API. |
+| `stickout_length_mm` | `number` | Yes | Declared in the public API. |
+| `core_diameter_ratio` | `number` | Yes | Declared in the public API. |
+| `modulus_gpa` | `number` | Yes | Declared in the public API. |
+| `corner_radius_mm` | `number` | Yes | Declared in the public API. |
+
+
 ## `deg`
 
 Source: `sdk/ts/src/units.ts`
@@ -173,6 +286,29 @@ Angle in degrees -> converted to radians.
 | `value` | `number` |  | Yes |
 
 Returns: `number`
+
+
+## `DexelSimulationReport`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface DexelSimulationReport
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `initial_volume_mm3` | `number` | Yes | Declared in the public API. |
+| `remaining_volume_mm3` | `number` | Yes | Declared in the public API. |
+| `removed_volume_mm3` | `number` | Yes | Declared in the public API. |
+| `material_removal_ratio` | `number` | Yes | Declared in the public API. |
+| `min_height_mm` | `number` | Yes | Declared in the public API. |
+| `max_height_mm` | `number` | Yes | Declared in the public API. |
 
 
 ## `expandFeatures`
@@ -349,6 +485,54 @@ Single verification finding, optionally tied to a resolved segment index.
 | `message` | `string` | Yes | Human-readable finding details. |
 
 
+## `FirmwareFlavor`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export type FirmwareFlavor = | 'marlin'
+  | 'gcode'
+  | 'klipper'
+  | 'duet'
+  | 'rs274'
+  | 'linuxcnc'
+  | 'grbl'
+  | 'laser'
+  | 'krl'
+  | 'siemens'
+  | 'sinumerik'
+  | 'heidenhain'
+  | 'tnc'
+  | 'haas'
+  | 'rapid'
+```
+
+Target controller dialects `resolveGcode` can emit. An unknown name is an error, not a silent
+fall back to Marlin.
+
+
+## `FiveAxisLookaheadParams`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface FiveAxisLookaheadParams
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `max_linear_accel` | `number` | Yes | Declared in the public API. |
+| `max_linear_jerk` | `number` | Yes | Declared in the public API. |
+| `max_rotary_speed_deg_s` | `number` | Yes | Declared in the public API. |
+| `max_rotary_accel_deg_s2` | `number` | Yes | Declared in the public API. |
+| `max_rotary_jerk_deg_s3` | `number` | Yes | Declared in the public API. |
+
+
 ## `GcodeOptions`
 
 Source: `sdk/ts/src/design.ts`
@@ -369,6 +553,8 @@ Emission settings for {@link Design.gcode}.
 | `travelG1E0` | `boolean` | No | Emit travels as `G1 ... |
 | `fiveAxis` | `boolean` | No | Derive rotary words from the toolframe orientation. |
 | `rotaryAxes` | `string` | No | Rotary axis pair to emit when `fiveAxis` is set. |
+| `flavor` | `FirmwareFlavor` | No | Target controller dialect. |
+| `cncFrame` | `CncFrame` | No | Machine preamble for the CNC dialects (work offset, tool, spindle, coolant). |
 
 
 ## `group`
@@ -426,6 +612,96 @@ Length in inches -> converted to mm.
 | `value` | `number` |  | Yes |
 
 Returns: `number`
+
+
+## `latheFacingOps`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function latheFacingOps(params: import('./ops').LatheFacingParams): Op[]
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `params` | `import('./ops').LatheFacingParams` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `LatheFacingParams`
+
+Source: `sdk/ts/src/ops.ts`
+
+```ts
+export interface LatheFacingParams
+```
+
+Parameters for CNC Lathe Facing operation.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `stock_diameter` | `number` | Yes | Declared in the public API. |
+| `target_z` | `number` | No | Declared in the public API. |
+| `clearance_x` | `number` | No | Declared in the public API. |
+| `clearance_z` | `number` | No | Declared in the public API. |
+| `feedrate` | `number` | No | Declared in the public API. |
+| `spindle_rpm` | `number` | No | Declared in the public API. |
+| `passes` | `number` | No | Declared in the public API. |
+| `depth_per_pass` | `number` | No | Declared in the public API. |
+
+
+## `latheTurningOps`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function latheTurningOps(params: import('./ops').LatheTurningParams): Op[]
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `params` | `import('./ops').LatheTurningParams` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `LatheTurningParams`
+
+Source: `sdk/ts/src/ops.ts`
+
+```ts
+export interface LatheTurningParams
+```
+
+Parameters for CNC Lathe Outer Diameter (OD) Roughing & Finishing.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `raw_diameter` | `number` | Yes | Declared in the public API. |
+| `target_diameter` | `number` | Yes | Declared in the public API. |
+| `cut_length` | `number` | Yes | Declared in the public API. |
+| `depth_of_cut` | `number` | No | Declared in the public API. |
+| `finish_allowance` | `number` | No | Declared in the public API. |
+| `clearance_x` | `number` | No | Declared in the public API. |
+| `clearance_z` | `number` | No | Declared in the public API. |
+| `rough_feedrate` | `number` | No | Declared in the public API. |
+| `finish_feedrate` | `number` | No | Declared in the public API. |
+| `spindle_rpm` | `number` | No | Declared in the public API. |
 
 
 ## `MachineCapabilities`
@@ -678,6 +954,28 @@ Declared in the public API.
 | `offsetXyz` | `[number, number, number]` | No | Declared in the public API. |
 
 
+## `MachiningOperationParams`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface MachiningOperationParams
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `spindle_rpm` | `number` | Yes | Declared in the public API. |
+| `feedrate_mm_min` | `number` | Yes | Declared in the public API. |
+| `axial_depth_ap_mm` | `number` | Yes | Declared in the public API. |
+| `radial_depth_ae_mm` | `number` | Yes | Declared in the public API. |
+| `ambient_temp_c` | `number` | Yes | Declared in the public API. |
+
+
 ## `Metrics`
 
 Source: `sdk/ts/src/ops.ts`
@@ -829,6 +1127,50 @@ export type Op = | { op: 'geometry'; width: number; height: number }
 Authoring operation in Dry L1, before resolution into concrete toolpath segments.
 
 
+## `optimizeConstantMrr`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function optimizeConstantMrr(ops: Op[], params: Partial<ResolveParams> | undefined, depthOfCut: number, targetMrrMm3Min: number, minFeedrate: number = 100.0, maxFeedrate: number = 5000.0): Toolpath
+```
+
+Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `Partial&lt;ResolveParams&gt; \| undefined` |  | Yes |
+| `depthOfCut` | `number` |  | Yes |
+| `targetMrrMm3Min` | `number` |  | Yes |
+| `minFeedrate` | `number` | `100.0` | No |
+| `maxFeedrate` | `number` | `5000.0` | No |
+
+Returns: `Toolpath`
+
+
+## `optimizeFiveAxisLookahead`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function optimizeFiveAxisLookahead(toolpath: unknown, params: FiveAxisLookaheadParams): unknown
+```
+
+Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `unknown` |  | Yes |
+| `params` | `FiveAxisLookaheadParams` |  | Yes |
+
+Returns: `unknown`
+
+
 ## `PassSegmentGroup`
 
 Source: `sdk/ts/src/visualizer.ts`
@@ -847,6 +1189,34 @@ Declared in the public API.
 | `role` | `string` | Yes | Declared in the public API. |
 | `color` | `string` | Yes | Declared in the public API. |
 | `segments` | `Segment[]` | Yes | Declared in the public API. |
+
+
+## `PhysicsAnalysisReport`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface PhysicsAnalysisReport
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `cutting_speed_m_min` | `number` | Yes | Declared in the public API. |
+| `feed_per_tooth_mm` | `number` | Yes | Declared in the public API. |
+| `material_removal_rate_cm3_min` | `number` | Yes | Declared in the public API. |
+| `tangential_force_n` | `number` | Yes | Declared in the public API. |
+| `spindle_power_kw` | `number` | Yes | Declared in the public API. |
+| `spindle_torque_nm` | `number` | Yes | Declared in the public API. |
+| `tool_deflection_um` | `number` | Yes | Declared in the public API. |
+| `shear_temperature_c` | `number` | Yes | Declared in the public API. |
+| `estimated_tool_life_min` | `number` | Yes | Declared in the public API. |
+| `surface_roughness_ra_um` | `number` | Yes | Declared in the public API. |
+| `chatter_risk` | `boolean` | Yes | Declared in the public API. |
 
 
 ## `Point3D`
@@ -1063,7 +1433,7 @@ Returns: `Uint8Array`
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
+export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab', flavor?: FirmwareFlavor, cncFrame?: CncFrame): string[]
 ```
 
 Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
@@ -1081,6 +1451,8 @@ from the machine motion-limits `MachineKinematics` object used by `resolveBalanc
 | `travelG1E0` | `any` | `false` | No |
 | `fiveAxis` | `any` | `false` | No |
 | `rotaryAxes` | `any` | `'ab'` | No |
+| `flavor` | `FirmwareFlavor` |  | No |
+| `cncFrame` | `CncFrame` |  | No |
 
 Returns: `string[]`
 
@@ -1176,7 +1548,7 @@ Source: `sdk/ts/src/ops.ts`
 export interface ResolveParams
 ```
 
-The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams.
+The lowering defaults (print/travel feedrate, filament diameter, retraction) — mirrors the engine's ResolveParams.
 
 
 ### Fields
@@ -1186,6 +1558,8 @@ The lowering defaults (print/travel feedrate, filament diameter) — mirrors the
 | `print_speed` | `number` | Yes | Default extrusion feedrate in mm/min. |
 | `travel_speed` | `number` | Yes | Default travel feedrate in mm/min. |
 | `dia` | `number` | Yes | Filament diameter in mm. |
+| `retraction_speed` | `number` | No | Default retraction speed in mm/min. |
+| `retraction_distance` | `number` | No | Default retraction distance in mm. |
 
 
 ## `resolveVerify`
@@ -1220,6 +1594,25 @@ The optional `kinematics` arg enables the `peak-acceleration` and `junction-velo
 | `kinematics` | `MachineKinematics` |  | No |
 
 Returns: `Report`
+
+
+## `reverseToolpath`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function reverseToolpath(toolpath: Toolpath): Op[]
+```
+
+Declared in the public API.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+
+Returns: `Op[]`
 
 
 ## `s`
@@ -1320,6 +1713,28 @@ export type SegmentKind = | 'line'
 One resolved L2 motion segment.
 
 
+## `segmentToSegmentDistance3d`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function segmentToSegmentDistance3d(p1: [number, number, number], p2: [number, number, number], q1: [number, number, number], q2: [number, number, number]): number
+```
+
+Calculate minimum Euclidean distance between two 3D line segments.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `p1` | `[number, number, number]` |  | Yes |
+| `p2` | `[number, number, number]` |  | Yes |
+| `q1` | `[number, number, number]` |  | Yes |
+| `q2` | `[number, number, number]` |  | Yes |
+
+Returns: `number`
+
+
 ## `Severity`
 
 Source: `sdk/ts/src/ops.ts`
@@ -1331,6 +1746,144 @@ export type Severity = 'error' | 'warning'
 ```
 
 Severity level for a verification finding.
+
+
+## `simulateDexelStock`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function simulateDexelStock(ops: Op[], params: Partial<ResolveParams> | undefined, stockBounds: [number, number, number, number, number, number], resolutionMm: number = 1.0, toolRadius: number = 3.0, isBallnose: boolean = false): DexelSimulationReport
+```
+
+Simulate 3D Dexel grid stock subtraction against a toolpath.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `ops` | `Op[]` |  | Yes |
+| `params` | `Partial&lt;ResolveParams&gt; \| undefined` |  | Yes |
+| `stockBounds` | `[number, number, number, number, number, number]` |  | Yes |
+| `resolutionMm` | `number` | `1.0` | No |
+| `toolRadius` | `number` | `3.0` | No |
+| `isBallnose` | `boolean` | `false` | No |
+
+Returns: `DexelSimulationReport`
+
+
+## `sliceBrepAssembly`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function sliceBrepAssembly(stepSolids: string[], zStart: number = 0.0, zEnd: number = 10.0, layerHeight: number = 0.2, samplesPerSlice: number = 36, feedrate: number = 1800.0): Op[]
+```
+
+Slice a multi-solid B-Rep assembly directly into L1 ops with 5-axis surface normals.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `stepSolids` | `string[]` |  | Yes |
+| `zStart` | `number` | `0.0` | No |
+| `zEnd` | `number` | `10.0` | No |
+| `layerHeight` | `number` | `0.2` | No |
+| `samplesPerSlice` | `number` | `36` | No |
+| `feedrate` | `number` | `1800.0` | No |
+
+Returns: `Op[]`
+
+
+## `sliceBrepAssemblyCsg`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function sliceBrepAssemblyCsg(stepAdditives: string[], stepVoids: string[], zStart: number = 0.0, zEnd: number = 10.0, layerHeight: number = 0.2, samplesPerSlice: number = 36, feedrate: number = 1800.0): Op[]
+```
+
+Slice a multi-solid B-Rep assembly with CSG boolean subtraction of voids from additive solids.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `stepAdditives` | `string[]` |  | Yes |
+| `stepVoids` | `string[]` |  | Yes |
+| `zStart` | `number` | `0.0` | No |
+| `zEnd` | `number` | `10.0` | No |
+| `layerHeight` | `number` | `0.2` | No |
+| `samplesPerSlice` | `number` | `36` | No |
+| `feedrate` | `number` | `1800.0` | No |
+
+Returns: `Op[]`
+
+
+## `sliceStepSolid`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function sliceStepSolid(stepContent: string, zStart: number = 0.0, zEnd: number = 10.0, layerHeight: number = 0.2, samplesPerSlice: number = 36, feedrate: number = 1800.0): Op[]
+```
+
+Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `stepContent` | `string` |  | Yes |
+| `zStart` | `number` | `0.0` | No |
+| `zEnd` | `number` | `10.0` | No |
+| `layerHeight` | `number` | `0.2` | No |
+| `samplesPerSlice` | `number` | `36` | No |
+| `feedrate` | `number` | `1800.0` | No |
+
+Returns: `Op[]`
+
+
+## `ToolHolder`
+
+Source: `sdk/ts/src/ops.ts`
+
+```ts
+export interface ToolHolder
+```
+
+Physical dimensions of a tool holder assembly for collision detection.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `holder_diameter` | `number` | Yes | Declared in the public API. |
+| `stickout_length` | `number` | Yes | Declared in the public API. |
+| `collet_diameter` | `number` | No | Declared in the public API. |
+| `collet_length` | `number` | No | Declared in the public API. |
+| `sections` | `ToolHolderSection[]` | No | Declared in the public API. |
+
+
+## `ToolHolderSection`
+
+Source: `sdk/ts/src/ops.ts`
+
+```ts
+export interface ToolHolderSection
+```
+
+A defined axial segment along a stepped/tapered tool holder assembly.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `diameter` | `number` | Yes | Declared in the public API. |
+| `length` | `number` | Yes | Declared in the public API. |
 
 
 ## `Toolpath`
@@ -1372,6 +1925,90 @@ Optional provenance and invariant metadata attached to a resolved toolpath.
 | `units` | `string` | No | Coordinate and unit convention, normally millimeters. |
 | `source_hash` | `string` | No | Stable source hash when the toolpath was derived from an external artifact. |
 | `invariants` | `string[]` | No | Human-readable invariants the toolpath is expected to satisfy. |
+
+
+## `toolpathToInteractiveHtml`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function toolpathToInteractiveHtml(toolpath: Toolpath, title = 'Dry 3D Toolpath Viewer', bounds?: [number, number, number, number, number, number]): string
+```
+
+Generate a standalone interactive 3D WebGL HTML viewer string.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+| `title` | `any` | `'Dry 3D Toolpath Viewer'` | No |
+| `bounds` | `[number, number, number, number, number, number]` |  | No |
+
+Returns: `string`
+
+
+## `toolpathToObj`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function toolpathToObj(toolpath: Toolpath, includeTravel = false): string
+```
+
+Convert Dry Toolpath IR into a 3D Wavefront .obj string representation.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+| `includeTravel` | `any` | `false` | No |
+
+Returns: `string`
+
+
+## `toolpathToSvg`
+
+Source: `sdk/ts/src/visualizer.ts`
+
+```ts
+export function toolpathToSvg(toolpath: Toolpath, width = 800, height = 800, padding = 40.0): string
+```
+
+Render a 2D (XY) vector SVG projection of the toolpath.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Toolpath` |  | Yes |
+| `width` | `any` | `800` | No |
+| `height` | `any` | `800` | No |
+| `padding` | `any` | `40.0` | No |
+
+Returns: `string`
+
+
+## `verifyGcode`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function verifyGcode(gcodeText: string, contracts?: Record<string, unknown>): Report
+```
+
+Directly verify raw G-code text against safety contracts without server or container infrastructure.
+Parses G-code, simulates motion, and executes all verification passes in-process via Wasm.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `gcodeText` | `string` |  | Yes |
+| `contracts` | `Record&lt;string, unknown&gt;` |  | No |
+
+Returns: `Report`
 
 
 ## `VerifyOptions`
@@ -1424,3 +2061,19 @@ Declared in the public API.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `lines` | `AxisLine[]` | Yes | Declared in the public API. |
+
+
+## `WorkpieceMaterial`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export type WorkpieceMaterial = | 'Aluminum6061'
+  | 'Steel4140'
+  | 'TitaniumTi6Al4V'
+  | 'Inconel718'
+  | 'ThermoplasticPLA'
+  | 'ThermoplasticPEEK'
+```
+
+Workpiece materials the physics simulator carries coefficients for.

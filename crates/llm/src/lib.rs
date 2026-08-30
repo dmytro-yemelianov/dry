@@ -628,20 +628,23 @@ mod tests {
     #[test]
     fn test_offline_cam_prompt_generation() {
         // Lathe prompt
-        let lathe_res = generate_offline_cam_from_prompt("Create a lathe facing operation for aluminum rod");
+        let lathe_res =
+            generate_offline_cam_from_prompt("Create a lathe facing operation for aluminum rod");
         assert_eq!(lathe_res.title, "CNC Lathe Facing Program");
         assert!(!lathe_res.operations.is_empty());
         assert_eq!(lathe_res.suggested_spindle_rpm, 1200.0);
 
         // Pocket prompt
-        let pocket_res = generate_offline_cam_from_prompt("Mill a 50x40 rectangular pocket in steel plate");
+        let pocket_res =
+            generate_offline_cam_from_prompt("Mill a 50x40 rectangular pocket in steel plate");
         assert_eq!(pocket_res.title, "Adaptive CNC Pocketing Program");
         assert!(!pocket_res.operations.is_empty());
 
         // TPMS lattice prompt
-        let tpms_res = generate_offline_cam_from_prompt("Generate a gyroid TPMS lattice structure for heat exchanger");
+        let tpms_res = generate_offline_cam_from_prompt(
+            "Generate a gyroid TPMS lattice structure for heat exchanger",
+        );
         assert_eq!(tpms_res.title, "Gyroid TPMS Metamaterial Lattice");
         assert!(!tpms_res.operations.is_empty());
     }
 }
-

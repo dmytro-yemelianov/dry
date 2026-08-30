@@ -181,6 +181,3 @@ END-ISO-10303-21;
         .expect("slice all STEP quadrics");
     assert!(!ops.is_empty());
 }
-
-
-

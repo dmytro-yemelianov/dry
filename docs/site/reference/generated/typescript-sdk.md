@@ -16,17 +16,23 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 
 | Export | Kind | Docs | Source | Sample | Summary |
 | --- | --- | --- | --- | --- | --- |
+| `analyzeMachiningPhysics` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Run the digital-twin machining physics analysis. |
 | `AxisLine` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
 | `AxisRange` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `BUILTIN_MACHINES` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Built-in official machine presets across all manufacturing domains. |
 | `celsius` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Temperature in degrees Celsius (canonical unit). |
+| `checkToolHolderCollision` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `cm` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in centimetres -&gt; converted to mm. |
+| `CncFrame` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Machine preamble for the CNC dialects. |
+| `CollisionFinding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Collision finding for tool holder interference. |
 | `CompatibilityFinding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `CompatibilityReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `computeSCurveProfile` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `CutMode` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Declared in the public API. |
+| `CuttingToolGeometry` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `deg` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Angle in degrees -&gt; converted to radians. |
 | `Design` | class | [Design](/reference/generated/typescript-sdk/design) | `sdk/ts/src/design.ts` |  | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
+| `DexelSimulationReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `expandFeatures` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Expand a bounded L0 feature graph into the canonical L1 op list. |
 | `feature` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
 | `FeatureNode` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
@@ -34,10 +40,16 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `FeatureProgram` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Expand through the Rust engine and return the canonical L1 `Design`. |
 | `FeatureProgramDocument` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
 | `Finding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Single verification finding, optionally tied to a resolved segment index. |
+| `FirmwareFlavor` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Target controller dialects `resolveGcode` can emit. |
+| `FiveAxisLookaheadParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `GcodeOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Emission settings for {@link Design.gcode}. |
 | `group` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Preserve source order while composing feature nodes. |
 | `importStepNc` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `inch` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in inches -&gt; converted to mm. |
+| `latheFacingOps` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
+| `LatheFacingParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Parameters for CNC Lathe Facing operation. |
+| `latheTurningOps` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
+| `LatheTurningParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Parameters for CNC Lathe Outer Diameter (OD) Roughing & Finishing. |
 | `MachineCapabilities` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `MachineCatalog` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Universal Machine Catalog client with offline built-in fallbacks. |
 | `MachineCategory` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Declared in the public API. |
@@ -47,6 +59,7 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `MachineProfile` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Machine Profile Model with validation and pre-flight mapping. |
 | `MachineProfileData` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Declared in the public API. |
 | `MachineToolheadConfig` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Declared in the public API. |
+| `MachiningOperationParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `Metrics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Simulation metrics returned by `simulate`. |
 | `mm` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in millimetres (canonical unit). |
 | `mm_min` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Feedrate in mm/min (canonical unit). |
@@ -55,7 +68,10 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `NormalizedStarPolygonAlpha` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalized alpha angle and regime classification for a lattice family. |
 | `normalizeStarPolygonAlpha` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalize an alpha angle into its effective value and geometric regime. |
 | `Op` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
+| `optimizeConstantMrr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR). |
+| `optimizeFiveAxisLookahead` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath. |
 | `PassSegmentGroup` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
+| `PhysicsAnalysisReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `pocket` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate a fluent `Design` wrapping the generated CNC pocket ops. |
 | `pocketOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate an L1 `Op[]` list for a CNC pocket or profile cut. |
 | `PocketOptions` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Declared in the public API. |
@@ -75,13 +91,19 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `resolveMetrics` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and return its simulation metrics. |
 | `resolveMetricsIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Simulate an already-resolved Dry IR (`{ version, segments }`) and return its metrics. |
 | `resolveOptimizedIr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design through the standard L2 optimization pipeline. |
-| `ResolveParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | The lowering defaults (print/travel feedrate, filament diameter) — mirrors the engine's ResolveParams. |
+| `ResolveParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | The lowering defaults (print/travel feedrate, filament diameter, retraction) — mirrors the engine's ResolveParams. |
 | `resolveVerify` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Resolve a design and verify it against safety contracts. |
+| `reverseToolpath` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `s` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Duration in seconds (canonical unit). |
 | `SCurveProfile` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `Segment` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | One resolved motion or process segment in the Dry L2 IR. |
 | `SegmentKind` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | One resolved L2 motion segment. |
+| `segmentToSegmentDistance3d` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Calculate minimum Euclidean distance between two 3D line segments. |
 | `Severity` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Severity level for a verification finding. |
+| `simulateDexelStock` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Simulate 3D Dexel grid stock subtraction against a toolpath. |
+| `sliceBrepAssembly` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Slice a multi-solid B-Rep assembly directly into L1 ops with 5-axis surface normals. |
+| `sliceBrepAssemblyCsg` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Slice a multi-solid B-Rep assembly with CSG boolean subtraction of voids from additive solids. |
+| `sliceStepSolid` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals. |
 | `STAR_POLYGON_FAMILIES` | const | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Metadata catalog for the supported star-polygon lattice families. |
 | `StarPolygonBasis` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Base tiling used by a star-polygon lattice family. |
 | `starPolygonDentRadiusRatio` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Ratio of dent radius to star-point radius for an equiangular/equilateral star n-gon. |
@@ -92,8 +114,13 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `starPolygonLatticeOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Generate Dry L1 authoring operations for a star-polygon lattice. |
 | `StarPolygonLatticeOptions` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Options for generating a star-polygon lattice toolpath. |
 | `StarPolygonRegime` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Geometric regime after normalizing the input alpha angle. |
+| `ToolHolder` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Physical dimensions of a tool holder assembly for collision detection. |
+| `ToolHolderSection` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | A defined axial segment along a stepped/tapered tool holder assembly. |
 | `Toolpath` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | The resolved L2 Dry IR. |
 | `ToolpathMeta` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Optional provenance and invariant metadata attached to a resolved toolpath. |
+| `toolpathToInteractiveHtml` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Generate a standalone interactive 3D WebGL HTML viewer string. |
+| `toolpathToObj` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Convert Dry Toolpath IR into a 3D Wavefront .obj string representation. |
+| `toolpathToSvg` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Render a 2D (XY) vector SVG projection of the toolpath. |
 | `tpms` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Generate a fluent `Design` containing a TPMS toolpath. |
 | `TPMS_SURFACES` | const | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Metadata catalog for all supported TPMS surfaces. |
 | `tpmsField` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Sample a surface's nodal field at (x, y, z) — world coordinates already scaled by 2π / cellSize. |
@@ -102,5 +129,7 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `TpmsSurface` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Supported triply periodic minimal surface names for TPMS generation. |
 | `tpmsSurfaceSpec` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` |  | Return display metadata for a TPMS surface. |
 | `TpmsSurfaceSpec` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/tpms.ts` | [Generative](/guide/generative) | Display metadata for a TPMS surface. |
+| `verifyGcode` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Directly verify raw G-code text against safety contracts without server or container infrastructure. |
 | `VerifyOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | The machine-safety contracts {@link Design.verify} checks against. |
 | `WireframeBox` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
+| `WorkpieceMaterial` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Workpiece materials the physics simulator carries coefficients for. |

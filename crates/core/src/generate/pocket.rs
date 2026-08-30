@@ -1352,4 +1352,3 @@ mod tests {
         assert!(speed_ops.iter().any(|&s| s > 1200.0));
     }
 }
-

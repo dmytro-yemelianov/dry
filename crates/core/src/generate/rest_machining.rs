@@ -78,7 +78,9 @@ pub fn generate_corner_rest_machining_ops(params: &RestMachiningParams) -> Resul
     let start_x = c_rough_x + (r_rough - step_r);
     let start_y = c_rough_y;
 
-    ops.push(Op::Speed { print: params.feedrate });
+    ops.push(Op::Speed {
+        print: params.feedrate,
+    });
     ops.push(Op::Extruder { on: false });
     ops.push(Op::Move {
         x: Some(start_x),
@@ -173,6 +175,9 @@ mod tests {
         };
 
         let ops = generate_corner_rest_machining_ops(&params).expect("Should generate rest ops");
-        assert!(ops.len() >= 8, "Must contain clearance, plunge, passes, and retract");
+        assert!(
+            ops.len() >= 8,
+            "Must contain clearance, plunge, passes, and retract"
+        );
     }
 }

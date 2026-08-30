@@ -25,7 +25,9 @@ export interface DryWasm {
     relativeE: boolean,
     travelG1E0: boolean,
     fiveAxis: boolean,
-    rotaryAxes: string
+    rotaryAxes: string,
+    flavor?: string,
+    cncFrameJson?: string
   ): string[];
   tpms_ops_json(tpmsOptionsJson: string): string;
   pocket_ops_json(pocketOptionsJson: string): string;
@@ -112,6 +114,12 @@ export interface DryWasm {
     toolRadius: number,
     isBallnose: boolean
   ): string;
+  analyze_machining_physics_wasm(
+    toolJson: string,
+    material: string,
+    paramsJson: string
+  ): string;
+  optimize_five_axis_lookahead_wasm(toolpathJson: string, paramsJson: string): string;
   segment_to_segment_distance_3d_wasm(
     p1: Float64Array,
     p2: Float64Array,
@@ -144,6 +152,42 @@ export function expandFeatures(program: FeatureProgramDocument): Op[] {
 }
 
 /**
+ * Target controller dialects `resolveGcode` can emit. An unknown name is an error, not a silent
+ * fall back to Marlin.
+ */
+export type FirmwareFlavor =
+  | 'marlin'
+  | 'gcode'
+  | 'klipper'
+  | 'duet'
+  | 'rs274'
+  | 'linuxcnc'
+  | 'grbl'
+  | 'laser'
+  | 'krl'
+  | 'siemens'
+  | 'sinumerik'
+  | 'heidenhain'
+  | 'tnc'
+  | 'haas'
+  | 'rapid';
+
+/**
+ * Machine preamble for the CNC dialects. Without it those flavors emit motion lines and no work
+ * offset, tool change or spindle start (and no `TRAORI` under `fiveAxis`).
+ */
+export interface CncFrame {
+  /** Work coordinate system, 54..=59 → `G54..G59`. */
+  wcs?: number;
+  /** Tool number for the tool-change line. */
+  tool?: number;
+  /** Spindle speed in RPM; must be positive. */
+  spindle_rpm?: number;
+  /** Flood coolant on/off. */
+  coolant?: boolean;
+}
+
+/**
  * Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
  * STRING) choosing which two rotary axes carry the toolframe orientation in 5-axis emit — distinct
  * from the machine motion-limits `MachineKinematics` object used by `resolveBalancedIr` /
@@ -155,7 +199,9 @@ export function resolveGcode(
   relativeE = true,
   travelG1E0 = false,
   fiveAxis = false,
-  rotaryAxes = 'ab'
+  rotaryAxes = 'ab',
+  flavor?: FirmwareFlavor,
+  cncFrame?: CncFrame
 ): string[] {
   return bind().resolve_gcode(
     JSON.stringify(ops),
@@ -163,7 +209,9 @@ export function resolveGcode(
     relativeE,
     travelG1E0,
     fiveAxis,
-    rotaryAxes
+    rotaryAxes,
+    flavor,
+    cncFrame === undefined ? undefined : JSON.stringify(cncFrame)
   );
 }
 
@@ -467,6 +515,90 @@ export function simulateDexelStock(
       resolutionMm,
       toolRadius,
       isBallnose
+    )
+  );
+}
+
+/** Workpiece materials the physics simulator carries coefficients for. */
+export type WorkpieceMaterial =
+  | 'Aluminum6061'
+  | 'Steel4140'
+  | 'TitaniumTi6Al4V'
+  | 'Inconel718'
+  | 'ThermoplasticPLA'
+  | 'ThermoplasticPEEK';
+
+export interface CuttingToolGeometry {
+  diameter_mm: number;
+  flute_count: number;
+  stickout_length_mm: number;
+  core_diameter_ratio: number;
+  modulus_gpa: number;
+  corner_radius_mm: number;
+}
+
+export interface MachiningOperationParams {
+  spindle_rpm: number;
+  feedrate_mm_min: number;
+  axial_depth_ap_mm: number;
+  radial_depth_ae_mm: number;
+  ambient_temp_c: number;
+}
+
+export interface PhysicsAnalysisReport {
+  cutting_speed_m_min: number;
+  feed_per_tooth_mm: number;
+  material_removal_rate_cm3_min: number;
+  tangential_force_n: number;
+  spindle_power_kw: number;
+  spindle_torque_nm: number;
+  tool_deflection_um: number;
+  shear_temperature_c: number;
+  estimated_tool_life_min: number;
+  surface_roughness_ra_um: number;
+  chatter_risk: boolean;
+}
+
+export interface FiveAxisLookaheadParams {
+  max_linear_accel: number;
+  max_linear_jerk: number;
+  max_rotary_speed_deg_s: number;
+  max_rotary_accel_deg_s2: number;
+  max_rotary_jerk_deg_s3: number;
+}
+
+/**
+ * Run the digital-twin machining physics analysis.
+ *
+ * The estimates are analytic closed-form models with textbook coefficients; nothing in this repo
+ * validates them against a dynamometer, a thermocouple or a real cut. Treat them as indicative,
+ * not as a process guarantee (`docs/14-known-limitations.md`).
+ */
+export function analyzeMachiningPhysics(
+  tool: CuttingToolGeometry,
+  material: WorkpieceMaterial,
+  params: MachiningOperationParams
+): PhysicsAnalysisReport {
+  return JSON.parse(
+    bind().analyze_machining_physics_wasm(
+      JSON.stringify(tool),
+      material,
+      JSON.stringify(params)
+    )
+  );
+}
+
+/**
+ * Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath.
+ */
+export function optimizeFiveAxisLookahead(
+  toolpath: unknown,
+  params: FiveAxisLookaheadParams
+): unknown {
+  return JSON.parse(
+    bind().optimize_five_axis_lookahead_wasm(
+      JSON.stringify(toolpath),
+      JSON.stringify(params)
     )
   );
 }

@@ -32,7 +32,8 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `deposit` | `def deposit(self, volume: Number, speed: Number) -&gt; 'Design'` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
 | `retract` | `def retract(self, distance: Optional[Number] = None, speed: Optional[Number] = None) -&gt; 'Design'` |  | Retract filament. |
 | `unretract` | `def unretract(self, distance: Optional[Number] = None, speed: Optional[Number] = None) -&gt; 'Design'` |  | Prime filament back after a retraction. |
-| `gcode` | `def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -&gt; List[str]` | [Author a path](/guide/author) | Resolve + emit motion g-code (a list of lines). |
+| `pocket` | `def pocket(self, options: PocketOptions) -&gt; 'Design'` |  | Append CNC pocket/profile milling ops generated from an options dict. |
+| `gcode` | `def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None, cnc_frame: Optional[Dict[str, Any]] = None) -&gt; List[str]` | [Author a path](/guide/author) | Resolve + emit motion g-code (a list of lines). |
 | `simulate` | `def simulate(self, printer: str = 'generic') -&gt; Metrics` | [Simulate](/guide/simulate) | Resolve + simulate; returns a metrics dict (time, distances, material, peak flow). |
 | `ir` | `def ir(self, printer: str = 'generic') -&gt; Toolpath` | [Lower to the Dry IR](/guide/lower) | Resolve to the L2 Dry IR; returns a dict ({version, segments}). |
 | `optimized_ir` | `def optimized_ir(self, printer: str = 'generic') -&gt; Toolpath` | [Optimize](/guide/optimize) | Resolve + optimize; returns a dict ({version, segments}). |
@@ -40,6 +41,12 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `binary` | `def binary(self, printer: str = 'generic') -&gt; bytes` |  | Resolve + encode to binary DRY1 format; returns a bytes object. |
 | `verify` | `def verify(self, printer: str = 'generic', max_flow: Optional[Number] = None, min_temp: Optional[Number] = None, bounds: Optional[Bounds] = None, monotonic_z: bool = False, speed_range: Optional[Range] = None, max_retraction_distance: Optional[Number] = None, max_retraction_speed: Optional[Number] = None, max_travel_without_retract: Optional[Number] = None, first_layer_height_range: Optional[Range] = None, first_layer_speed_range: Optional[Range] = None, kinematics: Optional[Kinematics] = None) -&gt; Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns a report dict with findings. |
 | `check_compatibility` | `def check_compatibility(self, capabilities: Mapping[str, Any], printer: str = 'generic') -&gt; Mapping[str, Any]` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
+| `to_obj` | `def to_obj(self, include_travel: bool = False, printer: str = 'generic') -&gt; str` |  | Export toolpath as 3D Wavefront OBJ mesh string. |
+| `export_obj` | `def export_obj(self, path: str, include_travel: bool = False, printer: str = 'generic') -&gt; None` |  | Save toolpath as 3D Wavefront OBJ mesh file. |
+| `to_svg` | `def to_svg(self, width: int = 800, height: int = 800, printer: str = 'generic') -&gt; str` |  | Export toolpath as 2D vector SVG projection string. |
+| `export_svg` | `def export_svg(self, path: str, width: int = 800, height: int = 800, printer: str = 'generic') -&gt; None` |  | Save toolpath as 2D vector SVG projection file. |
+| `to_html` | `def to_html(self, title: str = 'Dry 3D Toolpath Viewer', bounds: Optional[Sequence[Sequence[float]]] = None, printer: str = 'generic') -&gt; str` |  | Export toolpath as an interactive 3D WebGL HTML viewer string. |
+| `export_html` | `def export_html(self, path: str, title: str = 'Dry 3D Toolpath Viewer', bounds: Optional[Sequence[Sequence[float]]] = None, printer: str = 'generic') -&gt; None` |  | Save toolpath as an interactive 3D WebGL HTML viewer file. |
 
 ### `from_ops`
 
@@ -269,10 +276,8 @@ Must be finite and >= 0. `0` commands it off, which is distinct from never setti
 channel. Only the `grbl` flavor renders it; the others refuse a toolpath that carries it
 rather than silently dropping the command.
 
-NOTE: ``gcode()`` here always emits with the default (Marlin) flavor, so it *refuses* a
-design carrying this channel. The channel is still authored into ``ir()`` /
-``optimized_ir()`` / ``verify()``; to render it, emit through the CLI
-(``dry emit --format grbl``) or a profile whose ``firmware.flavor`` is ``grbl``.
+NOTE: To render spindle/laser power channels, emit with ``design.gcode(flavor="grbl")`` or
+``design.gcode(flavor="rs274")``, or emit through the CLI (``dry emit --format grbl``).
 
 ### `orient`
 
@@ -375,12 +380,28 @@ Returns: `'Design'`
 
 Prime filament back after a retraction.
 
+### `pocket`
+
+```py
+def pocket(self, options: PocketOptions) -> 'Design'
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+
+Returns: `'Design'`
+
+Append CNC pocket/profile milling ops generated from an options dict.
+
 ### `gcode`
 
 <LiveExample src="author" :outputs='["gcode"]' />
 
 ```py
-def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -> List[str]
+def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None, cnc_frame: Optional[Dict[str, Any]] = None) -> List[str]
 ```
 
 #### Parameters
@@ -393,6 +414,8 @@ def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0:
 | `five_axis` | `bool` | `False` | No |
 | `rotary_axes` | `str` | `'ab'` | No |
 | `kinematics` | `Optional[str]` | `None` | No |
+| `flavor` | `Optional[str]` | `None` | No |
+| `cnc_frame` | `Optional[Dict[str, Any]]` | `None` | No |
 
 Returns: `List[str]`
 
@@ -403,6 +426,16 @@ axes carry the toolframe orientation in 5-axis emit (`five_axis=True`). NOTE: th
 machine motion-limits object (see ``balanced_ir`` / ``verify``'s ``kinematics`` for that).
 `kinematics` is a deprecated alias for `rotary_axes`, kept for backward compatibility; when
 provided (not ``None``) it takes precedence.
+
+`flavor` selects the target dialect: ``marlin`` (default), ``klipper``, ``duet``, ``rs274``
+(aka ``linuxcnc``), ``grbl`` (aka ``laser``), ``krl``, ``siemens`` (aka ``sinumerik``),
+``heidenhain`` (aka ``tnc``), ``haas``, ``rapid``. An unknown name raises ``ValueError``; it
+used to fall through to Marlin, so asking for a mill quietly emitted FFF g-code.
+
+`cnc_frame` supplies the machine preamble for the CNC dialects —
+``{"wcs": 54, "tool": 3, "spindle_rpm": 8000, "coolant": true}``. Without it those flavors
+emit motion lines and no work offset, tool change or spindle start (and no ``TRAORI`` under
+``five_axis``). ``wcs`` must be in 54..=59 and ``spindle_rpm`` positive, or ``ValueError``.
 
 ### `simulate`
 
@@ -558,3 +591,112 @@ def check_compatibility(self, capabilities: Mapping[str, Any], printer: str = 'g
 Returns: `Mapping[str, Any]`
 
 Pre-flight check toolpath against machine capabilities (D2.2).
+
+### `to_obj`
+
+```py
+def to_obj(self, include_travel: bool = False, printer: str = 'generic') -> str
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `include_travel` | `bool` | `False` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `str`
+
+Export toolpath as 3D Wavefront OBJ mesh string.
+
+### `export_obj`
+
+```py
+def export_obj(self, path: str, include_travel: bool = False, printer: str = 'generic') -> None
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `path` | `str` |  | Yes |
+| `include_travel` | `bool` | `False` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `None`
+
+Save toolpath as 3D Wavefront OBJ mesh file.
+
+### `to_svg`
+
+```py
+def to_svg(self, width: int = 800, height: int = 800, printer: str = 'generic') -> str
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `width` | `int` | `800` | No |
+| `height` | `int` | `800` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `str`
+
+Export toolpath as 2D vector SVG projection string.
+
+### `export_svg`
+
+```py
+def export_svg(self, path: str, width: int = 800, height: int = 800, printer: str = 'generic') -> None
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `path` | `str` |  | Yes |
+| `width` | `int` | `800` | No |
+| `height` | `int` | `800` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `None`
+
+Save toolpath as 2D vector SVG projection file.
+
+### `to_html`
+
+```py
+def to_html(self, title: str = 'Dry 3D Toolpath Viewer', bounds: Optional[Sequence[Sequence[float]]] = None, printer: str = 'generic') -> str
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `title` | `str` | `'Dry 3D Toolpath Viewer'` | No |
+| `bounds` | `Optional[Sequence[Sequence[float]]]` | `None` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `str`
+
+Export toolpath as an interactive 3D WebGL HTML viewer string.
+
+### `export_html`
+
+```py
+def export_html(self, path: str, title: str = 'Dry 3D Toolpath Viewer', bounds: Optional[Sequence[Sequence[float]]] = None, printer: str = 'generic') -> None
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `path` | `str` |  | Yes |
+| `title` | `str` | `'Dry 3D Toolpath Viewer'` | No |
+| `bounds` | `Optional[Sequence[Sequence[float]]]` | `None` | No |
+| `printer` | `str` | `'generic'` | No |
+
+Returns: `None`
+
+Save toolpath as an interactive 3D WebGL HTML viewer file.

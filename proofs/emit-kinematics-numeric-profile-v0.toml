@@ -40,6 +40,18 @@ length — the failure this normalisation already fixed once, when `Ac`/`Bc` rec
 """
 boundary_ids = ["FM1.F64.EMIT.ROTARY.SINGULAR_CONE"]
 
+[[limit]]
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.LIMIT.ELBOW_COSINE"
+quantity = "The law-of-cosines elbow cosine (d_sq - a2^2 - l3^2) / (2*a2*l3) that solve_ik compares before taking a square root"
+lower = -1.0
+upper = 1.0
+unit = "dimensionless"
+enforcement = "runtime"
+rationale = """
+Enforced by an explicit refusal rather than assumed: outside [-1, 1] no elbow triangle closes and solve_ik returns Err instead of a pose. The bound is what makes the following sqrt real, and the implementation does not rely on the comparison alone — `(1 - cos_phi^2).max(0.0)` clamps the radicand, because `cos_phi*cos_phi` can exceed 1 in binary64 for a cos_phi within an ULP of +/-1 and would otherwise produce a NaN sin_phi that propagates silently into every joint. Recorded here so that clamp reads as load-bearing rather than defensive. Note what the enforcement does *not* cover: a non-finite input makes cos_phi NaN, `NaN.abs() > 1.0` is false, and the refusal does not fire — measured, not inferred: solve_ik([NaN, 0, 0], ...) returns Ok with NaN in every joint.
+"""
+boundary_ids = ["FM1.F64.EMIT.ROBOT6.REACH_REJECTION"]
+
 # ---------------------------------------------------------------------------------------------
 # Budgets — SINGULAR_CONE_SIN_TILT is pinned against emit/kinematics.rs by
 # validate_emit_implementation_values so the constant cannot be retuned without updating this file.
@@ -90,3 +102,32 @@ evidence = [
   "crates/core/src/emit/kinematics.rs",
 ]
 next_obligation = "Recompute as 2*asin(eps) whenever SINGULAR_CONE_SIN_TILT changes; the two move together."
+
+# ---------------------------------------------------------------------------------------------
+# The 6-axis robot solver added in 591ccf0 brought a second threshold into this file. It reached
+# main uninventoried; this entry is the review the source pin exists to force.
+# ---------------------------------------------------------------------------------------------
+
+[[budget]]
+id = "FM1.NUMERIC.PROFILE.EMIT.KINEMATICS.V0.BUDGET.WRIST_SINGULAR_J5_RAD"
+metric = "Magnitude of J5, in radians, at or below which the spherical wrist is treated as singular and J4 is held"
+unit = "radian"
+status = "policy"
+ceiling = 1e-5
+boundary_ids = ["FM1.F64.EMIT.ROBOT6.WRIST_SINGULAR_HOLD"]
+rationale = """
+The same shape of policy as SINGULAR_CONE_SIN_TILT — inside the singular set the recomputed joint \
+reads a direction the pose does not determine, so the previous value is held — but deliberately four \
+orders of magnitude coarser, and the asymmetry is recorded rather than left to be rediscovered. The \
+cone threshold is *derived*: it is bounded by what a `{v:.6}` G-code word can print, so holding C can \
+never alter an expressible program. No equivalent derivation exists here. This solve produces joint \
+angles for robot post-processors that interpolate in joint space with their own tolerances, so there \
+is no single emitted-word resolution to bound it against, and `1e-5` rad (5.7e-4 degrees) was chosen \
+as comfortably below any industrial robot's repeatability rather than from a TCP error budget. That \
+is why the status is `policy` and not `bounded`: the number is defensible but unproven, and calling \
+it bounded would be the overclaim this inventory exists to prevent.
+"""
+evidence = [
+  "crates/core/src/emit/kinematics.rs",
+]
+next_obligation = "Derive the worst-case TCP displacement from substituting the held J4 at J5 = WRIST_SINGULAR_J5_RAD, over the link geometry of the shipped models, and promote to `bounded` with a measured test — or tighten the threshold to whatever that derivation supports."

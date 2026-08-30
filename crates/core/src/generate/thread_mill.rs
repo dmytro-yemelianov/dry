@@ -45,7 +45,12 @@ impl Default for ThreadMillParams {
 }
 
 /// Generates parametric L1 ops for a complete CNC thread milling operation.
-pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, center_y: f64, start_z: f64) -> Result<Vec<Op>, String> {
+pub fn generate_thread_milling_ops(
+    params: &ThreadMillParams,
+    center_x: f64,
+    center_y: f64,
+    start_z: f64,
+) -> Result<Vec<Op>, String> {
     if params.nominal_diameter <= 0.0 || !params.nominal_diameter.is_finite() {
         return Err("Nominal diameter must be positive and finite".into());
     }
@@ -68,8 +73,12 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
     let mut ops = Vec::new();
 
     // Spindle start and feedrate configuration
-    ops.push(Op::Power { level: params.spindle_rpm });
-    ops.push(Op::Speed { print: params.feedrate });
+    ops.push(Op::Power {
+        level: params.spindle_rpm,
+    });
+    ops.push(Op::Speed {
+        print: params.feedrate,
+    });
 
     let tool_radius = params.tool_diameter / 2.0;
     let nominal_radius = params.nominal_diameter / 2.0;
@@ -98,10 +107,18 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
         let lead_in_r = orbit_radius / 2.0;
 
         // 1. Rapid move to clearance center above hole
-        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 2.0) });
+        ops.push(Op::Move {
+            x: Some(center_x),
+            y: Some(center_y),
+            z: Some(start_z + 2.0),
+        });
 
         // 2. Plunge down hole center to bottom Z
-        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(z_bottom) });
+        ops.push(Op::Move {
+            x: Some(center_x),
+            y: Some(center_y),
+            z: Some(z_bottom),
+        });
 
         // 3. Tangential lead-in arc (180 deg semi-circle from center to orbit edge)
         let lead_in_x = center_x + orbit_radius;
@@ -157,7 +174,11 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
         });
 
         // 6. Retract to top clearance
-        ops.push(Op::Move { x: Some(center_x), y: Some(center_y), z: Some(start_z + 5.0) });
+        ops.push(Op::Move {
+            x: Some(center_x),
+            y: Some(center_y),
+            z: Some(start_z + 5.0),
+        });
     } else {
         // External Threading (Rod / Bolt)
         let standoff = 2.0; // 2mm outside clearance
@@ -166,13 +187,25 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
         let lead_in_z = z_bottom + params.pitch * 0.25;
 
         // 1. Rapid to external clearance above part
-        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(start_z + 2.0) });
+        ops.push(Op::Move {
+            x: Some(start_orbit_x),
+            y: Some(center_y),
+            z: Some(start_z + 2.0),
+        });
 
         // 2. Plunge down outside workpiece
-        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(z_bottom) });
+        ops.push(Op::Move {
+            x: Some(start_orbit_x),
+            y: Some(center_y),
+            z: Some(z_bottom),
+        });
 
         // 3. Move linearly/tangentially to orbit perimeter
-        ops.push(Op::Move { x: Some(lead_in_x), y: Some(center_y), z: Some(lead_in_z) });
+        ops.push(Op::Move {
+            x: Some(lead_in_x),
+            y: Some(center_y),
+            z: Some(lead_in_z),
+        });
 
         // 4. Helical thread cutting passes around outside diameter
         let mut current_z = lead_in_z;
@@ -204,10 +237,18 @@ pub fn generate_thread_milling_ops(params: &ThreadMillParams, center_x: f64, cen
 
         // 5. Tangential lead-out back outward
         let lead_out_z = current_z + params.pitch * 0.25;
-        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(lead_out_z) });
+        ops.push(Op::Move {
+            x: Some(start_orbit_x),
+            y: Some(center_y),
+            z: Some(lead_out_z),
+        });
 
         // 6. Retract to top clearance
-        ops.push(Op::Move { x: Some(start_orbit_x), y: Some(center_y), z: Some(start_z + 5.0) });
+        ops.push(Op::Move {
+            x: Some(start_orbit_x),
+            y: Some(center_y),
+            z: Some(start_z + 5.0),
+        });
     }
 
     Ok(ops)
@@ -255,7 +296,10 @@ pub fn generate_chamfer_ops(
     if params.chamfer_width <= 0.0 || !params.chamfer_width.is_finite() {
         return Err("Chamfer width must be positive and finite".into());
     }
-    if params.chamfer_angle_deg <= 0.0 || params.chamfer_angle_deg >= 90.0 || !params.chamfer_angle_deg.is_finite() {
+    if params.chamfer_angle_deg <= 0.0
+        || params.chamfer_angle_deg >= 90.0
+        || !params.chamfer_angle_deg.is_finite()
+    {
         return Err("Chamfer angle must be in (0, 90) degrees".into());
     }
 
@@ -269,8 +313,16 @@ pub fn generate_chamfer_ops(
     // Calculate normal offsets for all vertices along the contour
     let mut offset_points = Vec::with_capacity(contour_points.len());
     for i in 0..contour_points.len() {
-        let prev = if i == 0 { contour_points[0] } else { contour_points[i - 1] };
-        let next = if i + 1 < contour_points.len() { contour_points[i + 1] } else { contour_points[i] };
+        let prev = if i == 0 {
+            contour_points[0]
+        } else {
+            contour_points[i - 1]
+        };
+        let next = if i + 1 < contour_points.len() {
+            contour_points[i + 1]
+        } else {
+            contour_points[i]
+        };
         let dx = next[0] - prev[0];
         let dy = next[1] - prev[1];
         let len = libm::hypot(dx, dy);
@@ -287,8 +339,12 @@ pub fn generate_chamfer_ops(
     }
 
     let mut ops = vec![
-        Op::Power { level: params.spindle_rpm },
-        Op::Speed { print: params.feedrate },
+        Op::Power {
+            level: params.spindle_rpm,
+        },
+        Op::Speed {
+            print: params.feedrate,
+        },
         Op::Move {
             x: Some(offset_points[0][0]),
             y: Some(offset_points[0][1]),
@@ -341,7 +397,10 @@ mod tests {
         let ops = generate_thread_milling_ops(&params, 50.0, 50.0, 0.0);
         assert!(ops.is_ok(), "Thread milling ops generation must succeed");
         let op_list = ops.unwrap();
-        assert!(op_list.len() > 10, "Should generate multi-revolution helical arcs");
+        assert!(
+            op_list.len() > 10,
+            "Should generate multi-revolution helical arcs"
+        );
     }
 
     #[test]
@@ -355,13 +414,22 @@ mod tests {
         };
 
         let ops = generate_thread_milling_ops(&params, 0.0, 0.0, 0.0);
-        assert!(ops.is_err(), "Tool larger than internal thread hole must be rejected");
+        assert!(
+            ops.is_err(),
+            "Tool larger than internal thread hole must be rejected"
+        );
     }
 
     #[test]
     fn test_chamfer_ops_generation() {
         let params = ChamferParams::default();
-        let contour = vec![[0.0, 0.0], [50.0, 0.0], [50.0, 50.0], [0.0, 50.0], [0.0, 0.0]];
+        let contour = vec![
+            [0.0, 0.0],
+            [50.0, 0.0],
+            [50.0, 50.0],
+            [0.0, 50.0],
+            [0.0, 0.0],
+        ];
         let ops = generate_chamfer_ops(&params, &contour, 0.0);
         assert!(ops.is_ok());
         let op_list = ops.unwrap();

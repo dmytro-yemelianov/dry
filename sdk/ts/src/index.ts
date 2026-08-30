@@ -42,8 +42,21 @@ export {
   optimizeConstantMrr,
   simulateDexelStock,
   segmentToSegmentDistance3d,
+  analyzeMachiningPhysics,
+  optimizeFiveAxisLookahead,
 } from './engine';
-export type { MachineKinematics, SCurveProfile, DexelSimulationReport } from './engine';
+export type {
+  MachineKinematics,
+  SCurveProfile,
+  DexelSimulationReport,
+  WorkpieceMaterial,
+  CuttingToolGeometry,
+  MachiningOperationParams,
+  PhysicsAnalysisReport,
+  FiveAxisLookaheadParams,
+  FirmwareFlavor,
+  CncFrame,
+} from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type {
   CollisionFinding,

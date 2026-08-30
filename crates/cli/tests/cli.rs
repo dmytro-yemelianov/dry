@@ -2467,7 +2467,9 @@ fn verify_runs_and_reports_findings() {
     // --json. `--bounds` is supplied here, so `bounds` is in force on top of the structural set.
     assert!(text.contains("segment(s) inspected"), "{text}");
     assert!(!text.contains("0 segment(s) inspected"), "{text}");
-    assert!(text.contains("13 rule(s) in force"), "{text}");
+    // 11 always-on structural rules + `bounds`. It was 12 + bounds until `laser-power-during-travel`
+    // was moved off the always-on set and onto `process.travel_must_be_dark`.
+    assert!(text.contains("12 rule(s) in force"), "{text}");
 
     // out-of-bounds path should fail (non-zero exit code)
     let out_bad = Command::new(bin())
@@ -3147,18 +3149,24 @@ fn slicer_corpus_manifest_sha256_matches_committed_files() {
 /// `--json` branch beside it listed a feedrate thirty times the machine maximum.
 mod check_reports_what_it_measured {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A single segment far outside any sane feedrate or spindle ceiling.
     fn excessive_ir() -> PathBuf {
-        // Process id as well as the clock: two tests in the same binary can read the same
-        // nanosecond on a coarse timer, and a shared path makes them delete each other's fixture.
+        // Unique by construction, not by luck. The clock alone collided: `process::id()` is the
+        // *same* for every test in one binary, so it discriminates nothing here, and `as_nanos()`
+        // reports whatever resolution the platform clock actually has — microseconds on macOS — so
+        // the two tests in this module started inside one tick often enough to share a path and
+        // delete each other's fixture roughly half the time. A monotonic counter cannot collide.
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
         let path = std::env::temp_dir().join(format!(
-            "dry-check-{}-{}.json",
+            "dry-check-{}-{}-{}.json",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::write(
             &path,
@@ -3314,4 +3322,103 @@ fn five_axis_default_diverges_from_the_ab_golden_by_design() {
         golden,
         "the engine agrees across front-ends once the model is stated explicitly"
     );
+}
+
+/// `dry generate tpms` — the CLI surface TPMS never had.
+///
+/// TPMS reached wasm, PyO3 and the TS SDK (H1.4 called it "the most-exposed generator") while the
+/// string `tpms` did not appear in the CLI at all, and `dry generate` carried only `pocket`. Nothing
+/// noticed until `conformance/capability-parity.toml` started asserting the table.
+mod generate_tpms {
+    use super::*;
+
+    fn bundle_path(tag: &str, body: &str) -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "dry-cli-tpms-{tag}-{}-{}.json",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::write(&path, body).unwrap();
+        path
+    }
+
+    const BUNDLE: &str =
+        r#"{"surface":"gyroid","cellSize":12,"cellsX":2,"cellsY":2,"cellsZ":1,"layerHeight":0.3}"#;
+
+    #[test]
+    fn generates_resolvable_ir_and_agrees_between_a_file_and_stdin() {
+        let path = bundle_path("ok", BUNDLE);
+        let from_file = Command::new(bin())
+            .args(["generate", "tpms", "--options", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(
+            from_file.status.success(),
+            "generate tpms failed: {}",
+            String::from_utf8_lossy(&from_file.stderr)
+        );
+
+        // The IR must be real and resolvable, not merely well-formed JSON.
+        let tp =
+            dry_core::Toolpath::from_json(&String::from_utf8(from_file.stdout.clone()).unwrap())
+                .expect("the emitted IR must parse as Dry IR");
+        assert!(
+            tp.segments.len() > 100,
+            "a 2x2x1 gyroid should produce real geometry, got {} segments",
+            tp.segments.len()
+        );
+
+        // `--options -` reads the same bundle from stdin; the two paths must not diverge.
+        let mut child = Command::new(bin())
+            .args(["generate", "tpms"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        use std::io::Write;
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(BUNDLE.as_bytes())
+            .unwrap();
+        let from_stdin = child.wait_with_output().unwrap();
+        assert!(from_stdin.status.success());
+        assert_eq!(
+            from_file.stdout, from_stdin.stdout,
+            "the file and stdin paths must produce identical IR"
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn refuses_a_bad_bundle_naming_what_is_wrong() {
+        // An unknown surface is a deserialize refusal that lists the accepted names.
+        let path = bundle_path("surface", r#"{"surface":"not-a-surface"}"#);
+        let out = Command::new(bin())
+            .args(["generate", "tpms", "--options", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("invalid tpms options"), "{err}");
+        assert!(
+            err.contains("gyroid"),
+            "the refusal must list the accepted surfaces: {err}"
+        );
+        let _ = std::fs::remove_file(&path);
+
+        // An out-of-domain option is refused by the generator, naming the option the caller set.
+        let path = bundle_path("cell", r#"{"cellSize":-5}"#);
+        let out = Command::new(bin())
+            .args(["generate", "tpms", "--options", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("cellSize"), "{err}");
+        let _ = std::fs::remove_file(&path);
+    }
 }

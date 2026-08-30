@@ -9,10 +9,10 @@ use dry_core::{
     apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
-    trace_summary_with_analytics, trace_summary_with_sources, try_pocket_design, verify,
-    verify_stream, BatchFileResult, Contracts, CutMode, EmitParams, FirmwareFlavor,
+    trace_summary_with_analytics, trace_summary_with_sources, try_pocket_design, try_tpms_ops,
+    verify, verify_stream, BatchFileResult, Contracts, CutMode, Design, EmitParams, FirmwareFlavor,
     GcodeImportParams, Kinematics, KrlFrame, OptimizeMode, PocketOptions, PocketShape, Profile,
-    ReviewBatch, RewriteReport, RewriteSpanResult, Toolpath, TraceAnalyticsOptions,
+    ReviewBatch, RewriteReport, RewriteSpanResult, Toolpath, TpmsOptions, TraceAnalyticsOptions,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
@@ -199,6 +199,13 @@ enum CloudCmd {
     },
 }
 
+// `GenerateCmd::Pocket` carries ~50 arguments inline, so adding any smaller subcommand beside it
+// trips `large_enum_variant`. The lint's structural fix — extracting `Pocket`'s fields into a boxed
+// `Args` struct — is declined here: this enum is built once from `argv` and never lives in a hot
+// path or a collection, so boxing buys nothing at runtime, while the extraction would rewrite the
+// CLI's largest and most intricate match arm for a lint about stack size. Recorded rather than
+// silently suppressed, and deliberately narrow: it is scoped to this enum, not the crate.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum GenerateCmd {
     /// Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON.
@@ -246,6 +253,24 @@ enum GenerateCmd {
         /// Use helical ramp-in descent for plunge protection.
         #[arg(long)]
         helical_entry: Option<bool>,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// TPMS lattice infill from an option bundle. Writes resolved Dry IR JSON.
+    ///
+    /// Takes the option bundle as JSON rather than a flag per field, deliberately: `TpmsOptions`
+    /// carries 26 fields, and a hand-maintained flag set would drift from it the first time one was
+    /// added. This is the same camelCase wire form the Python, wasm and TypeScript SDKs accept and
+    /// `conformance/vectors` records, so a bundle is portable across every surface.
+    Tpms {
+        /// Option bundle as camelCase JSON: a file path, or `-` to read stdin.
+        /// Example: `{"surface":"gyroid","cellSize":12,"cellsX":2,"cellsY":2,"cellsZ":1}`.
+        #[arg(long, default_value = "-")]
+        options: String,
         /// Machine/material profile JSON (supplies ResolveParams defaults).
         #[arg(long)]
         profile: Option<String>,
@@ -805,7 +830,6 @@ enum FleetCmd {
         api_key_env: String,
     },
 }
-
 
 fn die(msg: String) -> ! {
     eprintln!("error: {msg}");
@@ -1579,6 +1603,40 @@ fn run(cli: Cli) -> ExitCode {
                 .unwrap_or_default();
             let toolpath = resolve_checked(&design, &params)
                 .unwrap_or_else(|e| die(format!("cannot resolve pocket design: {e}")));
+            let json = toolpath.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::Tpms {
+                    options,
+                    profile,
+                    out,
+                },
+        } => {
+            let bundle = if options == "-" {
+                let mut buf = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
+                    .unwrap_or_else(|e| die(format!("cannot read options from stdin: {e}")));
+                buf
+            } else {
+                fs::read_to_string(&options)
+                    .unwrap_or_else(|e| die(format!("cannot read {options}: {e}")))
+            };
+            let opts: TpmsOptions = serde_json::from_str(&bundle)
+                .unwrap_or_else(|e| die(format!("invalid tpms options: {e}")));
+            let ops =
+                try_tpms_ops(&opts).unwrap_or_else(|e| die(format!("cannot generate tpms: {e}")));
+            let params = load_profile(profile.as_deref())
+                .map(|p| p.resolve_params())
+                .unwrap_or_default();
+            let toolpath = resolve_checked(&Design { ops }, &params)
+                .unwrap_or_else(|e| die(format!("cannot resolve tpms design: {e}")));
             let json = toolpath.to_json();
             match out {
                 Some(path) => fs::write(&path, json + "\n")
@@ -2685,7 +2743,6 @@ fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
     }
 }
 
-
 fn first_version(printer: &serde_json::Value) -> Option<&serde_json::Value> {
     printer
         .get("versions")
@@ -2717,7 +2774,6 @@ fn strings_at(value: &serde_json::Value, path: &[&str], field: &str) -> Vec<Stri
         .map(str::to_owned)
         .collect()
 }
-
 
 fn load_profile(path: Option<&str>) -> Option<Profile> {
     path.map(|path| {
@@ -3509,7 +3565,11 @@ fn run_fleet_cmd(_cmd: FleetCmd) -> std::process::ExitCode {
 #[cfg(feature = "moonraker")]
 fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
     match cmd {
-        FleetCmd::Status { url, api_key_env, json } => {
+        FleetCmd::Status {
+            url,
+            api_key_env,
+            json,
+        } => {
             let api_key = std::env::var(&api_key_env).ok();
             let cfg = dry_moonraker::MoonrakerConfig {
                 base_url: url.clone(),
@@ -3532,7 +3592,11 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
                 Err(e) => die(format!("failed to query printer status at {url}: {e}")),
             }
         }
-        FleetCmd::Tune { url, pressure_advance, api_key_env } => {
+        FleetCmd::Tune {
+            url,
+            pressure_advance,
+            api_key_env,
+        } => {
             let api_key = std::env::var(&api_key_env).ok();
             let cfg = dry_moonraker::MoonrakerConfig {
                 base_url: url.clone(),
@@ -3541,7 +3605,9 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
             };
             match dry_moonraker::set_pressure_advance(&cfg, pressure_advance) {
                 Ok(_) => {
-                    println!("Tuned printer at {url}: pressure_advance set to {pressure_advance:.5}");
+                    println!(
+                        "Tuned printer at {url}: pressure_advance set to {pressure_advance:.5}"
+                    );
                     std::process::ExitCode::SUCCESS
                 }
                 Err(e) => die(format!("failed to set pressure advance at {url}: {e}")),
@@ -3549,7 +3615,6 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
         }
     }
 }
-
 
 #[cfg(feature = "llm")]
 fn run_compare_llm(args: CompareLlmArgs) -> std::process::ExitCode {

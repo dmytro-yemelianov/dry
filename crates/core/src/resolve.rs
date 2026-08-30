@@ -225,7 +225,9 @@ impl Design {
 
     /// Set print feedrate (mm/min).
     pub fn feedrate(mut self, speed_mm_min: f64) -> Self {
-        self.ops.push(Op::Speed { print: speed_mm_min });
+        self.ops.push(Op::Speed {
+            print: speed_mm_min,
+        });
         self
     }
 
@@ -339,7 +341,10 @@ impl Design {
     }
 
     /// Evaluates safety contracts on the resolved design.
-    pub fn verify(&self, contracts: &crate::verify::Contracts) -> Result<crate::verify::Report, ResolveError> {
+    pub fn verify(
+        &self,
+        contracts: &crate::verify::Contracts,
+    ) -> Result<crate::verify::Report, ResolveError> {
         let tp = self.ir()?;
         Ok(crate::verify::verify(&tp, contracts))
     }

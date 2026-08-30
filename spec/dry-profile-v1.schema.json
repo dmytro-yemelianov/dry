@@ -175,7 +175,8 @@
           "minItems": 2,
           "maxItems": 2,
           "items": { "type": "number", "minimum": 0 }
-        }
+        },
+        "travel_must_be_dark": { "type": "boolean" }
       }
     },
     "start_gcode": { "$ref": "#/$defs/GcodeProcedure" },

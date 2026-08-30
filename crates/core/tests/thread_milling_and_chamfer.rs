@@ -19,8 +19,12 @@ fn test_m10_internal_thread_milling_e2e() {
         spindle_rpm: 5000.0,
     };
 
-    let ops = generate_thread_milling_ops(&params, 0.0, 0.0, 0.0).expect("Thread mill generation failed");
-    assert!(ops.len() >= 18, "Should have lead-in, multi-turn helical arcs, and lead-out");
+    let ops =
+        generate_thread_milling_ops(&params, 0.0, 0.0, 0.0).expect("Thread mill generation failed");
+    assert!(
+        ops.len() >= 18,
+        "Should have lead-in, multi-turn helical arcs, and lead-out"
+    );
 
     let design = dry_core::Design { ops };
     let resolve_params = ResolveParams {
@@ -31,11 +35,15 @@ fn test_m10_internal_thread_milling_e2e() {
         retraction_distance: None,
     };
 
-    let toolpath = resolve_checked(&design, &resolve_params).expect("Thread mill ops must resolve to L2 IR");
+    let toolpath =
+        resolve_checked(&design, &resolve_params).expect("Thread mill ops must resolve to L2 IR");
     assert!(!toolpath.segments.is_empty());
 
     let metrics = simulate(&toolpath);
-    assert!(metrics.total_time_s.value() > 0.0, "Machining time must be positive");
+    assert!(
+        metrics.total_time_s.value() > 0.0,
+        "Machining time must be positive"
+    );
     assert!(metrics.extruding_distance.value() > 0.0 || metrics.travel_distance.value() > 0.0);
 }
 
@@ -88,10 +96,12 @@ fn test_external_thread_milling_and_left_hand() {
         spindle_rpm: 4000.0,
     };
 
-    let ops = generate_thread_milling_ops(&params_ext, 50.0, 50.0, 0.0).expect("External thread mill failed");
+    let ops = generate_thread_milling_ops(&params_ext, 50.0, 50.0, 0.0)
+        .expect("External thread mill failed");
     assert!(!ops.is_empty());
 
     let design = dry_core::Design { ops };
-    let toolpath = resolve_checked(&design, &ResolveParams::default()).expect("External thread resolves");
+    let toolpath =
+        resolve_checked(&design, &ResolveParams::default()).expect("External thread resolves");
     assert!(!toolpath.segments.is_empty());
 }

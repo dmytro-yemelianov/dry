@@ -99,10 +99,14 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
                 if params.lead_in_radius > 0.0 {
                     match params.lead_in_type {
                         LeadInType::Linear => {
-                            lines.push(format!("; Linear lead-in ({:.1}mm)", params.lead_in_radius));
+                            lines
+                                .push(format!("; Linear lead-in ({:.1}mm)", params.lead_in_radius));
                         }
                         LeadInType::Arc => {
-                            lines.push(format!("; Tangential arc lead-in (R{:.1}mm)", params.lead_in_radius));
+                            lines.push(format!(
+                                "; Tangential arc lead-in (R{:.1}mm)",
+                                params.lead_in_radius
+                            ));
                         }
                         LeadInType::None => {}
                     }

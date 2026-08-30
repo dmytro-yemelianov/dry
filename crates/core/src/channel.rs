@@ -197,7 +197,10 @@ mod tests {
         assert!(reg.validate_map(&valid_map).is_ok());
 
         let mut invalid_map = BTreeMap::new();
-        invalid_map.insert("plasma_arc_voltage".into(), ChannelValue::Text("high".into()));
+        invalid_map.insert(
+            "plasma_arc_voltage".into(),
+            ChannelValue::Text("high".into()),
+        );
         assert!(reg.validate_map(&invalid_map).is_err());
     }
 }

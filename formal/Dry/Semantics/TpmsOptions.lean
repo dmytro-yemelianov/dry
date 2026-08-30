@@ -5,7 +5,7 @@ import Mathlib.Tactic
 # TPMS Option Acceptance & Domain Predicate (FM1.GENERATE.TPMS.OPTION_ACCEPTANCE)
 
 This module formalizes the TPMS option acceptance predicate:
-- `TpmsOptions`: bounding box (min/max X, Y, Z), cell size (X, Y, Z), layer height, resolution;
+- `Options`: bounding box (min/max X, Y, Z), cell size (X, Y, Z), layer height, resolution;
 - `validateTpmsOptions`: checks that bounds are strictly positive in extent, cell size is strictly positive, layer height is positive, and resolution is ≥ 2;
 - Proves fail-closed property and soundness theorem `validate_tpms_options_sound`.
 -/
@@ -18,7 +18,7 @@ structure Point3D where
   z : ℚ
 deriving DecidableEq, Repr
 
-structure TpmsOptions where
+structure Options where
   bounds_min : Point3D
   bounds_max : Point3D
   cell_size : Point3D
@@ -26,7 +26,7 @@ structure TpmsOptions where
   resolution : ℕ
 deriving DecidableEq, Repr
 
-def validateTpmsOptions (opts : TpmsOptions) : Bool :=
+def validateTpmsOptions (opts : Options) : Bool :=
   decide (
     opts.bounds_min.x < opts.bounds_max.x ∧
     opts.bounds_min.y < opts.bounds_max.y ∧
@@ -38,7 +38,7 @@ def validateTpmsOptions (opts : TpmsOptions) : Bool :=
     2 ≤ opts.resolution
   )
 
-theorem validate_tpms_options_sound (opts : TpmsOptions)
+theorem validate_tpms_options_sound (opts : Options)
     (h : validateTpmsOptions opts = true) :
     opts.bounds_min.x < opts.bounds_max.x ∧
     opts.bounds_min.y < opts.bounds_max.y ∧
@@ -50,7 +50,7 @@ theorem validate_tpms_options_sound (opts : TpmsOptions)
     2 ≤ opts.resolution := by
   exact decide_eq_true_iff.mp h
 
-theorem validate_tpms_options_fail_closed_degenerate_bounds (opts : TpmsOptions)
+theorem validate_tpms_options_fail_closed_degenerate_bounds (opts : Options)
     (h : opts.bounds_max.x ≤ opts.bounds_min.x ∨
          opts.bounds_max.y ≤ opts.bounds_min.y ∨
          opts.bounds_max.z ≤ opts.bounds_min.z) :
@@ -63,7 +63,7 @@ theorem validate_tpms_options_fail_closed_degenerate_bounds (opts : TpmsOptions)
   · exact (not_lt_of_ge hy) accepted.2.1
   · exact (not_lt_of_ge hz) accepted.2.2.1
 
-theorem validate_tpms_options_fail_closed_non_positive_cell (opts : TpmsOptions)
+theorem validate_tpms_options_fail_closed_non_positive_cell (opts : Options)
     (h : opts.cell_size.x ≤ 0 ∨ opts.cell_size.y ≤ 0 ∨ opts.cell_size.z ≤ 0) :
     validateTpmsOptions opts = false := by
   dsimp [validateTpmsOptions]
@@ -74,7 +74,7 @@ theorem validate_tpms_options_fail_closed_non_positive_cell (opts : TpmsOptions)
   · exact (not_lt_of_ge hy) accepted.2.2.2.2.1
   · exact (not_lt_of_ge hz) accepted.2.2.2.2.2.1
 
-theorem validate_tpms_options_fail_closed_invalid_layer_height (opts : TpmsOptions)
+theorem validate_tpms_options_fail_closed_invalid_layer_height (opts : Options)
     (h : opts.layer_height ≤ 0) :
     validateTpmsOptions opts = false := by
   dsimp [validateTpmsOptions]
@@ -82,7 +82,7 @@ theorem validate_tpms_options_fail_closed_invalid_layer_height (opts : TpmsOptio
   intro accepted
   exact (not_lt_of_ge h) accepted.2.2.2.2.2.2.1
 
-theorem validate_tpms_options_fail_closed_low_resolution (opts : TpmsOptions)
+theorem validate_tpms_options_fail_closed_low_resolution (opts : Options)
     (h : opts.resolution < 2) :
     validateTpmsOptions opts = false := by
   dsimp [validateTpmsOptions]
