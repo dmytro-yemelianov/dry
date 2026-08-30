@@ -181,3 +181,52 @@ END-ISO-10303-21;
         .expect("slice all STEP quadrics");
     assert!(!ops.is_empty());
 }
+
+/// B-Rep slicing refuses what it cannot slice, and refuses work it cannot finish.
+///
+/// `slice_to_l1_ops` walks `z` from `z_start` to `z_end` in `layer_height` steps, sampling every
+/// surface at each. It had no budget at all — the guardrail `generate/tpms.rs` has carried since
+/// H1.4 — so `z_end = 1e9, layer_height = 1e-6` is 10^15 slices and the process is killed rather
+/// than answering. This surface is on every SDK including wasm, so that is a browser tab that never
+/// comes back.
+#[test]
+fn slicing_refuses_degenerate_bounds_and_unbounded_work() {
+    const STEP: &str = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n\
+                        #1=CYLINDRICAL_SURFACE('c',#2,12.0);\nENDSEC;\nEND-ISO-10303-21;\n";
+    let solid = BrepSolid::parse_step_iso10303(STEP).expect("fixture parses");
+
+    // `z_end < z_start` is false when either is NaN, so the ordering check cannot stand alone: a
+    // NaN bound previously produced an empty op list, which is a vacuous program, not a refusal.
+    for (z0, z1) in [(f64::NAN, 10.0), (0.0, f64::NAN), (f64::INFINITY, 10.0)] {
+        let err = solid
+            .slice_to_l1_ops(z0, z1, 1.0, 32, 1200.0)
+            .expect_err("non-finite slice bounds must be refused");
+        assert!(err.message.contains("must be finite"), "{}", err.message);
+    }
+
+    // The feedrate is written straight into `Op::Speed`; an unchecked value put invalid IR into the
+    // op stream, and a negative one reintroduced what ingress validation refuses.
+    for bad in [-100.0, 0.0, f64::NAN, f64::INFINITY] {
+        let err = solid
+            .slice_to_l1_ops(0.0, 10.0, 1.0, 32, bad)
+            .expect_err("an unusable feedrate must be refused");
+        assert!(err.message.contains("feedrate"), "{}", err.message);
+    }
+
+    let err = solid
+        .slice_to_l1_ops(0.0, 10.0, 1.0, 0, 1200.0)
+        .expect_err("zero samples per slice must be refused");
+    assert!(err.message.contains("samples_per_slice"), "{}", err.message);
+
+    // The runaway: refused up front, in constant time, rather than by the OOM killer.
+    let err = solid
+        .slice_to_l1_ops(0.0, 1e9, 1e-6, 32, 1200.0)
+        .expect_err("an unbounded slice request must be refused");
+    assert!(err.message.contains("budget exceeded"), "{}", err.message);
+
+    // An ordinary request still slices, so the guards have not disabled the generator.
+    let ops = solid
+        .slice_to_l1_ops(2.0, 10.0, 2.0, 32, 1200.0)
+        .expect("a reasonable slice request must still succeed");
+    assert!(!ops.is_empty());
+}
