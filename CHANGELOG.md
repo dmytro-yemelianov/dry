@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
-## [Unreleased]
+## [0.9.0] - 2026-08-30
 
-Everything since `bced638` ("document v0.7.0 features"). `Cargo.toml` still reads `0.7.0`, so none of
-this has been released or version-stamped — while `docs/02-roadmap.md` already describes v0.8.0 as
-"Completed (Merged)" and Phase 8 as v0.9.0. **That disagreement is real and is a release decision, not
-an oversight to be quietly resolved here**; this section exists so the work is at least recorded
-against a version-neutral heading until someone makes the call.
+Everything since `bced638` ("document v0.7.0 features"). **This release covers both the v0.8.0 and
+v0.9.0 roadmap horizons**: `docs/02-roadmap.md` maps Phase 7 to v0.8.0 and Phase 8 to v0.9.0, both
+were merged to `main`, and neither was ever cut — so one release carries both rather than tagging the
+same tree twice. Per `docs/12-releasing.md` §1 a strategic roadmap milestone is a MINOR bump, and the
+behavioural changes below ("a verification rule's default severity ... warrant at least a minor bump")
+are called out individually under **Changed**.
 
 ### Added
 - **Phase 7 — Manufacturing kernel & motion optimisation.** Direct STEP ISO 10303-21 B-Rep solid and
@@ -40,6 +41,20 @@ against a version-neutral heading until someone makes the call.
   in-browser wasm verifier.
 - **`Contracts::travel_must_be_dark` / `process.travel_must_be_dark`** — opt in to
   `laser-power-during-travel` for a beam-based process.
+- **Cross-target capability parity for Phase 7/8.** `analyze_machining_physics` and
+  `optimize_five_axis_lookahead` reach Python, wasm and TypeScript; so do the Siemens, Haas,
+  Heidenhain and ABB RAPID dialects, together with the `cnc_frame` machine preamble (work offset,
+  tool change, spindle, coolant) they need to emit more than bare motion. The Python and TypeScript
+  suites cross-check the same physics numbers through two different FFI paths and agree bit for bit.
+- **`FirmwareFlavor::named`** — one flavor parser in the engine, shared by the bindings.
+- **`dry generate tpms | brep | drape | lathe-facing | lathe-turning`.** Every generator now has a CLI
+  surface. TPMS had none at all despite being the most-exposed generator on the SDKs. `tpms` takes
+  the camelCase option bundle as JSON (file or stdin) rather than a flag per field, since
+  `TpmsOptions` carries 26 fields; facing and turning are separate subcommands because their
+  parameters genuinely differ.
+- **`conformance/capability-parity.toml` + `tools/check_capability_parity.py`**, gating cross-target
+  reachability in CI in both directions: a recorded-reachable symbol that disappears fails, and a
+  surface that gains a capability recorded absent fails too. 12 capabilities, 60 cells.
 
 ### Changed
 - **`laser-power-during-travel` is process-gated rather than always-on.** *Behavioural change to
@@ -55,6 +70,17 @@ against a version-neutral heading until someone makes the call.
   previous joint state now return `Err`; previously they returned `Ok` with `NaN` in every joint,
   because `NaN.abs() > 1.0` is false and the reach check never fired. The tool direction is also
   normalised, so its length no longer displaces the wrist centre by `d6·(‖v‖ − 1)`.
+- **An unknown firmware flavor is an error, not silently Marlin.** *Breaking, on the Python and wasm
+  bindings.* Each binding carried its own flavor `match` ending in `_ => Marlin`, so asking for a
+  dialect that binding had not learned — or mistyping one — emitted FFF G-code for a program that
+  asked for a 5-axis mill or a robot. The wasm surface took no flavor argument at all.
+- **`check_dual_robot_clearance` and `check_continuous_dual_robot_trajectory` fail closed.**
+  *Behavioural change to a safety check.* Every comparison against `NaN` is false, so a non-finite
+  joint angle, base offset, link radius or safety margin left the verdict at its initial `safe = true`
+  and reported `min_distance_mm = inf` — abundant clearance from arithmetic that never happened. Input
+  the check cannot evaluate now returns `safe = false` with zero clearance.
+- **`GenerateCmd::Pocket` carries a boxed `PocketArgs`** rather than ~50 inline arguments. No
+  behavioural change: the same invocation emits byte-identical output.
 
 ### Fixed
 - CI's `fmt`, `clippy`, reference-docs and Lean `--wfail` gates, red across five jobs.
@@ -67,9 +93,12 @@ against a version-neutral heading until someone makes the call.
   Only the elbow-up branch is produced.
 - `Robot6AxisModel`'s forward solves (`solve_fk`, `solve_fk_pose`, `solve_all_link_positions`) return
   plain values with no error channel, so they still propagate non-finite input.
-- Phase 7/8 additions — the lookahead optimiser, the physics simulator and the industrial CNC/robot
-  flavors — are reachable from `dry-core` and (partly) the CLI, but are **not exposed** in the Python,
-  wasm or TypeScript SDKs.
+- The lookahead optimiser, the physics simulator, dexel stock simulation, tool-holder collision and
+  STEP **multi-solid** assembly slicing have no CLI surface; mesh drape is absent from wasm and
+  TypeScript. Every cell is recorded in `conformance/capability-parity.toml` and gated in CI.
+- Whether `resolve` should force travels dark is **decided and closed** — it should not; see
+  `docs/04-tasks.md`. `Op::Power` carries spindle RPM as well as laser PWM, and a producer that
+  cannot tell the two apart must not zero one of them.
 
 ## [0.7.0] - 2026-08-29
 

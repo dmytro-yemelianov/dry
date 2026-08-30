@@ -194,19 +194,21 @@ verifier, so `emit` is the last gate.
    is heavily gated and the product is not deployable: no authentication, no observability, no deploy
    pipeline, and two divergent sketches of one service. That roadmap, not this list, is where the next
    phase of work lives.
-2. **Should `resolve` force travels dark?** The narrower question — a "beam on during travel" verify
-   rule — is now **closed**; this is the half that remains. `laser-power-during-travel` landed in
-   `b2a05ef` as an always-on **error**, against the P5.4 decision recorded here, and was wrong in
-   both directions until it was gated on `process.travel_must_be_dark`. The P5.4 evidence held
-   exactly as written — `resolve` emits a lit travel from a legal design because the channel is
-   sticky, so the always-on rule refused Dry's own laser output — and a second failure had been
-   missed: `Op::Power` is *one* channel carrying spindle RPM as well as laser PWM, so the rule also
-   errored on an ordinary milling rapid at `S8000`, where a turning spindle is mandatory practice
-   rather than a hazard. Only a profile knows which process it is describing, so only a profile may
-   turn the rule on (`docs/11-profiles-and-reports.md`). **Still open, and unaffected by that
-   gating:** whether `resolve` should force travels dark at the producer, so a lit travel could never
-   reach the IR. Deciding yes would change emitted laser output and its goldens, which is why it was
-   not folded into the gating fix.
+2. **Should `resolve` force travels dark? — DECIDED: no (2026-08-30).** The narrower question, a
+   "beam on during travel" verify rule, was settled by gating `laser-power-during-travel` on
+   `process.travel_must_be_dark`. This is the other half, and it closes on the *same* argument.
+   `Op::Power` is one channel carrying spindle RPM as well as laser PWM. `resolve` lowers L1 to L2
+   with no target, no profile and no notion of process, so it cannot tell a beam from a spindle — and
+   forcing travels dark would be right for one and wrong for the other, since stopping a spindle for
+   every rapid is not a safety measure but a defect. A producer that cannot distinguish the two must
+   not zero one of them. That is precisely the category error that made the always-on verify rule
+   wrong in both directions, and moving it from the verifier into the producer would not fix it, only
+   hide it one stage earlier where no contract can override it.
+   **The requirement lives where the knowledge is:** a laser/plasma/waterjet profile sets
+   `process.travel_must_be_dark`, and the rule then requires an explicit `power(0.0)` before the
+   travel. That also leaves the beam state *stated in the program* rather than implied by a producer
+   convention, which is the property a laser program wants. Recorded here rather than deleted,
+   because the question was open long enough to be worth answering in writing.
 3. **A Lean model for the resolve channels** — `proofs/fixtures/resolve-channels-refinement-v0.json`
    is generated from a semantics with no `power` channel, which is *why* a `power-does-not-propagate`
    mutation cannot be added: it would survive and fail the checker. Until the model learns the

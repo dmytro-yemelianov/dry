@@ -875,6 +875,15 @@ impl Robot6AxisModel {
     }
 
     /// Compute Forward Kinematics (FK): maps joint angles to Cartesian Tool Center Point (TCP) $[x, y, z]$.
+    ///
+    /// **Precondition: every joint angle is finite.** The forward solves return plain values and have
+    /// no error channel to refuse into, unlike [`Self::solve_ik`], so a non-finite joint propagates
+    /// into the result rather than being rejected. Giving them a `Result` was considered and declined:
+    /// it would cascade through `multi_robot`'s clearance code for no additional safety, because the
+    /// consumer that matters already validates. `check_dual_robot_clearance` and
+    /// `check_continuous_dual_robot_trajectory` — the collision checks these feed — refuse non-finite
+    /// joints, base offsets, link radii and safety margins at their own boundary and fail closed. A
+    /// caller using FK for anything safety-bearing should validate the same way.
     pub fn solve_fk(&self, joints: &RobotJoints6) -> [f64; 3] {
         let (pos, _) = self.solve_fk_pose(joints);
         pos

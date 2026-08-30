@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "dry"
-version = "0.7.0"
+version = "0.9.0"
 description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
 readme = "README.md"
 authors = [{ name = "Dmytro Yemelianov", email = "dmytro@yemelianov.dev" }]
