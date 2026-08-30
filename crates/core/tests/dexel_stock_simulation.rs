@@ -73,9 +73,52 @@ fn test_dexel_full_toolpath_simulation() {
     };
 
     let tp = resolve(&design, &ResolveParams::default());
-    stock.simulate_toolpath(&tp, 4.0, false);
+    stock.simulate_toolpath(&tp, 4.0, false).unwrap();
 
     let report = stock.generate_report();
     assert!(report.removed_volume_mm3 > 1000.0);
     assert!(report.material_removal_ratio > 0.01);
+}
+
+/// A tool that cannot cut is refused, rather than reported as having removed nothing.
+///
+/// `removed_volume_mm3 = 0.0` is a finite, entirely plausible number, and a caller would reasonably
+/// read it as "this program misses the stock" rather than "the radius you gave me was NaN".
+/// `new_stock` already refuses a non-positive resolution; this is the other half of the same rule.
+fn cutting_pass() -> dry_core::Toolpath {
+    let design = Design {
+        ops: vec![
+            Op::Speed { print: 1200.0 },
+            Op::Extruder { on: true },
+            Op::Move {
+                x: Some(10.0),
+                y: Some(10.0),
+                z: Some(5.0),
+            },
+            Op::Move {
+                x: Some(30.0),
+                y: Some(10.0),
+                z: Some(5.0),
+            },
+        ],
+    };
+    resolve(&design, &ResolveParams::default())
+}
+
+#[test]
+fn simulate_toolpath_refuses_a_tool_that_cannot_cut() {
+    let tp = cutting_pass();
+
+    for bad in [f64::NAN, f64::INFINITY, 0.0, -5.0] {
+        let mut stock = DexelGrid::new_stock(0.0, 0.0, 0.0, 40.0, 40.0, 10.0, 1.0).unwrap();
+        let err = stock
+            .simulate_toolpath(&tp, bad, false)
+            .expect_err("a tool radius that cannot cut must be refused");
+        assert!(err.contains("tool_radius"), "{err}");
+    }
+
+    // A real tool still carves, so the refusal has not disabled the simulation.
+    let mut stock = DexelGrid::new_stock(0.0, 0.0, 0.0, 40.0, 40.0, 10.0, 1.0).unwrap();
+    stock.simulate_toolpath(&tp, 4.0, false).unwrap();
+    assert!(stock.generate_report().removed_volume_mm3 > 0.0);
 }

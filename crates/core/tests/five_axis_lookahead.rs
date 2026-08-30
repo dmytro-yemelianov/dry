@@ -88,3 +88,83 @@ fn test_five_axis_lookahead_preserves_pure_linear_motion() {
     assert_eq!(optimized.segments.len(), 1);
     assert_eq!(optimized.segments[0].speed.value(), 1800.0);
 }
+
+/// Limits that describe no machine are declined, not applied.
+///
+/// Zero and non-finite limits already no-opped by arithmetic accident, but a *negative* acceleration
+/// was honoured and slowed the path — an answer derived from a parameter that means nothing. Same
+/// contract as the engagement passes in `crates/core/tests/optimize_parameter_hygiene.rs`.
+fn straight_pass() -> dry_core::Toolpath {
+    let mut design = Design::default();
+    design.ops.push(Op::Extruder { on: true });
+    design.ops.push(Op::Speed { print: 1800.0 });
+    for x in [20.0, 60.0, 100.0] {
+        design.ops.push(Op::Move {
+            x: Some(x),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+    }
+    resolve(&design, &ResolveParams::default())
+}
+
+#[test]
+fn lookahead_declines_limits_that_describe_no_machine() {
+    use dry_core::{optimize_five_axis_lookahead, FiveAxisLookaheadParams};
+
+    let tp = straight_pass();
+    let before: Vec<f64> = tp.segments.iter().map(|s| s.speed.value()).collect();
+
+    let sane = FiveAxisLookaheadParams {
+        max_linear_accel: 500.0,
+        max_linear_jerk: 5000.0,
+        max_rotary_speed_deg_s: 60.0,
+        max_rotary_accel_deg_s2: 300.0,
+        max_rotary_jerk_deg_s3: 3000.0,
+    };
+
+    for (label, bad) in [
+        (
+            "negative accel",
+            FiveAxisLookaheadParams {
+                max_linear_accel: -500.0,
+                ..sane
+            },
+        ),
+        (
+            "zero jerk",
+            FiveAxisLookaheadParams {
+                max_linear_jerk: 0.0,
+                ..sane
+            },
+        ),
+        (
+            "NaN rotary speed",
+            FiveAxisLookaheadParams {
+                max_rotary_speed_deg_s: f64::NAN,
+                ..sane
+            },
+        ),
+        (
+            "infinite rotary accel",
+            FiveAxisLookaheadParams {
+                max_rotary_accel_deg_s2: f64::INFINITY,
+                ..sane
+            },
+        ),
+    ] {
+        let out = optimize_five_axis_lookahead(&tp, &bad);
+        let after: Vec<f64> = out.segments.iter().map(|s| s.speed.value()).collect();
+        assert_eq!(after, before, "{label} must leave the toolpath unchanged");
+    }
+
+    // Sane limits still plan: the path is bounded by them, never sped up.
+    let out = optimize_five_axis_lookahead(&tp, &sane);
+    for (a, b) in out.segments.iter().zip(tp.segments.iter()) {
+        assert!(
+            a.speed.value() <= b.speed.value() + 1e-9,
+            "lookahead must never raise a commanded feedrate"
+        );
+        assert!(a.speed.value().is_finite() && a.speed.value() >= 0.0);
+    }
+}

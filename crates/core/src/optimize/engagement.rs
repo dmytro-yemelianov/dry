@@ -21,7 +21,34 @@ pub fn calculate_radial_engagement_angle(stepover_ratio: f64, turn_angle_rad: f6
 /// Optimize corner feedrates on a toolpath based on angular transitions.
 ///
 /// `min_feed_ratio` sets the lower bound for feedrate reduction (e.g. 0.4 for 40% of original feedrate).
+/// An optimize pass given a parameter it cannot honour leaves the toolpath **untouched**.
+///
+/// These passes take `&mut Toolpath` and return `()`, so they have no channel to refuse into — and
+/// each of them turned a nonsensical parameter into a confident answer instead of declining:
+///
+/// - `optimize_corner_feedrate(NaN)` **panicked**. Its sanitising `min_feed_ratio.clamp(0.1, 1.0)`
+///   does not sanitise, because `f64::clamp` returns `NaN` for a `NaN` *self*; the `NaN` then became
+///   a clamp *bound* further down, which is the case `f64::clamp` panics on. A panic in a pass
+///   reachable from wasm is an abort, not an error.
+/// - `optimize_constant_mrr` with a `NaN` depth wrote `NaN` into every speed: its guard is
+///   `depth_of_cut <= 0.0`, and `NaN <= 0.0` is false. With negative feedrate bounds it wrote
+///   **negative** speeds — reintroducing precisely what H1.2 refuses at ingress.
+/// - `apply_chip_thinning_compensation` with a stepover of `0` or `-0.5` clamped to `0.001` and
+///   commanded **350% feedrate**, the cap its own comment calls "machine safety". A guardrail that
+///   converts nonsense into the most aggressive legal answer is not a guardrail.
+///
+/// Leaving the input alone is the one safe answer available without changing these signatures: the
+/// caller's toolpath already satisfies the invariants ingress validation established, so declining to
+/// optimise cannot break them. Callers that need to know a pass declined should validate their
+/// parameters first; the passes do not silently substitute a default.
+fn honourable(params: &[f64]) -> bool {
+    params.iter().all(|v| v.is_finite())
+}
+
 pub fn optimize_corner_feedrate(toolpath: &mut Toolpath, min_feed_ratio: f64) {
+    if !honourable(&[min_feed_ratio]) {
+        return;
+    }
     if toolpath.segments.len() < 2 {
         return;
     }
@@ -157,6 +184,11 @@ pub fn calculate_chip_thinning_multiplier(stepover_ratio: f64) -> f64 {
 
 /// Applies Dynamic Chip Thinning Compensation across all cutting segments of a toolpath given a nominal radial stepover ratio.
 pub fn apply_chip_thinning_compensation(toolpath: &mut Toolpath, stepover_ratio: f64) {
+    // A stepover outside (0, 1] describes no cut. Clamping it to 0.001 and scaling the feedrate by
+    // the 3.5x safety cap is the opposite of safe.
+    if !honourable(&[stepover_ratio]) || stepover_ratio <= 0.0 || stepover_ratio > 1.0 {
+        return;
+    }
     let multiplier = calculate_chip_thinning_multiplier(stepover_ratio);
     if (multiplier - 1.0).abs() < 1e-4 {
         return;
@@ -281,7 +313,14 @@ pub fn optimize_constant_mrr(
     min_feedrate: f64,
     max_feedrate: f64,
 ) {
-    if depth_of_cut <= 0.0 || target_mrr_mm3_min <= 0.0 {
+    // `NaN <= 0.0` is false, so the ordering guards below cannot stand alone. The feedrate bounds
+    // were previously unvalidated entirely, and a negative pair forced every speed negative.
+    if !honourable(&[depth_of_cut, target_mrr_mm3_min, min_feedrate, max_feedrate])
+        || depth_of_cut <= 0.0
+        || target_mrr_mm3_min <= 0.0
+        || min_feedrate <= 0.0
+        || max_feedrate < min_feedrate
+    {
         return;
     }
     for seg in &mut toolpath.segments {

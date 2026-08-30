@@ -666,7 +666,9 @@ pub fn simulate_dexel_stock_wasm(
     let mut stock =
         dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
             .map_err(|e| JsError::new(&e))?;
-    stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
+    stock
+        .simulate_toolpath(&tp, tool_radius, is_ballnose)
+        .map_err(|e| JsError::new(&e))?;
     let report = stock.generate_report();
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
 }

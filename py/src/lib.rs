@@ -620,7 +620,9 @@ fn simulate_dexel_stock_json(
     let mut stock =
         dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
+    stock
+        .simulate_toolpath(&tp, tool_radius, is_ballnose)
+        .map_err(PyValueError::new_err)?;
     let report = stock.generate_report();
     serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
 }
