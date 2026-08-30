@@ -47,6 +47,21 @@ impl DexelGrid {
         max_z: f64,
         resolution_mm: f64,
     ) -> Result<Self, String> {
+        // Finiteness first: `max_x <= min_x` is false when either is `NaN`, so the ordering test
+        // below accepted a `NaN` bound and built a grid around it. The resolution check underneath
+        // already had this right; the bounds did not.
+        for (name, value) in [
+            ("min_x", min_x),
+            ("min_y", min_y),
+            ("min_z", min_z),
+            ("max_x", max_x),
+            ("max_y", max_y),
+            ("max_z", max_z),
+        ] {
+            if !value.is_finite() {
+                return Err(format!("stock bound {name} must be finite, got {value}"));
+            }
+        }
         if max_x <= min_x || max_y <= min_y || max_z <= min_z {
             return Err("Invalid stock bounding box dimensions".into());
         }

@@ -134,9 +134,16 @@ impl FleetManager {
         // only `NaN` slipped through, which is what makes this the kind of gap that survives
         // testing.)
         if telemetry.state == "printing" {
+            // Both the *reading* and the *target* are checked. A non-finite target is the same hole
+            // one level up: `target_nozzle_temp > 0.0` is false for `NaN`, so a `NaN` target silently
+            // skipped its entire deviation check — a printer at 250 C against a `NaN` target reported
+            // only its bed anomaly, and the nozzle runaway was invisible. A zero target is different
+            // and stays silent on purpose: it means that heater is not in use.
             for (name, value) in [
                 ("nozzle_temp_c", telemetry.nozzle_temp_c),
                 ("bed_temp_c", telemetry.bed_temp_c),
+                ("target_nozzle_temp_c", target_nozzle_temp),
+                ("target_bed_temp_c", target_bed_temp),
             ] {
                 if !value.is_finite() {
                     anomalies.push(TelemetryAnomaly {
@@ -636,6 +643,18 @@ pub fn calculate_auto_tuned_pressure_advance(
     target_temp_c: f64,
     speed_factor: f64,
 ) -> f64 {
+    // This value is written to a printer's configuration, so it must be a number. `clamp` returns
+    // `NaN` for a `NaN` self, so the final `clamp(0.0, 0.2)` did not sanitise: a non-finite
+    // `base_advance` or `speed_factor` produced a `NaN` pressure advance to send to the machine.
+    // Falling back to the conservative end of the range is the only answer available here — the
+    // signature has no error channel, and a printer given `NaN` is worse off than one left at 0.
+    if !base_advance.is_finite()
+        || !nozzle_temp_c.is_finite()
+        || !target_temp_c.is_finite()
+        || !speed_factor.is_finite()
+    {
+        return 0.0;
+    }
     let mut advance = base_advance;
     if target_temp_c > 100.0 && nozzle_temp_c > 100.0 {
         let temp_delta = nozzle_temp_c - target_temp_c;
