@@ -60,17 +60,25 @@ additions are reachable only from `dry-core` and, in part, the CLI:
 
 | Capability | `dry-core` | CLI | Python | wasm | TS |
 |---|---|---|---|---|---|
-| 5-axis jerk-limited lookahead (`optimize_five_axis_lookahead`) | yes | no | no | no | no |
-| Machining physics (`analyze_machining_physics`) | yes | no | no | no | no |
-| Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | no | no | no |
+| 5-axis jerk-limited lookahead (`optimize_five_axis_lookahead`) | yes | **no** | yes | yes | yes |
+| Machining physics (`analyze_machining_physics`) | yes | **no** | yes | yes | yes |
+| Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | yes | yes | yes |
+| CNC machine preamble (`cnc_frame`) | yes | profile | yes | yes | yes |
 | B-Rep multi-solid + CSG slicing | yes | **no** | yes | yes | yes |
 | Dexel stock simulation | yes | **no** | yes | yes | yes |
 
-The gap runs in **both** directions, which is the part worth noticing: the newest kernel work has not
-reached the bindings, and B-Rep slicing and dexel simulation reach all three bindings but have no CLI
-surface at all. Nothing gates either direction — no test or CI job asserts that a capability added to
-the kernel reaches the bindings, or the CLI — so this table is a snapshot rather than a contract.
-Check it against the source before relying on a capability from any one surface.
+**What is left is the CLI column.** The binding gap is closed: the lookahead optimiser, the physics
+simulator and all four Phase 8 dialects now reach Python, wasm and TypeScript, with the `cnc_frame`
+they need to emit a machine preamble rather than bare motion. Python and TypeScript are cross-checked
+against each other — `py/tests/test_physics_and_lookahead.py` and
+`sdk/ts/test/physics_and_lookahead.test.ts` assert the same physics numbers through two different
+FFI paths (native PyO3 and wasm), which agree bit for bit.
+
+What remains is the other direction: B-Rep slicing, dexel simulation, the lookahead optimiser and the
+physics simulator have **no CLI surface at all**. And nothing gates either direction — no test or CI
+job asserts that a capability added to the kernel reaches the bindings, or the CLI — so this table is
+a snapshot rather than a contract. Check it against the source before relying on a capability from any
+one surface.
 
 ## Sharp edges in what Dry does do
 

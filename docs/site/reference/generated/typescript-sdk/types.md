@@ -5,6 +5,31 @@
 Public TypeScript types and report contracts re-exported by the SDK.
 
 
+## `analyzeMachiningPhysics`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function analyzeMachiningPhysics(tool: CuttingToolGeometry, material: WorkpieceMaterial, params: MachiningOperationParams): PhysicsAnalysisReport
+```
+
+Run the digital-twin machining physics analysis.
+
+The estimates are analytic closed-form models with textbook coefficients; nothing in this repo
+validates them against a dynamometer, a thermocouple or a real cut. Treat them as indicative,
+not as a process guarantee (`docs/14-known-limitations.md`).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `tool` | `CuttingToolGeometry` |  | Yes |
+| `material` | `WorkpieceMaterial` |  | Yes |
+| `params` | `MachiningOperationParams` |  | Yes |
+
+Returns: `PhysicsAnalysisReport`
+
+
 ## `AxisLine`
 
 Source: `sdk/ts/src/visualizer.ts`
@@ -115,6 +140,28 @@ Length in centimetres -> converted to mm.
 Returns: `number`
 
 
+## `CncFrame`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface CncFrame
+```
+
+Machine preamble for the CNC dialects. Without it those flavors emit motion lines and no work
+offset, tool change or spindle start (and no `TRAORI` under `fiveAxis`).
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `wcs` | `number` | No | Work coordinate system, 54..=59 → `G54..G59`. |
+| `tool` | `number` | No | Tool number for the tool-change line. |
+| `spindle_rpm` | `number` | No | Spindle speed in RPM; must be positive. |
+| `coolant` | `boolean` | No | Flood coolant on/off. |
+
+
 ## `CollisionFinding`
 
 Source: `sdk/ts/src/ops.ts`
@@ -197,6 +244,29 @@ Declared in the public API.
 | `maxJerk` | `number` |  | Yes |
 
 Returns: `SCurveProfile`
+
+
+## `CuttingToolGeometry`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface CuttingToolGeometry
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `diameter_mm` | `number` | Yes | Declared in the public API. |
+| `flute_count` | `number` | Yes | Declared in the public API. |
+| `stickout_length_mm` | `number` | Yes | Declared in the public API. |
+| `core_diameter_ratio` | `number` | Yes | Declared in the public API. |
+| `modulus_gpa` | `number` | Yes | Declared in the public API. |
+| `corner_radius_mm` | `number` | Yes | Declared in the public API. |
 
 
 ## `deg`
@@ -415,6 +485,54 @@ Single verification finding, optionally tied to a resolved segment index.
 | `message` | `string` | Yes | Human-readable finding details. |
 
 
+## `FirmwareFlavor`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export type FirmwareFlavor = | 'marlin'
+  | 'gcode'
+  | 'klipper'
+  | 'duet'
+  | 'rs274'
+  | 'linuxcnc'
+  | 'grbl'
+  | 'laser'
+  | 'krl'
+  | 'siemens'
+  | 'sinumerik'
+  | 'heidenhain'
+  | 'tnc'
+  | 'haas'
+  | 'rapid'
+```
+
+Target controller dialects `resolveGcode` can emit. An unknown name is an error, not a silent
+fall back to Marlin.
+
+
+## `FiveAxisLookaheadParams`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface FiveAxisLookaheadParams
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `max_linear_accel` | `number` | Yes | Declared in the public API. |
+| `max_linear_jerk` | `number` | Yes | Declared in the public API. |
+| `max_rotary_speed_deg_s` | `number` | Yes | Declared in the public API. |
+| `max_rotary_accel_deg_s2` | `number` | Yes | Declared in the public API. |
+| `max_rotary_jerk_deg_s3` | `number` | Yes | Declared in the public API. |
+
+
 ## `GcodeOptions`
 
 Source: `sdk/ts/src/design.ts`
@@ -435,6 +553,8 @@ Emission settings for {@link Design.gcode}.
 | `travelG1E0` | `boolean` | No | Emit travels as `G1 ... |
 | `fiveAxis` | `boolean` | No | Derive rotary words from the toolframe orientation. |
 | `rotaryAxes` | `string` | No | Rotary axis pair to emit when `fiveAxis` is set. |
+| `flavor` | `FirmwareFlavor` | No | Target controller dialect. |
+| `cncFrame` | `CncFrame` | No | Machine preamble for the CNC dialects (work offset, tool, spindle, coolant). |
 
 
 ## `group`
@@ -834,6 +954,28 @@ Declared in the public API.
 | `offsetXyz` | `[number, number, number]` | No | Declared in the public API. |
 
 
+## `MachiningOperationParams`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface MachiningOperationParams
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `spindle_rpm` | `number` | Yes | Declared in the public API. |
+| `feedrate_mm_min` | `number` | Yes | Declared in the public API. |
+| `axial_depth_ap_mm` | `number` | Yes | Declared in the public API. |
+| `radial_depth_ae_mm` | `number` | Yes | Declared in the public API. |
+| `ambient_temp_c` | `number` | Yes | Declared in the public API. |
+
+
 ## `Metrics`
 
 Source: `sdk/ts/src/ops.ts`
@@ -1009,6 +1151,26 @@ Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rat
 Returns: `Toolpath`
 
 
+## `optimizeFiveAxisLookahead`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function optimizeFiveAxisLookahead(toolpath: unknown, params: FiveAxisLookaheadParams): unknown
+```
+
+Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `unknown` |  | Yes |
+| `params` | `FiveAxisLookaheadParams` |  | Yes |
+
+Returns: `unknown`
+
+
 ## `PassSegmentGroup`
 
 Source: `sdk/ts/src/visualizer.ts`
@@ -1027,6 +1189,34 @@ Declared in the public API.
 | `role` | `string` | Yes | Declared in the public API. |
 | `color` | `string` | Yes | Declared in the public API. |
 | `segments` | `Segment[]` | Yes | Declared in the public API. |
+
+
+## `PhysicsAnalysisReport`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface PhysicsAnalysisReport
+```
+
+Declared in the public API.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `cutting_speed_m_min` | `number` | Yes | Declared in the public API. |
+| `feed_per_tooth_mm` | `number` | Yes | Declared in the public API. |
+| `material_removal_rate_cm3_min` | `number` | Yes | Declared in the public API. |
+| `tangential_force_n` | `number` | Yes | Declared in the public API. |
+| `spindle_power_kw` | `number` | Yes | Declared in the public API. |
+| `spindle_torque_nm` | `number` | Yes | Declared in the public API. |
+| `tool_deflection_um` | `number` | Yes | Declared in the public API. |
+| `shear_temperature_c` | `number` | Yes | Declared in the public API. |
+| `estimated_tool_life_min` | `number` | Yes | Declared in the public API. |
+| `surface_roughness_ra_um` | `number` | Yes | Declared in the public API. |
+| `chatter_risk` | `boolean` | Yes | Declared in the public API. |
 
 
 ## `Point3D`
@@ -1243,7 +1433,7 @@ Returns: `Uint8Array`
 Source: `sdk/ts/src/engine.ts`
 
 ```ts
-export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab'): string[]
+export function resolveGcode(ops: Op[], params: ResolveParams, relativeE = true, travelG1E0 = false, fiveAxis = false, rotaryAxes = 'ab', flavor?: FirmwareFlavor, cncFrame?: CncFrame): string[]
 ```
 
 Resolve a design and emit motion g-code. `rotaryAxes` is the rotary-axes selector (the ab/ac/bc
@@ -1261,6 +1451,8 @@ from the machine motion-limits `MachineKinematics` object used by `resolveBalanc
 | `travelG1E0` | `any` | `false` | No |
 | `fiveAxis` | `any` | `false` | No |
 | `rotaryAxes` | `any` | `'ab'` | No |
+| `flavor` | `FirmwareFlavor` |  | No |
+| `cncFrame` | `CncFrame` |  | No |
 
 Returns: `string[]`
 
@@ -1869,3 +2061,19 @@ Declared in the public API.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `lines` | `AxisLine[]` | Yes | Declared in the public API. |
+
+
+## `WorkpieceMaterial`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export type WorkpieceMaterial = | 'Aluminum6061'
+  | 'Steel4140'
+  | 'TitaniumTi6Al4V'
+  | 'Inconel718'
+  | 'ThermoplasticPLA'
+  | 'ThermoplasticPEEK'
+```
+
+Workpiece materials the physics simulator carries coefficients for.

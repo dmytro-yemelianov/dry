@@ -16,17 +16,20 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 
 | Export | Kind | Docs | Source | Sample | Summary |
 | --- | --- | --- | --- | --- | --- |
+| `analyzeMachiningPhysics` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Run the digital-twin machining physics analysis. |
 | `AxisLine` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
 | `AxisRange` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `BUILTIN_MACHINES` | const | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Built-in official machine presets across all manufacturing domains. |
 | `celsius` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Temperature in degrees Celsius (canonical unit). |
 | `checkToolHolderCollision` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `cm` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in centimetres -&gt; converted to mm. |
+| `CncFrame` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Machine preamble for the CNC dialects. |
 | `CollisionFinding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Collision finding for tool holder interference. |
 | `CompatibilityFinding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `CompatibilityReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Declared in the public API. |
 | `computeSCurveProfile` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `CutMode` | type | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Declared in the public API. |
+| `CuttingToolGeometry` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `deg` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Angle in degrees -&gt; converted to radians. |
 | `Design` | class | [Design](/reference/generated/typescript-sdk/design) | `sdk/ts/src/design.ts` |  | Fluent builder for Dry L1 authoring operations and engine-backed resolution calls. |
 | `DexelSimulationReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
@@ -37,6 +40,8 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `FeatureProgram` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Expand through the Rust engine and return the canonical L1 `Design`. |
 | `FeatureProgramDocument` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Declared in the public API. |
 | `Finding` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` | [Verify](/guide/verify) | Single verification finding, optionally tied to a resolved segment index. |
+| `FirmwareFlavor` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Target controller dialects `resolveGcode` can emit. |
+| `FiveAxisLookaheadParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `GcodeOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | Emission settings for {@link Design.gcode}. |
 | `group` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/features.ts` |  | Preserve source order while composing feature nodes. |
 | `importStepNc` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
@@ -54,6 +59,7 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `MachineProfile` | class | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Machine Profile Model with validation and pre-flight mapping. |
 | `MachineProfileData` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Declared in the public API. |
 | `MachineToolheadConfig` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/machine.ts` |  | Declared in the public API. |
+| `MachiningOperationParams` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `Metrics` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Simulation metrics returned by `simulate`. |
 | `mm` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Length in millimetres (canonical unit). |
 | `mm_min` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/units.ts` |  | Feedrate in mm/min (canonical unit). |
@@ -63,7 +69,9 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `normalizeStarPolygonAlpha` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/starPolygonLattice.ts` |  | Normalize an alpha angle into its effective value and geometric regime. |
 | `Op` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/ops.ts` |  | Authoring operation in Dry L1, before resolution into concrete toolpath segments. |
 | `optimizeConstantMrr` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rate (MRR). |
+| `optimizeFiveAxisLookahead` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved toolpath. |
 | `PassSegmentGroup` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
+| `PhysicsAnalysisReport` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Declared in the public API. |
 | `pocket` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate a fluent `Design` wrapping the generated CNC pocket ops. |
 | `pocketOps` | function | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Generate an L1 `Op[]` list for a CNC pocket or profile cut. |
 | `PocketOptions` | interface | [Generator exports](/reference/generated/typescript-sdk/generators) | `sdk/ts/src/generators/pocket.ts` |  | Declared in the public API. |
@@ -124,3 +132,4 @@ Generated from `sdk/ts/src/index.ts` and public re-export sources using the Type
 | `verifyGcode` | function | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Directly verify raw G-code text against safety contracts without server or container infrastructure. |
 | `VerifyOptions` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/design.ts` |  | The machine-safety contracts {@link Design.verify} checks against. |
 | `WireframeBox` | interface | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/visualizer.ts` |  | Declared in the public API. |
+| `WorkpieceMaterial` | type | [Core types](/reference/generated/typescript-sdk/types) | `sdk/ts/src/engine.ts` |  | Workpiece materials the physics simulator carries coefficients for. |

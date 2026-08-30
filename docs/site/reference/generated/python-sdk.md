@@ -46,6 +46,8 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `lathe_facing_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC Lathe Facing L1 ops from parameters dict. |
 | `lathe_turning_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict. |
 | `check_tool_holder_collision` | function | [Module API](/reference/generated/python-sdk/module) |  | Check toolpath for tool holder collisions against stock volume bounds. |
+| `analyze_machining_physics` | function | [Module API](/reference/generated/python-sdk/module) |  | Run the digital-twin machining physics analysis. |
+| `optimize_five_axis_lookahead` | function | [Module API](/reference/generated/python-sdk/module) |  | Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath. |
 | `reverse_toolpath` | function | [Module API](/reference/generated/python-sdk/module) |  | Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON. |
 | `mm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
 | `cm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |

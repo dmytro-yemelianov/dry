@@ -59,6 +59,26 @@ fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKin
         .map_err(|e| PyValueError::new_err(format!("invalid kinematics_json: {e}")))
 }
 
+/// Parse the optional `cnc_frame_json` kwarg into a [`dry_core::CncFrame`].
+///
+/// `None` or an empty string means "no frame", which is what an FFF program wants. A non-empty
+/// string that fails to parse, or a frame the engine rejects (`wcs` outside `54..=59`, a
+/// non-positive `spindle_rpm`), is a clean `ValueError` — the frame is validated here rather than
+/// left to surface as a malformed program.
+fn parse_cnc_frame(cnc_frame_json: Option<&str>) -> PyResult<Option<dry_core::CncFrame>> {
+    let s = match cnc_frame_json {
+        None => return Ok(None),
+        Some(s) => s.trim(),
+    };
+    if s.is_empty() {
+        return Ok(None);
+    }
+    let frame: dry_core::CncFrame = serde_json::from_str(s)
+        .map_err(|e| PyValueError::new_err(format!("invalid cnc_frame_json: {e}")))?;
+    frame.validate().map_err(PyValueError::new_err)?;
+    Ok(Some(frame))
+}
+
 /// Resolve a design and emit motion g-code (one string per line).
 ///
 /// `rotary_axes` is the rotary-axes selector (the ab/ac/bc STRING) choosing which two rotary axes
@@ -69,7 +89,8 @@ fn parse_kinematics(kinematics_json: Option<&str>) -> PyResult<Option<MachineKin
 /// `validate_design` does not require) — raises `ValueError`. It previously came back as an empty
 /// list, which callers read as a successfully emitted zero-line program.
 #[pyfunction]
-#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab", flavor=None))]
+#[pyo3(signature = (ops_json, params_json, relative_e=true, travel_g1_e0=false, five_axis=false, rotary_axes="ab", flavor=None, cnc_frame_json=None))]
+#[allow(clippy::too_many_arguments)]
 fn resolve_gcode(
     ops_json: &str,
     params_json: &str,
@@ -78,19 +99,23 @@ fn resolve_gcode(
     five_axis: bool,
     rotary_axes: &str,
     flavor: Option<&str>,
+    cnc_frame_json: Option<&str>,
 ) -> PyResult<Vec<String>> {
     let tp = resolve_checked(&parse_design(ops_json)?, &parse_params(params_json)?)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let kinematics =
         Kinematics::named(rotary_axes).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    // One parser in the engine, so this binding cannot silently lag the flavor catalog. It did:
+    // the `match` here ended in `_ => Marlin`, so `flavor="siemens"` emitted FFF G-code for a
+    // program that asked for a 5-axis mill. An unknown name is now an error.
     let firmware_flavor = match flavor {
-        Some("grbl" | "GRBL") => dry_core::FirmwareFlavor::Grbl,
-        Some("rs274" | "RS274" | "linuxcnc") => dry_core::FirmwareFlavor::Rs274,
-        Some("klipper") => dry_core::FirmwareFlavor::Klipper,
-        Some("duet") => dry_core::FirmwareFlavor::Duet,
-        Some("krl") => dry_core::FirmwareFlavor::RobotKrl,
-        _ => dry_core::FirmwareFlavor::Marlin,
+        Some(name) => dry_core::FirmwareFlavor::named(name).map_err(PyValueError::new_err)?,
+        None => dry_core::FirmwareFlavor::default(),
     };
+    // Without a frame the CNC flavors emit motion lines and no machine preamble — no work offset,
+    // no tool change, no spindle, and for Siemens no TRAORI. Exposing the flavor without this would
+    // have been a hollow parity claim.
+    let cnc_frame = parse_cnc_frame(cnc_frame_json)?;
     emit_stream(
         tp.segments.iter().cloned().map(Ok),
         &EmitParams {
@@ -99,6 +124,7 @@ fn resolve_gcode(
             five_axis,
             kinematics,
             flavor: firmware_flavor,
+            cnc_frame,
             ..EmitParams::default()
         },
     )
@@ -541,6 +567,40 @@ fn optimize_constant_mrr_json(
     serde_json::to_string(&tp).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Run the digital-twin machining physics analysis and return the report as JSON.
+///
+/// `material` is one of `Aluminum6061`, `Steel4140`, `TitaniumTi6Al4V`, `Inconel718`,
+/// `ThermoplasticPLA`, `ThermoplasticPEEK`. The estimates are analytic and unvalidated against
+/// instrumented cuts — see `docs/14-known-limitations.md`.
+#[pyfunction]
+fn analyze_machining_physics_json(
+    tool_json: &str,
+    material: &str,
+    params_json: &str,
+) -> PyResult<String> {
+    let tool: dry_core::CuttingToolGeometry = serde_json::from_str(tool_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid tool geometry: {e}")))?;
+    let params: dry_core::MachiningOperationParams = serde_json::from_str(params_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid operation params: {e}")))?;
+    // Route the material through serde so the accepted names are exactly the wire form, and an
+    // unknown one is refused rather than silently defaulted.
+    let material: dry_core::WorkpieceMaterial = serde_json::from_str(&format!("\"{material}\""))
+        .map_err(|e| PyValueError::new_err(format!("unknown workpiece material: {e}")))?;
+    let report = dry_core::analyze_machining_physics(&tool, material, &params);
+    serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath.
+#[pyfunction]
+fn optimize_five_axis_lookahead_json(toolpath_json: &str, params_json: &str) -> PyResult<String> {
+    let tp: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
+    let params: dry_core::optimize::FiveAxisLookaheadParams = serde_json::from_str(params_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid lookahead params: {e}")))?;
+    let out = dry_core::optimize_five_axis_lookahead(&tp, &params);
+    serde_json::to_string(&out).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Simulate 3D Dexel grid stock subtraction in Python and return volumetric report.
 #[pyfunction]
 fn simulate_dexel_stock_json(
@@ -591,6 +651,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(slice_brep_assembly_csg_json, m)?)?;
     m.add_function(wrap_pyfunction!(optimize_constant_mrr_json, m)?)?;
     m.add_function(wrap_pyfunction!(simulate_dexel_stock_json, m)?)?;
+    m.add_function(wrap_pyfunction!(analyze_machining_physics_json, m)?)?;
+    m.add_function(wrap_pyfunction!(optimize_five_axis_lookahead_json, m)?)?;
     m.add_function(wrap_pyfunction!(segment_to_segment_distance_3d_py, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_facing_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_od_turning_ops_json, m)?)?;

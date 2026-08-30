@@ -3,15 +3,15 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "314ebe9220daa33e2f2ce2806f55823ea1869ab8402cdce4abf042f40197a812"
+      "sha256": "80dc663a50c7af3ed7a11cc3b4727832e25f9c8e640cd9241c26915549875e79"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "481ab50b257998c7674850633220f730e9ac8f492c120f0e69ce37e273f61d0c"
+      "sha256": "29c5d4dbe4a33d9d74604eb6d05603ee0b29147da4a7e4ddb95e7efef7075ce9"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "3d741568d85e78f42e9abc18fe97b7e677ebb5f8cf70fd09aa0f9d63837442ef"
+      "sha256": "5648c3a80f1d015bdd585f64f753ecfe9c663d448c37c152a99cb88bfb258e84"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",

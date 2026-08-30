@@ -43,6 +43,8 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `lathe_turning_ops` | `def lathe_turning_ops(params: Dict[str, Any]) -&gt; List[Op]` |  | Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict. |
 | `check_tool_holder_collision` | `def check_tool_holder_collision(toolpath: Union[Toolpath, Dict[str, Any]], holder: Dict[str, Any], stock_bounds: Sequence[float]) -&gt; List[Dict[str, Any]]` |  | Check toolpath for tool holder collisions against stock volume bounds. |
 | `reverse_toolpath` | `def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -&gt; List[Op]` |  | Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON. |
+| `analyze_machining_physics` | `def analyze_machining_physics(tool: Dict[str, Any], material: str, params: Dict[str, Any]) -&gt; Dict[str, Any]` |  | Run the digital-twin machining physics analysis. |
+| `optimize_five_axis_lookahead` | `def optimize_five_axis_lookahead(toolpath: Union[Toolpath, Dict[str, Any]], params: Dict[str, Any]) -&gt; Dict[str, Any]` |  | Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath. |
 
 ### `feature`
 
@@ -308,3 +310,45 @@ def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -> List[Op]
 Returns: `List[Op]`
 
 Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON.
+
+### `analyze_machining_physics`
+
+```py
+def analyze_machining_physics(tool: Dict[str, Any], material: str, params: Dict[str, Any]) -> Dict[str, Any]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `tool` | `Dict[str, Any]` |  | Yes |
+| `material` | `str` |  | Yes |
+| `params` | `Dict[str, Any]` |  | Yes |
+
+Returns: `Dict[str, Any]`
+
+Run the digital-twin machining physics analysis.
+
+``material`` is one of ``Aluminum6061``, ``Steel4140``, ``TitaniumTi6Al4V``, ``Inconel718``,
+``ThermoplasticPLA``, ``ThermoplasticPEEK``; an unknown name raises ``ValueError``.
+
+The estimates are analytic closed-form models with textbook coefficients. Nothing in this repo
+validates them against a dynamometer, a thermocouple or a real cut — treat them as indicative,
+not as a process guarantee (``docs/14-known-limitations.md``).
+
+### `optimize_five_axis_lookahead`
+
+```py
+def optimize_five_axis_lookahead(toolpath: Union[Toolpath, Dict[str, Any]], params: Dict[str, Any]) -> Dict[str, Any]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Union[Toolpath, Dict[str, Any]]` |  | Yes |
+| `params` | `Dict[str, Any]` |  | Yes |
+
+Returns: `Dict[str, Any]`
+
+Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath.

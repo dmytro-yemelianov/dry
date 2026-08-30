@@ -33,7 +33,7 @@ An L1 design: a chain of authoring ops. Builders return ``self`` for fluent use.
 | `retract` | `def retract(self, distance: Optional[Number] = None, speed: Optional[Number] = None) -&gt; 'Design'` |  | Retract filament. |
 | `unretract` | `def unretract(self, distance: Optional[Number] = None, speed: Optional[Number] = None) -&gt; 'Design'` |  | Prime filament back after a retraction. |
 | `pocket` | `def pocket(self, options: PocketOptions) -&gt; 'Design'` |  | Append CNC pocket/profile milling ops generated from an options dict. |
-| `gcode` | `def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None) -&gt; List[str]` | [Author a path](/guide/author) | Resolve + emit motion g-code (a list of lines). |
+| `gcode` | `def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None, cnc_frame: Optional[Dict[str, Any]] = None) -&gt; List[str]` | [Author a path](/guide/author) | Resolve + emit motion g-code (a list of lines). |
 | `simulate` | `def simulate(self, printer: str = 'generic') -&gt; Metrics` | [Simulate](/guide/simulate) | Resolve + simulate; returns a metrics dict (time, distances, material, peak flow). |
 | `ir` | `def ir(self, printer: str = 'generic') -&gt; Toolpath` | [Lower to the Dry IR](/guide/lower) | Resolve to the L2 Dry IR; returns a dict ({version, segments}). |
 | `optimized_ir` | `def optimized_ir(self, printer: str = 'generic') -&gt; Toolpath` | [Optimize](/guide/optimize) | Resolve + optimize; returns a dict ({version, segments}). |
@@ -401,7 +401,7 @@ Append CNC pocket/profile milling ops generated from an options dict.
 <LiveExample src="author" :outputs='["gcode"]' />
 
 ```py
-def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None) -> List[str]
+def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None, flavor: Optional[str] = None, cnc_frame: Optional[Dict[str, Any]] = None) -> List[str]
 ```
 
 #### Parameters
@@ -415,6 +415,7 @@ def gcode(self, printer: str = 'generic', relative_e: bool = True, travel_g1_e0:
 | `rotary_axes` | `str` | `'ab'` | No |
 | `kinematics` | `Optional[str]` | `None` | No |
 | `flavor` | `Optional[str]` | `None` | No |
+| `cnc_frame` | `Optional[Dict[str, Any]]` | `None` | No |
 
 Returns: `List[str]`
 
@@ -425,7 +426,16 @@ axes carry the toolframe orientation in 5-axis emit (`five_axis=True`). NOTE: th
 machine motion-limits object (see ``balanced_ir`` / ``verify``'s ``kinematics`` for that).
 `kinematics` is a deprecated alias for `rotary_axes`, kept for backward compatibility; when
 provided (not ``None``) it takes precedence.
-`flavor` specifies the firmware target dialect ("marlin", "klipper", "duet", "grbl", "rs274", "krl").
+
+`flavor` selects the target dialect: ``marlin`` (default), ``klipper``, ``duet``, ``rs274``
+(aka ``linuxcnc``), ``grbl`` (aka ``laser``), ``krl``, ``siemens`` (aka ``sinumerik``),
+``heidenhain`` (aka ``tnc``), ``haas``, ``rapid``. An unknown name raises ``ValueError``; it
+used to fall through to Marlin, so asking for a mill quietly emitted FFF g-code.
+
+`cnc_frame` supplies the machine preamble for the CNC dialects —
+``{"wcs": 54, "tool": 3, "spindle_rpm": 8000, "coolant": true}``. Without it those flavors
+emit motion lines and no work offset, tool change or spindle start (and no ``TRAORI`` under
+``five_axis``). ``wcs`` must be in 54..=59 and ``spindle_rpm`` positive, or ``ValueError``.
 
 ### `simulate`
 

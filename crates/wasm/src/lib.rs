@@ -38,7 +38,28 @@ pub fn expand_features(program_json: &str) -> Result<String, JsError> {
 /// IR the emitter refuses — a non-finite word, an arc with no explicit endpoint (which
 /// `validate_design` does not require) — surfaces as a [`JsError`]. It previously came back as an
 /// empty array, which callers read as a successfully emitted zero-line program.
+/// Parse the optional `cnc_frame_json` argument into a [`dry_core::CncFrame`].
+///
+/// `undefined` or an empty string means "no frame", which is what an FFF program wants. A frame the
+/// engine rejects (`wcs` outside `54..=59`, a non-positive `spindle_rpm`) is refused here rather
+/// than left to surface as a malformed program.
+fn parse_cnc_frame(cnc_frame_json: Option<String>) -> Result<Option<dry_core::CncFrame>, JsError> {
+    let raw = match cnc_frame_json {
+        None => return Ok(None),
+        Some(s) => s,
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let frame: dry_core::CncFrame = serde_json::from_str(trimmed)
+        .map_err(|e| JsError::new(&format!("invalid cnc_frame_json: {e}")))?;
+    frame.validate().map_err(|e| JsError::new(&e))?;
+    Ok(Some(frame))
+}
+
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_gcode(
     ops_json: &str,
     params_json: &str,
@@ -46,10 +67,20 @@ pub fn resolve_gcode(
     travel_g1_e0: bool,
     five_axis: bool,
     rotary_axes: &str,
+    flavor: Option<String>,
+    cnc_frame_json: Option<String>,
 ) -> Result<Vec<String>, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
     let kinematics = Kinematics::named(rotary_axes).map_err(|e| JsError::new(&e.to_string()))?;
+    // Until now this surface could only emit Marlin: it took no flavor at all, so every non-FFF
+    // target was unreachable from the browser and the TS SDK. An unknown name is an error, never a
+    // silent fall back to Marlin.
+    let flavor = match flavor {
+        Some(name) => dry_core::FirmwareFlavor::named(&name).map_err(|e| JsError::new(&e))?,
+        None => dry_core::FirmwareFlavor::default(),
+    };
+    let cnc_frame = parse_cnc_frame(cnc_frame_json)?;
     emit_stream(
         tp.segments.iter().cloned().map(Ok),
         &EmitParams {
@@ -57,6 +88,8 @@ pub fn resolve_gcode(
             travel_g1_e0,
             five_axis,
             kinematics,
+            flavor,
+            cnc_frame,
             ..EmitParams::default()
         },
     )
@@ -636,6 +669,42 @@ pub fn simulate_dexel_stock_wasm(
     stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
     let report = stock.generate_report();
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Run the digital-twin machining physics analysis and return the report as JSON.
+///
+/// `material` is the wire name of the workpiece material (`Aluminum6061`, `Steel4140`,
+/// `TitaniumTi6Al4V`, `Inconel718`, `ThermoplasticPLA`, `ThermoplasticPEEK`); an unknown name is an
+/// error rather than a default. The estimates are analytic and unvalidated against instrumented
+/// cuts — see `docs/14-known-limitations.md`.
+#[wasm_bindgen]
+pub fn analyze_machining_physics_wasm(
+    tool_json: &str,
+    material: &str,
+    params_json: &str,
+) -> Result<String, JsError> {
+    let tool: dry_core::CuttingToolGeometry = serde_json::from_str(tool_json)
+        .map_err(|e| JsError::new(&format!("invalid tool geometry: {e}")))?;
+    let params: dry_core::MachiningOperationParams = serde_json::from_str(params_json)
+        .map_err(|e| JsError::new(&format!("invalid operation params: {e}")))?;
+    let material: dry_core::WorkpieceMaterial = serde_json::from_str(&format!("\"{material}\""))
+        .map_err(|e| JsError::new(&format!("unknown workpiece material: {e}")))?;
+    let report = dry_core::analyze_machining_physics(&tool, material, &params);
+    serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath.
+#[wasm_bindgen]
+pub fn optimize_five_axis_lookahead_wasm(
+    toolpath_json: &str,
+    params_json: &str,
+) -> Result<String, JsError> {
+    let tp: dry_core::Toolpath = serde_json::from_str(toolpath_json)
+        .map_err(|e| JsError::new(&format!("invalid toolpath: {e}")))?;
+    let params: dry_core::FiveAxisLookaheadParams = serde_json::from_str(params_json)
+        .map_err(|e| JsError::new(&format!("invalid lookahead params: {e}")))?;
+    let out = dry_core::optimize_five_axis_lookahead(&tp, &params);
+    serde_json::to_string(&out).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Calculate minimum Euclidean distance between two 3D line segments in Wasm.

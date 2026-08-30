@@ -51,6 +51,8 @@ __all__ = [
     "lathe_facing_ops",
     "lathe_turning_ops",
     "check_tool_holder_collision",
+    "analyze_machining_physics",
+    "optimize_five_axis_lookahead",
     "reverse_toolpath",
     "mm",
     "cm",
@@ -301,6 +303,7 @@ class Design:
         rotary_axes: str = "ab",
         kinematics: Optional[str] = None,
         flavor: Optional[str] = None,
+        cnc_frame: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Resolve + emit motion g-code (a list of lines).
 
@@ -309,7 +312,16 @@ class Design:
         machine motion-limits object (see ``balanced_ir`` / ``verify``'s ``kinematics`` for that).
         `kinematics` is a deprecated alias for `rotary_axes`, kept for backward compatibility; when
         provided (not ``None``) it takes precedence.
-        `flavor` specifies the firmware target dialect ("marlin", "klipper", "duet", "grbl", "rs274", "krl").
+
+        `flavor` selects the target dialect: ``marlin`` (default), ``klipper``, ``duet``, ``rs274``
+        (aka ``linuxcnc``), ``grbl`` (aka ``laser``), ``krl``, ``siemens`` (aka ``sinumerik``),
+        ``heidenhain`` (aka ``tnc``), ``haas``, ``rapid``. An unknown name raises ``ValueError``; it
+        used to fall through to Marlin, so asking for a mill quietly emitted FFF g-code.
+
+        `cnc_frame` supplies the machine preamble for the CNC dialects —
+        ``{"wcs": 54, "tool": 3, "spindle_rpm": 8000, "coolant": true}``. Without it those flavors
+        emit motion lines and no work offset, tool change or spindle start (and no ``TRAORI`` under
+        ``five_axis``). ``wcs`` must be in 54..=59 and ``spindle_rpm`` positive, or ``ValueError``.
         """
         rotary = kinematics if kinematics is not None else rotary_axes
         return _native.resolve_gcode(
@@ -320,6 +332,7 @@ class Design:
             bool(five_axis),
             str(rotary),
             flavor,
+            None if cnc_frame is None else json.dumps(cnc_frame),
         )
 
     def simulate(self, printer: str = "generic") -> Metrics:
@@ -851,6 +864,36 @@ def simulate_dexel_stock(
             bool(is_ballnose),
         )
     )
+
+
+def analyze_machining_physics(
+    tool: Dict[str, Any],
+    material: str,
+    params: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Run the digital-twin machining physics analysis.
+
+    ``material`` is one of ``Aluminum6061``, ``Steel4140``, ``TitaniumTi6Al4V``, ``Inconel718``,
+    ``ThermoplasticPLA``, ``ThermoplasticPEEK``; an unknown name raises ``ValueError``.
+
+    The estimates are analytic closed-form models with textbook coefficients. Nothing in this repo
+    validates them against a dynamometer, a thermocouple or a real cut — treat them as indicative,
+    not as a process guarantee (``docs/14-known-limitations.md``).
+    """
+    return json.loads(
+        _native.analyze_machining_physics_json(
+            json.dumps(tool), str(material), json.dumps(params)
+        )
+    )
+
+
+def optimize_five_axis_lookahead(
+    toolpath: Union[Toolpath, Dict[str, Any]],
+    params: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Apply the synchronised 5-axis jerk-limited lookahead optimiser to a toolpath."""
+    tp_json = toolpath if isinstance(toolpath, str) else json.dumps(toolpath)
+    return json.loads(_native.optimize_five_axis_lookahead_json(tp_json, json.dumps(params)))
 
 
 def segment_to_segment_distance_3d(
