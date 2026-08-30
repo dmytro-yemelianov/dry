@@ -249,6 +249,32 @@
     </div>
 
     <div class="panel-section">
+      <div class="panel-title">Digital Twin Physics & Thermal Simulator</div>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">Cutting Force (Ft)</div>
+          <div class="stat-val" id="stat-force">247.5 N</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Spindle Power</div>
+          <div class="stat-val" id="stat-power">1.55 kW</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Tool Deflection</div>
+          <div class="stat-val" id="stat-deflection">18.3 µm</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Shear Temp</div>
+          <div class="stat-val" id="stat-temp">168.4 °C</div>
+        </div>
+      </div>
+      <div style="margin-top:8px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--muted);">Chatter Risk:</span>
+        <span id="stat-chatter" style="color:var(--accent); font-weight:700;">LOW / SAFE</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
       <div class="panel-title">Dexel Stock Simulation</div>
       <div style="font-size:12px; color:var(--muted); line-height:1.5;">
         Subtractive 3D Dexel heightfield tracks dynamic material removal and remaining uncut stock volume in real time.

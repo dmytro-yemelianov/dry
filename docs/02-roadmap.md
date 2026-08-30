@@ -235,6 +235,15 @@ proof build, numeric profiles, boundary inventory and claim registry.
 * **FM2.2 (Euler Spiral / Fresnel Curvature Linearity)**: Formally prove bounded curvature derivative error ($d\kappa/ds = \text{const}$) in Lean 4 across full deflection intervals.
 * **FM2.3 (5-Axis Polar Singularity Hold)**: Formally verify polar hold invariance ($k = \pm 1$) in BC kinematics proving zero-division immunity.
 
+## Phase 8 — Multi-Axis Industrial Dialects, Physics Simulator & Generative Assistant (v0.9.0)
+
+**Goal:** Expand multi-axis post-processing flavors, physical digital twin simulation, natural language generative planning, and interactive 3D WebGL telemetry.
+
+* **Industrial CNC & Robot Post-Processors**: Dedicated emitters for Siemens Sinumerik 840D/ONE (`TRAORI`), Haas NextGen CNC (`G187 P2 E0.025` HSM), Heidenhain TNC (`BEGIN PGM` / `TOOL CALL`), and ABB RAPID robotics (`MoveL`/`MoveC` robtargets with quaternions).
+* **Digital Twin Physics & Thermal Simulator**: Real-time analytical cutting force estimation ($F_t = k_c a_p f_z$), cantilever tool deflection ($\delta = \frac{F_t L^3}{3 E I}$), adiabatic shear zone temperature rise, Taylor tool wear life, and chatter stability boundaries.
+* **Natural Language Generative Assistant**: Heuristic and LLM prompt-to-design planner producing structured L1 operations and machining parameters.
+* **Interactive 3D Digital Twin Visualizer**: WebGL 2.0 / Three.js 3D toolpath viewer with timeline scrubbing, 5-axis orientation normal vectors, stepped toolholder models, and dynamic physics telemetry.
+
 ## Risk register
 
 | Risk | Likelihood | Impact | Mitigation |
@@ -255,9 +264,10 @@ P0 ──► P1 ──► P2 ──────────► P6 (cut: standalo
          └──► P3 ──► P4 ──┘       │
                      └► P5 ───────┼──► Track E (Advanced CAM / Trochoidal / Mesh Drape)
                                   ├──► Track M (FM2 Deepened Lean 4 Refinements)
-                                  └──► Track C (Industrial Standards & Certification)
+                                  ├──► Track C (Industrial Standards & Certification)
+                                  └──► Phase 7 & 8 (B-Rep Slicing, Lookahead, Physics & Dialects)
 ```
 
-Critical path: **P0 → P1 → P2 → P6** (Completed). Tracks C, E, and M build upon the stabilized v0.7.0 core.
+Critical path: **P0 → P1 → P2 → P6** (Completed). Phases 7 & 8 build upon the stabilized v0.8.0 / v0.9.0 core.
 
 See `03-conformance.md` for how the gates are defined, `04-tasks.md` for the actionable backlog, and `26-industrial-certification-and-standards.md` for certification criteria.

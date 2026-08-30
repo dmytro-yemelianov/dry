@@ -100,6 +100,122 @@ impl std::fmt::Display for LlmError {
         }
     }
 }
+
+/// A generated CAM program with operational metadata.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GeneratedCamProgram {
+    pub title: String,
+    pub summary: String,
+    pub operations: Vec<dry_core::Op>,
+    pub suggested_tool_diameter_mm: f64,
+    pub suggested_spindle_rpm: f64,
+    pub suggested_feedrate_mm_min: f64,
+}
+
+/// Offline keyword-based heuristic CAM program generator from natural language descriptions.
+pub fn generate_offline_cam_from_prompt(prompt: &str) -> GeneratedCamProgram {
+    let lower = prompt.to_lowercase();
+    let mut ops = Vec::new();
+
+    if lower.contains("lathe") || lower.contains("facing") || lower.contains("turning") {
+        let params = dry_core::LatheFacingParams {
+            stock_diameter: 50.0,
+            target_z: 0.0,
+            clearance_x: 2.0,
+            clearance_z: 2.0,
+            feedrate: 250.0,
+            spindle_rpm: 1200.0,
+            passes: 2,
+            depth_per_pass: 0.5,
+        };
+        ops = dry_core::generate_lathe_facing_ops(&params).unwrap_or_default();
+        GeneratedCamProgram {
+            title: "CNC Lathe Facing Program".into(),
+            summary: "Automated facing passes from D50 to center with 0.5mm stepdowns".into(),
+            operations: ops,
+            suggested_tool_diameter_mm: 12.0,
+            suggested_spindle_rpm: 1200.0,
+            suggested_feedrate_mm_min: 250.0,
+        }
+    } else if lower.contains("pocket") || lower.contains("rectangle") || lower.contains("box") {
+        let params = dry_core::PocketOptions {
+            shape: dry_core::PocketShape::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 50.0,
+                height: 40.0,
+            },
+            mode: dry_core::CutMode::Pocket,
+            tool_diameter: 8.0,
+            stepover: Some(0.5),
+            depth: 10.0,
+            depth_per_pass: Some(2.0),
+            z_top: Some(0.0),
+            safe_z: Some(5.0),
+            cut_feed: Some(1500.0),
+            plunge_feed: Some(300.0),
+            helical_entry: Some(false),
+            trochoidal: Some(false),
+            chip_thinning: Some(false),
+        };
+        ops = dry_core::pocket_ops(&params);
+        GeneratedCamProgram {
+            title: "Adaptive CNC Pocketing Program".into(),
+            summary: "50x40mm rectangular pocket clearing with climb milling".into(),
+            operations: ops,
+            suggested_tool_diameter_mm: 8.0,
+            suggested_spindle_rpm: 8000.0,
+            suggested_feedrate_mm_min: 1500.0,
+        }
+    } else if lower.contains("tpms") || lower.contains("gyroid") || lower.contains("lattice") {
+        let opts = dry_core::TpmsOptions::default();
+        ops = dry_core::tpms_ops(&opts);
+        GeneratedCamProgram {
+            title: "Gyroid TPMS Metamaterial Lattice".into(),
+            summary: "Triply periodic minimal surface lattice structure".into(),
+            operations: ops,
+            suggested_tool_diameter_mm: 0.4,
+            suggested_spindle_rpm: 0.0,
+            suggested_feedrate_mm_min: 1800.0,
+        }
+    } else {
+        ops.push(dry_core::Op::Speed { print: 1800.0 });
+        ops.push(dry_core::Op::Extruder { on: true });
+        ops.push(dry_core::Op::Move {
+            x: Some(0.0),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+        ops.push(dry_core::Op::Move {
+            x: Some(50.0),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+        ops.push(dry_core::Op::Move {
+            x: Some(50.0),
+            y: Some(50.0),
+            z: Some(0.0),
+        });
+        ops.push(dry_core::Op::Move {
+            x: Some(0.0),
+            y: Some(50.0),
+            z: Some(0.0),
+        });
+        ops.push(dry_core::Op::Move {
+            x: Some(0.0),
+            y: Some(0.0),
+            z: Some(0.0),
+        });
+        GeneratedCamProgram {
+            title: "Parametric Boundary Program".into(),
+            summary: "50x50mm square profile perimeter".into(),
+            operations: ops,
+            suggested_tool_diameter_mm: 6.0,
+            suggested_spindle_rpm: 10000.0,
+            suggested_feedrate_mm_min: 1800.0,
+        }
+    }
+}
 impl std::error::Error for LlmError {}
 
 #[derive(Deserialize)]
@@ -508,4 +624,24 @@ mod tests {
         let body = serde_json::json!({ "stop_reason": "refusal", "stop_details": { "category": "cyber" }, "content": [] });
         assert!(matches!(decode_compare(&body), Err(LlmError::Refusal(_))));
     }
+
+    #[test]
+    fn test_offline_cam_prompt_generation() {
+        // Lathe prompt
+        let lathe_res = generate_offline_cam_from_prompt("Create a lathe facing operation for aluminum rod");
+        assert_eq!(lathe_res.title, "CNC Lathe Facing Program");
+        assert!(!lathe_res.operations.is_empty());
+        assert_eq!(lathe_res.suggested_spindle_rpm, 1200.0);
+
+        // Pocket prompt
+        let pocket_res = generate_offline_cam_from_prompt("Mill a 50x40 rectangular pocket in steel plate");
+        assert_eq!(pocket_res.title, "Adaptive CNC Pocketing Program");
+        assert!(!pocket_res.operations.is_empty());
+
+        // TPMS lattice prompt
+        let tpms_res = generate_offline_cam_from_prompt("Generate a gyroid TPMS lattice structure for heat exchanger");
+        assert_eq!(tpms_res.title, "Gyroid TPMS Metamaterial Lattice");
+        assert!(!tpms_res.operations.is_empty());
+    }
 }
+

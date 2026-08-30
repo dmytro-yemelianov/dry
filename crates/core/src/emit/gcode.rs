@@ -4,7 +4,7 @@ use crate::ir::{SegmentKind, Toolpath};
 use crate::units::{Feedrate, Length};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum FirmwareFlavor {
     #[default]
@@ -17,6 +17,14 @@ pub enum FirmwareFlavor {
     Grbl,
     /// Kuka Robot Language (KRL) style robot program output.
     RobotKrl,
+    /// Siemens Sinumerik 840D / ONE CNC dialect.
+    Siemens,
+    /// Heidenhain TNC conversational dialect.
+    Heidenhain,
+    /// Haas NextGen CNC dialect.
+    Haas,
+    /// ABB RAPID robot program output.
+    Rapid,
 }
 
 impl FirmwareFlavor {
@@ -26,6 +34,22 @@ impl FirmwareFlavor {
             self,
             FirmwareFlavor::Marlin | FirmwareFlavor::Klipper | FirmwareFlavor::Duet
         )
+    }
+
+    /// Whether this target is a CNC subtractive milling or turning flavor.
+    pub fn is_cnc(self) -> bool {
+        matches!(
+            self,
+            FirmwareFlavor::Rs274
+                | FirmwareFlavor::Siemens
+                | FirmwareFlavor::Heidenhain
+                | FirmwareFlavor::Haas
+        )
+    }
+
+    /// Whether this target is an articulated industrial robot dialect.
+    pub fn is_robot(self) -> bool {
+        matches!(self, FirmwareFlavor::RobotKrl | FirmwareFlavor::Rapid)
     }
 }
 
@@ -195,19 +219,11 @@ where
     I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
     W: std::io::Write,
 {
-    if p.flavor == FirmwareFlavor::RobotKrl {
-        // KRL is dispatched before the modal loop below, so it never reaches that loop's power
-        // refusal. Refuse here instead: `emit_krl_to_writer` renders a `DEF`/`END` module with no
-        // notion of a spindle or beam, so letting a power-bearing toolpath through would drop a
-        // commanded machine state on the floor — the vacuous emission ADR 0002 §4 forbids, and the
-        // exact silent-drop the generic path already refuses for every non-GRBL flavor.
+    if p.flavor == FirmwareFlavor::RobotKrl || p.flavor == FirmwareFlavor::Rapid {
         let mut checked = Vec::new();
         for segment in segments {
             let segment = segment?;
             if let Some(level) = segment.power {
-                // Domain before flavor, exactly as the modal loop below orders it: a negative or
-                // non-finite level is wrong on every target, and reporting "KRL cannot render this"
-                // for a NaN would name the wrong defect.
                 if !level.is_finite() || level < 0.0 {
                     return Err(crate::codec::CodecError::Other(format!(
                         "cannot emit spindle/laser power {level}: the channel must be finite and >= 0"
@@ -215,39 +231,35 @@ where
                 }
                 return Err(crate::codec::CodecError::Other(format!(
                     "flavor {:?} cannot render the spindle/laser power channel (segment commands \
-                     S{level}); KRL addresses no spindle or beam, so emit the program for a flavor \
-                     that does",
+                     S{level}); robot controllers address no spindle or beam in this frame",
                     p.flavor,
                 )));
             }
             checked.push(Ok(segment));
         }
-        return super::krl::emit_krl_to_writer(checked, p, writer);
+        return if p.flavor == FirmwareFlavor::RobotKrl {
+            super::krl::emit_krl_to_writer(checked, p, writer)
+        } else {
+            super::rapid::emit_rapid_to_writer(checked, p, writer)
+        };
     }
     let segments = SplineFlatteningIterator::new(segments.into_iter());
     let mut first_line = true;
     let mut pos: [Option<Length>; 3] = [None, None, None];
     let mut prev_speed: Option<Feedrate> = None;
     let mut prev_rotary: Option<[f64; 2]> = None;
-    // The power channel, modal exactly like the feedrate: `prev_power` is the last commanded `S`,
-    // `spindle_on` whether an `M3` is outstanding. Only GRBL *renders* them — RS-274 already commands
-    // the spindle once per program through [`CncFrame`], and interleaving a per-segment `S`/`M5` with
-    // that preamble's own `S… M3`/`M5` is a collision this slice does not open; the printer flavors
-    // have no spindle at all. Every other flavor therefore refuses a toolpath that carries the
-    // channel instead of dropping it silently (see the segment loop below).
     let mut prev_power: Option<f64> = None;
     let mut spindle_on = false;
     let mut e_abs = Length::ZERO;
     let letters = ['X', 'Y', 'Z'];
 
     let mut prog_pos = [0.0; 3];
-    // The C axis is history-dependent inside the singular cone; see `RotaryState`. Threaded exactly
-    // like `prog_pos` above: advanced once per motion segment, untouched by dwells and manual g-code.
     let mut rotary_state = RotaryState::default();
 
-    let frame = match (p.flavor, &p.cnc_frame) {
-        (FirmwareFlavor::Rs274, Some(f)) => Some(*f),
-        _ => None,
+    let frame = if p.flavor.is_cnc() {
+        p.cnc_frame.as_ref().copied()
+    } else {
+        None
     };
     if p.five_axis {
         p.kinematics
@@ -256,24 +268,95 @@ where
     }
     if let Some(f) = frame {
         f.validate().map_err(crate::codec::CodecError::Other)?;
-        write_line(writer, &mut first_line, "G21 G17 G90")?;
-        write_line(
-            writer,
-            &mut first_line,
-            &format!("G{}", f.wcs.unwrap_or(54)),
-        )?;
-        if let Some(tool) = f.tool {
-            write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
-        }
-        if let Some(rpm) = f.spindle_rpm {
-            write_line(
-                writer,
-                &mut first_line,
-                &format!("S{} M3", num_checked(rpm, 'S')?),
-            )?;
-        }
-        if f.coolant == Some(true) {
-            write_line(writer, &mut first_line, "M8")?;
+        match p.flavor {
+            FirmwareFlavor::Siemens => {
+                write_line(writer, &mut first_line, "G90 G94 G710")?;
+                write_line(
+                    writer,
+                    &mut first_line,
+                    &format!("G{}", f.wcs.unwrap_or(54)),
+                )?;
+                if let Some(tool) = f.tool {
+                    write_line(writer, &mut first_line, &format!("T{tool} D1 M6"))?;
+                }
+                if let Some(rpm) = f.spindle_rpm {
+                    write_line(
+                        writer,
+                        &mut first_line,
+                        &format!("S{} M3", num_checked(rpm, 'S')?),
+                    )?;
+                }
+                if p.five_axis {
+                    write_line(writer, &mut first_line, "TRAORI")?;
+                }
+                if f.coolant == Some(true) {
+                    write_line(writer, &mut first_line, "M8")?;
+                }
+            }
+            FirmwareFlavor::Haas => {
+                write_line(writer, &mut first_line, "G90 G21 G17")?;
+                write_line(
+                    writer,
+                    &mut first_line,
+                    &format!("G{}", f.wcs.unwrap_or(54)),
+                )?;
+                if let Some(tool) = f.tool {
+                    write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
+                    write_line(writer, &mut first_line, &format!("G43 H{tool}"))?;
+                }
+                if let Some(rpm) = f.spindle_rpm {
+                    write_line(
+                        writer,
+                        &mut first_line,
+                        &format!("S{} M3", num_checked(rpm, 'S')?),
+                    )?;
+                }
+                write_line(writer, &mut first_line, "G187 P2 E0.025")?;
+                if f.coolant == Some(true) {
+                    write_line(writer, &mut first_line, "M8")?;
+                }
+            }
+            FirmwareFlavor::Heidenhain => {
+                write_line(writer, &mut first_line, "BEGIN PGM DRY MM")?;
+                if let Some(tool) = f.tool {
+                    let rpm_str = f
+                        .spindle_rpm
+                        .map(|r| format!(" S{r:.0}"))
+                        .unwrap_or_default();
+                    write_line(
+                        writer,
+                        &mut first_line,
+                        &format!("TOOL CALL {tool} Z{rpm_str}"),
+                    )?;
+                }
+                if f.spindle_rpm.is_some() {
+                    write_line(writer, &mut first_line, "M3")?;
+                }
+                if f.coolant == Some(true) {
+                    write_line(writer, &mut first_line, "M8")?;
+                }
+            }
+            _ => {
+                write_line(writer, &mut first_line, "G21 G17 G90")?;
+                write_line(
+                    writer,
+                    &mut first_line,
+                    &format!("G{}", f.wcs.unwrap_or(54)),
+                )?;
+                if let Some(tool) = f.tool {
+                    write_line(writer, &mut first_line, &format!("T{tool} M6"))?;
+                }
+                if let Some(rpm) = f.spindle_rpm {
+                    write_line(
+                        writer,
+                        &mut first_line,
+                        &format!("S{} M3", num_checked(rpm, 'S')?),
+                    )?;
+                }
+                if f.coolant == Some(true) {
+                    write_line(writer, &mut first_line, "M8")?;
+                }
+            }
         }
     }
 
@@ -368,17 +451,20 @@ where
                         let ms = (secs * 1000.0).round() as u64;
                         format!("G4 P{ms}")
                     }
-                    FirmwareFlavor::Rs274 | FirmwareFlavor::Marlin | FirmwareFlavor::Duet => {
+                    FirmwareFlavor::Rs274
+                    | FirmwareFlavor::Marlin
+                    | FirmwareFlavor::Duet
+                    | FirmwareFlavor::Siemens
+                    | FirmwareFlavor::Haas => {
                         format!("G4 S{secs_text}")
                     }
+                    FirmwareFlavor::Heidenhain => {
+                        format!("CYCL DEF 9.0 DWELL TIME \\ CYCL DEF 9.1 DWELL {secs_text}")
+                    }
                     FirmwareFlavor::Grbl => format!("G4 P{secs_text}"),
-                    // Unreachable: the dispatch at the top of this function sends KRL to its own
-                    // renderer. The arm keeps the match exhaustive over `FirmwareFlavor` and refuses
-                    // rather than inventing a dwell, so a future path that reaches here says so
-                    // instead of writing `G4` into a robot program.
-                    FirmwareFlavor::RobotKrl => {
+                    FirmwareFlavor::RobotKrl | FirmwareFlavor::Rapid => {
                         return Err(crate::codec::CodecError::Other(
-                            "KRL reached the g-code renderer: dwell has no g-code form here"
+                            "robot dialect reached the g-code renderer: dwell has no g-code form here"
                                 .to_string(),
                         ))
                     }
@@ -536,7 +622,24 @@ where
         if f.spindle_rpm.is_some() {
             write_line(writer, &mut first_line, "M5")?;
         }
-        write_line(writer, &mut first_line, "M30")?;
+        match p.flavor {
+            FirmwareFlavor::Siemens => {
+                if p.five_axis {
+                    write_line(writer, &mut first_line, "TRAFOOF")?;
+                }
+                write_line(writer, &mut first_line, "M30")?;
+            }
+            FirmwareFlavor::Haas => {
+                write_line(writer, &mut first_line, "G187")?;
+                write_line(writer, &mut first_line, "M30")?;
+            }
+            FirmwareFlavor::Heidenhain => {
+                write_line(writer, &mut first_line, "END PGM DRY MM")?;
+            }
+            _ => {
+                write_line(writer, &mut first_line, "M30")?;
+            }
+        }
     }
 
     Ok(())

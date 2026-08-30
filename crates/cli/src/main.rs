@@ -42,6 +42,15 @@ enum EmitOutputFormat {
     /// Emit a KUKA KRL module (structure only — never run on a controller; see docs/22-krl-emit.md).
     #[value(alias = "krl")]
     RobotKrl,
+    /// Emit Siemens Sinumerik 840D / ONE CNC format.
+    Siemens,
+    /// Emit Heidenhain TNC conversational CNC format.
+    Heidenhain,
+    /// Emit Haas NextGen CNC format.
+    Haas,
+    /// Emit ABB RAPID robot module format.
+    #[value(alias = "rapid")]
+    RobotRapid,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -1374,6 +1383,10 @@ fn run(cli: Cli) -> ExitCode {
                 EmitOutputFormat::Rs274 => flavor = FirmwareFlavor::Rs274,
                 EmitOutputFormat::Grbl => flavor = FirmwareFlavor::Grbl,
                 EmitOutputFormat::RobotKrl => flavor = FirmwareFlavor::RobotKrl,
+                EmitOutputFormat::Siemens => flavor = FirmwareFlavor::Siemens,
+                EmitOutputFormat::Heidenhain => flavor = FirmwareFlavor::Heidenhain,
+                EmitOutputFormat::Haas => flavor = FirmwareFlavor::Haas,
+                EmitOutputFormat::RobotRapid => flavor = FirmwareFlavor::Rapid,
                 EmitOutputFormat::Gcode => {}
             }
             let params = EmitParams {

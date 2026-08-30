@@ -14,6 +14,7 @@ mod kinematics;
 mod krl;
 mod laser;
 mod plasma;
+mod rapid;
 mod spline;
 mod step_nc;
 mod template;
@@ -35,6 +36,7 @@ pub use self::kinematics::{
 pub use self::krl::{KrlFrame, KrlTransform};
 pub use self::laser::{emit_grbl_laser, LaserError, LaserMode, LaserParams};
 pub use self::plasma::{emit_plasma_waterjet, CuttingParams, LeadInType};
+pub use self::rapid::emit_rapid_to_writer;
 pub use self::template::{render_template, GcodeTemplate, TemplateContext};
 // `verify` resolves rotary angles through the same state the emitter threads, so a rotary limit
 // is judged against the program that will actually be written. Crate-internal: it is emitter

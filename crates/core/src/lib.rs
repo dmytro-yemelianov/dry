@@ -30,6 +30,7 @@ pub mod multi_head;
 pub mod multi_robot;
 pub mod optimize;
 pub mod pass;
+pub mod physics;
 pub mod pipeline;
 pub mod profile;
 pub mod provenance;
@@ -122,6 +123,10 @@ pub use optimize::{
     SCurveProfile,
 };
 pub use pass::PassRole;
+pub use physics::{
+    analyze_machining_physics, CuttingToolGeometry, MachiningOperationParams,
+    PhysicsAnalysisReport, WorkpieceMaterial,
+};
 pub use pipeline::{lower_document_envelope, PipelineError};
 pub use profile::{
     check_compatibility, import_klipper, AxisRange, CompatibilityFinding, CompatibilityReport,
