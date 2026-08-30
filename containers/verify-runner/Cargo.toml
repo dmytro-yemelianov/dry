@@ -26,7 +26,7 @@ path = "src/lib.rs"
 [dependencies]
 dry-core = { path = "../../crates/core" }
 dry-license = { path = "../../crates/license" }
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "net", "signal"] }
 tokio-util = { version = "0.7", features = ["io"] }
 futures-util = "0.3"
