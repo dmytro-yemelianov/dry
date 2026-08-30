@@ -63,7 +63,11 @@ hash_mode = "file"
 # `operation` text moves. Reviewed because the always-on version was wrong in both directions: it
 # refused an ordinary milling rapid with the spindle running, and refused Dry's own resolved laser
 # output. See docs/11-profiles-and-reports.md.
-sha256 = "f7602ce39ce7905e38c245ce62984cc3f96ebffc4a1cfff19f65bd0892763e4b"
+#
+# Re-pinned again the same day to restore the three severity rationales `02ed2dc` deleted wholesale
+# from `default_severity` (why `travel-extrudes`, `rotary-feed` and `filament-consistency` are
+# warnings). Comment-only: no predicate, constant, severity or rule membership changed.
+sha256 = "7e1f773b4dbaa15b52ca6a95ab99a43e353a66629b8f60fb1628676ff16b6030"
 
 [[source]]
 # The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its

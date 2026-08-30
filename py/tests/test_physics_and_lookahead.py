@@ -46,10 +46,24 @@ def test_physics_report_has_every_documented_metric():
         "estimated_tool_life_min",
         "surface_roughness_ra_um",
         "chatter_risk",
+        "model_saturated",
     ):
         assert key in report, key
     assert report["cutting_speed_m_min"] > 0.0
     assert isinstance(report["chatter_risk"], bool)
+
+
+def test_a_clamped_result_reports_itself_as_saturated():
+    """Both clamps are guardrails; a clamped value must not read as a prediction."""
+    absurd = dict(_params(), spindle_rpm=8000.0)
+    r = dry.analyze_machining_physics(_tool(), "TitaniumTi6Al4V", absurd)
+    assert r["model_saturated"] is True
+    assert r["estimated_tool_life_min"] == 0.1
+    assert r["shear_temperature_c"] == 1220.0
+
+    sane = dict(_params(), spindle_rpm=6000.0, feedrate_mm_min=900.0,
+                axial_depth_ap_mm=2.0, radial_depth_ae_mm=3.0)
+    assert dry.analyze_machining_physics(_tool(), "Aluminum6061", sane)["model_saturated"] is False
 
 
 def test_physics_distinguishes_materials():

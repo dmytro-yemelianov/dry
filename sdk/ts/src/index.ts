@@ -44,6 +44,8 @@ export {
   segmentToSegmentDistance3d,
   analyzeMachiningPhysics,
   optimizeFiveAxisLookahead,
+  drapeOps,
+  parseObjMesh,
 } from './engine';
 export type {
   MachineKinematics,
@@ -56,6 +58,8 @@ export type {
   FiveAxisLookaheadParams,
   FirmwareFlavor,
   CncFrame,
+  DrapeOptions,
+  DrapePattern,
 } from './engine';
 export { PRINTERS, RESOLVE_PARAMS } from './ops';
 export type {

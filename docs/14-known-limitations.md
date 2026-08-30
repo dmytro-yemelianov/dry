@@ -41,7 +41,10 @@ Do not rely on Dry for any of these today:
   shear-zone temperature, Taylor tool life and chatter boundaries are closed-form estimates from
   textbook models with published coefficients. Nothing in this repo compares them against a
   dynamometer, a thermocouple or a real cut. Treat the numbers as indicative, not as a process
-  guarantee.
+  guarantee. Two of them are also **clamped** — the shear-zone rise at 1200 °C and Taylor tool life to
+  `[0.1, 10000]` minutes — and a clamped value is indistinguishable from a computed one by inspection:
+  titanium at ~251 m/min pegs both at once. `PhysicsAnalysisReport.model_saturated` reports when that
+  has happened, and should be checked before reading either field as a prediction.
 - **A complete non-planar / 5-axis workflow.** The toolframe orientation is a first-class IR property and
   5-axis rotary emission exists, but there is no kinematics validation, collision/singularity handling, or
   real-machine gating. Treat 5-axis as experimental.
@@ -63,7 +66,7 @@ additions are reachable only from `dry-core` and, in part, the CLI:
 | TPMS lattice infill | yes | yes | yes | yes | yes |
 | Pocket / profile milling | yes | yes | yes | yes | yes |
 | STEP single-solid slicing | yes | yes | yes | yes | yes |
-| Mesh heightfield 5-axis drape | yes | yes | yes | **no** | **no** |
+| Mesh heightfield 5-axis drape | yes | yes | yes | yes | yes |
 | Lathe turning / facing | yes | yes | yes | yes | yes |
 | Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | yes | yes | yes |
 | CNC machine preamble (`cnc_frame`) | yes | profile | yes | yes | yes |
@@ -95,12 +98,16 @@ turning are separate subcommands because their parameters genuinely differ (turn
 raw/target diameter, cut length and depth of cut; facing by a target Z and pass count), so a merged
 flag set would describe neither engine call.
 
-Still absent from the CLI, and these are analyses rather than generators: the lookahead optimiser,
+**Every binding now carries every capability.** Mesh drape was the last gap, and the reason recorded
+for it — that a browser cannot read a mesh from disk — was a rationalisation of an absence rather than
+a real constraint: the Python binding already takes the mesh as JSON, and a browser gets OBJ text from
+a file input or a fetch just as easily. `drapeOps` and `parseObjMesh` close it.
+
+Still absent from the **CLI**, and these are analyses rather than generators: the lookahead optimiser,
 the physics simulator, dexel stock simulation and tool-holder collision. STEP **multi-solid** assembly
 slicing with CSG void subtraction is also CLI-absent — `dry generate brep` slices a single solid, and
 expressing an assembly needs a way to name several STEP files with additive/subtractive roles that no
-flag set here covers yet. Mesh drape remains the one capability missing from wasm and TypeScript,
-because it reads a mesh from disk.
+flag set here covers yet.
 
 ## Sharp edges in what Dry does do
 

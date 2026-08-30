@@ -114,6 +114,8 @@ export interface DryWasm {
     toolRadius: number,
     isBallnose: boolean
   ): string;
+  drape_ops_wasm(optionsJson: string): string;
+  parse_obj_mesh_wasm(objText: string): string;
   analyze_machining_physics_wasm(
     toolJson: string,
     material: string,
@@ -519,6 +521,47 @@ export function simulateDexelStock(
   );
 }
 
+/** Toolpath patterns `drapeOps` can project over a mesh. */
+export type DrapePattern =
+  | 'raster-x'
+  | 'raster-y'
+  | 'zigzag-x'
+  | 'zigzag-y'
+  | 'spiral-concentric';
+
+/**
+ * Options for {@link drapeOps}. `mesh` is a serialized `TriangleMesh` — use {@link parseObjMesh} to
+ * build one from OBJ text.
+ */
+export interface DrapeOptions {
+  mesh: unknown;
+  pattern?: DrapePattern;
+  x_range?: [number, number] | null;
+  y_range?: [number, number] | null;
+  stepover: number;
+  resolution: number;
+  standoff_offset: number;
+  safe_z?: number | null;
+  feedrate: number;
+  plunge_feed: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Project a conformal 5-axis toolpath over a triangle mesh (BVH-accelerated ray casting).
+ */
+export function drapeOps(options: DrapeOptions): Op[] {
+  return JSON.parse(bind().drape_ops_wasm(JSON.stringify(options)));
+}
+
+/**
+ * Parse OBJ text into the serialized `TriangleMesh` that {@link DrapeOptions.mesh} expects.
+ */
+export function parseObjMesh(objText: string): unknown {
+  return JSON.parse(bind().parse_obj_mesh_wasm(objText));
+}
+
 /** Workpiece materials the physics simulator carries coefficients for. */
 export type WorkpieceMaterial =
   | 'Aluminum6061'
@@ -557,6 +600,11 @@ export interface PhysicsAnalysisReport {
   estimated_tool_life_min: number;
   surface_roughness_ra_um: number;
   chatter_risk: boolean;
+  /**
+   * True when a clamp bound the result, so `shear_temperature_c` or `estimated_tool_life_min` is a
+   * guardrail rather than a computed value. Check it before reading either as a prediction.
+   */
+  model_saturated: boolean;
 }
 
 export interface FiveAxisLookaheadParams {
