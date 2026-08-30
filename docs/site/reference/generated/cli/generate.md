@@ -12,9 +12,13 @@ Generate a parametric design and write its resolved Dry IR
 Usage: dry generate <COMMAND>
 
 Commands:
-  pocket  Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON
-  tpms    TPMS lattice infill from an option bundle. Writes resolved Dry IR JSON
-  help    Print this message or the help of the given subcommand(s)
+  pocket         Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON
+  brep           Slice a STEP ISO 10303-21 B-Rep solid. Writes resolved Dry IR JSON
+  drape          Conformal 5-axis drape over an STL/OBJ triangle mesh. Writes resolved Dry IR JSON
+  lathe-facing   CNC lathe facing pass. Writes resolved Dry IR JSON
+  lathe-turning  CNC lathe OD turning. Writes resolved Dry IR JSON
+  tpms           TPMS lattice infill from an option bundle. Writes resolved Dry IR JSON
+  help           Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help

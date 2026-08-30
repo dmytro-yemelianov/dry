@@ -199,60 +199,136 @@ enum CloudCmd {
     },
 }
 
-// `GenerateCmd::Pocket` carries ~50 arguments inline, so adding any smaller subcommand beside it
-// trips `large_enum_variant`. The lint's structural fix — extracting `Pocket`'s fields into a boxed
-// `Args` struct — is declined here: this enum is built once from `argv` and never lives in a hot
-// path or a collection, so boxing buys nothing at runtime, while the extraction would rewrite the
-// CLI's largest and most intricate match arm for a lint about stack size. Recorded rather than
-// silently suppressed, and deliberately narrow: it is scoped to this enum, not the crate.
-#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum GenerateCmd {
     /// Contour-parallel CNC pocket/profile (rect or circle). Writes resolved Dry IR JSON.
-    Pocket {
-        /// rect | circle
-        #[arg(long, value_parser = ["rect", "circle"])]
-        shape: String,
+    Pocket(Box<PocketArgs>),
+    /// Slice a STEP ISO 10303-21 B-Rep solid. Writes resolved Dry IR JSON.
+    ///
+    /// Analytic plane/cylinder/cone/sphere/torus intersection — no mesh tessellation, so no
+    /// tessellation error. Reachable from every SDK since P7.1; this is its first CLI surface.
+    Brep {
+        /// STEP (`.step` / `.stp`) file to slice.
+        #[arg(long)]
+        step: String,
+        /// First slice plane, mm.
+        #[arg(long, allow_hyphen_values = true, default_value_t = 0.0)]
+        z_start: f64,
+        /// Last slice plane, mm.
         #[arg(long, allow_hyphen_values = true)]
-        x: Option<f64>,
-        #[arg(long, allow_hyphen_values = true)]
-        y: Option<f64>,
-        #[arg(long)]
-        width: Option<f64>,
-        #[arg(long)]
-        height: Option<f64>,
-        #[arg(long, allow_hyphen_values = true)]
-        cx: Option<f64>,
-        #[arg(long, allow_hyphen_values = true)]
-        cy: Option<f64>,
-        #[arg(long)]
-        radius: Option<f64>,
-        /// pocket (clear the interior) | profile (single boundary contour)
-        #[arg(long, default_value = "pocket", value_parser = ["pocket", "profile"])]
-        cut_mode: String,
-        #[arg(long)]
-        tool_diameter: f64,
-        /// Stepover as a fraction of tool diameter in (0, 1]. Rectangular pockets clamp the
-        /// resulting inset to ~0.854 of the diameter, the largest value that still clears corners.
-        #[arg(long)]
-        stepover: Option<f64>,
-        #[arg(long)]
-        depth: f64,
-        #[arg(long)]
-        depth_per_pass: Option<f64>,
-        #[arg(long, allow_hyphen_values = true)]
-        z_top: Option<f64>,
-        #[arg(long, allow_hyphen_values = true)]
-        safe_z: Option<f64>,
+        z_end: f64,
+        /// Layer height, mm.
+        #[arg(long, default_value_t = 0.2)]
+        layer_height: f64,
+        /// Contour samples per slice.
+        #[arg(long, default_value_t = 64)]
+        samples_per_slice: usize,
         /// Cutting feed, mm/min.
+        #[arg(long, default_value_t = 1200.0)]
+        feedrate: f64,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
         #[arg(long)]
-        cut_feed: Option<f64>,
-        /// Plunge feed, mm/min (default cut_feed / 3).
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// Conformal 5-axis drape over an STL/OBJ triangle mesh. Writes resolved Dry IR JSON.
+    ///
+    /// BVH-accelerated ray projection (E1.3). The mesh is read from disk, which is why this is the
+    /// one capability the browser bindings do not carry.
+    Drape {
+        /// Triangle mesh to drape onto: `.stl` (ASCII or binary) or `.obj`, chosen by extension.
         #[arg(long)]
-        plunge_feed: Option<f64>,
-        /// Use helical ramp-in descent for plunge protection.
+        mesh: String,
+        /// raster-x | raster-y | zigzag-x | zigzag-y | spiral-concentric
+        #[arg(long, default_value = "raster-x")]
+        pattern: String,
+        /// Stepover line pitch, mm.
+        #[arg(long, default_value_t = 1.0)]
+        stepover: f64,
+        /// Sampling resolution along each path, mm.
+        #[arg(long, default_value_t = 0.5)]
+        resolution: f64,
+        /// Normal standoff offset, mm.
+        #[arg(long, allow_hyphen_values = true, default_value_t = 0.0)]
+        standoff_offset: f64,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
         #[arg(long)]
-        helical_entry: Option<bool>,
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// CNC lathe facing pass. Writes resolved Dry IR JSON.
+    ///
+    /// Facing and OD turning are separate subcommands because they take genuinely different
+    /// parameters — turning is specified by raw/target diameter, cut length and depth of cut, facing
+    /// by a target Z and pass count. A merged flag set would be a shape neither engine call has.
+    LatheFacing {
+        /// Stock outer diameter, mm.
+        #[arg(long, default_value_t = 40.0)]
+        stock_diameter: f64,
+        /// Z the face is cut to, mm.
+        #[arg(long, allow_hyphen_values = true, default_value_t = 0.0)]
+        target_z: f64,
+        /// Radial clearance beyond the stock radius, mm.
+        #[arg(long, default_value_t = 2.0)]
+        clearance_x: f64,
+        /// Axial clearance ahead of the face, mm.
+        #[arg(long, default_value_t = 2.0)]
+        clearance_z: f64,
+        /// Cutting feed, mm/min.
+        #[arg(long, default_value_t = 250.0)]
+        feedrate: f64,
+        /// Spindle speed, RPM.
+        #[arg(long, default_value_t = 1200.0)]
+        spindle_rpm: f64,
+        /// Number of depth passes.
+        #[arg(long, default_value_t = 3)]
+        passes: usize,
+        /// Depth of cut per pass along Z, mm.
+        #[arg(long, default_value_t = 0.5)]
+        depth_per_pass: f64,
+        /// Machine/material profile JSON (supplies ResolveParams defaults).
+        #[arg(long)]
+        profile: Option<String>,
+        /// Write the resolved Dry IR JSON here instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// CNC lathe OD turning. Writes resolved Dry IR JSON.
+    LatheTurning {
+        /// Starting raw stock diameter, mm.
+        #[arg(long, default_value_t = 50.0)]
+        raw_diameter: f64,
+        /// Finished target outer diameter, mm.
+        #[arg(long, default_value_t = 30.0)]
+        target_diameter: f64,
+        /// Length of cut along Z, mm (cuts from Z0 toward -Z).
+        #[arg(long, default_value_t = 45.0)]
+        cut_length: f64,
+        /// Maximum radial depth of cut per pass, mm.
+        #[arg(long, default_value_t = 2.0)]
+        depth_of_cut: f64,
+        /// Radial allowance left for the finishing pass, mm.
+        #[arg(long, default_value_t = 0.5)]
+        finish_allowance: f64,
+        /// Radial clearance, mm.
+        #[arg(long, default_value_t = 2.0)]
+        clearance_x: f64,
+        /// Axial clearance, mm.
+        #[arg(long, default_value_t = 2.0)]
+        clearance_z: f64,
+        /// Roughing feed, mm/min.
+        #[arg(long, default_value_t = 200.0)]
+        rough_feedrate: f64,
+        /// Finishing feed, mm/min.
+        #[arg(long, default_value_t = 120.0)]
+        finish_feedrate: f64,
+        /// Spindle speed, RPM.
+        #[arg(long, default_value_t = 1200.0)]
+        spindle_rpm: f64,
         /// Machine/material profile JSON (supplies ResolveParams defaults).
         #[arg(long)]
         profile: Option<String>,
@@ -278,6 +354,64 @@ enum GenerateCmd {
         #[arg(short, long)]
         out: Option<String>,
     },
+}
+
+/// Arguments for `dry generate pocket`.
+///
+/// Split out of [`GenerateCmd`] and boxed there: ~50 arguments carried inline made the enum lopsided
+/// (`clippy::large_enum_variant`) the moment a second, smaller subcommand joined it. Extracting them
+/// is the lint's structural fix and keeps every future `generate` subcommand cheap to add.
+#[derive(clap::Args)]
+struct PocketArgs {
+    /// rect | circle
+    #[arg(long, value_parser = ["rect", "circle"])]
+    shape: String,
+    #[arg(long, allow_hyphen_values = true)]
+    x: Option<f64>,
+    #[arg(long, allow_hyphen_values = true)]
+    y: Option<f64>,
+    #[arg(long)]
+    width: Option<f64>,
+    #[arg(long)]
+    height: Option<f64>,
+    #[arg(long, allow_hyphen_values = true)]
+    cx: Option<f64>,
+    #[arg(long, allow_hyphen_values = true)]
+    cy: Option<f64>,
+    #[arg(long)]
+    radius: Option<f64>,
+    /// pocket (clear the interior) | profile (single boundary contour)
+    #[arg(long, default_value = "pocket", value_parser = ["pocket", "profile"])]
+    cut_mode: String,
+    #[arg(long)]
+    tool_diameter: f64,
+    /// Stepover as a fraction of tool diameter in (0, 1]. Rectangular pockets clamp the
+    /// resulting inset to ~0.854 of the diameter, the largest value that still clears corners.
+    #[arg(long)]
+    stepover: Option<f64>,
+    #[arg(long)]
+    depth: f64,
+    #[arg(long)]
+    depth_per_pass: Option<f64>,
+    #[arg(long, allow_hyphen_values = true)]
+    z_top: Option<f64>,
+    #[arg(long, allow_hyphen_values = true)]
+    safe_z: Option<f64>,
+    /// Cutting feed, mm/min.
+    #[arg(long)]
+    cut_feed: Option<f64>,
+    /// Plunge feed, mm/min (default cut_feed / 3).
+    #[arg(long)]
+    plunge_feed: Option<f64>,
+    /// Use helical ramp-in descent for plunge protection.
+    #[arg(long)]
+    helical_entry: Option<bool>,
+    /// Machine/material profile JSON (supplies ResolveParams defaults).
+    #[arg(long)]
+    profile: Option<String>,
+    /// Write the resolved Dry IR JSON here instead of stdout.
+    #[arg(short, long)]
+    out: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -829,6 +963,30 @@ enum FleetCmd {
         #[arg(long, default_value = "MOONRAKER_API_KEY")]
         api_key_env: String,
     },
+}
+
+/// Resolve a generator's L1 ops under an optional profile and write the Dry IR JSON.
+///
+/// Shared by every `dry generate` subcommand that produces an op list, so the resolve-and-write tail
+/// exists once rather than being copied per generator — which is how the four of them would drift.
+fn write_generated_ir(
+    ops: Vec<dry_core::Op>,
+    profile: Option<&str>,
+    out: Option<&str>,
+    what: &str,
+) -> ExitCode {
+    let params = load_profile(profile)
+        .map(|p| p.resolve_params())
+        .unwrap_or_default();
+    let toolpath = resolve_checked(&Design { ops }, &params)
+        .unwrap_or_else(|e| die(format!("cannot resolve {what} design: {e}")));
+    let json = toolpath.to_json();
+    match out {
+        Some(path) => fs::write(path, json + "\n")
+            .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+        None => println!("{json}"),
+    }
+    ExitCode::SUCCESS
 }
 
 fn die(msg: String) -> ! {
@@ -1540,30 +1698,32 @@ fn run(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Cmd::Generate {
-            what:
-                GenerateCmd::Pocket {
-                    shape,
-                    x,
-                    y,
-                    width,
-                    height,
-                    cx,
-                    cy,
-                    radius,
-                    cut_mode,
-                    tool_diameter,
-                    stepover,
-                    depth,
-                    depth_per_pass,
-                    z_top,
-                    safe_z,
-                    cut_feed,
-                    plunge_feed,
-                    helical_entry,
-                    profile,
-                    out,
-                },
+            what: GenerateCmd::Pocket(args),
         } => {
+            // Destructured out of the boxed `PocketArgs` so the body below reads exactly as it did
+            // when these were inline enum fields.
+            let PocketArgs {
+                shape,
+                x,
+                y,
+                width,
+                height,
+                cx,
+                cy,
+                radius,
+                cut_mode,
+                tool_diameter,
+                stepover,
+                depth,
+                depth_per_pass,
+                z_top,
+                safe_z,
+                cut_feed,
+                plunge_feed,
+                helical_entry,
+                profile,
+                out,
+            } = *args;
             let shape = match shape.as_str() {
                 "rect" => PocketShape::Rect {
                     x: require(x, "--x"),
@@ -1610,6 +1770,142 @@ fn run(cli: Cli) -> ExitCode {
                 None => println!("{json}"),
             }
             ExitCode::SUCCESS
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::Brep {
+                    step,
+                    z_start,
+                    z_end,
+                    layer_height,
+                    samples_per_slice,
+                    feedrate,
+                    profile,
+                    out,
+                },
+        } => {
+            let text = fs::read_to_string(&step)
+                .unwrap_or_else(|e| die(format!("cannot read {step}: {e}")));
+            let solid = dry_core::BrepSolid::parse_step_iso10303(&text)
+                .unwrap_or_else(|e| die(format!("cannot parse {step}: {}", e.message)));
+            let ops = solid
+                .slice_to_l1_ops(z_start, z_end, layer_height, samples_per_slice, feedrate)
+                .unwrap_or_else(|e| die(format!("cannot slice {step}: {}", e.message)));
+            write_generated_ir(ops, profile.as_deref(), out.as_deref(), "brep")
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::Drape {
+                    mesh,
+                    pattern,
+                    stepover,
+                    resolution,
+                    standoff_offset,
+                    profile,
+                    out,
+                },
+        } => {
+            // Chosen by extension: `from_stl` sniffs ASCII vs binary itself, but an OBJ is text in a
+            // different grammar and would otherwise be misread as an ASCII STL.
+            let lower = mesh.to_ascii_lowercase();
+            let tri_mesh = if lower.ends_with(".obj") {
+                let text = fs::read_to_string(&mesh)
+                    .unwrap_or_else(|e| die(format!("cannot read {mesh}: {e}")));
+                dry_core::generate::drape::TriangleMesh::from_obj(&text)
+                    .unwrap_or_else(|e| die(format!("cannot parse {mesh}: {e}")))
+            } else if lower.ends_with(".stl") {
+                let bytes =
+                    fs::read(&mesh).unwrap_or_else(|e| die(format!("cannot read {mesh}: {e}")));
+                dry_core::generate::drape::TriangleMesh::from_stl(&bytes)
+                    .unwrap_or_else(|e| die(format!("cannot parse {mesh}: {e}")))
+            } else {
+                die(format!(
+                    "unsupported mesh {mesh}: expected a .stl or .obj extension"
+                ))
+            };
+            let pattern = serde_json::from_str(&format!("\"{pattern}\""))
+                .unwrap_or_else(|e| die(format!("unknown drape pattern {pattern}: {e}")));
+            // `DrapeOptions` has no `Default`, so every field is stated. The values below match
+            // the defaults its own doc comments name.
+            let options = dry_core::generate::drape::DrapeOptions {
+                mesh: tri_mesh,
+                pattern,
+                x_range: None,
+                y_range: None,
+                stepover,
+                resolution,
+                standoff_offset,
+                safe_z: None,
+                feedrate: 1800.0,
+                plunge_feed: 600.0,
+                width: 0.45,
+                height: 0.2,
+            };
+            let ops = dry_core::generate::drape::drape_ops(&options)
+                .unwrap_or_else(|e| die(format!("cannot drape {mesh}: {e}")));
+            write_generated_ir(ops, profile.as_deref(), out.as_deref(), "drape")
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::LatheFacing {
+                    stock_diameter,
+                    target_z,
+                    clearance_x,
+                    clearance_z,
+                    feedrate,
+                    spindle_rpm,
+                    passes,
+                    depth_per_pass,
+                    profile,
+                    out,
+                },
+        } => {
+            let params = dry_core::LatheFacingParams {
+                stock_diameter,
+                target_z,
+                clearance_x,
+                clearance_z,
+                feedrate,
+                spindle_rpm,
+                passes,
+                depth_per_pass,
+            };
+            let ops = dry_core::generate_lathe_facing_ops(&params)
+                .unwrap_or_else(|e| die(format!("cannot generate lathe facing: {e}")));
+            write_generated_ir(ops, profile.as_deref(), out.as_deref(), "lathe facing")
+        }
+        Cmd::Generate {
+            what:
+                GenerateCmd::LatheTurning {
+                    raw_diameter,
+                    target_diameter,
+                    cut_length,
+                    depth_of_cut,
+                    finish_allowance,
+                    clearance_x,
+                    clearance_z,
+                    rough_feedrate,
+                    finish_feedrate,
+                    spindle_rpm,
+                    profile,
+                    out,
+                },
+        } => {
+            let params = dry_core::LatheTurningParams {
+                raw_diameter,
+                target_diameter,
+                cut_length,
+                depth_of_cut,
+                finish_allowance,
+                clearance_x,
+                clearance_z,
+                rough_feedrate,
+                finish_feedrate,
+                spindle_rpm,
+            };
+            let ops = dry_core::generate_lathe_od_turning_ops(&params)
+                .unwrap_or_else(|e| die(format!("cannot generate lathe turning: {e}")));
+            write_generated_ir(ops, profile.as_deref(), out.as_deref(), "lathe turning")
         }
         Cmd::Generate {
             what:

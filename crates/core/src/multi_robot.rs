@@ -54,6 +54,35 @@ pub struct DualRobotCollisionResult {
     pub closest_link_pair: (usize, usize),
 }
 
+/// A clearance verdict for input the check cannot evaluate.
+///
+/// Both clearance functions compare distances against a required margin, and **every comparison
+/// against `NaN` is false** — so a non-finite joint angle or base offset left `safe` at its initial
+/// `true` and reported `min_distance_mm = inf`. The check failed *open*: it answered "safe" about a
+/// pose it had not evaluated, which is the one answer a collision check must never give by default.
+///
+/// These functions return a plain verdict rather than a `Result`, so the refusal is expressed in the
+/// verdict itself: not safe, zero clearance. A caller reading `safe` gets the conservative answer,
+/// and a caller reading `min_distance_mm` sees `0.0` rather than an `inf` that looks like abundant
+/// room.
+fn unevaluatable_clearance() -> DualRobotCollisionResult {
+    DualRobotCollisionResult {
+        safe: false,
+        min_distance_mm: 0.0,
+        closest_link_pair: (0, 0),
+    }
+}
+
+/// Whether every number this check depends on is finite.
+fn robot_inputs_are_finite(r: &WorkcellRobot, joints: &[&RobotJoints6], margin: f64) -> bool {
+    margin.is_finite()
+        && r.base_offset.iter().all(|v| v.is_finite())
+        && r.link_radii.iter().all(|v| v.is_finite())
+        && joints
+            .iter()
+            .all(|j| j.to_radians().iter().all(|v| v.is_finite()))
+}
+
 /// Checks safety clearance and collision between two 6-axis robots across all 6 intermediate link spheres.
 pub fn check_dual_robot_clearance(
     r1: &WorkcellRobot,
@@ -62,6 +91,13 @@ pub fn check_dual_robot_clearance(
     j2: &RobotJoints6,
     safety_margin_mm: f64,
 ) -> DualRobotCollisionResult {
+    // Fail closed. See `unevaluatable_clearance`: a NaN anywhere in the inputs made every distance
+    // comparison false and the verdict came back `safe = true`.
+    if !robot_inputs_are_finite(r1, &[j1], safety_margin_mm)
+        || !robot_inputs_are_finite(r2, &[j2], safety_margin_mm)
+    {
+        return unevaluatable_clearance();
+    }
     let links1 = r1.model.solve_all_link_positions(j1);
     let links2 = r2.model.solve_all_link_positions(j2);
 
@@ -261,6 +297,18 @@ pub fn check_continuous_dual_robot_trajectory(
     w2_end: &DualRobotWaypoint,
     safety_margin_mm: f64,
 ) -> DualRobotCollisionResult {
+    // Fail closed, for the same reason as `check_dual_robot_clearance`.
+    if !robot_inputs_are_finite(
+        r1,
+        &[&w1_start.joints_1, &w1_end.joints_1],
+        safety_margin_mm,
+    ) || !robot_inputs_are_finite(
+        r2,
+        &[&w2_start.joints_2, &w2_end.joints_2],
+        safety_margin_mm,
+    ) {
+        return unevaluatable_clearance();
+    }
     let links1_start = r1.model.solve_all_link_positions(&w1_start.joints_1);
     let links1_end = r1.model.solve_all_link_positions(&w1_end.joints_1);
     let links2_start = r2.model.solve_all_link_positions(&w2_start.joints_2);

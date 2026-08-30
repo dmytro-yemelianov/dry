@@ -78,12 +78,21 @@ ts = { path = "sdk/ts/src/design.ts", symbol = "cncFrame?: CncFrame", status = "
 
 [[capability]]
 id = "brep-slicing"
-title = "Direct STEP B-Rep multi-solid + CSG slicing (P7.1)"
+title = "STEP B-Rep MULTI-solid assembly + CSG void subtraction (P7.1)"
 core = { path = "crates/core/src/generate/brep.rs", symbol = "pub struct BrepAssembly", status = "reachable" }
-cli = { path = "crates/cli/src/main.rs", symbol = "BrepAssembly", status = "absent", note = "No CLI surface: STEP slicing is reachable only from the bindings." }
+cli = { path = "crates/cli/src/main.rs", symbol = "BrepAssembly", status = "absent", note = "`dry generate brep` slices a SINGLE solid (see brep-single-solid-slicing). Multi-solid assemblies with CSG void subtraction have no CLI surface — they need a way to name several STEP files and their additive/subtractive roles, which no flag set here expresses yet." }
 python = { path = "py/src/lib.rs", symbol = "slice_brep_assembly_json", status = "reachable" }
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "slice_brep_assembly_wasm", status = "reachable" }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "export function sliceBrepAssembly", status = "reachable" }
+
+[[capability]]
+id = "brep-single-solid-slicing"
+title = "Direct STEP ISO 10303-21 single-solid slicing"
+core = { path = "crates/core/src/generate/brep.rs", symbol = "pub fn parse_step_iso10303", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "GenerateCmd::Brep", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "slice_step_solid_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "slice_step_solid_wasm", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function sliceStepSolid", status = "reachable" }
 
 [[capability]]
 id = "dexel-simulation"
@@ -98,7 +107,7 @@ ts = { path = "sdk/ts/src/engine.ts", symbol = "export function simulateDexelSto
 id = "mesh-drape"
 title = "BVH-accelerated mesh heightfield 5-axis drape (E1.3)"
 core = { path = "crates/core/src/generate/drape.rs", symbol = "pub fn drape_ops", status = "reachable" }
-cli = { path = "crates/cli/src/main.rs", symbol = "drape_ops", status = "absent", note = "No CLI surface." }
+cli = { path = "crates/cli/src/main.rs", symbol = "GenerateCmd::Drape", status = "reachable" }
 python = { path = "py/src/lib.rs", symbol = "drape_ops_json", status = "reachable" }
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "drape_ops_json", status = "absent", note = "Not exposed to wasm; the browser cannot read an STL/OBJ from disk, and no caller has needed it through a string yet." }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "drapeOps", status = "absent", note = "Follows wasm: the TS SDK delegates to the wasm binding, which does not carry it." }
@@ -107,7 +116,7 @@ ts = { path = "sdk/ts/src/engine.ts", symbol = "drapeOps", status = "absent", no
 id = "lathe"
 title = "CNC lathe turning / facing generation"
 core = { path = "crates/core/src/generate/lathe.rs", symbol = "pub fn generate_lathe_facing_ops", status = "reachable" }
-cli = { path = "crates/cli/src/main.rs", symbol = "generate_lathe_facing_ops", status = "absent", note = "No CLI surface." }
+cli = { path = "crates/cli/src/main.rs", symbol = "GenerateCmd::LatheFacing", status = "reachable" }
 python = { path = "py/src/lib.rs", symbol = "lathe_facing_ops_json", status = "reachable" }
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "generate_lathe_facing_ops_wasm", status = "reachable" }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "export function latheFacingOps", status = "reachable" }
