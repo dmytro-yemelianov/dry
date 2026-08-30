@@ -3422,3 +3422,167 @@ mod generate_tpms {
         let _ = std::fs::remove_file(&path);
     }
 }
+
+/// `dry generate brep|drape|lathe-facing|lathe-turning` — the generator surfaces the CLI lacked.
+///
+/// Each of these was reachable from Python, wasm and TypeScript while having no CLI surface at all;
+/// `conformance/capability-parity.toml` now records every cell and fails when one drifts.
+mod generate_surfaces {
+    use super::*;
+
+    fn tmp(tag: &str, ext: &str, body: &str) -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "dry-cli-gen-{tag}-{}-{}.{ext}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::write(&path, body).unwrap();
+        path
+    }
+
+    fn ir_of(out: &std::process::Output) -> dry_core::Toolpath {
+        assert!(
+            out.status.success(),
+            "command failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        dry_core::Toolpath::from_json(&String::from_utf8(out.stdout.clone()).unwrap())
+            .expect("stdout must be Dry IR")
+    }
+
+    const STEP: &str = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1=CYLINDRICAL_SURFACE('c',#2,12.0);\nENDSEC;\nEND-ISO-10303-21;\n";
+    const PLANE_OBJ: &str = "v 0 0 5\nv 40 0 5\nv 40 40 5\nv 0 40 5\nf 1 2 3\nf 1 3 4\n";
+
+    #[test]
+    fn brep_slices_a_step_solid() {
+        let step = tmp("brep", "step", STEP);
+        let out = Command::new(bin())
+            .args([
+                "generate",
+                "brep",
+                "--step",
+                step.to_str().unwrap(),
+                "--z-start",
+                "2",
+                "--z-end",
+                "10",
+                "--layer-height",
+                "2",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            !ir_of(&out).segments.is_empty(),
+            "a sliced cylinder must produce motion"
+        );
+        let _ = std::fs::remove_file(&step);
+    }
+
+    #[test]
+    fn drape_projects_over_a_mesh_and_refuses_what_it_cannot_read() {
+        let mesh = tmp("drape", "obj", PLANE_OBJ);
+        let out = Command::new(bin())
+            .args([
+                "generate",
+                "drape",
+                "--mesh",
+                mesh.to_str().unwrap(),
+                "--stepover",
+                "5",
+                "--resolution",
+                "2",
+            ])
+            .output()
+            .unwrap();
+        assert!(ir_of(&out).segments.len() > 10);
+
+        // An unknown pattern must name the accepted ones, not fall back to a default.
+        let bad = Command::new(bin())
+            .args([
+                "generate",
+                "drape",
+                "--mesh",
+                mesh.to_str().unwrap(),
+                "--pattern",
+                "spirograph",
+            ])
+            .output()
+            .unwrap();
+        assert!(!bad.status.success());
+        let err = String::from_utf8_lossy(&bad.stderr);
+        assert!(err.contains("unknown drape pattern"), "{err}");
+        assert!(
+            err.contains("raster-x"),
+            "the refusal must list the patterns: {err}"
+        );
+
+        // The mesh format is chosen by extension, so an unreadable one is refused up front rather
+        // than being misparsed as an ASCII STL.
+        let wrong = tmp("drape-ext", "txt", PLANE_OBJ);
+        let bad = Command::new(bin())
+            .args(["generate", "drape", "--mesh", wrong.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(!bad.status.success());
+        assert!(
+            String::from_utf8_lossy(&bad.stderr).contains("expected a .stl or .obj"),
+            "{}",
+            String::from_utf8_lossy(&bad.stderr)
+        );
+
+        let _ = std::fs::remove_file(&mesh);
+        let _ = std::fs::remove_file(&wrong);
+    }
+
+    /// Facing and turning are separate subcommands because their parameters genuinely differ; a
+    /// merged flag set would describe neither engine call.
+    #[test]
+    fn lathe_facing_and_turning_are_distinct_and_both_produce_motion() {
+        let facing = Command::new(bin())
+            .args([
+                "generate",
+                "lathe-facing",
+                "--stock-diameter",
+                "50",
+                "--target-z",
+                "0",
+                "--passes",
+                "3",
+            ])
+            .output()
+            .unwrap();
+        let turning = Command::new(bin())
+            .args([
+                "generate",
+                "lathe-turning",
+                "--raw-diameter",
+                "50",
+                "--target-diameter",
+                "30",
+                "--cut-length",
+                "45",
+            ])
+            .output()
+            .unwrap();
+
+        let f = ir_of(&facing);
+        let t = ir_of(&turning);
+        assert!(!f.segments.is_empty() && !t.segments.is_empty());
+        assert_ne!(
+            f.segments.len(),
+            t.segments.len(),
+            "facing and turning must not be the same program"
+        );
+
+        // `--raw-diameter` belongs to turning alone; facing must reject it rather than ignore it.
+        let crossed = Command::new(bin())
+            .args(["generate", "lathe-facing", "--raw-diameter", "50"])
+            .output()
+            .unwrap();
+        assert!(
+            !crossed.status.success(),
+            "facing must not accept a turning-only flag"
+        );
+    }
+}

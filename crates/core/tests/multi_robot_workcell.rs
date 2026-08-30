@@ -145,3 +145,57 @@ fn test_abb_rapid_dual_robot_sync() {
     assert_eq!(rapid_lines.len(), 2);
     assert!(rapid_lines[1].contains("WaitSyncTask sync_point_1, [T_ROB1, T_ROB2];"));
 }
+
+/// A collision check must never answer "safe" about a pose it could not evaluate.
+///
+/// Every distance comparison against `NaN` is false, so a non-finite joint angle, base offset, link
+/// radius or safety margin left `safe` at its initial `true` and reported `min_distance_mm = inf` —
+/// abundant clearance, from arithmetic that never happened. Both entry points now fail closed.
+#[test]
+fn clearance_fails_closed_on_input_it_cannot_evaluate() {
+    use dry_core::{check_dual_robot_clearance, Robot6AxisModel, RobotJoints6, WorkcellRobot};
+
+    let model = Robot6AxisModel::kuka_kr6_r900();
+    let robot = |id: &str, dx: f64| WorkcellRobot {
+        id: id.into(),
+        model: model.clone(),
+        base_offset: [dx, 0.0, 0.0],
+        link_radii: [60.0; 6],
+    };
+    let good = RobotJoints6::new(0.0, -90.0, 90.0, 0.0, 0.0, 0.0);
+
+    // Baseline: two robots half a metre apart are genuinely clear, and say so.
+    let r1 = robot("a", 0.0);
+    let r2 = robot("b", 500.0);
+    let clear = check_dual_robot_clearance(&r1, &good, &r2, &good, 50.0);
+    assert!(clear.safe);
+    assert!(clear.min_distance_mm.is_finite() && clear.min_distance_mm > 0.0);
+
+    for bad_joints in [
+        RobotJoints6::new(f64::NAN, -90.0, 90.0, 0.0, 0.0, 0.0),
+        RobotJoints6::new(0.0, f64::INFINITY, 90.0, 0.0, 0.0, 0.0),
+    ] {
+        let v = check_dual_robot_clearance(&r1, &bad_joints, &r2, &good, 50.0);
+        assert!(!v.safe, "a non-finite joint must not report safe");
+        assert_eq!(
+            v.min_distance_mm, 0.0,
+            "and must not report abundant clearance"
+        );
+    }
+
+    // A non-finite margin, base offset or link radius is the same hazard by another route.
+    let v = check_dual_robot_clearance(&r1, &good, &r2, &good, f64::NAN);
+    assert!(!v.safe, "a non-finite safety margin must not report safe");
+
+    let skewed = WorkcellRobot {
+        base_offset: [f64::NAN, 0.0, 0.0],
+        ..robot("c", 500.0)
+    };
+    assert!(!check_dual_robot_clearance(&r1, &good, &skewed, &good, 50.0).safe);
+
+    let fat = WorkcellRobot {
+        link_radii: [f64::INFINITY; 6],
+        ..robot("d", 500.0)
+    };
+    assert!(!check_dual_robot_clearance(&r1, &good, &fat, &good, 50.0).safe);
+}

@@ -62,14 +62,15 @@ additions are reachable only from `dry-core` and, in part, the CLI:
 |---|---|---|---|---|---|
 | TPMS lattice infill | yes | yes | yes | yes | yes |
 | Pocket / profile milling | yes | yes | yes | yes | yes |
-| 5-axis jerk-limited lookahead | yes | **no** | yes | yes | yes |
-| Machining physics | yes | **no** | yes | yes | yes |
+| STEP single-solid slicing | yes | yes | yes | yes | yes |
+| Mesh heightfield 5-axis drape | yes | yes | yes | **no** | **no** |
+| Lathe turning / facing | yes | yes | yes | yes | yes |
 | Siemens / Haas / Heidenhain / ABB RAPID emit | yes | `--format` | yes | yes | yes |
 | CNC machine preamble (`cnc_frame`) | yes | profile | yes | yes | yes |
-| B-Rep multi-solid + CSG slicing | yes | **no** | yes | yes | yes |
+| 5-axis jerk-limited lookahead | yes | **no** | yes | yes | yes |
+| Machining physics | yes | **no** | yes | yes | yes |
+| STEP multi-solid assembly + CSG | yes | **no** | yes | yes | yes |
 | Dexel stock simulation | yes | **no** | yes | yes | yes |
-| Mesh heightfield 5-axis drape | yes | **no** | yes | **no** | **no** |
-| Lathe turning / facing | yes | **no** | yes | yes | yes |
 | Tool holder collision | yes | **no** | yes | yes | yes |
 
 **This table is no longer hand-maintained.** It mirrors
@@ -87,16 +88,19 @@ rather than bare motion. Python and TypeScript are cross-checked against *each o
 same physics numbers through two different FFI paths (native PyO3 and wasm), and they agree bit for
 bit.
 
-**What remains is the CLI column.** TPMS is now reachable as `dry generate tpms` — it previously had
-no CLI surface at all, which was worth fixing first because H1.4 called it "the most-exposed
-generator (wasm + PyO3 + TS)": it was exposed everywhere except the product that actually ships. It
-takes the option bundle as camelCase JSON (a file, or stdin) rather than a flag per field, because
-`TpmsOptions` carries 26 fields and a hand-maintained flag set would drift from it immediately; the
-same bundle is portable to every other surface and to `conformance/vectors`.
+**Every generator now has a CLI surface.** `dry generate` carries `pocket`, `tpms`, `brep`, `drape`,
+`lathe-facing` and `lathe-turning`. TPMS was the notable gap — H1.4 called it "the most-exposed
+generator (wasm + PyO3 + TS)" while it was absent from the product that actually ships. Facing and
+turning are separate subcommands because their parameters genuinely differ (turning is specified by
+raw/target diameter, cut length and depth of cut; facing by a target Z and pass count), so a merged
+flag set would describe neither engine call.
 
-Still absent from the CLI: B-Rep slicing, dexel simulation, the lookahead optimiser, the physics
-simulator, mesh drape, lathe turning/facing and tool-holder collision. Mesh drape is the one
-capability missing from wasm and TypeScript as well.
+Still absent from the CLI, and these are analyses rather than generators: the lookahead optimiser,
+the physics simulator, dexel stock simulation and tool-holder collision. STEP **multi-solid** assembly
+slicing with CSG void subtraction is also CLI-absent — `dry generate brep` slices a single solid, and
+expressing an assembly needs a way to name several STEP files with additive/subtractive roles that no
+flag set here covers yet. Mesh drape remains the one capability missing from wasm and TypeScript,
+because it reads a mesh from disk.
 
 ## Sharp edges in what Dry does do
 
