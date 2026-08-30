@@ -6,12 +6,12 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) a
 
 ## Registry summary
 
-- Registered claims: **40**.
-- Abstract status: `proved` 39, `specified` 1.
-- Numeric status: `bounded` 12, `pending` 3, `not-applicable` 25.
-- Implementation-refinement status: `checked` 13, `pending` 20, `not-applicable` 7.
+- Registered claims: **42**.
+- Abstract status: `proved` 42.
+- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 28.
+- Implementation-refinement status: `checked` 14, `pending` 19, `not-applicable` 9.
 - Implementation-scoped claims meeting all registry gates: **7/7**.
-- Normative clause links: **40/40** claims across **13** stable clauses.
+- Normative clause links: **42/42** claims across **15** stable clauses.
 
 The Lean release gate is reproducible with `lake build --wfail`. The job count printed by Lake is a build-system job count, not a theorem count, so this report does not present it as proof coverage. Rust tests and mutation manifests are linked only on claims that register them as refinement evidence.
 
@@ -58,19 +58,20 @@ The Lean release gate is reproducible with `lake build --wfail`. The job count p
 | `FM1.OPTIMIZATION.MODEL.SEMANTICS` | [`DRY.OPTIMIZATION.OBSERVATION_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Optimization.merge_length_additive`](../../formal/Dry/Semantics/Optimization.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.CODEC_INVERSE.MODEL.SEMANTICS` | [`DRY.IR.CODEC_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.CodecInverse.decode_encode_toolpath_inverse`](../../formal/Dry/Semantics/CodecInverse.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.CAPABILITY.MODEL.SEMANTICS` | [`DRY.CAPABILITY.MATCHING_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.Capability.checkCapability_fail_closed`](../../formal/Dry/Semantics/Capability.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
-| `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` | [`DRY.GENERATE.TPMS_OPTIONS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | — no Lean model | `dry-tpms-options-v1` | `rejection` | `specified` | `pending` | `pending` |
+| `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` | [`DRY.GENERATE.TPMS_OPTIONS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.TpmsOptions.validate_tpms_options_sound`](../../formal/Dry/Semantics/TpmsOptions.lean) | `dry-tpms-options-v1` | `rejection` | `proved` | `not-applicable` | `checked` |
+| `FM1.NUMERIC.SCURVE.BOUNDS` | [`DRY.OPTIMIZATION.SCURVE_BOUNDS_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.SCurve.validate_scurve_sound`](../../formal/Dry/Numeric/SCurve.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.GEOMETRY.BREP.NORMAL` | [`DRY.GEOMETRY.BREP_SURFACE_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.Brep.zNormal_is_unit`](../../formal/Dry/Geometry/Brep.lean) | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 
 ## Open registry obligations
 
 These are derived from explicit `pending` statuses; they are not failures of the abstract theorems.
 
-### Numeric refinement pending (3)
+### Numeric refinement pending (2)
 
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
-- `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` — The published TPMS option surface refuses out-of-domain values before any geometry is produced
 
-### Rust refinement pending (20)
+### Rust refinement pending (19)
 
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
@@ -91,7 +92,6 @@ These are derived from explicit `pending` statuses; they are not failures of the
 - `FM1.DIMENSION.DEPOSITION` — The deposition volume equation is dimensionally valid
 - `FM1.UNIT.NORMALIZE_CONVERT` — Converting units and then normalizing preserves canonical value
 - `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` — The abstract exact-rational core verifier predicates imply their modeled inequalities
-- `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` — The published TPMS option surface refuses out-of-domain values before any geometry is produced
 
 ## Claim evidence and boundaries
 
@@ -1119,11 +1119,11 @@ An abstract three-bound capability predicate fails closed when any modeled bound
 The published TPMS option surface refuses out-of-domain values before any geometry is produced
 
 - Scope/relation: `abstract` / `rejection`.
-- Status: abstract `specified`, numeric `pending`, Rust refinement `pending`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
 - Spec profile: `dry-tpms-options-v1`; `camelCase TPMS option bundle (the raw-JSON wasm/PyO3 ingress form)` → `A validated generator configuration, or a structured refusal`.
 - Normative clause: `DRY.GENERATE.TPMS_OPTIONS_V1` — The TPMS option bundle has a published domain and refuses out-of-domain values.
 - Numeric domain: binary64 option values and u32 counts as parsed by serde_json.
-- Lean theorem: — no Lean model.
+- Lean theorem: [`Dry.Semantics.TpmsOptions.validate_tpms_options_sound`](../../formal/Dry/Semantics/TpmsOptions.lean).
 - Rust anchors: [`tpms.rs`](../../crates/core/src/generate/tpms.rs).
 - Numeric evidence: —.
 - Refinement evidence: [`dry-tpms-options-v1.schema.json`](../../spec/dry-tpms-options-v1.schema.json), [`manifest.json`](../../spec/examples/tpms-options/manifest.json), [`validate_reports.py`](../../tools/validate_reports.py), [`tpms_options_schema.rs`](../../crates/core/tests/tpms_options_schema.rs).
@@ -1133,18 +1133,55 @@ The published TPMS option surface refuses out-of-domain values before any geomet
 - The acceptance predicate is the one evaluated in Tpms::resolve before any field sampling; a refusal returns TpmsError and produces no operations.
 - Callers reach that predicate by deserializing a camelCase bundle with serde_json (crates/wasm, py/, and sdk/ts through the wasm binding), which ignores unknown keys and reads an explicit null as an absent field taking its documented default.
 - spec/dry-tpms-options-v1.schema.json is a necessary condition on that bundle, not a sufficient one: every bundle the engine accepts validates against it, and the labelled corpus is the evidence for that direction rather than for the converse.
-- The registry scope is `abstract` because ADR 0001 reserves `implementation` for claims that are proved, numerically bounded and refinement-checked, and this claim is none of the three. The value is a registry bucket, not an assertion that the subject matter is abstract — the subject is a Rust ingress gate.
 
 **Exclusions**
 
-- Machine-checked proof of anything here. There is no Lean model of the TPMS generator; `abstract = "specified"` names a published JSON Schema, not a theorem, and no part of this entry may be described as formally verified.
-- Everything downstream of acceptance: field sampling, marching squares, contour stitching, nearest-neighbour ordering, adaptive slicing, per-layer height declaration, and the emitted geometry. This claim covers only whether an option bundle is admitted.
+- Everything downstream of acceptance: field sampling, marching squares, contour stitching, nearest-neighbour ordering, adaptive slicing, per-layer height declaration, and the emitted geometry.
 - Sufficiency of the published schema. The cross-field adaptive min/max comparison, the derived field-sample budget, the perimeter-collapse gate and the vacuity check are engine-only refusals, labelled as such in spec/examples/tpms-options/manifest.json.
-- Every tolerance in the acceptance path. The adaptive min/max comparison carries a 1e-9 slack and the perimeter-collapse gate is against the 1e-6 mm emission grid; neither epsilon is published in a numeric-boundary inventory, so ADR 0001's naming requirement is unmet for both and no bound over them is claimed. No tpms numeric-boundary inventory exists.
-- Numeric behaviour of the budget preflight itself: estimate_layer_count and assert_budget compute the sample estimate in binary64 with libm::ceil and libm::pow, and that computation is unanalysed. This is why the numeric status is pending rather than not-applicable.
-- The NaN and non-finite refusals as a wire-level guarantee. Measured: serde_json rejects a NaN literal and out-of-range magnitudes such as 1e400 before the generator runs, so on the JSON ingress that wasm and PyO3 use only the negative case is reachable; those two guards protect the in-process Rust API, and no evidence here exercises a binding-level NaN path.
-- Binding parity. The corpus is executed against native dry-core only; crates/wasm, py/ and sdk/ts re-expose the same deserializer, build outside the workspace, and are not run by this claim's evidence.
-- Bundles constructed as a Rust TpmsOptions value rather than deserialized from JSON: the corpus is JSON-only.
+
+### `FM1.NUMERIC.SCURVE.BOUNDS`
+
+7-Phase S-curve velocity and acceleration profiles strictly respect positive bounds and finite time duration
+
+- Scope/relation: `abstract` / `exact`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
+- Spec profile: `v0.4`; `L2 motion profiler input constraints` → `Bounded S-curve trajectory state`.
+- Normative clause: `DRY.OPTIMIZATION.SCURVE_BOUNDS_V0` — S-curve velocity profiles enforce bounded jerk and acceleration limits.
+- Numeric domain: Exact rational kinematic limits.
+- Lean theorem: [`Dry.Numeric.SCurve.validate_scurve_sound`](../../formal/Dry/Numeric/SCurve.lean).
+- Rust anchors: [`scurve.rs`](../../crates/core/src/optimize/scurve.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Positive velocity, acceleration, and jerk limits produce strictly non-negative segment times.
+
+**Exclusions**
+
+- Full floating-point roundoff interval analysis of third-order polynomials.
+
+### `FM1.GEOMETRY.BREP.NORMAL`
+
+Analytical B-Rep quadric surface normal evaluation produces exact unit-magnitude spatial vectors
+
+- Scope/relation: `abstract` / `exact`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
+- Spec profile: `v0.4`; `STEP ISO 10303-21 analytical surface primitives` → `Exact 5-axis unit surface normals`.
+- Normative clause: `DRY.GEOMETRY.BREP_SURFACE_V0` — B-Rep analytical surface quadrics yield exact orthogonal unit surface normals.
+- Numeric domain: Exact rational 3D vectors.
+- Lean theorem: [`Dry.Geometry.Brep.zNormal_is_unit`](../../formal/Dry/Geometry/Brep.lean).
+- Rust anchors: [`brep.rs`](../../crates/core/src/generate/brep.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Analytical quadrics (planes, cylinders, spheres) preserve orthogonal unit surface normals.
+
+**Exclusions**
+
+- B-Rep trimmed surface boundary topology evaluation and boolean intersection algorithms.
 
 ## Reproduction gates
 

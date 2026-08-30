@@ -21,7 +21,9 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 #[path = "verify/collision.rs"]
 pub mod collision;
-pub use self::collision::{check_tool_holder_collision, CollisionFinding, ToolHolder};
+pub use self::collision::{
+    check_tool_holder_collision, CollisionFinding, ToolHolder, ToolHolderSection,
+};
 
 /// The limits a toolpath is checked against. An unset (`None`/`false`) field disables that check.
 ///

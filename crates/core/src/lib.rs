@@ -159,4 +159,5 @@ pub use verify::{
     catalog, check_tool_holder_collision, parse_bounds_csv, parse_speed_range_csv, verify,
     verify_stream, CollisionFinding, ContractParseError, Contracts, Finding, KinematicContracts,
     Report, RotaryContracts, RotaryTravelRanges, Rule, RuleId, Severity, ToolHolder,
+    ToolHolderSection,
 };

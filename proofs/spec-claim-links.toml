@@ -94,6 +94,20 @@ source = "docs/07-tpms-codegen.md"
 section = "§Decisions; §Limits"
 normative_text = "Each TPMS generator option has a published type and domain, and an out-of-domain bundle is refused with a structured error before any geometry is produced."
 
+[[clause]]
+id = "DRY.GEOMETRY.BREP_SURFACE_V0"
+title = "B-Rep analytical surface quadrics yield exact orthogonal unit surface normals"
+source = "docs/21-mathematical-assurance-plan.md"
+section = "FM1.3 Transform, feature and frame proofs"
+normative_text = "B-Rep analytical surface primitives evaluate exact unit normal spatial vectors."
+
+[[clause]]
+id = "DRY.OPTIMIZATION.SCURVE_BOUNDS_V0"
+title = "S-curve velocity profiles enforce bounded jerk and acceleration limits"
+source = "docs/21-mathematical-assurance-plan.md"
+section = "FM1.4 Floating-point and curve error budgets"
+normative_text = "S-curve 7-phase profile planning strictly bounds kinematic jerk and acceleration within configured limits."
+
 [[link]]
 claim_id = "FM1.TRANSFORM.COMPOSE_ACTION"
 clause_id = "DRY.FEATURE.EXPANSION_V0"
@@ -253,3 +267,11 @@ clause_id = "DRY.CAPABILITY.MATCHING_V0"
 [[link]]
 claim_id = "FM1.GENERATE.TPMS.OPTION_ACCEPTANCE"
 clause_id = "DRY.GENERATE.TPMS_OPTIONS_V1"
+
+[[link]]
+claim_id = "FM1.GEOMETRY.BREP.NORMAL"
+clause_id = "DRY.GEOMETRY.BREP_SURFACE_V0"
+
+[[link]]
+claim_id = "FM1.NUMERIC.SCURVE.BOUNDS"
+clause_id = "DRY.OPTIMIZATION.SCURVE_BOUNDS_V0"

@@ -28,6 +28,7 @@ fn test_tool_holder_deep_plunge_collision() {
         stickout_length: 20.0,
         collet_diameter: 40.0,
         collet_length: 30.0,
+        sections: None,
     };
     let findings1 = check_tool_holder_collision(&toolpath, &holder_short, stock_bounds);
     assert_eq!(findings1.len(), 1);
@@ -40,6 +41,7 @@ fn test_tool_holder_deep_plunge_collision() {
         stickout_length: 50.0,
         collet_diameter: 40.0,
         collet_length: 30.0,
+        sections: None,
     };
     let findings2 = check_tool_holder_collision(&toolpath, &holder_long, stock_bounds);
     assert_eq!(findings2.len(), 0);
@@ -74,6 +76,7 @@ fn test_holder_overhang_outside_stock_footprint_is_detected() {
         stickout_length: 20.0,
         collet_diameter: 40.0,
         collet_length: 30.0,
+        sections: None,
     };
     let findings = check_tool_holder_collision(&toolpath, &wide, stock_bounds);
     assert_eq!(
@@ -89,6 +92,7 @@ fn test_holder_overhang_outside_stock_footprint_is_detected() {
         stickout_length: 20.0,
         collet_diameter: 6.0,
         collet_length: 30.0,
+        sections: None,
     };
     assert!(
         check_tool_holder_collision(&toolpath, &slim, stock_bounds).is_empty(),
@@ -119,9 +123,46 @@ fn test_tilted_5axis_toolholder_collision() {
         stickout_length: 15.0,
         collet_diameter: 40.0,
         collet_length: 30.0,
+        sections: None,
     };
 
     let findings = check_tool_holder_collision(&toolpath, &holder, stock_bounds);
     assert!(!findings.is_empty());
     assert_eq!(findings[0].code, "TOOL_HOLDER_5AXIS_COLLISION");
 }
+
+#[test]
+fn test_stepped_tapered_toolholder_collision() {
+    let mut design = Design::default();
+    design.ops.push(Op::Move {
+        x: Some(50.0),
+        y: Some(50.0),
+        z: Some(-25.0),
+    });
+
+    let toolpath = resolve(&design, &ResolveParams::default());
+    let stock_bounds = [0.0, 100.0, 0.0, 100.0, -50.0, 0.0];
+
+    // Stepped holder with 15mm slim neck (diameter 12mm), then 40mm wide body (diameter 50mm)
+    let holder_stepped = ToolHolder {
+        holder_diameter: 50.0,
+        stickout_length: 15.0,
+        collet_diameter: 12.0,
+        collet_length: 20.0,
+        sections: Some(vec![
+            dry_core::ToolHolderSection {
+                diameter: 12.0,
+                length: 5.0,
+            },
+            dry_core::ToolHolderSection {
+                diameter: 50.0,
+                length: 30.0,
+            },
+        ]),
+    };
+
+    let findings = check_tool_holder_collision(&toolpath, &holder_stepped, stock_bounds);
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].code, "TOOL_HOLDER_COLLISION");
+}
+

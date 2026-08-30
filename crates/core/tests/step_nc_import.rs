@@ -120,3 +120,27 @@ fn absent_required_geometry_is_refused() {
     )
     .expect("feed and rpm are genuinely optional");
 }
+
+#[test]
+fn test_parse_and_lower_step_nc_slot_and_peck_drilling() {
+    let xml = r#"<stepnc>
+  <workingsteps>
+    <workingstep id="ws-peck" type="peck_drilling" x="30" y="30" diameter="6.0" depth="10.0" peck="2.5" feed="600"/>
+    <workingstep id="ws-slot" type="slot" x1="10" y1="20" x2="50" y2="20" width="8.0" depth="3.0" feed="1200"/>
+  </workingsteps>
+</stepnc>"#;
+
+    let steps = dry_core::parse_step_nc(xml).expect("parse slot and peck drilling");
+    assert_eq!(steps.len(), 2);
+
+    let mut design = dry_core::Design::default();
+    for step in &steps {
+        let ops = dry_core::lower_workingstep_to_ops(step);
+        assert!(!ops.is_empty());
+        design.ops.extend(ops);
+    }
+
+    let tp = dry_core::resolve(&design, &dry_core::ResolveParams::default());
+    assert!(!tp.segments.is_empty());
+}
+

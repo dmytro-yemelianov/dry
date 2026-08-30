@@ -30,6 +30,21 @@ pub enum StepNcFeature {
         width: f64,
         depth: f64,
     },
+    Slot {
+        x_start: f64,
+        y_start: f64,
+        x_end: f64,
+        y_end: f64,
+        depth: f64,
+        width: f64,
+    },
+    PeckHole {
+        x: f64,
+        y: f64,
+        diameter: f64,
+        depth: f64,
+        peck_depth: f64,
+    },
 }
 
 /// An executable machining workingstep with process parameters.
@@ -78,6 +93,31 @@ pub fn parse_step_nc(text: &str) -> Result<Vec<StepNcWorkingstep>, String> {
                     y: require_attr_f64(l, "y", &id, "hole")?,
                     diameter: require_attr_f64(l, "diameter", &id, "hole")?,
                     depth: require_attr_f64(l, "depth", &id, "hole")?,
+                }
+            } else if step_type == "peck_hole" || step_type == "peck_drilling" {
+                StepNcFeature::PeckHole {
+                    x: require_attr_f64(l, "x", &id, "peck_hole")?,
+                    y: require_attr_f64(l, "y", &id, "peck_hole")?,
+                    diameter: require_attr_f64(l, "diameter", &id, "peck_hole")?,
+                    depth: require_attr_f64(l, "depth", &id, "peck_hole")?,
+                    peck_depth: read_attr_f64(l, "peck", &id)?
+                        .or_else(|| read_attr_f64(l, "q", &id).ok().flatten())
+                        .unwrap_or(2.0),
+                }
+            } else if step_type == "slot" || step_type == "groove" {
+                StepNcFeature::Slot {
+                    x_start: read_attr_f64(l, "x_start", &id)?
+                        .or_else(|| read_attr_f64(l, "x1", &id).ok().flatten())
+                        .unwrap_or(0.0),
+                    y_start: read_attr_f64(l, "y_start", &id)?
+                        .or_else(|| read_attr_f64(l, "y1", &id).ok().flatten())
+                        .unwrap_or(0.0),
+                    x_end: require_attr_f64(l, "x_end", &id, "slot")
+                        .or_else(|_| require_attr_f64(l, "x2", &id, "slot"))?,
+                    y_end: require_attr_f64(l, "y_end", &id, "slot")
+                        .or_else(|_| require_attr_f64(l, "y2", &id, "slot"))?,
+                    depth: require_attr_f64(l, "depth", &id, "slot")?,
+                    width: require_attr_f64(l, "width", &id, "slot")?,
                 }
             } else if step_type == "pocket" {
                 StepNcFeature::ClosedPocket {
@@ -262,6 +302,101 @@ pub fn lower_workingstep_to_ops(step: &StepNcWorkingstep) -> Vec<Op> {
                 y: Some(*y),
                 z: Some(5.0),
             });
+        }
+        StepNcFeature::PeckHole {
+            x,
+            y,
+            diameter: _,
+            depth,
+            peck_depth,
+        } => {
+            let total_depth = depth.abs();
+            let step_down = if *peck_depth <= 0.0 { 2.0 } else { *peck_depth };
+            let mut current_z = 0.0;
+
+            ops.push(Op::Extruder { on: false });
+            ops.push(Op::Move {
+                x: Some(*x),
+                y: Some(*y),
+                z: Some(5.0),
+            });
+
+            while current_z < total_depth {
+                let target_z = (current_z + step_down).min(total_depth);
+                if current_z > 0.0 {
+                    ops.push(Op::Extruder { on: false });
+                    ops.push(Op::Move {
+                        x: Some(*x),
+                        y: Some(*y),
+                        z: Some(-current_z + 0.5),
+                    });
+                }
+                ops.push(Op::Extruder { on: true });
+                ops.push(Op::Speed { print: feed * 0.4 });
+                ops.push(Op::Move {
+                    x: Some(*x),
+                    y: Some(*y),
+                    z: Some(-target_z),
+                });
+                ops.push(Op::Extruder { on: false });
+                ops.push(Op::Speed { print: feed });
+                ops.push(Op::Move {
+                    x: Some(*x),
+                    y: Some(*y),
+                    z: Some(5.0),
+                });
+                current_z = target_z;
+            }
+        }
+        StepNcFeature::Slot {
+            x_start,
+            y_start,
+            x_end,
+            y_end,
+            depth,
+            width: _,
+        } => {
+            let total_depth = depth.abs();
+            let step_down = 1.0;
+            let mut current_z = 0.0;
+
+            ops.push(Op::Extruder { on: false });
+            ops.push(Op::Move {
+                x: Some(*x_start),
+                y: Some(*y_start),
+                z: Some(5.0),
+            });
+
+            while current_z < total_depth {
+                let next_z = (current_z + step_down).min(total_depth);
+                ops.push(Op::Extruder { on: true });
+                ops.push(Op::Speed { print: feed * 0.4 });
+                ops.push(Op::Move {
+                    x: Some(*x_start),
+                    y: Some(*y_start),
+                    z: Some(-next_z),
+                });
+                ops.push(Op::Speed { print: feed });
+                ops.push(Op::Move {
+                    x: Some(*x_end),
+                    y: Some(*y_end),
+                    z: Some(-next_z),
+                });
+                ops.push(Op::Extruder { on: false });
+                ops.push(Op::Move {
+                    x: Some(*x_end),
+                    y: Some(*y_end),
+                    z: Some(5.0),
+                });
+                if next_z < total_depth {
+                    ops.push(Op::Move {
+                        x: Some(*x_start),
+                        y: Some(*y_start),
+                        z: Some(5.0),
+                    });
+                }
+                current_z = next_z;
+            }
         }
     }
 

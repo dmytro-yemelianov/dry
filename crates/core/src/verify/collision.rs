@@ -12,6 +12,15 @@ use crate::ir::Toolpath;
 use crate::verify::Severity;
 use serde::{Deserialize, Serialize};
 
+/// A defined axial segment along a stepped/tapered tool holder assembly.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolHolderSection {
+    /// Diameter at this segment (mm).
+    pub diameter: f64,
+    /// Axial length of this segment (mm).
+    pub length: f64,
+}
+
 /// Physical dimensions of the non-cutting tool holder assembly.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolHolder {
@@ -22,12 +31,10 @@ pub struct ToolHolder {
     /// Maximum diameter of the collet nut / chuck (mm).
     pub collet_diameter: f64,
     /// Length of the collet zone above the stickout (mm).
-    ///
-    /// Declared for callers describing a real assembly, but no rule here reads it: it bounds the
-    /// collet upwards, and the only obstruction this checker models is the stock top plane, which
-    /// the holder face reaches first. Detecting what the collet's upper end fouls needs fixture
-    /// geometry the checker is not given.
     pub collet_length: f64,
+    /// Optional discrete stepped/tapered profile sections from holder face upward.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sections: Option<Vec<ToolHolderSection>>,
 }
 
 impl Default for ToolHolder {
@@ -37,6 +44,7 @@ impl Default for ToolHolder {
             stickout_length: 25.0, // 25mm exposed cutter stickout
             collet_diameter: 40.0, // ER32 collet nut
             collet_length: 30.0,
+            sections: None,
         }
     }
 }
@@ -86,6 +94,58 @@ pub fn check_tool_holder_collision(
         };
 
         let tilt_radial_drop = holder_radius * libm::sqrt(ux * ux + uy * uy);
+
+        if let Some(ref sections) = holder.sections {
+            let mut cumulative_dist = holder.stickout_length;
+            let mut collided = false;
+            for sec in sections {
+                let sec_radius = sec.diameter.max(0.0) / 2.0;
+                let sec_drop = sec_radius * libm::sqrt(ux * ux + uy * uy);
+                let num_sec_samples = 3;
+                let step = sec.length.max(1.0) / (num_sec_samples as f64);
+                for s in 0..=num_sec_samples {
+                    let dist = cumulative_dist + (s as f64 * step);
+                    let hx = x + ux * dist;
+                    let hy = y + uy * dist;
+                    let hz = z + uz * dist;
+                    let lowest_holder_z = hz - sec_drop;
+
+                    let in_stock_xy = hx >= stock_bounds[0] - sec_radius
+                        && hx <= stock_bounds[1] + sec_radius
+                        && hy >= stock_bounds[2] - sec_radius
+                        && hy <= stock_bounds[3] + sec_radius;
+
+                    if in_stock_xy && lowest_holder_z < stock_top_z && hz >= stock_bounds[4] {
+                        let is_5axis = ux.abs() > 1e-4 || uy.abs() > 1e-4;
+                        let code = if is_5axis {
+                            "TOOL_HOLDER_5AXIS_COLLISION"
+                        } else {
+                            "TOOL_HOLDER_COLLISION"
+                        };
+                        let depth = stock_top_z - z;
+                        findings.push(CollisionFinding {
+                            severity: Severity::Error,
+                            code: code.into(),
+                            message: format!(
+                                "Tool holder section (⌀{:.2}mm) collides with stock top (lowest point Z{lowest_holder_z:.2}mm < Z{stock_top_z:.2}mm); centerline at (X{hx:.2}, Y{hy:.2}, Z{hz:.2})",
+                                sec_radius * 2.0,
+                            ),
+                            segment_index: idx,
+                            plunge_depth: depth,
+                        });
+                        collided = true;
+                        break;
+                    }
+                }
+                if collided {
+                    break;
+                }
+                cumulative_dist += sec.length;
+            }
+            if collided {
+                continue;
+            }
+        }
 
         // Check sample points along the holder axis from stickout to collet end
         let num_samples = 6;
