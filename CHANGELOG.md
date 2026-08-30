@@ -55,6 +55,12 @@ are called out individually under **Changed**.
 - **`conformance/capability-parity.toml` + `tools/check_capability_parity.py`**, gating cross-target
   reachability in CI in both directions: a recorded-reachable symbol that disappears fails, and a
   surface that gains a capability recorded absent fails too. 12 capabilities, 60 cells.
+- **`PhysicsAnalysisReport.model_saturated`** — reports when a clamp bound the result, so
+  `shear_temperature_c` (rise capped at 1200 °C) and `estimated_tool_life_min` (clamped to
+  `[0.1, 10000]`) can be told apart from computed values. Titanium at ~251 m/min pegs both at once.
+- **`drapeOps` / `parseObjMesh` on wasm and TypeScript**, closing the last binding gap. Mesh drape had
+  been recorded as browser-infeasible; it was not — the mesh crosses as JSON, as it already does for
+  Python.
 
 ### Changed
 - **`laser-power-during-travel` is process-gated rather than always-on.** *Behavioural change to
@@ -83,6 +89,13 @@ are called out individually under **Changed**.
   behavioural change: the same invocation emits byte-identical output.
 
 ### Fixed
+- **The release pipeline, which had not published since v0.6.0 (2026-08-03).** Two independent breaks,
+  both on release-only surfaces that no CI job exercises, so neither was visible until a tag was
+  pushed: the Python wheel smoke ran against the *source* tree rather than the built wheel (a
+  `pythonpath = ["python"]` added after the last good release shadowed the installed package with one
+  that has no compiled `_native`), and `sdk/mcp` had no lockfile for `npm ci` and no declared
+  `typescript` for its own `tsc` build script. `v0.7.0` failed three times and `v0.9.0` once before
+  this was found.
 - CI's `fmt`, `clippy`, reference-docs and Lean `--wfail` gates, red across five jobs.
 - `FM1.F64.VERIFY.COLLISION.HOLDER_DEPTH`'s duplicated source anchor: both tool-holder paths now share
   one `HolderSample`, with the finding message pinned.
@@ -99,6 +112,8 @@ are called out individually under **Changed**.
 - Whether `resolve` should force travels dark is **decided and closed** — it should not; see
   `docs/04-tasks.md`. `Op::Power` carries spindle RPM as well as laser PWM, and a producer that
   cannot tell the two apart must not zero one of them.
+- The digital-twin physics estimates remain analytic and unvalidated against instrumented cuts; two of
+  them are clamped, which `model_saturated` now surfaces.
 
 ## [0.7.0] - 2026-08-29
 
