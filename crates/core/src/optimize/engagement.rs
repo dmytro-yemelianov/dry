@@ -294,7 +294,6 @@ pub fn optimize_constant_mrr(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,7 +325,10 @@ mod tests {
         let ops = generate_trochoidal_slot([0.0, 0.0], [50.0, 0.0], -2.0, 12.0, 6.0, 1.0, 1500.0);
         assert!(ops.is_ok());
         let op_list = ops.unwrap();
-        assert!(op_list.len() > 20, "Should generate progressive trochoidal peeling arcs");
+        assert!(
+            op_list.len() > 20,
+            "Should generate progressive trochoidal peeling arcs"
+        );
     }
 
     #[test]
@@ -407,7 +409,3 @@ mod tests {
         assert!((cut_seg.speed.value() - 800.0).abs() < 1e-5);
     }
 }
-
-
-
-

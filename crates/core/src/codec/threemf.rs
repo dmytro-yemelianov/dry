@@ -99,7 +99,10 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
             xml.push_str(&format!(" i=\"{i:.6}\" j=\"{j:.6}\" k=\"{k:.6}\""));
         }
         if let Some(c) = seg.centre {
-            xml.push_str(&format!(" cx=\"{:.4}\" cy=\"{:.4}\" cw=\"{}\"", c[0].0, c[1].0, seg.clockwise));
+            xml.push_str(&format!(
+                " cx=\"{:.4}\" cy=\"{:.4}\" cw=\"{}\"",
+                c[0].0, c[1].0, seg.clockwise
+            ));
         }
         if let Some(dwell) = seg.dwell_s {
             xml.push_str(&format!(" dwell=\"{dwell:.3}\""));

@@ -45,6 +45,7 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `retract` | `retract(distance: number \| null = null, speed: number \| null = null): this` |  | Retract filament. |
 | `unretract` | `unretract(distance: number \| null = null, speed: number \| null = null): this` |  | Prime filament back after a retraction. |
 | `deposit` | `deposit(volume: number, speed: number): this` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
+| `pocket` | `pocket(options: PocketOptions): this` |  | Append CNC pocket/profile milling ops generated from options. |
 | `gcode` | `gcode(options?: GcodeOptions): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). |
 | `gcode` | `gcode(printer?: string, relativeE?: boolean, travelG1E0?: boolean, fiveAxis?: boolean, rotaryAxes?: string): string[]` | [Author a path](/guide/author) | @deprecated Pass a {@link GcodeOptions} object instead. |
 | `gcode` | `gcode(first?: GcodeOptions \| string, ...rest: readonly unknown[]): string[]` | [Author a path](/guide/author) | Declared in the public API. |
@@ -57,6 +58,9 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `verify` | `verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string \| number[][], monotonicZ?: boolean, speedRange?: string \| [number, number], maxRetractionDistance?: number, maxRetractionSpeed?: number, maxTravelWithoutRetract?: number, firstLayerHeightRange?: string \| [number, number], firstLayerSpeedRange?: string \| [number, number], kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | @deprecated Pass a {@link VerifyOptions} object instead. |
 | `verify` | `verify(first?: VerifyOptions \| string, ...rest: readonly unknown[]): Report` | [Verify](/guide/verify) | Declared in the public API. |
 | `checkCompatibility` | `checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
+| `toObj` | `toObj(includeTravel = false, printer = 'generic'): string` |  | Export toolpath as a 3D Wavefront .obj mesh string. |
+| `toSvg` | `toSvg(width = 800, height = 800, padding = 40.0, printer = 'generic'): string` |  | Export toolpath as a 2D (XY) vector SVG projection string. |
+| `toHtml` | `toHtml(title = 'Dry 3D Toolpath Viewer', bounds?: [number, number, number, number, number, number], printer = 'generic'): string` |  | Export toolpath as a standalone interactive 3D WebGL HTML viewer string. |
 
 ### `fromOps`
 
@@ -384,6 +388,22 @@ Returns: `this`
 
 Stationary extrusion of a set volume (mm³) at feedrate (mm/min).
 
+### `pocket`
+
+```ts
+pocket(options: PocketOptions): this
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `PocketOptions` |  | Yes |
+
+Returns: `this`
+
+Append CNC pocket/profile milling ops generated from options.
+
 ### `gcode`
 
 <LiveExample src="author" :outputs='["gcode"]' />
@@ -636,3 +656,57 @@ checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): Comp
 Returns: `CompatibilityReport`
 
 Pre-flight check toolpath against machine capabilities (D2.2).
+
+### `toObj`
+
+```ts
+toObj(includeTravel = false, printer = 'generic'): string
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `includeTravel` | `any` | `false` | No |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `string`
+
+Export toolpath as a 3D Wavefront .obj mesh string.
+
+### `toSvg`
+
+```ts
+toSvg(width = 800, height = 800, padding = 40.0, printer = 'generic'): string
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `width` | `any` | `800` | No |
+| `height` | `any` | `800` | No |
+| `padding` | `any` | `40.0` | No |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `string`
+
+Export toolpath as a 2D (XY) vector SVG projection string.
+
+### `toHtml`
+
+```ts
+toHtml(title = 'Dry 3D Toolpath Viewer', bounds?: [number, number, number, number, number, number], printer = 'generic'): string
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `title` | `any` | `'Dry 3D Toolpath Viewer'` | No |
+| `bounds` | `[number, number, number, number, number, number]` |  | No |
+| `printer` | `any` | `'generic'` | No |
+
+Returns: `string`
+
+Export toolpath as a standalone interactive 3D WebGL HTML viewer string.

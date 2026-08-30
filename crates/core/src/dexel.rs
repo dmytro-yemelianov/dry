@@ -114,10 +114,14 @@ impl DexelGrid {
             return;
         }
 
-        let ix_start = (((seg_min_x - self.min_x) / self.resolution_mm).floor() as usize).min(self.nx - 1);
-        let ix_end = (((seg_max_x - self.min_x) / self.resolution_mm).ceil() as usize).min(self.nx - 1);
-        let iy_start = (((seg_min_y - self.min_y) / self.resolution_mm).floor() as usize).min(self.ny - 1);
-        let iy_end = (((seg_max_y - self.min_y) / self.resolution_mm).ceil() as usize).min(self.ny - 1);
+        let ix_start =
+            (((seg_min_x - self.min_x) / self.resolution_mm).floor() as usize).min(self.nx - 1);
+        let ix_end =
+            (((seg_max_x - self.min_x) / self.resolution_mm).ceil() as usize).min(self.nx - 1);
+        let iy_start =
+            (((seg_min_y - self.min_y) / self.resolution_mm).floor() as usize).min(self.ny - 1);
+        let iy_end =
+            (((seg_max_y - self.min_y) / self.resolution_mm).ceil() as usize).min(self.ny - 1);
 
         let vx = p1[0] - p0[0];
         let vy = p1[1] - p0[1];
@@ -163,12 +167,7 @@ impl DexelGrid {
     }
 
     /// Simulates a full toolpath against the stock workpiece.
-    pub fn simulate_toolpath(
-        &mut self,
-        toolpath: &Toolpath,
-        tool_radius: f64,
-        is_ballnose: bool,
-    ) {
+    pub fn simulate_toolpath(&mut self, toolpath: &Toolpath, tool_radius: f64, is_ballnose: bool) {
         for seg in &toolpath.segments {
             if !seg.travel {
                 let start_pt = [

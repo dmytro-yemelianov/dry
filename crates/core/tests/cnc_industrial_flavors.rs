@@ -1,8 +1,6 @@
 //! Industrial CNC Post-Processor Flavors & Robotics Dialect Tests.
 
-use dry_core::{
-    emit_stream, CncFrame, Design, EmitParams, FirmwareFlavor, Op, ResolveParams,
-};
+use dry_core::{emit_stream, CncFrame, Design, EmitParams, FirmwareFlavor, Op, ResolveParams};
 
 #[test]
 fn test_siemens_sinumerik_emission() {
@@ -22,7 +20,6 @@ fn test_siemens_sinumerik_emission() {
             tool: Some(3),
             spindle_rpm: Some(8000.0),
             coolant: Some(true),
-            ..Default::default()
         }),
         five_axis: true,
         ..Default::default()
@@ -55,7 +52,6 @@ fn test_haas_cnc_emission() {
             tool: Some(1),
             spindle_rpm: Some(10000.0),
             coolant: Some(true),
-            ..Default::default()
         }),
         ..Default::default()
     };
@@ -120,7 +116,9 @@ fn test_abb_rapid_robot_emission() {
     let lines = emit_stream(tp.segments.iter().cloned().map(Ok), &params).unwrap();
     assert!(lines.iter().any(|l| l.contains("MODULE DryProgram")));
     assert!(lines.iter().any(|l| l.contains("PROC main()")));
-    assert!(lines.iter().any(|l| l.contains("MoveL [[100.000, 200.000, 300.000]")));
+    assert!(lines
+        .iter()
+        .any(|l| l.contains("MoveL [[100.000, 200.000, 300.000]")));
     assert!(lines.iter().any(|l| l.contains("ENDPROC")));
     assert!(lines.iter().any(|l| l.contains("ENDMODULE")));
 }

@@ -69,7 +69,8 @@ solid test_tri
   endfacet
 endsolid test_tri
 "#;
-    let mesh_stl = TriangleMesh::from_stl(stl_ascii.as_bytes()).expect("ASCII STL parsing should succeed");
+    let mesh_stl =
+        TriangleMesh::from_stl(stl_ascii.as_bytes()).expect("ASCII STL parsing should succeed");
     assert_eq!(mesh_stl.triangles.len(), 1);
 }
 
@@ -105,11 +106,20 @@ fn mesh_5axis_drape_end_to_end() {
     let mut oriented_count = 0;
     for seg in &tp.segments {
         if !seg.travel {
-            assert!(seg.orientation.is_some(), "Conformal 5-axis move must carry orientation normal");
+            assert!(
+                seg.orientation.is_some(),
+                "Conformal 5-axis move must carry orientation normal"
+            );
             let [i, j, k] = seg.orientation.unwrap();
             let norm = (i * i + j * j + k * k).sqrt();
-            assert!((norm - 1.0).abs() < 1e-4, "Surface normal orientation must be unit length");
-            assert!(k > 0.0, "Upward surface normal must have positive Z component");
+            assert!(
+                (norm - 1.0).abs() < 1e-4,
+                "Surface normal orientation must be unit length"
+            );
+            assert!(
+                k > 0.0,
+                "Upward surface normal must have positive Z component"
+            );
             oriented_count += 1;
         }
     }

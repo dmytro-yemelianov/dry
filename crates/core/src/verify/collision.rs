@@ -83,7 +83,8 @@ pub fn check_tool_holder_collision(
         let z = ez.value();
 
         let (ux, uy, uz) = if let Some(orient) = seg.orientation {
-            let mag = libm::sqrt(orient[0] * orient[0] + orient[1] * orient[1] + orient[2] * orient[2]);
+            let mag =
+                libm::sqrt(orient[0] * orient[0] + orient[1] * orient[1] + orient[2] * orient[2]);
             if mag > 1e-6 {
                 (orient[0] / mag, orient[1] / mag, orient[2] / mag)
             } else {

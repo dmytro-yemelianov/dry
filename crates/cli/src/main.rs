@@ -806,7 +806,6 @@ enum FleetCmd {
     },
 }
 
-
 fn die(msg: String) -> ! {
     eprintln!("error: {msg}");
     std::process::exit(2);
@@ -2685,7 +2684,6 @@ fn run_printer(command: PrinterCmd, source: &str) -> ExitCode {
     }
 }
 
-
 fn first_version(printer: &serde_json::Value) -> Option<&serde_json::Value> {
     printer
         .get("versions")
@@ -2717,7 +2715,6 @@ fn strings_at(value: &serde_json::Value, path: &[&str], field: &str) -> Vec<Stri
         .map(str::to_owned)
         .collect()
 }
-
 
 fn load_profile(path: Option<&str>) -> Option<Profile> {
     path.map(|path| {
@@ -3509,7 +3506,11 @@ fn run_fleet_cmd(_cmd: FleetCmd) -> std::process::ExitCode {
 #[cfg(feature = "moonraker")]
 fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
     match cmd {
-        FleetCmd::Status { url, api_key_env, json } => {
+        FleetCmd::Status {
+            url,
+            api_key_env,
+            json,
+        } => {
             let api_key = std::env::var(&api_key_env).ok();
             let cfg = dry_moonraker::MoonrakerConfig {
                 base_url: url.clone(),
@@ -3532,7 +3533,11 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
                 Err(e) => die(format!("failed to query printer status at {url}: {e}")),
             }
         }
-        FleetCmd::Tune { url, pressure_advance, api_key_env } => {
+        FleetCmd::Tune {
+            url,
+            pressure_advance,
+            api_key_env,
+        } => {
             let api_key = std::env::var(&api_key_env).ok();
             let cfg = dry_moonraker::MoonrakerConfig {
                 base_url: url.clone(),
@@ -3541,7 +3546,9 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
             };
             match dry_moonraker::set_pressure_advance(&cfg, pressure_advance) {
                 Ok(_) => {
-                    println!("Tuned printer at {url}: pressure_advance set to {pressure_advance:.5}");
+                    println!(
+                        "Tuned printer at {url}: pressure_advance set to {pressure_advance:.5}"
+                    );
                     std::process::ExitCode::SUCCESS
                 }
                 Err(e) => die(format!("failed to set pressure advance at {url}: {e}")),
@@ -3549,7 +3556,6 @@ fn run_fleet_cmd(cmd: FleetCmd) -> std::process::ExitCode {
         }
     }
 }
-
 
 #[cfg(feature = "llm")]
 fn run_compare_llm(args: CompareLlmArgs) -> std::process::ExitCode {

@@ -31,8 +31,15 @@ fn test_wrist_singularity_hold() {
     let (tcp_pos, tool_orient) = robot.solve_fk_pose(&prev_joints);
     let result = robot.solve_ik(tcp_pos, tool_orient, &prev_joints);
 
-    assert!(result.is_ok(), "Wrist singularity must be handled gracefully");
+    assert!(
+        result.is_ok(),
+        "Wrist singularity must be handled gracefully"
+    );
     let joints = result.unwrap();
-    assert!((joints.j4_deg - 45.0).abs() < 1e-5, "J4 must hold previous angle (45.0 deg) during wrist singularity, got {}", joints.j4_deg);
+    assert!(
+        (joints.j4_deg - 45.0).abs() < 1e-5,
+        "J4 must hold previous angle (45.0 deg) during wrist singularity, got {}",
+        joints.j4_deg
+    );
     assert!((joints.j5_deg - 0.0).abs() < 1e-5, "J5 must remain 0 deg");
 }

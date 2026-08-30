@@ -272,7 +272,10 @@ mod tests {
             "DRY-LICENSE-V1.e30.e30", // empty JSON object (missing required fields)
         ] {
             assert!(
-                matches!(verify_token(bad, &[("k1", vk)], NOW), Err(LicenseError::Malformed(_))),
+                matches!(
+                    verify_token(bad, &[("k1", vk)], NOW),
+                    Err(LicenseError::Malformed(_))
+                ),
                 "failed on bad token: '{bad}'"
             );
         }
@@ -290,7 +293,10 @@ mod tests {
 
         // Revoked
         let res = verify_token_with_revocation(&tok, &keys, NOW, &["01TEST"]);
-        assert_eq!(res.unwrap_err(), LicenseError::Revoked("01TEST".to_string()));
+        assert_eq!(
+            res.unwrap_err(),
+            LicenseError::Revoked("01TEST".to_string())
+        );
     }
 
     #[test]

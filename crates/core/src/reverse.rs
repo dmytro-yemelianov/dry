@@ -90,7 +90,9 @@ pub fn reverse(toolpath: &Toolpath) -> Result<Design, ReverseError> {
         let speed_val = seg.speed.0;
         if seg.kind != SegmentKind::Dwell
             && speed_val > 0.0
-            && current_speed.map(|s| (s - speed_val).abs() > 1e-6).unwrap_or(true)
+            && current_speed
+                .map(|s| (s - speed_val).abs() > 1e-6)
+                .unwrap_or(true)
         {
             ops.push(Op::Speed { print: speed_val });
             current_speed = Some(speed_val);

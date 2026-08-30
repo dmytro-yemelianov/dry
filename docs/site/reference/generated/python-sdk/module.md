@@ -32,9 +32,17 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `feature` | `def feature(design: Union[Design, Sequence[Op]], pose: Optional[FeaturePose] = None, name: Optional[str] = None) -&gt; FeatureNode` |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
 | `group` | `def group(*children: FeatureNode) -&gt; FeatureNode` |  | Compose feature nodes in source order. |
 | `repeat` | `def repeat(child: FeatureNode, count: int, step: Optional[FeaturePose] = None) -&gt; FeatureNode` |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
+| `tpms_ops` | `def tpms_ops(options: Optional[TpmsOptions] = None) -&gt; List[Op]` |  | Generate TPMS cellular lattice L1 ops from an options dict. |
 | `tpms_gcode` | `def tpms_gcode(options: Optional[TpmsOptions], printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab', kinematics: Optional[str] = None) -&gt; List[str]` | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
 | `pocket_ops` | `def pocket_ops(options: PocketOptions) -&gt; List[Op]` |  | Generate CNC pocket/profile milling L1 ops from an options dict. |
 | `pocket_gcode` | `def pocket_gcode(options: PocketOptions, printer: str = 'generic', relative_e: bool = True, travel_g1_e0: bool = False, five_axis: bool = False, rotary_axes: str = 'ab') -&gt; List[str]` |  | Generate CNC pocket/profile milling g-code from an options dict. |
+| `drape_ops` | `def drape_ops(options: Dict[str, Any]) -&gt; List[Op]` |  | Generate 5-axis conformal mesh draping L1 ops over a 3D triangle mesh. |
+| `parse_obj_mesh` | `def parse_obj_mesh(obj_text: str) -&gt; Dict[str, Any]` |  | Parse Wavefront OBJ format string into a serialized TriangleMesh dict. |
+| `slice_step_solid` | `def slice_step_solid(step_content: str, z_start: float = 0.0, z_end: float = 10.0, layer_height: float = 0.2, samples_per_slice: int = 36, feedrate: float = 1800.0) -&gt; List[Op]` |  | Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals. |
+| `lathe_facing_ops` | `def lathe_facing_ops(params: Dict[str, Any]) -&gt; List[Op]` |  | Generate CNC Lathe Facing L1 ops from parameters dict. |
+| `lathe_turning_ops` | `def lathe_turning_ops(params: Dict[str, Any]) -&gt; List[Op]` |  | Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict. |
+| `check_tool_holder_collision` | `def check_tool_holder_collision(toolpath: Union[Toolpath, Dict[str, Any]], holder: Dict[str, Any], stock_bounds: Sequence[float]) -&gt; List[Dict[str, Any]]` |  | Check toolpath for tool holder collisions against stock volume bounds. |
+| `reverse_toolpath` | `def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -&gt; List[Op]` |  | Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON. |
 
 ### `feature`
 
@@ -87,6 +95,22 @@ def repeat(child: FeatureNode, count: int, step: Optional[FeaturePose] = None) -
 Returns: `FeatureNode`
 
 Repeat a child; instance zero is unchanged and later instances compose ``step``.
+
+### `tpms_ops`
+
+```py
+def tpms_ops(options: Optional[TpmsOptions] = None) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `Optional[TpmsOptions]` | `None` | No |
+
+Returns: `List[Op]`
+
+Generate TPMS cellular lattice L1 ops from an options dict.
 
 ### `tpms_gcode`
 
@@ -162,3 +186,125 @@ def pocket_gcode(options: PocketOptions, printer: str = 'generic', relative_e: b
 Returns: `List[str]`
 
 Generate CNC pocket/profile milling g-code from an options dict.
+
+### `drape_ops`
+
+```py
+def drape_ops(options: Dict[str, Any]) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `Dict[str, Any]` |  | Yes |
+
+Returns: `List[Op]`
+
+Generate 5-axis conformal mesh draping L1 ops over a 3D triangle mesh.
+
+`options` specifies `mesh` (dict with `triangles`), and optional `stepover`, `resolution`,
+`standoffOffset`, `safeZ`, `feedrate`, `plungeFeed`, `pattern` ("raster-x", "raster-y", "zigzag-x").
+
+### `parse_obj_mesh`
+
+```py
+def parse_obj_mesh(obj_text: str) -> Dict[str, Any]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `obj_text` | `str` |  | Yes |
+
+Returns: `Dict[str, Any]`
+
+Parse Wavefront OBJ format string into a serialized TriangleMesh dict.
+
+### `slice_step_solid`
+
+```py
+def slice_step_solid(step_content: str, z_start: float = 0.0, z_end: float = 10.0, layer_height: float = 0.2, samples_per_slice: int = 36, feedrate: float = 1800.0) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `step_content` | `str` |  | Yes |
+| `z_start` | `float` | `0.0` | No |
+| `z_end` | `float` | `10.0` | No |
+| `layer_height` | `float` | `0.2` | No |
+| `samples_per_slice` | `int` | `36` | No |
+| `feedrate` | `float` | `1800.0` | No |
+
+Returns: `List[Op]`
+
+Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals.
+
+### `lathe_facing_ops`
+
+```py
+def lathe_facing_ops(params: Dict[str, Any]) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `params` | `Dict[str, Any]` |  | Yes |
+
+Returns: `List[Op]`
+
+Generate CNC Lathe Facing L1 ops from parameters dict.
+
+### `lathe_turning_ops`
+
+```py
+def lathe_turning_ops(params: Dict[str, Any]) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `params` | `Dict[str, Any]` |  | Yes |
+
+Returns: `List[Op]`
+
+Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict.
+
+### `check_tool_holder_collision`
+
+```py
+def check_tool_holder_collision(toolpath: Union[Toolpath, Dict[str, Any]], holder: Dict[str, Any], stock_bounds: Sequence[float]) -> List[Dict[str, Any]]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Union[Toolpath, Dict[str, Any]]` |  | Yes |
+| `holder` | `Dict[str, Any]` |  | Yes |
+| `stock_bounds` | `Sequence[float]` |  | Yes |
+
+Returns: `List[Dict[str, Any]]`
+
+Check toolpath for tool holder collisions against stock volume bounds.
+
+### `reverse_toolpath`
+
+```py
+def reverse_toolpath(toolpath: Union[Toolpath, Dict[str, Any]]) -> List[Op]
+```
+
+#### Parameters
+
+| Parameter | Annotation | Default | Required |
+| --- | --- | --- | --- |
+| `toolpath` | `Union[Toolpath, Dict[str, Any]]` |  | Yes |
+
+Returns: `List[Op]`
+
+Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON.

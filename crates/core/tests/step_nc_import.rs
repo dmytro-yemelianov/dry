@@ -143,4 +143,3 @@ fn test_parse_and_lower_step_nc_slot_and_peck_drilling() {
     let tp = dry_core::resolve(&design, &dry_core::ResolveParams::default());
     assert!(!tp.segments.is_empty());
 }
-

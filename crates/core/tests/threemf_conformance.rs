@@ -12,8 +12,16 @@ fn iso_astm_52915_3mf_toolpath_full_roundtrip() {
         segments: vec![
             // Segment 0: 5-Axis Conformal Extrusion with width/height/temperature/fan
             Segment {
-                start: [Some(Length::mm(0.0)), Some(Length::mm(0.0)), Some(Length::mm(0.0))],
-                end: [Some(Length::mm(15.0)), Some(Length::mm(20.0)), Some(Length::mm(5.0))],
+                start: [
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                    Some(Length::mm(0.0)),
+                ],
+                end: [
+                    Some(Length::mm(15.0)),
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(5.0)),
+                ],
                 travel: false,
                 speed: Feedrate(2400.0),
                 length: Length::mm(25.4951),
@@ -31,13 +39,25 @@ fn iso_astm_52915_3mf_toolpath_full_roundtrip() {
                 power: None,
                 dwell_s: None,
                 manual_gcode: None,
-                orientation: Some([0.0, std::f64::consts::FRAC_1_SQRT_2, std::f64::consts::FRAC_1_SQRT_2]),
+                orientation: Some([
+                    0.0,
+                    std::f64::consts::FRAC_1_SQRT_2,
+                    std::f64::consts::FRAC_1_SQRT_2,
+                ]),
                 control_points: None,
             },
             // Segment 1: Planar Arc with center
             Segment {
-                start: [Some(Length::mm(15.0)), Some(Length::mm(20.0)), Some(Length::mm(5.0))],
-                end: [Some(Length::mm(25.0)), Some(Length::mm(30.0)), Some(Length::mm(5.0))],
+                start: [
+                    Some(Length::mm(15.0)),
+                    Some(Length::mm(20.0)),
+                    Some(Length::mm(5.0)),
+                ],
+                end: [
+                    Some(Length::mm(25.0)),
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(5.0)),
+                ],
                 travel: false,
                 speed: Feedrate(1800.0),
                 length: Length::mm(15.708),
@@ -60,8 +80,16 @@ fn iso_astm_52915_3mf_toolpath_full_roundtrip() {
             },
             // Segment 2: Dwell
             Segment {
-                start: [Some(Length::mm(25.0)), Some(Length::mm(30.0)), Some(Length::mm(5.0))],
-                end: [Some(Length::mm(25.0)), Some(Length::mm(30.0)), Some(Length::mm(5.0))],
+                start: [
+                    Some(Length::mm(25.0)),
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(5.0)),
+                ],
+                end: [
+                    Some(Length::mm(25.0)),
+                    Some(Length::mm(30.0)),
+                    Some(Length::mm(5.0)),
+                ],
                 travel: false,
                 speed: Feedrate(0.0),
                 length: Length::ZERO,
@@ -87,7 +115,9 @@ fn iso_astm_52915_3mf_toolpath_full_roundtrip() {
 
     let xml = export_3mf_xml(&original);
     assert!(xml.contains("xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\""));
-    assert!(xml.contains("xmlns:tp=\"http://schemas.microsoft.com/3dmanufacturing/toolpath/2022/07\""));
+    assert!(
+        xml.contains("xmlns:tp=\"http://schemas.microsoft.com/3dmanufacturing/toolpath/2022/07\"")
+    );
     assert!(xml.contains("width=\"0.4500\""));
     assert!(xml.contains("height=\"0.2000\""));
     assert!(xml.contains("fan=\"80.0\""));

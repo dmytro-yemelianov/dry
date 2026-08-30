@@ -35,10 +35,18 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `feature` | function | [Module API](/reference/generated/python-sdk/module) |  | Wrap a coordinate-local L1 design/op list as a feature at a planar pose. |
 | `group` | function | [Module API](/reference/generated/python-sdk/module) |  | Compose feature nodes in source order. |
 | `repeat` | function | [Module API](/reference/generated/python-sdk/module) |  | Repeat a child; instance zero is unchanged and later instances compose ``step``. |
+| `tpms_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate TPMS cellular lattice L1 ops from an options dict. |
 | `tpms_gcode` | function | [Module API](/reference/generated/python-sdk/module) | [Generative](/guide/generative) | Generate TPMS infill g-code (a list of lines) from an options dict. |
 | `pocket_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC pocket/profile milling L1 ops from an options dict. |
 | `pocket_gcode` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC pocket/profile milling g-code from an options dict. |
 | `PocketOptions` | type alias | [Module API](/reference/generated/python-sdk/module) |  | `Mapping[str, Any]` |
+| `drape_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate 5-axis conformal mesh draping L1 ops over a 3D triangle mesh. |
+| `parse_obj_mesh` | function | [Module API](/reference/generated/python-sdk/module) |  | Parse Wavefront OBJ format string into a serialized TriangleMesh dict. |
+| `slice_step_solid` | function | [Module API](/reference/generated/python-sdk/module) |  | Slice an ISO 10303-21 STEP CAD solid directly into L1 ops with analytical surface normals. |
+| `lathe_facing_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC Lathe Facing L1 ops from parameters dict. |
+| `lathe_turning_ops` | function | [Module API](/reference/generated/python-sdk/module) |  | Generate CNC Lathe OD Turning (roughing & finishing) L1 ops from parameters dict. |
+| `check_tool_holder_collision` | function | [Module API](/reference/generated/python-sdk/module) |  | Check toolpath for tool holder collisions against stock volume bounds. |
+| `reverse_toolpath` | function | [Module API](/reference/generated/python-sdk/module) |  | Reverse-engineer an L1 Design op list from a resolved L2 Toolpath dict/JSON. |
 | `mm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
 | `cm` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
 | `inch` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
@@ -52,3 +60,6 @@ Generated from `py/python/dry/__init__.py` using Python AST extraction.
 | `MachineProfile` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
 | `MachineCatalog` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
 | `BUILTIN_MACHINES` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `toolpath_to_obj` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `toolpath_to_svg` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |
+| `toolpath_to_interactive_html` | value | [Module API](/reference/generated/python-sdk/module) |  | Declared in the public API. |

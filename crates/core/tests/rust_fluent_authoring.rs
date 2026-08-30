@@ -29,7 +29,9 @@ fn test_fluent_rust_authoring_square_and_arc() {
         retraction_distance: Some(1.2),
     };
 
-    let toolpath = design.resolve(&params).expect("Fluent design should resolve cleanly");
+    let toolpath = design
+        .resolve(&params)
+        .expect("Fluent design should resolve cleanly");
     assert!(!toolpath.segments.is_empty());
 
     let metrics = simulate(&toolpath);
@@ -49,6 +51,11 @@ fn test_fluent_5axis_and_clothoid_authoring() {
     assert_eq!(design.ops.len(), 5);
 
     let params = ResolveParams::default();
-    let toolpath = design.resolve(&params).expect("5-axis clothoid design should resolve");
-    assert!(toolpath.segments.len() > 10, "Clothoid blend should produce fine segment spans");
+    let toolpath = design
+        .resolve(&params)
+        .expect("5-axis clothoid design should resolve");
+    assert!(
+        toolpath.segments.len() > 10,
+        "Clothoid blend should produce fine segment spans"
+    );
 }

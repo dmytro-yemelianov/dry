@@ -23,13 +23,17 @@ async fn test_concurrent_verify_load_benchmark() {
     std::env::set_var("DRY_LICENSE_ALLOW_TEST_KEY", "1");
 
     // Start an asynchronous local stub profile registry
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind stub registry");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind stub registry");
     let port = listener.local_addr().unwrap().port();
     let registry_url = format!("http://127.0.0.1:{port}");
 
     let registry_handle = tokio::spawn(async move {
         loop {
-            let Ok((mut socket, _)) = listener.accept().await else { break };
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
             tokio::spawn(async move {
                 let mut buf = [0u8; 1024];
                 let _ = socket.read(&mut buf).await;
@@ -93,7 +97,10 @@ async fn test_concurrent_verify_load_benchmark() {
 
                 if response.status() == StatusCode::OK {
                     success.fetch_add(1, Ordering::Relaxed);
-                    latencies.lock().unwrap().push(duration.as_micros() as f64 / 1000.0);
+                    latencies
+                        .lock()
+                        .unwrap()
+                        .push(duration.as_micros() as f64 / 1000.0);
                 }
             }
         }));
@@ -106,7 +113,10 @@ async fn test_concurrent_verify_load_benchmark() {
 
     let total_duration = bench_start.elapsed();
     let successes = success_count.load(Ordering::Relaxed);
-    assert_eq!(successes as usize, total_requests, "All load requests must succeed with 200 OK");
+    assert_eq!(
+        successes as usize, total_requests,
+        "All load requests must succeed with 200 OK"
+    );
 
     let mut lat_vec = latencies_ms.lock().unwrap().clone();
     lat_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -128,5 +138,8 @@ async fn test_concurrent_verify_load_benchmark() {
          =============================================\n"
     );
 
-    assert!(p99 < 500.0, "p99 latency should be under 500ms for small files under local load");
+    assert!(
+        p99 < 500.0,
+        "p99 latency should be under 500ms for small files under local load"
+    );
 }

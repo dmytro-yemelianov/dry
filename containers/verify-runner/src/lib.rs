@@ -86,17 +86,17 @@ pub const PRODUCTION_KEYS: &[(&str, [u8; 32])] = &[
     (
         "prod-1",
         [
-            0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41, 0x60,
-            0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03, 0x5f, 0x37,
-            0x7b, 0xcd,
+            0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41,
+            0x60, 0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03,
+            0x5f, 0x37, 0x7b, 0xcd,
         ],
     ),
     (
         "dry-prod-2026-08",
         [
-            0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41, 0x60,
-            0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03, 0x5f, 0x37,
-            0x7b, 0xcd,
+            0x4c, 0x0b, 0x77, 0xdc, 0x2f, 0x2d, 0xb6, 0x9f, 0xc5, 0xdf, 0xb5, 0xef, 0xf8, 0x41,
+            0x60, 0x76, 0xfd, 0x5c, 0xd0, 0xfa, 0x69, 0x3b, 0x24, 0x3a, 0x31, 0x59, 0x66, 0x03,
+            0x5f, 0x37, 0x7b, 0xcd,
         ],
     ),
 ];
@@ -208,10 +208,13 @@ async fn request_id_middleware(request: Request, next: axum::middleware::Next) -
             format!("req-{ts:x}-{seq:x}")
         });
 
-    let header_val = HeaderValue::from_str(&req_id).unwrap_or_else(|_| HeaderValue::from_static("unknown"));
+    let header_val =
+        HeaderValue::from_str(&req_id).unwrap_or_else(|_| HeaderValue::from_static("unknown"));
 
     let mut response = next.run(request).await;
-    response.headers_mut().insert(X_REQUEST_ID.clone(), header_val);
+    response
+        .headers_mut()
+        .insert(X_REQUEST_ID.clone(), header_val);
     response
 }
 
@@ -279,14 +282,35 @@ async fn metrics_handler(State(state): State<Arc<AppState>>) -> impl IntoRespons
     let total = state.metrics.requests_total.load(Ordering::Relaxed);
     let success = state.metrics.requests_success.load(Ordering::Relaxed);
     let error = state.metrics.requests_error.load(Ordering::Relaxed);
-    let err_profile = state.metrics.requests_error_profile_unavailable.load(Ordering::Relaxed);
-    let err_input = state.metrics.requests_error_input_invalid.load(Ordering::Relaxed);
-    let err_engine = state.metrics.requests_error_engine_error.load(Ordering::Relaxed);
-    let err_auth = state.metrics.requests_error_unauthorized.load(Ordering::Relaxed);
-    let err_ratelimit = state.metrics.requests_error_rate_limited.load(Ordering::Relaxed);
+    let err_profile = state
+        .metrics
+        .requests_error_profile_unavailable
+        .load(Ordering::Relaxed);
+    let err_input = state
+        .metrics
+        .requests_error_input_invalid
+        .load(Ordering::Relaxed);
+    let err_engine = state
+        .metrics
+        .requests_error_engine_error
+        .load(Ordering::Relaxed);
+    let err_auth = state
+        .metrics
+        .requests_error_unauthorized
+        .load(Ordering::Relaxed);
+    let err_ratelimit = state
+        .metrics
+        .requests_error_rate_limited
+        .load(Ordering::Relaxed);
     let active = state.metrics.active_requests.load(Ordering::Relaxed);
-    let segments = state.metrics.segments_inspected_total.load(Ordering::Relaxed);
-    let duration_ms = state.metrics.request_duration_ms_total.load(Ordering::Relaxed);
+    let segments = state
+        .metrics
+        .segments_inspected_total
+        .load(Ordering::Relaxed);
+    let duration_ms = state
+        .metrics
+        .request_duration_ms_total
+        .load(Ordering::Relaxed);
 
     let prometheus_text = format!(
         "# HELP dry_verify_requests_total Total number of verify requests processed\n\
@@ -314,7 +338,10 @@ async fn metrics_handler(State(state): State<Arc<AppState>>) -> impl IntoRespons
 
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4",
+        )],
         prometheus_text,
     )
 }
@@ -396,7 +423,10 @@ async fn verify_handler(
 ) -> Response {
     let start_time = Instant::now();
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
-    state.metrics.active_requests.fetch_add(1, Ordering::Relaxed);
+    state
+        .metrics
+        .active_requests
+        .fetch_add(1, Ordering::Relaxed);
 
     struct ActiveGuard(Arc<ServerMetrics>);
     impl Drop for ActiveGuard {
@@ -423,16 +453,23 @@ async fn verify_handler(
         Some(header) if header.starts_with("Bearer ") || header.starts_with("bearer ") => {
             let token = header[7..].trim();
             let keys = license_keys();
-            match dry_license::verify_token_with_revocation(token, &keys, now_unix(), &revoked_ids) {
+            match dry_license::verify_token_with_revocation(token, &keys, now_unix(), &revoked_ids)
+            {
                 Ok(verified) => match verified.state {
                     dry_license::LicenseState::Expired => {
                         state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-                        state.metrics.requests_error_unauthorized.fetch_add(1, Ordering::Relaxed);
+                        state
+                            .metrics
+                            .requests_error_unauthorized
+                            .fetch_add(1, Ordering::Relaxed);
                         tracing::warn!(licensee = %verified.payload.licensee, "license expired past grace period");
                         return error_response(
                             StatusCode::UNAUTHORIZED,
                             Stage::InputInvalid,
-                            format!("license for {} expired and is past grace period", verified.payload.licensee),
+                            format!(
+                                "license for {} expired and is past grace period",
+                                verified.payload.licensee
+                            ),
                         );
                     }
                     _ => {
@@ -448,7 +485,10 @@ async fn verify_handler(
                 },
                 Err(err) => {
                     state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-                    state.metrics.requests_error_unauthorized.fetch_add(1, Ordering::Relaxed);
+                    state
+                        .metrics
+                        .requests_error_unauthorized
+                        .fetch_add(1, Ordering::Relaxed);
                     tracing::warn!(error = %err, "invalid or revoked license token");
                     return error_response(
                         StatusCode::UNAUTHORIZED,
@@ -460,7 +500,10 @@ async fn verify_handler(
         }
         Some(_) => {
             state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-            state.metrics.requests_error_unauthorized.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .requests_error_unauthorized
+                .fetch_add(1, Ordering::Relaxed);
             return error_response(
                 StatusCode::UNAUTHORIZED,
                 Stage::InputInvalid,
@@ -474,9 +517,15 @@ async fn verify_handler(
     };
 
     // 0.1 Rate Limiting Check
-    if !state.rate_limiter.check_and_record(&client_key, rpm_limit, Instant::now()) {
+    if !state
+        .rate_limiter
+        .check_and_record(&client_key, rpm_limit, Instant::now())
+    {
         state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-        state.metrics.requests_error_rate_limited.fetch_add(1, Ordering::Relaxed);
+        state
+            .metrics
+            .requests_error_rate_limited
+            .fetch_add(1, Ordering::Relaxed);
         tracing::warn!(client = %client_key, limit = rpm_limit, "rate limit exceeded");
         let mut resp = error_response(
             StatusCode::TOO_MANY_REQUESTS,
@@ -539,7 +588,10 @@ async fn verify_handler(
     let mut reader = StreamReader::new(data_stream);
     if let Err(e) = tokio::io::copy(&mut reader, &mut sink).await {
         state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-        state.metrics.requests_error_input_invalid.fetch_add(1, Ordering::Relaxed);
+        state
+            .metrics
+            .requests_error_input_invalid
+            .fetch_add(1, Ordering::Relaxed);
         tracing::warn!(error = %e, "failed reading request body");
         // Covers both a genuinely malformed/truncated stream AND `RequestBodyLimitLayer` rejecting
         // an over-cap body (surfaced here as a stream read error, not a separate rejection type) —
@@ -568,7 +620,10 @@ async fn verify_handler(
         Ok(profile) => profile,
         Err(message) => {
             state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-            state.metrics.requests_error_profile_unavailable.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .requests_error_profile_unavailable
+                .fetch_add(1, Ordering::Relaxed);
             tracing::warn!(url = %profile_url, error = %message, "failed to fetch profile");
             return error_response(StatusCode::BAD_GATEWAY, Stage::ProfileUnavailable, message);
         }
@@ -580,7 +635,10 @@ async fn verify_handler(
         Some(p) => p.to_path_buf(),
         None => {
             state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-            state.metrics.requests_error_engine_error.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .requests_error_engine_error
+                .fetch_add(1, Ordering::Relaxed);
             return error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Stage::EngineError,
@@ -588,13 +646,17 @@ async fn verify_handler(
             );
         }
     };
-    let outcome = tokio::task::spawn_blocking(move || run_verify(&path, &profile, license_stamp)).await;
+    let outcome =
+        tokio::task::spawn_blocking(move || run_verify(&path, &profile, license_stamp)).await;
     ephemeral.close(); // Explicitly delete the ephemeral file as soon as reading finishes.
 
     match outcome {
         Ok(Ok((report_bytes, segment_count))) => {
             let elapsed = start_time.elapsed();
-            state.metrics.requests_success.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .requests_success
+                .fetch_add(1, Ordering::Relaxed);
             state
                 .metrics
                 .segments_inspected_total
@@ -624,13 +686,22 @@ async fn verify_handler(
             state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
             match stage {
                 Stage::InputInvalid => {
-                    state.metrics.requests_error_input_invalid.fetch_add(1, Ordering::Relaxed);
+                    state
+                        .metrics
+                        .requests_error_input_invalid
+                        .fetch_add(1, Ordering::Relaxed);
                 }
                 Stage::EngineError => {
-                    state.metrics.requests_error_engine_error.fetch_add(1, Ordering::Relaxed);
+                    state
+                        .metrics
+                        .requests_error_engine_error
+                        .fetch_add(1, Ordering::Relaxed);
                 }
                 Stage::ProfileUnavailable => {
-                    state.metrics.requests_error_profile_unavailable.fetch_add(1, Ordering::Relaxed);
+                    state
+                        .metrics
+                        .requests_error_profile_unavailable
+                        .fetch_add(1, Ordering::Relaxed);
                 }
             }
             let status = match stage {
@@ -648,7 +719,10 @@ async fn verify_handler(
         }
         Err(join_error) => {
             state.metrics.requests_error.fetch_add(1, Ordering::Relaxed);
-            state.metrics.requests_error_engine_error.fetch_add(1, Ordering::Relaxed);
+            state
+                .metrics
+                .requests_error_engine_error
+                .fetch_add(1, Ordering::Relaxed);
             tracing::error!(error = %join_error, "blocking verify task panicked");
             error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -741,8 +815,10 @@ fn run_verify(
 
     let params = profile.gcode_import_params();
 
-    let imported_res = catch_unwind(AssertUnwindSafe(|| import_gcode_reader_with_map(file, &params)))
-        .map_err(|_| (Stage::EngineError, "dry-core import panicked".to_string()))?;
+    let imported_res = catch_unwind(AssertUnwindSafe(|| {
+        import_gcode_reader_with_map(file, &params)
+    }))
+    .map_err(|_| (Stage::EngineError, "dry-core import panicked".to_string()))?;
     let imported = imported_res.map_err(|e| (Stage::InputInvalid, e.to_string()))?;
 
     let segment_count = imported.toolpath.segments.len();

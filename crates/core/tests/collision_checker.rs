@@ -165,4 +165,3 @@ fn test_stepped_tapered_toolholder_collision() {
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].code, "TOOL_HOLDER_COLLISION");
 }
-

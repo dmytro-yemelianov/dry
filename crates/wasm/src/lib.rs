@@ -475,8 +475,7 @@ pub fn import_step_nc_to_ops(step_nc_text: &str) -> Result<String, JsError> {
 pub fn generate_lathe_facing_ops_wasm(params_json: &str) -> Result<String, JsError> {
     let params: dry_core::LatheFacingParams = serde_json::from_str(params_json)
         .map_err(|e| JsError::new(&format!("lathe facing params: {e}")))?;
-    let ops = dry_core::generate_lathe_facing_ops(&params)
-        .map_err(|e| JsError::new(&e))?;
+    let ops = dry_core::generate_lathe_facing_ops(&params).map_err(|e| JsError::new(&e))?;
     serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -485,8 +484,7 @@ pub fn generate_lathe_facing_ops_wasm(params_json: &str) -> Result<String, JsErr
 pub fn generate_lathe_od_turning_ops_wasm(params_json: &str) -> Result<String, JsError> {
     let params: dry_core::LatheTurningParams = serde_json::from_str(params_json)
         .map_err(|e| JsError::new(&format!("lathe turning params: {e}")))?;
-    let ops = dry_core::generate_lathe_od_turning_ops(&params)
-        .map_err(|e| JsError::new(&e))?;
+    let ops = dry_core::generate_lathe_od_turning_ops(&params).map_err(|e| JsError::new(&e))?;
     serde_json::to_string(&ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -497,12 +495,15 @@ pub fn check_tool_holder_collision_wasm(
     holder_json: &str,
     stock_bounds_json: &str,
 ) -> Result<String, JsError> {
-    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
-        .map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
+    let toolpath: dry_core::Toolpath =
+        serde_json::from_str(toolpath_json).map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
     let holder: dry_core::ToolHolder = serde_json::from_str(holder_json)
         .map_err(|e| JsError::new(&format!("tool holder: {e}")))?;
-    let stock_bounds: [f64; 6] = serde_json::from_str(stock_bounds_json)
-        .map_err(|e| JsError::new(&format!("stock bounds [min_x, max_x, min_y, max_y, min_z, max_z]: {e}")))?;
+    let stock_bounds: [f64; 6] = serde_json::from_str(stock_bounds_json).map_err(|e| {
+        JsError::new(&format!(
+            "stock bounds [min_x, max_x, min_y, max_y, min_z, max_z]: {e}"
+        ))
+    })?;
     let findings = dry_core::check_tool_holder_collision(&toolpath, &holder, stock_bounds);
     serde_json::to_string(&findings).map_err(|e| JsError::new(&e.to_string()))
 }
@@ -510,10 +511,9 @@ pub fn check_tool_holder_collision_wasm(
 /// Reverse-engineer an L1 Design JSON from a resolved L2 Toolpath JSON.
 #[wasm_bindgen]
 pub fn reverse_toolpath_wasm(toolpath_json: &str) -> Result<String, JsError> {
-    let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
-        .map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
-    let design = dry_core::reverse::reverse(&toolpath)
-        .map_err(|e| JsError::new(&e.to_string()))?;
+    let toolpath: dry_core::Toolpath =
+        serde_json::from_str(toolpath_json).map_err(|e| JsError::new(&format!("toolpath: {e}")))?;
+    let design = dry_core::reverse::reverse(&toolpath).map_err(|e| JsError::new(&e.to_string()))?;
     serde_json::to_string(&design.ops).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -626,8 +626,9 @@ pub fn simulate_dexel_stock_wasm(
 ) -> Result<String, JsError> {
     let (d, p) = parse(ops_json, params_json)?;
     let tp = resolve_checked(&d, &p).map_err(|e| JsError::new(&e.to_string()))?;
-    let mut stock = dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
-        .map_err(|e| JsError::new(&e))?;
+    let mut stock =
+        dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
+            .map_err(|e| JsError::new(&e))?;
     stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
     let report = stock.generate_report();
     serde_json::to_string(&report).map_err(|e| JsError::new(&e.to_string()))
@@ -636,19 +637,23 @@ pub fn simulate_dexel_stock_wasm(
 /// Calculate minimum Euclidean distance between two 3D line segments in Wasm.
 #[wasm_bindgen]
 pub fn segment_to_segment_distance_3d_wasm(
-    p1: Box<[f64]>,
-    p2: Box<[f64]>,
-    q1: Box<[f64]>,
-    q2: Box<[f64]>,
+    p1: &[f64],
+    p2: &[f64],
+    q1: &[f64],
+    q2: &[f64],
 ) -> Result<f64, JsError> {
     if p1.len() < 3 || p2.len() < 3 || q1.len() < 3 || q2.len() < 3 {
-        return Err(JsError::new("Each segment point must have at least 3 coordinates [x, y, z]"));
+        return Err(JsError::new(
+            "Each segment point must have at least 3 coordinates [x, y, z]",
+        ));
     }
     let p1_arr = [p1[0], p1[1], p1[2]];
     let p2_arr = [p2[0], p2[1], p2[2]];
     let q1_arr = [q1[0], q1[1], q1[2]];
     let q2_arr = [q2[0], q2[1], q2[2]];
-    Ok(dry_core::segment_to_segment_distance_3d(p1_arr, p2_arr, q1_arr, q2_arr))
+    Ok(dry_core::segment_to_segment_distance_3d(
+        p1_arr, p2_arr, q1_arr, q2_arr,
+    ))
 }
 
 #[cfg(test)]

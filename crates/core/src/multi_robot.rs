@@ -371,4 +371,3 @@ mod tests {
         assert!(slave_lines[1].contains("WAIT FOR $FLAG[10]"));
     }
 }
-

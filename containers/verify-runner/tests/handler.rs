@@ -749,7 +749,12 @@ async fn request_id_is_propagated_or_generated() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    let echoed_id = response.headers().get("x-request-id").unwrap().to_str().unwrap();
+    let echoed_id = response
+        .headers()
+        .get("x-request-id")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert_eq!(echoed_id, "test-custom-trace-id-12345");
 
     // 2. Generated when omitted
@@ -764,7 +769,12 @@ async fn request_id_is_propagated_or_generated() {
         .unwrap();
 
     assert_eq!(response2.status(), StatusCode::OK);
-    let gen_id = response2.headers().get("x-request-id").unwrap().to_str().unwrap();
+    let gen_id = response2
+        .headers()
+        .get("x-request-id")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(gen_id.starts_with("req-"));
 }
 
@@ -818,7 +828,10 @@ async fn verify_with_invalid_bearer_token_returns_401_unauthorized() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     let json = response_json(response).await;
     assert_eq!(json["stage"], "input-invalid");
-    assert!(json["error"].as_str().unwrap().contains("invalid license token"));
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("invalid license token"));
 }
 
 #[tokio::test]
@@ -840,7 +853,10 @@ async fn verify_with_revoked_bearer_token_returns_401_unauthorized() {
     let _allow = EnvVarGuard::apply(&[
         ("ALLOWED_REGISTRY_HOST", Some(LOOPBACK_HOST)),
         ("DRY_LICENSE_ALLOW_TEST_KEY", Some("1")),
-        ("DRY_LICENSE_REVOKED_IDS", Some("01TESTFIXTURE,OTHER_REVOKED")),
+        (
+            "DRY_LICENSE_REVOKED_IDS",
+            Some("01TESTFIXTURE,OTHER_REVOKED"),
+        ),
     ]);
     let valid_token = "DRY-LICENSE-V1.eyJpZCI6IjAxVEVTVEZJWFRVUkUiLCJsaWNlbnNlZSI6IlRlc3QgQ28iLCJlbWFpbCI6InRAZXhhbXBsZS5jb20iLCJ0aWVyIjoidGVhbSIsIm1hY2hpbmVzIjoyNSwiaXNzdWVkIjoiMjAyNi0wNy0yOCIsImV4cGlyZXMiOiIyMTAwLTAxLTAxIiwiaXNzdWVkX3VuaXgiOjE3ODUwMDAwMDAsImV4cGlyZXNfdW5peCI6NDEwMjQ0NDgwMCwia2V5X2lkIjoidGVzdC0xIn0.zvNIVMZ_Ox-L2Aqa9wlDdtQfdEnqPvw2VqlOjMVmt4d679DVKd_dm79uT99H_zh9O-7Hfv459PhhuiDBuiZ2BQ";
 
@@ -859,4 +875,3 @@ async fn verify_with_revoked_bearer_token_returns_401_unauthorized() {
     assert_eq!(json["stage"], "input-invalid");
     assert!(json["error"].as_str().unwrap().contains("revoked"));
 }
-

@@ -279,12 +279,8 @@ fn post(
     }
 }
 
-fn get(
-    cfg: &MoonrakerConfig,
-    path: &str,
-) -> Result<serde_json::Value, MoonrakerError> {
-    let mut req = ureq::get(&join_url(&cfg.base_url, path))
-        .timeout(cfg.timeout);
+fn get(cfg: &MoonrakerConfig, path: &str) -> Result<serde_json::Value, MoonrakerError> {
+    let mut req = ureq::get(&join_url(&cfg.base_url, path)).timeout(cfg.timeout);
     if let Some(k) = &cfg.api_key {
         req = req.set("X-Api-Key", k);
     }
@@ -401,7 +397,9 @@ fn decode_printer_status(v: &serde_json::Value) -> Result<PrinterLiveStatus, Moo
     let status = v
         .get("result")
         .and_then(|r| r.get("status"))
-        .ok_or_else(|| MoonrakerError::Decode("missing result.status in Moonraker response".into()))?;
+        .ok_or_else(|| {
+            MoonrakerError::Decode("missing result.status in Moonraker response".into())
+        })?;
 
     let state = status
         .get("print_stats")
@@ -510,12 +508,7 @@ pub fn parse_websocket_event(json_text: &str) -> Result<PrinterEvent, MoonrakerE
 
 /// Emergency stop trigger (M112 shutdown via Moonraker `/printer/emergency_stop`). Network.
 pub fn emergency_stop(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
-    let response = post(
-        cfg,
-        "/printer/emergency_stop",
-        "application/json",
-        b"{}",
-    )?;
+    let response = post(cfg, "/printer/emergency_stop", "application/json", b"{}")?;
     if response.get("error").is_some() {
         let msg = response["error"]["message"]
             .as_str()
@@ -527,12 +520,7 @@ pub fn emergency_stop(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
 
 /// Pause the currently active print job via `/printer/print/pause`. Network.
 pub fn pause_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
-    let response = post(
-        cfg,
-        "/printer/print/pause",
-        "application/json",
-        b"{}",
-    )?;
+    let response = post(cfg, "/printer/print/pause", "application/json", b"{}")?;
     if response.get("error").is_some() {
         let msg = response["error"]["message"]
             .as_str()
@@ -544,12 +532,7 @@ pub fn pause_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
 
 /// Resume a paused print job via `/printer/print/resume`. Network.
 pub fn resume_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
-    let response = post(
-        cfg,
-        "/printer/print/resume",
-        "application/json",
-        b"{}",
-    )?;
+    let response = post(cfg, "/printer/print/resume", "application/json", b"{}")?;
     if response.get("error").is_some() {
         let msg = response["error"]["message"]
             .as_str()
@@ -561,12 +544,7 @@ pub fn resume_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
 
 /// Cancel the active print job via `/printer/print/cancel`. Network.
 pub fn cancel_print(cfg: &MoonrakerConfig) -> Result<bool, MoonrakerError> {
-    let response = post(
-        cfg,
-        "/printer/print/cancel",
-        "application/json",
-        b"{}",
-    )?;
+    let response = post(cfg, "/printer/print/cancel", "application/json", b"{}")?;
     if response.get("error").is_some() {
         let msg = response["error"]["message"]
             .as_str()
@@ -594,7 +572,10 @@ pub fn subscribe_objects_rpc(request_id: u64, objects: &[&str]) -> String {
 }
 
 /// Stream a chunk of G-code commands to Moonraker `/printer/gcode/script`. Network.
-pub fn stream_gcode_chunk(cfg: &MoonrakerConfig, gcode_lines: &[String]) -> Result<usize, MoonrakerError> {
+pub fn stream_gcode_chunk(
+    cfg: &MoonrakerConfig,
+    gcode_lines: &[String],
+) -> Result<usize, MoonrakerError> {
     if gcode_lines.is_empty() {
         return Ok(0);
     }
@@ -833,7 +814,8 @@ mod tests {
                 1725000000.0
             ]
         }"#;
-        let parsed = parse_websocket_event(event_json).expect("should parse websocket status event");
+        let parsed =
+            parse_websocket_event(event_json).expect("should parse websocket status event");
         match parsed {
             PrinterEvent::StatusUpdate {
                 state,
@@ -910,5 +892,3 @@ mod tests {
         assert_eq!(anomalies_bad[0].severity, "critical");
     }
 }
-
-

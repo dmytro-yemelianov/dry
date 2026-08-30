@@ -391,7 +391,8 @@ fn drape_ops_json(options_json: &str) -> PyResult<String> {
 /// Parse OBJ text into serialized TriangleMesh JSON.
 #[pyfunction]
 fn parse_obj_mesh_json(obj_text: &str) -> PyResult<String> {
-    let mesh = TriangleMesh::from_obj(obj_text).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let mesh =
+        TriangleMesh::from_obj(obj_text).map_err(|e| PyValueError::new_err(e.to_string()))?;
     serde_json::to_string(&mesh).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -418,8 +419,7 @@ fn slice_step_solid_json(
 fn lathe_facing_ops_json(params_json: &str) -> PyResult<String> {
     let params: dry_core::LatheFacingParams = serde_json::from_str(params_json)
         .map_err(|e| PyValueError::new_err(format!("invalid lathe facing params: {e}")))?;
-    let ops = dry_core::generate_lathe_facing_ops(&params)
-        .map_err(PyValueError::new_err)?;
+    let ops = dry_core::generate_lathe_facing_ops(&params).map_err(PyValueError::new_err)?;
     serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -428,8 +428,7 @@ fn lathe_facing_ops_json(params_json: &str) -> PyResult<String> {
 fn lathe_od_turning_ops_json(params_json: &str) -> PyResult<String> {
     let params: dry_core::LatheTurningParams = serde_json::from_str(params_json)
         .map_err(|e| PyValueError::new_err(format!("invalid lathe turning params: {e}")))?;
-    let ops = dry_core::generate_lathe_od_turning_ops(&params)
-        .map_err(PyValueError::new_err)?;
+    let ops = dry_core::generate_lathe_od_turning_ops(&params).map_err(PyValueError::new_err)?;
     serde_json::to_string(&ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -455,8 +454,8 @@ fn check_tool_holder_collision_json(
 fn reverse_toolpath_json(toolpath_json: &str) -> PyResult<String> {
     let toolpath: dry_core::Toolpath = serde_json::from_str(toolpath_json)
         .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
-    let design = dry_core::reverse::reverse(&toolpath)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let design =
+        dry_core::reverse::reverse(&toolpath).map_err(|e| PyValueError::new_err(e.to_string()))?;
     serde_json::to_string(&design.ops).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -554,8 +553,9 @@ fn simulate_dexel_stock_json(
 ) -> PyResult<String> {
     let tp: dry_core::Toolpath = serde_json::from_str(toolpath_json)
         .map_err(|e| PyValueError::new_err(format!("invalid toolpath: {e}")))?;
-    let mut stock = dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let mut stock =
+        dry_core::DexelGrid::new_stock(min_x, min_y, min_z, max_x, max_y, max_z, resolution_mm)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
     stock.simulate_toolpath(&tp, tool_radius, is_ballnose);
     let report = stock.generate_report();
     serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
@@ -600,5 +600,3 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(resolve_verify, m)?)?;
     Ok(())
 }
-
-
