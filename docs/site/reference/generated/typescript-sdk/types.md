@@ -311,6 +311,70 @@ Declared in the public API.
 | `max_height_mm` | `number` | Yes | Declared in the public API. |
 
 
+## `drapeOps`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function drapeOps(options: DrapeOptions): Op[]
+```
+
+Project a conformal 5-axis toolpath over a triangle mesh (BVH-accelerated ray casting).
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `options` | `DrapeOptions` |  | Yes |
+
+Returns: `Op[]`
+
+
+## `DrapeOptions`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export interface DrapeOptions
+```
+
+Options for {@link drapeOps}. `mesh` is a serialized `TriangleMesh` — use {@link parseObjMesh} to
+build one from OBJ text.
+
+
+### Fields
+
+| Field | Type | Required | Summary |
+| --- | --- | --- | --- |
+| `mesh` | `unknown` | Yes | Declared in the public API. |
+| `pattern` | `DrapePattern` | No | Declared in the public API. |
+| `x_range` | `[number, number] \| null` | No | Declared in the public API. |
+| `y_range` | `[number, number] \| null` | No | Declared in the public API. |
+| `stepover` | `number` | Yes | Declared in the public API. |
+| `resolution` | `number` | Yes | Declared in the public API. |
+| `standoff_offset` | `number` | Yes | Declared in the public API. |
+| `safe_z` | `number \| null` | No | Declared in the public API. |
+| `feedrate` | `number` | Yes | Declared in the public API. |
+| `plunge_feed` | `number` | Yes | Declared in the public API. |
+| `width` | `number` | Yes | Declared in the public API. |
+| `height` | `number` | Yes | Declared in the public API. |
+
+
+## `DrapePattern`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export type DrapePattern = | 'raster-x'
+  | 'raster-y'
+  | 'zigzag-x'
+  | 'zigzag-y'
+  | 'spiral-concentric'
+```
+
+Toolpath patterns `drapeOps` can project over a mesh.
+
+
 ## `expandFeatures`
 
 Source: `sdk/ts/src/engine.ts`
@@ -1171,6 +1235,25 @@ Apply the synchronised 5-axis jerk-limited lookahead optimiser to a resolved too
 Returns: `unknown`
 
 
+## `parseObjMesh`
+
+Source: `sdk/ts/src/engine.ts`
+
+```ts
+export function parseObjMesh(objText: string): unknown
+```
+
+Parse OBJ text into the serialized `TriangleMesh` that {@link DrapeOptions.mesh} expects.
+
+### Parameters
+
+| Parameter | Type | Default | Required |
+| --- | --- | --- | --- |
+| `objText` | `string` |  | Yes |
+
+Returns: `unknown`
+
+
 ## `PassSegmentGroup`
 
 Source: `sdk/ts/src/visualizer.ts`
@@ -1199,7 +1282,8 @@ Source: `sdk/ts/src/engine.ts`
 export interface PhysicsAnalysisReport
 ```
 
-Declared in the public API.
+True when a clamp bound the result, so `shear_temperature_c` or `estimated_tool_life_min` is a
+guardrail rather than a computed value. Check it before reading either as a prediction.
 
 
 ### Fields
@@ -1217,6 +1301,7 @@ Declared in the public API.
 | `estimated_tool_life_min` | `number` | Yes | Declared in the public API. |
 | `surface_roughness_ra_um` | `number` | Yes | Declared in the public API. |
 | `chatter_risk` | `boolean` | Yes | Declared in the public API. |
+| `model_saturated` | `boolean` | Yes | True when a clamp bound the result, so `shear_temperature_c` or `estimated_tool_life_min` is a guardrail rather than a computed value. |
 
 
 ## `Point3D`

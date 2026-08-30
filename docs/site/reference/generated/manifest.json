@@ -3,7 +3,7 @@
   "sources": {
     "tsIndex": {
       "path": "sdk/ts/src/index.ts",
-      "sha256": "80dc663a50c7af3ed7a11cc3b4727832e25f9c8e640cd9241c26915549875e79"
+      "sha256": "fc16761ddbda46b033d6c4a2238b4de056467e194175cc09803dd76ce9344a00"
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
