@@ -64,6 +64,17 @@ There is **no signing-key secret to set.** The licence verifying keys are compil
 (`PRODUCTION_KEYS`), and the test key is accepted only under `cfg!(debug_assertions)` — a release
 binary will not honour one.
 
+## Before the account exists
+
+The deploy workflow is safe to merge without any of the above. Its `deploy` job checks for
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` and, when they are absent, **skips with a notice
+instead of failing** — so `main` does not go red waiting for an account. The `verify` and `config`
+jobs still run on every change, so the container's tests and both wrangler configs stay checked
+whether or not anything is deployed.
+
+An unconfigured deploy is a skip. A configured deploy that fails is a failure. Keeping those distinct
+is the point: a workflow that is always red says nothing.
+
 ## Deploying
 
 CI does this: staging on merge to `main`, production on a `v*` tag
