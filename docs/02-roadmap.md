@@ -104,8 +104,11 @@ and the `crates/cloud` spike); observability; authentication, quota and revocati
 with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a
 data-handling policy for uploaded programs, which are customer IP.
 
-**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). Note that "no hosted
-service" is a legitimate outcome — the CLI ships today — and choosing it removes most of this track.
+**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). **D1 is decided as of
+2026-08-31** ([ADR 0003](adr/0003-hosted-verification-service.md)): there will be a hosted service,
+and it is `containers/verify-runner` deployed as a container image. "No hosted service" is therefore
+no longer an available outcome, and D4 — nothing deploys the image CI already publishes — is the head
+of the remaining track.
 
 ## Phase 6 — Stand alone (retire the oracle)
 **Goal:** Dry is the product; the FullControl oracle is no longer needed.
