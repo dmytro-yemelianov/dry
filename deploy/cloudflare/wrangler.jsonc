@@ -1,0 +1,86 @@
+{
+  // Cloudflare Containers deployment of `containers/verify-runner` (Deployment track D4, step 1).
+  //
+  // The service decision is ADR 0003: `verify-runner` is the product, deployed as a container image.
+  // Cloudflare Containers runs that same image — the artifact does not change, which is why the
+  // hosting choice could be made after the service choice.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dry-verify",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-31",
+  "observability": { "enabled": true },
+
+  "containers": [
+    {
+      "class_name": "VerifyRunner",
+      // Build context is the repo root: `verify-runner`'s `dry-core` path dependency reaches outside
+      // its own directory, and `crates/core`'s manifest inherits from the root workspace. Same
+      // constraint the Dockerfile already documents for `docker build`.
+      "image": "../../containers/verify-runner/Dockerfile",
+      "image_build_context": "../..",
+      // standard-3 = 2 vCPU / 8 GiB / 16 GB disk. Chosen against a measured number, not a guess:
+      // dry-core's g-code import allocates roughly 43-50x the input size in peak process memory
+      // (docs/superpowers/specs/2026-07-28-cloud-spike-findings.md). At the 100 MB body cap set
+      // below that is ~5 GB worst case, leaving ~3 GB headroom on 8 GiB.
+      //
+      // This coupling is load-bearing: MAX_BODY_BYTES and `instance_type` cannot be changed
+      // independently. Raising the cap to the runner's own 200 MB default would put worst-case peak
+      // at ~10 GB, which does not fit standard-3 and is marginal even on standard-4's 12 GiB — the
+      // per-container ceiling. Whoever raises one must resize the other.
+      "instance_type": "standard-3",
+      "max_instances": 5
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "VERIFY_RUNNER", "class_name": "VerifyRunner" }]
+  },
+
+  // A container is a Durable Object, so it needs a migration. `new_sqlite_classes` is required.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VerifyRunner"] }],
+
+  // These are Worker variables. `containers[]` has no `envVars` field of its own — the container's
+  // process environment comes from the `envVars` property on the `VerifyRunner` class, which reads
+  // these. Adding one here without adding it there sets it for the Worker and not for the runner.
+  "vars": {
+    // The SSRF allowlist. `fetch_profile` refuses *every* registry when this is unset, so the unset
+    // default is already the safe one — this is a value that must be right, not a secret that must
+    // be hidden. Override per environment below.
+    "ALLOWED_REGISTRY_HOST": "api.dry.yemelianov.dev",
+    // Coupled to `instance_type` above. Deliberately set rather than left at the runner's 200 MB
+    // default, because that default was chosen as container headroom, not as a product limit.
+    "MAX_BODY_BYTES": "104857600",
+    "RUST_LOG": "verify_runner=info,tower_http=info"
+  },
+
+  // A named environment inherits NOTHING structural from the top level — `wrangler deploy --dry-run
+  // --env staging` refuses with "durable_objects exists at the top level, but not on env.staging".
+  // Without these repeated, staging would deploy a Worker with variables and no container to route
+  // to, which fails at request time rather than at deploy time.
+  "env": {
+    "staging": {
+      "name": "dry-verify-staging",
+      "containers": [
+        {
+          "class_name": "VerifyRunner",
+          "image": "../../containers/verify-runner/Dockerfile",
+          "image_build_context": "../..",
+          // Deliberately the same instance type as production. Staging exists to exercise the
+          // memory envelope described above; a smaller instance would not, and the first thing to
+          // fail in production would be the thing staging could not have caught.
+          "instance_type": "standard-3",
+          "max_instances": 2
+        }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "VERIFY_RUNNER", "class_name": "VerifyRunner" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VerifyRunner"] }],
+      "vars": {
+        "ALLOWED_REGISTRY_HOST": "api-staging.dry.yemelianov.dev",
+        "MAX_BODY_BYTES": "104857600",
+        "RUST_LOG": "verify_runner=debug,tower_http=debug"
+      }
+    }
+  }
+}

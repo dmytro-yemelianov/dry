@@ -142,3 +142,60 @@ ALLOWED_REGISTRY_HOST=api.dry.yemelianov.dev cargo run   # binds 0.0.0.0:8080
 `cargo test`'s byte-identity tests build the real `dry` CLI binary once (`cargo build -p dry-cli
 --quiet` against the main engine workspace at the repo root) and shell out to it — the first test run
 takes noticeably longer for that reason.
+
+### Running a `/verify` against a local stub registry
+
+The `http://` escape hatch in `validate_registry_url` exists for exactly this: any host other than
+`127.0.0.1`/`localhost` must be `https`, so a stub registry that terminates no TLS still works.
+
+`./containers/verify-runner/serve-local.sh` (run it from the repo root) does the whole thing: builds
+the runner, serves all six `conformance/profile-matrix` profiles as a stub registry on 127.0.0.1:8099
+under pack `dry-matrix` version `1.0.0`, and prints a ready-to-paste `curl`. Ctrl-C stops both. By
+hand it is only this much:
+
+```sh
+# a registry is just static files at /v1/profiles/{pack}/{version}/{profile}
+mkdir -p /tmp/reg/v1/profiles/marlin-i3/1.0.0
+cp conformance/profile-matrix/marlin-pla-i3/profile.json /tmp/reg/v1/profiles/marlin-i3/1.0.0/pla-0.4
+python3 -m http.server 8099 --bind 127.0.0.1 --directory /tmp/reg &
+
+ALLOWED_REGISTRY_HOST=127.0.0.1 cargo run -p dry-verify-runner &
+curl -X POST --data-binary @examples/part.gcode \
+  'http://127.0.0.1:8080/verify?pack=marlin-i3&version=1.0.0&profile=pla-0.4&registry=http://127.0.0.1:8099'
+```
+
+The runner's port is not configurable — `main.rs` binds `0.0.0.0:8080` literally, and the Dockerfile
+healthcheck and the Worker's `defaultPort` both assume it.
+
+The report is byte-identical to `dry import-gcode … | dry verify --json` for the same input — which
+is the point of the runner, and what `verify_report_is_byte_identical_to_the_real_cli` pins. Note the
+CLI stamps its licence mode into the report, so compare against an *unlicensed* CLI run (e.g. with
+`HOME` pointed at an empty directory) unless the runner has a licence configured too.
+
+### Running the whole Cloudflare shape locally
+
+`wrangler dev` in `deploy/cloudflare` runs the real thing — Worker, Durable Object and this
+container image under Docker:
+
+```sh
+cd deploy/cloudflare && npx wrangler dev      # first run builds the image; several minutes
+curl http://127.0.0.1:8787/healthz            # {"ok":true}
+curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/metrics   # 404: deliberately not proxied
+```
+
+`/verify` needs a registry the *container* can reach, and inside the container `127.0.0.1` is the
+container itself, not your machine. Rather than weaken the SSRF guard for dev, put the stub in the
+container's own network namespace:
+
+```sh
+# copy wrangler.jsonc with ALLOWED_REGISTRY_HOST=127.0.0.1, and INSTANCES=1 in src/index.ts so
+# both requests land on the same instance, then:
+CID=$(docker ps --format '{{.ID}} {{.Image}}' | grep -i verifyrunner | awk '{print $1}' | head -1)
+docker run -d --name stub --network "container:$CID" -v /tmp/reg:/srv:ro -w /srv \
+  python:3-alpine python3 -m http.server 8099 --bind 0.0.0.0
+```
+
+Doing this is how the `/healthz`-starts-the-container-bare defect was found: a container's
+environment is fixed when its process starts, so whichever route starts an instance decides it for
+that instance's whole life. `envVars` therefore lives on the `VerifyRunner` class, never on a single
+`startAndWaitForPorts` call — see the doc comment there, and the CI guard in `deploy-verify.yml`.

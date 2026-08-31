@@ -131,14 +131,25 @@ multi-arch image to `ghcr.io/dmytro-yemelianov/dry-verify-runner` on `main`. **N
 There is no staging environment, no migration story, no rollback procedure and no documented SLO;
 `docs/12-releasing.md` covers *publishing* and explicitly stops there.
 
-With D1 decided, this is what stands between the image and a service someone can depend on:
+**Landed 2026-08-31:** the Cloudflare Containers deployment itself —
+[`deploy/cloudflare`](../deploy/cloudflare/) (wrangler config for production and staging, a thin
+admission-gate Worker, a runbook) and [`deploy-verify.yml`](../.github/workflows/deploy-verify.yml)
+(staging on merge, production on a `v*` tag, gated on the service's own tests and a `--dry-run`
+validation of both environments, with a post-deploy `/healthz` check). Both environments validate
+under `wrangler deploy --dry-run`, which resolves every binding and builds the container image
+without touching an account.
 
-1. a hosting target chosen and a project created — Cloudflare Containers, or another host; the
-   artifact does not change;
-2. `ALLOWED_REGISTRY_HOST` and the licence verifying key set as deployment secrets. The default is
-   already the safe one: `fetch_profile` refuses every registry when the variable is unset;
+What remains needs an account, and one item needs a person:
+
+1. ~~a hosting target chosen~~ — **decided: Cloudflare Containers.** An account on a Workers Paid
+   plan, an API token, and the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets;
+2. `ALLOWED_REGISTRY_HOST` set per environment. There is no signing-key secret: the verifying keys
+   are compiled in (`PRODUCTION_KEYS`). `fetch_profile` refuses every registry when the variable is
+   unset, so the default is already the safe one;
 3. staging on merge, promotion on tag;
-4. a rollback **executed in a drill**;
+4. a rollback **executed in a drill** — the procedure is written down in
+   [`deploy/cloudflare/README.md`](../deploy/cloudflare/README.md) and is explicitly marked
+   *untested*, because writing one down is what this clause exists to refuse as sufficient;
 5. an SLO, and the remaining half of the runbook.
 
 D2's dashboard and D7's data-handling policy both queue behind (1): a logging policy has to be written
