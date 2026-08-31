@@ -1,6 +1,7 @@
 # Deployment roadmap — from a gated engine to a production-grade service
 
-**Status:** proposed 2026-08-02, reconciled against the code 2026-08-30 · **Owner:** unassigned ·
+**Status:** proposed 2026-08-02, reconciled 2026-08-30, **D1 decided 2026-08-31** (ADR 0003) ·
+**Owner:** unassigned ·
 **Precedes:** Phase 6 (retire the oracle)
 
 > **Reconciliation note (2026-08-30).** D2, D3 and D5 described a service that no longer exists: the
@@ -42,7 +43,7 @@ treatment as the others: stated in pieces, each with an acceptance test that can
 
 These are ordered by what blocks a paying user, not by effort.
 
-### D1 — There is no service to deploy (L)
+### D1 — There is no service to deploy (L) — **DECIDED: there will be, and it is the container**
 
 `verify-runner` fetches a profile from a registry, imports g-code, runs `verify`, and returns the
 report. It began as an MVP-shaped handler with no authentication, rate limiting, quota or request
@@ -63,15 +64,25 @@ body *plus* dry-core's ~43–50x import blowup), and that answer is why `contain
 streams to a tempfile in a 6 GiB container instead. It is kept building in CI so the evidence cannot
 rot, and marked "do not build on it".
 
-**The decision itself is still open, deliberately.** Naming `verify-runner` as *the shape a service
-would take* is not the same as deciding there will be one. "No hosted service" remains a live and
-legitimate answer: the CLI ships today, has an installed base, and as of #220 carries an SBOM and
-signed provenance. Choosing it deletes D2 through D5 entirely.
+**DECIDED 2026-08-31 — there will be a hosted service, and it is this one.** See
+[ADR 0003](adr/0003-hosted-verification-service.md). `containers/verify-runner` is the product,
+deployed as a container image; `crates/cloud` is not a candidate.
 
-What is now unblocked either way: D2's first question — **what may a log contain** — can be answered
-against one service shape rather than two. See
-[`24-operations-and-data-handling.md`](24-operations-and-data-handling.md), which notes that findings
-quote coordinates and feedrates, so the answer is not "everything".
+"Cloudflare or hosted" was not a fork. The July 2026 spike measured that the import+verify path does
+**not** fit a Workers isolate, and its own recommendation was a container — so Cloudflare Containers
+is a way to *run* the decided artifact rather than an alternative to it, and the provider can be
+chosen later without changing what is deployed.
+
+*Accept: met.* One named service (`verify-runner`); one deployment target (the multi-arch image CI
+already pushes to `ghcr.io/dmytro-yemelianov/dry-verify-runner`); the other explicitly marked an
+archived spike in its own README.
+
+**"No hosted service" is no longer a live answer**, which is what this decision costs: D2–D5 are now
+owed rather than optional. D2's first question — **what may a log contain** — is now not just
+answerable but required before the first logger is written. See
+[`24-operations-and-data-handling.md`](24-operations-and-data-handling.md): findings quote coordinates
+and feedrates, so the answer is not "everything".
+
 
 ### D2 — Observability (M) — **largely landed in the service; no dashboard**
 
@@ -110,14 +121,29 @@ process rather than from a live source, so revoking still means restarting somet
 commercial boundary for the **CLI** remains legal rather than technical, unchanged: the artifacts are
 public downloads.
 
-### D4 — No deployment pipeline or rollback (M)
-
-`release.yml` builds and attaches artifacts. Nothing deploys a service, and there is no staging
-environment, no migration story, no rollback procedure, no documented SLO. `docs/12-releasing.md`
-covers *publishing* and explicitly stops there.
+### D4 — No deployment pipeline or rollback (M) — **now the critical path**
 
 *Accept:* a versioned deploy to staging on merge, promotion to production on tag, a rollback that has
 been *executed* in a drill and not merely written down.
+
+`release.yml` builds and attaches artifacts, and `verify-runner.yml` already builds and pushes a
+multi-arch image to `ghcr.io/dmytro-yemelianov/dry-verify-runner` on `main`. **Nothing deploys it.**
+There is no staging environment, no migration story, no rollback procedure and no documented SLO;
+`docs/12-releasing.md` covers *publishing* and explicitly stops there.
+
+With D1 decided, this is what stands between the image and a service someone can depend on:
+
+1. a hosting target chosen and a project created — Cloudflare Containers, or another host; the
+   artifact does not change;
+2. `ALLOWED_REGISTRY_HOST` and the licence verifying key set as deployment secrets. The default is
+   already the safe one: `fetch_profile` refuses every registry when the variable is unset;
+3. staging on merge, promotion on tag;
+4. a rollback **executed in a drill**;
+5. an SLO, and the remaining half of the runbook.
+
+D2's dashboard and D7's data-handling policy both queue behind (1): a logging policy has to be written
+before the first logger, and a deletion request cannot be honoured without a jurisdiction.
+
 
 ### D5 — Measuring capacity (M) — **a load test exists; it asserts nothing**
 
@@ -168,8 +194,10 @@ D1 (pick the service) ──┬─> D2 observability ──> D4 pipeline ──>
 D6, D7 run alongside; neither blocks the others.
 ```
 
-D1 first because every later item multiplies by the number of services. D2 before D4 because deploying
-something you cannot observe converts an outage into a mystery.
+D1 first because every later item multiplies by the number of services — **now decided** (ADR 0003),
+so the head of this sequence is D4. D2 before D4 was the original ordering, because deploying
+something you cannot observe converts an outage into a mystery; the runner's observability landed
+ahead of the pipeline, so that ordering is already satisfied.
 
 ## What this roadmap deliberately does not claim
 
@@ -178,9 +206,10 @@ something you cannot observe converts an outage into a mystery.
   [`04-tasks.md`](04-tasks.md); it is not on the critical path to deployment.
 - **It does not treat CI green as production readiness.** Every gate in this repo runs against a build
   machine, and none of them has ever served a request.
-- **It does not assume the service is the product.** The CLI ships today and may remain the whole
-  business. D1 is a genuine decision, not a formality — and "no hosted service" is a legitimate
-  answer that makes D2–D5 disappear.
+- **It does not assume the service replaces the product.** The CLI ships today, has an installed base,
+  and as of v0.9.0 carries an SBOM and signed provenance; the service is **additive**. D1 was a genuine
+  decision rather than a formality, and it has now been taken (ADR 0003): there will be a hosted
+  service, so "no hosted service" is no longer the escape hatch that made D2–D5 disappear.
 
 ## Exit gate
 
