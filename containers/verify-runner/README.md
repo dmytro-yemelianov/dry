@@ -148,16 +148,24 @@ takes noticeably longer for that reason.
 The `http://` escape hatch in `validate_registry_url` exists for exactly this: any host other than
 `127.0.0.1`/`localhost` must be `https`, so a stub registry that terminates no TLS still works.
 
+`./containers/verify-runner/serve-local.sh` (run it from the repo root) does the whole thing: builds
+the runner, serves all six `conformance/profile-matrix` profiles as a stub registry on 127.0.0.1:8099
+under pack `dry-matrix` version `1.0.0`, and prints a ready-to-paste `curl`. Ctrl-C stops both. By
+hand it is only this much:
+
 ```sh
 # a registry is just static files at /v1/profiles/{pack}/{version}/{profile}
 mkdir -p /tmp/reg/v1/profiles/marlin-i3/1.0.0
 cp conformance/profile-matrix/marlin-pla-i3/profile.json /tmp/reg/v1/profiles/marlin-i3/1.0.0/pla-0.4
-(cd /tmp/reg && python3 -m http.server 8099 &)
+python3 -m http.server 8099 --bind 127.0.0.1 --directory /tmp/reg &
 
 ALLOWED_REGISTRY_HOST=127.0.0.1 cargo run -p dry-verify-runner &
 curl -X POST --data-binary @examples/part.gcode \
   'http://127.0.0.1:8080/verify?pack=marlin-i3&version=1.0.0&profile=pla-0.4&registry=http://127.0.0.1:8099'
 ```
+
+The runner's port is not configurable — `main.rs` binds `0.0.0.0:8080` literally, and the Dockerfile
+healthcheck and the Worker's `defaultPort` both assume it.
 
 The report is byte-identical to `dry import-gcode … | dry verify --json` for the same input — which
 is the point of the runner, and what `verify_report_is_byte_identical_to_the_real_cli` pins. Note the
