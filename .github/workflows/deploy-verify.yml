@@ -77,6 +77,28 @@ jobs:
           npx wrangler deploy --dry-run --outdir /tmp/wr-prod
           npx wrangler deploy --env staging --dry-run --outdir /tmp/wr-staging
 
+      # Regression guard for a defect that only shows up when the stack actually runs: a container's
+      # process environment is fixed when the process starts and lasts the instance's whole life, so
+      # whichever route starts an instance decides it. With `envVars` supplied only by `/verify`'s
+      # `startAndWaitForPorts` call, a plain `GET /healthz` started the container with an empty
+      # environment, and every `/verify` then routed to that instance failed closed with
+      # `502 profile-unavailable` naming a variable the config plainly sets. With `max_instances: 5`
+      # that is intermittent rather than total, which makes it harder to attribute, not easier.
+      # `--dry-run` above cannot catch it: the config is valid either way.
+      - name: the container environment is declared on the class, not per request
+        working-directory: deploy/cloudflare
+        run: |
+          if grep -n 'startOptions' src/index.ts; then
+            echo "::error::the container environment must be declared on the VerifyRunner class \
+            (envVars = {...}), not passed per call — see its doc comment"
+            exit 1
+          fi
+          grep -q 'envVars = {' src/index.ts || {
+            echo "::error::VerifyRunner must declare envVars, or the container starts with an empty \
+            environment and ALLOWED_REGISTRY_HOST is unset"
+            exit 1
+          }
+
   deploy:
     name: deploy (${{ github.ref_type == 'tag' && 'production' || 'staging' }})
     needs: [verify, config]

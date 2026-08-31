@@ -39,6 +39,9 @@
   // A container is a Durable Object, so it needs a migration. `new_sqlite_classes` is required.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VerifyRunner"] }],
 
+  // These are Worker variables. `containers[]` has no `envVars` field of its own — the container's
+  // process environment comes from the `envVars` property on the `VerifyRunner` class, which reads
+  // these. Adding one here without adding it there sets it for the Worker and not for the runner.
   "vars": {
     // The SSRF allowlist. `fetch_profile` refuses *every* registry when this is unset, so the unset
     // default is already the safe one — this is a value that must be right, not a secret that must

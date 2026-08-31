@@ -46,6 +46,26 @@ export class VerifyRunner extends Container<Env> {
    * and the cause would not be obvious from the response.
    */
   enableInternet = true;
+
+  /**
+   * The container's process environment, set on the instance rather than passed to a single
+   * `startAndWaitForPorts` call.
+   *
+   * This distinction is the whole point. A container's environment is fixed when the process starts
+   * and lasts the instance's whole life, so *whichever route starts the instance decides it*. With
+   * these variables supplied only by `/verify`'s start call, a `GET /healthz` — which every uptime
+   * monitor, load balancer and the platform's own check hits, and which is a perfectly ordinary
+   * first request — started the container with an empty environment. `ALLOWED_REGISTRY_HOST` was
+   * then unset, the runner's SSRF guard correctly failed closed, and *every* subsequent `/verify`
+   * routed to that instance returned `502 profile-unavailable` until it slept, with an error naming
+   * a missing variable that the deployment config plainly sets. Reproduced under `wrangler dev`;
+   * the recipe is in `containers/verify-runner/README.md`.
+   */
+  envVars = {
+    ALLOWED_REGISTRY_HOST: this.env.ALLOWED_REGISTRY_HOST,
+    MAX_BODY_BYTES: this.env.MAX_BODY_BYTES,
+    RUST_LOG: this.env.RUST_LOG,
+  };
 }
 
 /** 100 MB is not a suggestion here: see the sizing note in `wrangler.jsonc`. */
@@ -100,16 +120,7 @@ export default {
 
     // Not `start()`: that returns when the process has started, not when it is listening, and the
     // next line would then race it into "connection refused".
-    await container.startAndWaitForPorts({
-      ports: [8080],
-      startOptions: {
-        envVars: {
-          ALLOWED_REGISTRY_HOST: env.ALLOWED_REGISTRY_HOST,
-          MAX_BODY_BYTES: env.MAX_BODY_BYTES,
-          RUST_LOG: env.RUST_LOG,
-        },
-      },
-    });
+    await container.startAndWaitForPorts({ ports: [8080] });
 
     // The request — including its body — is streamed through rather than buffered in the Worker. A
     // Worker isolate has 128 MB, which is the measurement that ruled out running the engine here at
