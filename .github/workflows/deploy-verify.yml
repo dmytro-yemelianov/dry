@@ -1,0 +1,128 @@
+name: deploy-verify
+
+# Deployment track D4. The service decision is ADR 0003: `containers/verify-runner` is the product,
+# and Cloudflare Containers runs that same image.
+#
+# Staging on merge to `main`; production on a `v*` tag, so a deploy always corresponds to a release
+# that `release.yml`'s guard has already checked. Both are gated on the container's own test suite
+# rather than assuming CI passed — a deploy that skips its tests is how the release pipeline stayed
+# broken for a month.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "containers/verify-runner/**"
+      - "crates/core/**"
+      - "crates/license/**"
+      - "deploy/cloudflare/**"
+      - ".github/workflows/deploy-verify.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which environment to deploy"
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never two deploys to the same environment at once, and never cancel one in flight: a container
+  # rollout is gradual, so cancelling mid-roll leaves a split fleet.
+  group: deploy-verify-${{ github.ref_type == 'tag' && 'production' || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: the service's own tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: rustfmt, clippy
+      - name: fmt + clippy + test
+        working-directory: containers/verify-runner
+        run: |
+          cargo fmt --check
+          cargo clippy --locked -- -D warnings
+          cargo test --locked
+
+  config:
+    name: deployment config typechecks and builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      - name: install
+        working-directory: deploy/cloudflare
+        run: npm ci
+      - name: typecheck the Worker
+        working-directory: deploy/cloudflare
+        run: npm run typecheck
+      # `--dry-run` resolves every binding and builds the container image without touching the
+      # account, so a malformed config fails here rather than half-way through a rollout. It also
+      # catches the one that is easy to miss: a named environment inherits no `containers` or
+      # `durable_objects` from the top level, and without them staging deploys a Worker with nothing
+      # to route to — a failure that only shows up at request time.
+      - name: validate both environments
+        working-directory: deploy/cloudflare
+        run: |
+          npx wrangler deploy --dry-run --outdir /tmp/wr-prod
+          npx wrangler deploy --env staging --dry-run --outdir /tmp/wr-staging
+
+  deploy:
+    name: deploy (${{ github.ref_type == 'tag' && 'production' || 'staging' }})
+    needs: [verify, config]
+    runs-on: ubuntu-latest
+    # Only from this repository, and never from a fork: a fork must not be able to reach the account.
+    if: github.repository == 'dmytro-yemelianov/dry'
+    environment:
+      name: ${{ github.ref_type == 'tag' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      - name: install
+        working-directory: deploy/cloudflare
+        run: npm ci
+      - name: deploy
+        working-directory: deploy/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            npx wrangler deploy
+          else
+            npx wrangler deploy --env staging
+          fi
+      # A deploy is not done until the thing answers. `/healthz` is proxied by the Worker precisely
+      # so this check exists; a rollout that reports success while the container fails to start is
+      # the outage this repo has already learned to distrust.
+      - name: smoke the deployed health endpoint
+        env:
+          BASE_URL: ${{ vars.VERIFY_BASE_URL }}
+        run: |
+          if [ -z "${BASE_URL}" ]; then
+            echo "::warning::VERIFY_BASE_URL is not set for this environment; skipping the smoke check"
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' "${BASE_URL}/healthz" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "healthz ok: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            echo "attempt ${attempt}: HTTP ${code}; container rollout is gradual, retrying"
+            sleep 10
+          done
+          echo "::error::/healthz did not return 200 after 6 attempts — roll back with 'npx wrangler rollback'"
+          exit 1

@@ -71,8 +71,11 @@ takes effect without a restart for D3, and a load test that *asserts* rather tha
 
 1. a hosting target chosen and an account/project created (Cloudflare Containers, or another host —
    the artifact does not change);
-2. `ALLOWED_REGISTRY_HOST` and the licence verifying-key set as deployment secrets, since the SSRF
-   allowlist fails closed when unset and that is the desired default;
+2. `ALLOWED_REGISTRY_HOST` set per environment — and **not** a signing-key secret, which this ADR
+   originally listed in error: the licence verifying keys are compiled into the binary
+   (`PRODUCTION_KEYS`), and the test key is honoured only under `cfg!(debug_assertions)`. The only
+   deployment secrets are the Cloudflare API token and account id. The registry allowlist fails
+   closed when unset, so the unset default is already the safe one;
 3. a staging deploy on merge to `main` and promotion on tag, alongside the existing release workflow;
 4. a rollback **executed in a drill**, not written down — the accept clause is explicit about that;
 5. a documented SLO, and the runbook's remaining half.
