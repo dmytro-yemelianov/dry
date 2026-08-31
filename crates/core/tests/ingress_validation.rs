@@ -457,7 +457,7 @@ fn threemf_round_trips_a_zero_speed_moving_segment() {
             .expect("motion before the first F is a valid program");
         assert_eq!(toolpath.segments[0].speed, Feedrate::ZERO);
 
-        let xml = dry_core::export_3mf_xml(&toolpath);
+        let xml = dry_core::export_3mf_xml(&toolpath).unwrap();
         assert!(
             xml.contains(r#"feedrate="0.0""#),
             "a moving zero-speed segment must still carry its feedrate for {source:?}:\n{xml}"

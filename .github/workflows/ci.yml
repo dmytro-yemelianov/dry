@@ -107,6 +107,16 @@ jobs:
         id: nan_guards
         continue-on-error: true
         run: python3 tools/check_nan_guards.py
+      # H1.1 left this as a deferred follow-up: "CI runs `cargo test` in debug only, so the shipping
+      # release branch of the `emit()` guard is exercised only by a manual `--release` run — a single
+      # `--release` run ... would close it cheaply." It is now load-bearing rather than tidy: the
+      # non-finite emit tests can ONLY run in release, because `Length::mm` carries a debug_assert
+      # that panics before the IR can be built. Debug-only CI could not see them at all. Scoped to
+      # those tests rather than the whole suite, to keep the added wall-clock small.
+      - name: release-only emit refusals
+        id: release_emit
+        continue-on-error: true
+        run: cargo test --release -p dry-core --test emit_refuses_non_finite --locked
       - name: compile the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
@@ -131,6 +141,7 @@ jobs:
             license-headers=${{ steps.license_headers.outcome }}
             capability-parity=${{ steps.capability_parity.outcome }}
             nan-guards=${{ steps.nan_guards.outcome }}
+            release-emit=${{ steps.release_emit.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
             wasm-build=${{ steps.wasm_build.outcome }}
         run: |

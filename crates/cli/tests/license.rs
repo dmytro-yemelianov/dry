@@ -29,6 +29,10 @@ fn license_status_without_license_reports_eval() {
     assert!(s.contains("evaluation"), "got: {s}");
 }
 
+// Depends on the committed test signing key, which the CLI honours only under
+// `cfg!(debug_assertions)` — a shipping binary must never accept one. In a release build the binary
+// reports evaluation mode instead, so this test cannot express its precondition there.
+#[cfg(debug_assertions)]
 #[test]
 fn env_var_license_is_recognized() {
     let out = bin()
@@ -42,6 +46,10 @@ fn env_var_license_is_recognized() {
     assert!(s.contains("team") && s.contains("Test"), "got: {s}");
 }
 
+// Depends on the committed test signing key, which the CLI honours only under
+// `cfg!(debug_assertions)` — a shipping binary must never accept one. In a release build the binary
+// reports evaluation mode instead, so this test cannot express its precondition there.
+#[cfg(debug_assertions)]
 #[test]
 fn activate_stores_and_status_reads_back() {
     let cfg = std::env::temp_dir().join(format!("dry-lic-{}", std::process::id()));
@@ -92,6 +100,10 @@ fn eval_review_report_is_stamped_evaluation() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
 }
 
+// Depends on the committed test signing key, which the CLI honours only under
+// `cfg!(debug_assertions)` — a shipping binary must never accept one. In a release build the binary
+// reports evaluation mode instead, so this test cannot express its precondition there.
+#[cfg(debug_assertions)]
 #[test]
 fn licensed_review_report_is_stamped_with_licensee() {
     let out = bin()
@@ -131,6 +143,10 @@ fn eval_review_batch_is_stamped_evaluation_once_on_the_envelope() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("EVALUATION"));
 }
 
+// Depends on the committed test signing key, which the CLI honours only under
+// `cfg!(debug_assertions)` — a shipping binary must never accept one. In a release build the binary
+// reports evaluation mode instead, so this test cannot express its precondition there.
+#[cfg(debug_assertions)]
 #[test]
 fn licensed_review_batch_is_stamped_with_licensee() {
     let out = bin()
