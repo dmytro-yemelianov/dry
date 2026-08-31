@@ -113,7 +113,7 @@ fn iso_astm_52915_3mf_toolpath_full_roundtrip() {
         ],
     };
 
-    let xml = export_3mf_xml(&original);
+    let xml = export_3mf_xml(&original).unwrap();
     assert!(xml.contains("xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\""));
     assert!(
         xml.contains("xmlns:tp=\"http://schemas.microsoft.com/3dmanufacturing/toolpath/2022/07\"")

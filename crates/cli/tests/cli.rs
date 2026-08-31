@@ -223,6 +223,13 @@ fn printer_resolve_downloads_and_hash_verifies_profile() {
     assert_eq!(out.stdout, b"{\"version\":1,\"name\":\"ABS 0.4\"}\n");
 }
 
+// Drives the real `dry` binary through the licence gate using the committed test signing key, which
+// `crates/cli/src/main.rs` accepts only under `cfg!(debug_assertions)` — a shipping binary must never
+// honour a test key. This test therefore cannot express its precondition in a release build: the
+// binary exits 2 ("requires a license") before reaching the behaviour under test. Gated rather than
+// deleted, because the behaviour is real; gated rather than left failing, because CI runs only debug
+// and the failure was invisible there.
+#[cfg(debug_assertions)]
 #[cfg(feature = "moonraker")]
 #[test]
 fn upload_print_exits_nonzero_when_moonraker_does_not_start_the_job() {
@@ -1558,6 +1565,13 @@ fn review_and_trace_gcode_survive_vendor_macros_in_slicer_start_gcode() {
     assert_eq!(trace["trace"]["segment_count"], 2);
 }
 
+// Drives the real `dry` binary through the licence gate using the committed test signing key, which
+// `crates/cli/src/main.rs` accepts only under `cfg!(debug_assertions)` — a shipping binary must never
+// honour a test key. This test therefore cannot express its precondition in a release build: the
+// binary exits 2 ("requires a license") before reaching the behaviour under test. Gated rather than
+// deleted, because the behaviour is real; gated rather than left failing, because CI runs only debug
+// and the failure was invisible there.
+#[cfg(debug_assertions)]
 #[test]
 #[cfg(feature = "moonraker")]
 fn upload_print_without_profile_is_blocked_before_network_io() {

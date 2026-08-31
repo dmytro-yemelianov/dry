@@ -416,7 +416,7 @@ pub fn emit_plasma(
         serde_json::from_str(cutting_params_json)
             .map_err(|e| JsError::new(&format!("cutting params: {e}")))?
     };
-    Ok(dry_core::emit_plasma_waterjet(&tp, &cutting_params))
+    dry_core::emit_plasma_waterjet(&tp, &cutting_params).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Run corner engagement feedrate optimization on a design.

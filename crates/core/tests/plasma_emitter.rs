@@ -39,7 +39,7 @@ fn test_plasma_waterjet_pierce_and_cut_sequence() {
         lead_in_radius: 5.0,
     };
 
-    let gcode = emit_plasma_waterjet(&toolpath, &params);
+    let gcode = emit_plasma_waterjet(&toolpath, &params).unwrap();
     let output = gcode.join("\n");
 
     // Pierce sequence checks

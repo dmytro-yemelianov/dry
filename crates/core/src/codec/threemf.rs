@@ -21,7 +21,49 @@ impl std::fmt::Display for ThreeMfError {
 impl std::error::Error for ThreeMfError {}
 
 /// Exports a Dry L2 [`Toolpath`] to 3MF Toolpath XML format.
-pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
+/// Serialise a toolpath as a 3MF Toolpath-extension document.
+///
+/// Refuses IR carrying a non-finite quantity. Every attribute was written through `{:.6}`-style
+/// formatting, which renders `NaN` and `inf` as literal attribute text — producing a document that
+/// is well-formed XML, passes a schema check on shape, and describes a motion no machine can
+/// execute. `import_3mf_xml` already refuses non-finite attributes on the way in (H1.2); this is the
+/// same rule applied on the way out, so the two halves of the round trip agree about what a valid
+/// document is.
+pub fn export_3mf_xml(toolpath: &Toolpath) -> Result<String, ThreeMfError> {
+    for (idx, seg) in toolpath.segments.iter().enumerate() {
+        let check = |name: &str, v: f64| -> Result<(), ThreeMfError> {
+            if v.is_finite() {
+                Ok(())
+            } else {
+                Err(ThreeMfError {
+                    message: format!("segments[{idx}].{name} is {v}; a 3MF document cannot carry a non-finite value"),
+                })
+            }
+        };
+        for (axis, name) in [(0, "end.x"), (1, "end.y"), (2, "end.z")] {
+            if let Some(v) = seg.end[axis] {
+                check(name, v.0)?;
+            }
+        }
+        check("speed", seg.speed.0)?;
+        if let Some(w) = seg.width {
+            check("width", w.0)?;
+        }
+        if let Some(h) = seg.height {
+            check("height", h.0)?;
+        }
+        if let Some(t) = seg.temperature {
+            check("temperature", t)?;
+        }
+        if let Some(f) = seg.fan {
+            check("fan", f)?;
+        }
+        if let Some(o) = seg.orientation {
+            for (i, v) in o.iter().enumerate() {
+                check(&format!("orientation[{i}]"), *v)?;
+            }
+        }
+    }
     let mut xml = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     xml.push_str("<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\"\n");
     xml.push_str(
@@ -113,7 +155,7 @@ pub fn export_3mf_xml(toolpath: &Toolpath) -> String {
     xml.push_str("    </tp:toolpath>\n");
     xml.push_str("  </build>\n");
     xml.push_str("</model>\n");
-    xml
+    Ok(xml)
 }
 
 /// Imports a Dry L2 [`Toolpath`] from 3MF Toolpath XML format.
@@ -335,7 +377,7 @@ mod tests {
             }],
         };
 
-        let xml = export_3mf_xml(&original);
+        let xml = export_3mf_xml(&original).unwrap();
         assert!(xml.contains("<tp:segment"));
         assert!(xml.contains("temp=\"215.0\""));
 

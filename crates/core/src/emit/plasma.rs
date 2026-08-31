@@ -51,7 +51,49 @@ impl Default for CuttingParams {
 }
 
 /// Emit plasma / waterjet cutting motion G-code.
-pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<String> {
+/// Emit a plasma/waterjet program.
+///
+/// Refuses a toolpath it cannot faithfully represent, on the same terms as [`crate::emit_stream`].
+/// This emitter was added after the H1.1 emit gate and did not inherit it: every coordinate and feed
+/// went through `format!("{x:.3}")`, which renders a non-finite value as the literal word `XNaN` or
+/// `Xinf`. That is the exact defect H1.1's audit named — "non-finite quantities could reach metal" —
+/// and on a plasma table it is an undefined move with a live torch.
+/// Refuse a non-finite word before it is formatted.
+///
+/// `format!("{v:.3}")` renders a non-finite value as the literal text `NaN` or `inf`, so the guard
+/// has to run before formatting rather than inspect the result. Kept separate from
+/// `gcode::num_checked` on purpose: that helper also *formats*, and adopting it here would have
+/// changed this emitter's word precision and every program it has produced.
+fn finite_words(words: &[(&str, f64)]) -> Result<(), crate::codec::CodecError> {
+    for (name, v) in words {
+        if !v.is_finite() {
+            return Err(crate::codec::CodecError::Other(format!(
+                "cannot emit non-finite {name} value ({v})"
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub fn emit_plasma_waterjet(
+    toolpath: &Toolpath,
+    params: &CuttingParams,
+) -> Result<Vec<String>, crate::codec::CodecError> {
+    // The machine-parameter words come from `params` and are written on every program, so they are
+    // checked once up front rather than per segment.
+    for (name, value) in [
+        ("safe_traverse_height", params.safe_traverse_height),
+        ("pierce_height", params.pierce_height),
+        ("cut_height", params.cut_height),
+        ("pierce_delay_s", params.pierce_delay_s),
+        ("lead_in_radius", params.lead_in_radius),
+    ] {
+        if !value.is_finite() {
+            return Err(crate::codec::CodecError::Other(format!(
+                "cannot emit non-finite {name} ({value})"
+            )));
+        }
+    }
     let mut lines = Vec::new();
     lines.push("; Dry Plasma/Waterjet Program".into());
     lines.push("G21 ; Millimetres".into());
@@ -60,6 +102,16 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
     let mut torch_active = false;
 
     for seg in &toolpath.segments {
+        // A non-finite speed is refused rather than substituted. `seg.speed <= ZERO` is false for a
+        // NaN, so such a segment was treated as a cut; the `speed > ZERO` test below is false too,
+        // so it then silently inherited `params.cut_feedrate`. The emitted `F` word was finite and
+        // the program looked valid — an unknown commanded speed laundered into a plausible one.
+        if !seg.speed.value().is_finite() {
+            return Err(crate::codec::CodecError::Other(format!(
+                "cannot emit non-finite speed ({})",
+                seg.speed.value()
+            )));
+        }
         let is_rapid = seg.travel || seg.speed <= crate::units::Feedrate::ZERO;
 
         let [Some(ex), Some(ey), _] = [seg.end[0], seg.end[1], seg.end[2]] else {
@@ -68,6 +120,9 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
 
         let x = ex.value();
         let y = ey.value();
+        // Checked, not reformatted: the words keep their original `{:.3}` / `{:.1}` precision, so a
+        // valid program is byte-identical to what this emitter produced before the guard.
+        finite_words(&[("X", x), ("Y", y)])?;
 
         if is_rapid {
             if torch_active {
@@ -133,6 +188,7 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
                         };
                         let i = cx - sx.value();
                         let j = cy - sy.value();
+                        finite_words(&[("I", i), ("J", j)])?;
                         lines.push(format!("{dir} X{x:.3} Y{y:.3} I{i:.3} J{j:.3} F{feed:.1}"));
                     } else {
                         lines.push(format!("G01 X{x:.3} Y{y:.3} F{feed:.1}"));
@@ -151,5 +207,5 @@ pub fn emit_plasma_waterjet(toolpath: &Toolpath, params: &CuttingParams) -> Vec<
     }
     lines.push("M30 ; Program end".into());
 
-    lines
+    Ok(lines)
 }
