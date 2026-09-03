@@ -16,12 +16,12 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# There is no deployment to serialise any more (see the note on the removed job below), so a
+# superseded docs build is simply cancelled rather than queued behind the one it replaces.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "docs-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -47,20 +47,13 @@ jobs:
       - name: Build documentation site & The Dry Book
         run: bash docs/site/build.sh public
 
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/site/.vitepress/dist
-
-  deploy:
-    name: deploy-github-pages
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.repository == 'dmytro-yemelianov/dry' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+# There is deliberately no publishing job here. The documentation's public home is the
+# `dry-public-docs` Cloudflare Pages project (`docs/18-cloudflare-publishing.md`, `docs/site/
+# wrangler.jsonc`), and this workflow's job is to prove the site and The Dry Book still build.
+#
+# A `deploy-github-pages` job used to follow, publishing a second copy to GitHub Pages. GitHub Pages
+# was never enabled on the repository, so it failed with `404 ... Ensure GitHub Pages has been
+# enabled` on every run it ever made — 0 successes out of 13 — while the build above passed. That is
+# the shape of failure worth avoiding: a red workflow that is permanently red says nothing when it
+# breaks for a real reason. Removed rather than gated, because a second public copy of the docs at a
+# github.io URL is not wanted; if that changes, enable Pages first and restore the job with it.
