@@ -158,3 +158,9 @@ function = "new"
 parameter = "w"
 status = "safe"
 why = "`Quaternion::new` computes `norm` first and returns IDENTITY when it is zero or non-finite, so the `w < 0.0` sign test only ever sees a finite value."
+
+[[site]]
+function = "junction_velocity_limit_mm_s"
+parameter = "cos_half"
+status = "safe"
+why = "`cos_half >= 1.0` is false for NaN, which would fall through to the sqrt and return NaN — and the one caller's `>` would then be false, so the junction-velocity rule would fail *open*. It cannot get there. Both functions are `pub(crate)`, and the only call site (`verify.rs`) takes `cos_half` from `junction_cos_half_angle` on the line above, which is NaN-total: its radicand ends in `.max(0.0)`, and `f64::max` returns the non-NaN operand, so a NaN dot product yields `cos_half = 0.0` rather than NaN. Measured: NaN dot -> cos_half 0.0 -> limit 0.0, and every positive velocity exceeds 0.0, so a degenerate junction is *reported* rather than skipped — the conservative direction. A NaN reaching this parameter would also mean a non-finite coordinate on the segment, which the always-on `finite` rule reports at Error independently."
