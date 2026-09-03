@@ -21,7 +21,7 @@
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/state": "^6.5.0",
-    "@codemirror/view": "^6.36.1",
+    "@codemirror/view": "^6.43.10",
     "@dry/sdk": "file:../../sdk/ts",
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.0.0",
