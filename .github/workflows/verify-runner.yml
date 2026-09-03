@@ -28,7 +28,7 @@ jobs:
     name: Unit & Integration Tests (Tier 3 Container Runner)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.88.0"
@@ -46,7 +46,7 @@ jobs:
     name: Build Check (Tier 2 Edge Worker)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.88.0"
@@ -60,7 +60,7 @@ jobs:
     needs: [test, cloud-worker]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
