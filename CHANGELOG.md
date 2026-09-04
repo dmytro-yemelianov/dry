@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
+## [0.9.1] - 2026-09-04
+
+Legal, assurance and release hygiene over the 0.9.0 engine; no engine behaviour changes.
+
+### Fixed
+- **Verifier rule scoping (#276).** `max-flow`, the retraction-speed/distance rules and
+  `junction-velocity` now fire only on the act each one names: volumetric flow is evaluated only on
+  moves that deposit along a path (an E-only prime is timed, not scored as a deposition rate),
+  retraction rules require a stationary tool (a wipe while retracting is no longer read as a
+  retraction speed), and the junction measure keeps its scope against imported stationary moves.
+  The slicer corpus error count drops from 5,948 to 660, matching the baseline already documented
+  in `docs/25-slicer-corpus-baseline.md`; the 660 residual findings are genuine profile/geometry
+  findings, not verifier noise.
+- **Numeric safety.** The new `junction_velocity_limit_mm_s` ordering site is recorded in the
+  NaN-guard manifest (an ordering comparison is false for NaN; the site is fail-safe because its
+  `cos_half` input is NaN-total via `f64::max`).
+- **Docs.** Intra-doc links in `emit/` resolved (public docs no longer reference private items);
+  source-preserved rationale now links the modules it names.
+
+### Changed
+- **Licensing records.** `LICENSE` change-date parenthetical tracks v0.9.1 (September 4, 2028);
+  `README` version badge and MIT-conversion note updated to 0.9.1; `NOTICE` now points at
+  `TRADEMARKS.md` and lists per-file third-party license texts; `BSD-3-Clause.txt` (curve25519-dalek)
+  and `Zlib.txt` (miniz_oxide) added to `third_party/licenses/` — `NOTICE` previously claimed they
+  were preserved but the files were absent. New `TRADEMARKS.md` records Dry/DryMachina as
+  unregistered common-law marks without registration claims.
+- **SBOMs.** `docs/compliance/cyclonedx.sbom.json` and `spdx.sbom.json` regenerated for 0.9.1 with
+  the full shipped component inventory (previously pinned to 0.7.0 with a stale component list).
+- **CI.** New `codecov.yml` coverage job (llvm-cov, pinned actions, coverage attached as a CI
+  artifact; codecov.io upload behind a token, commented out); npm-audit gate distinguishes an
+  advisory-service outage from a real finding (#279).
+
 ## [0.9.0] - 2026-08-30
 
 Everything since `bced638` ("document v0.7.0 features"). **This release covers both the v0.8.0 and

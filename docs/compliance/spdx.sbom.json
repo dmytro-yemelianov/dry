@@ -2,20 +2,83 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "dry-0.7.0",
-  "documentNamespace": "https://github.com/dmytro-yemelianov/dry/spdx/dry-0.7.0",
+  "name": "dry-0.9.1",
+  "documentNamespace": "https://github.com/dmytro-yemelianov/dry/spdx/dry-0.9.1",
   "creationInfo": {
     "creators": [
-      "Tool: dry-sbom-generator-0.7.0",
+      "Tool: dry-sbom-generator-0.9.1",
       "Organization: Dry Tooling"
     ],
-    "created": "2026-08-29T11:46:42Z"
+    "created": "2026-09-04T16:45:00Z"
   },
   "packages": [
     {
       "SPDXID": "SPDXRef-Package-dry-core",
       "name": "dry-core",
-      "versionInfo": "0.7.0",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-cli",
+      "name": "dry-cli",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-license",
+      "name": "dry-license",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-llm",
+      "name": "dry-llm",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-moonraker",
+      "name": "dry-moonraker",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-wasm",
+      "name": "dry-wasm",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-py",
+      "name": "dry-py",
+      "versionInfo": "0.9.1",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "FSL-1.1-MIT",
+      "licenseDeclared": "FSL-1.1-MIT",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-sdk-ts",
+      "name": "@dry/sdk",
+      "versionInfo": "0.9.1",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
       "licenseConcluded": "FSL-1.1-MIT",
       "licenseDeclared": "FSL-1.1-MIT",

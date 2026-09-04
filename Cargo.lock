@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "dry-cli"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "clap",
  "dirs",
@@ -365,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "criterion",
  "libm",
@@ -379,7 +379,7 @@ dependencies = [
 
 [[package]]
 name = "dry-license"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "base64",
  "ed25519-dalek",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "dry-llm"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "dry-core",
  "serde",
@@ -400,7 +400,7 @@ dependencies = [
 
 [[package]]
 name = "dry-moonraker"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "serde",
  "serde_json",

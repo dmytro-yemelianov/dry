@@ -2,21 +2,21 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:3d926ae4-0fce-4f65-9923-f72f39229b8b",
+  "serialNumber": "urn:uuid:60cf9074-a31c-4fd7-9020-fa72c6e90062",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-29T11:46:42Z",
+    "timestamp": "2026-09-04T16:45:00Z",
     "tools": [
       {
         "vendor": "Dry Team",
         "name": "dry-sbom-generator",
-        "version": "0.7.0"
+        "version": "0.9.1"
       }
     ],
     "component": {
       "type": "application",
       "name": "dry",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "description": "Parametric Design/CAM DSL and Toolpath Compiler",
       "licenses": [
         {
@@ -25,14 +25,14 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-core@0.7.0"
+      "purl": "pkg:cargo/dry-core@0.9.1"
     }
   },
   "components": [
     {
       "type": "library",
       "name": "dry-core",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "scope": "required",
       "licenses": [
         {
@@ -41,13 +41,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-core@0.7.0",
+      "purl": "pkg:cargo/dry-core@0.9.1",
       "description": "Core deterministic toolpath lowering engine"
     },
     {
       "type": "application",
       "name": "dry-cli",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "scope": "required",
       "licenses": [
         {
@@ -56,13 +56,58 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-cli@0.7.0",
-      "description": "CLI interface for Dry engine"
+      "purl": "pkg:cargo/dry-cli@0.9.1",
+      "description": "Rust CLI: inspect / simulate / verify / emit"
+    },
+    {
+      "type": "library",
+      "name": "dry-license",
+      "version": "0.9.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
+      "purl": "pkg:cargo/dry-license@0.9.1",
+      "description": "Offline Ed25519 license verification"
+    },
+    {
+      "type": "library",
+      "name": "dry-llm",
+      "version": "0.9.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
+      "purl": "pkg:cargo/dry-llm@0.9.1",
+      "description": "Prompt-to-design planner"
+    },
+    {
+      "type": "library",
+      "name": "dry-moonraker",
+      "version": "0.9.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "FSL-1.1-MIT"
+          }
+        }
+      ],
+      "purl": "pkg:cargo/dry-moonraker@0.9.1",
+      "description": "Moonraker fleet synchronisation client"
     },
     {
       "type": "library",
       "name": "dry-wasm",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "scope": "required",
       "licenses": [
         {
@@ -71,13 +116,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-wasm@0.7.0",
+      "purl": "pkg:cargo/dry-wasm@0.9.1",
       "description": "WebAssembly engine bindings"
     },
     {
       "type": "library",
       "name": "dry-py",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "scope": "required",
       "licenses": [
         {
@@ -86,13 +131,13 @@
           }
         }
       ],
-      "purl": "pkg:pypi/dry@0.7.0",
+      "purl": "pkg:pypi/dry@0.9.1",
       "description": "Python SDK bindings via PyO3"
     },
     {
       "type": "library",
       "name": "@dry/sdk",
-      "version": "0.7.0",
+      "version": "0.9.1",
       "scope": "required",
       "licenses": [
         {
@@ -101,7 +146,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/@dry/sdk@0.7.0",
+      "purl": "pkg:npm/@dry/sdk@0.9.1",
       "description": "TypeScript / JavaScript SDK"
     }
   ]
