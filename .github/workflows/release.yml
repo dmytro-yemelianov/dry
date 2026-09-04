@@ -196,7 +196,7 @@ jobs:
         working-directory: sdk/ts
         run: |
           npm ci
-          npm audit --audit-level=high
+          node ../../tools/npm-audit.mjs
           npm run build
           npm test
           mkdir -p ../../dist-npm

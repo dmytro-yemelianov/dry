@@ -310,7 +310,7 @@ jobs:
         working-directory: sdk/ts
         run: |
           npm ci
-          npm audit --audit-level=high
+          node ../../tools/npm-audit.mjs
           npm run build
       - name: test (the SDK reproduces the oracle, clean-room)
         working-directory: sdk/ts
@@ -347,11 +347,16 @@ jobs:
       - name: install docs-site deps
         working-directory: docs/site
         run: npm ci
+      # `npm audit` exits non-zero both when it finds something and when it cannot reach the
+      # advisory service, and this step used to treat those as the same gate failure. On 2026-09-04
+      # the endpoint answered 503 and turned `main` red with no vulnerability in the output at all.
+      # tools/npm-audit.mjs keeps the two apart: it fails on high/critical, and on an unreachable
+      # service it warns and says the gate did not run rather than that it passed.
       - name: npm audit
         id: docs_audit
         continue-on-error: true
         working-directory: docs/site
-        run: npm audit --audit-level=high
+        run: node ../../tools/npm-audit.mjs
       - name: reference docs
         id: docs_reference
         continue-on-error: true
