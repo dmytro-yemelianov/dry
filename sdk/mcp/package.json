@@ -1,6 +1,6 @@
 {
   "name": "@dry/mcp",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "Dry Machina Safe AI-to-Manufacturing Model Context Protocol (MCP) Server",
   "main": "dist/index.js",

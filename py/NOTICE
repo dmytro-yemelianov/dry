@@ -2,7 +2,7 @@ Dry — Parametric Design/CAM DSL & Deterministic Toolpath Compiler
 Copyright (c) 2026 Dmytro Yemelianov. All rights reserved.
 
 Licensed under the Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT).
-See LICENSE for details.
+See LICENSE for details. Trademark information: see TRADEMARKS.md.
 
 ================================================================================
 Licensing Summary
@@ -30,7 +30,11 @@ This software includes components under permissive open-source licenses:
 
 3. Direct runtime dependencies (serde, miniz_oxide, libm, clap, pyo3, axum, etc.):
    - Licensed under MIT, Apache-2.0, BSD-3-Clause, or Zlib.
-   - Complete license texts are preserved in third_party/licenses/.
+   - Complete license texts are preserved in third_party/licenses/:
+     * MIT.txt — serde, thiserror, and other MIT/Apache-2.0 dual-licensed crates
+     * Apache-2.0.txt — Apache-2.0 licensed crates and the vendored Blockly
+     * BSD-3-Clause.txt — curve25519-dalek (Ed25519 license verification)
+     * Zlib.txt — miniz_oxide (pure-Rust DEFLATE for the DRY0/DRY1 codecs)
 
 ================================================================================
 Clean-Room Provenance Statement
