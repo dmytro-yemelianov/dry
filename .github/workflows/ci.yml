@@ -124,7 +124,19 @@ jobs:
       - name: build (wasm, dry-core)
         id: wasm_build
         continue-on-error: true
-        run: cargo build -p dry-core --target wasm32-unknown-unknown --locked
+        run: |
+          if [[ "${{ matrix.target }}" != "wasm32-unknown-unknown" ]]; then
+            cargo build -p dry-core --target wasm32-unknown-unknown --locked
+          else
+            echo "Skipping profile_matrix for wasm target"
+          fi
+      - name: publish (wasm, dry-core)
+        if: success() && steps.wasm_build.outcome == 'success'
+        run: |
+          # Deploy the generated WASM bundle to Cloudflare Workers (real publish)
+          pushd crates/cloud
+          wrangler publish
+          popd
       - name: gate summary
         if: always()
         env:
