@@ -108,7 +108,19 @@ def check_manifests():
         assert "license.workspace = true" in text, (
             f"{relative} does not inherit {LICENSE_ID}"
         )
-    print("  ✓ Cargo, PyPI, and npm manifests declare BUSL-1.1")
+    container_workflow = (
+        ROOT / ".github/workflows/verify-runner.yml"
+    ).read_text(encoding="utf-8")
+    for expected in (
+        "org.opencontainers.image.title=DryMachina Verify Runner",
+        "org.opencontainers.image.description=DryMachina toolpath verification service",
+        "org.opencontainers.image.licenses=BUSL-1.1",
+        "org.opencontainers.image.vendor=DryMachina",
+    ):
+        assert expected in container_workflow, (
+            f"verify-runner image metadata is missing {expected}"
+        )
+    print("  ✓ Package and container manifests declare DryMachina/BUSL-1.1")
 
 
 def check_sbom():
