@@ -29,6 +29,15 @@ jobs:
         with:
           toolchain: "1.88.0"
           components: llvm-tools-preview
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      # `crates/core/tests/wasm_native_math.rs` shells out to `web/build.sh`, which needs node and
+      # the wasm-bindgen CLI pinned to the crate version (=0.2.123), same as the `core` job's `test`
+      # step; without this the instrumented run fails on "wasm build failed".
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
       # `--tests` instruments the test binaries only: the engine's unit tests plus its
