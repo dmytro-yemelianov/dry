@@ -1,6 +1,6 @@
 # Dry (DryMachina)
 
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](Cargo.toml)
+[![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](Cargo.toml)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](LICENSE)
 [![Rust: 1.88+](https://img.shields.io/badge/rust-1.88+-orange.svg)](https://www.rust-lang.org/)
 [![Python: 3.9+](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
@@ -174,6 +174,6 @@ Dry is licensed under the **Functional Source License, Version 1.1, MIT Future L
 
 - **Free for Developers & Startups:** You may freely copy, modify, distribute, and integrate Dry into non-competing applications, internal manufacturing, research, and hobby projects.
 - **Competing Use Protection:** A commercial license is required only if you use Dry to provide a competing CAM, slicing, or toolpath compilation/verification service or proprietary OEM hardware bundling.
-- **2-Year Automatic MIT Conversion:** Every release automatically converts to standard permissive **MIT License** exactly two (2) years after release (August 29, 2028 for v0.7.0).
+- **2-Year Automatic MIT Conversion:** Every release automatically converts to standard permissive **MIT License** exactly two (2) years after release (September 4, 2028 for v0.9.1).
 
-See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`AUTHORS.md`](AUTHORS.md) for full terms.
+See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), [`AUTHORS.md`](AUTHORS.md), and [`TRADEMARKS.md`](TRADEMARKS.md) for full terms.

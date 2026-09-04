@@ -10,6 +10,24 @@
   "compatibility_date": "2026-08-31",
   "observability": { "enabled": true },
 
+  // Alias for the Cloudflare containers SDK – points to the compiled entry point.
+  // This allows esbuild (used by wrangler) to resolve the import without walking the
+  // node_modules tree, which otherwise fails in the current layout.
+  "alias": {
+    "@cloudflare/containers": "./node_modules/@cloudflare/containers/dist/index.js"
+  },
+
+  // Enable Node.js compatibility via the newer compatibility flag syntax.
+  // This supplies the same polyfills / API support needed by @cloudflare/containers.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Resolve the @cloudflare/containers import used in src/index.ts.
+  // Wrangler's bundler requires an explicit alias when a package is not automatically
+  // discoverable in the build context. Adding this alias points the import to the
+  // installed node_modules location.
+  // Alias removed – module resolution now relies on the root `node_modules` where the
+  // `@cloudflare/containers` package is installed via the repository‑wide `package.json`.
+
   "containers": [
     {
       "class_name": "VerifyRunner",

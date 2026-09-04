@@ -1,0 +1,63 @@
+name: Codecov
+
+# Coverage for the core engine. The repo is currently private and no CODECOV_TOKEN is
+# configured, so the coverage files are attached as CI artifacts rather than uploaded to
+# codecov.io; adding the token later only needs the commented-out upload step below.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codecov-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: core coverage (llvm-cov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+          components: llvm-tools-preview
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.23.1"
+      # `crates/core/tests/wasm_native_math.rs` shells out to `web/build.sh`, which needs node and
+      # the wasm-bindgen CLI pinned to the crate version (=0.2.123), same as the `core` job's `test`
+      # step; without this the instrumented run fails on "wasm build failed".
+      - name: install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+      - name: install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+      # `--tests` instruments the test binaries only: the engine's unit tests plus its
+      # integration suite. `--workspace --all-features --locked` matches the `core` job's
+      # `cargo test` invocation so the covered code is the same code CI tests.
+      - name: generate coverage
+        run: |
+          cargo llvm-cov --workspace --all-features --locked --tests --no-report \
+            --ignore-filename-regex '(tests|benches)/'
+          cargo llvm-cov report --lcov-output-path lcov.info
+      - name: attach coverage artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          if-no-files-found: error
+      # To upload to codecov.io instead, add CODECOV_TOKEN to the repo secrets and
+      # re-enable:
+      # - name: upload to codecov.io
+      #   uses: codecov/codecov-action@<pinned-sha> # v4
+      #   with:
+      #     files: lcov.info
+      #     fail_ci_if_error: true

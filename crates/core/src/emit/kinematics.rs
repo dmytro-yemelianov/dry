@@ -965,7 +965,7 @@ impl Robot6AxisModel {
     /// that needs roll must set it themselves. Likewise only the elbow-up branch is produced, so the
     /// solver cannot follow a path that requires reconfiguration.
     ///
-    /// Refuses what carries no pose, on the same terms as [`unit_orientation`] on the 5-axis path:
+    /// Refuses what carries no pose, on the same terms as [`crate::emit::kinematics::unit_orientation`] on the 5-axis path:
     /// a non-finite TCP point, a zero or non-finite tool direction, or a non-finite previous joint
     /// state. Before this the refusals disagreed — `NaN.abs() > 1.0` is false, so the reach check
     /// below never fired on non-finite input and the solve returned `Ok` with `NaN` in every joint,

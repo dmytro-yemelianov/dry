@@ -9,7 +9,7 @@ use crate::codec::CodecError;
 use crate::ir::{Segment, SegmentKind};
 use std::io::Write;
 
-/// Convert a 3D unit direction vector to a quaternion [w, x, y, z] (representing rotation from [0,0,1]).
+/// Convert a 3D unit direction vector to a quaternion [w, x, y, z] (representing rotation from \[0,0,1\]).
 pub fn quaternion_from_direction(dir: [f64; 3]) -> [f64; 4] {
     let [dx, dy, dz] = dir;
     if dz > 0.999999 {

@@ -1,4 +1,4 @@
-//! `emit` — lower an L2 [`Toolpath`] to motion g-code (Marlin), reproducing FullControl's bytes
+//! `emit` — lower an L2 [`crate::ir::Toolpath`] to motion g-code (Marlin), reproducing FullControl's bytes
 //! (`docs/03-conformance.md`, the strictest gate). Clean-room: the formatting rules below are Dry's
 //! independent reimplementation of FullControl's *observed* output, not its code.
 //!
