@@ -19,7 +19,7 @@ schema validates the canonical names.
 | `machine` | `build_volume` | `[[x_lo,x_hi],[y_lo,y_hi],[z_lo,z_hi]]` mm | `bounds` | |
 | `machine` | `feedrate_range` | `[min,max]` mm/min | `speed_range` | extruding moves |
 | `machine` | `kinematics.max_acceleration_mm_s2` | mm/s² > 0 | — | drives the `balanced` arc centripetal limit |
-| `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | caps the `balanced` per-junction feedrate |
+| `machine` | `kinematics.max_junction_velocity_mm_s` | mm/s > 0 | — | square-corner velocity: caps the `balanced` per-junction feedrate and drives `junction-velocity` |
 | `machine` | `five_axis` | `"ab"` / `"ac"` / `"bc"`, or an object with `type` + `pivot_offset` + `rotary_offset` | — | how a toolframe orientation maps onto two rotary words; absent ⇒ the reference B/C machine |
 | `machine` | `rotary.travel_deg` | `{a?,b?,c?}` of `[min,max]` degrees | — | per-axis rotary travel; an absent axis is unconstrained |
 | `machine` | `rotary.max_feed_deg_min` | deg/min > 0 | — | maximum rate for any rotary axis |
@@ -55,13 +55,25 @@ max junction / square-corner velocity. It has two optional numeric fields:
 - `max_acceleration_mm_s2` — the toolhead's maximum acceleration in mm/s². When set, the `peak-acceleration`
   verifier rule (§2) flags arcs whose centripetal acceleration `v²/r` exceeds this value, and the `balanced`
   rewrite mode (§3.4) caps arc speed to respect it.
-- `max_junction_velocity_mm_s` — the maximum velocity change allowed at a sharp junction (a per-junction
-  feedrate cap), in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity)
-  fires on contiguous printing segments with a velocity change Δv exceeding this value, and `balanced`
-  mode (§3.4) limits per-junction speed to respect it. This rule is an *advisory* approximation of
-  cornering — a flat Δv-vs-limit check, not a reproduction of firmware junction kinematics (Klipper's
-  square-corner-velocity feeds a junction-deviation formula that permits larger Δv on shallow corners),
-  so on real slicer g-code it may warn on corners the printer handles fine. It is a Warning, never a gate.
+- `max_junction_velocity_mm_s` — the machine's **square-corner velocity**: the speed at which it can take
+  a 90° corner, in mm/s. When set, the `junction-velocity` verifier rule (§2, **warning** severity) turns
+  the direction change at each contiguous printing junction into an allowed corner velocity and fires when
+  the junction is entered faster than that, and `balanced` mode (§3.4) caps per-junction speed to respect
+  it. With `t̂ₐ` the exit tangent of the incoming segment, `t̂_b` the outgoing entry tangent and
+  `f = cos(φ/2) = sqrt((1 + t̂ₐ·t̂_b)/2)`:
+
+  ```
+  fire iff  min(v_a, v_b) > scv · sqrt((√2 − 1)·f / (1 − f))
+  ```
+
+  This is the junction-deviation relation, calibrated so a 90° corner is allowed exactly `scv` (which is
+  what the field's name means), a straight junction is allowed any speed, and a full reversal none. Two
+  consequences worth stating: a large velocity change **along a straight line** is *not* a junction
+  finding (`f = 1`, unbounded allowance) — that is an acceleration question, and `docs/14` records that
+  no rule currently asks it; and the rule still fires on tens of thousands of junctions in a real slicer
+  file, because a healthy print genuinely contains tens of thousands of corners commanded above their
+  cornering limit and the firmware planner slows down at each. It is a Warning, never a gate; see
+  `docs/14-known-limitations.md` for the measurement and why raising `scv` does not fix the volume.
   (The `peak-acceleration` rule, by contrast, evaluates every arc — including travel arcs — against the
   acceleration limit.)
 

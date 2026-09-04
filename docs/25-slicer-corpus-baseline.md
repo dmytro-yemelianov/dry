@@ -136,8 +136,10 @@ Wall times are single-shot and dominated by process startup at this file size (2
 28 runs took more than 27 ms. `review-gcode`'s exit code is `1` in every matched-profile run and `0` in
 every no-profile run — exactly what `error_count` predicts (§"Per-rule finding counts, matched profile"
 below): every one of the 7 files has at least one **error**-severity finding once a profile is supplied
-(`bounds`, `max-flow` and `retraction-speed` fire as errors in every file; `retraction-distance` fires as
-an error in the Prusa file only), and `review-gcode` exits non-zero whenever `error_count > 0`. Not every
+(as re-measured 2026-08-04: `bounds` fires as an error in every file, `max-flow` in the six Bambu files,
+and `retraction-speed`/`retraction-distance` in the Prusa file only — on 2026-08-03 `max-flow` and
+`retraction-speed` also fired in every file, for the reasons the two corrected bullets below give), and
+`review-gcode` exits non-zero whenever `error_count > 0`. Not every
 profile-dependent rule is an error, though: `junction-velocity` and `first-layer-speed` are **warnings**
 (matching `docs/11-profiles-and-reports.md`'s severity table), so their large occurrence counts below do
 not, by themselves, affect the exit code — it is the error-severity rules alone that flip it to `1`.
@@ -189,16 +191,27 @@ own defaults, never on a profile's limits.
 
 ### Per-rule finding counts, matched profile (7 files)
 
-| Rule | Total occurrences | Classification |
-|---|---|---|
-| `unmodeled-gcode` | 9,210 | expected-import-artifact (unchanged, profile-independent) |
-| `travel-extrudes` | 130 | expected-import-artifact (unchanged, profile-independent) |
-| `junction-velocity` | 31,306 | **profile-mismatch** (warning severity — see §"Import success" above) |
-| `retraction-speed` | 3,566 | **profile-mismatch** |
-| `max-flow` | 1,810 | **mixed — see below, not uniformly profile-mismatch** |
-| `bounds` | 571 | **profile-mismatch** |
-| `first-layer-speed` | 1,562 | **profile-mismatch** (warning severity — see §"Import success" above) |
-| `retraction-distance` | 1 | **profile-mismatch** |
+> **Re-measured 2026-08-04.** Four of these eight counts moved, because the verifier and three profile
+> limits were corrected off the back of the first real user file (`fix/pilot-false-positives`). The
+> "was" column is the original 2026-08-03 measurement this document was written from; the classifications
+> in it were partly wrong, and where they were, the bullets below say so rather than being quietly
+> restated. Corpus files, models and slicer output are byte-unchanged — only the verifier's rule scope,
+> `junction-velocity`'s measure, and `{bambu-x1c,prusa-mk4}` square-corner velocity changed.
+
+| Rule | Occurrences | Was (2026-08-03) | Classification |
+|---|---|---|---|
+| `unmodeled-gcode` | 9,210 | 9,210 | expected-import-artifact (unchanged, profile-independent) |
+| `travel-extrudes` | 130 | 130 | expected-import-artifact (unchanged, profile-independent) |
+| `junction-velocity` | 25,371 | 31,306 | **inherent to real slicer output** — not a profile-mismatch; see below (warning severity) |
+| `first-layer-speed` | 1,562 | 1,562 | **profile-mismatch** (warning severity) |
+| `bounds` | 571 | 571 | **profile-mismatch** |
+| `max-flow` | 87 | 1,810 | **profile-mismatch** (the 1,722 import artifacts are gone — the rule no longer scores a pure filament move) |
+| `retraction-speed` | 1 | 3,566 | **profile-mismatch** (the 3,565 wipe moves are gone — the rule now judges a pure retraction) |
+| `retraction-distance` | 1 | 1 | **profile-mismatch** |
+
+Error-severity total: 660 across the 7 files (`bounds` 571, `max-flow` 87, `retraction-speed` 1,
+`retraction-distance` 1), down from 5,948. Exit codes are unchanged — every matched-profile run still
+exits `1`, on `bounds` in all 7 files.
 
 Every profile-dependent rule that fires is either a **profile-mismatch** or a documented
 **expected-import-artifact**; none is a true-positive. Six of the seven rules above are profile-mismatch,
@@ -208,41 +221,49 @@ speed/flow/retraction settings (see the profiles' provenance notes in
 `docs/superpowers/specs/2026-08-03-slicer-corpus-and-profiles-design.md` §4). `max-flow` is the
 exception — see its own bullet below, which is not a profile-mismatch story. Concretely:
 
-- **`junction-velocity`** (31,306 occurrences, the largest count by far) — the profile's
-  `max_junction_velocity_mm_s: 8` is an explicitly conservative estimate (no vendor publishes a
-  square-corner-velocity figure for either printer); real Bambu/Prusa cornering behavior at print speed
-  routinely exceeds it (`junction Δv 105.0 mm/s exceeds square-corner velocity 8.0` is typical, e.g.
-  `cube__orca-bambu-x1c-pla.gcode` source lines 995-997: three consecutive `G1 X... E...` moves alternating
-  `F2100`/`F8400`, ordinary extruding infill motion with a feed change at every corner, not travel or
-  purge). This is the profile being tighter than the slicer's actual behavior, not the g-code doing
-  anything wrong.
-- **`retraction-speed`** — profile ceilings (1800 mm/min Bambu, 2100 mm/min Prusa) are conservative PLA
-  defaults; actual slicer output retracts faster (`3000 mm/min` typical, e.g. line 1342
-  `G1 X89.221 Y85.939 E-.43004` under a modal `F3000` set earlier in the same retract/wipe sequence). This
-  finding is intentional, not a profile defect to fix: neither vendor publishes a retraction-speed
-  capability figure (the design doc's provenance note, §4, says so explicitly), so there is no vendor
-  ceiling to raise the profile to — `1800`/`2100` are deliberately conservative estimates, the same
-  discipline used for `max_junction_velocity_mm_s`, and the resulting profile-mismatch finding against
-  faster real slicer output is the expected, by-design consequence of that choice.
-- **`max-flow`** — this rule's 1,810 occurrences are **not** predominantly the profile-mismatch story
-  the other rules tell, and the classification in an earlier draft of this doc ("the slicer's own
-  purge-tower priming bursts") does not survive its own data. Measured across all 7 files: 1,722 of
-  1,810 findings are on `G1`/`G0` lines carrying an `E` word and **no** `X`/`Y` — stationary retract/prime
-  moves, not purge-tower travel — and of those, 1,685 sit at exactly 72.16 mm³/s (a `G1 E.8 F1800` /
-  `G1 E-0.8 F1800` de-retract/retract pair recurring per-layer through the whole print, e.g.
-  `cube__orca-bambu-x1c-pla.gcode` line 1278) and the rest at 60.13 mm³/s (`F1500` variant, e.g. the same
-  file's line 980). 72.16 mm³/s exceeds any physically plausible ceiling for these machines (the X1C's
-  published max flow is ~32 mm3/s), so "the profile is stricter than the slicer's real behavior" does not
-  hold here the way it does for `junction-velocity`/`retraction-speed`/`bounds`/`first-layer-speed`: this
-  is the verifier's flow formula (`filament area x segment speed`) applied to a move that deposits
-  nothing, an **expected-import-artifact**, now documented in
-  [`docs/14-known-limitations.md`](14-known-limitations.md). Only the remaining 88 findings sit on
-  moves with real `X`/`Y` displacement, and of those only 7 (one ~84-96 mm³/s purge-tower burst per file,
-  at a different source line in each — e.g. `cube__orca-bambu-x1c-pla.gcode` line 940's
-  `G0 Y11 E0.700 F2100`, also flagged `travel-extrudes`) are the purge-tower-flow story the
-  profile-mismatch framing describes; the
-  rest are ordinary print moves at a profile-ceiling-exceeding but not obviously-wrong flow, closer to a
-  genuine profile-mismatch than an artifact but not further broken down here.
+- **`junction-velocity`** (25,371 occurrences, still the largest count by far) — **the 2026-08-03
+  classification of this rule as a profile-mismatch does not survive the correction, and neither does its
+  cited evidence.** Two things changed. (a) The rule was measuring a velocity *difference*
+  (`‖v_b·t̂_b − v_a·t̂ₐ‖ > scv`), which fired on collinear feed changes under a cornering limit's name —
+  which is exactly what the old example here was: `cube__orca-bambu-x1c-pla.gcode` lines 995-997, "three
+  consecutive `G1 X... E...` moves alternating `F2100`/`F8400`", i.e. a *speed* change, not a corner. It
+  now measures the direction change at the junction and turns it into an allowed corner velocity
+  (`docs/11` §1), so that example no longer fires. (b) `max_junction_velocity_mm_s` is no longer an
+  estimate: both printers' own stock profiles declare it (X1C `machine_max_jerk_x = 9,9`, MK4 `10,10`),
+  and the shipped profiles now carry those values.
+  What remains is **not** a profile-mismatch and cannot be tuned away. A typical survivor is a genuine
+  90° infill turn commanded at print speed, and the count is large because a real print contains tens of
+  thousands of them; every firmware planner decelerates at each, which is why the print is healthy.
+  Measured on the pilot file, raising the limit does not help: `scv = 4` → 42,119, `8` → 33,539,
+  `10` → 29,719, `20` → 18,830. Read a large `junction-velocity` count as *"this program commands many
+  corners above the machine's cornering limit and will run slower than its feedrates claim"* — a
+  plan-fidelity advisory, permanently Warning severity, never a gate. `docs/14-known-limitations.md`
+  records it and states what a useful (aggregate) form would look like.
+- **`retraction-speed`** (1 occurrence, was 3,566) — **the 2026-08-03 classification was wrong, and its own
+  cited evidence proves it.** The example given was line 1342, `G1 X89.221 Y85.939 E-.43004` under a modal
+  `F3000` — a move with **X and Y displacement**. That is a *wipe*: OrcaSlicer retracts while sweeping the
+  nozzle across the surface, so `F3000` is the wipe speed and the `E` delta is a fraction of one retraction
+  (`retract_before_wipe`). The rule was reading the wipe feedrate as a retraction speed. It now requires
+  the tool to be stationary, and 3,565 of the 3,566 findings were that move.
+  The story about ceilings was also wrong: both corpus files' stock profiles declare
+  `retraction_speed = 30` (1800 mm/min), so the shipped `1800`/`2100` ceilings are at or above what these
+  slicers actually command — there was never a mismatch to explain. The single survivor is a genuine
+  stationary retract: `cube__orca-prusa-mk4-pla.gcode` line 51, `G1 E-2 F2400 ; retraction`, in Prusa's own
+  start macro, 2400 mm/min against the profile's 2100 — a real conservative-ceiling profile-mismatch, and
+  the same line as the lone `retraction-distance` finding.
+- **`max-flow`** (87 occurrences, was 1,810) — the 2026-08-03 analysis of this rule was **right**, and the
+  fix followed from it: 1,722 of the 1,810 findings were on `G1`/`G0` lines carrying an `E` word and no
+  `X`/`Y` — stationary retract/prime moves scored as if they deposited, 1,685 of them at exactly
+  72.16 mm³/s (`G1 E.8 F1800`, e.g. `cube__orca-bambu-x1c-pla.gcode` line 1278). The rule now requires a
+  path to deposit along and all 1,722 are gone; `docs/14-known-limitations.md` no longer lists this as an
+  import artifact, and instead records that `simulate`'s descriptive `max_flow_rate` metric still counts
+  such moves.
+  All 87 survivors have real `X`/`Y` displacement and are one story, not two: the vendor start macro's
+  purge/prime lines, written as `G0` with an `E` word (`cube__orca-bambu-x1c-pla.gcode` line 937,
+  `G0 X240 E15 F8400` at 22.75 mm³/s; line 942 at 27.73; each also flagged `travel-extrudes`) plus ordinary
+  first-layer moves a little over the profile's 21 mm³/s ceiling. Both are genuine deposition above a
+  conservative ceiling — a **profile-mismatch**, uniformly. `max-flow` deliberately keeps depositing
+  travels in scope precisely so the purge burst is still reported (`docs/11` §2).
 - **`bounds`** — every Bambu file reports the identical 93 occurrences, split across 10 distinct
   out-of-volume `Y` values from the same purge/prime-tower g-code (`Y = 259.5` through `Y = 265`, plus one
   `Y = -3`, all against the profile's `[0, 256]` nominal build-volume figure); 37 of the 93 are the largest
@@ -265,13 +286,23 @@ exception — see its own bullet below, which is not a profile-mismatch story. C
   profile-mismatch classification still holds — a real first-layer part speed exceeding a deliberately
   conservative range is exactly what "the profile is stricter than the slicer's tuned settings" predicts
   — but the earlier characterization of these moves as purge/skirt rather than the part's own first
-  layer was wrong and is corrected here.
+  layer was wrong and is corrected here. The 2026-08-04 profile pass deliberately did **not** widen
+  `[600, 3000]` for these two machines: the X1C's stock `initial_layer_infill_speed = 105` is 6,300 mm/min,
+  and a ceiling that admits it makes the adhesion advisory vacuous. (`ender3-pla-marlin.json` *was* widened,
+  to `[300, 3000]`, because its stock profile's fastest first-layer feature is the 50 mm/s skirt and 3,000
+  admits every first-layer move that profile emits — see the design doc's provenance addendum for why the
+  two cases were treated differently.)
 - **`retraction-distance`** — a single occurrence, Prusa only (`cube__orca-prusa-mk4-pla.gcode` line 51,
   `G1 E-2 F2400 ; retraction`, a 2 mm retract against the profile's 1 mm ceiling); same
   conservative-profile pattern.
 
 No occurrence in this run was classified **true-positive** — nothing here indicates the sliced g-code
-itself violates its own printer's real limits. That is a property of this specific 2-combination,
+itself violates its own printer's real limits. That verdict survived the 2026-08-04 correction, but it is
+worth being precise about what changed underneath it: on 2026-08-03 five of the eight rules were
+*classified* as profile-mismatch when two of them (`max-flow`'s 1,722, `retraction-speed`'s 3,565) were
+verifier defects and one (`junction-velocity`) was a mix of a verifier defect and an inherent property of
+slicer output. "No true positives" was the right conclusion from the wrong premises for 5,287 of the 5,948
+errors. That is a property of this specific 2-combination,
 7-file sample and the conservative profiles authored for it, not a general claim that OrcaSlicer output
 never has genuine defects; a larger, pilot-scale corpus (`docs/09`) sliced against profiles tuned to match
 each slicer's actual process settings (rather than deliberately conservative baselines) is a more
@@ -296,10 +327,14 @@ through a second command path, not just `review-gcode`.
 | `vase_cone__orca-bambu-x1c-pla` | 22,959 | 22,160 | 771.3 | 672.2 | 99.2 | 86.99 | 78 |
 
 The max-flow peak (84.18-96.21 mm³/s) recurs across every file at almost the same value because it is the
-same purge/prime-tower burst `review-gcode`'s `max-flow` rule flags above (Bambu: the same `G0 ... E...`
-prime move, at a source line that varies per file — e.g. line 940 in `cube__orca-bambu-x1c-pla.gcode`;
-Prusa: the equivalent purge line) — `trace-gcode`'s window summary and `review-gcode`'s per-line finding are
-reading the same underlying motion, from two different commands.
+same start-macro prime move in each. **As of 2026-08-04 this column no longer agrees with
+`review-gcode`'s `max-flow` findings, and the disagreement is deliberate**: these peaks are stationary
+E-only primes (the Prusa file's 96.21 mm³/s is a `G1 E… F2400` line — the identical value the first real
+user file produced 813 times), and the *rule* no longer scores a move that deposits along no path, while
+`simulate`'s descriptive metric still counts it because the move genuinely takes that long. Read this
+column as **peak filament throughput**, not peak deposition rate; `docs/14-known-limitations.md` records
+why the metric was left alone (its segment domain is what `formal/Dry/Semantics/SimulateMetrics.lean`
+models) and what a corrected metric would be.
 
 **`--profile` makes no observable difference to `trace-gcode`'s output for this corpus.** A structural
 diff of the matched-profile vs. no-profile JSON for every one of the 7 files shows the only difference is
@@ -317,12 +352,17 @@ The H1 tokenizer fix (PR #224) closed the exact gap the prior probe found: 7/7 g
 10`, in both profile modes (28/28 runs, exit codes and wall time in the Method table above), versus 0/4
 pre-fix — see `crates/core/tests/gcode_import_slicer_dialects.rs` for the durable regression record of
 those pre-fix failures.
-Every remaining finding is either a documented, profile-independent import artifact
-(`unmodeled-gcode`, `travel-extrudes`, and now the majority of `max-flow` — all three named in
-`docs/14-known-limitations.md`), or a profile-mismatch stemming from this corpus's deliberately
-conservative example profiles, not a defect in the vendor g-code — with `max-flow`'s minority of
-genuinely profile-mismatch findings (the ~84-96 mm³/s purge-tower burst, one per file) the one
-exception to "every profile-dependent rule is uniformly one bucket." `overhang_wedge` has been
+Every remaining finding (re-measured 2026-08-04) is one of three things, and none is a defect in the
+vendor g-code: a documented, profile-independent **import artifact** (`unmodeled-gcode` 9,210,
+`travel-extrudes` 130, both named in `docs/14-known-limitations.md`); a **profile-mismatch** against this
+corpus's deliberately conservative example profiles (`bounds` 571, `max-flow` 87, `first-layer-speed`
+1,562, `retraction-speed` 1, `retraction-distance` 1); or `junction-velocity` (25,371), which is neither —
+it is an inherent property of real slicer output at any defensible square-corner velocity, and is a
+permanently Warning-severity plan-fidelity advisory rather than something a profile can be tuned to
+silence. The 5,287 findings that were **verifier defects** — `max-flow` scoring a pure filament move,
+`retraction-speed` reading a wipe feedrate as a retraction speed, and `junction-velocity` measuring a
+speed difference instead of a direction change — were fixed rather than reclassified; the first real user
+file, not this corpus, is what exposed them (`docs/11` §2, `docs/14`). `overhang_wedge` has been
 re-frozen so it actually exercises the overhang stress case its name claims (see above); the counts in
 this document are against that corrected file. The Voron/Klipper and CuraEngine rows
 did not ship; both are root-caused and recorded (`conformance/slicer-corpus/MANIFEST.json`,
