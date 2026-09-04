@@ -9,6 +9,23 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-05
+
+Prospective licensing and registry-publication release; the compiler, IR, and report schemas are
+unchanged.
+
+### Changed
+- **DryMachina BUSL-1.1 terms.** Version 0.10.0 adopts the canonical Business Source License 1.1
+  body with a basic Additional Use Grant for production use by one natural-person User and one
+  physical Production Machine, excluding Competing Services. The cap is legal and self-assessed;
+  runtime entitlement logic, tokens, reports, and the no-phone-home behavior are unchanged. This
+  version converts to MIT on 2030-09-05; earlier releases retain their distributed terms.
+- **Registry-ready Rust packages.** `dry-core`, `dry-license`, `dry-moonraker`, `dry-llm`, and
+  `dry-cli` are publishable in dependency order. Local workspace dependencies now carry explicit
+  `0.10.0` registry versions, while path dependencies remain for repository development.
+- **DryMachina branding and legal artifacts.** Public package metadata, legal summaries, SBOMs,
+  readmes, and package-local `LICENSE`/`NOTICE` copies use the DryMachina brand and BUSL-1.1.
+
 ### Fixed
 - **Verifier state machines and stationary filament moves (#277).** The two per-segment state
   machines in `verify_stream` — the retraction state read by `travel-without-retraction` and the

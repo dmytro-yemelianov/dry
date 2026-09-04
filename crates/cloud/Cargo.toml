@@ -7,10 +7,10 @@
 [package]
 name = "dry-cloud"
 description = "Feasibility spike: dry-core gcode import+verify inside a Cloudflare Worker (workers-rs)."
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 rust-version = "1.88"
-license-file = "../../LICENSE"
+license = "BUSL-1.1"
 repository = "https://github.com/dmytro-yemelianov/dry"
 publish = false
 
@@ -18,7 +18,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-dry-core = { path = "../core" }
+dry-core = { version = "0.10.0", path = "../core" }
 worker = { version = "0.8", features = ["queue"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

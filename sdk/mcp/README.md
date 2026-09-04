@@ -1,8 +1,8 @@
-# `@dry/mcp` — Dry Machina Model Context Protocol (MCP) Server
+# `@dry/mcp` — DryMachina Model Context Protocol (MCP) Server
 
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 
-Model Context Protocol (MCP) server that connects LLM coding assistants (Claude Desktop, Cursor, Goose, Copilot) directly to Dry's deterministic CAM compiler and verification engine.
+Model Context Protocol (MCP) server that connects LLM coding assistants (Claude Desktop, Cursor, Goose, Copilot) directly to DryMachina's deterministic CAM compiler and verification engine.
 
 ---
 
@@ -43,4 +43,5 @@ Add to your `claude_desktop_config.json`:
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).

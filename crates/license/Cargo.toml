@@ -1,12 +1,11 @@
 [package]
 name = "dry-license"
-description = "Offline Ed25519 license verification and grace period management for Dry."
+description = "Offline Ed25519 license verification and grace period management for DryMachina."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
-publish = false
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

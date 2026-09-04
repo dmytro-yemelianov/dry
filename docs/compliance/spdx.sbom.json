@@ -2,86 +2,95 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "dry-0.9.1",
-  "documentNamespace": "https://github.com/dmytro-yemelianov/dry/spdx/dry-0.9.1",
+  "name": "DryMachina-0.10.0",
+  "documentNamespace": "https://github.com/dmytro-yemelianov/dry/spdx/DryMachina-0.10.0",
   "creationInfo": {
     "creators": [
-      "Tool: dry-sbom-generator-0.9.1",
-      "Organization: Dry Tooling"
+      "Tool: dry-sbom-generator-0.10.0",
+      "Person: Dmytro Yemelianov"
     ],
-    "created": "2026-09-04T16:45:00Z"
+    "created": "2026-09-05T00:00:00Z"
   },
   "packages": [
     {
       "SPDXID": "SPDXRef-Package-dry-core",
       "name": "dry-core",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-cli",
       "name": "dry-cli",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-license",
       "name": "dry-license",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-llm",
       "name": "dry-llm",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-moonraker",
       "name": "dry-moonraker",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-wasm",
       "name": "dry-wasm",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
       "SPDXID": "SPDXRef-Package-dry-py",
       "name": "dry-py",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     },
     {
-      "SPDXID": "SPDXRef-Package-dry-sdk-ts",
+      "SPDXID": "SPDXRef-Package-dry-sdk",
       "name": "@dry/sdk",
-      "versionInfo": "0.9.1",
+      "versionInfo": "0.10.0",
       "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
-      "licenseConcluded": "FSL-1.1-MIT",
-      "licenseDeclared": "FSL-1.1-MIT",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
+      "filesAnalyzed": false
+    },
+    {
+      "SPDXID": "SPDXRef-Package-dry-mcp",
+      "name": "@dry/mcp",
+      "versionInfo": "0.10.0",
+      "downloadLocation": "https://github.com/dmytro-yemelianov/dry",
+      "licenseConcluded": "BUSL-1.1",
+      "licenseDeclared": "BUSL-1.1",
       "filesAnalyzed": false
     }
   ]

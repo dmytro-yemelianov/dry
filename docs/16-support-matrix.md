@@ -61,6 +61,11 @@ See [`12-releasing.md`](12-releasing.md) for install-without-source instructions
 
 ## Commercial licensing
 
+The software behavior below is separate from the BUSL-1.1 legal boundary. Evaluation mode is fully
+functional for evaluation and for production use that qualifies for the Additional Use Grant; use
+beyond one User, one Production Machine, or as a Competing Service requires a commercial license.
+The binary does not meter that cap or phone home.
+
 | Feature | Level |
 |---|---|
 | `dry license activate` / `dry license status`, offline Ed25519 token verification | Supported |

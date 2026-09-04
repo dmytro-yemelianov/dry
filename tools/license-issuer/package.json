@@ -1,8 +1,8 @@
 {
   "name": "dry-license-issuer",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
-  "license": "FSL-1.1-MIT",
+  "license": "BUSL-1.1",
   "type": "module",
   "scripts": {
     "test": "vitest run",

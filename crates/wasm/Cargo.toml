@@ -6,11 +6,11 @@
 
 [package]
 name = "dry-wasm"
-description = "wasm-bindgen binding for Dry — the toolpath compiler engine, in the browser / Node."
-version = "0.9.1"
+description = "wasm-bindgen binding for the DryMachina toolpath compiler engine."
+version = "0.10.0"
 edition = "2021"
 rust-version = "1.88"
-license-file = "../../LICENSE"
+license = "BUSL-1.1"
 repository = "https://github.com/dmytro-yemelianov/dry"
 publish = false
 
@@ -18,7 +18,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-dry-core = { path = "../core" }
+dry-core = { version = "0.10.0", path = "../core" }
 # pinned to the installed wasm-bindgen CLI version (the .wasm and the JS glue must match exactly).
 wasm-bindgen = "=0.2.123"
 serde_json = "1"

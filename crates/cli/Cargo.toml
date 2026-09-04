@@ -1,12 +1,11 @@
 [package]
 name = "dry-cli"
-description = "Dry CLI — inspect / simulate / emit a Dry IR toolpath."
+description = "DryMachina CLI — inspect, simulate, verify, and emit deterministic toolpaths."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
-publish = false
 
 [[bin]]
 name = "dry"
@@ -18,10 +17,10 @@ llm = ["dep:dry-llm"]
 moonraker = ["dep:dry-moonraker"]
 
 [dependencies]
-dry-core = { path = "../core" }
-dry-license = { path = "../license" }
-dry-llm = { path = "../llm", optional = true }
-dry-moonraker = { path = "../moonraker", optional = true }
+dry-core = { version = "0.10.0", path = "../core" }
+dry-license = { version = "0.10.0", path = "../license" }
+dry-llm = { version = "0.10.0", path = "../llm", optional = true }
+dry-moonraker = { version = "0.10.0", path = "../moonraker", optional = true }
 clap = { version = "4", features = ["derive"] }
 dirs = "5"
 serde_json = "1"

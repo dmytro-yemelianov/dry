@@ -1,6 +1,6 @@
-# Releasing Dry
+# Releasing DryMachina
 
-Dry ships installable artifacts from one tagged release: the **CLI** (native binaries), the
+DryMachina ships installable artifacts from one tagged release: the **CLI** (native binaries), the
 **Python** package (wheels via maturin), the **TypeScript SDK** (npm package), the **AI MCP Server** (`@dry/mcp`),
 the **WebAssembly Standalone Bundle**, and **The Dry Book & Specifications Archive**.
 A release is produced entirely by CI from a `vX.Y.Z` tag — `.github/workflows/release.yml`.
@@ -39,8 +39,9 @@ Dry adheres strictly to **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)**:
    - `containers/verify-runner/Cargo.toml` → `[package] version`
    - `py/pyproject.toml` & `py/Cargo.toml` → `version`
    - `sdk/ts/package.json` & `sdk/ts/package-lock.json` → `version`
-   - `sdk/mcp/package.json` → `version`
+   - `sdk/mcp/package.json` & `sdk/mcp/package-lock.json` → `version`
    - `web/package.json`, `services/cloud/package.json`, `tools/license-issuer/package.json` → `version`
+   - `deploy/cloudflare/package.json` and every adjacent `package-lock.json` → `version`
    Verify locally: `bash scripts/check-version.sh vX.Y.Z`.
 2. **Update `CHANGELOG.md`** — move `[Unreleased]` into a new `## [X.Y.Z] - <date>` section.
 3. **Commit** the bump + changelog, open a PR, merge to `main`.
@@ -65,7 +66,23 @@ Dry adheres strictly to **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)**:
 
 ## 3. Distribution & Licensing Boundary
 
-Artifacts are distributed through this repository's **public GitHub Releases** under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE).
+Starting with v0.10.0, artifacts are distributed through this repository's **public
+GitHub Releases** under the **Business Source License 1.1 (`BUSL-1.1`)**. Each v0.10.0 copy
+converts to MIT on 2030-09-05; see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE). Earlier
+release artifacts retain the terms that accompanied them.
+
+The five crates.io packages are published separately, in dependency order, after the GitHub release
+is green:
+
+1. `dry-core`, `dry-license`, and `dry-moonraker` (independent roots);
+2. wait until the crates.io index exposes those exact versions;
+3. `dry-llm` (depends on `dry-core`), then wait for the index again;
+4. `dry-cli` (depends on all four; installs the `dry` binary).
+
+Before the first irreversible publish, inspect every archive with `cargo package --list`, run
+`cargo publish --dry-run`, and confirm that the embedded `LICENSE` names the same version and Change
+Date as the release. Published crate files cannot be replaced; yanking only removes a version from
+normal dependency resolution.
 
 ---
 
