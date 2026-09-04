@@ -4,12 +4,12 @@ build-backend = "maturin"
 
 [project]
 name = "dry"
-version = "0.9.1"
-description = "Dry — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
+version = "0.10.0"
+description = "DryMachina — author algorithmic machine toolpaths in Python; the Rust engine does the rest."
 readme = "README.md"
 authors = [{ name = "Dmytro Yemelianov", email = "dmytro@yemelianov.dev" }]
 requires-python = ">=3.9"
-license = "FSL-1.1-MIT"
+license = "BUSL-1.1"
 license-files = ["LICENSE", "NOTICE", "third_party/licenses/*.txt"]
 
 [project.urls]
@@ -25,4 +25,3 @@ features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
 pythonpath = ["python"]
-

@@ -241,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "libm",
  "miniz_oxide",
@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "dry-license"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "base64",
  "ed25519-dalek",
@@ -261,7 +261,7 @@ dependencies = [
 
 [[package]]
 name = "dry-verify-runner"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "axum",
  "dry-core",

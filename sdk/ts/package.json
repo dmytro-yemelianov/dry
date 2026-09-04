@@ -1,9 +1,9 @@
 {
   "name": "@dry/sdk",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
-  "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the Dry engine (Rust, via wasm).",
-  "license": "FSL-1.1-MIT",
+  "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the DryMachina engine (Rust, via wasm).",
+  "license": "BUSL-1.1",
   "repository": "https://github.com/dmytro-yemelianov/dry",
   "type": "commonjs",
   "main": "dist/src/index.js",
@@ -17,7 +17,8 @@
   },
   "files": [
     "dist/src",
-    "wasm"
+    "wasm",
+    "NOTICE"
   ],
   "scripts": {
     "prepublishOnly": "node -e \"console.error('Public registry publishing is disabled; use the private GitHub Release tarball.'); process.exit(1)\"",

@@ -90,7 +90,7 @@ jobs:
         id: proof_claims
         continue-on-error: true
         run: python3 tools/validate_proof_claims.py
-      - name: verify FSL-1.1-MIT license headers & attribution
+      - name: verify BUSL-1.1 license parameters, mirrors & attribution
         id: license_headers
         continue-on-error: true
         run: python3 tools/check_license_headers.py
@@ -174,7 +174,12 @@ jobs:
           python-version: "3.11"
       - name: verify legal notice sources
         run: |
-          cmp NOTICE py/NOTICE
+          for copy in crates/{core,cli,license,llm,moonraker}/LICENSE py/LICENSE sdk/{ts,mcp}/LICENSE; do
+            cmp LICENSE "$copy"
+          done
+          for copy in crates/{core,cli,license,llm,moonraker}/NOTICE py/NOTICE sdk/{ts,mcp}/NOTICE; do
+            cmp NOTICE "$copy"
+          done
           cmp third_party/licenses/Apache-2.0.txt py/third_party/licenses/Apache-2.0.txt
           cmp third_party/licenses/MIT.txt py/third_party/licenses/MIT.txt
       - name: rust check (the binding)

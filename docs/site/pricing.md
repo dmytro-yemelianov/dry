@@ -4,9 +4,19 @@
 > hand-issued to pilot participants, and the checkout links below are not yet live.
 > To join the pilot, email [license@yemelianov.dev](mailto:license@yemelianov.dev?subject=Dry%20Pilot).
 
-Dry is licensed per organization, annually. There is no usage metering and no phone-home: a
+DryMachina commercial licenses are issued per organization, annually. There is no usage metering
+and no phone-home: a
 license is an offline-verified Ed25519 token, so pricing scales with who's using the CLI, not
 how many times it runs.
+
+## Community production grant
+
+DryMachina v0.10.0 is distributed under BUSL-1.1. Non-production use is permitted by the base
+license. The Additional Use Grant also permits production use by **one natural-person User** with
+**one physical Production Machine**, provided the use does not provide a Competing Service. Crossing
+any one of those limits requires a commercial license. This is a legal, self-assessed cap: the
+software does not meter users or machines or phone home. Version 0.10.0 converts to MIT on
+2030-09-05; later releases carry their own Change Dates.
 
 ## Tiers
 
@@ -18,8 +28,9 @@ how many times it runs.
 | **Support** | Email, best-effort | Email, priority | Hands-on onboarding |
 | | [Buy Solo →](https://dry.lemonsqueezy.com/checkout/buy/VARIANT_UUID_SOLO) | [Buy Team →](https://dry.lemonsqueezy.com/checkout/buy/VARIANT_UUID_TEAM) | [Talk to us →](mailto:license@yemelianov.dev?subject=Dry%20Pilot) |
 
-Machine and user counts are honor-declared — embedded in your license token and stamped into
-every report footer for audit, not enforced by the binary. Pilot is a 90-day Team-tier license
+Machine and user counts are honor-declared and may be recorded in your offline license token; they
+are not enforced by the binary. Report footers stamp evaluation/licensed mode and, for an active
+license, the licensee and tier. Pilot is a 90-day Team-tier license
 plus guided onboarding through the [pilot playbooks](/guide/), invoiced manually; email us to
 start one.
 
@@ -34,7 +45,7 @@ scope and a couple of guardrails:
 
 | | Eval mode (no license) | Licensed |
 |---|---|---|
-| `review-gcode`, `verify`, `trace-gcode`, `compare`, `explain`, `rewrite-gcode` | ✅ full output | ✅ full output |
+| `review-gcode`, `verify`, `trace-gcode`, `compare`, `explain`, `rewrite-gcode` | ✅ full output within BUSL-1.1 terms | ✅ full output |
 | Report footer | `"mode": "evaluation"` + a printed `EVALUATION — not for production gating` banner | `"mode": "licensed"`, stamped with your licensee name and tier |
 | `dry upload` (Moonraker gate) | ❌ refuses before any network call, points here | ✅ |
 | Result/finding caps | None — evaluate on real jobs at full depth | None |

@@ -1,6 +1,6 @@
 # `dry-wasm` — WebAssembly Compiler Engine
 
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 
 `wasm-bindgen` bindings that compile the entire `dry-core` Rust engine to high-performance WebAssembly (`wasm32-unknown-unknown`) for in-browser and Node.js execution.
 
@@ -29,4 +29,5 @@ wasm-pack build --target nodejs --out-dir pkg-node
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).

@@ -1,8 +1,9 @@
 {
   "name": "dry-verify-cloudflare",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "description": "Cloudflare Containers deployment of containers/verify-runner (ADR 0003, deployment track D4).",
+  "license": "BUSL-1.1",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "deploy:staging": "wrangler deploy --env staging",

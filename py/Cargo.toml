@@ -9,10 +9,10 @@
 [package]
 name = "dry-py"
 description = "PyO3 binding for Dry — the toolpath compiler engine, callable from Python."
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 rust-version = "1.88"
-license-file = "LICENSE"
+license = "BUSL-1.1"
 repository = "https://github.com/dmytro-yemelianov/dry"
 publish = false
 
@@ -21,6 +21,6 @@ name = "_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-dry-core = { path = "../crates/core" }
+dry-core = { version = "0.10.0", path = "../crates/core" }
 pyo3 = { version = "0.24", features = ["extension-module", "abi3-py39"] }
 serde_json = "1"

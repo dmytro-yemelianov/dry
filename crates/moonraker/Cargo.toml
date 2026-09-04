@@ -1,12 +1,11 @@
 [package]
 name = "dry-moonraker"
-description = "Dry's Moonraker (Klipper) upload client — network code, feature-gated."
+description = "DryMachina's Moonraker (Klipper) upload client — network code, feature-gated."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
-publish = false
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

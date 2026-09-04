@@ -1,18 +1,24 @@
-Dry — Parametric Design/CAM DSL & Deterministic Toolpath Compiler
+DryMachina — Parametric Design/CAM DSL & Deterministic Toolpath Compiler
 Copyright (c) 2026 Dmytro Yemelianov. All rights reserved.
 
-Licensed under the Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT).
-See LICENSE for details. Trademark information: see TRADEMARKS.md.
+Starting with version 0.10.0, this software is licensed under the Business
+Source License 1.1 (BUSL-1.1). See LICENSE for the complete controlling terms.
+Trademark information: see TRADEMARKS.md.
 
 ================================================================================
-Licensing Summary
+Licensing Summary (non-binding)
 ================================================================================
 
-- FREE for developers, researchers, hobbyists, internal enterprise manufacturing,
-  and non-competing products and services.
-- A commercial license is required ONLY for providing a Competing Service (e.g.
-  offering a hosted toolpath compilation/verification API or white-labeled CAM SaaS).
-- Converts automatically to the standard MIT License two (2) years after release.
+- Non-production use is permitted by BUSL-1.1.
+- Production use is permitted by the Additional Use Grant only for one natural-
+  person User and one physical Production Machine, and not for a Competing
+  Service. Use beyond any of those limits requires a commercial license.
+- DryMachina does not meter this cap or phone home; users assess their own
+  compliance with the license.
+- Version 0.10.0 converts automatically to the MIT License on 2030-09-05. Each
+  later version has its own stated Change Date.
+- Versions released before 0.10.0 retain the license terms distributed with
+  those versions.
 
 ================================================================================
 Third-Party Software Attribution
@@ -40,12 +46,13 @@ This software includes components under permissive open-source licenses:
 Clean-Room Provenance Statement
 ================================================================================
 
-Dry is an independent, clean-room implementation authored from specification and
-first principles. FullControl (GPLv3, https://github.com/FullControlXYZ/fullcontrol)
-is used solely as:
+DryMachina is an independent, clean-room implementation authored from
+specification and first principles. FullControl (GPLv3,
+https://github.com/FullControlXYZ/fullcontrol) is used solely as:
 (a) Architectural inspiration for the multi-level dialect design, and
-(b) A dev/CI-time behavioural test oracle generating expected outputs for regression gates.
+(b) A dev/CI-time behavioural test oracle generating expected outputs for
+    regression gates.
 
-No source code from FullControl is copied into Dry. FullControl is quarantined under
-`conformance/oracle/` and is NOT shipped, linked into, or included in any Dry release
-artifact. See docs/CLEANROOM.md.
+No source code from FullControl is copied into DryMachina. FullControl is
+quarantined under `conformance/oracle/` and is NOT shipped, linked into, or
+included in any DryMachina release artifact. See docs/CLEANROOM.md.
