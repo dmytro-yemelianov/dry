@@ -182,7 +182,11 @@ flag set here covers yet.
   count from 41,112 to 33,539 warnings. It does **not** make it small, and raising `scv` will not either:
   measured on the same file, `scv = 4` → 42,119, `scv = 8` → 33,539, `scv = 10` → 29,719,
   `scv = 20` → 18,830. The reason is in the geometry: 33,236 of that file's 90,897 printing junctions turn
-  by more than 20°, and at the commanded 40–60 mm/s every one of them is above its cornering limit. Every
+  by more than 20°, and at the commanded 40–60 mm/s every one of them is above its cornering limit. (The
+  sweep predates the #277 junction-history fix — a stationary filament move no longer carries a junction
+  across the stop — so files that prime between contiguous prints would count somewhat lower today; the
+  corpus re-measurement in `docs/25` found no such pattern in OrcaSlicer output, where a travel always
+  separates the prime from the previous print.) Every
   firmware planner slows down at each, which is why the print is healthy. So a per-junction finding is a
   **plan-fidelity advisory** (the same character as `rotary-feed`: the controller obeys, the plan was
   optimistic), it is a Warning and never gates, and its useful form is aggregate — "this program commands

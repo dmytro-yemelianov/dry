@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
+## [Unreleased]
+
+### Fixed
+- **Verifier state machines and stationary filament moves (#277).** The two per-segment state
+  machines in `verify_stream` — the retraction state read by `travel-without-retraction` and the
+  junction history read by `junction-velocity` — no longer let a segment that is neither a deposition
+  nor a travel silently inherit the previous segment's state. The retraction state now clears on any
+  forward filament motion, so a traversing unretract (hand-authored IR) and an imported `G0 E...`
+  purge no longer keep `retracted == true` and suppress a `travel-without-retraction` finding
+  (fail-open); the junction history now resets on every non-deposition segment, so a stationary prime
+  between two prints no longer makes `junction-velocity` compare their tangents across the stop
+  (false positive). Rule scopes stay exactly as #276 narrowed them; only state tracking widens.
+  Corpus re-measured: all `docs/25` counts unchanged (OrcaSlicer output never puts a stationary move
+  between contiguous prints); conformance goldens unchanged.
+
 ## [0.9.1] - 2026-09-04
 
 Legal, assurance and release hygiene over the 0.9.0 engine; no engine behaviour changes.
