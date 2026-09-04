@@ -6,6 +6,17 @@
 # The node smoke test (CI) builds the same crate with --target nodejs into a scratch dir; see
 # .github/workflows/ci.yml. The engine is identical — only the JS glue differs by target.
 set -euo pipefail
+
+# This bundle is a release artifact: it must not inherit ambient compiler flags.
+# `cargo-llvm-cov` exports `RUSTFLAGS="-C instrument-coverage --cfg=coverage"` for the whole process
+# tree it runs, and this script is reached that way — `crates/core/tests/wasm_native_math.rs`
+# shells out to it from inside an instrumented test run. The wasm32-unknown-unknown target ships
+# without the profiler runtime, so `-C instrument-coverage` cannot even compile there
+# (`error[E0463]: can't find crate for profiler_builtins`), and a sanitizer or coverage flag has no
+# business in a shipped bundle anyway. Any CI job that genuinely needs custom flags passes them to
+# its own cargo invocation, not through this script.
+unset RUSTFLAGS RUSTDOCFLAGS CARGO_ENCODED_RUSTFLAGS
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 TARGET="${1:-web}"          # web | nodejs
