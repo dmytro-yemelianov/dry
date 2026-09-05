@@ -19,15 +19,16 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 | **`v0.8.0`** | **Phase 7** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Released within v0.9.0** |
 | **`v0.9.0`** | **Phase 8** | Industrial CNC & robot post-processors (Sinumerik, Haas, Heidenhain, ABB RAPID), digital-twin physics simulator, generative CAM assistant, and 3D WebGL visualizer. The release included a capability-parity manifest, but a 2026-09-05 audit found that the gate did not assert manifest completeness; remediation targets v0.11.0. | **Released** |
 | **`v0.9.1`** | **Release hygiene** | Verifier state-machine corrections, legal notices, SBOM and provenance consolidation, lockstep release metadata, and repaired coverage infrastructure. | **Released** |
-| **`v0.10.0`** | **DryMachina publication baseline** | Prospective BUSL-1.1 adoption with the DryMachina brand, registry-ready Rust packages, synchronized legal/SBOM metadata, and a Lean build gate that covers every proof fixture. Compiler, IR, and report schemas remain unchanged. | **Release candidate — tag pending** |
+| **`v0.10.0`** | **DryMachina publication baseline** | Prospective BUSL-1.1 adoption with the DryMachina brand, registry-ready Rust packages, synchronized legal/SBOM metadata, and a Lean build gate that covers every proof fixture. Compiler, IR, and report schemas remain unchanged. | **Released** |
 | **`v0.11.0`** | **Post-audit remediation** | Engine-delegated compatibility across bindings, fail-closed cloud ingress, executable standalone/release test gates, capability-manifest completeness, honest proof-strength metadata, and targeted RAPID validation. | **Target** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
-> **Version status (2026-09-05).** GitHub releases v0.9.0 and v0.9.1 exist. The repository and all
-> release manifests are at v0.10.0, but the v0.10.0 tag and GitHub release do not exist yet and the
-> five crates.io packages have not been published. Post-audit behavior/API changes are intentionally
-> held for v0.11.0 so the v0.10.0 release statement remains true. “Merged”, “released”, and
-> “published to a registry” are separate claims throughout this roadmap.
+> **Version status (2026-09-05).** GitHub releases v0.9.0, v0.9.1, and
+> [v0.10.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.10.0) exist. The v0.10.0
+> release contains 14 checksum-verified, provenance-attested assets. The five crates.io packages
+> have not been published. Post-audit behavior/API changes are intentionally held for v0.11.0 so
+> the v0.10.0 release statement remains true. “Merged”, “released”, and “published to a registry”
+> are separate claims throughout this roadmap.
 
 
 ---
