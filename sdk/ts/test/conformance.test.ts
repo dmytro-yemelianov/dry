@@ -86,6 +86,13 @@ test('ir() returns resolved segments', () => {
   assert.deepEqual(ir.segments[1].end, [10, 0, 0.2]);
 });
 
+test('a manual-gcode segment uses the JSON wire spelling', () => {
+  const ir = new Design().manualGcode('M117 hi').ir();
+  const segment = ir.segments[0];
+  assert.equal(segment.kind, 'manualgcode');
+  assert.equal(segment.manual_gcode, 'M117 hi');
+});
+
 test('optimizedIr() uses the shared optimizer pipeline', () => {
   const d = new Design()
     .geometry(0.6, 0.2)

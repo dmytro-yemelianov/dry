@@ -10,6 +10,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Fixed
+- **The TypeScript L2 segment kind matches the normative JSON wire spelling.** Rust serde and the
+  Dry IR schema encode a manual G-code segment as `manualgcode`, while DRY0 intentionally uses
+  `manual_gcode`; the SDK type incorrectly advertised the binary spelling for JSON-decoded
+  toolpaths. The public `SegmentKind` now matches the JSON contract, with an end-to-end wasm-backed
+  regression test. `machine.ts` also consumes the canonical `FirmwareFlavor` union instead of a
+  stale local subset.
 - **Formal-assurance evidence now reports what actually discharged each Lean claim.** The claim
   ledger distinguishes kernel-checked proofs from the six theorems discharged by
   `native_decide`, and the validator rejects missing, mismatched, or comment-induced proof-method
