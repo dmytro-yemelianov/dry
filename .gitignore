@@ -73,3 +73,9 @@ tools/slicer_corpus/full-corpus/
 *.pkcs8
 *.token
 license.token
+# Wrangler writes local secrets here, and there are five Worker projects in this tree
+# (deploy/cloudflare, services/cloud, tools/license-issuer, docs/site, crates/cloud). The
+# committed configs keep real secrets out by using `wrangler secret put`; this keeps the
+# local half of that discipline from being committable in the first place.
+.dev.vars
+.dev.vars.*
