@@ -10,6 +10,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Fixed
+- **The CLI's previously unexecuted `unpack`, offline `explain`, `schema`, and `fleet` paths now
+  have end-to-end smoke coverage.** The pack/unpack test pins both semantic and byte-identical DRY1
+  round trips, and the no-default-features CI lane proves `fleet` refuses before network access when
+  Moonraker support is absent. Codecov now enforces an exact, fail-closed 85% workspace line-
+  coverage floor instead of uploading an informational artifact that could never fail CI.
 - **ABB RAPID arcs now emit a direction-sensitive `CirPoint` instead of misusing the circle
   centre as `MoveC`'s first target.** CW and CCW sweeps produce distinct points on the requested
   arc; non-finite motion values and CNC-only `cnc_frame` parameters fail closed. Quaternion branch,

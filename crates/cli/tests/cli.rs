@@ -1,7 +1,7 @@
 //! End-to-end CLI tests: run the `dry` binary on a conformance fixture and check its output.
 
 use dry_core::{
-    import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind,
+    import_gcode, parse_gcode_lines, GcodeImportParams, GcodeRecord, SegmentKind, Toolpath,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
 use serde_json::Value;
@@ -36,6 +36,7 @@ fn bin() -> &'static str {
 
 /// A committed test-signed license token (team tier) — see `crates/license/tests/fixtures/`.
 /// `upload` now refuses to run in evaluation mode, so tests that exercise it need a license.
+#[cfg(feature = "moonraker")]
 fn team_token() -> &'static str {
     include_str!("../../license/tests/fixtures/js-signed-team.token")
 }
@@ -1361,6 +1362,123 @@ fn pack_writes_chunked_binary_that_simulate_streams() {
         .abs()
             < 1e-9
     );
+}
+
+#[test]
+fn pack_unpack_round_trip_is_semantically_and_byte_identical() {
+    let input = fixture("simulate", "square");
+    let source: Value = serde_json::from_str(&std::fs::read_to_string(&input).unwrap()).unwrap();
+    let expected = Toolpath::from_json(&serde_json::to_string(&source["ir"]).unwrap()).unwrap();
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let base = format!("dry-cli-unpack-{}-{stamp}", std::process::id());
+    let packed = std::env::temp_dir().join(format!("{base}.dry"));
+    let unpacked = std::env::temp_dir().join(format!("{base}.json"));
+    let repacked = std::env::temp_dir().join(format!("{base}-repacked.dry"));
+
+    for args in [
+        vec![
+            "pack",
+            input.to_str().unwrap(),
+            "-o",
+            packed.to_str().unwrap(),
+        ],
+        vec![
+            "unpack",
+            packed.to_str().unwrap(),
+            "-o",
+            unpacked.to_str().unwrap(),
+        ],
+        vec![
+            "pack",
+            unpacked.to_str().unwrap(),
+            "-o",
+            repacked.to_str().unwrap(),
+        ],
+    ] {
+        let out = Command::new(bin()).args(args).output().unwrap();
+        assert!(
+            out.status.success(),
+            "command failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    let actual = Toolpath::from_json(&std::fs::read_to_string(&unpacked).unwrap()).unwrap();
+    assert_eq!(actual, expected);
+    assert_eq!(
+        std::fs::read(&repacked).unwrap(),
+        std::fs::read(&packed).unwrap()
+    );
+
+    for path in [packed, unpacked, repacked] {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+#[test]
+fn explain_json_reports_offline_evidence() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../conformance/reports/compare/slow.gcode");
+    let out = Command::new(bin())
+        .args(["explain", path.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "explain failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let bundle: Value = serde_json::from_slice(&out.stdout).expect("valid explanation bundle");
+    assert_eq!(bundle["reports"]["trace"]["trace"]["segment_count"], 3);
+    assert!(bundle["reports"]["forensics"].is_object());
+    assert!(bundle["reports"]["verify"].is_object());
+    assert!(!bundle["prompt"].as_str().unwrap_or_default().is_empty());
+}
+
+#[test]
+fn schema_intent_v1_is_valid_and_requires_a_dialect() {
+    let out = Command::new(bin())
+        .args(["schema", "intent/1"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "schema failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let schema: Value = serde_json::from_slice(&out.stdout).expect("valid schema JSON");
+    assert_eq!(schema["title"], "DryIntentV1");
+    assert!(schema["required"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field == "dialect"));
+}
+
+#[test]
+fn fleet_help_is_available_and_minimal_build_refuses_before_network() {
+    let help = Command::new(bin())
+        .args(["fleet", "--help"])
+        .output()
+        .unwrap();
+    assert!(help.status.success());
+    let stdout = String::from_utf8_lossy(&help.stdout);
+    assert!(stdout.contains("status"));
+    assert!(stdout.contains("tune"));
+
+    #[cfg(not(feature = "moonraker"))]
+    {
+        let out = Command::new(bin())
+            .args(["fleet", "status", "--url", "http://127.0.0.1:9"])
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(2));
+        assert!(out.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&out.stderr).contains("compiled without moonraker support"));
+    }
 }
 
 #[test]
