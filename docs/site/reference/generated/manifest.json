@@ -7,11 +7,11 @@
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "29c5d4dbe4a33d9d74604eb6d05603ee0b29147da4a7e4ddb95e7efef7075ce9"
+      "sha256": "828deeaa2d0a903143d3580f01c9428e0257f7c5dfb2d9c89a85bc1e60a7ac8a"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",
-      "sha256": "5648c3a80f1d015bdd585f64f753ecfe9c663d448c37c152a99cb88bfb258e84"
+      "sha256": "20bf31edde90824df56cf8465ebb210933fd12912ab7295270d89242519551ee"
     },
     "examples": {
       "path": "docs/site/reference/source/examples.json",
