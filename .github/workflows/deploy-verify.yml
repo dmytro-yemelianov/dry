@@ -13,6 +13,13 @@ on:
       - "crates/core/**"
       - "crates/license/**"
       - ".github/workflows/deploy-verify.yml"
+  pull_request:
+    paths:
+      - "services/cloud/**"
+      - "containers/verify-runner/**"
+      - "crates/core/**"
+      - "crates/license/**"
+      - ".github/workflows/deploy-verify.yml"
   workflow_dispatch:
     inputs:
       environment:
@@ -26,7 +33,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-verify-${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
+  # PR validation never deploys and gets its own group. Real staging/production
+  # rollouts remain serialized per environment and are never cancelled midway.
+  group: deploy-verify-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref_type == 'tag' && 'production' || inputs.environment || 'staging') }}
   cancel-in-progress: false
 
 jobs:
@@ -73,7 +82,7 @@ jobs:
     name: deploy (${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }})
     needs: [runner, control-plane]
     runs-on: ubuntu-latest
-    if: github.repository == 'dmytro-yemelianov/dry'
+    if: github.event_name != 'pull_request' && github.repository == 'dmytro-yemelianov/dry'
     environment:
       name: ${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
     steps:
