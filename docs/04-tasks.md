@@ -7,6 +7,22 @@ refined as they approach.
 
 Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scope. IDs are stable references.
 
+## Active release train (2026-09-05)
+
+- `[x]` **R0.10** (S) **Cut the DryMachina v0.10.0 publication baseline before post-audit behavior
+  changes merge.** **Released 2026-09-05:** main was fully green, including post-merge Codecov;
+  `scripts/check-version.sh v0.10.0` passed across all 20 lockstep version surfaces; tag `v0.10.0`
+  resolves to main commit `d033ef4`; and the GitHub release published 14 checksum-verified assets,
+  including the CycloneDX SBOM, under one Rekor-witnessed SLSA provenance statement. crates.io
+  publication remains a separate, irreversible action under `docs/12-releasing.md`.
+- `[~]` **R0.11** (L) **Post-audit remediation train.** Execute in this order after v0.10.0 is
+  released: PR #286 repairs machine-compatibility parity; PR #287 hardens malformed contract ingress
+  and activates missing standalone/release tests; later independent slices add proof-strength
+  disclosure, RAPID validation, and the ADR 0003 cloud decision. The full frozen audit spec and
+  implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
+  slice has independent review, target-specific gates, full PR CI, and post-merge main verification;
+  only then cut v0.11.0.
+
 ## Phase 0 — Foundations & conformance harness
 
 - `[x]` **P0.1** (M) Dependency-free Rust `core` crate with PyO3/wasm-bindgen isolated in adapter crates. *Accept (met):* `dry-core` builds without binding dependencies; workspace, wasm and PyO3 crates check separately.
@@ -277,4 +293,3 @@ but nothing has run it on a controller. The banner says so.
 - `[x]` **P8.2** (L) **Digital Twin Physics & Thermal / Deflection Simulator**. Real-time analytical cutting force estimation ($F_t = k_c a_p f_z$), cantilever tool deflection ($\delta = \frac{F_t L^3}{3 E I}$), adiabatic shear zone temperature rise, Taylor tool wear life, and chatter stability boundaries. *Accept (met):* Verified in `crates/core/tests/machining_physics.rs` across Aluminum 6061, Steel 4140, Titanium Ti-6Al-4V, and Inconel 718.
 - `[x]` **P8.3** (M) **Natural Language Generative CAM & Toolpath Assistant**. LLM prompt-to-design planner and heuristic generator producing structured L1 operations and machining parameters. *Accept (met):* Verified in `crates/llm/src/lib.rs` (12/12 unit tests passing).
 - `[x]` **P8.4** (M) **Interactive 3D Digital Twin Visualizer with Physics Telemetry**. Client-side WebGL 2.0 / Three.js 3D toolpath viewer with timeline scrubbing, 5-axis orientation normal vectors, stepped toolholder models, and dynamic physics telemetry. *Accept (met):* Published in `web/visualizer.html`.
-
