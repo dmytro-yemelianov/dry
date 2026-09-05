@@ -121,10 +121,10 @@ jobs:
         id: release_emit
         continue-on-error: true
         run: cargo test --release -p dry-core --test emit_refuses_non_finite --test emit_rejects_unrepresentable --locked
-      - name: compile the minimal CLI feature set
+      - name: test the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
-        run: cargo check -p dry-cli --no-default-features --locked
+        run: cargo test -p dry-cli --no-default-features --test cli --locked
       - name: build (wasm, dry-core)
         id: wasm_build
         continue-on-error: true
@@ -488,6 +488,7 @@ jobs:
           python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
           python -m unittest discover -s tools/tests -p 'test_validate_spec_claim_links.py'
           python -m unittest discover -s tools/tests -p 'test_generate_assurance_report.py'
+          python -m unittest discover -s tools/tests -p 'test_check_coverage_floor.py'
           python tools/generate_assurance_report.py --check
       - name: build checked proofs with the pinned Lean/Mathlib toolchain
         uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1.5.0

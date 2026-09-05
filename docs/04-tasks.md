@@ -20,9 +20,12 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   ingress and activated missing standalone/release tests; both are merged and post-merge green.
   PR #291 makes Lean fixture checks observable and distinguishes kernel proof from
   `native_decide`, while PR #292 aligns `SegmentKind` with the normative JSON spelling and removes a
-  stale duplicate firmware union; both are merged and post-merge green. The current RAPID slice
-  repairs `MoveC` circle-point/direction semantics, rejects unrepresentable input, and adds an
-  honestly scoped structural golden; later independent slices resolve the ADR 0003 cloud decision.
+  stale duplicate firmware union; both are merged and post-merge green. PR #293 repairs RAPID
+  `MoveC` circle-point/direction semantics, rejects unrepresentable input, and adds an honestly
+  scoped structural golden; it is merged and post-merge green. The current CLI/coverage slice adds
+  end-to-end smoke coverage for `unpack`, offline `explain`, `schema`, and `fleet`, exercises the
+  no-default-features CLI in CI, and replaces informational LCOV artifacts with a fail-closed 85%
+  workspace line-coverage floor. Later independent slices resolve the ADR 0003 cloud decision.
   The full frozen audit spec and
   implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
   slice has independent review, target-specific gates, full PR CI, and post-merge main verification;
