@@ -9,6 +9,26 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Fixed
+- **The edge worker fails closed on a malformed contracts header.** `crates/cloud`'s `POST /verify`
+  parsed `X-Dry-Contracts` with `unwrap_or_default()`, so a malformed header silently became
+  `Contracts::default()` — documented in that same file as "all contract-driven checks disabled" —
+  and the caller received HTTP 200 with a clean-looking report for a program nobody verified. It now
+  answers 400, as `containers/verify-runner` already did for bad input.
+- **CI runs the wasm binding's unit tests.** `crates/wasm` is excluded from the workspace, so
+  `cargo test --workspace` cannot reach it, and its job had no `cargo test` step: the tests existed
+  and executed on no target. The job now runs them and aggregates the result into its gate summary.
+- **The wasm rejection path is testable at all.** `parse_kinematics_invalid_json_returns_error` sat
+  behind `#[cfg(target_arch = "wasm32")]` because evaluating a `JsError` panics off-wasm with
+  "cannot call wasm-bindgen imported functions on non-wasm targets" — and the crate has no wasm test
+  runner, so it ran nowhere. The parse is now a `parse_kinematics_inner` returning
+  `Result<_, String>`, with the `JsError` conversion at the boundary, and the rejection is asserted
+  on the host.
+- **CI compiles the release-only emission branch.** `crates/core/tests/emit_rejects_unrepresentable.rs`
+  states at `:63-69` that it must run under `--release` to cover the shipping behaviour of `emit()`
+  for an out-of-contract `CncFrame` and an endpoint-less arc, but the release step named only
+  `emit_refuses_non_finite`. Both files now run; all 13 tests pass.
+
 ## [0.10.0] - 2026-09-05
 
 Prospective licensing and registry-publication release; the compiler, IR, and report schemas are

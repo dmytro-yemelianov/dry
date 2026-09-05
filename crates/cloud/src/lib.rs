@@ -49,7 +49,16 @@ async fn worker_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Resu
         }
     };
     let contracts = match req.headers().get("X-Dry-Contracts")? {
-        Some(contracts_str) => serde_json::from_str(&contracts_str).unwrap_or_default(),
+        Some(contracts_str) => match serde_json::from_str(&contracts_str) {
+            Ok(contracts) => contracts,
+            // `Contracts::default()` disables every contract-driven check. Degrading to it on a
+            // malformed header answered 200 with a clean-looking report for a program nobody
+            // verified — the caller asked for contracts and got silence. `verify-runner` refuses
+            // bad input with a 4xx; this route now does too.
+            Err(e) => {
+                return Response::error(format!("invalid X-Dry-Contracts header: {e}"), 400);
+            }
+        },
         None => Contracts::default(),
     };
     let report = verify(&imported.toolpath, &contracts);
