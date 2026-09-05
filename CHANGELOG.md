@@ -10,11 +10,13 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Fixed
-- **The edge worker fails closed on a malformed contracts header.** `crates/cloud`'s `POST /verify`
+- **The archived Worker spike fails closed on a malformed contracts header.** `crates/cloud`'s
+  `POST /verify`
   parsed `X-Dry-Contracts` with `unwrap_or_default()`, so a malformed header silently became
   `Contracts::default()` — documented in that same file as "all contract-driven checks disabled" —
   and the caller received HTTP 200 with a clean-looking report for a program nobody verified. It now
-  answers 400, as `containers/verify-runner` already did for bad input.
+  answers 400, as `containers/verify-runner` already did for bad input, and host-side regression
+  tests pin malformed, absent, and valid header behavior.
 - **CI runs the wasm binding's unit tests.** `crates/wasm` is excluded from the workspace, so
   `cargo test --workspace` cannot reach it, and its job had no `cargo test` step: the tests existed
   and executed on no target. The job now runs them and aggregates the result into its gate summary.

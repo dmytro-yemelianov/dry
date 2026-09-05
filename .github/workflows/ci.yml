@@ -531,8 +531,12 @@ jobs:
           toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - name: test (host, dry-cloud)
+        working-directory: crates/cloud
+        run: cargo test --locked
       # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
-      # as crates/wasm), so it gets its own fmt + clippy (same -D warnings, no #[allow] discipline).
+      # as crates/wasm), so it gets its own host tests plus fmt + wasm32 clippy (same -D warnings,
+      # no #[allow] discipline).
       - name: rust check (the cloud worker)
         working-directory: crates/cloud
         run: |
