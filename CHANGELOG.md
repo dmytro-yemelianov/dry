@@ -30,6 +30,32 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   states at `:63-69` that it must run under `--release` to cover the shipping behaviour of `emit()`
   for an out-of-contract `CncFrame` and an endpoint-less arc, but the release step named only
   `emit_refuses_non_finite`. Both files now run; all 13 tests pass.
+- **Machine compatibility is checked by the engine on every surface.** The Python and TypeScript
+  SDKs each carried a local copy of the pre-flight loop implementing five of the engine's seven
+  rules; both walked segment endpoints only and omitted `ARC_OUT_OF_BOUNDS_X` and
+  `ARC_OUT_OF_BOUNDS_Y`. An arc whose swept circle leaves the build envelope therefore returned
+  **zero findings and `compatible: true`** from those SDKs while `dry_core::check_compatibility`
+  refuses the same program with `Severity::Error`. The engine bounds an arc by its full circle
+  deliberately — refusing a safe program is recoverable, passing an unsafe one is not — and the two
+  SDKs inverted exactly that. Both now delegate to the engine through a boundary adapter; the
+  public signatures, the capability document shapes and the result shapes are unchanged. Findings
+  gain the two arc codes, and finding messages now come from the engine, so their wording changed.
+- **The arc-envelope rule is pinned by a test.** `crates/core/tests/retrospective_audit.rs`
+  asserted `ARC_OUT_OF_BOUNDS_X || OUT_OF_BOUNDS_X` over a fixture whose arc endpoint was also
+  outside the envelope, so the plain bounds rule satisfied it alone and the arc rule was pinned by
+  nothing. A second fixture now places both endpoints inside the envelope so only the arc rule can
+  refuse the program.
+
+### Added
+- `check_compatibility_json` in the Python binding and `checkMachineCompatibility` in `sdk/ts`,
+  mirroring the existing wasm `check_machine_compatibility` so the bindings cannot drift again.
+- **The capability-parity manifest gates its own completeness.** It verified every cell it declared
+  and nothing verified the cells it did not: the wasm binding exports 34 functions against 12
+  recorded capabilities, which is why the divergence above had no gate to fail. A
+  `machine-compatibility` row now covers all five surfaces, and an `[uncovered]` table records the
+  23 wasm and 11 Python exports still awaiting a row. `tools/check_capability_parity.py` fails on
+  an export listed in neither place, and on a stale entry, so the backlog cannot rot into a silent
+  allowlist.
 
 ## [0.10.0] - 2026-09-05
 
@@ -49,6 +75,11 @@ unchanged.
   readmes, and package-local `LICENSE`/`NOTICE` copies use the DryMachina brand and BUSL-1.1.
 
 ### Fixed
+- **Coverage no longer races the bounded-memory gate.** The two `memory_scale` tests share a
+  process-wide counting allocator but Rust's test harness could run them concurrently, allowing one
+  test to reset the other's peak baseline. Coverage instrumentation made the race visible as a false
+  `verify_stream is buffering` failure on the release candidate. Both measurements are now serialized
+  without changing any memory threshold.
 - **Verifier state machines and stationary filament moves (#277).** The two per-segment state
   machines in `verify_stream` — the retraction state read by `travel-without-retraction` and the
   junction history read by `junction-velocity` — no longer let a segment that is neither a deposition
