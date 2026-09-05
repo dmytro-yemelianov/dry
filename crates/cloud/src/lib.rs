@@ -30,6 +30,13 @@ fn review_import_params() -> GcodeImportParams {
     }
 }
 
+fn parse_contracts_header(raw: Option<&str>) -> serde_json::Result<Contracts> {
+    match raw {
+        Some(value) => serde_json::from_str(value),
+        None => Ok(Contracts::default()),
+    }
+}
+
 #[event(fetch)]
 async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Router::new()
@@ -48,12 +55,45 @@ async fn worker_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Resu
             return Response::error(format!("import failed: {e}"), 422);
         }
     };
-    let contracts = match req.headers().get("X-Dry-Contracts")? {
-        Some(contracts_str) => serde_json::from_str(&contracts_str).unwrap_or_default(),
-        None => Contracts::default(),
+    let contracts_header = req.headers().get("X-Dry-Contracts")?;
+    let contracts = match parse_contracts_header(contracts_header.as_deref()) {
+        Ok(contracts) => contracts,
+        // `Contracts::default()` disables every contract-driven check. Degrading to it on a
+        // malformed header answered 200 with a clean-looking report for a program nobody
+        // verified — the caller asked for contracts and got silence. `verify-runner` refuses
+        // bad input with a 4xx; this route now does too.
+        Err(e) => {
+            return Response::error(format!("invalid X-Dry-Contracts header: {e}"), 400);
+        }
     };
     let report = verify(&imported.toolpath, &contracts);
     Response::from_json(&report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_contracts_header;
+
+    #[test]
+    fn malformed_contracts_header_is_rejected() {
+        assert!(parse_contracts_header(Some("{")).is_err());
+    }
+
+    #[test]
+    fn missing_contracts_header_uses_the_documented_default() {
+        let contracts = parse_contracts_header(None).expect("missing header should use defaults");
+        assert_eq!(
+            serde_json::to_value(contracts).expect("default contracts serialize"),
+            serde_json::json!({ "monotonic_z": false })
+        );
+    }
+
+    #[test]
+    fn valid_contracts_header_preserves_requested_checks() {
+        let contracts = parse_contracts_header(Some(r#"{"max_flow":12.5}"#))
+            .expect("valid contracts header should parse");
+        assert_eq!(contracts.max_flow, Some(12.5));
+    }
 }
 
 async fn spike_verify(mut req: Request, _ctx: worker::RouteContext<()>) -> Result<Response> {

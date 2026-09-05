@@ -113,10 +113,14 @@ jobs:
       # non-finite emit tests can ONLY run in release, because `Length::mm` carries a debug_assert
       # that panics before the IR can be built. Debug-only CI could not see them at all. Scoped to
       # those tests rather than the whole suite, to keep the added wall-clock small.
+      # `emit_rejects_unrepresentable.rs:63-69` states the same requirement for itself — its
+      # `debug_assertions`-gated branch covers the shipping-release behaviour of `emit()` for an
+      # out-of-contract `CncFrame` and an endpoint-less arc — but this step named only the other
+      # file, so that branch was compiled by no CI run.
       - name: release-only emit refusals
         id: release_emit
         continue-on-error: true
-        run: cargo test --release -p dry-core --test emit_refuses_non_finite --locked
+        run: cargo test --release -p dry-core --test emit_refuses_non_finite --test emit_rejects_unrepresentable --locked
       - name: compile the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
@@ -256,6 +260,15 @@ jobs:
         continue-on-error: true
         working-directory: crates/wasm
         run: cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+      # The crate is excluded from the workspace, so `cargo test --workspace` in the `core` job
+      # cannot reach it, and until now no job ran its unit tests at all — they existed and executed
+      # on no target. Host-target `cargo test` runs them; the wasm-bindgen boundary itself is
+      # covered by the node oracle step below.
+      - name: unit tests (the wasm binding)
+        id: wasm_test
+        continue-on-error: true
+        working-directory: crates/wasm
+        run: cargo test --locked
       - name: Blockly/web static regressions
         id: blockly
         continue-on-error: true
@@ -277,6 +290,7 @@ jobs:
           OUTCOMES: >-
             fmt=${{ steps.wasm_fmt.outcome }}
             clippy=${{ steps.wasm_clippy.outcome }}
+            unit-tests=${{ steps.wasm_test.outcome }}
             blockly-regression=${{ steps.blockly.outcome }}
             node-engine-build=${{ steps.node_engine.outcome }}
             node-oracle=${{ steps.node_oracle.outcome }}
@@ -517,8 +531,12 @@ jobs:
           toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - name: test (host, dry-cloud)
+        working-directory: crates/cloud
+        run: cargo test --locked
       # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
-      # as crates/wasm), so it gets its own fmt + clippy (same -D warnings, no #[allow] discipline).
+      # as crates/wasm), so it gets its own host tests plus fmt + wasm32 clippy (same -D warnings,
+      # no #[allow] discipline).
       - name: rust check (the cloud worker)
         working-directory: crates/cloud
         run: |
