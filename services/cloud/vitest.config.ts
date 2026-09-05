@@ -3,18 +3,24 @@ import path from "node:path";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
-// schema.sql is applied in test/setup.ts via env.DB.exec() per statement (one
-// CREATE TABLE/INDEX per line — see the file). Split here, in the Node-side
-// config context, so the worker-side setup file only deals with plain
-// strings (no filesystem access is available from inside workerd).
+// schema.sql is applied in test/setup.ts via env.DB.prepare().run() per statement.
+// Parse semicolon-terminated statements here, in the Node-side config
+// context, so multiline DDL remains intact and the worker-side setup file
+// only deals with plain strings (no filesystem access is available from
+// inside workerd). The schema contains no triggers or string literals with
+// semicolons; if that changes, replace this small parser with a migration
+// runner rather than weakening the tests.
 const schemaSql = fs.readFileSync(
   path.join(import.meta.dirname, "schema.sql"),
   "utf8",
 );
 const schemaStatements = schemaSql
   .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line.length > 0 && !line.startsWith("--"));
+  .map((line) => line.replace(/--.*$/, ""))
+  .join("\n")
+  .split(";")
+  .map((statement) => statement.trim())
+  .filter(Boolean);
 
 export default defineConfig({
   plugins: [

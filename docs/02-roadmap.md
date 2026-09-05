@@ -99,19 +99,19 @@ model; a CNC and a laser target emit valid programs from the same IR.
 Runs **alongside** Phases 5 and 6, not after them: it is gated by product decisions and operational
 capability rather than by engine work, so it does not queue behind the oracle retirement.
 
-**Goal:** something a paying user can depend on. The engine is heavily gated; the product is not
-deployed, and no CI gate in this repo has ever served a request.
+**Goal:** something a paying user can depend on. The engine is heavily gated; the hosted topology is
+implemented and deployment-config validated, but no live production origin is claimed.
 
-**Deliverables:** one named service (today there are two divergent sketches — `containers/verify-runner`
-and the `crates/cloud` spike); observability; authentication, quota and revocation; a deploy pipeline
-with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a
-data-handling policy for uploaded programs, which are customer IP.
+**Deliverables:** one public asynchronous control plane (`services/cloud`) and one private native
+verifier (`containers/verify-runner`); observability; authentication, quota and revocation; a deploy
+pipeline with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a
+runbook and a data-handling policy for uploaded programs, which are customer IP.
 
-**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). **D1 is decided as of
-2026-08-31** ([ADR 0003](adr/0003-hosted-verification-service.md)): there will be a hosted service,
-and it is `containers/verify-runner` deployed as a container image. "No hosted service" is therefore
-no longer an available outcome, and D4 — nothing deploys the image CI already publishes — is the head
-of the remaining track.
+**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). **D1 topology is final as of
+the 2026-09-05 amendment to [ADR 0003](adr/0003-hosted-verification-service.md):** `services/cloud` is
+the sole ingress and dispatches through Queue/R2 to the private container runner. The direct proxy is
+retired and the Worker-resident engine remains measurement-only evidence. Remaining blockers are
+provisioned deployment, authenticated staging smoke, rollback drill, SLO and approved data policy.
 
 ## Phase 6 — Stand alone (retire the oracle)
 **Goal:** Dry is the product; the FullControl oracle is no longer needed.

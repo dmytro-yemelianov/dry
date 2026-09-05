@@ -37,8 +37,6 @@ service_ver="$(json_version "$ROOT/services/cloud/package.json")"
 service_lock_ver="$(json_version "$ROOT/services/cloud/package-lock.json")"
 issuer_ver="$(json_version "$ROOT/tools/license-issuer/package.json")"
 issuer_lock_ver="$(json_version "$ROOT/tools/license-issuer/package-lock.json")"
-deploy_ver="$(json_version "$ROOT/deploy/cloudflare/package.json")"
-deploy_lock_ver="$(json_version "$ROOT/deploy/cloudflare/package-lock.json")"
 license_ver="$(sed -n 's/^Licensed Work: DryMachina version \([^,]*\),.*/\1/p' "$ROOT/LICENSE" | head -1)"
 license_change_date="$(sed -n 's/^Change Date: //p' "$ROOT/LICENSE" | head -1)"
 
@@ -69,8 +67,6 @@ check "services/cloud/package.json" "$service_ver"
 check "services/cloud/package-lock.json" "$service_lock_ver"
 check "tools/license-issuer/package.json" "$issuer_ver"
 check "tools/license-issuer/package-lock.json" "$issuer_lock_ver"
-check "deploy/cloudflare/package.json" "$deploy_ver"
-check "deploy/cloudflare/package-lock.json" "$deploy_lock_ver"
 check "LICENSE Licensed Work" "$license_ver"
 
 if ! grep -Fq "## [$VER]" "$ROOT/CHANGELOG.md"; then

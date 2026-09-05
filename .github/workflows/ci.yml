@@ -101,6 +101,10 @@ jobs:
         id: capability_parity
         continue-on-error: true
         run: python3 tools/check_capability_parity.py
+      - name: hosted verification has one public ingress
+        id: hosted_topology
+        continue-on-error: true
+        run: python3 tools/check_hosted_verification_topology.py
       # An ordering comparison is false for NaN, so a guard written as one fails open. This review
       # found that shape seven times, three of them in safety checks.
       - name: NaN-permeable ordering guards
@@ -144,6 +148,7 @@ jobs:
             proof-claims=${{ steps.proof_claims.outcome }}
             license-headers=${{ steps.license_headers.outcome }}
             capability-parity=${{ steps.capability_parity.outcome }}
+            hosted-topology=${{ steps.hosted_topology.outcome }}
             nan-guards=${{ steps.nan_guards.outcome }}
             release-emit=${{ steps.release_emit.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
@@ -523,7 +528,7 @@ jobs:
         run: cargo bench -p dry-core --no-run --locked
 
   cloud:
-    name: cloud (workers-rs wasm32 build)
+    name: archived cloud feasibility spike (workers-rs wasm32 build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -532,13 +537,13 @@ jobs:
           toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
-      - name: test (host, dry-cloud)
+      - name: test archived spike (host, dry-cloud)
         working-directory: crates/cloud
         run: cargo test --locked
       # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
       # as crates/wasm), so it gets its own host tests plus fmt + wasm32 clippy (same -D warnings,
       # no #[allow] discipline).
-      - name: rust check (the cloud worker)
+      - name: check archived spike (wasm32)
         working-directory: crates/cloud
         run: |
           cargo fmt --check
@@ -547,7 +552,7 @@ jobs:
       # that isn't reliably reproducible in CI today (externref/reference-types mismatches against
       # pinned wasm-bindgen releases); a plain `cargo build` for the wasm32 target still catches any
       # compile break against dry-core without depending on that packaging step.
-      - name: build (wasm32, dry-cloud)
+      - name: build archived spike (wasm32, dry-cloud)
         working-directory: crates/cloud
         run: cargo build --target wasm32-unknown-unknown --locked
 

@@ -9,6 +9,21 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Changed
+- **Hosted verification now has one product topology.** `services/cloud` is the sole public,
+  asynchronous ingress and dispatches persisted jobs to the private native
+  `containers/verify-runner`. The duplicate synchronous `deploy/cloudflare` proxy is retired;
+  the unauthenticated Pages `/api/verify` implementation and hosted MCP verifier are retired too;
+  `@dry/mcp` remains a local package. Historical Pages deployments must be deleted or placed
+  behind Cloudflare Access before hosted verification can be called publicly retired. The
+  production/staging bindings and the 100 MB/`standard-3` capacity contract now live with the
+  control plane. Deployment CI validates both environments but does not claim a live service until
+  provisioned deployment, authenticated smoke and rollback evidence exist.
+- **The Cloudflare Worker is explicitly archived as a measurement-only feasibility spike.** Its
+  product-facing `POST /verify` route and contract-header handling are removed; only
+  `POST /spike/verify` and its wasm compile evidence remain. The verify-runner image workflow no
+  longer treats the spike as a Tier-2 dependency.
+
 ### Fixed
 - **The CLI's previously unexecuted `unpack`, offline `explain`, `schema`, and `fleet` paths now
   have end-to-end smoke coverage.** The pack/unpack test pins both semantic and byte-identical DRY1
@@ -36,13 +51,6 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   simulation-metrics documents previously serialized a constant `true`, so the Rust harness could
   not observe those Lean predicates failing. They now serialize the predicates themselves while
   preserving the committed fixture bytes.
-- **The archived Worker spike fails closed on a malformed contracts header.** `crates/cloud`'s
-  `POST /verify`
-  parsed `X-Dry-Contracts` with `unwrap_or_default()`, so a malformed header silently became
-  `Contracts::default()` — documented in that same file as "all contract-driven checks disabled" —
-  and the caller received HTTP 200 with a clean-looking report for a program nobody verified. It now
-  answers 400, as `containers/verify-runner` already did for bad input, and host-side regression
-  tests pin malformed, absent, and valid header behavior.
 - **CI runs the wasm binding's unit tests.** `crates/wasm` is excluded from the workspace, so
   `cargo test --workspace` cannot reach it, and its job had no `cargo test` step: the tests existed
   and executed on no target. The job now runs them and aggregates the result into its gate summary.

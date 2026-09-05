@@ -42,7 +42,7 @@ Verify graph freshness and map changed public surfaces to their build/test roots
 
 ## Handoffs and escalation
 
-Route implementation failures to the owning agent, assurance failures to `qa-assurance`, architecture conflicts to `architect`, and verified slices to `reviewer`. `services/cloud` currently requires local `npm ci && npm run check` because it has no dedicated CI job.
+Route implementation failures to the owning agent, assurance failures to `qa-assurance`, architecture conflicts to `architect`, and verified slices to `reviewer`. `services/cloud` is gated by `deploy-verify.yml`; locally run `npm ci && npm run check` plus both production and staging Wrangler deployment dry-runs.
 
 ## Exit criteria
 

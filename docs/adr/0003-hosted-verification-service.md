@@ -1,101 +1,84 @@
-# ADR 0003 — there will be a hosted verification service, and it is the container
+# ADR 0003 — hosted verification uses one async Cloudflare ingress and one native verifier
 
-- **Status:** Accepted
+- **Status:** Accepted (amended 2026-09-05)
 - **Date:** 2026-08-31
-- **Workstream:** Deployment track D1
-- **Supersedes:** the open decision recorded in [`../23-deployment-roadmap.md`](../23-deployment-roadmap.md) §D1
+- **Workstream:** Deployment track D1–D4
+- **Supersedes:** the unresolved topology in [`../23-deployment-roadmap.md`](../23-deployment-roadmap.md)
 
 ## Context
 
-The deployment track opened with a genuine fork, and it stayed open for a month because it was a
-product question rather than an engineering one:
+DryMachina had three overlapping hosted-verification sketches:
 
-> Neither is a service; they are two different sketches of one. **Deciding which one is the product —
-> and deleting the other — is the first deliverable**, because maintaining two divergent sketches of
-> the same idea is how `web/tpms.js` happened.
+1. `crates/cloud`, a Workers-Rust feasibility spike that measured whether the full engine fits in a
+   Worker isolate;
+2. `deploy/cloudflare`, a synchronous public proxy directly forwarding `/verify` to a container;
+3. `services/cloud`, an asynchronous control plane with device authorization, API keys, quotas,
+   D1/R2 persistence, Queues and job polling.
 
-Two sketches existed:
-
-- `containers/verify-runner` — a native axum service that imports g-code and runs `verify`, returning
-  the byte-identical `dry verify --json` report.
-- `crates/cloud` — a ~105-line Cloudflare Worker (workers-rs) returning timing JSON, not a `Report`.
-
-The roadmap was explicit that "no hosted service" was a live and legitimate answer, and that choosing
-it would delete D2 through D5.
+The spike measured import memory at roughly 43–50 times the input size. A Worker isolate therefore
+cannot safely host the full import-and-verify path for the supported 100 MB upload contract. Keeping
+two public ingress implementations would also duplicate authentication, persistence, quota and
+error semantics.
 
 ## Decision
 
-**There will be a hosted verification service.** It is `containers/verify-runner`, deployed as a
-container image. `crates/cloud` is not a candidate and stays archived.
+**`services/cloud` is the sole public hosted-verification ingress and asynchronous control plane.**
+It owns authentication, admission, quotas, uploaded-object persistence, job state and report
+delivery.
 
-**Cloudflare and "hosted" are not a fork here.** The direction given was "Cloudflare or hosted", and
-those resolve to one answer, because the choice was already settled by measurement rather than by
-preference. The July 2026 spike
-([`../superpowers/specs/2026-07-28-cloud-spike-findings.md`](../superpowers/specs/2026-07-28-cloud-spike-findings.md))
-asked whether the import+verify path fits in a Workers isolate and found that it does not: holding the
-raw body *in addition to* dry-core's ~43–50× import blowup exceeds the 128 MB isolate ceiling for
-anything past roughly 1 MB. Its own recommendation was a **container**, which is why
-`verify-runner` streams the request body to a tempfile inside a 6 GiB container instead.
+**`containers/verify-runner` is the sole native verifier.** It runs privately behind the control
+plane, receives the control plane's R2 object stream, fetches the versioned profile, streams the
+input through bounded temporary storage, runs `dry-core`, and returns the report. The control plane
+owns the R2 report write and D1 completion state.
 
-So the service is a container, and Cloudflare Containers is a supported way to run it — as is any
-other container host. That is a hosting choice that can be made later without changing the artifact,
-which is why "whenever" is a coherent instruction for it and was not for D1 itself.
+Cloudflare is the intended host for this topology:
 
-## Why `verify-runner` and not a fresh service
+- Worker: `services/cloud`;
+- D1: account, token, job and usage metadata;
+- R2: uploaded programs and completed reports;
+- Queues: asynchronous job dispatch;
+- Cloudflare Containers: `containers/verify-runner`, sized as `standard-3` because a 100 MB input can
+  require about 5 GiB during import.
 
-It is not merely the surviving sketch; it is the one that already satisfies most of D2, D3 and D5:
+`deploy/cloudflare` is retired as executable code; its directory remains only as a migration
+tombstone. `crates/cloud` remains build-gated, measurement-only archival evidence and exposes only
+`POST /spike/verify`. Neither is a product ingress.
 
-- **Identity and authorisation** — bearer tokens verified through
-  `dry_license::verify_token_with_revocation`, with a per-licensee sliding-window rate limiter. Four
-  handler tests cover a valid token, an invalid one, a **revoked** one, and rate-limit enforcement.
-- **Observability** — `tracing`/`tracing-subscriber` (JSON + env-filter), a request id stamped through
-  `request_id_middleware`, and `GET /metrics` in Prometheus text format whose counters are split by
-  refusal *stage* (`profile-unavailable`, `input-invalid`, `engine-error`, `unauthorized`,
-  `rate_limited`) — the "why was this refused" shape D2 asked for.
-- **Capacity** — `tests/load_benchmark.rs` drives concurrent clients against the real handler and
-  measures p50/p95/p99, in CI.
-- **Correctness** — `verify_report_is_byte_identical_to_the_real_cli` builds and shells out to the
-  real compiled `dry` binary and byte-compares its stdout against the service's HTTP response. That is
-  external ground truth, not the service agreeing with itself.
-- **Supply chain** — a multi-arch image is already built and pushed to
-  `ghcr.io/dmytro-yemelianov/dry-verify-runner` by CI on `main`, and `deploy/docker-compose.yml`
-  describes running it.
+## Invariants
+
+- There is one public job API: `POST /v1/jobs/verify` followed by `GET /v1/jobs/{id}`.
+- No public synchronous `/verify` route exists.
+- Pages Functions do not expose verification directly or through a hosted MCP tool.
+- Engine semantics live in `dry-core` and the native runner, never in the Worker.
+- The Worker rejects oversized requests before persistence; the runner receives the same
+  `MAX_BODY_BYTES` contract.
+- Staging and production configure every D1/R2/Queue/Container binding independently; named Wrangler
+  environments do not inherit them.
+- A configured deployment must pass its tests, Wrangler dry-runs and exact control-plane `/healthz`
+  smoke. End-to-end authenticated job smoke and a rollback drill remain separate release-readiness
+  evidence.
 
 ## Consequences
 
-**D2, D3 and D5 are no longer blocked, and are no longer empty.** What remains of each is stated in
-`23-deployment-roadmap.md`: a dashboard and a logging policy for D2, key rotation and revocation that
-takes effect without a restart for D3, and a load test that *asserts* rather than reports for D5.
+- The public API is asynchronous even for small files. Embedded browser/Node verification remains
+  available through `dry-wasm`/`@dry/sdk`, but it is not a hosted service tier.
+- Cloudflare credentials and provisioned resource identifiers are deployment prerequisites, not
+  repository code. Their absence produces an explicit skipped deployment rather than a false claim
+  that a service is live.
+- The repository contains a deployable, dry-run-validated topology; it does **not** claim a live
+  production origin until a completed deployment, authenticated job smoke and rollback drill are
+  recorded.
+- Historical Pages deployments that contain `/api/verify` or hosted `/api/mcp` remain a launch
+  blocker until the owner deletes them or protects `*.drymachina.pages.dev` with Cloudflare Access.
+- Retention, deletion, jurisdiction and customer-data logging policy remain launch blockers; see
+  [`../24-operations-and-data-handling.md`](../24-operations-and-data-handling.md).
 
-**D4 becomes the critical path.** Nothing deploys the image today. D4 now needs, concretely:
+## Rejected alternatives
 
-1. a hosting target chosen and an account/project created (Cloudflare Containers, or another host —
-   the artifact does not change);
-2. `ALLOWED_REGISTRY_HOST` set per environment — and **not** a signing-key secret, which this ADR
-   originally listed in error: the licence verifying keys are compiled into the binary
-   (`PRODUCTION_KEYS`), and the test key is honoured only under `cfg!(debug_assertions)`. The only
-   deployment secrets are the Cloudflare API token and account id. The registry allowlist fails
-   closed when unset, so the unset default is already the safe one;
-3. a staging deploy on merge to `main` and promotion on tag, alongside the existing release workflow;
-4. a rollback **executed in a drill**, not written down — the accept clause is explicit about that;
-5. a documented SLO, and the runbook's remaining half.
-
-**D7's open half is now answerable.** Its blocker was jurisdiction and identity: a deletion request
-cannot be honoured without knowing who submitted what, and a logging policy cannot be written before
-the first logger. Both follow from a chosen host, and the logging policy must be written **before** the
-dashboard, because findings quote customer coordinates and feedrates
-([`../24-operations-and-data-handling.md`](../24-operations-and-data-handling.md)).
-
-**`crates/cloud` stays exactly as it is** — building in CI, README-marked "do not build on it". Its
-value is the measurement that produced this decision, and deleting it would delete the evidence. This
-ADR is the "explicitly marked a spike in its own README" half of D1's accept clause; the "one named
-service, one deployment target" half is satisfied by naming `verify-runner`.
-
-## What this does not decide
-
-- **The hosting provider.** Cloudflare Containers is the presumed target and the artifact is
-  provider-agnostic. Picking one is a D4 step, not this decision.
-- **Pricing, quota tiers or a public endpoint.** D3's token *mechanics* work; what a token is allowed
-  to do commercially is a separate product decision.
-- **That the CLI stops being the product.** It ships, has an installed base, and as of v0.9.0 carries
-  an SBOM and signed provenance. The service is additive.
+- **Full verification in a Worker isolate:** rejected by measured memory amplification.
+- **Public synchronous proxy plus async control plane:** rejected because it creates two auth,
+  quota, persistence and error contracts.
+- **Container as the public API:** rejected because device flow, keys, quotas and durable job state
+  already belong to the control plane.
+- **Delete the Worker spike:** rejected; it is useful falsification evidence, provided it remains
+  visibly archived and cannot masquerade as a product endpoint.

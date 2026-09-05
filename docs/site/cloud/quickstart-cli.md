@@ -6,6 +6,11 @@ title: Dry Cloud CLI quickstart
 
 Dry Cloud commands are opt-in. Existing local commands remain offline.
 
+The CLI reserves a default future origin, but no live public production service is
+currently announced. Set `DRY_CLOUD_URL` or pass `--cloud-url` for a deployment you
+operate; the examples describe the implemented API contract, not an availability
+promise.
+
 ## 1. Log in
 
 ```bash
@@ -22,8 +27,8 @@ For a development or private deployment:
 dry auth login --cloud-url http://127.0.0.1:8787
 ```
 
-`DRY_CLOUD_URL` overrides the hosted default. `DRY_TOKEN` overrides the saved token,
-which is useful in CI.
+`DRY_CLOUD_URL` selects the configured origin. `DRY_TOKEN` overrides the saved token,
+which is useful in CI when supplied by a protected secret store.
 
 Confirm the account and current quota:
 
@@ -51,6 +56,9 @@ dry printer resolve <pack-id> \
 ```
 
 ## 3. Verify in the cloud
+
+The following requires a configured deployment and is not usable against an
+unannounced default origin.
 
 ```bash
 dry cloud verify part.gcode \
