@@ -3,6 +3,7 @@
  */
 
 import { MachineCapabilities } from './design.js';
+import type { FirmwareFlavor } from './engine.js';
 
 export type MachineCategory =
   | '3d_printer'
@@ -11,7 +12,6 @@ export type MachineCategory =
   | 'plasma_waterjet'
   | 'robot_arm';
 
-export type FirmwareFlavor = 'marlin' | 'klipper' | 'reprap' | 'rs274' | 'grbl' | 'krl';
 export type KinematicsType = 'cartesian' | 'corexy' | 'delta' | 'five_axis' | 'robot_6dof';
 
 export interface MachineEnvelope {
