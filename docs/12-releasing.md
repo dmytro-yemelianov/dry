@@ -41,7 +41,6 @@ Dry adheres strictly to **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)**:
    - `sdk/ts/package.json` & `sdk/ts/package-lock.json` → `version`
    - `sdk/mcp/package.json` & `sdk/mcp/package-lock.json` → `version`
    - `web/package.json`, `services/cloud/package.json`, `tools/license-issuer/package.json` → `version`
-   - `deploy/cloudflare/package.json` and every adjacent `package-lock.json` → `version`
    Verify locally: `bash scripts/check-version.sh vX.Y.Z`.
 2. **Update `CHANGELOG.md`** — move `[Unreleased]` into a new `## [X.Y.Z] - <date>` section.
 3. **Commit** the bump + changelog, open a PR, merge to `main`.
@@ -93,7 +92,9 @@ normal dependency resolution.
 - **Python** — download the matching wheel from the release and run `pip install <wheel>`.
 - **TypeScript** — download the npm tarball from the release and run `npm install <tarball>`.
 - **AI MCP Server** — install `@dry/mcp` for Claude Desktop, Cursor, or Goose.
-- **Verification Daemon** — pull the multi-arch container image `ghcr.io/dmytro-yemelianov/dry-verify-runner:latest`.
+- **Verification runner image** — pull the multi-arch image
+  `ghcr.io/dmytro-yemelianov/dry-verify-runner:latest`. Image publication is not evidence that the
+  hosted service is deployed; the public async control plane is `services/cloud`.
 
 ---
 

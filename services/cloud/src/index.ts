@@ -1,6 +1,7 @@
-// Router for the Dry Cloud auth worker: device flow, /activate, API keys,
-// and /v1/me. Plain fetch handler with a route table — no framework needed
-// at this size (see the R1 task brief).
+// Sole public control-plane ingress for Dry Cloud: health, device flow,
+// authentication, API keys, machine catalog, usage and asynchronous verify jobs.
+// Verification itself runs only in containers/verify-runner; this Worker owns
+// admission, persistence and job lifecycle, never engine semantics.
 
 import { handleActivateGet, handleActivateSubmit } from "./activate";
 import { handleDeviceStart, handleToken, requireAuth } from "./auth";
@@ -130,6 +131,13 @@ async function handleMe(env: Env, accountId: string): Promise<Response> {
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
 
+  if (url.pathname === "/healthz") {
+    if (request.method !== "GET") {
+      return jsonResponse({ error: "method_not_allowed" }, 405, { allow: "GET" });
+    }
+    return jsonResponse({ ok: true, service: "dry-cloud-control-plane" });
+  }
+
   if (url.pathname === "/v1/auth/device") {
     return handleDeviceStart(request, env, url.origin);
   }
@@ -190,7 +198,13 @@ async function route(request: Request, env: Env): Promise<Response> {
       const minVolumeX = url.searchParams.has("min_x") ? Number(url.searchParams.get("min_x")) : undefined;
       const minVolumeY = url.searchParams.has("min_y") ? Number(url.searchParams.get("min_y")) : undefined;
       const minVolumeZ = url.searchParams.has("min_z") ? Number(url.searchParams.get("min_z")) : undefined;
-      const machines = await searchMachines(env.DB, { vendor, category, minVolumeX, minVolumeY, minVolumeZ });
+      const machines = await searchMachines(env.DB, {
+        vendor,
+        category,
+        min_volume_x: minVolumeX,
+        min_volume_y: minVolumeY,
+        min_volume_z: minVolumeZ,
+      });
       return jsonResponse({ machines });
     }
     if (request.method === "POST") {

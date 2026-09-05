@@ -58,10 +58,11 @@ graph TD
         EM5["STEP-NC AP238 Intent XML Export"]
     end
 
-    subgraph S7["7. Multi-Tier Deployment & Operational Runtime"]
-        T1["Tier 1: Embedded In-Browser Wasm (web/verify.html)"]
-        T2["Tier 2: Serverless Edge Cloudflare Workers (crates/cloud)"]
-        T3["Tier 3: Enterprise Container Daemon (containers/verify-runner)"]
+    subgraph S7["7. Deployment & Operational Runtime"]
+        T1["Embedded local Wasm (web/verify.html, @dry/sdk)"]
+        T2["Public async control plane (services/cloud)"]
+        T3["Private native verifier (containers/verify-runner)"]
+        SPIKE["Archived Worker feasibility spike (crates/cloud)"]
         FLEET["Moonraker Fleet Orchestrator & Anomaly Detector"]
     end
 
@@ -80,7 +81,8 @@ graph TD
     SCURVE & LOOK & OPT --> L2
     L2 --> VER & COL & ROB & LEAN
     VER & COL & ROB --> EM1 & EM2 & EM3 & EM4 & EM5
-    VER --> T1 & T2 & T3
+    VER --> T1 & T3
+    T2 --> T3
     FLEET --> EM1
 ```
 

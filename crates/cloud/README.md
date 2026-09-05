@@ -21,13 +21,17 @@ The spike therefore succeeded: it produced a measurement that redirected the des
 ## Why it is still here
 
 Deleting it would delete the evidence for a sizing decision that shaped the service that replaced it.
-It is kept building in CI (`cloud (workers-rs wasm32 build)`) so it cannot rot into something that no
-longer compiles and can no longer be re-run if the constraint changes.
+It is kept building in CI (`archived cloud feasibility spike (workers-rs wasm32 build)`) so it
+cannot rot into something that no longer compiles and can no longer be re-run if the constraint
+changes. This check is archival evidence only; it is not a service or deployment gate.
 
 ## What it is not
 
-- **Not the hosted service.** `containers/verify-runner` is the shape a service would take
-  (see [`docs/23-deployment-roadmap.md`](../../docs/23-deployment-roadmap.md) D1).
+- **Not the hosted service.** `services/cloud` is the public asynchronous control plane and
+  `containers/verify-runner` is its private native verifier (see
+  [`docs/23-deployment-roadmap.md`](../../docs/23-deployment-roadmap.md)).
+- **Not a Tier-2 ingress.** Its only HTTP route is `POST /spike/verify`; it does not accept the
+  service's contracts interface and must not be used as a proxy or verifier.
 - **Not maintained to product standards.** It has no tests, no authentication and no error contract.
   Do not build on it.
 - **Not a claim that Workers is unsuitable in general** — only that this composition, at these input

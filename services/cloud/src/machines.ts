@@ -1,5 +1,3 @@
-import { crypto } from 'node:crypto';
-
 export interface MachineFilter {
   vendor?: string;
   category?: string;

@@ -354,7 +354,7 @@ describe("GET /activate", () => {
   });
 });
 
-describe("Turnstile dev-bypass fails closed in production", () => {
+describe("Turnstile dev-bypass fails closed outside development", () => {
   const originalEnvironment = testEnv.ENVIRONMENT;
   const originalBypass = testEnv.TURNSTILE_DEV_BYPASS;
 
@@ -378,7 +378,7 @@ describe("Turnstile dev-bypass fails closed in production", () => {
 
     const response = await activate(start.user_code, email, {}, ip);
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass in production" });
+    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass outside development" });
 
     // Not approved: the device is still pending, not granted.
     const poll = await pollToken(start.device_code);
@@ -393,7 +393,15 @@ describe("Turnstile dev-bypass fails closed in production", () => {
   it("500s GET /activate too, before rendering a form that would hide the misconfiguration", async () => {
     const response = await fetchWorker("/activate");
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass in production" });
+    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass outside development" });
+  });
+
+  it("500s in staging too, rather than treating staging as a development environment", async () => {
+    testEnv.ENVIRONMENT = "staging";
+
+    const response = await fetchWorker("/activate");
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "misconfigured: dev bypass outside development" });
   });
 });
 

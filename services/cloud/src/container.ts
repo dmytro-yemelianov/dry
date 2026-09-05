@@ -18,6 +18,9 @@ import { Container } from "@cloudflare/containers";
 
 export class VerifyContainer extends Container<Env> {
   defaultPort = 8080;
+  requiredPorts = [8080];
+  pingEndpoint = "/healthz";
+  enableInternet = true;
   // Short-lived on purpose: verify jobs are one-shot request/response calls,
   // not long-lived sessions, so there is no reason to keep a container warm
   // for minutes between jobs. Keeps cost down; 2m is enough to absorb a burst
@@ -33,10 +36,24 @@ export class VerifyContainer extends Container<Env> {
   constructor(...args: ConstructorParameters<typeof Container<Env>>) {
     super(...args);
     const [, env] = args;
-    this.envVars = {
-      ALLOWED_REGISTRY_HOST: registryHost(env.REGISTRY_URL),
-    };
+    this.envVars = runnerEnvVars(env);
   }
+}
+
+/** The runner process environment is fixed when its container starts. Keep all
+ * required values on the Container class rather than passing them per request,
+ * so queue redelivery or a health probe cannot start a permanently misconfigured
+ * instance. */
+export function runnerEnvVars(env: {
+  REGISTRY_URL: string;
+  MAX_BODY_BYTES: string;
+  RUST_LOG: string;
+}): Record<string, string> {
+  return {
+    ALLOWED_REGISTRY_HOST: registryHost(env.REGISTRY_URL),
+    MAX_BODY_BYTES: env.MAX_BODY_BYTES,
+    RUST_LOG: env.RUST_LOG,
+  };
 }
 
 /** Extracts the bare hostname (NO port) from a registry base URL, for the runner's

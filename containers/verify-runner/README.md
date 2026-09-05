@@ -174,28 +174,17 @@ CLI stamps its licence mode into the report, so compare against an *unlicensed* 
 
 ### Running the whole Cloudflare shape locally
 
-`wrangler dev` in `deploy/cloudflare` runs the real thing — Worker, Durable Object and this
-container image under Docker:
+The public Cloudflare surface is the asynchronous control plane in `services/cloud`; this runner is
+private behind its Queue consumer. Its integration harness starts the Worker, R2/D1/Queue bindings,
+stub registry and this real container image under Docker:
 
 ```sh
-cd deploy/cloudflare && npx wrangler dev      # first run builds the image; several minutes
-curl http://127.0.0.1:8787/healthz            # {"ok":true}
-curl -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/metrics   # 404: deliberately not proxied
+services/cloud/itest/jobs-local.sh
 ```
 
-`/verify` needs a registry the *container* can reach, and inside the container `127.0.0.1` is the
-container itself, not your machine. Rather than weaken the SSRF guard for dev, put the stub in the
-container's own network namespace:
-
-```sh
-# copy wrangler.jsonc with ALLOWED_REGISTRY_HOST=127.0.0.1, and INSTANCES=1 in src/index.ts so
-# both requests land on the same instance, then:
-CID=$(docker ps --format '{{.ID}} {{.Image}}' | grep -i verifyrunner | awk '{print $1}' | head -1)
-docker run -d --name stub --network "container:$CID" -v /tmp/reg:/srv:ro -w /srv \
-  python:3-alpine python3 -m http.server 8099 --bind 0.0.0.0
-```
-
-Doing this is how the `/healthz`-starts-the-container-bare defect was found: a container's
-environment is fixed when its process starts, so whichever route starts an instance decides it for
-that instance's whole life. `envVars` therefore lives on the `VerifyRunner` class, never on a single
-`startAndWaitForPorts` call — see the doc comment there, and the CI guard in `deploy-verify.yml`.
+The harness submits 1/10/50 MB bodies through `POST /v1/jobs/verify` and proves they reach the
+runner's post-body-write registry-fetch stage without truncation or a hang. Local Cloudflare
+Container networking cannot reach the host registry stub, so its `TRANSFER PATH` result is not a
+completed report-parity claim. That first full proof belongs in provisioned staging. A container's
+environment is fixed for its lifetime, so `ALLOWED_REGISTRY_HOST`, `MAX_BODY_BYTES` and `RUST_LOG`
+live on the `VerifyContainer` class rather than on any individual `startAndWaitForPorts` call.

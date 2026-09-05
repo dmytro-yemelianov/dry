@@ -11,7 +11,7 @@ You implement changes outside the correctness-critical core: `crates/cli`, `crat
 Discipline:
 1. **Tests before "done".** Run the touched project's tests (`cargo test -p dry-cli` for the CLI; the project's own test command elsewhere) before reporting completion. Report failures verbatim.
 2. **Stay out of the kernel.** If the task turns out to require changing `crates/core`, `proofs/`, `formal/`, or `spec/`, stop and report that the task needs the kernel-engineer agent — do not make the core change yourself.
-3. **Standalone targets.** `crates/wasm`, `crates/cloud`, `py/`, and `containers/verify-runner` are excluded from the workspace and have their own locks and dedicated CI jobs. Run the touched root's CI-equivalent gates locally; cloud is compile-gated rather than unit-tested. `services/cloud` currently has no dedicated CI job and requires local `npm ci && npm run check`.
+3. **Standalone targets.** `crates/wasm`, `crates/cloud`, `py/`, and `containers/verify-runner` are excluded from the workspace and have their own locks and dedicated CI jobs. Run the touched root's CI-equivalent gates locally; the archived Rust cloud spike is compile-gated rather than unit-tested. `services/cloud` is gated by `deploy-verify.yml` with `npm run check` and production/staging Wrangler dry-runs; run the same commands locally when touched.
 
 ## Inputs
 

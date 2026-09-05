@@ -87,7 +87,6 @@ def check_manifests():
         "web/package.json": '"license": "BUSL-1.1"',
         "services/cloud/package.json": '"license": "BUSL-1.1"',
         "tools/license-issuer/package.json": '"license": "BUSL-1.1"',
-        "deploy/cloudflare/package.json": '"license": "BUSL-1.1"',
     }
     for relative, expected in manifests.items():
         text = (ROOT / relative).read_text(encoding="utf-8")

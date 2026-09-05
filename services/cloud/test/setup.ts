@@ -7,6 +7,9 @@ const testEnv = env as unknown as TestEnv;
 
 beforeAll(async () => {
   for (const statement of testEnv.TEST_SCHEMA_STATEMENTS) {
-    await testEnv.DB.exec(statement);
+    // D1Database.exec treats each newline as a statement boundary, which
+    // truncates multiline CREATE TABLE definitions. Each parsed entry is one
+    // statement, so prepare/run preserves it exactly.
+    await testEnv.DB.prepare(statement).run();
   }
 });

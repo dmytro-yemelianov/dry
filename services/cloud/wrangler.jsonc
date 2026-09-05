@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "dry-cloud",
   "main": "src/index.ts",
-  "compatibility_date": "2026-07-27",
+  "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": {
@@ -13,12 +13,16 @@
   // Turnstile keys here — the real TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY
   // are provisioned as encrypted secrets via `wrangler secret put`, never
   // committed as plaintext vars. See src/activate.ts's fail-closed guard,
-  // which refuses to start if TURNSTILE_DEV_BYPASS is ever set while
-  // ENVIRONMENT is "production".
+  // which refuses requests if TURNSTILE_DEV_BYPASS is ever set outside
+  // ENVIRONMENT="dev" (including staging and production).
   "vars": {
     "ENVIRONMENT": "production",
     "QUOTA_KEYS": "1",
     "QUOTA_JOBS_PER_MONTH": "20",
+    // Same product cap enforced before R2 admission in src/jobs.ts. The runner
+    // repeats it so internal callers and corrupted queue state still fail closed.
+    "MAX_BODY_BYTES": "104857600",
+    "RUST_LOG": "verify_runner=info,tower_http=info",
     // The PUBLIC printer registry (dry-printer-registry, a separate repo/service —
     // see docs/19-printer-registry-api.md). The queue consumer passes this straight
     // through to the verify-runner container as `?registry=<REGISTRY_URL>`; the
@@ -32,7 +36,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "dry-cloud-dev",
+      "database_name": "dry-cloud-production",
       "database_id": "00000000-0000-0000-0000-000000000000"
     }
   ],
@@ -85,7 +89,9 @@
       "class_name": "VerifyContainer",
       "image": "../../containers/verify-runner/Dockerfile",
       "image_build_context": "../..",
-      "instance_type": "standard-2",
+      // 100 MB * the measured 43-50x import amplification is approximately
+      // 5 GiB. standard-3 supplies 8 GiB, preserving about 3 GiB headroom.
+      "instance_type": "standard-3",
       "max_instances": 5
     }
   ],
@@ -104,6 +110,78 @@
     }
   ],
   "env": {
+    "staging": {
+      "name": "dry-cloud-staging",
+      // Staging intentionally has no Turnstile bypass. Secrets are provisioned
+      // through Wrangler/GitHub environments, never committed here.
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "QUOTA_KEYS": "1",
+        "QUOTA_JOBS_PER_MONTH": "20",
+        "MAX_BODY_BYTES": "104857600",
+        "RUST_LOG": "verify_runner=debug,tower_http=debug",
+        "REGISTRY_URL": "https://api-staging.dry.yemelianov.dev"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dry-cloud-staging",
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CODES",
+          "id": "0000000000000000000000000000000"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "STORAGE",
+          "bucket_name": "dry-cloud-storage-staging"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "queue": "verify-jobs-staging",
+            "binding": "VERIFY_JOBS"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "verify-jobs-staging",
+            "max_batch_size": 5,
+            "max_retries": 2,
+            "dead_letter_queue": "verify-jobs-dlq-staging"
+          }
+        ]
+      },
+      "containers": [
+        {
+          "name": "dry-verify-runner-staging",
+          "class_name": "VerifyContainer",
+          "image": "../../containers/verify-runner/Dockerfile",
+          "image_build_context": "../..",
+          "instance_type": "standard-3",
+          "max_instances": 2
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "VERIFY_CONTAINER",
+            "class_name": "VerifyContainer"
+          }
+        ]
+      },
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": ["VerifyContainer"]
+        }
+      ]
+    },
     "dev": {
       // Local/dev-only: dummy Turnstile keys (Cloudflare's published always-pass
       // test keys) plus the bypass flag that skips Turnstile verification
@@ -121,6 +199,8 @@
         "TURNSTILE_HOSTNAME": "",
         "QUOTA_KEYS": "1",
         "QUOTA_JOBS_PER_MONTH": "20",
+        "MAX_BODY_BYTES": "104857600",
+        "RUST_LOG": "verify_runner=debug,tower_http=debug",
         // itest/jobs-local.sh overrides this at runtime to its local stub
         // registry (`wrangler dev --var REGISTRY_URL:http://127.0.0.1:...`)
         // rather than editing this checked-in value -- the runner's
@@ -185,7 +265,13 @@
             "class_name": "VerifyContainer"
           }
         ]
-      }
+      },
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": ["VerifyContainer"]
+        }
+      ]
     }
   }
 }

@@ -11,10 +11,13 @@
 import { type ContainerStubLike, containerFetch as defaultContainerFetch, getContainerStub as defaultGetContainerStub } from "./container";
 import { countJobsThisMonth, parseQuota, quotaExceededResponse } from "./usage";
 
-/** Global Constraints: "Upload cap: 100 MB (container has 6 GiB; the Worker
- * enforces Content-Length)." Not a var (unlike the QUOTA_* knobs below) — the brief
- * states it as a fixed product invariant, not an operator-tunable setting. */
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+/** Parse the shared Worker/runner body limit. Invalid deployment configuration
+ * fails closed instead of silently falling back to the runner's larger default. */
+function maxUploadBytes(env: Env): number | null {
+  if (!/^\d+$/.test(env.MAX_BODY_BYTES)) return null;
+  const value = Number(env.MAX_BODY_BYTES);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
 
 /** Every `jobs.stage` value this Worker can ever write. The runner's own
  * `{error, stage}` contract (containers/verify-runner) only ever produces the
@@ -150,12 +153,18 @@ export async function handlePostVerifyJob(request: Request, env: Env, accountId:
   // Content-Length cap, enforced BEFORE any R2 write or D1 row — per the Global
   // Constraints' "too-large" stage and the R3 brief's "rejected pre-R2-write".
   const contentLengthHeader = request.headers.get("content-length");
-  const contentLength = contentLengthHeader === null ? Number.NaN : Number.parseInt(contentLengthHeader, 10);
-  if (!Number.isFinite(contentLength)) {
+  const contentLength = contentLengthHeader !== null && /^\d+$/.test(contentLengthHeader)
+    ? Number(contentLengthHeader)
+    : Number.NaN;
+  if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
     return jsonResponse({ error: "length_required" }, 411);
   }
-  if (contentLength > MAX_UPLOAD_BYTES) {
-    return jsonResponse({ error: "too-large", max_bytes: MAX_UPLOAD_BYTES }, 413);
+  const maxBytes = maxUploadBytes(env);
+  if (maxBytes === null) {
+    return jsonResponse({ error: "misconfigured", detail: "MAX_BODY_BYTES must be a positive integer" }, 500);
+  }
+  if (contentLength > maxBytes) {
+    return jsonResponse({ error: "too-large", max_bytes: maxBytes }, 413);
   }
 
   // R4: canonical quota source is the `jobs` table (see src/usage.ts's module

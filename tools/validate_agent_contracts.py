@@ -163,8 +163,8 @@ def main() -> int:
         errors.append(f"CI is missing required standalone jobs: {sorted(missing_jobs)}")
 
     combined_contracts = "\n".join(path.read_text(encoding="utf-8") for path in files.values())
-    if "services/cloud" not in combined_contracts or "no dedicated CI job" not in combined_contracts:
-        errors.append("agent contracts must record services/cloud as a local-only CI gap")
+    if "services/cloud" not in combined_contracts or "deploy-verify.yml" not in combined_contracts:
+        errors.append("agent contracts must record services/cloud's dedicated deployment gate")
 
     if errors:
         for error in errors:

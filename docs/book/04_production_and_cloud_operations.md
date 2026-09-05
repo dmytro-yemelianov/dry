@@ -1,55 +1,48 @@
 # Chapter 4: Production Architecture, Cloud & Deployment
 
-## 1. The Verify Runner Microservice (`dry-verify-runner`)
+## 1. One public control plane, one verifier
 
-The `dry-verify-runner` is a standalone, asynchronous Rust service (built on `axum 0.7`, `tokio`, `tower-http`, and `reqwest` with `rustls-tls`) designed for high-throughput remote verification of untrusted machine code.
+DryMachina hosted verification is asynchronous. `services/cloud` is the sole public Cloudflare
+Worker ingress for device login, API keys, quota, uploads and job polling. It stores job metadata in
+D1, inputs/reports in R2 and dispatches work through Queues.
 
-### Core Endpoints
+`containers/verify-runner` is a private native service behind that control plane. It resolves a
+versioned printer profile, streams G-code to a tempfile and returns the same deterministic report
+contract as the CLI. The engine never runs in the public Worker.
 
-* `GET /healthz` — Liveness probe (`{"ok": true}`).
-* `GET /readyz` — Readiness probe reporting registry host bindings and body caps.
-* `GET /metrics` — Prometheus telemetry (`dry_verify_requests_total`, `dry_verify_active_requests`, `dry_verify_segments_inspected_total`).
-* `POST /verify?pack=<id>&version=<semver>&profile=<id>&registry=<url>` — Streams raw uploaded G-code to an ephemeral tempfile, fetches the resolved profile from the registry, executes verification on a dedicated blocking worker pool, and returns a structured JSON report.
+## 2. Public API
 
----
+- `GET /healthz` — control-plane liveness only.
+- `POST /v1/auth/device`, `POST /v1/auth/token`, `GET|POST|DELETE /v1/keys` — identity and keys.
+- `POST /v1/jobs/verify` — authenticated, quota-controlled raw G-code upload; returns HTTP 202.
+- `GET /v1/jobs/{id}` — owner-only status and completed report.
+- `GET /v1/usage` — canonical monthly usage and quota.
 
-## 2. Security & Zero-Trust Architecture
+There is no public synchronous `/verify` endpoint. Embedded clients use `dry-wasm`/`@dry/sdk` locally.
 
-1. **SSRF Guarding**: The service refuses any connection to non-operator registry hosts.
-2. **Ephemeral Data Erasure (RAII Guard)**: Uploaded G-code is held in temporary files guarded by `EphemeralGcodeFile`, which guarantees immediate unlinking on request completion, rejection, error, or panic.
-3. **Zero Geometry Log Leakage**: Structured JSON logging only emits operational telemetry (`pack`, `version`, `profile`, `segments_inspected`, `duration_ms`), never customer geometry.
-4. **Non-Root Execution**: Runs under system user `runner` (uid 10001) in a hardened, minimal `debian:bookworm-slim` container.
+## 3. Security and capacity
 
----
+Tokens are opaque and only hashes are stored. Staging/production reject the development Turnstile
+bypass. Inputs above 100 MB fail before persistence, and the private runner receives the same limit.
+Because import can consume 43–50× the source size, the Cloudflare Container is configured as
+`standard-3` (8 GiB); full verification in a Worker isolate is explicitly unsupported.
 
-## 3. Cryptographic Authentication & Rate Limiting
+## 4. Deployment evidence
 
-* **Ed25519 Bearer Token Verification**: Requests carrying `Authorization: Bearer <token>` are cryptographically validated against trusted production public keys using `dry_license`.
-* **Dynamic License Stamping**: Valid requests receive `license: { mode: "licensed", licensee, tier }` stamps; unauthenticated requests fall back safely to `evaluation`.
-* **Sliding-Window Rate Limiting**: Enforces strict quotas (120 req/min for evaluation, 1200 req/min for licensed tiers), returning `429 Too Many Requests` on breach.
+The deployment workflow runs the runner tests, the Worker typecheck/runtime tests, and production
+plus staging Wrangler dry-runs before any account mutation. With protected-environment credentials it
+deploys staging from `main` and production from a version tag, then checks the exact public health
+contract.
 
----
+This repository currently proves **implemented and deployable**, not **live production service**.
+Launch still requires provisioned resources, an authenticated end-to-end staging job, an executed
+rollback drill, approved data policy and capacity SLO.
 
-## 4. Operational Runbook & Deployment
+Docker Compose remains a local runner-development tool; it is not the public production topology.
 
-### Local / Staging Launch via Docker Compose
-```bash
-docker compose -f deploy/docker-compose.yml up -d
-```
+## 5. Release governance
 
-### Load Testing with k6
-```bash
-k6 run tests/load/k6-verify.js
-```
-
----
-
-## 5. Release Governance & Version Verification
-
-Dry releases follow **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)** with lockstep synchronization across all crates and language bindings:
-
-* **Patch Horizon (`0.7.x`)**: Bug fixes, security CVE patches, link fixes, and test expansions.
-* **Minor Horizon (`0.8.0`)**: Strategic roadmap deliverables, new CAM generator dialects, and backward-compatible IR extensions.
-* **Major Horizon (`1.0.0`)**: Normative Dry IR standard freeze, formal verification certification, and public LTS guarantee.
-
-All package manifests (`Cargo.toml`, `py/pyproject.toml`, `sdk/ts/package.json`, `sdk/mcp/package.json`, `containers/verify-runner/Cargo.toml`) are validated in CI prior to any release via `bash scripts/check-version.sh <vX.Y.Z>`.
+All lockstep release surfaces are checked by `scripts/check-version.sh`. Release artifacts, SBOM,
+checksums and attestations prove what was built; deployment records must additionally pin the Worker
+revision and private image digest. A production promotion is incomplete until both identities are
+recorded and the post-deploy smoke succeeds.

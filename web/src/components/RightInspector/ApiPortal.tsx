@@ -23,13 +23,13 @@ export const ApiPortal: React.FC = () => {
     <div className="api-portal-root" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Tab Switcher */}
       <div className="optimizer-card">
-        <div className="opt-card-title">Cloud Manufacturing API & MCP</div>
+        <div className="opt-card-title">Local MCP & Pages Catalog APIs</div>
         <div className="opt-mode-pills">
           <button
             className={`opt-mode-btn ${activeTab === 'mcp' ? 'active' : ''}`}
             onClick={() => setActiveTab('mcp')}
           >
-            <span style={{ fontWeight: 700 }}>Remote MCP Server</span>
+            <span style={{ fontWeight: 700 }}>Local MCP Server</span>
           </button>
           <button
             className={`opt-mode-btn ${activeTab === 'rest' ? 'active' : ''}`}
@@ -44,40 +44,10 @@ export const ApiPortal: React.FC = () => {
         <>
           {/* MCP Server Overview */}
           <div className="optimizer-card">
-            <div className="opt-card-title">🤖 Hosted Model Context Protocol (MCP)</div>
+            <div className="opt-card-title">🤖 Local Model Context Protocol (MCP)</div>
             <div style={{ fontSize: '11px', color: 'var(--fg-muted)', marginBottom: '8px' }}>
-              Connect AI agents (Claude, Cursor, Antigravity) directly to Dry Machina's safety shield & CAM engine.
-            </div>
-
-            <div style={{ marginBottom: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--accent)' }}>Cursor IDE Config (.cursor/mcp.json)</span>
-                <button
-                  className="param-reset-btn"
-                  onClick={() => navigator.clipboard?.writeText(JSON.stringify({ mcpServers: { "dry-machina": { url: "https://drymachina.com/api/mcp" } } }, null, 2))}
-                >
-                  Copy
-                </button>
-              </div>
-              <pre
-                style={{
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '4px',
-                  padding: '6px 8px',
-                  fontSize: '10px',
-                  fontFamily: 'ui-monospace, monospace',
-                  color: 'var(--fg-bright)',
-                }}
-              >
-{`{
-  "mcpServers": {
-    "dry-machina": {
-      "url": "https://drymachina.com/api/mcp"
-    }
-  }
-}`}
-              </pre>
+              Run the published <code>@dry/mcp</code> package on your machine. The former
+              unauthenticated Pages MCP endpoint is retired and is not a hosted verification tier.
             </div>
 
             <div>
@@ -85,7 +55,7 @@ export const ApiPortal: React.FC = () => {
                 <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--accent)' }}>Claude Desktop Config</span>
                 <button
                   className="param-reset-btn"
-                  onClick={() => navigator.clipboard?.writeText(JSON.stringify({ mcpServers: { "dry-machina": { command: "npx", args: ["-y", "@drymachina/mcp"] } } }, null, 2))}
+                  onClick={() => navigator.clipboard?.writeText(JSON.stringify({ mcpServers: { "dry-machina": { command: "npx", args: ["-y", "@dry/mcp"] } } }, null, 2))}
                 >
                   Copy
                 </button>
@@ -105,7 +75,7 @@ export const ApiPortal: React.FC = () => {
   "mcpServers": {
     "dry-machina": {
       "command": "npx",
-      "args": ["-y", "@drymachina/mcp"]
+      "args": ["-y", "@dry/mcp"]
     }
   }
 }`}
@@ -117,7 +87,12 @@ export const ApiPortal: React.FC = () => {
         <>
           {/* REST API Endpoints */}
           <div className="optimizer-card">
-            <div className="opt-card-title">Public Cloud Edge Endpoints</div>
+            <div className="opt-card-title">Pages Catalog Endpoints</div>
+            <div style={{ fontSize: '11px', color: 'var(--fg-muted)', marginBottom: '8px' }}>
+              These catalog helpers do not verify toolpaths. Hosted verification uses the separate,
+              authenticated asynchronous <code>POST /v1/jobs/verify</code> contract; no live public
+              origin is claimed until deployment and launch gates are complete.
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -137,14 +112,6 @@ export const ApiPortal: React.FC = () => {
                 <button className="param-reset-btn" onClick={() => testApi('/api/machines')}>
                   Test
                 </button>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <span className="reduction-chip" style={{ background: '#1f6feb', marginLeft: 0, marginRight: '6px' }}>POST</span>
-                  <code style={{ fontSize: '11px', color: 'var(--fg-bright)' }}>/api/verify</code>
-                </div>
-                <span style={{ fontSize: '10px', color: 'var(--fg-muted)' }}>Safety Shield</span>
               </div>
             </div>
           </div>

@@ -25,7 +25,11 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   scoped structural golden; it is merged and post-merge green. The current CLI/coverage slice adds
   end-to-end smoke coverage for `unpack`, offline `explain`, `schema`, and `fleet`, exercises the
   no-default-features CLI in CI, and replaces informational LCOV artifacts with a fail-closed 85%
-  workspace line-coverage floor. Later independent slices resolve the ADR 0003 cloud decision.
+  workspace line-coverage floor. PR #294 is merged and post-merge green. The final slice amends ADR
+  0003: `services/cloud` is the sole async public ingress, `containers/verify-runner` is the private
+  native verifier, the direct proxy is retired, and `crates/cloud` remains measurement-only evidence.
+  Production availability still requires provisioned resources, authenticated staging smoke,
+  rollback evidence, SLO and approved data-handling policy.
   The full frozen audit spec and
   implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
   slice has independent review, target-specific gates, full PR CI, and post-merge main verification;
@@ -215,9 +219,9 @@ verifier, so `emit` is the last gate.
 ## Immediate next 5 (if starting today)
 
 1. **Deployment readiness** — see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). The engine
-   is heavily gated and the product is not deployable: no authentication, no observability, no deploy
-   pipeline, and two divergent sketches of one service. That roadmap, not this list, is where the next
-   phase of work lives.
+   and the single async-control-plane/private-runner topology are gated; the product is not yet live.
+   Provision staging/production resources, execute an authenticated end-to-end smoke and rollback
+   drill, approve the data policy, and turn the measured capacity curve into an asserted SLO.
 2. **Should `resolve` force travels dark? — DECIDED: no (2026-08-30).** The narrower question, a
    "beam on during travel" verify rule, was settled by gating `laser-power-during-travel` on
    `process.travel_must_be_dark`. This is the other half, and it closes on the *same* argument.

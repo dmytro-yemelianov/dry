@@ -20,16 +20,16 @@ function isDevBypass(env: Env): boolean {
 
 /**
  * Defense in depth against a misconfigured deploy: the Turnstile bypass must
- * never be reachable when ENVIRONMENT is "production" (e.g. dev vars leaking
- * into a prod deploy). If it somehow is, fail closed and loudly rather than
+ * never be reachable outside ENVIRONMENT="dev" (e.g. dev vars leaking into a
+ * staging or production deploy). If it somehow is, fail closed and loudly rather than
  * silently accepting unverified activations.
  */
-function isProdBypassMisconfigured(env: Env): boolean {
-  return env.ENVIRONMENT === "production" && isDevBypass(env);
+function isNonDevBypassMisconfigured(env: Env): boolean {
+  return env.ENVIRONMENT !== "dev" && isDevBypass(env);
 }
 
 function misconfiguredResponse(): Response {
-  return jsonResponse({ error: "misconfigured: dev bypass in production" }, 500);
+  return jsonResponse({ error: "misconfigured: dev bypass outside development" }, 500);
 }
 
 function escapeHtml(value: string): string {
@@ -95,7 +95,7 @@ ${turnstileWidget}
 
 /** `GET /activate` — optionally pre-filled via `?user_code=`. */
 export function handleActivateGet(request: Request, env: Env): Response {
-  if (isProdBypassMisconfigured(env)) return misconfiguredResponse();
+  if (isNonDevBypassMisconfigured(env)) return misconfiguredResponse();
   const userCode = new URL(request.url).searchParams.get("user_code") ?? undefined;
   return renderForm(env, { userCode });
 }
@@ -146,7 +146,7 @@ async function upsertAccount(env: Env, email: string): Promise<string> {
 
 /** `POST /activate` — Turnstile-verified (unless dev bypass) approval. */
 export async function handleActivateSubmit(request: Request, env: Env): Promise<Response> {
-  if (isProdBypassMisconfigured(env)) return misconfiguredResponse();
+  if (isNonDevBypassMisconfigured(env)) return misconfiguredResponse();
 
   const ip = getClientIp(request);
   if (await checkRateLimit(env, "activate", ip, 10)) {
