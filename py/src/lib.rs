@@ -479,6 +479,27 @@ fn check_tool_holder_collision_json(
     serde_json::to_string(&findings).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Pre-flight a design against machine capabilities in the engine.
+///
+/// Mirrors `check_machine_compatibility` in `crates/wasm/src/lib.rs` deliberately: when each binding
+/// grows its own copy of this loop they drift on which programs they refuse, and the Python SDK's
+/// copy silently omitted both arc-envelope rules.
+#[pyfunction]
+fn check_compatibility_json(
+    ops_json: &str,
+    params_json: &str,
+    capabilities_json: &str,
+) -> PyResult<String> {
+    let design = parse_design(ops_json)?;
+    let params = parse_params(params_json)?;
+    let caps: dry_core::MachineCapabilities = serde_json::from_str(capabilities_json)
+        .map_err(|e| PyValueError::new_err(format!("invalid capabilities: {e}")))?;
+    let toolpath =
+        resolve_checked(&design, &params).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let report = dry_core::check_compatibility(&toolpath, &caps);
+    serde_json::to_string(&report).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Reverse-engineer an L1 Design JSON from a resolved L2 Toolpath JSON.
 #[pyfunction]
 fn reverse_toolpath_json(toolpath_json: &str) -> PyResult<String> {
@@ -659,6 +680,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lathe_facing_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(lathe_od_turning_ops_json, m)?)?;
     m.add_function(wrap_pyfunction!(check_tool_holder_collision_json, m)?)?;
+    m.add_function(wrap_pyfunction!(check_compatibility_json, m)?)?;
     m.add_function(wrap_pyfunction!(reverse_toolpath_json, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_metrics, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_ir, m)?)?;
