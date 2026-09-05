@@ -40,7 +40,8 @@ Dry adheres strictly to **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)**:
    - `py/pyproject.toml` & `py/Cargo.toml` → `version`
    - `sdk/ts/package.json` & `sdk/ts/package-lock.json` → `version`
    - `sdk/mcp/package.json` & `sdk/mcp/package-lock.json` → `version`
-   - `web/package.json`, `services/cloud/package.json`, `tools/license-issuer/package.json` → `version`
+   - `web/package.json`, `services/cloud/package.json`, `services/cloud/package-lock.json`,
+     `tools/license-issuer/package.json` → `version`
    Verify locally: `bash scripts/check-version.sh vX.Y.Z`.
 2. **Update `CHANGELOG.md`** — move `[Unreleased]` into a new `## [X.Y.Z] - <date>` section.
 3. **Commit** the bump + changelog, open a PR, merge to `main`.

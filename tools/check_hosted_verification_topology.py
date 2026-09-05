@@ -8,10 +8,14 @@ stub. This source gate cannot withdraw historical Pages deployments; that is an
 explicit owner-side launch blocker checked by ``check_pages_exposure.sh``.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PAGES_FUNCTION_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx"}
+RETIRED_PAGES_ROUTES = {"/api/mcp", "/api/verify"}
 
 
 def require(path: str, needle: str) -> None:
@@ -28,16 +32,41 @@ def forbid_text(path: str, needle: str) -> None:
     assert needle not in text, f"{path} advertises retired hosted surface: {needle!r}"
 
 
+def pages_function_route(functions_root: Path, source: Path) -> str | None:
+    """Return the Pages route produced by a supported source file."""
+    try:
+        relative = source.relative_to(functions_root)
+    except ValueError:
+        return None
+    if source.suffix not in PAGES_FUNCTION_EXTENSIONS:
+        return None
+
+    parts = list(relative.with_suffix("").parts)
+    if parts and parts[-1] == "index":
+        parts.pop()
+    return "/" + "/".join(parts)
+
+
+def forbid_retired_pages_routes(functions_root: Path) -> None:
+    for source in functions_root.rglob("*"):
+        if not source.is_file():
+            continue
+        route = pages_function_route(functions_root, source)
+        assert route not in RETIRED_PAGES_ROUTES, (
+            f"retired hosted-verification ingress returned: "
+            f"functions/{source.relative_to(functions_root)} "
+            f"resolves to {route}"
+        )
+
+
 def main() -> None:
     require("services/cloud/src/index.ts", 'url.pathname === "/v1/jobs/verify"')
     require("services/cloud/src/index.ts", 'request.method !== "POST"')
     require("services/cloud/src/index.ts", "handlePostVerifyJob")
 
-    for retired in (
-        "functions/api/verify.ts",
-        "functions/api/mcp.ts",
-        "deploy/cloudflare/src/index.ts",
-    ):
+    forbid_retired_pages_routes(ROOT / "functions")
+
+    for retired in ("deploy/cloudflare/src/index.ts",):
         forbid_file(retired)
 
     for surface in (
