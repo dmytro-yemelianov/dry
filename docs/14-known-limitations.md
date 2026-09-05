@@ -26,10 +26,11 @@ Do not rely on Dry for any of these today:
     the emitted coordinates ignore tool length until a real `$TOOL` is supplied. Full boundary:
     [`22-krl-emit.md`](22-krl-emit.md).
   - **The Phase 8 industrial dialects have had no controller contact at all.** Siemens Sinumerik
-    840D/ONE, Haas NextGen, Heidenhain TNC and ABB RAPID emit structurally plausible programs and are
-    covered by unit tests over their own output — which is weaker evidence than KRL has, since KRL is
-    at least parsed by an external grammar. No independent interpreter checks any of the four, and
-    none has been loaded on a control. Only RS-274 is gated by a genuine external interpreter
+    840D/ONE, Haas NextGen and Heidenhain TNC are covered by tests over their own output. ABB RAPID
+    additionally has a frozen structural golden covering `MoveL`, direction-sensitive `MoveC` and
+    `WaitTime`, but no independent RAPID parser or execution environment checks it. That remains
+    weaker evidence than KRL has, since KRL is at least parsed by an external grammar. None of the
+    four has been loaded on a control. Only RS-274 is gated by a genuine external interpreter
     (LinuxCNC `rs274`, CI job `linuxcnc`).
 - **A production robot kinematics solver.** `Robot6AxisModel::solve_ik` is a **five**-degree-of-freedom
   solve returned in a six-joint shape: `J6` is never determined and always reads `0.0`, because a TCP
@@ -85,8 +86,10 @@ oversight. That gate exists because this table was previously a snapshot and was
 the first time it was written — and the manifest's first run caught three more.
 
 **The binding gap is closed.** The lookahead optimiser, the physics simulator and all four Phase 8
-dialects reach Python, wasm and TypeScript, with the `cnc_frame` they need to emit a machine preamble
-rather than bare motion. Python and TypeScript are cross-checked against *each other*:
+dialects reach Python, wasm and TypeScript. The CNC dialects accept `cnc_frame` for their machine
+preamble; RAPID refuses that CNC-only shape because ABB workobjects/tooldata need a distinct contract,
+and silently dropping it would put motion in the wrong frame. Python and TypeScript are cross-checked
+against *each other*:
 `py/tests/test_physics_and_lookahead.py` and `sdk/ts/test/physics_and_lookahead.test.ts` assert the
 same physics numbers through two different FFI paths (native PyO3 and wasm), and they agree bit for
 bit.
@@ -182,7 +185,11 @@ flag set here covers yet.
   count from 41,112 to 33,539 warnings. It does **not** make it small, and raising `scv` will not either:
   measured on the same file, `scv = 4` → 42,119, `scv = 8` → 33,539, `scv = 10` → 29,719,
   `scv = 20` → 18,830. The reason is in the geometry: 33,236 of that file's 90,897 printing junctions turn
-  by more than 20°, and at the commanded 40–60 mm/s every one of them is above its cornering limit. Every
+  by more than 20°, and at the commanded 40–60 mm/s every one of them is above its cornering limit. (The
+  sweep predates the #277 junction-history fix — a stationary filament move no longer carries a junction
+  across the stop — so files that prime between contiguous prints would count somewhat lower today; the
+  corpus re-measurement in `docs/25` found no such pattern in OrcaSlicer output, where a travel always
+  separates the prime from the previous print.) Every
   firmware planner slows down at each, which is why the print is healthy. So a per-junction finding is a
   **plan-fidelity advisory** (the same character as `rotary-feed`: the controller obeys, the plan was
   optimistic), it is a Warning and never gates, and its useful form is aggregate — "this program commands

@@ -8,9 +8,13 @@ This flow turns a device-login access token into a revocable API key, submits ra
 G-code, and polls the resulting job.
 
 ```bash
-export DRY_CLOUD_URL=https://cloud.dry.yemelianov.dev
-export DRY_ACCESS_TOKEN='<device-flow access token>'
+DRY_CLOUD_URL='<your configured DryMachina Cloud origin>'
+export DRY_CLOUD_URL
+# Load DRY_ACCESS_TOKEN from your secret manager after device authorization.
 ```
+
+No public production origin is currently documented. Use a development, private or
+announced staging deployment.
 
 See [Device authorization](/cloud/api#device-authorization) if you do not yet have
 an access token.
@@ -26,9 +30,8 @@ curl -sS -X POST "$DRY_CLOUD_URL/v1/keys" \
 
 Save the returned `key` immediately; it is not shown again.
 
-```bash
-export DRY_TOKEN='dry_key_secret-value'
-```
+Load the returned key into `DRY_TOKEN` through your CI or operating system secret
+store; do not place it in a script, shell history or repository.
 
 The MVP allows one active API key. Revoke it with
 `DELETE /v1/keys/{id}` before rotating.
@@ -74,7 +77,7 @@ curl -sS \
   "$DRY_CLOUD_URL/v1/usage"
 ```
 
-The free MVP quota is 20 jobs per UTC month. A quota response is HTTP 429 with a
+The checked-in baseline quota is 20 jobs per UTC month. A quota response is HTTP 429 with a
 `Retry-After` header and `/v1/usage` link. Usage billing is planned later and is not
 active today.
 

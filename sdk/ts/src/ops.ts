@@ -89,7 +89,7 @@ export type SegmentKind =
   | 'retract'
   | 'unretract'
   | 'deposit'
-  | 'manual_gcode';
+  | 'manualgcode';
 
 /** One resolved motion or process segment in the Dry L2 IR. */
 export interface Segment {
@@ -231,4 +231,3 @@ export const PRINTERS: Record<string, ResolveParams> = {
 
 /** Default resolver parameters for the generic built-in printer profile. */
 export const RESOLVE_PARAMS: ResolveParams = PRINTERS.generic;
-

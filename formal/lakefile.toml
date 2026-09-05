@@ -4,6 +4,15 @@ defaultTargets = ["Dry"]
 
 [[lean_lib]]
 name = "Dry"
+# `Dry.+` = the root module *and* every submodule under `Dry/`, not just what `Dry.lean` imports.
+# Without it Lake's default glob is `Glob.one Dry`, so the build reaches a module only through the
+# root's import list — and `Dry.lean` deliberately does not import `Dry.Tests.*` (executable proof
+# fixtures, not part of the published theory). Those modules were therefore never elaborated by
+# `lake build --wfail`, and the only path that did elaborate them (`lake env lean --run`, from
+# `tools/check_proof_fixtures.py`) reports `declaration uses 'sorry'` as a *warning* and exits 0 —
+# so a placeholder proof in a fixture theorem could not fail CI. The glob puts every Lean module
+# under the warnings-as-errors gate and keeps future additions covered by construction.
+globs = ["Dry.+"]
 
 [[require]]
 name = "mathlib"

@@ -14,7 +14,7 @@
 #
 #   tools/check_pages_exposure.sh                      # check drymachina
 #   tools/check_pages_exposure.sh dry-public-docs      # check another project
-#   tools/check_pages_exposure.sh drymachina --path /api/machines
+#   tools/check_pages_exposure.sh drymachina --path /api/verify
 #
 # Requires `wrangler` authenticated to the account owning the project (npx is used
 # if wrangler is not on PATH). Read-only: it never deploys, deletes, or reconfigures.
@@ -28,7 +28,7 @@
 set -uo pipefail
 
 PROJECT="drymachina"
-PROBE="/api/mcp"
+PROBE="/api/verify"
 args=()
 while [ $# -gt 0 ]; do
   case "$1" in

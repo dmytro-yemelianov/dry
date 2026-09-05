@@ -1392,7 +1392,18 @@ where
             // filament really is pulled back, and `travel-without-retraction` asks about the state, not
             // about which form the retraction took.
             retracted = true;
-        } else if is_unretract || extrudes_material {
+        } else if extrudes_material || s.filament.value() > 0.0 {
+            // STATE tracking, deliberately wider than any rule scope above (`is_unretract`, which gates
+            // the two retraction limits, requires stationary; `extrudes_material`, which gates the
+            // deposition rules, requires a volume; #276's narrowing of those rule scopes stays). Any
+            // forward filament motion ends the retracted state, whatever form it takes: a stationary
+            // prime, a traversing unretract (`filament > 0`, `volume == 0`, `length > 0`, `travel:
+            // false` — hand-authored IR can construct it), or an imported `G0 E...` purge (`travel:
+            // true`, `volume > 0`). All three used to fall through every arm here and silently inherit
+            // the previous segment's state, so a later travel read `retracted == true` and skipped a
+            // `travel-without-retraction` finding it should have raised (#277). The purge also resets
+            // the travel run: filament moving forward is the event the rule asks about, not a link in
+            // a clean unretracted travel run.
             retracted = false;
             travel_run_length = 0.0;
             flagged_travel = false;
@@ -1564,8 +1575,18 @@ where
                 prev_print_end = Some(s.end);
                 prev_speed_mm_s = Some(s.speed.value() / 60.0);
                 prev_exit_tangent = tangents.map(|(_, exit)| exit);
-            } else if s.travel {
-                // Reset junction tracking across travel moves.
+            } else {
+                // Reset junction tracking on every non-deposition segment, not just declared travels
+                // (#277). This state is "the previous printing segment's exit", and a segment that
+                // deposits nothing along a path — a travel, a stationary prime/retract (`G1 E±n`, zero
+                // geometric length), a stationary deposit — ends that printing run. A stationary move
+                // leaves the tool at rest, so the next printing segment starts from zero XY velocity:
+                // there is no junction to measure across the stop, and `junction_contiguous` cannot
+                // screen the pair (the position is unchanged, so the two prints still agree within
+                // 0.1 mm). Before this reset, a prime between two prints made the rule compare their
+                // tangents as if the tool had never stopped — a false positive in the corpus's loudest
+                // rule. The RULE scope (`deposits_along_path`) stays as #276 narrowed it; only this
+                // STATE tracking widens.
                 prev_print_end = None;
                 prev_speed_mm_s = None;
                 prev_exit_tangent = None;

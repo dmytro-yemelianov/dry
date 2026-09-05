@@ -127,7 +127,7 @@ def document : Json :=
   Json.mkObj [
     ("schema_version", Json.num 1),
     ("model", Json.str "simulate-metrics-refinement-v0"),
-    ("model_checks", Json.bool true),
+    ("model_checks", Json.bool modelChecks),
     ("cases", Json.arr (cases.map caseJson).toArray)
   ]
 

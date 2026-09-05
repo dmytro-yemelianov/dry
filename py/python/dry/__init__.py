@@ -424,65 +424,23 @@ class Design:
         capabilities: Mapping[str, Any],
         printer: str = "generic",
     ) -> Mapping[str, Any]:
-        """Pre-flight check toolpath against machine capabilities (D2.2)."""
-        tp = self.ir(printer)
-        segments = tp.get("segments", []) if isinstance(tp, dict) else []
-        findings = []
+        """Pre-flight check toolpath against machine capabilities (D2.2).
 
-        x_range = capabilities.get("x_range", [0, 300])
-        y_range = capabilities.get("y_range", [0, 300])
-        z_range = capabilities.get("z_range", [0, 300])
-        max_feed = capabilities.get("max_feedrate")
-        max_spindle = capabilities.get("max_spindle_rpm")
+        The rules live in the engine (``dry_core::check_compatibility``), not here. This method
+        previously carried its own copy of the loop, implementing five of the engine's seven rules;
+        it omitted ``ARC_OUT_OF_BOUNDS_X`` and ``ARC_OUT_OF_BOUNDS_Y``, so an arc whose swept circle
+        leaves the build envelope was reported compatible here and incompatible by the engine. The
+        engine bounds an arc by its full circle deliberately — refusing a safe program is
+        recoverable, passing an unsafe one is not.
 
-        for index, seg in enumerate(segments):
-            end = seg.get("end")
-            if end:
-                x, y, z = end
-                if x is not None and (x < x_range[0] or x > x_range[1]):
-                    findings.append({
-                        "severity": "Error",
-                        "code": "OUT_OF_BOUNDS_X",
-                        "message": f"X coordinate {x} exceeds machine limit [{x_range[0]}, {x_range[1]}]",
-                        "segment_index": index,
-                    })
-                if y is not None and (y < y_range[0] or y > y_range[1]):
-                    findings.append({
-                        "severity": "Error",
-                        "code": "OUT_OF_BOUNDS_Y",
-                        "message": f"Y coordinate {y} exceeds machine limit [{y_range[0]}, {y_range[1]}]",
-                        "segment_index": index,
-                    })
-                if z is not None and (z < z_range[0] or z > z_range[1]):
-                    findings.append({
-                        "severity": "Error",
-                        "code": "OUT_OF_BOUNDS_Z",
-                        "message": f"Z coordinate {z} exceeds machine limit [{z_range[0]}, {z_range[1]}]",
-                        "segment_index": index,
-                    })
-
-            speed = seg.get("speed", 0.0)
-            if max_feed is not None and speed > max_feed:
-                findings.append({
-                    "severity": "Warning",
-                    "code": "EXCEEDS_MAX_FEEDRATE",
-                    "message": f"Feedrate {speed} exceeds machine max {max_feed}",
-                    "segment_index": index,
-                })
-
-            power = seg.get("power")
-            if max_spindle is not None and power is not None and power > max_spindle:
-                findings.append({
-                    "severity": "Warning",
-                    "code": "EXCEEDS_MAX_SPINDLE_RPM",
-                    "message": f"Spindle speed {power} exceeds machine max {max_spindle}",
-                    "segment_index": index,
-                })
-
-        return {
-            "compatible": not any(f["severity"] == "Error" for f in findings),
-            "findings": findings,
-        }
+        ``capabilities`` keeps the SDK's shape (``x_range`` as ``[min, max]``, ``max_feedrate``);
+        it is adapted to the engine's wire form at this boundary.
+        """
+        return json.loads(_native.check_compatibility_json(
+            json.dumps(self.ops),
+            _params(printer),
+            json.dumps(_engine_capabilities(capabilities)),
+        ))
 
     # ---- 3D Visualization and Export Helpers ----
     def to_obj(self, include_travel: bool = False, printer: str = "generic") -> str:
@@ -918,3 +876,33 @@ def _params(printer: str) -> str:
     if printer not in PRINTERS:
         raise KeyError(f"unknown printer {printer!r}; known: {sorted(PRINTERS)}")
     return json.dumps(PRINTERS[printer])
+
+
+def _axis_range(value: Any) -> Dict[str, float]:
+    """Accept the SDK's ``[min, max]`` pair or the engine's ``{"min": .., "max": ..}`` object."""
+    if isinstance(value, Mapping):
+        return {"min": float(value["min"]), "max": float(value["max"])}
+    lo, hi = value
+    return {"min": float(lo), "max": float(hi)}
+
+
+def _engine_capabilities(capabilities: Mapping[str, Any]) -> Dict[str, Any]:
+    """Adapt the SDK capability dict to ``dry_core::MachineCapabilities``.
+
+    The SDK shape predates the engine one and stays as the public contract: axis ranges are
+    ``[min, max]`` pairs and the feedrate ceiling is ``max_feedrate``. The engine wants
+    ``{"min": .., "max": ..}`` and ``max_feedrate_mm_min``. Both already read mm/min, so this is a
+    shape translation and not a unit conversion. Absent ranges keep the SDK's historic ``[0, 300]``
+    default rather than failing, which is what callers relied on.
+    """
+    caps: Dict[str, Any] = {
+        "name": str(capabilities.get("name", "unnamed")),
+        "x_range": _axis_range(capabilities.get("x_range", [0, 300])),
+        "y_range": _axis_range(capabilities.get("y_range", [0, 300])),
+        "z_range": _axis_range(capabilities.get("z_range", [0, 300])),
+    }
+    if capabilities.get("max_feedrate") is not None:
+        caps["max_feedrate_mm_min"] = float(capabilities["max_feedrate"])
+    if capabilities.get("max_spindle_rpm") is not None:
+        caps["max_spindle_rpm"] = float(capabilities["max_spindle_rpm"])
+    return caps

@@ -7,11 +7,26 @@ title: Dry Cloud API
 Set the API origin once:
 
 ```bash
-export DRY_CLOUD_URL=https://cloud.dry.yemelianov.dev
+DRY_CLOUD_URL='<your configured DryMachina Cloud origin>'
+export DRY_CLOUD_URL
 ```
+
+No default public production origin is currently documented. The API below is an
+implemented contract for development and provisioned private/staging deployments.
 
 JSON responses use `Content-Type: application/json`. Authenticated endpoints accept
 `Authorization: Bearer <access-token-or-api-key>`.
+
+## Health
+
+`GET /healthz` returns the exact control-plane liveness document:
+
+```json
+{"ok":true,"service":"dry-cloud-control-plane"}
+```
+
+This does not prove Queue delivery or native-runner health; use an authenticated
+verification job for an end-to-end deployment smoke.
 
 ## Device authorization
 
@@ -27,8 +42,8 @@ curl -sS -X POST "$DRY_CLOUD_URL/v1/auth/device"
 {
   "device_code": "opaque-device-code",
   "user_code": "ABCD-EFGH",
-  "verification_uri": "https://cloud.dry.yemelianov.dev/activate",
-  "verification_uri_complete": "https://cloud.dry.yemelianov.dev/activate?user_code=ABCD-EFGH",
+  "verification_uri": "https://dry-cloud.example/activate",
+  "verification_uri_complete": "https://dry-cloud.example/activate?user_code=ABCD-EFGH",
   "expires_in": 600,
   "interval": 5
 }

@@ -7,6 +7,159 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` and
 `docs/11-profiles-and-reports.md`).
 
+## [Unreleased]
+
+### Changed
+- **Hosted verification now has one product topology.** `services/cloud` is the sole public,
+  asynchronous ingress and dispatches persisted jobs to the private native
+  `containers/verify-runner`. The duplicate synchronous `deploy/cloudflare` proxy is retired;
+  the unauthenticated Pages `/api/verify` implementation and hosted MCP verifier are retired too;
+  `@dry/mcp` remains a local package. Historical Pages deployments must be deleted or placed
+  behind Cloudflare Access before hosted verification can be called publicly retired. The
+  production/staging bindings and the 100 MB/`standard-3` capacity contract now live with the
+  control plane. Deployment CI validates both environments but does not claim a live service until
+  provisioned deployment, authenticated smoke and rollback evidence exist.
+- **The Cloudflare Worker is explicitly archived as a measurement-only feasibility spike.** Its
+  product-facing `POST /verify` route and contract-header handling are removed; only
+  `POST /spike/verify` and its wasm compile evidence remain. The verify-runner image workflow no
+  longer treats the spike as a Tier-2 dependency.
+
+### Fixed
+- **The CLI's previously unexecuted `unpack`, offline `explain`, `schema`, and `fleet` paths now
+  have end-to-end smoke coverage.** The pack/unpack test pins both semantic and byte-identical DRY1
+  round trips, and the no-default-features CI lane proves `fleet` refuses before network access when
+  Moonraker support is absent. Codecov now enforces an exact, fail-closed 85% workspace line-
+  coverage floor instead of uploading an informational artifact that could never fail CI.
+- **ABB RAPID arcs now emit a direction-sensitive `CirPoint` instead of misusing the circle
+  centre as `MoveC`'s first target.** CW and CCW sweeps produce distinct points on the requested
+  arc; non-finite motion values and CNC-only `cnc_frame` parameters fail closed. Quaternion branch,
+  dwell, arc-direction, and structural-golden tests pin the renderer without claiming controller
+  or RobotStudio validation.
+- **The TypeScript L2 segment kind matches the normative JSON wire spelling.** Rust serde and the
+  Dry IR schema encode a manual G-code segment as `manualgcode`, while DRY0 intentionally uses
+  `manual_gcode`; the SDK type incorrectly advertised the binary spelling for JSON-decoded
+  toolpaths. The public `SegmentKind` now matches the JSON contract, with an end-to-end wasm-backed
+  regression test. `machine.ts` also consumes the canonical `FirmwareFlavor` union instead of a
+  stale local subset.
+- **Formal-assurance evidence now reports what actually discharged each Lean claim.** The claim
+  ledger distinguishes kernel-checked proofs from the six theorems discharged by
+  `native_decide`, and the validator rejects missing, mismatched, or comment-induced proof-method
+  classifications. The assurance sitemap exposes that distinction instead of flattening every
+  theorem to `proved`; S-curve and B-Rep claim titles now match the narrower theorems they cite,
+  and the Clothoid source reference points at the real engine file.
+- **Lean refinement fixtures emit their computed model-check result.** The resolve-channel and
+  simulation-metrics documents previously serialized a constant `true`, so the Rust harness could
+  not observe those Lean predicates failing. They now serialize the predicates themselves while
+  preserving the committed fixture bytes.
+- **CI runs the wasm binding's unit tests.** `crates/wasm` is excluded from the workspace, so
+  `cargo test --workspace` cannot reach it, and its job had no `cargo test` step: the tests existed
+  and executed on no target. The job now runs them and aggregates the result into its gate summary.
+- **The wasm rejection path is testable at all.** `parse_kinematics_invalid_json_returns_error` sat
+  behind `#[cfg(target_arch = "wasm32")]` because evaluating a `JsError` panics off-wasm with
+  "cannot call wasm-bindgen imported functions on non-wasm targets" — and the crate has no wasm test
+  runner, so it ran nowhere. The parse is now a `parse_kinematics_inner` returning
+  `Result<_, String>`, with the `JsError` conversion at the boundary, and the rejection is asserted
+  on the host.
+- **CI compiles the release-only emission branch.** `crates/core/tests/emit_rejects_unrepresentable.rs`
+  states at `:63-69` that it must run under `--release` to cover the shipping behaviour of `emit()`
+  for an out-of-contract `CncFrame` and an endpoint-less arc, but the release step named only
+  `emit_refuses_non_finite`. Both files now run; all 13 tests pass.
+- **Machine compatibility is checked by the engine on every surface.** The Python and TypeScript
+  SDKs each carried a local copy of the pre-flight loop implementing five of the engine's seven
+  rules; both walked segment endpoints only and omitted `ARC_OUT_OF_BOUNDS_X` and
+  `ARC_OUT_OF_BOUNDS_Y`. An arc whose swept circle leaves the build envelope therefore returned
+  **zero findings and `compatible: true`** from those SDKs while `dry_core::check_compatibility`
+  refuses the same program with `Severity::Error`. The engine bounds an arc by its full circle
+  deliberately — refusing a safe program is recoverable, passing an unsafe one is not — and the two
+  SDKs inverted exactly that. Both now delegate to the engine through a boundary adapter; the
+  public signatures, the capability document shapes and the result shapes are unchanged. Findings
+  gain the two arc codes, and finding messages now come from the engine, so their wording changed.
+- **The arc-envelope rule is pinned by a test.** `crates/core/tests/retrospective_audit.rs`
+  asserted `ARC_OUT_OF_BOUNDS_X || OUT_OF_BOUNDS_X` over a fixture whose arc endpoint was also
+  outside the envelope, so the plain bounds rule satisfied it alone and the arc rule was pinned by
+  nothing. A second fixture now places both endpoints inside the envelope so only the arc rule can
+  refuse the program.
+
+### Added
+- A required `proof_method = "kernel" | "native_decide"` field for every proved claim, enforced
+  against the cited Lean declaration and rendered in the generated assurance report.
+- `check_compatibility_json` in the Python binding and `checkMachineCompatibility` in `sdk/ts`,
+  mirroring the existing wasm `check_machine_compatibility` so the bindings cannot drift again.
+- **The capability-parity manifest gates its own completeness.** It verified every cell it declared
+  and nothing verified the cells it did not: the wasm binding exports 34 functions against 12
+  recorded capabilities, which is why the divergence above had no gate to fail. A
+  `machine-compatibility` row now covers all five surfaces, and an `[uncovered]` table records the
+  23 wasm and 11 Python exports still awaiting a row. `tools/check_capability_parity.py` fails on
+  an export listed in neither place, and on a stale entry, so the backlog cannot rot into a silent
+  allowlist.
+
+## [0.10.0] - 2026-09-05
+
+Prospective licensing and registry-publication release; the compiler, IR, and report schemas are
+unchanged.
+
+### Changed
+- **DryMachina BUSL-1.1 terms.** Version 0.10.0 adopts the canonical Business Source License 1.1
+  body with a basic Additional Use Grant for production use by one natural-person User and one
+  physical Production Machine, excluding Competing Services. The cap is legal and self-assessed;
+  runtime entitlement logic, tokens, reports, and the no-phone-home behavior are unchanged. This
+  version converts to MIT on 2030-09-05; earlier releases retain their distributed terms.
+- **Registry-ready Rust packages.** `dry-core`, `dry-license`, `dry-moonraker`, `dry-llm`, and
+  `dry-cli` are publishable in dependency order. Local workspace dependencies now carry explicit
+  `0.10.0` registry versions, while path dependencies remain for repository development.
+- **DryMachina branding and legal artifacts.** Public package metadata, legal summaries, SBOMs,
+  readmes, and package-local `LICENSE`/`NOTICE` copies use the DryMachina brand and BUSL-1.1.
+
+### Fixed
+- **Coverage no longer races the bounded-memory gate.** The two `memory_scale` tests share a
+  process-wide counting allocator but Rust's test harness could run them concurrently, allowing one
+  test to reset the other's peak baseline. Coverage instrumentation made the race visible as a false
+  `verify_stream is buffering` failure on the release candidate. Both measurements are now serialized
+  without changing any memory threshold.
+- **Verifier state machines and stationary filament moves (#277).** The two per-segment state
+  machines in `verify_stream` — the retraction state read by `travel-without-retraction` and the
+  junction history read by `junction-velocity` — no longer let a segment that is neither a deposition
+  nor a travel silently inherit the previous segment's state. The retraction state now clears on any
+  forward filament motion, so a traversing unretract (hand-authored IR) and an imported `G0 E...`
+  purge no longer keep `retracted == true` and suppress a `travel-without-retraction` finding
+  (fail-open); the junction history now resets on every non-deposition segment, so a stationary prime
+  between two prints no longer makes `junction-velocity` compare their tangents across the stop
+  (false positive). Rule scopes stay exactly as #276 narrowed them; only state tracking widens.
+  Corpus re-measured: all `docs/25` counts unchanged (OrcaSlicer output never puts a stationary move
+  between contiguous prints); conformance goldens unchanged.
+
+## [0.9.1] - 2026-09-04
+
+Legal, assurance and release hygiene over the 0.9.0 engine; no engine behaviour changes.
+
+### Fixed
+- **Verifier rule scoping (#276).** `max-flow`, the retraction-speed/distance rules and
+  `junction-velocity` now fire only on the act each one names: volumetric flow is evaluated only on
+  moves that deposit along a path (an E-only prime is timed, not scored as a deposition rate),
+  retraction rules require a stationary tool (a wipe while retracting is no longer read as a
+  retraction speed), and the junction measure keeps its scope against imported stationary moves.
+  The slicer corpus error count drops from 5,948 to 660, matching the baseline already documented
+  in `docs/25-slicer-corpus-baseline.md`; the 660 residual findings are genuine profile/geometry
+  findings, not verifier noise.
+- **Numeric safety.** The new `junction_velocity_limit_mm_s` ordering site is recorded in the
+  NaN-guard manifest (an ordering comparison is false for NaN; the site is fail-safe because its
+  `cos_half` input is NaN-total via `f64::max`).
+- **Docs.** Intra-doc links in `emit/` resolved (public docs no longer reference private items);
+  source-preserved rationale now links the modules it names.
+
+### Changed
+- **Licensing records.** `LICENSE` change-date parenthetical tracks v0.9.1 (September 4, 2028);
+  `README` version badge and MIT-conversion note updated to 0.9.1; `NOTICE` now points at
+  `TRADEMARKS.md` and lists per-file third-party license texts; `BSD-3-Clause.txt` (curve25519-dalek)
+  and `Zlib.txt` (miniz_oxide) added to `third_party/licenses/` — `NOTICE` previously claimed they
+  were preserved but the files were absent. New `TRADEMARKS.md` records Dry/DryMachina as
+  unregistered common-law marks without registration claims.
+- **SBOMs.** `docs/compliance/cyclonedx.sbom.json` and `spdx.sbom.json` regenerated for 0.9.1 with
+  the full shipped component inventory (previously pinned to 0.7.0 with a stale component list).
+- **CI.** New `codecov.yml` coverage job (llvm-cov, pinned actions, coverage attached as a CI
+  artifact; codecov.io upload behind a token, commented out); npm-audit gate distinguishes an
+  advisory-service outage from a real finding (#279).
+
 ## [0.9.0] - 2026-08-30
 
 Everything since `bced638` ("document v0.7.0 features"). **This release covers both the v0.8.0 and

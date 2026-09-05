@@ -22,7 +22,17 @@ hash_mode = "file"
 # Re-pinned 2026-08-30 for a doc-comment-only change: the forward solves now state their
 # finite-joint precondition and name the boundary that enforces it (`multi_robot`'s clearance checks,
 # which now fail closed). No code, constant or predicate moved.
-sha256 = "edbfc77f65843ada79754ebeb8074e16d97110050eec398c1c8bc4f3ad0d5e01"
+#
+# Re-pinned 2026-09-04 for another doc-comment-only change: the `solve_ik` refusal doc link
+# `unit_orientation` now resolves through its full path
+# (`crate::emit::kinematics::unit_orientation`) so rustdoc stops warning that the public docs link a
+# private item. Comment text only; no code, constant or predicate moved.
+#
+# Re-pinned 2026-09-05 for a visibility-only change: the RAPID renderer now calls the same
+# `unit_orientation` helper as the rotary/KRL emitters instead of maintaining a second
+# normalisation path. `fn` became `pub(super) fn`; its body, every constant, and every predicate in
+# this file are byte-for-byte unchanged.
+sha256 = "8bba10c89334e78bd1b6e23918b81e9864bbc036e4ce77b4215cee793bde252d"
 
 # ---------------------------------------------------------------------------------------------
 # The 5-axis side owns exactly one tolerance-bearing predicate, and this is it. Everything else on

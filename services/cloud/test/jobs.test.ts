@@ -1,5 +1,5 @@
 import { env, exports } from "cloudflare:workers";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContainerStubLike } from "../src/container";
 import { handlePostVerifyJob, handleQueueBatch, type QueueJobMessage } from "../src/jobs";
 
@@ -18,6 +18,18 @@ function formBody(fields: Record<string, string>): string {
 }
 
 let accountCounter = 0;
+
+beforeEach(() => {
+  // Miniflare automatically delivers real producer messages to the Wrangler
+  // consumer, which would instantiate a Cloudflare Container unsupported by
+  // the local workerd runtime. Producer behavior is asserted at this seam;
+  // handleQueueBatch is exercised separately below with an injected runner.
+  vi.spyOn(env.VERIFY_JOBS, "send").mockResolvedValue({} as QueueSendResponse);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /**
  * Full device-flow round trip (mirrors test/auth.test.ts's own helper) that
@@ -161,7 +173,7 @@ describe("POST /v1/jobs/verify", () => {
     const token = await grantAccessToken();
     const gcode = "G1 X10 Y10\nG1 X20 Y20\n";
 
-    const sendSpy = vi.spyOn(env.VERIFY_JOBS, "send");
+    const sendSpy = vi.mocked(env.VERIFY_JOBS.send);
 
     const response = await submitJob(token, gcode);
     expect(response.status).toBe(202);
@@ -182,10 +194,8 @@ describe("POST /v1/jobs/verify", () => {
     expect(row?.profile_id).toBe("demo-profile");
     expect(row?.input_r2).toBe(`uploads/${body.id}`);
 
-    // Queue message sent -- the real `VERIFY_JOBS` producer binding, not a stub.
+    // The HTTP path crosses the producer seam with the exact job identifier.
     expect(sendSpy).toHaveBeenCalledWith({ id: body.id });
-
-    sendSpy.mockRestore();
   });
 
   it("resolves the pack's default profile via the registry when `profile` is omitted (first listed profile)", async () => {
@@ -218,7 +228,7 @@ describe("POST /v1/jobs/verify", () => {
 
   it("resolves and stores the registry's default version when `version` is omitted", async () => {
     const token = await grantAccessToken();
-    const sendSpy = vi.spyOn(env.VERIFY_JOBS, "send").mockResolvedValue({} as QueueSendResponse);
+    const sendSpy = vi.mocked(env.VERIFY_JOBS.send);
     const graphqlSpy = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as { variables: { id: string; version: string | null } };
       expect(request.variables).toEqual({ id: "demo-printer", version: null });
@@ -244,7 +254,6 @@ describe("POST /v1/jobs/verify", () => {
       expect(row?.profile_id).toBe("default-profile");
       expect(graphqlSpy).toHaveBeenCalledTimes(1);
     } finally {
-      sendSpy.mockRestore();
       vi.unstubAllGlobals();
     }
   });
@@ -345,10 +354,26 @@ describe("POST /v1/jobs/verify", () => {
     });
 
     expect(response.status).toBe(413);
-    expect(await response.json()).toMatchObject({ error: "too-large" });
+    expect(await response.json()).toEqual({ error: "too-large", max_bytes: 100 * 1024 * 1024 });
 
     // No D1 row was created for the rejected submission (checked/rejected before
     // any R2 write or D1 insert -- see src/jobs.ts's ordering).
+    const after = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs").first<{ count: number }>();
+    expect(after?.count).toBe(before?.count);
+  });
+
+  it("fails closed before persistence when MAX_BODY_BYTES is invalid", async () => {
+    const accountId = `bad-limit-${crypto.randomUUID()}`;
+    const badEnv = { ...env, MAX_BODY_BYTES: "not-an-integer" } as unknown as Env;
+    const before = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs").first<{ count: number }>();
+
+    const response = await handlePostVerifyJob(verifyRequest("G1 X1\n"), badEnv, accountId);
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "misconfigured",
+      detail: "MAX_BODY_BYTES must be a positive integer",
+    });
     const after = await env.DB.prepare("SELECT COUNT(*) AS count FROM jobs").first<{ count: number }>();
     expect(after?.count).toBe(before?.count);
   });

@@ -1,4 +1,4 @@
-# Dry — roadmap
+# DryMachina — roadmap
 
 The route is **clean-room, oracle-gated, then retire the oracle**: build the independent Rust core + Dry
 IR from scratch, gate every phase on conformance **generated from the FullControl oracle** (run at
@@ -14,18 +14,21 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 |---|---|---|---|
 | **`v0.1.0` – `v0.5.0`** | **Phases 0–5** | Rust kernel foundations, L0–L3 lowering, Python & TS SDKs, Wasm runtime, 5-axis toolframe kinematics, CNC & Robot emitters. | **Completed** |
 | **`v0.6.0`** | **Phase 6 / Baseline** | Commercial licensing (`crates/license`), offline Ed25519 token verification, cloud eval gate, and FullControl oracle retirement. | **Completed** |
-| **`v0.7.0`** | **Production Opening** | **FSL-1.1-MIT licensing adoption**, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Superseded by v0.9.0** |
+| **`v0.7.0`** | **Production Opening** | Historical FSL-1.1-MIT licensing, CNC lathe turning/facing, 3-tier verification architecture, in-browser Wasm verifier, 5-axis BVH drape, ISO/ASTM 3MF & STEP-NC AP238, DO-178C/IEC 62304 evidence kits, automated docs & book portal. | **Superseded by v0.9.0** |
 | **`v0.7.x`** | **Patch Horizon** | Bug fixes, security CVE remediations, link hygiene, documentation corrections, and test coverage expansions. | **Superseded by v0.9.0** |
 | **`v0.8.0`** | **Phase 7** | Direct STEP B-Rep multi-solid boolean slicing, live Moonraker fleet synchronization, coordinated multi-robot workcell collision solver, and dynamic feedrate lookahead optimization. | **Released within v0.9.0** |
-| **`v0.9.0`** | **Phase 8 (Current)** | Industrial CNC & robot post-processors (Sinumerik, Haas, Heidenhain, ABB RAPID), digital-twin physics simulator, generative CAM assistant, 3D WebGL visualizer — plus full CLI/SDK capability parity and a gate that enforces it. | **Active Release** |
+| **`v0.9.0`** | **Phase 8** | Industrial CNC & robot post-processors (Sinumerik, Haas, Heidenhain, ABB RAPID), digital-twin physics simulator, generative CAM assistant, and 3D WebGL visualizer. The release included a capability-parity manifest, but a 2026-09-05 audit found that the gate did not assert manifest completeness; remediation targets v0.11.0. | **Released** |
+| **`v0.9.1`** | **Release hygiene** | Verifier state-machine corrections, legal notices, SBOM and provenance consolidation, lockstep release metadata, and repaired coverage infrastructure. | **Released** |
+| **`v0.10.0`** | **DryMachina publication baseline** | Prospective BUSL-1.1 adoption with the DryMachina brand, registry-ready Rust packages, synchronized legal/SBOM metadata, and a Lean build gate that covers every proof fixture. Compiler, IR, and report schemas remain unchanged. | **Released** |
+| **`v0.11.0`** | **Post-audit remediation** | Engine-delegated compatibility across bindings, fail-closed cloud ingress, executable standalone/release and CLI smoke-test gates, capability-manifest completeness, honest proof-strength metadata, direction-sensitive RAPID `MoveC` geometry with structural drift coverage, and an enforced 85% workspace line-coverage floor. | **Target** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
-> **Version status (2026-08-30).** Released as **v0.9.0**, which carries both this table's v0.8.0
-> (Phase 7) and v0.9.0 (Phase 8) horizons: both were merged to `main` and neither was ever cut, so one
-> release covers them rather than tagging the same tree twice. `Cargo.toml` and every published
-> manifest read `0.9.0` (`scripts/check-version.sh v0.9.0`), and `CHANGELOG.md` carries the matching
-> `[0.9.0]` heading. Earlier this table showed v0.8.0 as "Completed (Merged)" in a Status column read
-> as released — merged and released are different claims, and the wording now separates them.
+> **Version status (2026-09-05).** GitHub releases v0.9.0, v0.9.1, and
+> [v0.10.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.10.0) exist. The v0.10.0
+> release contains 14 checksum-verified, provenance-attested assets. The five crates.io packages
+> have not been published. Post-audit behavior/API changes are intentionally held for v0.11.0 so
+> the v0.10.0 release statement remains true. “Merged”, “released”, and “published to a registry”
+> are separate claims throughout this roadmap.
 
 
 ---
@@ -96,19 +99,19 @@ model; a CNC and a laser target emit valid programs from the same IR.
 Runs **alongside** Phases 5 and 6, not after them: it is gated by product decisions and operational
 capability rather than by engine work, so it does not queue behind the oracle retirement.
 
-**Goal:** something a paying user can depend on. The engine is heavily gated; the product is not
-deployed, and no CI gate in this repo has ever served a request.
+**Goal:** something a paying user can depend on. The engine is heavily gated; the hosted topology is
+implemented and deployment-config validated, but no live production origin is claimed.
 
-**Deliverables:** one named service (today there are two divergent sketches — `containers/verify-runner`
-and the `crates/cloud` spike); observability; authentication, quota and revocation; a deploy pipeline
-with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a runbook and a
-data-handling policy for uploaded programs, which are customer IP.
+**Deliverables:** one public asynchronous control plane (`services/cloud`) and one private native
+verifier (`containers/verify-runner`); observability; authentication, quota and revocation; a deploy
+pipeline with a rehearsed rollback; a measured capacity curve; signed artifacts with an SBOM; a
+runbook and a data-handling policy for uploaded programs, which are customer IP.
 
-**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). **D1 is decided as of
-2026-08-31** ([ADR 0003](adr/0003-hosted-verification-service.md)): there will be a hosted service,
-and it is `containers/verify-runner` deployed as a container image. "No hosted service" is therefore
-no longer an available outcome, and D4 — nothing deploys the image CI already publishes — is the head
-of the remaining track.
+**Exit gate:** see [`23-deployment-roadmap.md`](23-deployment-roadmap.md). **D1 topology is final as of
+the 2026-09-05 amendment to [ADR 0003](adr/0003-hosted-verification-service.md):** `services/cloud` is
+the sole ingress and dispatches through Queue/R2 to the private container runner. The direct proxy is
+retired and the Worker-resident engine remains measurement-only evidence. Remaining blockers are
+provisioned deployment, authenticated staging smoke, rollback drill, SLO and approved data policy.
 
 ## Phase 6 — Stand alone (retire the oracle)
 **Goal:** Dry is the product; the FullControl oracle is no longer needed.

@@ -1,10 +1,10 @@
-# Dry Python SDK (`dry`)
+# DryMachina Python SDK (`dry`)
 
 [![PyPI](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../LICENSE)
 [![Engine: Rust](https://img.shields.io/badge/engine-Rust-orange.svg)](../crates/core)
 
-Python authoring SDK and PyO3 native extension for **Dry** — the typed, deterministic toolpath compiler for additive, subtractive (CNC), and multi-axis robotics motion.
+Python authoring SDK and PyO3 native extension for **DryMachina** — the typed, deterministic toolpath compiler for additive, subtractive (CNC), and multi-axis robotics motion.
 
 ---
 
@@ -97,4 +97,5 @@ pytest py/tests/ -v
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../LICENSE) and [NOTICE](../NOTICE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../LICENSE) and [NOTICE](../NOTICE).

@@ -592,6 +592,16 @@ Returns: `Mapping[str, Any]`
 
 Pre-flight check toolpath against machine capabilities (D2.2).
 
+The rules live in the engine (``dry_core::check_compatibility``), not here. This method
+previously carried its own copy of the loop, implementing five of the engine's seven rules;
+it omitted ``ARC_OUT_OF_BOUNDS_X`` and ``ARC_OUT_OF_BOUNDS_Y``, so an arc whose swept circle
+leaves the build envelope was reported compatible here and incompatible by the engine. The
+engine bounds an arc by its full circle deliberately — refusing a safe program is
+recoverable, passing an unsafe one is not.
+
+``capabilities`` keeps the SDK's shape (``x_range`` as ``[min, max]``, ``max_feedrate``);
+it is adapted to the engine's wire form at this boundary.
+
 ### `to_obj`
 
 ```py

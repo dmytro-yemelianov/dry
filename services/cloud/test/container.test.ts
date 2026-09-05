@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registryHost } from "../src/container";
+import { registryHost, runnerEnvVars } from "../src/container";
 
 describe("registryHost", () => {
   it("returns the bare hostname WITHOUT a port -- must match Rust's Url::host_str(), which also excludes the port", () => {
@@ -19,5 +19,21 @@ describe("registryHost", () => {
     expect(registryHost(undefined)).toBe("");
     expect(registryHost("")).toBe("");
     expect(registryHost("not a url")).toBe("");
+  });
+});
+
+describe("runnerEnvVars", () => {
+  it("pins the registry allowlist and body cap for every container start path", () => {
+    expect(
+      runnerEnvVars({
+        REGISTRY_URL: "https://api.dry.yemelianov.dev:8443/v1",
+        MAX_BODY_BYTES: "104857600",
+        RUST_LOG: "verify_runner=info,tower_http=info",
+      }),
+    ).toEqual({
+      ALLOWED_REGISTRY_HOST: "api.dry.yemelianov.dev",
+      MAX_BODY_BYTES: "104857600",
+      RUST_LOG: "verify_runner=info,tower_http=info",
+    });
   });
 });

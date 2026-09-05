@@ -66,6 +66,11 @@ export interface DryWasm {
     holderJson: string,
     stockBoundsJson: string
   ): string;
+  check_machine_compatibility(
+    opsJson: string,
+    paramsJson: string,
+    capabilitiesJson: string
+  ): string;
   reverse_toolpath_wasm(toolpathJson: string): string;
   verify_gcode_to_report_wasm(gcodeText: string, contractsJson: string): string;
   slice_step_solid_wasm(
@@ -151,6 +156,41 @@ function bind(): DryWasm {
 /** Expand a bounded L0 feature graph into the canonical L1 op list. */
 export function expandFeatures(program: FeatureProgramDocument): Op[] {
   return JSON.parse(bind().expand_features(JSON.stringify(program)));
+}
+
+/**
+ * The engine's `CompatibilityReport` as `dry_core` serializes it — snake_case `segment_index`.
+ * The SDK's public `CompatibilityReport` is the camelCase view over this.
+ */
+export interface EngineCompatibilityReport {
+  compatible: boolean;
+  findings: Array<{
+    severity: 'Warning' | 'Error';
+    code: string;
+    message: string;
+    segment_index?: number;
+  }>;
+}
+
+/**
+ * Pre-flight a design against machine capabilities in the Rust engine.
+ *
+ * `capabilitiesJson` is the engine's `MachineCapabilities` wire form (`x_range: {min, max}`,
+ * `max_feedrate_mm_min`). Callers holding the SDK's camelCase `MachineCapabilities` should go
+ * through `Design.checkCompatibility`, which adapts the shape.
+ */
+export function checkMachineCompatibility(
+  ops: Op[],
+  params: ResolveParams,
+  capabilitiesJson: string
+): EngineCompatibilityReport {
+  return JSON.parse(
+    bind().check_machine_compatibility(
+      JSON.stringify(ops),
+      JSON.stringify(params),
+      capabilitiesJson
+    )
+  );
 }
 
 /**

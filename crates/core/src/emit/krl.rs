@@ -209,7 +209,7 @@ impl KrlTransform {
 /// flange→TCP transform to make the emitted coordinates tool-tip coordinates.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct KrlFrame {
-    /// The `DEF` routine identifier. `None` ⇒ [`DEFAULT_PROGRAM_NAME`]. KUKA requires the routine
+    /// The `DEF` routine identifier. `None` ⇒ [`crate::emit::krl::DEFAULT_PROGRAM_NAME`]. KUKA requires the routine
     /// name to match the module's file name, which only the caller writing the file knows.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program_name: Option<String>,

@@ -1792,7 +1792,7 @@ export type SegmentKind = | 'line'
   | 'retract'
   | 'unretract'
   | 'deposit'
-  | 'manual_gcode'
+  | 'manualgcode'
 ```
 
 One resolved L2 motion segment.

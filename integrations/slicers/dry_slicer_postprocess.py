@@ -120,7 +120,7 @@ def process_gcode_file(
         "; [Dry Slicer Post-Processor v0.7.0]",
         f"; Verified: {'PASSED (0 Errors)' if result['passed'] else 'FAILED (Contract Violations Found)'}",
         f"; Total Findings: {len(result['findings'])}",
-        "; Engine: Deterministic Rust Wasm / Native (FSL-1.1-MIT)",
+        "; Engine: DryMachina Deterministic Rust Wasm / Native (BUSL-1.1)",
         "; ====================================================================\n",
     ]
 

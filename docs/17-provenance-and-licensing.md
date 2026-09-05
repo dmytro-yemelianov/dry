@@ -6,15 +6,26 @@ be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 
 *(Engineering record, not legal advice — confirm with counsel before external commercial distribution.)*
 
-## 0. Functional Source License (FSL-1.1-MIT) Distribution Policy
+## 0. DryMachina v0.10.0 Business Source License (BUSL-1.1) distribution policy
 
-Dry source, binaries, wheels, npm tarballs, browser/WASM engine, and executable gallery are licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**.
+Starting with DryMachina v0.10.0, source, binaries, wheels, npm tarballs,
+browser/WASM engine, and executable gallery are licensed under the **Business Source License 1.1
+(`BUSL-1.1`)**. This policy applies prospectively: earlier release artifacts retain the terms that
+accompanied them.
 
-- **Developer & Internal Freedom:** Free for developers, researchers, hobbyists, internal enterprise manufacturing, prototyping, and non-competing applications.
-- **Competing Use Protection:** A commercial license is required only for providing a Competing Service (e.g. offering a hosted toolpath compilation/verification API or white-labeled CAM SaaS).
-- **2-Year Automatic MIT Conversion:** Every release automatically converts to the standard permissive MIT License exactly two (2) years after release date.
+- **Additional Use Grant:** Production Use is free only when it is **not a Competing Service**,
+  involves no more than **one natural-person User**, and involves no more than **one physical
+  Production Machine**. Failure to meet any one of those conditions requires a commercial licence.
+- **Legal, not technical, cap:** DryMachina does not meter Users or Machines, phone home, or use a
+  runtime entitlement check to enforce this grant. Token activation and reports retain their
+  existing technical behavior; the cap is a legal condition of the licence.
+- **4-Year Automatic MIT Conversion:** The v0.10.0 licence has Change Date **2030-09-05**, when it
+  converts to the standard permissive MIT License. Later releases carry their own stated Change
+  Dates.
 
-Dry-authored packages declare the standard SPDX identifier `FSL-1.1-MIT` across Cargo, npm, and PyPI packaging manifests. All third-party runtime dependencies remain strictly under permissive licenses (MIT, Apache-2.0, BSD-3-Clause).
+DryMachina-authored packages declare the standard SPDX identifier `BUSL-1.1` across Cargo, npm,
+and PyPI packaging manifests. All third-party runtime dependencies remain strictly under permissive
+licenses (MIT, Apache-2.0, BSD-3-Clause).
 
 ## 1. Corpus provenance ledger
 

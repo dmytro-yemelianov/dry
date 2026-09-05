@@ -237,7 +237,7 @@ pub(super) fn write_line<W: std::io::Write>(
 /// A caller streaming to a file must not leave the partial output where the program belongs —
 /// write to a temporary path and rename only on `Ok`, or unlink on `Err`.
 ///
-/// [`FirmwareFlavor::RobotKrl`] is not a g-code dialect and is dispatched to [`super::krl`] before
+/// [`FirmwareFlavor::RobotKrl`] is not a g-code dialect and is dispatched to [`crate::emit::krl`] before
 /// any word is formed; everything below is the RS-274/FFF family.
 pub fn emit_stream_to_writer<I, W>(
     segments: I,

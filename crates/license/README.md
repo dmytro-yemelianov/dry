@@ -1,8 +1,8 @@
 # `dry-license` — Offline Cryptographic Licensing
 
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 
-`dry-license` provides offline Ed25519 digital signature verification, grace period handling, and license stamping for Dry.
+`dry-license` provides offline Ed25519 digital signature verification, grace period handling, and license stamping for DryMachina.
 
 ---
 
@@ -17,4 +17,5 @@
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).

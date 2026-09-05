@@ -9,7 +9,7 @@ import Mathlib.Tactic
 # Euler Spiral / Clothoid Corner Blend Formal Proof (M2.2)
 
 This module formalizes the mathematical invariants of Euler spiral (clothoid / Fresnel) transition curves
-used in Dry's corner blending pipeline (`crates/core/src/optimize/clothoid.rs`).
+used in Dry's corner blending pipeline (`crates/core/src/clothoid.rs`).
 
 ## Main Results
 - `clothoid_curvature_linear`: Curvature $\kappa(s) = c \cdot s + \kappa_0$ has constant derivative $d\kappa/ds = c$.

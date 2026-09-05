@@ -123,6 +123,11 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
     abstract = status_counts(claims, "abstract")
     numeric = status_counts(claims, "numeric")
     refinement = status_counts(claims, "refinement")
+    proof_methods = Counter(
+        claim.get("proof_method", "no Lean model")
+        for claim in claims
+        if claim.get("status", {}).get("abstract") == "proved"
+    )
     implementation_claims = [
         claim for claim in claims if claim.get("scope") == "implementation"
     ]
@@ -153,6 +158,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         "",
         f"- Registered claims: **{len(claims)}**.",
         f"- Abstract status: {status_summary(abstract, ('proved', 'specified', 'not-applicable', 'missing'))}.",
+        f"- Proof method for abstract Lean claims: {status_summary(proof_methods, ('kernel', 'native_decide', 'missing'))}.",
         f"- Numeric status: {status_summary(numeric, ('bounded', 'empirical', 'pending', 'not-applicable', 'missing'))}.",
         f"- Implementation-refinement status: {status_summary(refinement, ('checked', 'pending', 'not-applicable', 'missing'))}.",
         f"- Implementation-scoped claims meeting all registry gates: "
@@ -163,12 +169,14 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
         "The Lean release gate is reproducible with `lake build --wfail`. The job count "
         "printed by Lake is a build-system job count, not a theorem count, so this report "
         "does not present it as proof coverage. Rust tests and mutation manifests are linked "
-        "only on claims that register them as refinement evidence.",
+        "only on claims that register them as refinement evidence. `kernel` records a proof "
+        "elaborated without `native_decide`; `native_decide` is shown separately because it "
+        "executes a compiled decision procedure rather than a kernel-only derivation.",
         "",
         "## Claim matrix",
         "",
-        "| Claim | Normative clause | Scope | Theorem | Spec profile | Relation | Abstract | Numeric | Rust refinement |",
-        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        "| Claim | Normative clause | Scope | Theorem | Proof method | Spec profile | Relation | Abstract | Numeric | Rust refinement |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
 
     for claim in claims:
@@ -184,12 +192,13 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
             else "—"
         )
         lines.append(
-            "| `{id}` | {clause} | `{scope}` | {theorem} | `{spec}` | `{relation}` | "
+            "| `{id}` | {clause} | `{scope}` | {theorem} | `{proof_method}` | `{spec}` | `{relation}` | "
             "`{abstract}` | `{numeric}` | `{refinement}` |".format(
                 id=claim.get("id", ""),
                 clause=clause_link,
                 scope=claim.get("scope", ""),
                 theorem=theorem_link,
+                proof_method=claim.get("proof_method", "no Lean model"),
                 spec=claim.get("spec_version", ""),
                 relation=claim.get("relation", ""),
                 abstract=status.get("abstract", "missing"),
@@ -250,6 +259,7 @@ def generate_report(claims: list[dict[str, Any]] | None = None) -> str:
                 f"{clause.get('title', 'No registered clause link') }.",
                 f"- Numeric domain: {claim.get('numeric_domain', '')}.",
                 f"- Lean theorem: {theorem_reference(claim)}.",
+                f"- Proof method: `{claim.get('proof_method', 'no Lean model')}`.",
                 f"- Rust anchors: {joined_links(claim.get('rust_sources', []))}.",
                 f"- Numeric evidence: {joined_links(claim.get('numeric_evidence', []))}.",
                 f"- Refinement evidence: "

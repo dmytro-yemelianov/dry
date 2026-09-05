@@ -1,6 +1,6 @@
 # `dry-cli` (`dry`) — Command-Line Compiler Interface
 
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 
 The standalone CLI binary for the Dry toolpath compiler.
 
@@ -41,4 +41,5 @@ dry license status
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).

@@ -7,14 +7,12 @@ on:
     paths:
       - 'containers/verify-runner/**'
       - 'crates/core/**'
-      - 'crates/cloud/**'
       - 'crates/license/**'
       - '.github/workflows/verify-runner.yml'
   pull_request:
     paths:
       - 'containers/verify-runner/**'
       - 'crates/core/**'
-      - 'crates/cloud/**'
       - 'crates/license/**'
       - '.github/workflows/verify-runner.yml'
   workflow_dispatch:
@@ -42,22 +40,9 @@ jobs:
         working-directory: containers/verify-runner
         run: cargo test --locked
 
-  cloud-worker:
-    name: Build Check (Tier 2 Edge Worker)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.88.0"
-          targets: wasm32-unknown-unknown
-      - name: Cargo check cloud worker
-        working-directory: crates/cloud
-        run: cargo check --target wasm32-unknown-unknown --locked
-
   docker-build:
     name: Build & Push Container Image
-    needs: [test, cloud-worker]
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -80,6 +65,11 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=DryMachina Verify Runner
+            org.opencontainers.image.description=DryMachina toolpath verification service
+            org.opencontainers.image.licenses=BUSL-1.1
+            org.opencontainers.image.vendor=DryMachina
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:

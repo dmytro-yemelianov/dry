@@ -6,8 +6,9 @@
 //! (`from_bytes` → `simulate`) grows linearly. Asserting the ratio across two sizes is deterministic
 //! and catches a regression that accidentally buffers a streaming path.
 //!
-//! All measurement happens in one `#[test]` so the process-wide allocator counters are not raced by
-//! parallel tests.
+//! Every measurement test holds `MEMORY_TEST_LOCK` because Rust's test harness runs tests in
+//! parallel while the allocator counters below are process-wide. Without the lock, one test can
+//! reset another test's baseline and turn a bounded-memory check into a coverage-only flake.
 
 use dry_core::{
     decode_any_streaming, emit_stream_to_writer, simulate, simulate_stream, verify_stream,
@@ -17,11 +18,13 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Cursor;
 use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::sync::Mutex;
 
 struct Counting;
 static CURRENT: AtomicUsize = AtomicUsize::new(0);
 static PEAK: AtomicUsize = AtomicUsize::new(0);
 static BASELINE: AtomicUsize = AtomicUsize::new(0);
+static MEMORY_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
@@ -207,6 +210,9 @@ impl Iterator for StreamedSegmentSource {
 
 #[test]
 fn dry1_streaming_is_bounded_memory() {
+    let _measurement_guard = MEMORY_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let n = 10_000;
     let dry1_n = big_toolpath(n).to_streaming_bytes();
     let dry1_2n = big_toolpath(2 * n).to_streaming_bytes();
@@ -290,6 +296,9 @@ fn emit_peak_from_stream(segments: usize) -> (usize, usize) {
 
 #[test]
 fn dry1_streaming_scales_to_one_million_segments() {
+    let _measurement_guard = MEMORY_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let n = 1_000_000;
 
     let (metrics, simulate_peak) = simulate_peak_from_stream(n);

@@ -129,3 +129,66 @@ cli = { path = "crates/cli/src/main.rs", symbol = "check_tool_holder_collision",
 python = { path = "py/src/lib.rs", symbol = "check_tool_holder_collision_json", status = "reachable" }
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "check_tool_holder_collision", status = "reachable" }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "export function checkToolHolderCollision", status = "reachable" }
+
+[[capability]]
+id = "machine-compatibility"
+title = "Machine capability pre-flight (envelope, arc envelope, feedrate, spindle)"
+core = { path = "crates/core/src/profile/capability.rs", symbol = "pub fn check_compatibility", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "dry_core::check_compatibility", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "check_compatibility_json", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "check_machine_compatibility", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "export function checkMachineCompatibility", status = "reachable" }
+
+# Binding exports with no capability row yet — a visible, gated backlog, not a silent allowlist.
+#
+# The rows above cover 13 capabilities. The wasm binding exports 34 functions and the PyO3 module
+# 22, and until the 2026-09-05 audit nothing said so. That silence is what let the machine
+# compatibility check be reimplemented in `py/python/dry/__init__.py` and `sdk/ts/src/design.ts`
+# with two of the engine's seven rules missing: no row covered it, so the gate had nothing to check
+# and the two SDKs passed arcs the engine refuses.
+#
+# `tools/check_capability_parity.py` fails when a binding export is neither covered by a row above
+# nor listed here, so a *new* export cannot be added unrecorded. It also fails when an entry here is
+# stale — the export vanished, or it gained a row — so the ledger cannot rot into an allowlist that
+# quietly outlives its reasons.
+#
+# Each name below is a row still to be written, not a decision that it never should be.
+[uncovered]
+wasm = [
+  "expand_features",
+  "resolve_tpms_gcode",
+  "resolve_metrics",
+  "metrics_ir",
+  "resolve_ir",
+  "resolve_binary",
+  "resolve_optimized_ir",
+  "resolve_balanced_ir",
+  "compute_surface_quality",
+  "encode_dry2_binary",
+  "decode_dry2_binary",
+  "emit_plasma",
+  "optimize_engagement",
+  "import_gcode_to_ir",
+  "verify_gcode_to_report_wasm",
+  "compute_scurve_profile",
+  "import_step_nc_to_ops",
+  "generate_lathe_od_turning_ops_wasm",
+  "reverse_toolpath_wasm",
+  "slice_brep_assembly_csg_wasm",
+  "optimize_constant_mrr_wasm",
+  "parse_obj_mesh_wasm",
+  "segment_to_segment_distance_3d_wasm",
+]
+python = [
+  "expand_features",
+  "resolve_metrics",
+  "resolve_ir",
+  "resolve_binary",
+  "resolve_optimized_ir",
+  "parse_obj_mesh_json",
+  "lathe_od_turning_ops_json",
+  "reverse_toolpath_json",
+  "slice_brep_assembly_csg_json",
+  "optimize_constant_mrr_json",
+  "segment_to_segment_distance_3d_py",
+]

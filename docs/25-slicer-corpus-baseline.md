@@ -197,6 +197,21 @@ own defaults, never on a profile's limits.
 > in it were partly wrong, and where they were, the bullets below say so rather than being quietly
 > restated. Corpus files, models and slicer output are byte-unchanged — only the verifier's rule scope,
 > `junction-velocity`'s measure, and `{bambu-x1c,prusa-mk4}` square-corner velocity changed.
+>
+> **Re-measured again 2026-09-04 (#277).** All eight counts are **unchanged**, error-severity total still
+> 660, and every per-file exit code is still `1` on `bounds`. The #277 fix gives the junction-history and
+> retraction state machines a third case — a segment that is neither a deposition nor a travel — so a
+> stationary prime between two prints no longer carries the previous print's exit tangent/speed across
+> the stop, and a traversing unretract or `G0 E...` purge no longer silently keeps the retracted state.
+> None of that moves this corpus, and the re-measurement says why: the 7 files contain 3,449 stationary
+> filament moves, and **not one** stands between two contiguous printing moves — OrcaSlicer always
+> separates a retract/prime from the previous print with a travel, which already reset the junction
+> history under the old code. The fix's coverage is on hand-authored IR and on G-code outside this
+> corpus's shape (a prime line mid-print, the pilot-file family); it is pinned by the `verify_contracts`
+> regression tests, not by these files. The `scv` sweep numbers quoted in the `junction-velocity` bullet
+> below were measured on the external pilot file, which is not in the corpus and cannot be re-run here;
+> on `cube__orca-bambu-x1c-pla.gcode` the corpus-side spot check reproduces exactly (7,297 at the
+> profile's `scv = 9`).
 
 | Rule | Occurrences | Was (2026-08-03) | Classification |
 |---|---|---|---|

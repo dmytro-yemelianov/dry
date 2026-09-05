@@ -115,7 +115,22 @@ hash_mode = "file"
 # volume against a *negative* expected bead. `> 0.0` was chosen over `!= 0.0` deliberately: it is
 # NaN-safe, so a non-finite length skips these rules instead of comparing against NaN, and `finite`
 # already reports it.
-sha256 = "b25807942b45014f325bb61ce91755d6ef8db87a13225f16dc39a086d7052e27"
+#
+# Re-pinned 2026-09-04 for the #277 state-machine fix. The reviewed diff changes two per-segment
+# state machines — the retraction state and the junction history — and no rule predicate:
+# (1) the retraction state now clears on any forward filament motion (`filament > 0`), not just
+# the stationary-unretract/deposition forms, so a traversing unretract or an imported `G0 E...`
+# purge no longer silently inherits `retracted == true` (fail-open on `travel-without-retraction`);
+# (2) the junction history now resets on every non-deposition segment, not just declared travels,
+# so a stationary prime no longer carries the previous print's exit tangent/speed across a stop
+# (false positive on `junction-velocity`). Rule scopes stay exactly as #276 narrowed them.
+# None of this is tolerance-bearing: the four pinned boundaries below (continuity,
+# segment-length/arc-length, filament-consistency, arc-radius) have untouched predicates,
+# unchanged epsilons and unchanged `operation` text — the diff adds comparisons on classification
+# flags (`filament > 0.0`, the `else` arm of `is_print`) that feed only *state*, never a finding
+# threshold. `junction-velocity` and `travel-without-retraction` carry no tolerance and have no
+# entries here; the finding predicates themselves (speed, angle, run-length) are unmodified.
+sha256 = "006a9d9567e7f4d1386f513edfb93b3ad61510c66967a09d028d1e7145861df9"
 
 [[source]]
 # The collision rule lives in its own file and is not wired into `Report`; pinning it keeps its

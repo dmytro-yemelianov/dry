@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Build and stage the full Dry Machina site bundle for Cloudflare Pages.
 #
-# This script stages STATIC assets only. The public API endpoints (/api/verify,
-# /api/macros, /api/mcp, /api/machines) are Cloudflare Pages Functions living in
+# This script stages STATIC assets only. The catalog API endpoints (/api/macros,
+# /api/machines) are Cloudflare Pages Functions living in
 # functions/ at the repo root, and are deliberately NOT copied into dist-site/ --
 # Wrangler discovers a functions/ directory relative to the CURRENT WORKING
 # DIRECTORY, not relative to the uploaded directory. The deploy must therefore be
-# run from the repo root or the site ships with no API endpoints, silently and
+# run from the repo root or the site ships with no catalog endpoints, silently and
 # with a successful-looking upload. See docs/18-cloudflare-publishing.md.
 set -euo pipefail
 

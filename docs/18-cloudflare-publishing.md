@@ -79,9 +79,11 @@ compiled Vite Studio from `web/dist`. It also writes `_redirects` and `_headers`
 
 ### `functions/` is not part of `dist-site`
 
-The four public API endpoints — `/api/verify`, `/api/macros`, `/api/mcp`, `/api/machines` — are
-Cloudflare Pages Functions in `functions/` at the repository root. `scripts/build_site.sh` never
-copies them into `dist-site/`, and nothing in the staged bundle references them.
+The two public catalog endpoints — `/api/macros` and `/api/machines` — are Cloudflare Pages
+Functions in `functions/` at the repository root. They do not verify toolpaths. The former
+unauthenticated `/api/verify` implementation and hosted `/api/mcp` stub were retired when ADR 0003
+made `services/cloud` the sole public hosted-verification ingress; the local `@dry/mcp`
+package remains available. `scripts/build_site.sh` never copies Pages Functions into `dist-site/`.
 
 They reach production only because Wrangler discovers a `functions/` directory relative to the
 **current working directory**, not relative to the directory being uploaded. The deploy must therefore
@@ -93,14 +95,16 @@ npx wrangler pages deploy dist-site --project-name drymachina --branch main   # 
 ```
 
 Running the same command from any other directory uploads the identical static bundle and silently
-produces a site with no API endpoints. Wrangler reports success and the deploy looks normal. Confirm
-`/api/machines` after every deploy rather than inferring it from the upload summary.
+produces a site with no catalog endpoints. Wrangler reports success and the deploy looks normal.
+Confirm `/api/machines` after every deploy rather than inferring it from the upload summary.
 
 ### Verification after deploy
 
 1. Confirm `https://drymachina.com/` and `https://www.drymachina.com/` return `200`.
 2. Confirm `/web/` loads the Studio and `/web/machines.json` returns the machine registry.
-3. Confirm all four `/api/*` endpoints return `200` with `application/json` bodies.
+3. Confirm `/api/macros` and `/api/machines` return `200` with `application/json` bodies.
+4. Confirm `/api/verify` and `/api/mcp` do **not** return a Pages Function JSON response. A `200`
+   containing the root HTML fallback is not an API response.
 
 `dist-site/` ships no `404.html`. Unmatched paths fall back to the root `index.html` with a `200`
 status, so a status code alone does not prove a file was deployed — compare the response body.
@@ -123,15 +127,18 @@ the verification steps. Rolling back to a stored deployment through the Cloudfla
 the same content without a rebuild.
 
 Every past deployment also remains reachable at its own `<hash>.drymachina.pages.dev` URL, including
-the API endpoints. Replacing the production deployment does not withdraw those. Removing them requires
-deleting the deployments or placing a Cloudflare Access policy over `*.drymachina.pages.dev`, which
-closes the per-deployment URLs while leaving `drymachina.pages.dev` itself public.
+historical copies of `/api/verify` and `/api/mcp`. Removing the source files prevents future deploys
+from recreating those functions, but replacing the production deployment does **not** withdraw stored
+deployment URLs. **Deleting those deployments or placing a Cloudflare Access policy over
+`*.drymachina.pages.dev` is an owner-side launch blocker before public synchronous verification can
+be called retired.** Access closes the per-deployment URLs while leaving `drymachina.pages.dev`
+itself public.
 
 `tools/check_pages_exposure.sh` enumerates the stored deployments of a Pages project and reports which
 are still publicly reachable. It is read-only and applies to either project:
 
 ```sh
-tools/check_pages_exposure.sh                              # drymachina, probing /api/mcp
+tools/check_pages_exposure.sh                              # drymachina, probing /api/verify
 tools/check_pages_exposure.sh dry-public-docs --path /gallery/
 ```
 

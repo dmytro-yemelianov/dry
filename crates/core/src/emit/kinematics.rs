@@ -88,7 +88,7 @@ impl Default for Kinematics {
 /// on the wrong point *and* reports the wrong angle — while `Ab`, which uses `atan2`, is
 /// scale-invariant and disagrees with them on identical input. Normalising once, here, is what makes
 /// the three models agree. A zero or non-finite vector carries no direction at all and is refused.
-fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
+pub(super) fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
     let v = orientation.unwrap_or([0.0, 0.0, 1.0]);
     let magnitude = libm::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if !(magnitude.is_finite() && magnitude > 0.0) {
@@ -965,7 +965,7 @@ impl Robot6AxisModel {
     /// that needs roll must set it themselves. Likewise only the elbow-up branch is produced, so the
     /// solver cannot follow a path that requires reconfiguration.
     ///
-    /// Refuses what carries no pose, on the same terms as [`unit_orientation`] on the 5-axis path:
+    /// Refuses what carries no pose, on the same terms as [`crate::emit::kinematics::unit_orientation`] on the 5-axis path:
     /// a non-finite TCP point, a zero or non-finite tool direction, or a non-finite previous joint
     /// state. Before this the refusals disagreed — `NaN.abs() > 1.0` is false, so the reach check
     /// below never fired on non-finite input and the solve returned `Ok` with `NaN` in every joint,

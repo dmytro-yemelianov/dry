@@ -3,8 +3,9 @@
 //! reproduction of any oracle's text): each is a well-specified property of a safe toolpath.
 
 use dry_core::{
-    import_gcode, resolve, resolve_checked, verify, Contracts, Design, GcodeImportParams,
-    ResolveParams, RuleId, SegmentKind, Severity,
+    import_gcode, resolve, resolve_checked, verify, Contracts, Design, Feedrate, GcodeImportParams,
+    KinematicContracts, Length, ResolveParams, RuleId, Segment, SegmentKind, Severity, Toolpath,
+    Volume,
 };
 
 fn design_json(ops: &str) -> Design {
@@ -276,6 +277,147 @@ fn travel_without_retraction_is_flagged() {
         .find(|f| f.rule == "travel-without-retraction")
         .expect("flagged travel-without-retraction");
     assert_eq!(finding.severity, Severity::Warning);
+}
+
+// #277: a stationary filament move is neither a deposition nor a travel, and the two per-segment
+// state machines used to let it fall through both arms and inherit the previous segment's state.
+
+/// `travel-without-retraction` contracts used by the #277 fail-open regression tests below.
+fn travel_contracts(max: f64) -> Contracts {
+    Contracts {
+        max_travel_without_retract: Some(max),
+        ..Contracts::default()
+    }
+}
+
+#[test]
+fn a_stationary_prime_between_prints_raises_no_junction_finding() {
+    // print → stationary prime (`G1 E1`: zero geometric length, the tool stays where it is) →
+    // print at a sharp corner. The tool is at rest during the prime, so the second print starts
+    // from zero XY velocity — there is no junction to measure across the stop. The prime leaves the
+    // position unchanged, so `junction_contiguous` cannot screen the pair; only the state reset
+    // can. Before #277 this fired a false `junction-velocity`.
+    let tp = import_gcode(
+        // The opening `G0` establishes the machine position: without it the first `G1` starts from
+        // nowhere (`start = None`), has no computable length, and is not a deposition — the prime
+        // would then be tested against a `prev_*` that was never recorded.
+        "M83\nG0 X0 Y0 Z0.2 F3000\nG1 X10 Y0 E0.5 F1500\nG1 E1 F2400\nG1 Y10 E0.5 F1500\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let c = Contracts {
+        kinematics: Some(KinematicContracts {
+            max_junction_velocity_mm_s: Some(20.0),
+            ..KinematicContracts::default()
+        }),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(!report
+        .findings
+        .iter()
+        .any(|f| f.rule == "junction-velocity"));
+}
+
+#[test]
+fn directly_contiguous_prints_still_raise_the_junction_finding() {
+    // Positive control for `a_stationary_prime_between_prints_raises_no_junction_finding`: the same
+    // corner without the prime in between must still fire — a scope fix that only stops a rule
+    // firing is indistinguishable from deleting it. 1500 mm/min = 25 mm/s into a 90° turn at a
+    // 20 mm/s square-corner velocity is over the limit, exactly as the kinematics golden records.
+    let tp = import_gcode(
+        // Opening `G0` for the same reason as the negative test above.
+        "M83\nG0 X0 Y0 Z0.2 F3000\nG1 X10 Y0 E0.5 F1500\nG1 Y10 E0.5 F1500\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let c = Contracts {
+        kinematics: Some(KinematicContracts {
+            max_junction_velocity_mm_s: Some(20.0),
+            ..KinematicContracts::default()
+        }),
+        ..Contracts::default()
+    };
+    let report = verify(&tp, &c);
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "junction-velocity"));
+}
+
+/// A motion segment for the hand-authored-IR tests: a straight line from `start` to `end` with the
+/// given classification and filament delta. Width/height/temperature set so the `bead` and
+/// `cold-extrusion` structural rules stay quiet.
+fn motion_seg(start: [f64; 3], end: [f64; 3], travel: bool, filament: f64, volume: f64) -> Segment {
+    let dx = end[0] - start[0];
+    let dy = end[1] - start[1];
+    let dz = end[2] - start[2];
+    let length = (dx * dx + dy * dy + dz * dz).sqrt();
+    Segment {
+        start: start.map(|v| Some(Length::mm(v))),
+        end: end.map(|v| Some(Length::mm(v))),
+        travel,
+        speed: Feedrate(9000.0),
+        length: Length::mm(length),
+        volume: Volume(volume),
+        filament: Length::mm(filament),
+        width: Some(Length::mm(0.4)),
+        height: Some(Length::mm(0.2)),
+        kind: SegmentKind::Line,
+        centre: None,
+        clockwise: false,
+        temperature: Some(210.0),
+        fan: None,
+        flow: None,
+        tool: None,
+        power: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+    }
+}
+
+#[test]
+fn a_traversing_unretract_clears_the_retracted_state() {
+    // Hand-authored IR can construct a segment no in-tree producer emits (#277): filament forward,
+    // zero volume, positive length, not flagged travel — a de-retraction that traverses. It used
+    // to fall through every arm of the retraction state machine and inherit `retracted == true`
+    // from the retract before it, so the long travel below stayed silent (fail-open).
+    let tp = Toolpath {
+        version: 0,
+        meta: None,
+        segments: vec![
+            motion_seg([0.0, 0.0, 0.2], [10.0, 0.0, 0.2], false, 0.33, 0.8), // print
+            motion_seg([10.0, 0.0, 0.2], [10.0, 0.0, 0.2], false, -2.0, 0.0), // stationary retract
+            motion_seg([10.0, 0.0, 0.2], [20.0, 0.0, 0.2], true, 0.0, 0.0),  // short travel
+            motion_seg([20.0, 0.0, 0.2], [30.0, 0.0, 0.2], false, 2.0, 0.0), // traversing unretract
+            motion_seg([30.0, 0.0, 0.2], [70.0, 0.0, 0.2], true, 0.0, 0.0), // long travel → must fire
+        ],
+    };
+    let report = verify(&tp, &travel_contracts(30.0));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "travel-without-retraction"));
+}
+
+#[test]
+fn an_imported_travel_purge_clears_the_retracted_state() {
+    // OrcaSlicer writes its purge/prime lines as `G0` with an `E` word: `travel: true`, a recovered
+    // volume, positive filament. The filament really is pushed forward, so the state must say
+    // unretracted and the following long travel must fire — before #277 the purge silently kept the
+    // retracted state and the rule stayed quiet (fail-open, pre-existing since the corpus import).
+    let tp = import_gcode(
+        "M83\nG1 X10 Y0 E0.5 F1200\nG1 E-2 F2400\nG0 X40 Y0 E1 F9000\nG1 X90 Y0 F9000\n",
+        &GcodeImportParams::default(),
+    )
+    .unwrap();
+    let report = verify(&tp, &travel_contracts(30.0));
+    assert!(report
+        .findings
+        .iter()
+        .any(|f| f.rule == "travel-without-retraction"));
 }
 
 #[test]

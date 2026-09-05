@@ -1,21 +1,24 @@
 name: deploy-verify
 
-# Deployment track D4. The service decision is ADR 0003: `containers/verify-runner` is the product,
-# and Cloudflare Containers runs that same image.
-#
-# Staging on merge to `main`; production on a `v*` tag, so a deploy always corresponds to a release
-# that `release.yml`'s guard has already checked. Both are gated on the container's own test suite
-# rather than assuming CI passed — a deploy that skips its tests is how the release pipeline stayed
-# broken for a month.
+# ADR 0003: services/cloud is the sole public async control plane and
+# containers/verify-runner is its private native verifier. Staging deploys on
+# merge to main; a version tag promotes the same topology to production.
 on:
   push:
     branches: [main]
     tags: ["v*"]
     paths:
+      - "services/cloud/**"
       - "containers/verify-runner/**"
       - "crates/core/**"
       - "crates/license/**"
-      - "deploy/cloudflare/**"
+      - ".github/workflows/deploy-verify.yml"
+  pull_request:
+    paths:
+      - "services/cloud/**"
+      - "containers/verify-runner/**"
+      - "crates/core/**"
+      - "crates/license/**"
       - ".github/workflows/deploy-verify.yml"
   workflow_dispatch:
     inputs:
@@ -30,14 +33,14 @@ permissions:
   contents: read
 
 concurrency:
-  # Never two deploys to the same environment at once, and never cancel one in flight: a container
-  # rollout is gradual, so cancelling mid-roll leaves a split fleet.
-  group: deploy-verify-${{ github.ref_type == 'tag' && 'production' || 'staging' }}
+  # PR validation never deploys and gets its own group. Real staging/production
+  # rollouts remain serialized per environment and are never cancelled midway.
+  group: deploy-verify-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref_type == 'tag' && 'production' || inputs.environment || 'staging') }}
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: the service's own tests
+  runner:
+    name: native verifier tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,8 +55,8 @@ jobs:
           cargo clippy --locked -- -D warnings
           cargo test --locked
 
-  config:
-    name: deployment config typechecks and builds
+  control-plane:
+    name: async control plane tests and deployment config
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,62 +64,34 @@ jobs:
         with:
           node-version: "22.23.1"
       - name: install
-        working-directory: deploy/cloudflare
+        working-directory: services/cloud
         run: npm ci
-      - name: typecheck the Worker
-        working-directory: deploy/cloudflare
-        run: npm run typecheck
-      # `--dry-run` resolves every binding and builds the container image without touching the
-      # account, so a malformed config fails here rather than half-way through a rollout. It also
-      # catches the one that is easy to miss: a named environment inherits no `containers` or
-      # `durable_objects` from the top level, and without them staging deploys a Worker with nothing
-      # to route to — a failure that only shows up at request time.
-      - name: validate both environments
-        working-directory: deploy/cloudflare
+      - name: generated types, typecheck and Worker-runtime tests
+        working-directory: services/cloud
+        run: npm run check
+      # Dry-run resolves all bindings and builds the real container image. Named
+      # environments do not inherit D1/R2/Queue/Container bindings, so both
+      # production and staging must be checked independently.
+      - name: validate production and staging deployments
+        working-directory: services/cloud
         run: |
-          npx wrangler deploy --dry-run --outdir /tmp/wr-prod
-          npx wrangler deploy --env staging --dry-run --outdir /tmp/wr-staging
-
-      # Regression guard for a defect that only shows up when the stack actually runs: a container's
-      # process environment is fixed when the process starts and lasts the instance's whole life, so
-      # whichever route starts an instance decides it. With `envVars` supplied only by `/verify`'s
-      # `startAndWaitForPorts` call, a plain `GET /healthz` started the container with an empty
-      # environment, and every `/verify` then routed to that instance failed closed with
-      # `502 profile-unavailable` naming a variable the config plainly sets. With `max_instances: 5`
-      # that is intermittent rather than total, which makes it harder to attribute, not easier.
-      # `--dry-run` above cannot catch it: the config is valid either way.
-      - name: the container environment is declared on the class, not per request
-        working-directory: deploy/cloudflare
-        run: |
-          if grep -n 'startOptions' src/index.ts; then
-            echo "::error::the container environment must be declared on the VerifyRunner class \
-            (envVars = {...}), not passed per call — see its doc comment"
-            exit 1
-          fi
-          grep -q 'envVars = {' src/index.ts || {
-            echo "::error::VerifyRunner must declare envVars, or the container starts with an empty \
-            environment and ALLOWED_REGISTRY_HOST is unset"
-            exit 1
-          }
+          npx wrangler deploy --dry-run --outdir /tmp/dry-cloud-production
+          npx wrangler deploy --env staging --dry-run --outdir /tmp/dry-cloud-staging
 
   deploy:
-    name: deploy (${{ github.ref_type == 'tag' && 'production' || 'staging' }})
-    needs: [verify, config]
+    name: deploy (${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }})
+    needs: [runner, control-plane]
     runs-on: ubuntu-latest
-    # Only from this repository, and never from a fork: a fork must not be able to reach the account.
-    if: github.repository == 'dmytro-yemelianov/dry'
+    if: github.event_name != 'pull_request' && github.repository == 'dmytro-yemelianov/dry'
     environment:
-      name: ${{ github.ref_type == 'tag' && 'production' || 'staging' }}
+      name: ${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.1"
-      # Skip cleanly rather than fail when the account does not exist yet. D1 was decided before the
-      # Cloudflare account was created, so this workflow lands before its credentials do — and a
-      # deploy job that goes red for a missing secret would put `main` back in the state this repo
-      # spent a month in, where a red run says nothing because it always says something. An
-      # unconfigured deploy is a *skip*; a configured one that fails is a failure.
+      # Missing account configuration is a named deployment blocker, not a code
+      # failure. Once configured, deployment failures remain hard failures.
       - name: is this environment configured?
         id: configured
         env:
@@ -127,44 +102,44 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set for this environment — skipping the deploy. See deploy/cloudflare/README.md for the account setup steps."
+            echo "::notice::Cloudflare credentials are absent; skipping deploy. Provisioned binding ids are a separate prerequisite documented in services/cloud/README.md."
           fi
       - name: install
         if: steps.configured.outputs.ready == 'true'
-        working-directory: deploy/cloudflare
+        working-directory: services/cloud
         run: npm ci
       - name: deploy
         if: steps.configured.outputs.ready == 'true'
-        working-directory: deploy/cloudflare
+        working-directory: services/cloud
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
+          target="${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}"
+          if [ "$target" = "production" ]; then
             npx wrangler deploy
           else
             npx wrangler deploy --env staging
           fi
-      # A deploy is not done until the thing answers. `/healthz` is proxied by the Worker precisely
-      # so this check exists; a rollout that reports success while the container fails to start is
-      # the outage this repo has already learned to distrust.
-      - name: smoke the deployed health endpoint
+      # This proves Worker/control-plane liveness only. A separately authenticated
+      # staging job smoke is still required before claiming end-to-end deployment.
+      - name: smoke the deployed control plane
         if: steps.configured.outputs.ready == 'true'
         env:
-          BASE_URL: ${{ vars.VERIFY_BASE_URL }}
+          BASE_URL: ${{ vars.DRY_CLOUD_BASE_URL }}
         run: |
-          if [ -z "${BASE_URL}" ]; then
-            echo "::warning::VERIFY_BASE_URL is not set for this environment; skipping the smoke check"
-            exit 0
+          if [ -z "$BASE_URL" ]; then
+            echo "::error::DRY_CLOUD_BASE_URL is required for a configured deployment"
+            exit 1
           fi
           for attempt in 1 2 3 4 5 6; do
-            code=$(curl -s -o /tmp/health.json -w '%{http_code}' "${BASE_URL}/healthz" || echo 000)
+            code=$(curl -sS -o /tmp/health.json -w '%{http_code}' "${BASE_URL}/healthz" || echo 000)
             if [ "$code" = "200" ]; then
-              echo "healthz ok: $(cat /tmp/health.json)"
+              python3 -c 'import json; p=json.load(open("/tmp/health.json")); assert p == {"ok": True, "service": "dry-cloud-control-plane"}'
               exit 0
             fi
-            echo "attempt ${attempt}: HTTP ${code}; container rollout is gradual, retrying"
+            echo "attempt ${attempt}: HTTP ${code}; retrying"
             sleep 10
           done
-          echo "::error::/healthz did not return 200 after 6 attempts — roll back with 'npx wrangler rollback'"
+          echo "::error::control-plane /healthz did not return its exact contract"
           exit 1

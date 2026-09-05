@@ -1,6 +1,6 @@
 # `dry-core` — The Deterministic Toolpath Compiler Engine
 
-[![License: FSL-1.1-MIT](https://img.shields.io/badge/License-FSL--1.1--MIT-blue.svg)](../../LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 [![Rust: 1.88+](https://img.shields.io/badge/rust-1.88+-blue.svg)](https://www.rust-lang.org/)
 
 `dry-core` is the dependency-light Rust kernel that powers Dry. It implements the multi-level Dry IR (L0 $\rightarrow$ L1 $\rightarrow$ L2 $\rightarrow$ L3), formal numeric contracts, physics simulation, kinematics, optimization, and multi-dialect emission.
@@ -53,4 +53,5 @@ cargo clippy -p dry-core --all-targets -- -D warnings
 
 ## License
 
-Licensed under the **Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**. See [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
+terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).

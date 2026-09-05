@@ -90,7 +90,7 @@ jobs:
         id: proof_claims
         continue-on-error: true
         run: python3 tools/validate_proof_claims.py
-      - name: verify FSL-1.1-MIT license headers & attribution
+      - name: verify BUSL-1.1 license parameters, mirrors & attribution
         id: license_headers
         continue-on-error: true
         run: python3 tools/check_license_headers.py
@@ -101,6 +101,10 @@ jobs:
         id: capability_parity
         continue-on-error: true
         run: python3 tools/check_capability_parity.py
+      - name: hosted verification has one public ingress
+        id: hosted_topology
+        continue-on-error: true
+        run: python3 tools/check_hosted_verification_topology.py
       # An ordering comparison is false for NaN, so a guard written as one fails open. This review
       # found that shape seven times, three of them in safety checks.
       - name: NaN-permeable ordering guards
@@ -113,14 +117,18 @@ jobs:
       # non-finite emit tests can ONLY run in release, because `Length::mm` carries a debug_assert
       # that panics before the IR can be built. Debug-only CI could not see them at all. Scoped to
       # those tests rather than the whole suite, to keep the added wall-clock small.
+      # `emit_rejects_unrepresentable.rs:63-69` states the same requirement for itself — its
+      # `debug_assertions`-gated branch covers the shipping-release behaviour of `emit()` for an
+      # out-of-contract `CncFrame` and an endpoint-less arc — but this step named only the other
+      # file, so that branch was compiled by no CI run.
       - name: release-only emit refusals
         id: release_emit
         continue-on-error: true
-        run: cargo test --release -p dry-core --test emit_refuses_non_finite --locked
-      - name: compile the minimal CLI feature set
+        run: cargo test --release -p dry-core --test emit_refuses_non_finite --test emit_rejects_unrepresentable --locked
+      - name: test the minimal CLI feature set
         id: minimal_cli
         continue-on-error: true
-        run: cargo check -p dry-cli --no-default-features --locked
+        run: cargo test -p dry-cli --no-default-features --test cli --locked
       - name: build (wasm, dry-core)
         id: wasm_build
         continue-on-error: true
@@ -140,6 +148,7 @@ jobs:
             proof-claims=${{ steps.proof_claims.outcome }}
             license-headers=${{ steps.license_headers.outcome }}
             capability-parity=${{ steps.capability_parity.outcome }}
+            hosted-topology=${{ steps.hosted_topology.outcome }}
             nan-guards=${{ steps.nan_guards.outcome }}
             release-emit=${{ steps.release_emit.outcome }}
             minimal-cli=${{ steps.minimal_cli.outcome }}
@@ -174,7 +183,12 @@ jobs:
           python-version: "3.11"
       - name: verify legal notice sources
         run: |
-          cmp NOTICE py/NOTICE
+          for copy in crates/{core,cli,license,llm,moonraker}/LICENSE py/LICENSE sdk/{ts,mcp}/LICENSE; do
+            cmp LICENSE "$copy"
+          done
+          for copy in crates/{core,cli,license,llm,moonraker}/NOTICE py/NOTICE sdk/{ts,mcp}/NOTICE; do
+            cmp NOTICE "$copy"
+          done
           cmp third_party/licenses/Apache-2.0.txt py/third_party/licenses/Apache-2.0.txt
           cmp third_party/licenses/MIT.txt py/third_party/licenses/MIT.txt
       - name: rust check (the binding)
@@ -251,6 +265,15 @@ jobs:
         continue-on-error: true
         working-directory: crates/wasm
         run: cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+      # The crate is excluded from the workspace, so `cargo test --workspace` in the `core` job
+      # cannot reach it, and until now no job ran its unit tests at all — they existed and executed
+      # on no target. Host-target `cargo test` runs them; the wasm-bindgen boundary itself is
+      # covered by the node oracle step below.
+      - name: unit tests (the wasm binding)
+        id: wasm_test
+        continue-on-error: true
+        working-directory: crates/wasm
+        run: cargo test --locked
       - name: Blockly/web static regressions
         id: blockly
         continue-on-error: true
@@ -272,6 +295,7 @@ jobs:
           OUTCOMES: >-
             fmt=${{ steps.wasm_fmt.outcome }}
             clippy=${{ steps.wasm_clippy.outcome }}
+            unit-tests=${{ steps.wasm_test.outcome }}
             blockly-regression=${{ steps.blockly.outcome }}
             node-engine-build=${{ steps.node_engine.outcome }}
             node-oracle=${{ steps.node_oracle.outcome }}
@@ -310,7 +334,7 @@ jobs:
         working-directory: sdk/ts
         run: |
           npm ci
-          npm audit --audit-level=high
+          node ../../tools/npm-audit.mjs
           npm run build
       - name: test (the SDK reproduces the oracle, clean-room)
         working-directory: sdk/ts
@@ -347,11 +371,16 @@ jobs:
       - name: install docs-site deps
         working-directory: docs/site
         run: npm ci
+      # `npm audit` exits non-zero both when it finds something and when it cannot reach the
+      # advisory service, and this step used to treat those as the same gate failure. On 2026-09-04
+      # the endpoint answered 503 and turned `main` red with no vulnerability in the output at all.
+      # tools/npm-audit.mjs keeps the two apart: it fails on high/critical, and on an unreachable
+      # service it warns and says the gate did not run rather than that it passed.
       - name: npm audit
         id: docs_audit
         continue-on-error: true
         working-directory: docs/site
-        run: npm audit --audit-level=high
+        run: node ../../tools/npm-audit.mjs
       - name: reference docs
         id: docs_reference
         continue-on-error: true
@@ -464,6 +493,7 @@ jobs:
           python -m unittest discover -s tools/tests -p 'test_validate_numeric_boundaries.py'
           python -m unittest discover -s tools/tests -p 'test_validate_spec_claim_links.py'
           python -m unittest discover -s tools/tests -p 'test_generate_assurance_report.py'
+          python -m unittest discover -s tools/tests -p 'test_check_coverage_floor.py'
           python tools/generate_assurance_report.py --check
       - name: build checked proofs with the pinned Lean/Mathlib toolchain
         uses: leanprover/lean-action@38fbc41a8c28c4cbaec22d7f7de508ec2e7c0dd9 # v1.5.0
@@ -498,7 +528,7 @@ jobs:
         run: cargo bench -p dry-core --no-run --locked
 
   cloud:
-    name: cloud (workers-rs wasm32 build)
+    name: archived cloud feasibility spike (workers-rs wasm32 build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -507,9 +537,13 @@ jobs:
           toolchain: "1.88.0"
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+      - name: test archived spike (host, dry-cloud)
+        working-directory: crates/cloud
+        run: cargo test --locked
       # excluded from the core workspace (own Cargo.lock, own empty [workspace] root, same pattern
-      # as crates/wasm), so it gets its own fmt + clippy (same -D warnings, no #[allow] discipline).
-      - name: rust check (the cloud worker)
+      # as crates/wasm), so it gets its own host tests plus fmt + wasm32 clippy (same -D warnings,
+      # no #[allow] discipline).
+      - name: check archived spike (wasm32)
         working-directory: crates/cloud
         run: |
           cargo fmt --check
@@ -518,7 +552,7 @@ jobs:
       # that isn't reliably reproducible in CI today (externref/reference-types mismatches against
       # pinned wasm-bindgen releases); a plain `cargo build` for the wasm32 target still catches any
       # compile break against dry-core without depending on that packaging step.
-      - name: build (wasm32, dry-cloud)
+      - name: build archived spike (wasm32, dry-cloud)
         working-directory: crates/cloud
         run: cargo build --target wasm32-unknown-unknown --locked
 

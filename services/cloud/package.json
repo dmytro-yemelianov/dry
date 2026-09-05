@@ -1,8 +1,8 @@
 {
   "name": "@dry/cloud",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
-  "license": "FSL-1.1-MIT",
+  "license": "BUSL-1.1",
   "type": "module",
   "scripts": {
     "check": "npm run types && npm run typecheck && npm test",

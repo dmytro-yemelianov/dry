@@ -274,13 +274,24 @@ fn build_range(name: &str, range: Option<Box<[f64]>>) -> Result<Option<[f64; 2]>
 ///   peak-acceleration and junction-velocity ceilings that feed [`balanced_pipeline`] and the
 ///   `peak-acceleration` / `junction-velocity` verify rules. It has nothing to do with rotary axes.
 fn parse_kinematics(kinematics_json: &str) -> Result<Option<MachineKinematics>, JsError> {
+    parse_kinematics_inner(kinematics_json).map_err(|e| JsError::new(&e))
+}
+
+/// The parse itself, with no `JsError` in the signature.
+///
+/// `JsError::new` calls a wasm-bindgen import, which panics with "cannot call wasm-bindgen imported
+/// functions on non-wasm targets" when a host-target test evaluates it. Keeping the boundary
+/// conversion in the caller is what lets the rejection path be tested by `cargo test` on the host
+/// rather than only under a wasm runner — and this crate has no wasm test runner, so a test gated on
+/// `target_arch = "wasm32"` runs nowhere at all.
+fn parse_kinematics_inner(kinematics_json: &str) -> Result<Option<MachineKinematics>, String> {
     let s = kinematics_json.trim();
     if s.is_empty() {
         return Ok(None);
     }
     serde_json::from_str::<MachineKinematics>(s)
         .map(Some)
-        .map_err(|e| JsError::new(&format!("invalid kinematics_json: {e}")))
+        .map_err(|e| format!("invalid kinematics_json: {e}"))
 }
 
 /// Resolve a design, run the balanced (kinematics-aware) L2 optimization pipeline, and return the
@@ -758,13 +769,13 @@ mod tests {
 
     #[test]
     fn parse_kinematics_empty_returns_none() {
-        assert!(parse_kinematics("").unwrap().is_none());
-        assert!(parse_kinematics("   ").unwrap().is_none());
+        assert!(parse_kinematics_inner("").unwrap().is_none());
+        assert!(parse_kinematics_inner("   ").unwrap().is_none());
     }
 
     #[test]
     fn parse_kinematics_valid_json_returns_some() {
-        let k = parse_kinematics(r#"{"max_acceleration_mm_s2":3000}"#)
+        let k = parse_kinematics_inner(r#"{"max_acceleration_mm_s2":3000}"#)
             .unwrap()
             .unwrap();
         assert_eq!(k.max_acceleration_mm_s2, Some(3000.0));
@@ -773,7 +784,7 @@ mod tests {
 
     #[test]
     fn parse_kinematics_both_fields() {
-        let k = parse_kinematics(
+        let k = parse_kinematics_inner(
             r#"{"max_acceleration_mm_s2":5000,"max_junction_velocity_mm_s":10.0}"#,
         )
         .unwrap()
@@ -782,10 +793,18 @@ mod tests {
         assert_eq!(k.max_junction_velocity_mm_s, Some(10.0));
     }
 
-    // JsError::new panics on non-wasm targets; this test only runs under wasm32.
-    #[cfg(target_arch = "wasm32")]
+    /// The rejection path, now runnable on the host.
+    ///
+    /// This assertion previously sat behind `#[cfg(target_arch = "wasm32")]` because evaluating a
+    /// `JsError` panics off-wasm — and since the crate has no wasm test runner, it executed on no
+    /// target at all. Asserting against `parse_kinematics_inner` keeps the rejection covered without
+    /// crossing the wasm-bindgen boundary.
     #[test]
-    fn parse_kinematics_invalid_json_returns_error() {
-        assert!(parse_kinematics("not-json").is_err());
+    fn parse_kinematics_invalid_json_is_rejected() {
+        let err = parse_kinematics_inner("not-json").unwrap_err();
+        assert!(
+            err.contains("invalid kinematics_json"),
+            "the message names the input it rejected: {err}"
+        );
     }
 }

@@ -2,11 +2,10 @@ import Mathlib.Data.Rat.Defs
 import Mathlib.Tactic
 
 /-!
-# B-Rep Quadric Surface Normal Conservation (FM1.GEOMETRY.BREP.NORMAL)
+# Canonical Axis-Aligned B-Rep Normal Unitness (FM1.GEOMETRY.BREP.NORMAL)
 
-This module formalizes the analytical surface normal vectors for B-Rep quadrics:
-- Planar, cylindrical, and spherical surface normals;
-- Proves that normalized radial vectors preserve unit magnitude: x^2 + y^2 + z^2 = 1.
+This module formalizes three canonical axis-aligned unit normal vectors. The registered claim
+names `zNormal_is_unit`; it does not establish general quadric normal evaluation.
 -/
 
 namespace Dry.Geometry.Brep
