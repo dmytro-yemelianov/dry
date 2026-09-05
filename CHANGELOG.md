@@ -10,6 +10,16 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Fixed
+- **Formal-assurance evidence now reports what actually discharged each Lean claim.** The claim
+  ledger distinguishes kernel-checked proofs from the six theorems discharged by
+  `native_decide`, and the validator rejects missing, mismatched, or comment-induced proof-method
+  classifications. The assurance sitemap exposes that distinction instead of flattening every
+  theorem to `proved`; S-curve and B-Rep claim titles now match the narrower theorems they cite,
+  and the Clothoid source reference points at the real engine file.
+- **Lean refinement fixtures emit their computed model-check result.** The resolve-channel and
+  simulation-metrics documents previously serialized a constant `true`, so the Rust harness could
+  not observe those Lean predicates failing. They now serialize the predicates themselves while
+  preserving the committed fixture bytes.
 - **The archived Worker spike fails closed on a malformed contracts header.** `crates/cloud`'s
   `POST /verify`
   parsed `X-Dry-Contracts` with `unwrap_or_default()`, so a malformed header silently became
@@ -47,6 +57,8 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   refuse the program.
 
 ### Added
+- A required `proof_method = "kernel" | "native_decide"` field for every proved claim, enforced
+  against the cited Lean declaration and rendered in the generated assurance report.
 - `check_compatibility_json` in the Python binding and `checkMachineCompatibility` in `sdk/ts`,
   mirroring the existing wasm `check_machine_compatibility` so the bindings cannot drift again.
 - **The capability-parity manifest gates its own completeness.** It verified every cell it declared
