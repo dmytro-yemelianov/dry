@@ -16,9 +16,11 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   including the CycloneDX SBOM, under one Rekor-witnessed SLSA provenance statement. crates.io
   publication remains a separate, irreversible action under `docs/12-releasing.md`.
 - `[~]` **R0.11** (L) **Post-audit remediation train.** Execute in this order after v0.10.0 is
-  released: PR #286 repairs machine-compatibility parity; PR #287 hardens malformed contract ingress
-  and activates missing standalone/release tests; later independent slices add proof-strength
-  disclosure, RAPID validation, and the ADR 0003 cloud decision. The full frozen audit spec and
+  released: PR #286 repaired machine-compatibility parity and PR #287 hardened malformed contract
+  ingress and activated missing standalone/release tests; both are merged and post-merge green.
+  The current assurance slice makes Lean fixture checks observable and distinguishes kernel proof
+  from `native_decide`; later independent slices add RAPID validation and resolve the ADR 0003 cloud
+  decision. The full frozen audit spec and
   implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
   slice has independent review, target-specific gates, full PR CI, and post-merge main verification;
   only then cut v0.11.0.

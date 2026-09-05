@@ -139,16 +139,16 @@ def evaluateCase (c : FixtureCase) : Json :=
     ])
   ]
 
+def resolveChannelsFixtureChecks : Bool :=
+  decide (cases.length = 6)
+
 def document : Json :=
   Json.mkObj [
     ("schema_version", Json.num 1),
     ("model", Json.str "resolve-channels-refinement-v0"),
-    ("model_checks", Json.bool true),
+    ("model_checks", Json.bool resolveChannelsFixtureChecks),
     ("cases", Json.arr (cases.map evaluateCase).toArray)
   ]
-
-def resolveChannelsFixtureChecks : Bool :=
-  decide (cases.length = 6)
 
 theorem resolveChannelsFixtureChecks_theorem : resolveChannelsFixtureChecks = true := by
   rfl
