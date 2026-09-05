@@ -36,6 +36,13 @@ SCOPES = {"abstract", "implementation"}
 CLAIM_ID = re.compile(r"^FM1\.[A-Z][A-Z0-9_.-]*$")
 THEOREM_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_.]*$")
 PLACEHOLDER = re.compile(r"\b(?:sorry|admit)\b")
+PROOF_METHODS = {"kernel", "native_decide"}
+LEAN_DECLARATION = re.compile(
+    r"(?m)^(?:theorem|lemma)\s+(?P<name>[A-Za-z_][A-Za-z0-9_']*)\b"
+)
+LEAN_DECLARATION_BOUNDARY = re.compile(
+    r"(?m)^(?:theorem|lemma|def|abbrev|opaque|structure|class|inductive|namespace|end)\b"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,6 +137,128 @@ def resolve_repository_path(
     return resolved
 
 
+def strip_lean_comments(source: str) -> str:
+    """Mask Lean comments and strings before inspecting proof tactics.
+
+    Block comments nest in Lean. The scanner preserves newlines so declaration anchors remain
+    valid, masks comments and literals, and therefore cannot treat comment/string text as a
+    tactic or theorem dependency.
+    """
+    masked: list[str] = []
+    index = 0
+    length = len(source)
+
+    def mask(character: str) -> None:
+        masked.append("\n" if character == "\n" else " ")
+
+    def mask_until(index: int, closing: str) -> int:
+        """Mask an already-open literal through its closing delimiter."""
+        while index < length:
+            if source.startswith(closing, index):
+                for character in closing:
+                    mask(character)
+                return index + len(closing)
+            character = source[index]
+            mask(character)
+            index += 1
+            if character == "\\" and index < length:
+                mask(source[index])
+                index += 1
+        return index
+
+    while index < length:
+        if source.startswith("/-", index):
+            depth = 0
+            while index < length:
+                if source.startswith("/-", index):
+                    depth += 1
+                    mask("/")
+                    mask("-")
+                    index += 2
+                elif source.startswith("-/", index):
+                    depth -= 1
+                    mask("-")
+                    mask("/")
+                    index += 2
+                    if depth == 0:
+                        break
+                else:
+                    mask(source[index])
+                    index += 1
+            continue
+        if source.startswith("--", index):
+            while index < length and source[index] != "\n":
+                mask(source[index])
+                index += 1
+            continue
+
+        if source[index] == "r" and (
+            index == 0 or not (source[index - 1].isalnum() or source[index - 1] == "_")
+        ):
+            quote = index + 1
+            while quote < length and source[quote] == "#":
+                quote += 1
+            if quote < length and source[quote] == '"':
+                hashes = source[index + 1 : quote]
+                for character in source[index : quote + 1]:
+                    mask(character)
+                index = mask_until(quote + 1, '"' + hashes)
+                continue
+        if source[index] == '"':
+            mask(source[index])
+            index = mask_until(index + 1, '"')
+            continue
+
+        masked.append(source[index])
+        index += 1
+    return "".join(masked)
+
+
+def lean_theorem_bodies(source: str) -> dict[str, str]:
+    """Return exact local theorem/lemma bodies, bounded before the next declaration.
+
+    The proof-method check must not accept a `native_decide` in an unrelated theorem or a
+    comment. Lean's local fixture theorems occasionally wrap a helper theorem, so callers can
+    follow only explicit references among these bounded bodies.
+    """
+    clean_source = strip_lean_comments(source)
+    matches = list(LEAN_DECLARATION.finditer(clean_source))
+    bodies: dict[str, str] = {}
+    for match in matches:
+        boundary = LEAN_DECLARATION_BOUNDARY.search(clean_source, match.end())
+        end = boundary.start() if boundary else len(clean_source)
+        bodies[match.group("name")] = clean_source[match.start() : end]
+    return bodies
+
+
+def theorem_reaches_native_decide(source: str, theorem_leaf: str) -> bool | None:
+    """Whether a theorem or its same-file theorem dependencies use `native_decide`.
+
+    `None` means the declaration is absent. The traversal uses whole identifiers in bounded
+    declaration bodies, preventing a tactic in a later declaration or a comment from changing
+    the registered proof method.
+    """
+    bodies = lean_theorem_bodies(source)
+    if theorem_leaf not in bodies:
+        return None
+
+    def visit(name: str, visited: set[str]) -> bool:
+        if name in visited:
+            return False
+        visited.add(name)
+        body = bodies[name]
+        if re.search(r"\bnative_decide\b", body):
+            return True
+        return any(
+            re.search(rf"\b{re.escape(candidate)}\b", body)
+            and visit(candidate, visited)
+            for candidate in bodies
+            if candidate != name
+        )
+
+    return visit(theorem_leaf, set())
+
+
 def validate_claim(
     root: Path,
     claim: Any,
@@ -197,15 +326,26 @@ def validate_claim(
         if lean_source
         else None
     )
+    proof_method = claim.get("proof_method")
+    if proof_method is not None and proof_method not in PROOF_METHODS:
+        errors.append(f"{label}: invalid proof_method: {proof_method!r}")
     if lean_path and theorem:
         theorem_leaf = theorem.rsplit(".", 1)[-1]
-        declaration = re.compile(
-            rf"\b(?:theorem|lemma)\s+{re.escape(theorem_leaf)}\b"
-        )
         source = lean_path.read_text(encoding="utf-8")
-        if not declaration.search(source):
+        reaches_native_decide = theorem_reaches_native_decide(source, theorem_leaf)
+        if reaches_native_decide is None:
             errors.append(
                 f"{label}: theorem {theorem} is not declared in {lean_source}"
+            )
+        elif proof_method == "native_decide" and not reaches_native_decide:
+            errors.append(
+                f"{label}: proof_method native_decide does not reach native_decide "
+                f"from theorem {theorem}"
+            )
+        elif proof_method == "kernel" and reaches_native_decide:
+            errors.append(
+                f"{label}: proof_method kernel conflicts with native_decide reached "
+                f"from theorem {theorem}"
             )
 
     for raw in rust_sources:
@@ -237,6 +377,10 @@ def validate_claim(
             errors.append(f"{label}: a proved abstract claim requires a theorem")
         if not lean_source:
             errors.append(f"{label}: a proved abstract claim requires a lean_source")
+        if proof_method not in PROOF_METHODS:
+            errors.append(
+                f"{label}: a proved abstract claim requires proof_method kernel or native_decide"
+            )
     else:
         if theorem:
             errors.append(
@@ -245,6 +389,10 @@ def validate_claim(
         if lean_source:
             errors.append(
                 f"{label}: abstract status {abstract!r} must not register a lean_source"
+            )
+        if proof_method is not None:
+            errors.append(
+                f"{label}: abstract status {abstract!r} must not register a proof_method"
             )
     if numeric == "bounded" and not numeric_evidence:
         errors.append(f"{label}: bounded numeric status requires numeric evidence")
@@ -271,9 +419,7 @@ def validate_formal_sources(root: Path, errors: list[str]) -> None:
         return
     for path in sorted(formal_root.rglob("*.lean")):
         source = path.read_text(encoding="utf-8")
-        # Strip block comments /- ... -/ and line comments -- ...
-        clean_source = re.sub(r"/-\s*!?(?:(?!--/).)*?-/", "", source, flags=re.DOTALL)
-        clean_source = re.sub(r"--[^\n]*", "", clean_source)
+        clean_source = strip_lean_comments(source)
         match = PLACEHOLDER.search(clean_source)
         if match:
             relative = path.relative_to(root)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,10 @@ except ModuleNotFoundError:
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "tools" / "validate_proof_claims.py"
+SPEC = importlib.util.spec_from_file_location("validate_proof_claims", VALIDATOR)
+assert SPEC is not None and SPEC.loader is not None
+validator_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(validator_module)
 
 
 def claim_table(
@@ -26,12 +31,15 @@ def claim_table(
     abstract: str = "proved",
     numeric: str = "pending",
     refinement: str = "pending",
+    proof_method: str | None = "kernel",
 ) -> str:
     lean_lines = ""
     if theorem is not None:
         lean_lines += f'theorem = "{theorem}"\n        '
     if lean_source is not None:
         lean_lines += f'lean_source = "{lean_source}"\n        '
+    if proof_method is not None and abstract == "proved":
+        lean_lines += f'proof_method = "{proof_method}"\n        '
     return textwrap.dedent(
         f"""
         [[claim]]
@@ -153,6 +161,65 @@ class ProofClaimValidatorTests(unittest.TestCase):
         result = self.run_registry(registry)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("requires a lean_source", result.stderr)
+
+    def test_proved_claim_without_a_proof_method_is_rejected(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.PROVED_WITHOUT_METHOD", proof_method=None
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires proof_method", result.stderr)
+
+    def test_native_decide_method_must_be_reachable_from_registered_theorem(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.FALSE_NATIVE", proof_method="native_decide"
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not reach native_decide", result.stderr)
+
+    def test_invalid_proof_method_is_rejected(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.INVALID_METHOD", proof_method="unchecked"
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid proof_method", result.stderr)
+
+    def test_kernel_method_rejects_native_decide_in_theorem_dependency(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.FALSE_KERNEL",
+            theorem="Dry.Tests.DepositionFixtures.depositionFixtureChecks",
+            lean_source="formal/Dry/Tests/DepositionFixtures.lean",
+        )
+        result = self.run_registry(registry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("kernel conflicts with native_decide", result.stderr)
+
+    def test_kernel_method_ignores_native_decide_in_an_unrelated_declaration(self) -> None:
+        registry = "schema_version = 1\n" + claim_table(
+            "FM1.TEST.UNRELATED_NATIVE",
+            theorem=(
+                "Dry.Tests.NestedApplicationFixtures."
+                "observationCeilings_within_profile"
+            ),
+            lean_source="formal/Dry/Tests/NestedApplicationFixtures.lean",
+        )
+        result = self.run_registry(registry)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_nested_comment_and_string_cannot_fake_native_decide(self) -> None:
+        source = '''
+theorem kernelClaim : True := by
+  let explanation := "native_decide -- /- text inside a string"
+  let rawExplanation := r#"native_decide -- /- text inside a raw string"#
+  -- native_decide in a line comment
+  /- outer comment /- nested native_decide -/ native_decide -/
+  trivial
+'''
+        self.assertFalse(
+            validator_module.theorem_reaches_native_decide(source, "kernelClaim")
+        )
 
 
 if __name__ == "__main__":

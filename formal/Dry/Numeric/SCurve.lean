@@ -2,11 +2,12 @@ import Mathlib.Data.Rat.Defs
 import Mathlib.Tactic
 
 /-!
-# 7-Phase S-Curve Dynamic Motion Bounds (FM1.NUMERIC.SCURVE.BOUNDS)
+# Validated S-Curve Input Constraint Soundness (FM1.NUMERIC.SCURVE.BOUNDS)
 
-This module formalizes the 7-phase S-curve velocity and acceleration profile:
-- Proves that bounded jerk J strictly constrains acceleration a(t) ≤ a_max and velocity v(t) ≤ v_max.
-- Proves that motion time and segment displacement are strictly non-negative for valid profile parameters.
+This module formalizes the input constraints used by the S-curve profiler:
+- Proves that a validated profile has non-negative start/target velocities and length.
+- Proves that a validated profile has strictly positive acceleration and jerk limits.
+- Separately derives non-negativity of the acceleration-to-jerk time ratio.
 -/
 
 namespace Dry.Numeric.SCurve

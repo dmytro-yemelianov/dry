@@ -85,11 +85,12 @@
             },
             "required": ["status"]
           },
-          "then": { "required": ["theorem", "lean_source"] },
+          "then": { "required": ["theorem", "lean_source", "proof_method"] },
           "else": {
             "properties": {
               "theorem": false,
-              "lean_source": false
+              "lean_source": false,
+              "proof_method": false
             }
           }
         }
@@ -106,6 +107,12 @@
         "theorem": {
           "type": "string",
           "pattern": "^[A-Za-z][A-Za-z0-9_.]*$"
+        },
+        "proof_method": {
+          "enum": [
+            "kernel",
+            "native_decide"
+          ]
         },
         "spec_version": {
           "type": "string",
