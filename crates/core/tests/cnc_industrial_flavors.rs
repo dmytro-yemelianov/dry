@@ -1,6 +1,91 @@
 //! Industrial CNC Post-Processor Flavors & Robotics Dialect Tests.
 
-use dry_core::{emit_stream, CncFrame, Design, EmitParams, FirmwareFlavor, Op, ResolveParams};
+use dry_core::{
+    emit_stream, CncFrame, Design, EmitParams, Feedrate, FirmwareFlavor, Length, Op, ResolveParams,
+    Segment, SegmentKind, Volume,
+};
+
+fn rapid_segment(kind: SegmentKind) -> Segment {
+    Segment {
+        start: [None, None, None],
+        end: [None, None, None],
+        travel: false,
+        speed: Feedrate(1200.0),
+        length: Length::ZERO,
+        volume: Volume::ZERO,
+        filament: Length::ZERO,
+        width: None,
+        height: None,
+        kind,
+        centre: None,
+        clockwise: false,
+        temperature: None,
+        fan: None,
+        flow: None,
+        tool: None,
+        dwell_s: None,
+        manual_gcode: None,
+        orientation: None,
+        control_points: None,
+        power: None,
+    }
+}
+
+fn mm(value: f64) -> Option<Length> {
+    Some(Length::mm(value))
+}
+
+fn rapid_program(segments: Vec<Segment>) -> Result<String, String> {
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Rapid,
+        ..EmitParams::default()
+    };
+    emit_stream(segments.into_iter().map(Ok), &params)
+        .map(|lines| {
+            let mut program = lines.join("\n");
+            if !program.ends_with('\n') {
+                program.push('\n');
+            }
+            program
+        })
+        .map_err(|error| error.to_string())
+}
+
+fn rapid_reference_segments() -> Vec<Segment> {
+    vec![
+        Segment {
+            end: [mm(10.0), mm(0.0), mm(5.0)],
+            travel: true,
+            speed: Feedrate(3000.0),
+            orientation: Some([0.0, 0.0, 1.0]),
+            ..rapid_segment(SegmentKind::Line)
+        },
+        Segment {
+            start: [mm(10.0), mm(0.0), mm(5.0)],
+            end: [mm(20.0), mm(0.0), mm(5.0)],
+            orientation: Some([0.0, 0.0, 1.0]),
+            ..rapid_segment(SegmentKind::Line)
+        },
+        Segment {
+            start: [mm(20.0), mm(0.0), mm(5.0)],
+            end: [mm(30.0), mm(10.0), mm(5.0)],
+            centre: Some([Length::mm(20.0), Length::mm(10.0)]),
+            orientation: Some([0.6, 0.0, 0.8]),
+            ..rapid_segment(SegmentKind::Arc)
+        },
+        Segment {
+            dwell_s: Some(1.5),
+            ..rapid_segment(SegmentKind::Dwell)
+        },
+        Segment {
+            start: [mm(30.0), mm(10.0), mm(5.0)],
+            end: [mm(30.0), mm(20.0), mm(5.0)],
+            speed: Feedrate(600.0),
+            orientation: Some([0.0, -1.0, 0.0]),
+            ..rapid_segment(SegmentKind::Line)
+        },
+    ]
+}
 
 #[test]
 fn test_siemens_sinumerik_emission() {
@@ -121,6 +206,67 @@ fn test_abb_rapid_robot_emission() {
         .any(|l| l.contains("MoveL [[100.000, 200.000, 300.000]")));
     assert!(lines.iter().any(|l| l.contains("ENDPROC")));
     assert!(lines.iter().any(|l| l.contains("ENDMODULE")));
+}
+
+#[test]
+fn rapid_dwell_and_arc_direction_are_emitted_as_waittime_and_distinct_circle_points() {
+    let mut ccw_segments = rapid_reference_segments();
+    let ccw = rapid_program(ccw_segments.clone()).unwrap();
+    assert!(ccw.contains("    WaitTime 1.500;\n"), "{ccw}");
+    assert!(
+        ccw.contains("MoveC [[27.071, 2.929, 5.000]"),
+        "the first MoveC target must be a point on the CCW arc, not its centre:\n{ccw}"
+    );
+
+    ccw_segments[2].clockwise = true;
+    let cw = rapid_program(ccw_segments).unwrap();
+    assert!(
+        cw.contains("MoveC [[12.929, 17.071, 5.000]"),
+        "the clockwise sweep must put CirPoint on the opposite side:\n{cw}"
+    );
+    assert_ne!(
+        ccw, cw,
+        "opposite arc directions must not emit the same MoveC"
+    );
+}
+
+#[test]
+fn rapid_movec_uses_the_segments_explicit_start_for_its_circle_point() {
+    let segment = Segment {
+        start: [mm(10.0), mm(0.0), mm(0.0)],
+        end: [mm(0.0), mm(10.0), mm(0.0)],
+        centre: Some([Length::mm(0.0), Length::mm(0.0)]),
+        orientation: Some([0.0, 0.0, 1.0]),
+        ..rapid_segment(SegmentKind::Arc)
+    };
+
+    let program = rapid_program(vec![segment]).unwrap();
+    assert!(
+        program.contains("MoveC [[7.071, 7.071, 0.000]"),
+        "CirPoint must be derived from the segment's explicit start, not the previous modal position:\n{program}"
+    );
+}
+
+/// This is a structural drift oracle only: no ABB controller or RobotStudio instance runs in CI.
+#[test]
+fn rapid_structural_golden_does_not_drift() {
+    let program = rapid_program(rapid_reference_segments()).unwrap();
+    let golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/reports/robot/reference-rapid.mod"
+    );
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::create_dir_all(std::path::Path::new(golden_path).parent().unwrap()).unwrap();
+        std::fs::write(golden_path, &program).unwrap();
+    }
+    let golden = std::fs::read_to_string(golden_path).expect(
+        "RAPID structural golden exists — update only after independently reviewing the emitter \
+         contract and exact bytes",
+    );
+    assert_eq!(
+        program, golden,
+        "RAPID output drifted from its structural golden"
+    );
 }
 
 /// `FirmwareFlavor::named` is the single parser the bindings share.

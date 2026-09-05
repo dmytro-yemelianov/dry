@@ -10,6 +10,11 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 ## [Unreleased]
 
 ### Fixed
+- **ABB RAPID arcs now emit a direction-sensitive `CirPoint` instead of misusing the circle
+  centre as `MoveC`'s first target.** CW and CCW sweeps produce distinct points on the requested
+  arc; non-finite motion values and CNC-only `cnc_frame` parameters fail closed. Quaternion branch,
+  dwell, arc-direction, and structural-golden tests pin the renderer without claiming controller
+  or RobotStudio validation.
 - **The TypeScript L2 segment kind matches the normative JSON wire spelling.** Rust serde and the
   Dry IR schema encode a manual G-code segment as `manualgcode`, while DRY0 intentionally uses
   `manual_gcode`; the SDK type incorrectly advertised the binary spelling for JSON-decoded

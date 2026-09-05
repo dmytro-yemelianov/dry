@@ -88,7 +88,7 @@ impl Default for Kinematics {
 /// on the wrong point *and* reports the wrong angle — while `Ab`, which uses `atan2`, is
 /// scale-invariant and disagrees with them on identical input. Normalising once, here, is what makes
 /// the three models agree. A zero or non-finite vector carries no direction at all and is refused.
-fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
+pub(super) fn unit_orientation(orientation: Option<[f64; 3]>) -> Result<[f64; 3], String> {
     let v = orientation.unwrap_or([0.0, 0.0, 1.0]);
     let magnitude = libm::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if !(magnitude.is_finite() && magnitude > 0.0) {

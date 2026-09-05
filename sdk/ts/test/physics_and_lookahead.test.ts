@@ -103,13 +103,22 @@ describe('Industrial dialects from TypeScript', () => {
       ['haas', 'G187', false],
       ['rapid', 'MODULE DryProgram', false],
     ] as const) {
-      const lines = square().gcode({ flavor, fiveAxis, cncFrame: frame });
+      const lines = square().gcode(
+        flavor === 'rapid' ? { flavor, fiveAxis } : { flavor, fiveAxis, cncFrame: frame }
+      );
       assert.ok(
         lines.some((l) => l.includes(marker)),
         `${flavor}: no ${marker} in ${lines.slice(0, 8).join(' | ')}`
       );
     }
     void cases;
+  });
+
+  it('refuses a CNC-only frame on RAPID instead of silently dropping it', () => {
+    assert.throws(
+      () => square().gcode({ flavor: 'rapid', cncFrame: frame }),
+      /RAPID emit cannot carry cnc_frame/
+    );
   });
 
   it('emits no machine preamble without a cncFrame', () => {
