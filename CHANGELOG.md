@@ -27,6 +27,11 @@ unchanged.
   readmes, and package-local `LICENSE`/`NOTICE` copies use the DryMachina brand and BUSL-1.1.
 
 ### Fixed
+- **Coverage no longer races the bounded-memory gate.** The two `memory_scale` tests share a
+  process-wide counting allocator but Rust's test harness could run them concurrently, allowing one
+  test to reset the other's peak baseline. Coverage instrumentation made the race visible as a false
+  `verify_stream is buffering` failure on the release candidate. Both measurements are now serialized
+  without changing any memory threshold.
 - **Verifier state machines and stationary filament moves (#277).** The two per-segment state
   machines in `verify_stream` — the retraction state read by `travel-without-retraction` and the
   junction history read by `junction-velocity` — no longer let a segment that is neither a deposition
