@@ -18,21 +18,21 @@ serde = { version = "1", features = ["derive"] }
 # defines conformance as bit-exact f64 equality. Pinned by the five_axis_drape conformance vector,
 # whose resolved lengths and volumes are the first in the corpus long enough to expose it.
 serde_json = { version = "1", features = ["float_roundtrip"] }
-miniz_oxide = "0.8"
+miniz_oxide = "0.9"
 libm = "0.2"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Exact dyadic witnesses for the native f64 feature-operation graph.
-num-bigint = "0.4"
+num-bigint = "0.5"
 num-traits = "0.2"
 # Used only by tests/spec_vectors.rs to hash the public conformance-vector artifacts into MANIFEST.json
 # (the same hashes the independent Python validator checks). Dev-only: never linked into the engine.
-sha2 = "0.10"
+sha2 = "0.11"
 # Benchmark harness (dev-only). default-features off to skip the heavy plotting/rayon stack — the CI
 # `bench` job only needs the benches to compile and run (docs/13-performance-and-scale.md).
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.8", default-features = false }
 
 [[bench]]
 name = "engine_codec"
