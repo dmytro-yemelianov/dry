@@ -119,8 +119,16 @@ def test_industrial_flavors_are_reachable_from_python():
         ("haas", "G187", False),
         ("rapid", "MODULE DryProgram", False),
     ]:
-        lines = _square().gcode(flavor=flavor, five_axis=five_axis, cnc_frame=FRAME)
+        cnc_frame = None if flavor == "rapid" else FRAME
+        lines = _square().gcode(
+            flavor=flavor, five_axis=five_axis, cnc_frame=cnc_frame
+        )
         assert any(marker in line for line in lines), f"{flavor}: no {marker} in {lines[:8]}"
+
+
+def test_rapid_refuses_a_cnc_only_frame_instead_of_dropping_it():
+    with pytest.raises(ValueError, match="RAPID emit cannot carry cnc_frame"):
+        _square().gcode(flavor="rapid", cnc_frame=FRAME)
 
 
 def test_the_machine_preamble_needs_a_cnc_frame():

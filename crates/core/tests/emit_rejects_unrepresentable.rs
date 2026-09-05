@@ -167,6 +167,7 @@ fn non_finite_dwell_is_refused() {
         FirmwareFlavor::Rs274,
         FirmwareFlavor::Grbl,
         FirmwareFlavor::RobotKrl,
+        FirmwareFlavor::Rapid,
     ] {
         let segment = Segment {
             kind: SegmentKind::Dwell,
@@ -178,6 +179,80 @@ fn non_finite_dwell_is_refused() {
             ..EmitParams::default()
         };
         assert_refused(vec![segment], &params, "non-finite dwell");
+    }
+}
+
+#[test]
+fn rapid_refuses_non_finite_motion_values() {
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Rapid,
+        ..EmitParams::default()
+    };
+
+    let mut endpoint = line_to([10.0, 0.0, 0.2]);
+    endpoint.end[0] = Some(Length(f64::NAN));
+
+    let mut speed = line_to([10.0, 0.0, 0.2]);
+    speed.speed = Feedrate(f64::INFINITY);
+
+    let mut orientation = line_to([10.0, 0.0, 0.2]);
+    orientation.orientation = Some([0.0, f64::NAN, 1.0]);
+
+    let mut centre = line_to([10.0, 10.0, 0.0]);
+    centre.kind = SegmentKind::Arc;
+    centre.centre = Some([Length(f64::NEG_INFINITY), Length::mm(10.0)]);
+
+    for (segment, expected) in [
+        (endpoint, "end X"),
+        (speed, "speed"),
+        (orientation, "finite non-zero magnitude"),
+        (centre, "centre X"),
+    ] {
+        assert_refused(vec![segment], &params, expected);
+    }
+}
+
+#[test]
+fn rapid_refuses_arc_shapes_that_movec_cannot_represent() {
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Rapid,
+        ..EmitParams::default()
+    };
+
+    let mut missing_centre = line_to([10.0, 10.0, 0.0]);
+    missing_centre.kind = SegmentKind::Arc;
+
+    let mut helix = line_to([10.0, 10.0, 1.0]);
+    helix.kind = SegmentKind::Arc;
+    helix.centre = Some([Length::mm(0.0), Length::mm(10.0)]);
+
+    let mut full_turn = line_to([0.0, 0.0, 0.2]);
+    full_turn.kind = SegmentKind::Arc;
+    full_turn.centre = Some([Length::mm(10.0), Length::mm(0.0)]);
+
+    let mut zero_radius = line_to([10.0, 0.0, 0.2]);
+    zero_radius.kind = SegmentKind::Arc;
+    zero_radius.centre = Some([Length::mm(0.0), Length::mm(0.0)]);
+
+    let mut missing_end_x = line_to([10.0, 10.0, 0.2]);
+    missing_end_x.kind = SegmentKind::Arc;
+    missing_end_x.end[0] = None;
+    missing_end_x.centre = Some([Length::mm(0.0), Length::mm(10.0)]);
+
+    let mut missing_end_y = line_to([10.0, 10.0, 0.2]);
+    missing_end_y.kind = SegmentKind::Arc;
+    missing_end_y.end[1] = None;
+    missing_end_y.centre = Some([Length::mm(0.0), Length::mm(10.0)]);
+
+    for (segment, expected) in [
+        (missing_centre, "missing its centre"),
+        (helix, "rises from Z"),
+        (full_turn, "full-turn"),
+        (zero_radius, "zero start radius"),
+        (missing_end_x, "explicit end X and Y"),
+        (missing_end_y, "explicit end X and Y"),
+    ] {
+        assert_refused(vec![segment], &params, expected);
     }
 }
 

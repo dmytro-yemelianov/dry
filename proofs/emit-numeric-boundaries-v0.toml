@@ -27,7 +27,12 @@ hash_mode = "file"
 # `unit_orientation` now resolves through its full path
 # (`crate::emit::kinematics::unit_orientation`) so rustdoc stops warning that the public docs link a
 # private item. Comment text only; no code, constant or predicate moved.
-sha256 = "17fcbe6931c286d36b5c6fa8c5d6347ce198c9b0b7decdf27284b80824b2b808"
+#
+# Re-pinned 2026-09-05 for a visibility-only change: the RAPID renderer now calls the same
+# `unit_orientation` helper as the rotary/KRL emitters instead of maintaining a second
+# normalisation path. `fn` became `pub(super) fn`; its body, every constant, and every predicate in
+# this file are byte-for-byte unchanged.
+sha256 = "8bba10c89334e78bd1b6e23918b81e9864bbc036e4ce77b4215cee793bde252d"
 
 # ---------------------------------------------------------------------------------------------
 # The 5-axis side owns exactly one tolerance-bearing predicate, and this is it. Everything else on
