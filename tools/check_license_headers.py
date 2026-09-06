@@ -4,6 +4,7 @@
 import hashlib
 import json
 import sys
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -126,6 +127,15 @@ def check_sbom():
     print("[3/4] Checking CycloneDX & SPDX SBOM compliance...")
     cyclonedx = json.loads(
         (ROOT / "docs/compliance/cyclonedx.sbom.json").read_text(encoding="utf-8")
+    )
+    expected_serial = "urn:uuid:" + str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"https://github.com/dmytro-yemelianov/dry/releases/tag/v{LICENSED_VERSION}",
+        )
+    )
+    assert cyclonedx.get("serialNumber") == expected_serial, (
+        f"CycloneDX serialNumber must identify v{LICENSED_VERSION}"
     )
     components = [cyclonedx["metadata"]["component"], *cyclonedx["components"]]
     for component in components:

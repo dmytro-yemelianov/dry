@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,12 @@ def manifest_value(name):
 
 VERSION = manifest_value("version")
 LICENSE_ID = manifest_value("license")
+CYCLONEDX_SERIAL_NUMBER = "urn:uuid:" + str(
+    uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"https://github.com/dmytro-yemelianov/dry/releases/tag/v{VERSION}",
+    )
+)
 
 changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 release_header = re.search(
@@ -74,7 +81,7 @@ def generate_sbom():
         "$schema": "http://cyclonedx.org/schema/bom-1.5.json",
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
-        "serialNumber": "urn:uuid:60cf9074-a31c-4fd7-9020-fa72c6e90062",
+        "serialNumber": CYCLONEDX_SERIAL_NUMBER,
         "version": 1,
         "metadata": {
             "timestamp": timestamp,
