@@ -20,16 +20,17 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 | **`v0.9.0`** | **Phase 8** | Industrial CNC & robot post-processors (Sinumerik, Haas, Heidenhain, ABB RAPID), digital-twin physics simulator, generative CAM assistant, and 3D WebGL visualizer. The release included a capability-parity manifest, but a 2026-09-05 audit found that the gate did not assert manifest completeness; remediation targets v0.11.0. | **Released** |
 | **`v0.9.1`** | **Release hygiene** | Verifier state-machine corrections, legal notices, SBOM and provenance consolidation, lockstep release metadata, and repaired coverage infrastructure. | **Released** |
 | **`v0.10.0`** | **DryMachina publication baseline** | Prospective BUSL-1.1 adoption with the DryMachina brand, registry-ready Rust packages, synchronized legal/SBOM metadata, and a Lean build gate that covers every proof fixture. Compiler, IR, and report schemas remain unchanged. | **Released** |
-| **`v0.11.0`** | **Post-audit remediation** | Engine-delegated compatibility across bindings, fail-closed cloud ingress, executable standalone/release and CLI smoke-test gates, capability-manifest completeness, honest proof-strength metadata, direction-sensitive RAPID `MoveC` geometry with structural drift coverage, and an enforced 85% workspace line-coverage floor. | **Target** |
+| **`v0.11.0`** | **Post-audit remediation** | Engine-delegated compatibility across bindings, fail-closed cloud ingress, executable standalone/release and CLI smoke-test gates, capability-manifest completeness, honest proof-strength metadata, direction-sensitive RAPID `MoveC` geometry with structural drift coverage, and an enforced 85% workspace line-coverage floor. | **Released** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
-> **Version status (2026-09-06).** GitHub releases v0.9.0, v0.9.1, and
-> [v0.10.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.10.0) exist. The v0.10.0
-> release contains 14 checksum-verified, provenance-attested assets. Rust packages are intentionally
-> not published to crates.io; supported artifacts ship through GitHub Releases. Post-audit
-> behavior/API changes are intentionally held for v0.11.0 so
-> the v0.10.0 release statement remains true. “Merged”, “released”, and “published to a registry”
-> are separate claims throughout this roadmap.
+> **Version status (2026-09-06).** GitHub releases v0.9.0, v0.9.1,
+> [v0.10.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.10.0), and
+> [v0.11.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.11.0) exist. The v0.11.0 tag
+> resolves to main commit `5aff42e`; release workflow `34004893120` completed 15/15 jobs and
+> published 14 checksum-verified assets under one Rekor-witnessed SLSA provenance statement. Rust
+> packages remain intentionally unpublished to crates.io; supported artifacts ship through GitHub
+> Releases. “Merged”, “released”, and “published to a registry” are separate claims throughout this
+> roadmap.
 
 
 ---
