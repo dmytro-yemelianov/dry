@@ -20,6 +20,9 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   updates while keeping majors isolated, permits at most two open version-update PRs per
   ecosystem/root, and has a CI policy check so a configuration edit cannot silently recreate an
   unbounded backlog. Security-update PRs remain governed by GitHub's separate security queue.
+- **Cloudflare development tooling no longer resolves vulnerable Undici releases.** The control
+  plane and license issuer use a compatible Wrangler/Vitest pool toolchain whose complete lockfile
+  graphs resolve Undici 7.29.0; both roots pass and enforce a moderate-severity `npm audit` gate.
 
 ## [0.11.0] - 2026-09-06
 
