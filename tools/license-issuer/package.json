@@ -12,7 +12,7 @@
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.18.8",
+    "@cloudflare/vitest-pool-workers": "0.22.0",
     "@types/node": "^26.4.0",
     "typescript": "5.9.3",
     "vitest": "4.1.0",
