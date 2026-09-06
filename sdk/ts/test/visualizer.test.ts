@@ -51,4 +51,12 @@ describe('3D Visualizer Helpers Suite', () => {
     assert(groups.some((g) => g.role === 'Travel' && g.color === '#ef4444'));
     assert(groups.some((g) => g.role === 'Cutting / Extrusion' && g.color === '#2563eb'));
   });
+
+  it('pins viewer dependencies and escapes an untrusted title', () => {
+    const html = new Design().point(mm(0), mm(0), mm(0)).toHtml('<script>alert(1)</script>');
+    assert.match(html, /integrity="sha384-/);
+    assert.match(html, /crossorigin="anonymous"/);
+    assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+    assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  });
 });

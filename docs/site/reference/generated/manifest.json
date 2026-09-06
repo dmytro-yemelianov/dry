@@ -7,7 +7,7 @@
     },
     "tsDesign": {
       "path": "sdk/ts/src/design.ts",
-      "sha256": "828deeaa2d0a903143d3580f01c9428e0257f7c5dfb2d9c89a85bc1e60a7ac8a"
+      "sha256": "d08be3b051d6059266c1384b97a0fc72e839eb794136ce908f1fad53470d1512"
     },
     "pythonSdk": {
       "path": "py/python/dry/__init__.py",

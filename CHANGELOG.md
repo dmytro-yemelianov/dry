@@ -9,6 +9,14 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Security
+- **Repository and browser security now fail closed on known first-party findings.** The
+  TypeScript decimal parser uses a linear scanner instead of a backtracking regular expression;
+  the browser verifier renders untrusted diagnostics with DOM text nodes; exported viewers escape
+  untrusted titles and pin CDN scripts with Subresource Integrity. CodeQL ignores only vendored
+  Three.js, while a dedicated regression gate keeps first-party sources scanned and preserves the
+  SRI/DOM contracts.
+
 ## [0.11.0] - 2026-09-06
 
 ### Changed

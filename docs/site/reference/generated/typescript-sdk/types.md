@@ -45,7 +45,7 @@ Declared in the public API.
 
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
-| `axis` | `'X' \| 'Y' \| 'Z' \| 'Envelope'` | Yes | Declared in the public API. |
+| `axis` | `'X' &#124; 'Y' &#124; 'Z' &#124; 'Envelope'` | Yes | Declared in the public API. |
 | `color` | `string` | Yes | Declared in the public API. |
 | `start` | `Point3D` | Yes | Declared in the public API. |
 | `end` | `Point3D` | Yes | Declared in the public API. |
@@ -199,7 +199,7 @@ Declared in the public API.
 
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
-| `severity` | `'Warning' \| 'Error'` | Yes | Declared in the public API. |
+| `severity` | `'Warning' &#124; 'Error'` | Yes | Declared in the public API. |
 | `code` | `string` | Yes | Declared in the public API. |
 | `message` | `string` | Yes | Declared in the public API. |
 | `segmentIndex` | `number` | No | Declared in the public API. |
@@ -348,12 +348,12 @@ build one from OBJ text.
 | --- | --- | --- | --- |
 | `mesh` | `unknown` | Yes | Declared in the public API. |
 | `pattern` | `DrapePattern` | No | Declared in the public API. |
-| `x_range` | `[number, number] \| null` | No | Declared in the public API. |
-| `y_range` | `[number, number] \| null` | No | Declared in the public API. |
+| `x_range` | `[number, number] &#124; null` | No | Declared in the public API. |
+| `y_range` | `[number, number] &#124; null` | No | Declared in the public API. |
 | `stepover` | `number` | Yes | Declared in the public API. |
 | `resolution` | `number` | Yes | Declared in the public API. |
 | `standoff_offset` | `number` | Yes | Declared in the public API. |
-| `safe_z` | `number \| null` | No | Declared in the public API. |
+| `safe_z` | `number &#124; null` | No | Declared in the public API. |
 | `feedrate` | `number` | Yes | Declared in the public API. |
 | `plunge_feed` | `number` | Yes | Declared in the public API. |
 | `width` | `number` | Yes | Declared in the public API. |
@@ -408,7 +408,7 @@ Wrap a coordinate-local L1 design/op list as a feature at a planar pose.
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `design` | `Design \| readonly Op[]` |  | Yes |
+| `design` | `Design &#124; readonly Op[]` |  | Yes |
 | `pose` | `FeaturePose` | `{}` | No |
 | `name` | `string` |  | No |
 
@@ -545,7 +545,7 @@ Single verification finding, optionally tied to a resolved segment index.
 | --- | --- | --- | --- |
 | `rule` | `string` | Yes | Stable rule identifier, such as `bounds` or `peak-acceleration`. |
 | `severity` | `Severity` | Yes | Whether the finding blocks the contract or is advisory. |
-| `segment` | `number \| null` | Yes | Zero-based segment index, or null when the finding is global. |
+| `segment` | `number &#124; null` | Yes | Zero-based segment index, or null when the finding is global. |
 | `message` | `string` | Yes | Human-readable finding details. |
 
 
@@ -872,7 +872,7 @@ Declared in the public API.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `bounds` | `[number, number, number, number, number, number]` | Yes | Declared in the public API. |
-| `origin` | `'front_left' \| 'center' \| 'custom'` | No | Declared in the public API. |
+| `origin` | `'front_left' &#124; 'center' &#124; 'custom'` | No | Declared in the public API. |
 | `safeTraverseZ` | `number` | No | Declared in the public API. |
 
 
@@ -1010,7 +1010,7 @@ Declared in the public API.
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
 | `index` | `number` | Yes | Declared in the public API. |
-| `kind` | `'extruder_nozzle' \| 'spindle' \| 'laser_diode' \| 'plasma_torch'` | Yes | Declared in the public API. |
+| `kind` | `'extruder_nozzle' &#124; 'spindle' &#124; 'laser_diode' &#124; 'plasma_torch'` | Yes | Declared in the public API. |
 | `nozzleDiameterMm` | `number` | No | Declared in the public API. |
 | `maxTempC` | `number` | No | Declared in the public API. |
 | `maxVolumetricFlowMm3S` | `number` | No | Declared in the public API. |
@@ -1206,7 +1206,7 @@ Dynamically optimize toolpath feedrate to maintain Constant Material Removal Rat
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
 | `ops` | `Op[]` |  | Yes |
-| `params` | `Partial&lt;ResolveParams&gt; \| undefined` |  | Yes |
+| `params` | `Partial&lt;ResolveParams&gt; &#124; undefined` |  | Yes |
 | `depthOfCut` | `number` |  | Yes |
 | `targetMrrMm3Min` | `number` |  | Yes |
 | `minFeedrate` | `number` | `100.0` | No |
@@ -1757,17 +1757,17 @@ One resolved motion or process segment in the Dry L2 IR.
 
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
-| `start` | `(number \| null)[]` | Yes | Declared in the public API. |
-| `end` | `(number \| null)[]` | Yes | Declared in the public API. |
+| `start` | `(number &#124; null)[]` | Yes | Declared in the public API. |
+| `end` | `(number &#124; null)[]` | Yes | Declared in the public API. |
 | `travel` | `boolean` | Yes | Declared in the public API. |
 | `speed` | `number` | Yes | Declared in the public API. |
 | `length` | `number` | Yes | Declared in the public API. |
 | `volume` | `number` | Yes | Declared in the public API. |
 | `filament` | `number` | Yes | Declared in the public API. |
-| `width` | `number \| null` | Yes | Declared in the public API. |
-| `height` | `number \| null` | Yes | Declared in the public API. |
+| `width` | `number &#124; null` | Yes | Declared in the public API. |
+| `height` | `number &#124; null` | Yes | Declared in the public API. |
 | `kind` | `SegmentKind` | Yes | Declared in the public API. |
-| `centre` | `[number, number] \| null` | Yes | Declared in the public API. |
+| `centre` | `[number, number] &#124; null` | Yes | Declared in the public API. |
 | `clockwise` | `boolean` | Yes | Declared in the public API. |
 | `temperature` | `number` | No | Declared in the public API. |
 | `fan` | `number` | No | Declared in the public API. |
@@ -1848,7 +1848,7 @@ Simulate 3D Dexel grid stock subtraction against a toolpath.
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
 | `ops` | `Op[]` |  | Yes |
-| `params` | `Partial&lt;ResolveParams&gt; \| undefined` |  | Yes |
+| `params` | `Partial&lt;ResolveParams&gt; &#124; undefined` |  | Yes |
 | `stockBounds` | `[number, number, number, number, number, number]` |  | Yes |
 | `resolutionMm` | `number` | `1.0` | No |
 | `toolRadius` | `number` | `3.0` | No |
@@ -2119,14 +2119,14 @@ silently. The engine binding shipped exactly that bug — a thirteen-argument ca
 | `printer` | `string` | No | Named printer profile supplying resolve parameters. |
 | `maxFlow` | `number` | No | Max volumetric flow, mm³/s. |
 | `minTemp` | `number` | No | Minimum nozzle temperature required to extrude, °C. |
-| `bounds` | `string \| number[][]` | No | Build volume as `[[x0,x1],[y0,y1],[z0,z1]]` or an `'x0,x1,y0,y1,z0,z1'` CSV string. |
+| `bounds` | `string &#124; number[][]` | No | Build volume as `[[x0,x1],[y0,y1],[z0,z1]]` or an `'x0,x1,y0,y1,z0,z1'` CSV string. |
 | `monotonicZ` | `boolean` | No | Require Z to be non-decreasing, as in vase mode. |
-| `speedRange` | `string \| [number, number]` | No | Allowed extruding feedrate range `[min, max]` in mm/min, or a `'min,max'` CSV string. |
+| `speedRange` | `string &#124; [number, number]` | No | Allowed extruding feedrate range `[min, max]` in mm/min, or a `'min,max'` CSV string. |
 | `maxRetractionDistance` | `number` | No | Maximum retraction distance, mm. |
 | `maxRetractionSpeed` | `number` | No | Maximum retraction speed, mm/min. |
 | `maxTravelWithoutRetract` | `number` | No | Maximum travel distance permitted without a retraction, mm. |
-| `firstLayerHeightRange` | `string \| [number, number]` | No | First-layer height limits `[min, max]` in mm, or a `'min,max'` CSV string. |
-| `firstLayerSpeedRange` | `string \| [number, number]` | No | First-layer speed limits `[min, max]` in mm/min, or a `'min,max'` CSV string. |
+| `firstLayerHeightRange` | `string &#124; [number, number]` | No | First-layer height limits `[min, max]` in mm, or a `'min,max'` CSV string. |
+| `firstLayerSpeedRange` | `string &#124; [number, number]` | No | First-layer speed limits `[min, max]` in mm/min, or a `'min,max'` CSV string. |
 | `kinematics` | `MachineKinematics` | No | Machine motion limits. |
 
 

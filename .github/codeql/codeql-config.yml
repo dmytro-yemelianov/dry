@@ -1,0 +1,7 @@
+name: DryMachina CodeQL configuration
+
+# Third-party vendored source is checksum-pinned and reviewed through dependency updates. Scanning
+# it produces findings about upstream implementation details that DryMachina does not call in a
+# security context; every first-party JavaScript/TypeScript/Python path remains in scope.
+paths-ignore:
+  - web/vendor/**

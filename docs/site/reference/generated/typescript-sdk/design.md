@@ -23,16 +23,16 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `geometry` | `geometry(width: number, height: number): this` |  | Set the extrusion bead cross-section (mm). |
 | `extruder` | `extruder(on: boolean): this` |  | Turn the extruder on/off (off =&gt; subsequent moves are travels). |
 | `speed` | `speed(printSpeed: number): this` |  | Set the print feedrate (mm/min). |
-| `point` | `point(x: number \| null = null, y: number \| null = null, z: number \| null = null): this` |  | Move to a point; an omitted axis is inherited from the running position. |
-| `arc` | `arc(a: { cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }): this` |  | A circular arc about (cx, cy) to an end point; clockwise =&gt; G2, else G3. |
-| `spline` | `spline(points: [number \| null, number \| null, number \| null][]): this` |  | A Catmull-Rom spline from the running position through each (x, y, z) control point. |
+| `point` | `point(x: number &#124; null = null, y: number &#124; null = null, z: number &#124; null = null): this` |  | Move to a point; an omitted axis is inherited from the running position. |
+| `arc` | `arc(a: { cx: number; cy: number; x?: number &#124; null; y?: number &#124; null; z?: number &#124; null; clockwise?: boolean }): this` |  | A circular arc about (cx, cy) to an end point; clockwise =&gt; G2, else G3. |
+| `spline` | `spline(points: [number &#124; null, number &#124; null, number &#124; null][]): this` |  | A Catmull-Rom spline from the running position through each (x, y, z) control point. |
 | `clothoid` | `clothoid(a: {
     corner_x: number;
     corner_y: number;
     blend: number;
-    x?: number \| null;
-    y?: number \| null;
-    z?: number \| null;
+    x?: number &#124; null;
+    y?: number &#124; null;
+    z?: number &#124; null;
   }): this` |  | A clothoid (Euler-spiral) corner blend around construction corner `(corner_x, corner_y)`, consuming `blend` mm of tangent length from each leg on the way to `(x, y, z)`. |
 | `temperature` | `temperature(nozzle: number): this` |  | Set the nozzle temperature channel (°C). |
 | `fan` | `fan(speed: number): this` |  | Set the part-cooling fan channel (0..1). |
@@ -42,21 +42,21 @@ Fluent builder for Dry L1 authoring operations and engine-backed resolution call
 | `orient` | `orient(i: number, j: number, k: number): this` |  | Set the toolframe orientation: the tool-direction vector (i, j, k). |
 | `dwell` | `dwell(seconds: number): this` |  | Pause in place for `seconds` (emits a `G4` dwell). |
 | `manualGcode` | `manualGcode(text: string): this` |  | Inject verbatim custom G-code. |
-| `retract` | `retract(distance: number \| null = null, speed: number \| null = null): this` |  | Retract filament. |
-| `unretract` | `unretract(distance: number \| null = null, speed: number \| null = null): this` |  | Prime filament back after a retraction. |
+| `retract` | `retract(distance: number &#124; null = null, speed: number &#124; null = null): this` |  | Retract filament. |
+| `unretract` | `unretract(distance: number &#124; null = null, speed: number &#124; null = null): this` |  | Prime filament back after a retraction. |
 | `deposit` | `deposit(volume: number, speed: number): this` |  | Stationary extrusion of a set volume (mm³) at feedrate (mm/min). |
 | `pocket` | `pocket(options: PocketOptions): this` |  | Append CNC pocket/profile milling ops generated from options. |
 | `gcode` | `gcode(options?: GcodeOptions): string[]` | [Author a path](/guide/author) | Resolve + emit motion g-code (an array of lines). |
 | `gcode` | `gcode(printer?: string, relativeE?: boolean, travelG1E0?: boolean, fiveAxis?: boolean, rotaryAxes?: string): string[]` | [Author a path](/guide/author) | @deprecated Pass a {@link GcodeOptions} object instead. |
-| `gcode` | `gcode(first?: GcodeOptions \| string, ...rest: readonly unknown[]): string[]` | [Author a path](/guide/author) | Declared in the public API. |
+| `gcode` | `gcode(first?: GcodeOptions &#124; string, ...rest: readonly unknown[]): string[]` | [Author a path](/guide/author) | Declared in the public API. |
 | `simulate` | `simulate(printer = 'generic'): Metrics` | [Simulate](/guide/simulate) | Resolve + simulate; returns metrics (time, distances, material, peak flow). |
 | `ir` | `ir(printer = 'generic'): Toolpath` | [Lower to the Dry IR](/guide/lower) | Resolve to the L2 Dry IR ({ version, segments }). |
 | `optimizedIr` | `optimizedIr(printer = 'generic'): Toolpath` | [Optimize](/guide/optimize) | Resolve through the standard L2 optimization pipeline. |
 | `balancedIr` | `balancedIr(printer = 'generic', kinematics?: MachineKinematics): Toolpath` | [Optimize](/guide/optimize) | Resolve through the kinematics-aware balanced optimization pipeline. |
 | `binary` | `binary(printer = 'generic'): Uint8Array` |  | Resolve + encode to the binary DRY1 format; returns the raw bytes. |
 | `verify` | `verify(options?: VerifyOptions): Report` | [Verify](/guide/verify) | Resolve + verify against machine-safety contracts; returns the safety report findings. |
-| `verify` | `verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string \| number[][], monotonicZ?: boolean, speedRange?: string \| [number, number], maxRetractionDistance?: number, maxRetractionSpeed?: number, maxTravelWithoutRetract?: number, firstLayerHeightRange?: string \| [number, number], firstLayerSpeedRange?: string \| [number, number], kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | @deprecated Pass a {@link VerifyOptions} object instead. |
-| `verify` | `verify(first?: VerifyOptions \| string, ...rest: readonly unknown[]): Report` | [Verify](/guide/verify) | Declared in the public API. |
+| `verify` | `verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string &#124; number[][], monotonicZ?: boolean, speedRange?: string &#124; [number, number], maxRetractionDistance?: number, maxRetractionSpeed?: number, maxTravelWithoutRetract?: number, firstLayerHeightRange?: string &#124; [number, number], firstLayerSpeedRange?: string &#124; [number, number], kinematics?: MachineKinematics): Report` | [Verify](/guide/verify) | @deprecated Pass a {@link VerifyOptions} object instead. |
+| `verify` | `verify(first?: VerifyOptions &#124; string, ...rest: readonly unknown[]): Report` | [Verify](/guide/verify) | Declared in the public API. |
 | `checkCompatibility` | `checkCompatibility(capabilities: MachineCapabilities, printer = 'generic'): CompatibilityReport` |  | Pre-flight check toolpath against machine capabilities (D2.2). |
 | `toObj` | `toObj(includeTravel = false, printer = 'generic'): string` |  | Export toolpath as a 3D Wavefront .obj mesh string. |
 | `toSvg` | `toSvg(width = 800, height = 800, padding = 40.0, printer = 'generic'): string` |  | Export toolpath as a 2D (XY) vector SVG projection string. |
@@ -137,9 +137,9 @@ point(x: number | null = null, y: number | null = null, z: number | null = null)
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `x` | `number \| null` | `null` | No |
-| `y` | `number \| null` | `null` | No |
-| `z` | `number \| null` | `null` | No |
+| `x` | `number &#124; null` | `null` | No |
+| `y` | `number &#124; null` | `null` | No |
+| `z` | `number &#124; null` | `null` | No |
 
 Returns: `this`
 
@@ -155,7 +155,7 @@ arc(a: { cx: number; cy: number; x?: number | null; y?: number | null; z?: numbe
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `a` | `{ cx: number; cy: number; x?: number \| null; y?: number \| null; z?: number \| null; clockwise?: boolean }` |  | Yes |
+| `a` | `{ cx: number; cy: number; x?: number &#124; null; y?: number &#124; null; z?: number &#124; null; clockwise?: boolean }` |  | Yes |
 
 Returns: `this`
 
@@ -171,7 +171,7 @@ spline(points: [number | null, number | null, number | null][]): this
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `points` | `[number \| null, number \| null, number \| null][]` |  | Yes |
+| `points` | `[number &#124; null, number &#124; null, number &#124; null][]` |  | Yes |
 
 Returns: `this`
 
@@ -194,7 +194,7 @@ clothoid(a: {
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `a` | `{ corner_x: number; corner_y: number; blend: number; x?: number \| null; y?: number \| null; z?: number \| null; }` |  | Yes |
+| `a` | `{ corner_x: number; corner_y: number; blend: number; x?: number &#124; null; y?: number &#124; null; z?: number &#124; null; }` |  | Yes |
 
 Returns: `this`
 
@@ -347,8 +347,8 @@ retract(distance: number | null = null, speed: number | null = null): this
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `distance` | `number \| null` | `null` | No |
-| `speed` | `number \| null` | `null` | No |
+| `distance` | `number &#124; null` | `null` | No |
+| `speed` | `number &#124; null` | `null` | No |
 
 Returns: `this`
 
@@ -364,8 +364,8 @@ unretract(distance: number | null = null, speed: number | null = null): this
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `distance` | `number \| null` | `null` | No |
-| `speed` | `number \| null` | `null` | No |
+| `distance` | `number &#124; null` | `null` | No |
+| `speed` | `number &#124; null` | `null` | No |
 
 Returns: `this`
 
@@ -460,7 +460,7 @@ gcode(first?: GcodeOptions | string, ...rest: readonly unknown[]): string[]
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `first` | `GcodeOptions \| string` |  | No |
+| `first` | `GcodeOptions &#124; string` |  | No |
 | `rest` | `readonly unknown[]` |  | Yes |
 
 Returns: `string[]`
@@ -605,14 +605,14 @@ verify(printer?: string, maxFlow?: number, minTemp?: number, bounds?: string | n
 | `printer` | `string` |  | No |
 | `maxFlow` | `number` |  | No |
 | `minTemp` | `number` |  | No |
-| `bounds` | `string \| number[][]` |  | No |
+| `bounds` | `string &#124; number[][]` |  | No |
 | `monotonicZ` | `boolean` |  | No |
-| `speedRange` | `string \| [number, number]` |  | No |
+| `speedRange` | `string &#124; [number, number]` |  | No |
 | `maxRetractionDistance` | `number` |  | No |
 | `maxRetractionSpeed` | `number` |  | No |
 | `maxTravelWithoutRetract` | `number` |  | No |
-| `firstLayerHeightRange` | `string \| [number, number]` |  | No |
-| `firstLayerSpeedRange` | `string \| [number, number]` |  | No |
+| `firstLayerHeightRange` | `string &#124; [number, number]` |  | No |
+| `firstLayerSpeedRange` | `string &#124; [number, number]` |  | No |
 | `kinematics` | `MachineKinematics` |  | No |
 
 Returns: `Report`
@@ -633,7 +633,7 @@ verify(first?: VerifyOptions | string, ...rest: readonly unknown[]): Report
 
 | Parameter | Type | Default | Required |
 | --- | --- | --- | --- |
-| `first` | `VerifyOptions \| string` |  | No |
+| `first` | `VerifyOptions &#124; string` |  | No |
 | `rest` | `readonly unknown[]` |  | Yes |
 
 Returns: `Report`
