@@ -16,6 +16,10 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
   untrusted titles and pin CDN scripts with Subresource Integrity. CodeQL ignores only vendored
   Three.js, while a dedicated regression gate keeps first-party sources scanned and preserves the
   SRI/DOM contracts.
+- **Dependency update automation is bounded per build root.** Dependabot groups minor and patch
+  updates while keeping majors isolated, permits at most two open version-update PRs per
+  ecosystem/root, and has a CI policy check so a configuration edit cannot silently recreate an
+  unbounded backlog. Security-update PRs remain governed by GitHub's separate security queue.
 
 ## [0.11.0] - 2026-09-06
 
