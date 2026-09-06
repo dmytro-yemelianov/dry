@@ -71,18 +71,12 @@ GitHub Releases** under the **Business Source License 1.1 (`BUSL-1.1`)**. Each v
 converts to MIT on 2030-09-05; see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE). Earlier
 release artifacts retain the terms that accompanied them.
 
-The five crates.io packages are published separately, in dependency order, after the GitHub release
-is green:
-
-1. `dry-core`, `dry-license`, and `dry-moonraker` (independent roots);
-2. wait until the crates.io index exposes those exact versions;
-3. `dry-llm` (depends on `dry-core`), then wait for the index again;
-4. `dry-cli` (depends on all four; installs the `dry` binary).
-
-Before the first irreversible publish, inspect every archive with `cargo package --list`, run
-`cargo publish --dry-run`, and confirm that the embedded `LICENSE` names the same version and Change
-Date as the release. Published crate files cannot be replaced; yanking only removes a version from
-normal dependency resolution.
+DryMachina does **not** publish packages to crates.io. The five Rust packages keep
+`publish = false`; their prospective package contents are still enumerated and inspected by release
+gates so a future registry decision does not require packaging remediation. Rust users who
+deliberately need source builds can use a pinned Git tag, while supported installable artifacts come
+from the GitHub Release. Publishing to any registry is a separate, explicitly approved and
+irreversible product decision, never an automatic continuation of the GitHub release.
 
 ---
 

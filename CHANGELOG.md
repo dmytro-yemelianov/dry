@@ -9,6 +9,8 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-06
+
 ### Changed
 - **Hosted verification now has one product topology.** `services/cloud` is the sole public,
   asynchronous ingress and dispatches persisted jobs to the private native

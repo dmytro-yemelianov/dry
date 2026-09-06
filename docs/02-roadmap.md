@@ -23,10 +23,11 @@ Roadmap deliverables and issue remediations map directly to **Semantic Versionin
 | **`v0.11.0`** | **Post-audit remediation** | Engine-delegated compatibility across bindings, fail-closed cloud ingress, executable standalone/release and CLI smoke-test gates, capability-manifest completeness, honest proof-strength metadata, direction-sensitive RAPID `MoveC` geometry with structural drift coverage, and an enforced 85% workspace line-coverage floor. | **Target** |
 | **`v1.0.0`** | **Major LTS Release** | Formal verification completion across all kernel passes (Lean 4), long-term stable Dry IR v1 normative standard freeze, and public API stabilization. | **Target** |
 
-> **Version status (2026-09-05).** GitHub releases v0.9.0, v0.9.1, and
+> **Version status (2026-09-06).** GitHub releases v0.9.0, v0.9.1, and
 > [v0.10.0](https://github.com/dmytro-yemelianov/dry/releases/tag/v0.10.0) exist. The v0.10.0
-> release contains 14 checksum-verified, provenance-attested assets. The five crates.io packages
-> have not been published. Post-audit behavior/API changes are intentionally held for v0.11.0 so
+> release contains 14 checksum-verified, provenance-attested assets. Rust packages are intentionally
+> not published to crates.io; supported artifacts ship through GitHub Releases. Post-audit
+> behavior/API changes are intentionally held for v0.11.0 so
 > the v0.10.0 release statement remains true. “Merged”, “released”, and “published to a registry”
 > are separate claims throughout this roadmap.
 

@@ -6,7 +6,7 @@ be reviewed for provenance and dependency licensing (08·WS7 acceptance).
 
 *(Engineering record, not legal advice — confirm with counsel before external commercial distribution.)*
 
-## 0. DryMachina v0.10.0 Business Source License (BUSL-1.1) distribution policy
+## 0. DryMachina Business Source License (BUSL-1.1) distribution policy
 
 Starting with DryMachina v0.10.0, source, binaries, wheels, npm tarballs,
 browser/WASM engine, and executable gallery are licensed under the **Business Source License 1.1
@@ -19,9 +19,9 @@ accompanied them.
 - **Legal, not technical, cap:** DryMachina does not meter Users or Machines, phone home, or use a
   runtime entitlement check to enforce this grant. Token activation and reports retain their
   existing technical behavior; the cap is a legal condition of the licence.
-- **4-Year Automatic MIT Conversion:** The v0.10.0 licence has Change Date **2030-09-05**, when it
-  converts to the standard permissive MIT License. Later releases carry their own stated Change
-  Dates.
+- **4-Year Automatic MIT Conversion:** The current v0.11.0 licence has Change Date
+  **2030-09-06**, when it converts to the standard permissive MIT License. Version 0.10.0 retains
+  its own 2030-09-05 Change Date; later releases carry their own stated Change Dates.
 
 DryMachina-authored packages declare the standard SPDX identifier `BUSL-1.1` across Cargo, npm,
 and PyPI packaging manifests. All third-party runtime dependencies remain strictly under permissive

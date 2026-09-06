@@ -69,6 +69,27 @@ check "tools/license-issuer/package.json" "$issuer_ver"
 check "tools/license-issuer/package-lock.json" "$issuer_lock_ver"
 check "LICENSE Licensed Work" "$license_ver"
 
+# GitHub Releases are the only supported distribution channel. Keep every Rust package
+# fail-closed against an accidental `cargo publish`.
+for manifest in \
+  crates/core/Cargo.toml \
+  crates/cli/Cargo.toml \
+  crates/license/Cargo.toml \
+  crates/llm/Cargo.toml \
+  crates/moonraker/Cargo.toml \
+  crates/wasm/Cargo.toml \
+  crates/cloud/Cargo.toml \
+  py/Cargo.toml \
+  containers/verify-runner/Cargo.toml
+do
+  if grep -Eq '^publish[[:space:]]*=[[:space:]]*false$' "$ROOT/$manifest"; then
+    echo "ok: $manifest blocks registry publication"
+  else
+    echo "MISMATCH: $manifest must set 'publish = false'" >&2
+    status=1
+  fi
+done
+
 if ! grep -Fq "## [$VER]" "$ROOT/CHANGELOG.md"; then
   echo "MISMATCH: CHANGELOG.md has no release heading '## [$VER]'" >&2
   status=1

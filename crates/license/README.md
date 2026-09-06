@@ -17,5 +17,5 @@
 
 ## License
 
-Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.10.0
-terms convert to MIT on 2030-09-05; see [LICENSE](../../LICENSE).
+Licensed under the **Business Source License 1.1 (BUSL-1.1)**. The DryMachina v0.11.0
+terms convert to MIT on 2030-09-06; see [LICENSE](../../LICENSE).

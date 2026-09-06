@@ -11,12 +11,12 @@ how many times it runs.
 
 ## Community production grant
 
-DryMachina v0.10.0 is distributed under BUSL-1.1. Non-production use is permitted by the base
+DryMachina v0.11.0 is distributed under BUSL-1.1. Non-production use is permitted by the base
 license. The Additional Use Grant also permits production use by **one natural-person User** with
 **one physical Production Machine**, provided the use does not provide a Competing Service. Crossing
 any one of those limits requires a commercial license. This is a legal, self-assessed cap: the
-software does not meter users or machines or phone home. Version 0.10.0 converts to MIT on
-2030-09-05; later releases carry their own Change Dates.
+software does not meter users or machines or phone home. Version 0.11.0 converts to MIT on
+2030-09-06; version 0.10.0 retains its own 2030-09-05 Change Date.
 
 ## Tiers
 
