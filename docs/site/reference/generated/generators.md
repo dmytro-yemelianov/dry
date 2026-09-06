@@ -136,7 +136,7 @@ Declared in the public API.
 
 | Field | Type | Required | Summary |
 | --- | --- | --- | --- |
-| `shape` | `'rect' \| 'circle'` | Yes | Declared in the public API. |
+| `shape` | `'rect' &#124; 'circle'` | Yes | Declared in the public API. |
 | `x` | `number` | No | Declared in the public API. |
 | `y` | `number` | No | Declared in the public API. |
 | `width` | `number` | No | Declared in the public API. |

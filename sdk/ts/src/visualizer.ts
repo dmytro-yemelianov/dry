@@ -2,9 +2,6 @@
 
 import { Segment, Toolpath } from './ops.js';
 
-const THREE_SRI = 'sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
-const ORBIT_CONTROLS_SRI = 'sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf';
-
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -266,8 +263,8 @@ export function toolpathToInteractiveHtml(
     #hud { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.85); padding: 16px; border-radius: 8px; border: 1px solid #334155; font-size: 13px; z-index: 10; }
     h1 { margin: 0 0 8px 0; font-size: 16px; color: #38bdf8; }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="${THREE_SRI}" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="${ORBIT_CONTROLS_SRI}" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="hud">
