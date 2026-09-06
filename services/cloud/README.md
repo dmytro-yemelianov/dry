@@ -72,6 +72,35 @@ The workflow deploys staging on `main` and production on a version tag. Its `/he
 only control-plane liveness. Before calling the service deployed, run an authenticated staging job
 through submission, queue processing and report retrieval, then record an executed rollback drill.
 
+## Image promotion
+
+The committed `containers[].image` is a Dockerfile path, which is what `wrangler deploy --dry-run`
+validates. A real deploy never uses it. `deploy-verify.yml` promotes an image that CI already built,
+published and signed, through [`tools/promote_runner_image.py`](../../tools/promote_runner_image.py):
+
+1. Resolve the release-named tag in GHCR — `X.Y.Z` for a `vX.Y.Z` production promotion, `sha-<short>`
+   for a staging promotion off `main` — to its immutable `sha256:` digest.
+2. Verify the signed build provenance for that digest with `gh attestation verify`, requiring the
+   attested subject digest, source repository, source commit, builder workflow and builder ref to
+   match the promotion exactly. Any mismatch fails closed, before anything is deployed.
+3. Copy the verified image into the Cloudflare managed registry. Cloudflare Containers pull only from
+   `registry.cloudflare.com`, Docker Hub, Amazon ECR and Google Artifact Registry — never from GHCR —
+   so the image is pulled **by digest** and re-pushed under the derived tag `sha256-<digest hex>`.
+4. Deploy with a generated config (`wrangler.promotion.jsonc`, gitignored) whose only difference from
+   the committed config is that one container image, pinned to that tag.
+5. Record `deployment-evidence.json`: release, source commit, source image digest, promoted image and
+   the deployed environment revision. The record is rejected as incomplete if the revision is missing.
+
+`tools/check_image_promotion_policy.py` runs in CI and fails if the builder stops publishing an
+attested semver-named digest, or if the deploy job deploys without the promotion gate and its config.
+
+CI also renders a promotion config from a placeholder digest and dry-runs both environments, so the
+generated shape stays deployable without an account or a published image.
+
+What remains unproved against a live account is the Cloudflare registry push and the deployed
+revision id; neither has ever run. Treat the first configured staging deploy as the proof of those
+two steps, not this description.
+
 ## Rollback
 
 Use Wrangler's deployment history for the selected environment and roll back to the last known-good

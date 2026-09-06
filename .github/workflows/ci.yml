@@ -665,6 +665,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Dependabot queue policy
         run: ruby tools/check_dependabot_policy.rb
+      # Issue #305. The deployment path must keep resolving one attested image
+      # digest; these gates fail closed if that binding is loosened.
+      - name: Container image promotion policy
+        run: python3 tools/check_image_promotion_policy.py
+      - name: Image promotion gate unit tests
+        run: |
+          python3 -m unittest discover -s tools/tests -p 'test_promote_runner_image.py'
+          python3 -m unittest discover -s tools/tests -p 'test_check_image_promotion_policy.py'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.23.1"
