@@ -663,7 +663,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Dependabot queue policy
-        run: python3 tools/check_dependabot_policy.py
+        run: ruby tools/check_dependabot_policy.rb
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: "1.88.0"
