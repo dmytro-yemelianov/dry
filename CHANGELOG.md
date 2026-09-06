@@ -23,6 +23,9 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 - **Cloudflare development tooling no longer resolves vulnerable Undici releases.** The control
   plane and license issuer use a compatible Wrangler/Vitest pool toolchain whose complete lockfile
   graphs resolve Undici 7.29.0; both roots pass and enforce a moderate-severity `npm audit` gate.
+- **The Studio build no longer resolves the unsupported vulnerable UUID 10 release.** Until
+  `vite-plugin-top-level-await` updates its exact transitive pin, the web root overrides UUID to
+  11.1.1 and enforces a moderate-severity `npm audit` gate in CI.
 
 ## [0.11.0] - 2026-09-06
 
