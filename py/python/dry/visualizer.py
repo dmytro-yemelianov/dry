@@ -1,5 +1,6 @@
 """3D Toolpath Visualizer and Model Exporter for Dry."""
 
+import html
 import json
 from typing import Any, Dict, List, Optional, Tuple, Sequence
 
@@ -124,12 +125,13 @@ def toolpath_to_interactive_html(
 
     json_payload = json.dumps(points_data)
     bounds_json = json.dumps(bounds if bounds else [[0, 250], [0, 250], [0, 250]])
+    escaped_title = html.escape(title, quote=True)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{title}</title>
+  <title>{escaped_title}</title>
   <style>
     body {{ margin: 0; overflow: hidden; background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f8fafc; }}
     #canvas-container {{ width: 100vw; height: 100vh; }}
@@ -143,12 +145,12 @@ def toolpath_to_interactive_html(
     .metric {{ margin: 4px 0; display: flex; justify-content: space-between; }}
     .metric-val {{ font-weight: 600; color: #94a3b8; }}
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="hud">
-    <h1>{title}</h1>
+    <h1>{escaped_title}</h1>
     <div style="margin-bottom: 8px;">
       <span class="badge" style="background:#0284c7;color:#fff;">Dry Engine</span>
       <span class="badge" style="background:#059669;color:#fff;">WebGL 3D</span>

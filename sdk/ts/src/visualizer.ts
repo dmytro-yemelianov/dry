@@ -2,6 +2,18 @@
 
 import { Segment, Toolpath } from './ops.js';
 
+const THREE_SRI = 'sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
+const ORBIT_CONTROLS_SRI = 'sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf';
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export interface Point3D {
   x: number;
   y: number;
@@ -242,23 +254,24 @@ export function toolpathToInteractiveHtml(
 
   const payload = JSON.stringify(pointsData);
   const boundsJson = JSON.stringify(bounds ?? [0, 250, 0, 250, 0, 250]);
+  const escapedTitle = escapeHtml(title);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${title}</title>
+  <title>${escapedTitle}</title>
   <style>
     body { margin: 0; overflow: hidden; background: #0b0f19; font-family: sans-serif; color: #f8fafc; }
     #hud { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.85); padding: 16px; border-radius: 8px; border: 1px solid #334155; font-size: 13px; z-index: 10; }
     h1 { margin: 0 0 8px 0; font-size: 16px; color: #38bdf8; }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="${THREE_SRI}" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="${ORBIT_CONTROLS_SRI}" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="hud">
-    <h1>${title}</h1>
+    <h1>${escapedTitle}</h1>
     <div>Segments: <strong>${pointsData.length}</strong></div>
     <div>Controls: Left-Click = Rotate, Right = Pan</div>
   </div>
@@ -312,4 +325,3 @@ export function toolpathToInteractiveHtml(
 </body>
 </html>`;
 }
-

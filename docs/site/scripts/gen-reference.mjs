@@ -86,7 +86,11 @@ function firstSentence(text) {
 }
 
 function escapeMarkdownInline(text) {
-  return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\|/g, '\\|');
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '\\|');
 }
 
 function escapeHtml(text) {

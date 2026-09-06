@@ -475,36 +475,50 @@ window.runVerification = function() {
     document.getElementById('metricWarnings').textContent = warnings.length;
 
     const container = document.getElementById('findingsContainer');
+    const textElement = (tag, className, text) => {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      element.textContent = String(text);
+      return element;
+    };
     if (report.findings.length === 0) {
-      container.innerHTML = `
-        <div class="pass-card">
-          <div style="font-size: 20px; margin-bottom: 4px;">✓ ALL SAFETY CONTRACTS PASSED</div>
-          <div style="font-size: 13px; color: var(--fg); opacity: 0.8;">
-            Inspected ${report.segments_inspected} motion segments against ${report.rules_evaluated.length} active verification rules. Zero violations detected.
-          </div>
-        </div>
-      `;
+      const card = document.createElement('div');
+      card.className = 'pass-card';
+      const heading = textElement('div', '', '✓ ALL SAFETY CONTRACTS PASSED');
+      heading.style.cssText = 'font-size: 20px; margin-bottom: 4px;';
+      const summary = textElement(
+        'div',
+        '',
+        `Inspected ${report.segments_inspected} motion segments against ${report.rules_evaluated.length} active verification rules. Zero violations detected.`,
+      );
+      summary.style.cssText = 'font-size: 13px; color: var(--fg); opacity: 0.8;';
+      card.append(heading, summary);
+      container.replaceChildren(card);
     } else {
-      let html = '';
+      const fragment = document.createDocumentFragment();
       for (const f of report.findings) {
-        html += `
-          <div class="finding-card ${f.severity}">
-            <div class="finding-header">
-              <span class="finding-rule">${f.rule.toUpperCase()} (${f.severity.toUpperCase()})</span>
-              <span style="color: var(--muted); font-size: 11px;">Segment #${f.segment}</span>
-            </div>
-            <div class="finding-msg">${f.message}</div>
-          </div>
-        `;
+        const severity = f.severity === 'error' || f.severity === 'warning' ? f.severity : 'warning';
+        const card = document.createElement('div');
+        card.className = `finding-card ${severity}`;
+        const header = document.createElement('div');
+        header.className = 'finding-header';
+        header.append(
+          textElement('span', 'finding-rule', `${String(f.rule).toUpperCase()} (${severity.toUpperCase()})`),
+          textElement('span', 'finding-segment', `Segment #${f.segment}`),
+        );
+        header.lastElementChild.style.cssText = 'color: var(--muted); font-size: 11px;';
+        card.append(header, textElement('div', 'finding-msg', f.message));
+        fragment.append(card);
       }
-      container.innerHTML = html;
+      container.replaceChildren(fragment);
     }
   } catch (err) {
-    document.getElementById('findingsContainer').innerHTML = `
-      <div style="color: var(--danger); padding: 20px; background: rgba(248,81,73,0.1); border-radius: 6px;">
-        <strong>Verification Error:</strong> ${err.message || err}
-      </div>
-    `;
+    const panel = document.createElement('div');
+    panel.style.cssText = 'color: var(--danger); padding: 20px; background: rgba(248,81,73,0.1); border-radius: 6px;';
+    const label = document.createElement('strong');
+    label.textContent = 'Verification Error: ';
+    panel.append(label, document.createTextNode(String(err?.message || err)));
+    document.getElementById('findingsContainer').replaceChildren(panel);
   }
 };
 

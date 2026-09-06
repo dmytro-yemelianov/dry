@@ -153,6 +153,14 @@ test('bounds CSV refuses what the Rust parser refuses', () => {
   );
 });
 
+test('decimal contract parsing is linear on long hostile-looking input', () => {
+  const longInvalid = `0${'00'.repeat(50_000)}x`;
+  assert.throws(
+    () => contractDesign().verify({ speedRange: `60,${longInvalid}` }),
+    /not a number/,
+  );
+});
+
 test('ranges refuse non-finite components, in CSV and structured form', () => {
   assert.throws(() => contractDesign().verify({ speedRange: '60,' }), /is empty/);
   assert.throws(() => contractDesign().verify({ speedRange: '60,abc' }), /not a number/);

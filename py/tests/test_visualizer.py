@@ -30,3 +30,12 @@ def test_visualizer_exports():
     assert "<!DOCTYPE html>" in html_text
     assert "three.js" in html_text
     assert "Test 3D Model" in html_text
+
+
+def test_visualizer_pins_dependencies_and_escapes_title():
+    html_text = dry.Design().point(0, 0, 0.2).to_html(title="<script>alert(1)</script>")
+
+    assert 'integrity="sha384-' in html_text
+    assert 'crossorigin="anonymous"' in html_text
+    assert "<script>alert(1)</script>" not in html_text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_text

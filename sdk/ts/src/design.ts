@@ -40,12 +40,44 @@ function params(printer: string) {
  * Require a plain decimal literal and a finite result, so both implementations refuse the same
  * inputs for the same reasons.
  */
-const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+function isAsciiDigit(char: string | undefined): boolean {
+  return char !== undefined && char >= '0' && char <= '9';
+}
+
+/** Linear-time recognizer for the decimal grammar accepted by the Rust-side contract parser. */
+function isPlainDecimal(text: string): boolean {
+  let index = 0;
+  if (text[index] === '+' || text[index] === '-') index += 1;
+
+  let digits = 0;
+  while (isAsciiDigit(text[index])) {
+    digits += 1;
+    index += 1;
+  }
+  if (text[index] === '.') {
+    index += 1;
+    while (isAsciiDigit(text[index])) {
+      digits += 1;
+      index += 1;
+    }
+  }
+  if (digits === 0) return false;
+
+  if (text[index] === 'e' || text[index] === 'E') {
+    index += 1;
+    if (text[index] === '+' || text[index] === '-') index += 1;
+    const exponentStart = index;
+    while (isAsciiDigit(text[index])) index += 1;
+    if (index === exponentStart) return false;
+  }
+
+  return index === text.length;
+}
 
 function csvNumber(name: string, token: string, index: number): number {
   const text = token.trim();
   if (text === '') throw new Error(`${name} field ${index + 1} is empty`);
-  if (!DECIMAL.test(text)) throw new Error(`${name} field ${index + 1} is not a number: '${text}'`);
+  if (!isPlainDecimal(text)) throw new Error(`${name} field ${index + 1} is not a number: '${text}'`);
   const value = Number(text);
   if (!Number.isFinite(value)) throw new Error(`${name} values must all be finite, got '${text}'`);
   return value;
