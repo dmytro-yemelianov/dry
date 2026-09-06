@@ -7,14 +7,14 @@ refined as they approach.
 
 Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scope. IDs are stable references.
 
-## Active release train (2026-09-05)
+## Active release train (2026-09-06)
 
 - `[x]` **R0.10** (S) **Cut the DryMachina v0.10.0 publication baseline before post-audit behavior
   changes merge.** **Released 2026-09-05:** main was fully green, including post-merge Codecov;
   `scripts/check-version.sh v0.10.0` passed across all 20 lockstep version surfaces; tag `v0.10.0`
   resolves to main commit `d033ef4`; and the GitHub release published 14 checksum-verified assets,
-  including the CycloneDX SBOM, under one Rekor-witnessed SLSA provenance statement. crates.io
-  publication remains a separate, irreversible action under `docs/12-releasing.md`.
+  including the CycloneDX SBOM, under one Rekor-witnessed SLSA provenance statement. A later product
+  decision kept crates.io publication disabled; supported artifacts ship through GitHub Releases.
 - `[~]` **R0.11** (L) **Post-audit remediation train.** Execute in this order after v0.10.0 is
   released: PR #286 repaired machine-compatibility parity and PR #287 hardened malformed contract
   ingress and activated missing standalone/release tests; both are merged and post-merge green.
@@ -30,6 +30,10 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   native verifier, the direct proxy is retired, and `crates/cloud` remains measurement-only evidence.
   Production availability still requires provisioned resources, authenticated staging smoke,
   rollback evidence, SLO and approved data-handling policy.
+  PR #295 completes the final cloud-topology slice and is merged and post-merge green: one async
+  ingress, one private native verifier, retired duplicate Pages/proxy routes, and deployment
+  contracts checked without claiming a live service. Historical non-active Pages deployments were
+  removed operationally; the protected active deployment exposes neither retired POST route.
   The full frozen audit spec and
   implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
   slice has independent review, target-specific gates, full PR CI, and post-merge main verification;

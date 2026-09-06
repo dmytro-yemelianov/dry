@@ -16,8 +16,8 @@ endorsement, affiliation, or that a third-party product *is* Dry or is official 
 requires prior written permission from the owner.
 
 The source code itself is licensed separately under the Business Source License 1.1
-(`BUSL-1.1`) — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The DryMachina v0.10.0 terms
-convert to MIT on 2030-09-05. This
+(`BUSL-1.1`) — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The DryMachina v0.11.0 terms
+convert to MIT on 2030-09-06. This
 trademark notice reserves the marks only; it adds nothing to and takes nothing from the code
 license.
 

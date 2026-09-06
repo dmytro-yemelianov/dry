@@ -5,18 +5,18 @@
   "serialNumber": "urn:uuid:60cf9074-a31c-4fd7-9020-fa72c6e90062",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-09-05T00:00:00Z",
+    "timestamp": "2026-09-06T00:00:00Z",
     "tools": [
       {
         "vendor": "DryMachina",
         "name": "dry-sbom-generator",
-        "version": "0.10.0"
+        "version": "0.11.0"
       }
     ],
     "component": {
       "type": "application",
       "name": "DryMachina",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "description": "Parametric Design/CAM DSL and Toolpath Compiler",
       "licenses": [
         {
@@ -25,14 +25,14 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-core@0.10.0"
+      "purl": "pkg:cargo/dry-core@0.11.0"
     }
   },
   "components": [
     {
       "type": "library",
       "name": "dry-core",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -41,13 +41,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-core@0.10.0",
+      "purl": "pkg:cargo/dry-core@0.11.0",
       "description": "Core deterministic toolpath lowering engine"
     },
     {
       "type": "application",
       "name": "dry-cli",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -56,13 +56,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-cli@0.10.0",
+      "purl": "pkg:cargo/dry-cli@0.11.0",
       "description": "Rust CLI: inspect / simulate / verify / emit"
     },
     {
       "type": "library",
       "name": "dry-license",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -71,13 +71,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-license@0.10.0",
+      "purl": "pkg:cargo/dry-license@0.11.0",
       "description": "Offline Ed25519 license verification"
     },
     {
       "type": "library",
       "name": "dry-llm",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -86,13 +86,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-llm@0.10.0",
+      "purl": "pkg:cargo/dry-llm@0.11.0",
       "description": "Prompt-to-design planner"
     },
     {
       "type": "library",
       "name": "dry-moonraker",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -101,13 +101,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-moonraker@0.10.0",
+      "purl": "pkg:cargo/dry-moonraker@0.11.0",
       "description": "Moonraker fleet synchronisation client"
     },
     {
       "type": "library",
       "name": "dry-wasm",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -116,13 +116,13 @@
           }
         }
       ],
-      "purl": "pkg:cargo/dry-wasm@0.10.0",
+      "purl": "pkg:cargo/dry-wasm@0.11.0",
       "description": "WebAssembly engine bindings"
     },
     {
       "type": "library",
       "name": "dry-py",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -131,13 +131,13 @@
           }
         }
       ],
-      "purl": "pkg:pypi/dry@0.10.0",
+      "purl": "pkg:pypi/dry@0.11.0",
       "description": "Python SDK bindings via PyO3"
     },
     {
       "type": "library",
       "name": "@dry/sdk",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -146,13 +146,13 @@
           }
         }
       ],
-      "purl": "pkg:npm/@dry/sdk@0.10.0",
+      "purl": "pkg:npm/@dry/sdk@0.11.0",
       "description": "TypeScript / JavaScript SDK"
     },
     {
       "type": "application",
       "name": "@dry/mcp",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "scope": "required",
       "licenses": [
         {
@@ -161,7 +161,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/@dry/mcp@0.10.0",
+      "purl": "pkg:npm/@dry/mcp@0.11.0",
       "description": "Model Context Protocol server"
     }
   ]

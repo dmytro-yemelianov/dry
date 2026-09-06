@@ -8,8 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LICENSE_ID = "BUSL-1.1"
-LICENSED_VERSION = "0.10.0"
-CHANGE_DATE = "2030-09-05"
+LICENSED_VERSION = "0.11.0"
+CHANGE_DATE = "2030-09-06"
 CANONICAL_TERMS_SHA256 = (
     "464186c664e7f8ae8afa9060424b0f769fcace1a21c4c6267c0d91a8dce94a84"
 )

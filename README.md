@@ -1,6 +1,6 @@
 # DryMachina (`dry`)
 
-[![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)](Cargo.toml)
+[![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)](Cargo.toml)
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 [![Rust: 1.88+](https://img.shields.io/badge/rust-1.88+-orange.svg)](https://www.rust-lang.org/)
 [![Python: 3.9+](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
@@ -180,7 +180,7 @@ Beginning with version 0.10.0, DryMachina is licensed under the **Business Sourc
   limits requires a commercial license.
 - **No telemetry enforcement:** The cap is a legal, self-assessed condition. DryMachina does not
   meter it or phone home.
-- **Rolling MIT conversion:** Version 0.10.0 converts to the standard permissive **MIT License** on
-  2030-09-05. Each later version has its own stated Change Date.
+- **Rolling MIT conversion:** Version 0.11.0 converts to the standard permissive **MIT License** on
+  2030-09-06. Version 0.10.0 retains its own 2030-09-05 Change Date.
 
 See [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), [`AUTHORS.md`](AUTHORS.md), and [`TRADEMARKS.md`](TRADEMARKS.md) for full terms.

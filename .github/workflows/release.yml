@@ -59,6 +59,18 @@ jobs:
           cargo test --workspace --all-features --locked
           python tools/validate_vectors.py conformance/vectors
           python tools/validate_reports.py .
+      - name: inspect unpublished Rust package contents
+        run: |
+          set -euo pipefail
+          for package in dry-core dry-license dry-moonraker dry-llm dry-cli; do
+            cargo package -p "$package" --list > "/tmp/${package}.files"
+            grep -qx 'LICENSE' "/tmp/${package}.files"
+            grep -qx 'NOTICE' "/tmp/${package}.files"
+            if grep -Eq '\.profraw$|(^|/)memory/|(^|/)\.dev\.vars' "/tmp/${package}.files"; then
+              echo "forbidden content in ${package} package file set" >&2
+              exit 1
+            fi
+          done
       - name: dependency audits
         run: |
           cargo audit

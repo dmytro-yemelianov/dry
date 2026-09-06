@@ -15,8 +15,9 @@ Licensing Summary (non-binding)
   Service. Use beyond any of those limits requires a commercial license.
 - DryMachina does not meter this cap or phone home; users assess their own
   compliance with the license.
-- Version 0.10.0 converts automatically to the MIT License on 2030-09-05. Each
-  later version has its own stated Change Date.
+- This copy, version 0.11.0, converts automatically to the MIT License on
+  2030-09-06. Version 0.10.0 retains its own 2030-09-05 Change Date, and each
+  later version has the date stated in its accompanying LICENSE.
 - Versions released before 0.10.0 retain the license terms distributed with
   those versions.
 
