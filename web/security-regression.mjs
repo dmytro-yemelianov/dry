@@ -62,6 +62,16 @@ assert.doesNotMatch(design, /const DECIMAL\s*=\s*\//, 'contract decimals must us
 assert.match(design, /function isPlainDecimal\(/, 'the linear decimal scanner is required');
 
 const codeql = read('.github/codeql/codeql-config.yml');
+assert.equal(
+  (codeql.match(/^paths-ignore:\s*$/gm) ?? []).length,
+  1,
+  'CodeQL configuration must declare exactly one paths-ignore block',
+);
+assert.equal(
+  (codeql.match(/^paths:\s*(?:#.*)?$/gm) ?? []).length,
+  0,
+  'CodeQL must not use a first-party-restricting paths allowlist',
+);
 const pathsIgnoreBlock = codeql.match(/^paths-ignore:\s*\n((?:\s+-\s+[^\n]+\n?)*)/m);
 assert.ok(pathsIgnoreBlock, 'CodeQL configuration must declare paths-ignore');
 const ignoredPaths = pathsIgnoreBlock[1]
