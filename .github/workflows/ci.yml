@@ -596,6 +596,7 @@ jobs:
         working-directory: tools/license-issuer
         run: |
           npm ci
+          npm audit --audit-level=moderate
           npm run typecheck
           npm test
 
