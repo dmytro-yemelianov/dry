@@ -1,5 +1,7 @@
 """Test 3D visualization and model export helpers."""
 
+import re
+
 import dry
 
 def test_visualizer_exports():
@@ -30,3 +32,15 @@ def test_visualizer_exports():
     assert "<!DOCTYPE html>" in html_text
     assert "three.js" in html_text
     assert "Test 3D Model" in html_text
+
+
+def test_visualizer_pins_dependencies_and_escapes_title():
+    html_text = dry.Design().point(0, 0, 0.2).to_html(title="<script>alert(1)</script>")
+
+    external_scripts = re.findall(r'<script\b[^>]*\bsrc="https://[^"]+"[^>]*></script>', html_text)
+    assert len(external_scripts) == 2
+    for script in external_scripts:
+        assert re.search(r'\bintegrity="sha384-[A-Za-z0-9+/=]+"', script)
+        assert 'crossorigin="anonymous"' in script
+    assert "<script>alert(1)</script>" not in html_text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_text

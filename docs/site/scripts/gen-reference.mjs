@@ -86,7 +86,19 @@ function firstSentence(text) {
 }
 
 function escapeMarkdownInline(text) {
-  return String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\|/g, '\\|');
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '\\|');
+}
+
+function escapeMarkdownCodeSpan(text) {
+  return String(text)
+    .replace(/`/g, '&#96;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '&#124;');
 }
 
 function escapeHtml(text) {
@@ -453,7 +465,7 @@ function renderParamTable(params, typeLabel = 'Type') {
     const type = param.type || param.annotation || 'any';
     const defaultValue = param.default || '';
     const required = param.optional ? 'No' : 'Yes';
-    lines.push(`| \`${escapeMarkdownInline(param.name)}\` | \`${escapeMarkdownInline(type)}\` | ${defaultValue ? `\`${escapeMarkdownInline(defaultValue)}\`` : ''} | ${required} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(param.name)}\` | \`${escapeMarkdownCodeSpan(type)}\` | ${defaultValue ? `\`${escapeMarkdownCodeSpan(defaultValue)}\`` : ''} | ${required} |`);
   }
   lines.push('');
   return lines.join('\n');
@@ -463,7 +475,7 @@ function renderFieldTable(fields) {
   if (!fields?.length) return '';
   const lines = ['', '### Fields', '', '| Field | Type | Required | Summary |', '| --- | --- | --- | --- |'];
   for (const field of fields) {
-    lines.push(`| \`${escapeMarkdownInline(field.name)}\` | \`${escapeMarkdownInline(field.type)}\` | ${field.optional ? 'No' : 'Yes'} | ${escapeMarkdownInline(field.summary)} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(field.name)}\` | \`${escapeMarkdownCodeSpan(field.type)}\` | ${field.optional ? 'No' : 'Yes'} | ${escapeMarkdownInline(field.summary)} |`);
   }
   lines.push('');
   return lines.join('\n');
@@ -573,12 +585,12 @@ function renderTsItemSections(items) {
     const fields = renderFieldTable(item.fields);
     if (fields) lines.push(fields);
     const params = renderParamTable(item.params);
-    if (params) lines.push('### Parameters', params, `Returns: \`${escapeMarkdownInline(item.returns || 'void')}\``, '');
+    if (params) lines.push('### Parameters', params, `Returns: \`${escapeMarkdownCodeSpan(item.returns || 'void')}\``, '');
     if (item.methods?.length) {
       lines.push('### Method summary', '', '| Method | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
       for (const method of item.methods) {
         const sample = sampleLinkForSlug(sampleSlugForKey(`${item.name}.${method.name}`));
-        lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${sample} | ${escapeMarkdownInline(method.summary)} |`);
+        lines.push(`| \`${escapeMarkdownCodeSpan(method.name)}\` | \`${escapeMarkdownCodeSpan(method.signature)}\` | ${sample} | ${escapeMarkdownInline(method.summary)} |`);
       }
       lines.push('');
       for (const method of item.methods) {
@@ -588,7 +600,7 @@ function renderTsItemSections(items) {
         lines.push(fenced('ts', method.signature), '');
         const methodParams = renderParamTable(method.params);
         if (methodParams) lines.push('#### Parameters', methodParams);
-        lines.push(`Returns: \`${escapeMarkdownInline(method.returns)}\``, '', method.doc || method.summary, '');
+        lines.push(`Returns: \`${escapeMarkdownCodeSpan(method.returns)}\``, '', method.doc || method.summary, '');
       }
     }
   }
@@ -654,7 +666,7 @@ function renderTsReference(exports) {
   for (const item of declarations) {
     const page = tsPageForItem(item);
     const sample = sampleLinkForSlug(sampleSlugForKey(item.name));
-    lines.push(`| \`${item.name}\` | ${item.kind} | [${page.title}](${page.href}) | \`${item.modulePath}\` | ${sample} | ${escapeMarkdownInline(item.summary)} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(item.name)}\` | ${item.kind} | [${page.title}](${page.href}) | \`${escapeMarkdownCodeSpan(item.modulePath)}\` | ${sample} | ${escapeMarkdownInline(item.summary)} |`);
   }
 
   return lines.join('\n');
@@ -665,7 +677,7 @@ function renderPythonClassDetails(klass) {
   lines.push('| Method | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
   for (const method of klass.methods) {
     const sample = sampleLinkForSlug(sampleSlugForKey(`${klass.name}.${method.name}`));
-    lines.push(`| \`${method.name}\` | \`${escapeMarkdownInline(method.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(method.doc))} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(method.name)}\` | \`${escapeMarkdownCodeSpan(method.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(method.doc))} |`);
   }
   lines.push('');
   for (const method of klass.methods) {
@@ -675,7 +687,7 @@ function renderPythonClassDetails(klass) {
     lines.push(fenced('py', method.signature), '');
     const params = renderParamTable(method.params, 'Annotation');
     if (params) lines.push('#### Parameters', params);
-    lines.push(`Returns: \`${escapeMarkdownInline(method.returns || 'None')}\``, '', method.doc || 'Declared in the public API.', '');
+    lines.push(`Returns: \`${escapeMarkdownCodeSpan(method.returns || 'None')}\``, '', method.doc || 'Declared in the public API.', '');
   }
   return lines.join('\n');
 }
@@ -713,7 +725,7 @@ function renderPythonModulePage(api) {
     lines.push('## Values and aliases', '', '| Name | Kind | Value |', '| --- | --- | --- |');
     for (const name of publicAssignments) {
       const kind = new Set(['PRINTERS', 'TPMS_SURFACES']).has(name) ? 'constant' : 'type alias';
-      lines.push(`| \`${name}\` | ${kind} | \`${escapeMarkdownInline(api.assignments[name])}\` |`);
+      lines.push(`| \`${escapeMarkdownCodeSpan(name)}\` | ${kind} | \`${escapeMarkdownCodeSpan(api.assignments[name])}\` |`);
     }
     lines.push('');
   }
@@ -722,7 +734,7 @@ function renderPythonModulePage(api) {
     lines.push('## Functions', '', '| Function | Signature | Sample | Summary |', '| --- | --- | --- | --- |');
     for (const fn of publicFunctions) {
       const sample = sampleLinkForSlug(sampleSlugForKey(fn.name));
-      lines.push(`| \`${fn.name}\` | \`${escapeMarkdownInline(fn.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(fn.doc))} |`);
+      lines.push(`| \`${escapeMarkdownCodeSpan(fn.name)}\` | \`${escapeMarkdownCodeSpan(fn.signature)}\` | ${sample} | ${escapeMarkdownInline(firstSentence(fn.doc))} |`);
     }
     lines.push('');
     for (const fn of publicFunctions) {
@@ -732,7 +744,7 @@ function renderPythonModulePage(api) {
       lines.push(fenced('py', fn.signature), '');
       const params = renderParamTable(fn.params, 'Annotation');
       if (params) lines.push('#### Parameters', params);
-      lines.push(`Returns: \`${escapeMarkdownInline(fn.returns || 'None')}\``, '', fn.doc || 'Declared in the public API.', '');
+      lines.push(`Returns: \`${escapeMarkdownCodeSpan(fn.returns || 'None')}\``, '', fn.doc || 'Declared in the public API.', '');
     }
   }
 
@@ -779,7 +791,7 @@ function renderPythonReference(api) {
       kind = new Set(['PRINTERS', 'TPMS_SURFACES']).has(name) ? 'constant' : 'type alias';
       summary = `\`${api.assignments[name]}\``;
     }
-    lines.push(`| \`${name}\` | ${kind} | ${docs} | ${sample} | ${escapeMarkdownInline(summary || 'Declared in the public API.')} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(name)}\` | ${kind} | ${docs} | ${sample} | ${escapeMarkdownInline(summary || 'Declared in the public API.')} |`);
   }
 
   return lines.join('\n');
@@ -865,7 +877,7 @@ function renderCliReference() {
 
   for (const command of commandHelps) {
     const sample = sampleLinkForSlug(cliSampleByCommand.get(command.name));
-    lines.push(`| [\`${command.name}\`](/reference/generated/cli/${command.name}) | ${sample} | ${escapeMarkdownInline(command.summary)} |`);
+    lines.push(`| [\`${escapeMarkdownCodeSpan(command.name)}\`](/reference/generated/cli/${command.name}) | ${sample} | ${escapeMarkdownInline(command.summary)} |`);
   }
 
   return {
@@ -1038,7 +1050,7 @@ function renderGenerators(exports) {
   ];
 
   for (const item of generatorExports) {
-    lines.push(`| \`${item.name}\` | ${item.kind} | \`${item.modulePath}\` | ${escapeMarkdownInline(item.summary)} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(item.name)}\` | ${item.kind} | \`${escapeMarkdownCodeSpan(item.modulePath)}\` | ${escapeMarkdownInline(item.summary)} |`);
   }
 
   for (const item of generatorExports) {
@@ -1048,7 +1060,7 @@ function renderGenerators(exports) {
     const fields = renderFieldTable(item.fields);
     if (fields) lines.push(fields);
     const params = renderParamTable(item.params);
-    if (params) lines.push('### Parameters', params, `Returns: \`${escapeMarkdownInline(item.returns || 'void')}\``, '');
+    if (params) lines.push('### Parameters', params, `Returns: \`${escapeMarkdownCodeSpan(item.returns || 'void')}\``, '');
   }
 
   return lines.join('\n');
@@ -1067,7 +1079,7 @@ function renderVerification(exports) {
     '| --- | --- | --- | --- |',
   ];
   for (const item of items) {
-    lines.push(`| \`${item.name}\` | ${item.kind} | \`${item.modulePath}\` | ${escapeMarkdownInline(item.summary)} |`);
+    lines.push(`| \`${escapeMarkdownCodeSpan(item.name)}\` | ${item.kind} | \`${escapeMarkdownCodeSpan(item.modulePath)}\` | ${escapeMarkdownInline(item.summary)} |`);
   }
   for (const item of items) {
     lines.push('', `## \`${item.name}\``, '', fenced('ts', item.signature), '', item.doc || item.summary, '');

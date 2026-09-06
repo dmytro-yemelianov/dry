@@ -28,7 +28,7 @@ Single verification finding, optionally tied to a resolved segment index.
 | --- | --- | --- | --- |
 | `rule` | `string` | Yes | Stable rule identifier, such as `bounds` or `peak-acceleration`. |
 | `severity` | `Severity` | Yes | Whether the finding blocks the contract or is advisory. |
-| `segment` | `number \| null` | Yes | Zero-based segment index, or null when the finding is global. |
+| `segment` | `number &#124; null` | Yes | Zero-based segment index, or null when the finding is global. |
 | `message` | `string` | Yes | Human-readable finding details. |
 
 

@@ -278,6 +278,10 @@ jobs:
         id: blockly
         continue-on-error: true
         run: node web/blocks-regression.mjs
+      - name: Web security regressions
+        id: web_security
+        continue-on-error: true
+        run: node web/security-regression.mjs
       # pin must match the wasm-bindgen crate version (=0.2.123) — the .wasm and JS glue must agree.
       - name: install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
@@ -297,6 +301,7 @@ jobs:
             clippy=${{ steps.wasm_clippy.outcome }}
             unit-tests=${{ steps.wasm_test.outcome }}
             blockly-regression=${{ steps.blockly.outcome }}
+            web-security=${{ steps.web_security.outcome }}
             node-engine-build=${{ steps.node_engine.outcome }}
             node-oracle=${{ steps.node_oracle.outcome }}
         run: |
@@ -657,6 +662,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Dependabot queue policy
+        run: ruby tools/check_dependabot_policy.rb
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: "1.88.0"

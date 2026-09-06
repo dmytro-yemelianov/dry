@@ -15,14 +15,14 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   resolves to main commit `d033ef4`; and the GitHub release published 14 checksum-verified assets,
   including the CycloneDX SBOM, under one Rekor-witnessed SLSA provenance statement. A later product
   decision kept crates.io publication disabled; supported artifacts ship through GitHub Releases.
-- `[~]` **R0.11** (L) **Post-audit remediation train.** Execute in this order after v0.10.0 is
+- `[x]` **R0.11** (L) **Post-audit remediation train.** Executed in this order after v0.10.0 was
   released: PR #286 repaired machine-compatibility parity and PR #287 hardened malformed contract
   ingress and activated missing standalone/release tests; both are merged and post-merge green.
   PR #291 makes Lean fixture checks observable and distinguishes kernel proof from
   `native_decide`, while PR #292 aligns `SegmentKind` with the normative JSON spelling and removes a
-  stale duplicate firmware union; both are merged and post-merge green. PR #293 repairs RAPID
+  stale duplicate firmware union; both are merged and post-merge green. PR #293 repaired RAPID
   `MoveC` circle-point/direction semantics, rejects unrepresentable input, and adds an honestly
-  scoped structural golden; it is merged and post-merge green. The current CLI/coverage slice adds
+  scoped structural golden; it is merged and post-merge green. The CLI/coverage slice added
   end-to-end smoke coverage for `unpack`, offline `explain`, `schema`, and `fleet`, exercises the
   no-default-features CLI in CI, and replaces informational LCOV artifacts with a fail-closed 85%
   workspace line-coverage floor. PR #294 is merged and post-merge green. The final slice amends ADR
@@ -32,12 +32,18 @@ Legend: `[ ]` todo, `[~]` partially landed, `[x]` landed for the current v0 scop
   rollback evidence, SLO and approved data-handling policy.
   PR #295 completes the final cloud-topology slice and is merged and post-merge green: one async
   ingress, one private native verifier, retired duplicate Pages/proxy routes, and deployment
-  contracts checked without claiming a live service. Historical non-active Pages deployments were
-  removed operationally; the protected active deployment exposes neither retired POST route.
+  contracts checked without claiming a live service. Of the 25 explicitly authorized Pages
+  deployments, 24 historical entries were removed; Cloudflare retained the active deployment,
+  which exposes neither retired POST route. Additional deployments discovered after that authorized
+  inventory remain a separate operational cleanup decision.
   The full frozen audit spec and
   implementation plan travel with PR #286 rather than the v0.10.0 release baseline. *Accept:* every
   slice has independent review, target-specific gates, full PR CI, and post-merge main verification;
-  only then cut v0.11.0.
+  only then cut v0.11.0. **Released 2026-09-06:** PR #296 merged as `5aff42e`; all seven post-merge
+  main workflows were green after one transient QEMU image-build retry; annotated tag `v0.11.0`
+  points to that commit; release workflow `34004893120` passed 15/15 jobs and published 14
+  checksum-verified, provenance-attested GitHub assets. All Rust manifests retain
+  `publish = false`, and no v0.11.0 crate was published to crates.io.
 
 ## Phase 0 — Foundations & conformance harness
 
