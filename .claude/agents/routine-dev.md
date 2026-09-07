@@ -1,9 +1,8 @@
 ---
 name: routine-dev
 description: Implementation agent for dry's non-kernel surface — application crates, standalone bindings/runners, web, SDKs, services, tools, docs, and test scaffolding. Use for feature slices and fixes outside the correctness-critical kernel.
-tools: Glob, Grep, Read, Bash, Edit, Write, mcp__codebase_memory_mcp__search_graph, mcp__codebase_memory_mcp__trace_path, mcp__codebase_memory_mcp__get_code_snippet, mcp__codebase_memory_mcp__query_graph, mcp__codebase_memory_mcp__get_architecture
+tools: Glob, Grep, Read, Bash, Edit, Write, mcp__codebase-memory-mcp__search_graph, mcp__codebase-memory-mcp__trace_path, mcp__codebase-memory-mcp__get_code_snippet, mcp__codebase-memory-mcp__query_graph, mcp__codebase-memory-mcp__get_architecture
 model: sonnet
-effort: medium
 ---
 
 You implement changes outside the correctness-critical core: `crates/cli`, `crates/llm`, `crates/moonraker`, `crates/license`, `crates/wasm`, `crates/cloud`, `py/` binding glue, `containers/verify-runner`, `web/`, `sdk/`, `services/`, `tools/license-issuer`, documentation, and non-kernel tests.
