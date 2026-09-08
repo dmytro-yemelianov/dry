@@ -402,6 +402,39 @@ where
     W: Write,
 {
     let segments: Vec<Segment> = stream.into_iter().collect::<Result<Vec<_>, _>>()?;
+
+    // Validate numeric boundary invariant (ADR 0002): all emitted quantities must be finite
+    for seg in &segments {
+        for axis in seg.start.iter().chain(seg.end.iter()).flatten() {
+            if !axis.0.is_finite() {
+                return Err(CodecError::Other(format!(
+                    "cannot emit OpenToolpath package with non-finite coordinate {}",
+                    axis.0
+                )));
+            }
+        }
+        if !seg.speed.0.is_finite() {
+            return Err(CodecError::Other(format!(
+                "cannot emit OpenToolpath package with non-finite speed {}",
+                seg.speed.0
+            )));
+        }
+        if let Some(c) = seg.centre {
+            if !c[0].0.is_finite() || !c[1].0.is_finite() {
+                return Err(CodecError::Other(
+                    "cannot emit OpenToolpath package with non-finite arc centre".to_string(),
+                ));
+            }
+        }
+        if let Some(v) = seg.power {
+            if !v.is_finite() || v < 0.0 {
+                return Err(CodecError::Other(format!(
+                    "cannot emit OpenToolpath package with invalid power {v}"
+                )));
+            }
+        }
+    }
+
     let opt_frame = &params.otp_frame;
 
     // 1. Build Payload Toolpath

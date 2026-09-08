@@ -44,7 +44,11 @@ pub use self::kinematics::{
 pub use self::krl::{KrlFrame, KrlTransform};
 pub use self::laser::{emit_grbl_laser, LaserError, LaserMode, LaserParams};
 pub use self::otp::{
-    emit_otp_to_writer, OtpEmitStats, OtpFrame, OTP_MIMETYPE, OTP_SCHEMA_URL, OTP_SPEC_VERSION,
+    crc32, emit_otp_to_writer, OtpAxis, OtpConformance, OtpContextDescriptor, OtpEmitStats,
+    OtpEntrypoints, OtpFrame, OtpGenerator, OtpKinematics, OtpMachine, OtpManifest, OtpProcess,
+    OtpStock, OtpToolCapabilities, OtpToolDefinition, OtpToolGeometry, OtpToolOffsets,
+    OtpToolThermal, OtpToolsCatalog, OtpWorkCoordinates, ZipArchiveWriter, OTP_MIMETYPE,
+    OTP_SCHEMA_URL, OTP_SPEC_VERSION,
 };
 pub use self::plasma::{emit_plasma_waterjet, CuttingParams, LeadInType};
 pub use self::rapid::emit_rapid_to_writer;
