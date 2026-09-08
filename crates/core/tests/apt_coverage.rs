@@ -279,3 +279,85 @@ FINI
     assert!(err_feed.is_err());
     assert_eq!(err_feed.unwrap_err().code, AptErrorCode::FeedNegative);
 }
+
+#[test]
+fn test_apt_refusal_taxonomy_coverage() {
+    // 1. Spindle on without RPM
+    let apt_spindle_no_rpm = "UNITS / MM\nSPINDL / ON\nFINI\n";
+    let err = import_apt(apt_spindle_no_rpm, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::SpindleOnWithoutRpm);
+
+    // 2. Spindle CCLW unsupported
+    let apt_spindle_cclw = "UNITS / MM\nSPINDL / RPM, 1000.0, CCLW\nFINI\n";
+    let err = import_apt(apt_spindle_cclw, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(
+        err.unwrap_err().code,
+        AptErrorCode::SpindleDirectionUnsupported
+    );
+
+    // 3. CUTCOM ON
+    let apt_cutcom = "UNITS / MM\nCUTCOM / ON\nFINI\n";
+    let err = import_apt(apt_cutcom, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::CutcomOn);
+
+    // 4. INSERT opaque
+    let apt_insert = "UNITS / MM\nINSERT / \"G0 X0\"\nFINI\n";
+    let err = import_apt(apt_insert, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::InsertOpaque);
+
+    // 5. LOADTL with extra minor words emits advisory
+    let apt_loadtl_extra = "UNITS / MM\nLOADTL / 2, OSETNO, 5\nFINI\n";
+    let imported =
+        import_apt_with_map(apt_loadtl_extra, &AptImportParams::default()).expect("loadtl extra");
+    assert!(imported
+        .advisories
+        .iter()
+        .any(|a| a.code == "apt-loadtl-minor-words-dropped"));
+
+    // 6. CYCLE unsupported
+    let apt_cycle_unsupported = "UNITS / MM\nCYCLE / BORE, 10.0\nFINI\n";
+    let err = import_apt(apt_cycle_unsupported, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::CycleUnsupported);
+
+    // 7. CYCLE OFF when inactive
+    let apt_cycle_off = "UNITS / MM\nCYCLE / OFF\nFINI\n";
+    let err = import_apt(apt_cycle_off, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::CycleOffInactive);
+
+    // 8. Rapid arc
+    let apt_rapid_arc =
+        "UNITS / MM\nRAPID\nMOVARC / 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 10.0, 90.0\nFINI\n";
+    let err = import_apt(apt_rapid_arc, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::RapidArc);
+
+    // 9. Arc radius nonpositive
+    let apt_arc_neg_rad = "UNITS / MM\nFEDRAT / MMPM, 100.0\nMOVARC / 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 90.0\nFINI\n";
+    let err = import_apt(apt_arc_neg_rad, &AptImportParams::default());
+    assert!(err.is_err());
+    assert_eq!(err.unwrap_err().code, AptErrorCode::ArcRadiusNonpositive);
+
+    // 10. Comments and continuations
+    let apt_cont_comments = r#"
+$$ Header comment
+UNITS / MM $$ Inline comment
+FEDRAT / MMPM, 600.0
+GOTO / $
+  10.0, $
+  20.0, $
+  30.0
+FINI
+"#;
+    let res = import_apt(apt_cont_comments, &AptImportParams::default())
+        .expect("comments and continuation");
+    assert_eq!(res.segments.len(), 1);
+    assert_eq!(res.segments[0].end[0].map(|l| l.value()), Some(10.0));
+    assert_eq!(res.segments[0].end[1].map(|l| l.value()), Some(20.0));
+    assert_eq!(res.segments[0].end[2].map(|l| l.value()), Some(30.0));
+}
