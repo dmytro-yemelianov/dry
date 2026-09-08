@@ -4166,6 +4166,44 @@ fn emit_opentoolpath_package_and_validate() {
         String::from_utf8_lossy(&run_val.stdout)
     );
 
+    // Test payload formats: dry0 and dry1
+    for fmt in ["dry0", "dry1"] {
+        let fmt_out = temp_path(&format!("output_{fmt}.otp"));
+        let run_fmt = Command::new(bin())
+            .args([
+                "emit",
+                ir_file.to_str().unwrap(),
+                "--format",
+                "otp",
+                "--otp-payload-format",
+                fmt,
+                "-o",
+                fmt_out.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+
+        assert!(
+            run_fmt.status.success(),
+            "dry emit --format otp --otp-payload-format {fmt} failed: {}",
+            String::from_utf8_lossy(&run_fmt.stderr)
+        );
+
+        let run_val_fmt = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), fmt_out.to_str().unwrap()])
+            .output()
+            .expect("validate_otp.py execution");
+
+        assert!(
+            run_val_fmt.status.success(),
+            "tools/validate_otp.py failed on {fmt}: {}\nstdout: {}",
+            String::from_utf8_lossy(&run_val_fmt.stderr),
+            String::from_utf8_lossy(&run_val_fmt.stdout)
+        );
+
+        let _ = std::fs::remove_file(&fmt_out);
+    }
+
     let _ = std::fs::remove_file(&ir_file);
     let _ = std::fs::remove_file(&otp_out);
 }

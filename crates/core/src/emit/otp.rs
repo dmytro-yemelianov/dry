@@ -537,11 +537,17 @@ where
                     name: format!("Tool {id}"),
                     kind: if params.flavor.is_cnc() {
                         "endmill".to_string()
+                    } else if params.flavor.is_robot() {
+                        "spindle".to_string()
                     } else {
                         "fff_nozzle".to_string()
                     },
                     geometry: Some(OtpToolGeometry {
-                        diameter: Some(if params.flavor.is_cnc() { 6.0 } else { 0.4 }),
+                        diameter: Some(if params.flavor.is_cnc() || params.flavor.is_robot() {
+                            6.0
+                        } else {
+                            0.4
+                        }),
                         corner_radius: Some(0.0),
                         flute_length: None,
                         overall_length: None,
@@ -700,8 +706,8 @@ where
     });
 
     let package_id = opt_frame.package_id.clone().unwrap_or_else(|| {
-        // Deterministic package ID derived from payload digest
-        let payload_hash = &digests[&payload_filename][7..23];
+        // Deterministic package ID derived from payload digest (12 hex chars in node field)
+        let payload_hash = &digests[&payload_filename][7..19];
         format!("urn:uuid:00000000-0000-4000-8000-{payload_hash}")
     });
 

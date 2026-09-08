@@ -55,10 +55,16 @@ def validate_otp_archive(otp_path, validators):
         infolist = zf.infolist()
         namelist = zf.namelist()
 
-        # Check zip slip and path sanitization
+        # Check zip slip and path sanitization (POSIX and Windows drive paths)
         for info in infolist:
-            if info.filename.startswith("/") or ".." in info.filename.split("/"):
-                raise ValueError(f"Unsafe path in archive (zip slip violation): {info.filename}")
+            fn = info.filename
+            if (
+                fn.startswith("/")
+                or "\\" in fn
+                or ".." in fn.split("/")
+                or (len(fn) >= 2 and fn[1] == ":")
+            ):
+                raise ValueError(f"Unsafe path in archive (zip slip / path traversal violation): {fn}")
 
         # Check mimetype is uncompressed (method 0)
         mimetype_info = zf.getinfo("mimetype")
@@ -81,12 +87,30 @@ def validate_otp_archive(otp_path, validators):
         if errors:
             raise ValueError(f"manifest.json schema violation: {errors[0].message} at {list(errors[0].path)}")
 
+        # Validate package_id format if URN UUID
+        pkg_id = manifest_json.get("package_id", "")
+        if pkg_id.startswith("urn:uuid:"):
+            import uuid
+            try:
+                uuid.UUID(pkg_id[9:])
+            except Exception as e:
+                raise ValueError(f"Invalid RFC 4122 UUID in package_id: {pkg_id} ({e})")
+
         # 4. Check digests of entries
         digests = manifest_json.get("digests", {})
         entrypoints = manifest_json.get("entrypoints", {})
         payload_entry = entrypoints.get("payload")
         if not payload_entry or payload_entry not in namelist:
             raise ValueError(f"Payload entrypoint {payload_entry} not found in archive")
+
+        # All non-envelope, non-signature archive entries must be declared in digests
+        # (docs/29-opentoolpath-spec.md §3.3)
+        expected_envelope_files = {"mimetype", "manifest.json"}
+        for name in namelist:
+            if name in expected_envelope_files or name.startswith("signatures/"):
+                continue
+            if name not in digests:
+                raise ValueError(f"Unlisted archive entry not declared in manifest.json digests: {name}")
 
         for internal_path, expected_digest in digests.items():
             if internal_path not in namelist:

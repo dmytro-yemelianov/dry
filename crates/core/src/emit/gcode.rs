@@ -279,6 +279,10 @@ where
     I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
     W: std::io::Write,
 {
+    if p.flavor == FirmwareFlavor::Otp {
+        super::otp::emit_otp_to_writer(segments, p, writer)?;
+        return Ok(());
+    }
     if p.flavor == FirmwareFlavor::Irbcam || p.flavor == FirmwareFlavor::IrbcamCsv {
         super::irbcam::emit_irbcam_to_writer(segments, p, writer)?;
         return Ok(());

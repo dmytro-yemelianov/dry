@@ -183,3 +183,53 @@ fn test_otp_dry0_columnar_binary_payload() {
     let decoded_tp = Toolpath::from_bytes(&binary).expect("decode DRY0 payload");
     assert_eq!(decoded_tp.segments.len(), 2);
 }
+
+#[test]
+fn test_otp_dry1_streaming_binary_payload() {
+    let segments = make_test_segments();
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        otp_frame: OtpFrame {
+            payload_format: Some("dry1".to_string()),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let mut zip_bytes = Vec::new();
+    emit_otp_to_writer(segments.into_iter().map(Ok), &params, &mut zip_bytes)
+        .expect("OTP dry1 emission succeeds");
+
+    let cursor = std::io::Cursor::new(&zip_bytes);
+    let mut archive = zip::ZipArchive::new(cursor).expect("valid zip");
+
+    assert!(archive.by_name("payload/toolpath.dry1").is_ok());
+
+    let mut payload_file = archive.by_name("payload/toolpath.dry1").unwrap();
+    let mut binary = Vec::new();
+    std::io::Read::read_to_end(&mut payload_file, &mut binary).unwrap();
+
+    let (_version, _meta, stream) =
+        dry_core::codec::decode_any_streaming(std::io::Cursor::new(binary))
+            .expect("decode DRY1 payload");
+    let decoded_segments: Vec<_> = stream.collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(decoded_segments.len(), 2);
+}
+
+#[test]
+fn test_otp_emit_stream_to_writer_dispatch() {
+    let segments = make_test_segments();
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        ..Default::default()
+    };
+
+    let mut zip_bytes = Vec::new();
+    dry_core::emit_stream_to_writer(segments.into_iter().map(Ok), &params, &mut zip_bytes)
+        .expect("emit_stream_to_writer with Otp flavor succeeds");
+
+    assert!(zip_bytes.starts_with(b"PK\x03\x04"));
+    let cursor = std::io::Cursor::new(&zip_bytes);
+    let archive = zip::ZipArchive::new(cursor).expect("valid zip archive");
+    assert!(archive.len() >= 4);
+}
