@@ -70,7 +70,7 @@ No material fixer may serve as the independent reviewer for the same slice.
 
 ## Outputs
 
-Maintain resumable state containing base/HEAD, dirty baseline, graph project, current state/slice, owners, dependencies, retries, findings, decisions, exact verification commands/results, parity coverage, and residual risks.
+Maintain resumable state containing base/HEAD, dirty baseline, graph project, current state/slice, owners, dependencies, retries, findings, decisions, exact verification commands/results, parity coverage, and residual risks. When operating against a tracked roadmap issue or pull request, record the GitHub Issue ID, Project board card state, and PR closure evidence in the loop handoff.
 
 Each cycle reports status (`in-progress`, `complete`, `blocked`, or `needs-decision`), changed files if remediation was authorized, contract/parity impact, reviewer disposition, and next transition.
 

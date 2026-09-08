@@ -87,9 +87,33 @@ Every finding must record severity, confidence, `path:line`, violated contract o
 
 After three materially different attempts with no progress on the same cause, stop the loop and escalate with exact evidence and the smallest decision required. Do not repeat an unchanged failing command indefinitely.
 
+## GitHub Workflow: Projects, Issues, and PR Lifecycle
+
+All agents (especially `product-owner`, `delivery-lead`, and `ralph-loop`) must follow the standardized GitHub issue and project tracking lifecycle across both `dmytro-yemelianov/dry` and the `opentoolpath` organization:
+
+1. **Issue-Driven Development:**
+   - Every non-trivial feature, RFC, bug fix, or roadmap task must correspond to a tracked GitHub Issue before or during development.
+   - Issues must be assigned to the relevant Milestone (e.g. `v1.0`, `v1.1`, `v1.2`, `v1.3`) and linked to the active GitHub Project board (e.g. `https://github.com/orgs/opentoolpath/projects/1`).
+   - The issue description must clearly define: Objective, Acceptance Criteria, Affected Targets, and Required Verification Gates.
+
+2. **Project Board State Tracking:**
+   - Work items on the project board must accurately reflect execution state:
+     - `Todo`: Backlog and roadmap items ready for development.
+     - `In Progress`: Actively assigned to an agent or branch.
+     - `Done`: Implemented, verified by local/CI gates, reviewed by an independent `reviewer`, and merged.
+
+3. **Branching & PR Linking:**
+   - Develop on descriptive branches: `feat/<name>`, `fix/<name>`, `rfc/<name>`, or `chore/<name>`.
+   - Pull Requests must link the tracked issue using GitHub keywords (`Fixes #<id>`, `Closes #<id>`, or `Relates to #<id>`).
+   - PR descriptions must include verifiable test command outputs for all affected targets.
+
+4. **Cross-Repository Alignment:**
+   - When an engine change in `dry` implements or modifies an OpenToolpath standard feature (e.g. native `.otp` packing/emitting), cross-link the `dry` PR to the corresponding `opentoolpath/spec` or `opentoolpath/conformance` issue.
+
 ## Core Rules & Non-Negotiables
 
 1. **Verify Before Completion**: Run target test suites (`cargo test -p dry-core`, `cargo test -p dry-cli`, or vector suites) before marking any task done.
 2. **Contract Preservation**: Changes to resolve/emit semantics must respect `proofs/` claims and `spec/` schemas.
 3. **Cross-Target Parity**: Never let Rust core changes drift from bindings and consumers (`crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`, `containers/verify-runner`) without an explicit owner and gate.
 4. **Markdown Link Formatting**: Always use clean, workspace-relative markdown links (e.g., `[path/to/file](path/to/file)`). Never use `file:///` URIs.
+5. **Issue & Project Board Tracking**: Track substantive roadmap milestones, feature additions, and bug remediations via GitHub Issues, linked PRs, and Project boards. Never leave active work unreferenced in the tracking system.
