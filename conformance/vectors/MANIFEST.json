@@ -278,6 +278,29 @@
       "has_gcode": false,
       "ir_version": 0,
       "name": "empty"
+    },
+    {
+      "artifacts": {
+        "expected.dry0": "622ee83fe441fc6231ef1c8d44e4e9bd9eaf80809c8250856c374dc0cea6354f",
+        "expected.dry1": "3107450a575d24f4d20346554dbf8587d752f8229444d44b363f7ccd1dc8baca",
+        "input.json": "803b8f80f82bb6978ab4d1aafa43d67ccce424e72cf9478a1b276c19ec67b632",
+        "metrics.json": "ff4c918763470d326a55322600c4399ee5a9ed22edc6cf88462684e762eb77fe",
+        "vector.json": "a3d90a53bdd1b0b5e8483019af52130f85e38c7b8d8be532af4d16581dc85e80"
+      },
+      "description": "The lifted L2 of the reference Fusion 360 pocket_drill_arc.apt toolpath (Flow A). Exercises the IR codec on a channel-rich, oriented toolpath with multiaxis orientations, circular arcs, modal spindle power, tool numbers, cycle expansion, and dwells. NOT oracle-backed: external oracle qualification is Layer D-adjacent (docs/28-apt-irbcam-dialects.md §10.4). No expected.gcode is emitted since G-code is not the target dialect for this vector.",
+      "feature_tags": [
+        "apt",
+        "five-axis",
+        "arc",
+        "power",
+        "tool",
+        "dwell",
+        "no-oracle"
+      ],
+      "frozen": false,
+      "has_gcode": false,
+      "ir_version": 0,
+      "name": "apt_fusion_lift"
     }
   ]
 }

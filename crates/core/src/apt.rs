@@ -623,8 +623,11 @@ fn parse_statement_record(
                 });
             }
 
-            // Parse CYCLE/DRILL, depth, [MMPM|IPM,] feed, RAPTO, r [, DWELL, t]
+            // Parse CYCLE/DRILL, [DEPTH,] depth, [MMPM|IPM|PERMIN,] feed, [CLEAR, c,] RAPTO, r [, DWELL, t]
             let mut idx = 1;
+            if idx < tokens.len() && tokens[idx].eq_ignore_ascii_case("DEPTH") {
+                idx += 1;
+            }
             if idx >= tokens.len() {
                 return Err(AptParseError {
                     source_line,
@@ -644,6 +647,8 @@ fn parse_statement_record(
                 } else if tok_upper == "IPM" {
                     feed_unit = Some(FedratUnit::Ipm);
                     idx += 1;
+                } else if tok_upper == "PERMIN" {
+                    idx += 1;
                 }
             }
 
@@ -656,6 +661,19 @@ fn parse_statement_record(
             }
             let feed = parse_number(tokens[idx], source_line)?;
             idx += 1;
+
+            if idx < tokens.len() && tokens[idx].eq_ignore_ascii_case("CLEAR") {
+                idx += 1;
+                if idx >= tokens.len() {
+                    return Err(AptParseError {
+                        source_line,
+                        code: AptErrorCode::Syntax,
+                        message: "CYCLE/DRILL CLEAR missing distance value".to_string(),
+                    });
+                }
+                let _clear = parse_number(tokens[idx], source_line)?;
+                idx += 1;
+            }
 
             if idx >= tokens.len() || !tokens[idx].eq_ignore_ascii_case("RAPTO") {
                 return Err(AptParseError {

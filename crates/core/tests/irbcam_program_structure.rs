@@ -224,3 +224,137 @@ fn irbcam_dwell_refusal_when_configured() {
         other => panic!("expected dwell error, got {other:?}"),
     }
 }
+
+fn reference_segments() -> Vec<Segment> {
+    let mut seg1 = make_seg(
+        [0.0, 0.0, 0.0],
+        [10.0, 0.0, 5.0],
+        SegmentKind::Line,
+        true,
+        3000.0,
+    );
+    seg1.orientation = Some([0.0, 0.0, 1.0]);
+
+    let mut seg2 = make_seg(
+        [10.0, 0.0, 5.0],
+        [20.0, 0.0, 5.0],
+        SegmentKind::Line,
+        false,
+        1200.0,
+    );
+    seg2.orientation = Some([0.0, 0.0, 1.0]);
+
+    let mut seg3 = make_seg(
+        [20.0, 0.0, 5.0],
+        [30.0, 10.0, 5.0],
+        SegmentKind::Arc,
+        false,
+        1200.0,
+    );
+    seg3.centre = Some([Length::mm(20.0), Length::mm(10.0)]);
+    seg3.orientation = Some([0.6, 0.0, 0.8]);
+    seg3.clockwise = false;
+
+    let mut seg4 = make_seg(
+        [30.0, 10.0, 5.0],
+        [30.0, 10.0, 5.0],
+        SegmentKind::Dwell,
+        false,
+        0.0,
+    );
+    seg4.dwell_s = Some(1.5);
+
+    let mut seg5 = make_seg(
+        [30.0, 10.0, 5.0],
+        [30.0, 20.0, 5.0],
+        SegmentKind::Line,
+        false,
+        600.0,
+    );
+    seg5.orientation = Some([0.0, -1.0, 0.0]);
+
+    vec![seg1, seg2, seg3, seg4, seg5]
+}
+
+#[test]
+fn irbcam_and_apt_structural_goldens_do_not_drift() {
+    let segs = reference_segments();
+
+    // 1. IRBCAM JSON
+    let json_params = EmitParams {
+        flavor: FirmwareFlavor::Irbcam,
+        irbcam_frame: IrbcamFrame {
+            layout: IrbcamLayout::Json,
+            rapid: RapidEncoding::MinusOne,
+            dwell: DwellPolicy::Drop,
+            extrusion: ExtrusionCarry::Refuse,
+            decimals: 6,
+            ..IrbcamFrame::default()
+        },
+        ..EmitParams::default()
+    };
+    let mut json_buf = Vec::new();
+    emit_stream_to_writer(segs.iter().cloned().map(Ok), &json_params, &mut json_buf).unwrap();
+    let json_str = String::from_utf8(json_buf).unwrap();
+    let json_golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/reports/robot/reference-irbcam.json"
+    );
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::write(json_golden_path, &json_str).unwrap();
+    }
+    let golden_json = std::fs::read_to_string(json_golden_path)
+        .expect("reference-irbcam.json golden exists (run UPDATE_GOLDEN=1)");
+    assert_eq!(json_str, golden_json);
+
+    // 2. IRBCAM CSV
+    let csv_params = EmitParams {
+        flavor: FirmwareFlavor::IrbcamCsv,
+        irbcam_frame: IrbcamFrame {
+            layout: IrbcamLayout::Csv,
+            rapid: RapidEncoding::MinusOne,
+            dwell: DwellPolicy::Drop,
+            extrusion: ExtrusionCarry::Refuse,
+            decimals: 6,
+            ..IrbcamFrame::default()
+        },
+        ..EmitParams::default()
+    };
+    let mut csv_buf = Vec::new();
+    emit_stream_to_writer(segs.iter().cloned().map(Ok), &csv_params, &mut csv_buf).unwrap();
+    let csv_str = String::from_utf8(csv_buf).unwrap();
+    let csv_golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/reports/robot/reference-irbcam.csv"
+    );
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::write(csv_golden_path, &csv_str).unwrap();
+    }
+    let golden_csv = std::fs::read_to_string(csv_golden_path)
+        .expect("reference-irbcam.csv golden exists (run UPDATE_GOLDEN=1)");
+    assert_eq!(csv_str, golden_csv);
+
+    // 3. APT
+    let apt_params = EmitParams {
+        flavor: FirmwareFlavor::Apt,
+        apt_frame: dry_core::emit::AptFrame {
+            partno: Some("REFERENCE_ROBOT".to_string()),
+            machin: Some("DRY_5AX".to_string()),
+            decimals: 6,
+        },
+        ..EmitParams::default()
+    };
+    let mut apt_buf = Vec::new();
+    emit_stream_to_writer(segs.iter().cloned().map(Ok), &apt_params, &mut apt_buf).unwrap();
+    let apt_str = String::from_utf8(apt_buf).unwrap();
+    let apt_golden_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/reports/robot/reference-apt.apt"
+    );
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::write(apt_golden_path, &apt_str).unwrap();
+    }
+    let golden_apt = std::fs::read_to_string(apt_golden_path)
+        .expect("reference-apt.apt golden exists (run UPDATE_GOLDEN=1)");
+    assert_eq!(apt_str, golden_apt);
+}
