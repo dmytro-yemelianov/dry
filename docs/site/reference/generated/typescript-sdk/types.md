@@ -569,6 +569,9 @@ export type FirmwareFlavor = | 'marlin'
   | 'tnc'
   | 'haas'
   | 'rapid'
+  | 'irbcam'
+  | 'irbcam-csv'
+  | 'apt'
 ```
 
 Target controller dialects `resolveGcode` can emit. An unknown name is an error, not a silent

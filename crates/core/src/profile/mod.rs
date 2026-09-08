@@ -408,6 +408,9 @@ impl Profile {
             "process.first_layer_speed_range",
             self.process.first_layer_speed_range,
         )?;
+        if let Some(flavor) = &self.firmware.flavor {
+            FirmwareFlavor::named(flavor).map_err(ProfileError::new)?;
+        }
         Ok(())
     }
 
@@ -482,14 +485,12 @@ impl Profile {
 
     /// Convert firmware/profile settings to emitter parameters.
     pub fn emit_params(&self) -> EmitParams {
-        let flavor = match self.firmware.flavor.as_deref() {
-            Some("rs274") | Some("linuxcnc") => FirmwareFlavor::Rs274,
-            Some("grbl") => FirmwareFlavor::Grbl,
-            Some("robot-krl") | Some("krl") => FirmwareFlavor::RobotKrl,
-            Some("klipper") => FirmwareFlavor::Klipper,
-            Some("duet") => FirmwareFlavor::Duet,
-            _ => FirmwareFlavor::Marlin, // default
-        };
+        let flavor = self
+            .firmware
+            .flavor
+            .as_deref()
+            .and_then(|s| FirmwareFlavor::named(s).ok())
+            .unwrap_or(FirmwareFlavor::Marlin);
         let mut params = EmitParams {
             flavor,
             kinematics: REFERENCE_FIVE_AXIS_MACHINE,

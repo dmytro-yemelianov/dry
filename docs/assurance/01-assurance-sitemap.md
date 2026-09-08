@@ -6,13 +6,13 @@ This report is generated from [`proofs/claims.toml`](../../proofs/claims.toml) a
 
 ## Registry summary
 
-- Registered claims: **42**.
-- Abstract status: `proved` 42.
-- Proof method for abstract Lean claims: `kernel` 36, `native_decide` 6.
-- Numeric status: `bounded` 12, `pending` 2, `not-applicable` 28.
-- Implementation-refinement status: `checked` 14, `pending` 19, `not-applicable` 9.
+- Registered claims: **46**.
+- Abstract status: `proved` 46.
+- Proof method for abstract Lean claims: `kernel` 40, `native_decide` 6.
+- Numeric status: `bounded` 12, `pending` 4, `not-applicable` 30.
+- Implementation-refinement status: `checked` 14, `pending` 21, `not-applicable` 11.
 - Implementation-scoped claims meeting all registry gates: **7/7**.
-- Normative clause links: **42/42** claims across **15** stable clauses.
+- Normative clause links: **46/46** claims across **18** stable clauses.
 
 The Lean release gate is reproducible with `lake build --wfail`. The job count printed by Lake is a build-system job count, not a theorem count, so this report does not present it as proof coverage. Rust tests and mutation manifests are linked only on claims that register them as refinement evidence. `kernel` records a proof elaborated without `native_decide`; `native_decide` is shown separately because it executes a compiled decision procedure rather than a kernel-only derivation.
 
@@ -62,17 +62,23 @@ The Lean release gate is reproducible with `lake build --wfail`. The job count p
 | `FM1.GENERATE.TPMS.OPTION_ACCEPTANCE` | [`DRY.GENERATE.TPMS_OPTIONS_V1`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Semantics.TpmsOptions.validate_tpms_options_sound`](../../formal/Dry/Semantics/TpmsOptions.lean) | `kernel` | `dry-tpms-options-v1` | `rejection` | `proved` | `not-applicable` | `checked` |
 | `FM1.NUMERIC.SCURVE.BOUNDS` | [`DRY.OPTIMIZATION.SCURVE_BOUNDS_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Numeric.SCurve.validate_scurve_sound`](../../formal/Dry/Numeric/SCurve.lean) | `kernel` | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
 | `FM1.GEOMETRY.BREP.NORMAL` | [`DRY.GEOMETRY.BREP_SURFACE_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.Brep.zNormal_is_unit`](../../formal/Dry/Geometry/Brep.lean) | `kernel` | `v0.4` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.IRBCAM.ZYZ.SPIN_INDEPENDENCE` | [`DRY.GEOMETRY.ZYZ_EULER_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.ZyzEuler.direction_spin_independent`](../../formal/Dry/Geometry/ZyzEuler.lean) | `kernel` | `v0` | `exact` | `proved` | `not-applicable` | `not-applicable` |
+| `FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP` | [`DRY.GEOMETRY.ZYZ_EULER_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.ZyzEuler.direction_euler_roundtrip`](../../formal/Dry/Geometry/ZyzEuler.lean) | `kernel` | `v0` | `exact` | `proved` | `pending` | `pending` |
+| `FM1.IRBCAM.ARC.MIDPOINT` | [`DRY.IRBCAM.ARC_MIDPOINT_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Geometry.ArcMidpoint.midpoint_on_circle`](../../formal/Dry/Geometry/ArcMidpoint.lean) | `kernel` | `v0` | `exact` | `proved` | `pending` | `pending` |
+| `FM1.IRBCAM.WELL_FORMED.REJECTION` | [`DRY.IRBCAM.EXPORT_V0`](../../docs/assurance/02-normative-clauses.md) | `abstract` | [`Dry.Language.Irbcam.validate_success_iff`](../../formal/Dry/Language/Irbcam.lean) | `kernel` | `v0` | `rejection` | `proved` | `not-applicable` | `not-applicable` |
 
 ## Open registry obligations
 
 These are derived from explicit `pending` statuses; they are not failures of the abstract theorems.
 
-### Numeric refinement pending (2)
+### Numeric refinement pending (4)
 
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
+- `FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP` — Unit tool direction vector roundtrips through ZYZ Euler decomposition
+- `FM1.IRBCAM.ARC.MIDPOINT` — Arc midpoint lies on circle of radius rho and bisects signed sweep
 
-### Rust refinement pending (19)
+### Rust refinement pending (21)
 
 - `FM1.TRANSFORM.COMPOSE_ACTION` — Planar pose composition acts on points by nested application
 - `FM1.FEATURE.COMPOSE_ACTION` — A feature pose acts locally before its outer planar transform
@@ -93,6 +99,8 @@ These are derived from explicit `pending` statuses; they are not failures of the
 - `FM1.DIMENSION.DEPOSITION` — The deposition volume equation is dimensionally valid
 - `FM1.UNIT.NORMALIZE_CONVERT` — Converting units and then normalizing preserves canonical value
 - `FM1.VERIFIER_SOUNDNESS.MODEL.SEMANTICS` — The abstract exact-rational core verifier predicates imply their modeled inequalities
+- `FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP` — Unit tool direction vector roundtrips through ZYZ Euler decomposition
+- `FM1.IRBCAM.ARC.MIDPOINT` — Arc midpoint lies on circle of radius rho and bisects signed sweep
 
 ## Claim evidence and boundaries
 
@@ -923,7 +931,7 @@ Native Rust resolve_checked accurately refines Lean orientation resolution seman
 
 ### `FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS`
 
-Process channels (temperature, fan, flow, tool) deterministically propagate forward, omit default 1.0 flow, and attach to motion and dwell segments
+Process channels (temperature, fan, flow, tool, power) deterministically propagate forward, omit default 1.0 flow, and attach to motion and dwell segments
 
 - Scope/relation: `abstract` / `exact`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
@@ -945,7 +953,6 @@ Process channels (temperature, fan, flow, tool) deterministically propagate forw
 **Exclusions**
 
 - Invalid physical input bounds, which are checked by pre-resolution validation.
-- The spindle/laser power channel, which the engine propagates the same way but the Lean semantics does not model.
 
 ### `FM1.RESOLVE_CHANNELS.NATIVE.REFINE.CORPUS`
 
@@ -953,7 +960,7 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 
 - Scope/relation: `implementation` / `observational`.
 - Status: abstract `proved`, numeric `not-applicable`, Rust refinement `checked`.
-- Spec profile: `resolve-channels-refinement-v0`; `Six Lean-generated exact rational channel operation sequence test cases` → `Native Rust resolve_checked channel state propagation and segment output`.
+- Spec profile: `resolve-channels-refinement-v0`; `Seven Lean-generated exact rational channel operation sequence test cases` → `Native Rust resolve_checked channel state propagation and segment output`.
 - Normative clause: `DRY.RESOLVE.CHANNELS_V0` — Typed process channels propagate through ordered lowering.
 - Numeric domain: Exact rational operations and segments observed through finite binary64 floating-point values.
 - Lean theorem: [`Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theorem`](../../formal/Dry/Tests/ResolveChannelsFixtures.lean).
@@ -969,8 +976,7 @@ Native Rust resolve_checked accurately refines Lean process channel resolution s
 
 **Exclusions**
 
-- Arbitrary operation sequences outside the committed 6-case fixture corpus.
-- The spindle/laser power channel, which no fixture in the corpus exercises.
+- Arbitrary operation sequences outside the committed 7-case fixture corpus.
 
 ### `FM1.DEPOSITION.MODEL.SEMANTICS`
 
@@ -1226,6 +1232,101 @@ The canonical axis-aligned z normal has exact unit magnitude
 **Exclusions**
 
 - B-Rep trimmed surface boundary topology evaluation and boolean intersection algorithms.
+
+### `FM1.IRBCAM.ZYZ.SPIN_INDEPENDENCE`
+
+Tool direction vector is independent of the free roll spin rz2
+
+- Scope/relation: `abstract` / `exact`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
+- Spec profile: `v0`; `L2 tool orientation` → `IRBCAM ZYZ Euler angles`.
+- Normative clause: `DRY.GEOMETRY.ZYZ_EULER_V0` — Tool direction vector and ZYZ Euler angles roundtrip over Real.
+- Numeric domain: Real.
+- Lean theorem: [`Dry.Geometry.ZyzEuler.direction_spin_independent`](../../formal/Dry/Geometry/ZyzEuler.lean).
+- Proof method: `kernel`.
+- Rust anchors: [`irbcam.rs`](../../crates/core/src/emit/irbcam.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Tool axis corresponds to the frame Z axis.
+
+**Exclusions**
+
+- Binary64 floating-point rounding and IEEE-754 approximations in libm acos/atan2.
+- Degrees-to-radians rendering.
+
+### `FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP`
+
+Unit tool direction vector roundtrips through ZYZ Euler decomposition
+
+- Scope/relation: `abstract` / `exact`.
+- Status: abstract `proved`, numeric `pending`, Rust refinement `pending`.
+- Spec profile: `v0`; `L2 unit tool direction` → `IRBCAM ZYZ Euler angles`.
+- Normative clause: `DRY.GEOMETRY.ZYZ_EULER_V0` — Tool direction vector and ZYZ Euler angles roundtrip over Real.
+- Numeric domain: Real.
+- Lean theorem: [`Dry.Geometry.ZyzEuler.direction_euler_roundtrip`](../../formal/Dry/Geometry/ZyzEuler.lean).
+- Proof method: `kernel`.
+- Rust anchors: [`irbcam.rs`](../../crates/core/src/emit/irbcam.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Direction vector has unit Euclidean norm.
+
+**Exclusions**
+
+- Binary64 floating-point rounding in libm acos and atan2.
+- Singular gimbal lock joint handling at robot controller level.
+
+### `FM1.IRBCAM.ARC.MIDPOINT`
+
+Arc midpoint lies on circle of radius rho and bisects signed sweep
+
+- Scope/relation: `abstract` / `exact`.
+- Status: abstract `proved`, numeric `pending`, Rust refinement `pending`.
+- Spec profile: `v0`; `L2 planar arc` → `IRBCAM circular midpoint target`.
+- Normative clause: `DRY.IRBCAM.ARC_MIDPOINT_V0` — IRBCAM arc midpoint targets lie on the circular trajectory and bisect the sweep.
+- Numeric domain: Real.
+- Lean theorem: [`Dry.Geometry.ArcMidpoint.midpoint_on_circle`](../../formal/Dry/Geometry/ArcMidpoint.lean).
+- Proof method: `kernel`.
+- Rust anchors: [`irbcam.rs`](../../crates/core/src/emit/irbcam.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Planar XY arc with positive radius.
+
+**Exclusions**
+
+- Binary64 floating-point rounding in libm trigonometric functions.
+- Helical arcs with non-zero Z travel.
+
+### `FM1.IRBCAM.WELL_FORMED.REJECTION`
+
+IRBCAM program validation succeeds if and only if target sequence is structurally well-formed
+
+- Scope/relation: `abstract` / `rejection`.
+- Status: abstract `proved`, numeric `not-applicable`, Rust refinement `not-applicable`.
+- Spec profile: `v0`; `IRBCAM target sequence` → `Validated IRBCAM program`.
+- Normative clause: `DRY.IRBCAM.EXPORT_V0` — IRBCAM target list emission produces structurally well-formed programs.
+- Numeric domain: Rational target representation.
+- Lean theorem: [`Dry.Language.Irbcam.validate_success_iff`](../../formal/Dry/Language/Irbcam.lean).
+- Proof method: `kernel`.
+- Rust anchors: [`irbcam.rs`](../../crates/core/src/emit/irbcam.rs).
+- Numeric evidence: —.
+- Refinement evidence: —.
+
+**Assumptions**
+
+- Target indices and velocities are finite rationals.
+
+**Exclusions**
+
+- Physical robot kinematics and controller joint limits.
 
 ## Reproduction gates
 

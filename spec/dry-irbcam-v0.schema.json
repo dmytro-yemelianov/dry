@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dmytro-yemelianov/dry/spec/dry-irbcam-v0.schema.json",
+  "title": "IRBCAM Target List v0",
+  "description": "Normative JSON Schema for IRBCAM target list JSON format. See docs/28-apt-irbcam-dialects.md and IRBCAM vendor target specification.",
+  "$comment": "Authored from IRBCAM documentation (JSON/CSV target list specification) and verified against Lean 4 model Dry.Language.Irbcam.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targets",
+    "toolNumber",
+    "spindleSpeed"
+  ],
+  "properties": {
+    "targets": {
+      "type": "array",
+      "description": "Ordered sequence of 6-DOF robot target points and trajectory waypoints.",
+      "items": {
+        "$ref": "#/$defs/Target"
+      }
+    },
+    "toolNumber": {
+      "type": "array",
+      "description": "Sparse modal tool assignments as (targetIndex, value) pairs. Indices must be strictly increasing.",
+      "items": {
+        "$ref": "#/$defs/ToolEntry"
+      }
+    },
+    "spindleSpeed": {
+      "type": "array",
+      "description": "Sparse modal spindle speeds (RPM) as (targetIndex, value) pairs. Indices must be strictly increasing.",
+      "items": {
+        "$ref": "#/$defs/SpindleEntry"
+      }
+    }
+  },
+  "$defs": {
+    "Target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "z",
+        "rz1",
+        "ry",
+        "rz2",
+        "velocity",
+        "type"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Tool center point X coordinate in millimetres."
+        },
+        "y": {
+          "type": "number",
+          "description": "Tool center point Y coordinate in millimetres."
+        },
+        "z": {
+          "type": "number",
+          "description": "Tool center point Z coordinate in millimetres."
+        },
+        "rz1": {
+          "type": "number",
+          "description": "First Z rotation of ZYZ Euler orientation in degrees (or radians if configured)."
+        },
+        "ry": {
+          "type": "number",
+          "description": "Y rotation of ZYZ Euler orientation in degrees (or radians if configured)."
+        },
+        "rz2": {
+          "type": "number",
+          "description": "Second Z rotation (spin) of ZYZ Euler orientation in degrees (or radians if configured)."
+        },
+        "velocity": {
+          "type": "number",
+          "description": "Velocity in mm/s; literal -1 indicates rapid traverse rate, positive numbers represent feed velocity."
+        },
+        "type": {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "Target type: 0 for linear motion endpoint, 1 for circular arc midpoint."
+        }
+      }
+    },
+    "ToolEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetIndex",
+        "value"
+      ],
+      "properties": {
+        "targetIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based index of the target where this tool applies from."
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Non-negative tool identifier."
+        }
+      }
+    },
+    "SpindleEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetIndex",
+        "value"
+      ],
+      "properties": {
+        "targetIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based index of the target where this spindle speed applies from."
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Spindle speed in RPM (or proportional extrusion flow signal under SpindleRate policy)."
+        }
+      }
+    }
+  }
+}

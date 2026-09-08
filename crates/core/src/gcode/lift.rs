@@ -275,12 +275,30 @@ impl ImportedGcode {
         span_toolpaths: &[Toolpath],
         params: &EmitParams,
     ) -> Result<Vec<Vec<String>>, GcodeImportError> {
-        if params.flavor == crate::emit::FirmwareFlavor::RobotKrl {
+        let flavor_desc = match params.flavor {
+            crate::emit::FirmwareFlavor::RobotKrl => {
+                Some("KRL: the KRL renderer emits a whole DEF/END module")
+            }
+            crate::emit::FirmwareFlavor::Rapid => {
+                Some("RAPID: the RAPID renderer emits a whole PROC/ENDPROC module")
+            }
+            crate::emit::FirmwareFlavor::Irbcam => {
+                Some("IRBCAM: the IRBCAM renderer emits a JSON targets document")
+            }
+            crate::emit::FirmwareFlavor::IrbcamCsv => {
+                Some("IRBCAM CSV: the IRBCAM renderer emits a CSV targets document")
+            }
+            crate::emit::FirmwareFlavor::Apt => {
+                Some("APT: the APT renderer emits a whole CLDATA file")
+            }
+            _ => None,
+        };
+        if let Some(desc) = flavor_desc {
             return Err(GcodeImportError::new(
                 0,
-                "source-preserving span rewrite is not defined for KRL: the KRL renderer emits a \
-                 whole DEF/END module, which cannot be spliced into a g-code file"
-                    .to_string(),
+                format!(
+                    "source-preserving span rewrite is not defined for {desc}, which cannot be spliced into a g-code file"
+                ),
             ));
         }
 

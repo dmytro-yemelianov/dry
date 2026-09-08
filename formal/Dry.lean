@@ -2,10 +2,14 @@ import Dry.Geometry.Clothoid
 import Dry.Geometry.Kinematics
 import Dry.Geometry.PlanarTransform
 import Dry.Geometry.Brep
+import Dry.Geometry.ZyzEuler
+import Dry.Geometry.ArcMidpoint
 import Dry.Language.Common
 import Dry.Language.L2
 import Dry.Language.WellFormed
 import Dry.Language.LogicalEquality
+import Dry.Language.Apt
+import Dry.Language.Irbcam
 import Dry.Numeric.Accumulation
 import Dry.Numeric.ApplicationAccumulation
 import Dry.Numeric.Orientation

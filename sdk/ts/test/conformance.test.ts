@@ -552,11 +552,11 @@ test('the oriented drape vector reproduces its committed metrics and orientation
   });
 });
 
-test('TypeScript SDK validates all 14 public conformance vectors from MANIFEST.json', () => {
+test('TypeScript SDK validates all 15 public conformance vectors from MANIFEST.json', () => {
   const manifestPath = path.join(CONF, 'vectors', 'MANIFEST.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   assert.ok(Array.isArray(manifest.vectors), 'manifest.vectors must be an array');
-  assert.equal(manifest.vectors.length, 14, 'must have exactly 14 conformance vectors');
+  assert.equal(manifest.vectors.length, 15, 'must have exactly 15 conformance vectors');
 
   for (const vec of manifest.vectors) {
     const vecDir = path.join(CONF, 'vectors', vec.name);

@@ -39,6 +39,9 @@ Options:
           - heidenhain:  Emit Heidenhain TNC conversational CNC format
           - haas:        Emit Haas NextGen CNC format
           - robot-rapid: Emit ABB RAPID robot module format
+          - irbcam:      Emit IRBCAM target list in JSON format
+          - irbcam-csv:  Emit IRBCAM target list in CSV format
+          - apt:         Emit ISO 4343 APT-CL format
 
           [default: gcode]
           [aliases: --flavor]
@@ -56,6 +59,38 @@ Options:
 
   -o, --out <OUT>
           Write to a file instead of stdout
+
+      --irbcam-spin-deg <IRBCAM_SPIN_DEG>
+          Constant spin around tool axis (rz2) in degrees for IRBCAM targets
+
+          [default: 0.0]
+
+      --irbcam-rapid <IRBCAM_RAPID>
+          Rapid move encoding policy for IRBCAM (minus-one or explicit)
+
+      --irbcam-dwell <IRBCAM_DWELL>
+          Dwell handling policy for IRBCAM (refuse or drop)
+
+      --irbcam-extrusion <IRBCAM_EXTRUSION>
+          Extrusion handling policy for IRBCAM (refuse, motion-only, spindle-rate, or tool-toggle=E,T)
+
+      --irbcam-decimals <IRBCAM_DECIMALS>
+          Decimals for numeric fields in IRBCAM targets (6..=17)
+
+      --irbcam-angle-unit <IRBCAM_ANGLE_UNIT>
+          Angle unit for IRBCAM orientation (deg or rad)
+
+      --irbcam-strict
+          Strict mode for IRBCAM emission: fail on any dropped dwells or unhandled extrusion
+
+      --apt-partno <APT_PARTNO>
+          Part number for APT-CL PARTNO statement
+
+      --apt-machin <APT_MACHIN>
+          Machine specification for APT-CL MACHIN statement
+
+      --apt-decimals <APT_DECIMALS>
+          Decimals for numeric fields in APT-CL output
 
   -h, --help
           Print help (see a summary with '-h')

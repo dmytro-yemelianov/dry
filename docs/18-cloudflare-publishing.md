@@ -77,6 +77,14 @@ Pages production branch.
 `README.md`), the `docs/` tree, the standalone `web/*.html` portals, `web/machines.json`, and the
 compiled Vite Studio from `web/dist`. It also writes `_redirects` and `_headers`.
 
+Copying the `docs/` tree pulls in `docs/site`, the source of the *separately* deployed
+`dry-public-docs` project. The script then deletes whatever git ignores under `docs/` (it asks
+`git ls-files --others --ignored --directory` rather than carrying its own list, which would drift
+from `.gitignore`). Without that step the bundle carries `docs/site/node_modules` and friends —
+roughly 279 MB and 11k files of dev dependencies published to a public URL, and two thirds of the
+20,000-file Pages limit spent on files nothing links to. A correct bundle is about 23 MB and 265
+files; if a build produces thousands, the prune did not run.
+
 ### `functions/` is not part of `dist-site`
 
 The two public catalog endpoints — `/api/macros` and `/api/machines` — are Cloudflare Pages
@@ -116,23 +124,36 @@ as it stands. The two can disagree: the deployment the dashboard attributes to `
 served `functions/`, which was committed ten minutes later as `9b43703`. The window was short here,
 but nothing bounds it. Treat the recorded commit as a hint, not as a description of what is running.
 
-### Current state: offline
+### Current state: online
 
-As of 2026-08-25 the production deployment is a static maintenance page that returns
-"Dry Machina — Temporarily Offline" on every path. The Pages project, its custom domains, and its
-deployment history are intact; only the served content was replaced.
+The site is live, restored on 2026-09-08 by a rebuild and Direct Upload from the repository root.
+All four verification steps above passed against that deploy: apex and `www` serve the portal,
+`/web/` serves the Studio, `/api/macros` and `/api/machines` return Function JSON, and `/api/verify`
+and `/api/mcp` return only the HTML fallback. This section deliberately names no deployment hash —
+every deploy mints a new one, so a hash recorded here would be stale on arrival. Run
+`wrangler pages deployment list --project-name drymachina` for the current production deployment.
 
-To restore the site, rebuild and redeploy from the repository root using the command above, then run
-the verification steps. Rolling back to a stored deployment through the Cloudflare dashboard restores
-the same content without a rebuild.
+From 2026-08-25 until then the production deployment was a static maintenance page returning
+"Dry Machina — Temporarily Offline" on every path; the Pages project and its custom domains were
+never touched, only the served content.
 
-Every past deployment also remains reachable at its own `<hash>.drymachina.pages.dev` URL, including
-historical copies of `/api/verify` and `/api/mcp`. Removing the source files prevents future deploys
-from recreating those functions, but replacing the production deployment does **not** withdraw stored
-deployment URLs. **Deleting those deployments or placing a Cloudflare Access policy over
-`*.drymachina.pages.dev` is an owner-side launch blocker before public synchronous verification can
-be called retired.** Access closes the per-deployment URLs while leaving `drymachina.pages.dev`
-itself public.
+Restoring the site again means a rebuild and redeploy from the repository root, followed by the
+verification steps. Dashboard rollback is **not** a substitute: the 27 stored non-active deployments
+were deleted on 2026-09-06, so there is no earlier deployment to roll back to.
+
+A stored deployment stays reachable at its own `<hash>.drymachina.pages.dev` URL. Deleting the
+source files stops future deploys from recreating a Function, and replacing the production
+deployment changes what `drymachina.com` serves, but neither withdraws a stored deployment URL — a
+historical deployment goes on serving its own copy of `/api/verify` and `/api/mcp`.
+
+The 27 non-active deployments that carried those endpoints as live Functions were deleted on
+2026-09-06, and no deployment built since then can recreate them — the source files are gone. Every
+deploy still adds one publicly reachable hash URL, so the count grows on its own; run
+`tools/check_pages_exposure.sh` for the current inventory rather than trusting a number written here.
+**A Cloudflare Access policy over `*.drymachina.pages.dev` remains the durable owner-side control**,
+because deletion does not scale to every future deploy and was observed to leave hash hostnames
+serving static bytes from edge retention after their records were gone. Access closes the
+per-deployment URLs while leaving `drymachina.pages.dev` itself public.
 
 `tools/check_pages_exposure.sh` enumerates the stored deployments of a Pages project and reports which
 are still publicly reachable. It is read-only and applies to either project:
@@ -143,6 +164,11 @@ tools/check_pages_exposure.sh dry-public-docs --path /gallery/
 ```
 
 It exits non-zero while any deployment still answers, so it can gate a takedown being called done.
+
+It judges by status code alone, so it reports `/api/verify=200` for any deployment whose unmatched
+paths fall back to `index.html` — the same 200-with-HTML trap described above. A reachable path is
+not a live Function; check the content type before reading a hit as a surviving verification
+endpoint.
 
 ## Automation boundary
 

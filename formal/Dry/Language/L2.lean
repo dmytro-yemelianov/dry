@@ -46,6 +46,7 @@ structure Segment where
   fan : Option Dry.Language.Number := none
   flow : Option Dry.Language.Number := none
   tool : Option Nat := none
+  power : Option Dry.Language.Number := none
   dwellSeconds : Option Dry.Language.Number := none
   manualGcode : Option String := none
   orientation : Option Dry.Language.Vec3 := none

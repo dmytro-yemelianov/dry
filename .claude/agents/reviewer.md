@@ -1,9 +1,8 @@
 ---
 name: reviewer
 description: Post-slice code review for the dry repo with repo-specific checks (proofs/ contracts, cross-target parity, conformance/test coverage). Use after completing a feature slice or before merging. Can run tests and clippy; cannot edit files.
-tools: Glob, Grep, Read, Bash, mcp__codebase_memory_mcp__search_graph, mcp__codebase_memory_mcp__trace_path, mcp__codebase_memory_mcp__get_code_snippet, mcp__codebase_memory_mcp__query_graph, mcp__codebase_memory_mcp__get_architecture
-model: claude-opus-5
-effort: xhigh
+tools: Glob, Grep, Read, Bash, mcp__codebase-memory-mcp__search_graph, mcp__codebase-memory-mcp__trace_path, mcp__codebase-memory-mcp__get_code_snippet, mcp__codebase-memory-mcp__query_graph, mcp__codebase-memory-mcp__get_architecture
+model: opus
 ---
 
 You independently review changed code in the dry repository. You may run tests and CI-equivalent linters, but you have no Edit or Write tools and never modify files.

@@ -1,0 +1,542 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentoolpath.org/spec/v1/opentoolpath-v1.schema.json",
+  "title": "OpenToolpath v1.0 Normative Schema",
+  "description": "Normative JSON Schema for OpenToolpath v1.0 package manifest, toolpath motion document, physical tools catalog, operational machine context, and diagnostic records. Conforms to docs/29-opentoolpath-spec.md.",
+  "oneOf": [
+    { "$ref": "#/$defs/Manifest" },
+    { "$ref": "#/$defs/Toolpath" },
+    { "$ref": "#/$defs/ToolsCatalog" },
+    { "$ref": "#/$defs/ContextDescriptor" },
+    { "$ref": "#/$defs/DiagnosticRecord" }
+  ],
+  "$defs": {
+    "Manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["otp_version", "package_id", "created_at", "generator", "process", "entrypoints", "digests"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "otp_version": {
+          "type": "string",
+          "enum": ["1.0"],
+          "description": "Normative OpenToolpath specification version."
+        },
+        "package_id": {
+          "type": "string",
+          "description": "Unique package identifier (UUID URN, e.g., urn:uuid:...)."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp of package generation."
+        },
+        "generator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "source_hash": { "type": "string" }
+          }
+        },
+        "process": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["domain"],
+          "properties": {
+            "domain": {
+              "type": "string",
+              "enum": ["additive", "subtractive", "hybrid", "laser", "robotics"]
+            },
+            "sub_type": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        },
+        "entrypoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["payload", "payload_format", "tools", "context"],
+          "properties": {
+            "payload": {
+              "type": "string",
+              "description": "Relative path to motion payload (e.g. payload/toolpath.json)."
+            },
+            "payload_format": {
+              "type": "string",
+              "enum": ["json", "dry0", "dry1"]
+            },
+            "tools": {
+              "type": "string",
+              "description": "Relative path to tools catalog (e.g. tools.json)."
+            },
+            "context": {
+              "type": "string",
+              "description": "Relative path to operational context (e.g. context.json)."
+            }
+          }
+        },
+        "digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "description": "Map of internal relative file paths to SHA-256 digests."
+        },
+        "conformance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["strict", "relaxed"]
+            },
+            "invariants": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "Toolpath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "segments"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "description": "Toolpath IR schema version (v0 => 0 legacy Dry IR, v1 => 1 OpenToolpath)."
+        },
+        "meta": { "$ref": "#/$defs/Meta" },
+        "segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Segment" }
+        }
+      }
+    },
+    "Meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional provenance and contract declarations header.",
+      "properties": {
+        "generator": { "type": "string" },
+        "units": { "type": "string", "default": "mm" },
+        "source_hash": { "type": "string" },
+        "invariants": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "OptAxis3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": ["number", "null"] },
+      "description": "3D point (x, y, z); component null only prior to first absolute move."
+    },
+    "Vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" },
+      "description": "Definite 3D geometric vector (x, y, z) with finite coordinates."
+    },
+    "SegmentKind": {
+      "type": "string",
+      "enum": [
+        "line",
+        "arc",
+        "spline",
+        "dwell",
+        "rapid",
+        "retract",
+        "unretract",
+        "deposit",
+        "manualgcode"
+      ],
+      "description": "Canonical segment primitive kind."
+    },
+    "Segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "travel",
+        "speed",
+        "length",
+        "volume",
+        "filament"
+      ],
+      "properties": {
+        "start": { "$ref": "#/$defs/OptAxis3" },
+        "end": { "$ref": "#/$defs/Vec3" },
+        "travel": { "type": "boolean" },
+        "speed": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Feedrate in mm/min (> 0 for motion moves, = 0 for dwell)."
+        },
+        "length": {
+          "type": "number",
+          "minimum": 0,
+          "description": "True trajectory path length in mm (0 for dwell/pure position)."
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Deposited material volume in mm³ (strictly 0 when travel: true)."
+        },
+        "filament": {
+          "type": "number",
+          "description": "Feedstock length consumed in mm (negative for retraction, strictly 0 when travel: true)."
+        },
+        "width": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "exclusiveMinimum": 0 }
+          ],
+          "description": "Extrusion bead width or cutter diameter in mm (> 0 when non-null)."
+        },
+        "height": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "exclusiveMinimum": 0 }
+          ],
+          "description": "Layer height or depth of cut in mm (> 0 when non-null)."
+        },
+        "kind": {
+          "$ref": "#/$defs/SegmentKind",
+          "default": "line"
+        },
+        "centre": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 3,
+              "items": { "type": "number" }
+            }
+          ],
+          "description": "Arc center coordinates (cx, cy) or (cx, cy, cz); valid for kind 'arc'."
+        },
+        "clockwise": {
+          "type": "boolean",
+          "description": "Arc sweep direction: true => CW (G2), false => CCW (G3)."
+        },
+        "midpoint": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/Vec3" }
+          ],
+          "description": "Arc intermediate midpoint (mx, my, mz) preserving exact sweep (Theorem I8)."
+        },
+        "orientation": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/Vec3" }
+          ],
+          "description": "Tool direction unit vector (i, j, k) with ||u|| = 1; defaults to +Z."
+        },
+        "euler": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/Vec3" }
+          ],
+          "description": "ZYZ Euler angles (rz1, ry, rz2) in degrees."
+        },
+        "control_points": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "minItems": 2,
+              "items": { "$ref": "#/$defs/Vec3" }
+            }
+          ],
+          "description": "Spline control points array (minItems: 2); valid for kind 'spline'."
+        },
+        "dwell_s": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": 0 }
+          ],
+          "description": "Stationary dwell duration in seconds; valid for kind 'dwell'."
+        },
+        "power": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": 0 }
+          ],
+          "description": "Commanded spindle RPM or laser power."
+        },
+        "temperature": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": -273.15 }
+          ],
+          "description": "Tool/nozzle temperature in °C."
+        },
+        "fan": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": 0, "maximum": 1 }
+          ],
+          "description": "Part cooling fan speed ratio [0.0, 1.0]."
+        },
+        "flow": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "exclusiveMinimum": 0 }
+          ],
+          "description": "Volumetric flow multiplier ratio."
+        },
+        "tool": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "description": "Active tool index in tools catalog."
+        },
+        "manual_gcode": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ],
+          "description": "Verbatim unlowered g-code instruction; valid for kind 'manualgcode'."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "travel": { "const": true } } },
+          "then": {
+            "properties": {
+              "volume": { "const": 0 },
+              "filament": { "const": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "rapid" } } },
+          "then": {
+            "properties": {
+              "travel": { "const": true }
+            }
+          }
+        }
+      ]
+    },
+    "ToolsCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "tools"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "schema_version": { "type": "string", "enum": ["1.0"] },
+        "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ToolDefinition" }
+        }
+      }
+    },
+    "ToolDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "name": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "endmill",
+            "ballnose",
+            "bullnose",
+            "drill",
+            "tap",
+            "reamer",
+            "turning_insert",
+            "grooving_tool",
+            "parting_tool",
+            "threading_insert",
+            "fff_nozzle",
+            "laser_head",
+            "probe",
+            "spindle"
+          ]
+        },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "diameter": { "type": "number", "exclusiveMinimum": 0 },
+            "corner_radius": { "type": "number", "minimum": 0 },
+            "flute_length": { "type": "number", "minimum": 0 },
+            "overall_length": { "type": "number", "minimum": 0 },
+            "flute_count": { "type": "integer", "minimum": 1 },
+            "orifice_diameter": { "type": "number", "exclusiveMinimum": 0 },
+            "filament_diameter": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "offsets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "length_offset": { "type": "number" },
+            "radius_offset": { "type": "number" }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_rpm": { "type": "number", "minimum": 0 },
+            "max_feedrate": { "type": "number", "minimum": 0 }
+          }
+        },
+        "thermal": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_temperature": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "ContextDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "machine"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "schema_version": { "type": "string", "enum": ["1.0"] },
+        "machine": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vendor": { "type": "string" },
+            "model": { "type": "string" },
+            "kinematics": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["topology"],
+              "properties": {
+                "topology": {
+                  "type": "string",
+                  "enum": [
+                    "cartesian_3axis",
+                    "corexy",
+                    "table_table_bc",
+                    "table_table_ac",
+                    "head_head_ac",
+                    "head_table_bc",
+                    "lathe_xz",
+                    "robot_6dof"
+                  ]
+                },
+                "axes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name", "type"],
+                    "properties": {
+                      "name": { "type": "string" },
+                      "type": { "type": "string", "enum": ["linear", "rotary"] },
+                      "min": { "type": "number" },
+                      "max": { "type": "number" },
+                      "max_velocity": { "type": "number", "minimum": 0 },
+                      "axis_vector": { "$ref": "#/$defs/Vec3" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "work_coordinates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["active_system"],
+          "properties": {
+            "active_system": { "type": "string" },
+            "offsets": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": { "type": "number" }
+              }
+            }
+          }
+        },
+        "stock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["box", "cylinder", "mesh", "brep"] },
+            "dimensions": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "origin": { "$ref": "#/$defs/Vec3" },
+            "uri": { "type": "string" }
+          }
+        }
+      }
+    },
+    "DiagnosticRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "category", "location", "message"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "code": {
+          "type": "string",
+          "enum": [
+            "OTP_ERR_CONTAINER_CORRUPT",
+            "OTP_ERR_CONTAINER_PATH_TRAVERSAL",
+            "OTP_ERR_DIGEST_MISMATCH",
+            "OTP_ERR_SIGNATURE_INVALID",
+            "OTP_ERR_SCHEMA_VIOLATION",
+            "OTP_ERR_NUMERIC_NON_FINITE",
+            "OTP_ERR_KINEMATIC_LIMIT_EXCEEDED",
+            "OTP_ERR_ARC_RADIUS_MISMATCH",
+            "OTP_ERR_ARC_MIDPOINT_OFF_CIRCLE",
+            "OTP_ERR_ORIENTATION_NOT_UNIT",
+            "OTP_ERR_UNMODELED_COMMAND",
+            "OTP_ERR_RESOURCE_BUDGET_EXCEEDED"
+          ],
+          "description": "Standard OpenToolpath diagnostic error code (Table 7.1)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["syntax", "schema", "numeric", "kinematic", "geometry", "semantic", "integrity", "security", "system"]
+        },
+        "location": {
+          "type": "string",
+          "description": "File path, line number, byte offset, or segment index where refusal occurred."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable diagnostic description."
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Machine-readable numeric context (e.g. actual value vs bound)."
+        }
+      }
+    }
+  }
+}
