@@ -15,6 +15,7 @@ mod irbcam;
 mod kinematics;
 mod krl;
 mod laser;
+mod otp;
 mod plasma;
 mod rapid;
 mod spline;
@@ -42,6 +43,13 @@ pub use self::kinematics::{
 };
 pub use self::krl::{KrlFrame, KrlTransform};
 pub use self::laser::{emit_grbl_laser, LaserError, LaserMode, LaserParams};
+pub use self::otp::{
+    crc32, emit_otp_to_writer, OtpAxis, OtpConformance, OtpContextDescriptor, OtpEmitStats,
+    OtpEntrypoints, OtpFrame, OtpGenerator, OtpKinematics, OtpMachine, OtpManifest, OtpProcess,
+    OtpStock, OtpToolCapabilities, OtpToolDefinition, OtpToolGeometry, OtpToolOffsets,
+    OtpToolThermal, OtpToolsCatalog, OtpWorkCoordinates, ZipArchiveWriter, OTP_MIMETYPE,
+    OTP_SCHEMA_URL, OTP_SPEC_VERSION,
+};
 pub use self::plasma::{emit_plasma_waterjet, CuttingParams, LeadInType};
 pub use self::rapid::emit_rapid_to_writer;
 pub use self::template::{render_template, GcodeTemplate, TemplateContext};

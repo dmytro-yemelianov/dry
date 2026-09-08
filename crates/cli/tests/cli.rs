@@ -4086,3 +4086,287 @@ fn emit_irbcam_dwell_and_strict_mode() {
     let _ = std::fs::remove_file(&out_drop);
     let _ = std::fs::remove_file(&out_strict);
 }
+
+#[test]
+fn emit_opentoolpath_package_and_validate() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            },
+            {
+                "start": [10.0, 20.0, 0.0],
+                "end": [30.0, 20.0, 5.0],
+                "travel": false,
+                "speed": 1500.0,
+                "length": 20.6155,
+                "volume": 2.061,
+                "filament": 1.03,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 2,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+    let otp_out = temp_path("output.otp");
+
+    let run_emit = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "additive",
+            "--otp-sub-type",
+            "fff_multi_material",
+            "--otp-description",
+            "Integration test package",
+            "-o",
+            otp_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(
+        run_emit.status.success(),
+        "dry emit --format otp failed: {}",
+        String::from_utf8_lossy(&run_emit.stderr)
+    );
+    assert!(otp_out.exists());
+
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    let run_val = Command::new("python3")
+        .args([validator_path.to_str().unwrap(), otp_out.to_str().unwrap()])
+        .output()
+        .expect("validate_otp.py execution");
+
+    assert!(
+        run_val.status.success(),
+        "tools/validate_otp.py failed: {}\nstdout: {}",
+        String::from_utf8_lossy(&run_val.stderr),
+        String::from_utf8_lossy(&run_val.stdout)
+    );
+
+    // Test payload formats: dry0 and dry1
+    for fmt in ["dry0", "dry1"] {
+        let fmt_out = temp_path(&format!("output_{fmt}.otp"));
+        let run_fmt = Command::new(bin())
+            .args([
+                "emit",
+                ir_file.to_str().unwrap(),
+                "--format",
+                "otp",
+                "--otp-payload-format",
+                fmt,
+                "-o",
+                fmt_out.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+
+        assert!(
+            run_fmt.status.success(),
+            "dry emit --format otp --otp-payload-format {fmt} failed: {}",
+            String::from_utf8_lossy(&run_fmt.stderr)
+        );
+
+        let run_val_fmt = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), fmt_out.to_str().unwrap()])
+            .output()
+            .expect("validate_otp.py execution");
+
+        assert!(
+            run_val_fmt.status.success(),
+            "tools/validate_otp.py failed on {fmt}: {}\nstdout: {}",
+            String::from_utf8_lossy(&run_val_fmt.stderr),
+            String::from_utf8_lossy(&run_val_fmt.stdout)
+        );
+
+        let _ = std::fs::remove_file(&fmt_out);
+    }
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out);
+}
+
+#[test]
+fn emit_opentoolpath_cli_flags_coverage() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_flags_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Alias --format opentoolpath with --otp-conformance strict
+    let otp_out_1 = temp_path("flags_1.otp");
+    let run_1 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "opentoolpath",
+            "--otp-domain",
+            "subtractive",
+            "--otp-sub-type",
+            "milling_5axis",
+            "--otp-description",
+            "5-axis milling test",
+            "--otp-conformance",
+            "strict",
+            "-o",
+            otp_out_1.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_1.status.success());
+    assert!(otp_out_1.exists());
+
+    // 2. Conformance relaxed with robotics domain
+    let otp_out_2 = temp_path("flags_2.otp");
+    let run_2 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "robotics",
+            "--otp-sub-type",
+            "robot_machining",
+            "--otp-conformance",
+            "relaxed",
+            "-o",
+            otp_out_2.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_2.status.success());
+    assert!(otp_out_2.exists());
+
+    // Validate both with validate_otp.py
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    for path in [&otp_out_1, &otp_out_2] {
+        let run_val = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(run_val.status.success());
+    }
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out_1);
+    let _ = std::fs::remove_file(&otp_out_2);
+}
+
+#[test]
+fn emit_opentoolpath_stdout_and_step_nc() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_stdout_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Emit OTP to stdout
+    let run_stdout = Command::new(bin())
+        .args(["emit", ir_file.to_str().unwrap(), "--format", "otp"])
+        .output()
+        .unwrap();
+    assert!(run_stdout.status.success());
+    assert!(run_stdout.stdout.starts_with(b"PK\x03\x04"));
+
+    // 2. Emit OTP with --step-nc and -o
+    let otp_step_out = temp_path("step_out.otp");
+    let step_nc_path = temp_path("toolpath.21");
+    let run_step = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_path.to_str().unwrap(),
+            "-o",
+            otp_step_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step.status.success());
+    assert!(otp_step_out.exists());
+    assert!(step_nc_path.exists());
+
+    // 3. Emit OTP with --step-nc without -o (stdout)
+    let step_nc_stdout = temp_path("toolpath_stdout.21");
+    let run_step_stdout = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_stdout.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step_stdout.status.success());
+    assert!(run_step_stdout.stdout.starts_with(b"PK\x03\x04"));
+    assert!(step_nc_stdout.exists());
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_step_out);
+    let _ = std::fs::remove_file(&step_nc_path);
+    let _ = std::fs::remove_file(&step_nc_stdout);
+}

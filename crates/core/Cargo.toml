@@ -21,6 +21,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 miniz_oxide = "0.8"
 libm = "0.2"
+sha2 = { version = "0.10", default-features = false }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -34,6 +35,7 @@ sha2 = "0.10"
 # Benchmark harness (dev-only). default-features off to skip the heavy plotting/rayon stack — the CI
 # `bench` job only needs the benches to compile and run (docs/13-performance-and-scale.md).
 criterion = { version = "0.5", default-features = false }
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 [[bench]]
 name = "engine_codec"

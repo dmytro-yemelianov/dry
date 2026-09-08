@@ -6,7 +6,7 @@ mod printer_registry;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    apply_gated, emit_irbcam_to_writer, emit_step_nc, emit_stream_to_writer,
+    apply_gated, emit_irbcam_to_writer, emit_otp_to_writer, emit_step_nc, emit_stream_to_writer,
     import_apt_reader_with_limits, import_apt_reader_with_map, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
@@ -14,8 +14,8 @@ use dry_core::{
     verify, verify_stream, AngleUnit, AptFrame, AptImportLimits, AptImportParams, AptUnits,
     BatchFileResult, Contracts, CutMode, Design, DwellPolicy, EmitParams, ExtrusionCarry,
     FirmwareFlavor, GcodeImportParams, IrbcamEmitStats, IrbcamFrame, IrbcamLayout, Kinematics,
-    KrlFrame, OptimizeMode, PocketOptions, PocketShape, Profile, RapidEncoding, ReviewBatch,
-    RewriteReport, RewriteSpanResult, Toolpath, TpmsOptions, TraceAnalyticsOptions,
+    KrlFrame, OptimizeMode, OtpEmitStats, PocketOptions, PocketShape, Profile, RapidEncoding,
+    ReviewBatch, RewriteReport, RewriteSpanResult, Toolpath, TpmsOptions, TraceAnalyticsOptions,
     UnknownMajorWordPolicy, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
@@ -62,6 +62,9 @@ enum EmitOutputFormat {
     /// Emit ISO 4343 APT-CL format.
     #[value(alias = "apt-cl")]
     Apt,
+    /// Emit native OpenToolpath (.otp) package archive.
+    #[value(alias = "opentoolpath")]
+    Otp,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -531,6 +534,21 @@ enum Cmd {
         /// Decimals for numeric fields in APT-CL output.
         #[arg(long)]
         apt_decimals: Option<u8>,
+        /// Process domain for OpenToolpath package (additive, subtractive, hybrid, laser, robotics).
+        #[arg(long)]
+        otp_domain: Option<String>,
+        /// Sub-type classification for OpenToolpath package (e.g. milling_5axis, fff).
+        #[arg(long)]
+        otp_sub_type: Option<String>,
+        /// Description of the OpenToolpath package process.
+        #[arg(long)]
+        otp_description: Option<String>,
+        /// Payload serialization format for OpenToolpath package (json, dry0, dry1).
+        #[arg(long)]
+        otp_payload_format: Option<String>,
+        /// Conformance level for OpenToolpath package (strict or relaxed).
+        #[arg(long)]
+        otp_conformance: Option<String>,
     },
     /// Encode a Dry IR (JSON) file to the chunked streaming binary form.
     Pack {
@@ -1321,6 +1339,23 @@ fn write_program(
     }
 }
 
+/// Atomically write a binary file (e.g. OpenToolpath ZIP container) without an extra newline.
+fn write_binary_program(
+    path: &str,
+    emit: impl FnOnce(&mut std::io::BufWriter<fs::File>) -> Result<(), String>,
+) {
+    let tmp = match stage_atomic(path, |writer| {
+        emit(writer).map_err(|e| format!("cannot write {path}: {e}"))
+    }) {
+        Ok(tmp) => tmp,
+        Err(msg) => die(msg),
+    };
+    if let Err(msg) = commit_atomic(&tmp, path) {
+        cleanup_tmp(&tmp);
+        die(msg);
+    }
+}
+
 /// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
 fn require(value: Option<f64>, flag: &str) -> f64 {
     value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
@@ -1620,6 +1655,11 @@ fn run(cli: Cli) -> ExitCode {
             apt_partno,
             apt_machin,
             apt_decimals,
+            otp_domain,
+            otp_sub_type,
+            otp_description,
+            otp_payload_format,
+            otp_conformance,
         } => {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
@@ -1652,6 +1692,7 @@ fn run(cli: Cli) -> ExitCode {
                 EmitOutputFormat::Irbcam => flavor = FirmwareFlavor::Irbcam,
                 EmitOutputFormat::IrbcamCsv => flavor = FirmwareFlavor::IrbcamCsv,
                 EmitOutputFormat::Apt => flavor = FirmwareFlavor::Apt,
+                EmitOutputFormat::Otp => flavor = FirmwareFlavor::Otp,
                 EmitOutputFormat::Gcode => {}
             }
 
@@ -1750,6 +1791,26 @@ fn run(cli: Cli) -> ExitCode {
                 apt_frame.decimals = dec;
             }
 
+            let mut otp_frame = profile
+                .as_ref()
+                .map(|p| p.emit_params().otp_frame)
+                .unwrap_or_default();
+            if let Some(d) = otp_domain {
+                otp_frame.domain = Some(d);
+            }
+            if let Some(st) = otp_sub_type {
+                otp_frame.sub_type = Some(st);
+            }
+            if let Some(desc) = otp_description {
+                otp_frame.description = Some(desc);
+            }
+            if let Some(pf) = otp_payload_format {
+                otp_frame.payload_format = Some(pf);
+            }
+            if let Some(conf) = otp_conformance {
+                otp_frame.conformance_level = Some(conf);
+            }
+
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
@@ -1760,8 +1821,11 @@ fn run(cli: Cli) -> ExitCode {
                 krl_frame: KrlFrame::default(),
                 irbcam_frame,
                 apt_frame,
+                otp_frame,
             };
 
+            let is_otp = flavor == FirmwareFlavor::Otp;
+            let mut otp_stats: Option<OtpEmitStats> = None;
             let is_irbcam = flavor == FirmwareFlavor::Irbcam || flavor == FirmwareFlavor::IrbcamCsv;
             let mut irbcam_stats: Option<IrbcamEmitStats> = None;
 
@@ -1785,8 +1849,18 @@ fn run(cli: Cli) -> ExitCode {
                 match out {
                     Some(path) => {
                         let mut stats_holder = None;
+                        let mut otp_holder = None;
                         let gcode_tmp = stage_atomic(&path, |writer| {
-                            if is_irbcam {
+                            if is_otp {
+                                let stats = emit_otp_to_writer(
+                                    segments.into_iter().map(Ok),
+                                    &params,
+                                    writer,
+                                )
+                                .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                otp_holder = Some(stats);
+                                Ok(())
+                            } else if is_irbcam {
                                 let stats = emit_irbcam_to_writer(
                                     segments.into_iter().map(Ok),
                                     &params,
@@ -1794,6 +1868,7 @@ fn run(cli: Cli) -> ExitCode {
                                 )
                                 .map_err(|e| format!("cannot emit {file}: {e}"))?;
                                 stats_holder = Some(stats);
+                                writeln!(writer).map_err(|e| format!("cannot write {path}: {e}"))
                             } else {
                                 emit_stream_to_writer(
                                     segments.into_iter().map(Ok),
@@ -1801,8 +1876,8 @@ fn run(cli: Cli) -> ExitCode {
                                     writer,
                                 )
                                 .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                writeln!(writer).map_err(|e| format!("cannot write {path}: {e}"))
                             }
-                            writeln!(writer).map_err(|e| format!("cannot write {path}: {e}"))
                         })
                         .unwrap_or_else(|e| {
                             cleanup_tmp(&step_nc_tmp);
@@ -1814,6 +1889,7 @@ fn run(cli: Cli) -> ExitCode {
                             die(msg);
                         }
                         irbcam_stats = stats_holder;
+                        otp_stats = otp_holder;
                         if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
                             cleanup_tmp(&step_nc_tmp);
                             die(format!(
@@ -1824,7 +1900,22 @@ fn run(cli: Cli) -> ExitCode {
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
-                        if is_irbcam {
+                        if is_otp {
+                            let stats = emit_otp_to_writer(
+                                segments.into_iter().map(Ok),
+                                &params,
+                                &mut writer,
+                            )
+                            .unwrap_or_else(|e| {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot emit {file}: {e}"));
+                            });
+                            writer.flush().unwrap_or_else(|e| {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot write stdout: {e}"));
+                            });
+                            otp_stats = Some(stats);
+                        } else if is_irbcam {
                             let stats = emit_irbcam_to_writer(
                                 segments.into_iter().map(Ok),
                                 &params,
@@ -1843,9 +1934,11 @@ fn run(cli: Cli) -> ExitCode {
                             cleanup_tmp(&step_nc_tmp);
                             die(format!("cannot emit {file}: {e}"));
                         }
-                        if let Err(e) = writeln!(writer) {
-                            cleanup_tmp(&step_nc_tmp);
-                            die(format!("cannot write stdout: {e}"));
+                        if !is_otp {
+                            if let Err(e) = writeln!(writer) {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot write stdout: {e}"));
+                            }
                         }
                         if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
                             cleanup_tmp(&step_nc_tmp);
@@ -1858,35 +1951,62 @@ fn run(cli: Cli) -> ExitCode {
             } else {
                 match out {
                     Some(path) => {
-                        let mut stats_holder = None;
-                        write_program(&path, |writer| {
-                            if is_irbcam {
-                                let stats = emit_irbcam_to_writer(stream, &params, writer)
+                        if is_otp {
+                            let mut stats_holder = None;
+                            write_binary_program(&path, |writer| {
+                                let stats = emit_otp_to_writer(stream, &params, writer)
                                     .map_err(|e| format!("cannot emit {file}: {e}"))?;
                                 stats_holder = Some(stats);
                                 Ok(())
-                            } else {
-                                emit_stream_to_writer(stream, &params, writer)
-                                    .map_err(|e| format!("cannot emit {file}: {e}"))
-                            }
-                        });
-                        irbcam_stats = stats_holder;
+                            });
+                            otp_stats = stats_holder;
+                        } else {
+                            let mut stats_holder = None;
+                            write_program(&path, |writer| {
+                                if is_irbcam {
+                                    let stats = emit_irbcam_to_writer(stream, &params, writer)
+                                        .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                    stats_holder = Some(stats);
+                                    Ok(())
+                                } else {
+                                    emit_stream_to_writer(stream, &params, writer)
+                                        .map_err(|e| format!("cannot emit {file}: {e}"))
+                                }
+                            });
+                            irbcam_stats = stats_holder;
+                        }
                     }
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
-                        if is_irbcam {
+                        if is_otp {
+                            let stats = emit_otp_to_writer(stream, &params, &mut writer)
+                                .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                            writer
+                                .flush()
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                            otp_stats = Some(stats);
+                        } else if is_irbcam {
                             let stats = emit_irbcam_to_writer(stream, &params, &mut writer)
                                 .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
                             irbcam_stats = Some(stats);
+                            writeln!(writer)
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
                         } else {
                             emit_stream_to_writer(stream, &params, &mut writer)
                                 .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                            writeln!(writer)
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
                         }
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
                     }
                 }
+            }
+
+            if let Some(stats) = otp_stats {
+                eprintln!(
+                    "otp: {} segment(s), {} tool(s), {} bytes written",
+                    stats.segments_count, stats.tools_count, stats.total_bytes_written
+                );
             }
 
             if let Some(stats) = irbcam_stats {
@@ -2974,6 +3094,7 @@ fn run(cli: Cli) -> ExitCode {
                 krl_frame: KrlFrame::default(),
                 irbcam_frame: IrbcamFrame::default(),
                 apt_frame: AptFrame::default(),
+                otp_frame: Default::default(),
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -4116,6 +4237,7 @@ fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::Ex
             krl_frame: KrlFrame::default(),
             irbcam_frame: IrbcamFrame::default(),
             apt_frame: AptFrame::default(),
+            otp_frame: Default::default(),
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();

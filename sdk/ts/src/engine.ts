@@ -215,7 +215,9 @@ export type FirmwareFlavor =
   | 'rapid'
   | 'irbcam'
   | 'irbcam-csv'
-  | 'apt';
+  | 'apt'
+  | 'otp'
+  | 'opentoolpath';
 
 /**
  * Machine preamble for the CNC dialects. Without it those flavors emit motion lines and no work

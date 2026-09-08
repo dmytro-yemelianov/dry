@@ -42,6 +42,7 @@ Options:
           - irbcam:      Emit IRBCAM target list in JSON format
           - irbcam-csv:  Emit IRBCAM target list in CSV format
           - apt:         Emit ISO 4343 APT-CL format
+          - otp:         Emit native OpenToolpath (.otp) package archive
 
           [default: gcode]
           [aliases: --flavor]
@@ -91,6 +92,21 @@ Options:
 
       --apt-decimals <APT_DECIMALS>
           Decimals for numeric fields in APT-CL output
+
+      --otp-domain <OTP_DOMAIN>
+          Process domain for OpenToolpath package (additive, subtractive, hybrid, laser, robotics)
+
+      --otp-sub-type <OTP_SUB_TYPE>
+          Sub-type classification for OpenToolpath package (e.g. milling_5axis, fff)
+
+      --otp-description <OTP_DESCRIPTION>
+          Description of the OpenToolpath package process
+
+      --otp-payload-format <OTP_PAYLOAD_FORMAT>
+          Payload serialization format for OpenToolpath package (json, dry0, dry1)
+
+      --otp-conformance <OTP_CONFORMANCE>
+          Conformance level for OpenToolpath package (strict or relaxed)
 
   -h, --help
           Print help (see a summary with '-h')
