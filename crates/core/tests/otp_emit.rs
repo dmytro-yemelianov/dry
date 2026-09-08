@@ -616,3 +616,121 @@ fn test_otp_bc_kinematics_and_robot_context() {
     let axes = ctx["machine"]["kinematics"]["axes"].as_array().unwrap();
     assert_eq!(axes.len(), 6);
 }
+
+#[test]
+fn test_otp_default_tools_for_cnc_and_additive() {
+    let mut seg = seg_line([0.0, 0.0, 0.0], [10.0, 0.0, 0.0], 1000.0, 0);
+    seg.tool = None;
+
+    // 1. CNC default tool (endmill with flute/overall length)
+    let params_cnc = EmitParams {
+        flavor: FirmwareFlavor::Rs274,
+        ..Default::default()
+    };
+    let mut out_cnc = Vec::new();
+    let stats_cnc =
+        emit_otp_to_writer(vec![Ok(seg.clone())], &params_cnc, &mut out_cnc).unwrap();
+    assert_eq!(stats_cnc.tools_count, 1);
+
+    // 2. Additive default tool (fff_nozzle with thermal/filament)
+    let params_add = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        ..Default::default()
+    };
+    let mut out_add = Vec::new();
+    let stats_add =
+        emit_otp_to_writer(vec![Ok(seg.clone())], &params_add, &mut out_add).unwrap();
+    assert_eq!(stats_add.tools_count, 1);
+
+    // 3. Robot default tool (spindle)
+    let params_rob = EmitParams {
+        flavor: FirmwareFlavor::RobotKrl,
+        ..Default::default()
+    };
+    let mut out_rob = Vec::new();
+    let stats_rob = emit_otp_to_writer(vec![Ok(seg)], &params_rob, &mut out_rob).unwrap();
+    assert_eq!(stats_rob.tools_count, 1);
+}
+
+#[test]
+fn test_otp_five_axis_ab_kinematics() {
+    let seg = seg_line([0.0, 0.0, 0.0], [10.0, 0.0, 0.0], 1000.0, 1);
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        five_axis: true,
+        kinematics: Kinematics::Ab {
+            pivot_offset: [0.0, 0.0, 0.0],
+            rotary_offset: [0.0, 0.0],
+        },
+        ..Default::default()
+    };
+    let mut out = Vec::new();
+    emit_otp_to_writer(vec![Ok(seg)], &params, &mut out).unwrap();
+    let cursor = std::io::Cursor::new(out);
+    let mut archive = zip::ZipArchive::new(cursor).unwrap();
+    let mut ctx_file = archive.by_name("context.json").unwrap();
+    let mut ctx_str = String::new();
+    std::io::Read::read_to_string(&mut ctx_file, &mut ctx_str).unwrap();
+    assert!(ctx_str.contains("table_table_ac"));
+}
+
+#[test]
+fn test_zip_archive_writer_incompressible_fallback() {
+    use dry_core::emit::ZipArchiveWriter;
+    let mut buf = Vec::new();
+    let mut zip = ZipArchiveWriter::new(&mut buf);
+    // tiny slice where compressed size >= uncompressed size, triggering uncompressed fallback
+    let tiny = b"abc";
+    zip.add_file("tiny.txt", tiny, true).unwrap();
+    let total = zip.finish().unwrap();
+    assert!(total > 0);
+}
+
+#[test]
+fn test_otp_stock_and_offsets_model() {
+    use dry_core::emit::OtpStock;
+    let stock = OtpStock {
+        stock_type: "box".to_string(),
+        dimensions: vec![100.0, 100.0, 50.0],
+        origin: Some([0.0, 0.0, -50.0]),
+    };
+    let s = serde_json::to_string(&stock).unwrap();
+    let stock2: OtpStock = serde_json::from_str(&s).unwrap();
+    assert_eq!(stock, stock2);
+}
+
+#[test]
+fn test_otp_refuses_additional_non_finite_branches() {
+    let seg = seg_line([0.0, 0.0, 0.0], [10.0, 0.0, 0.0], 1000.0, 1);
+    let params = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        ..Default::default()
+    };
+    let mut out = Vec::new();
+
+    // 1. Non-finite start[1]
+    let mut s1 = seg.clone();
+    s1.start[1] = Some(Length(f64::NAN));
+    assert!(emit_otp_to_writer(vec![Ok(s1)], &params, &mut out).is_err());
+
+    // 2. Non-finite start[2]
+    let mut s2 = seg.clone();
+    s2.start[2] = Some(Length(f64::INFINITY));
+    assert!(emit_otp_to_writer(vec![Ok(s2)], &params, &mut out).is_err());
+
+    // 3. Non-finite end[0]
+    let mut s3 = seg.clone();
+    s3.end[0] = Some(Length(f64::NAN));
+    assert!(emit_otp_to_writer(vec![Ok(s3)], &params, &mut out).is_err());
+
+    // 4. Non-finite end[2]
+    let mut s4 = seg.clone();
+    s4.end[2] = Some(Length(f64::INFINITY));
+    assert!(emit_otp_to_writer(vec![Ok(s4)], &params, &mut out).is_err());
+
+    // 5. Non-finite arc centre[1]
+    let mut s5 = seg;
+    s5.centre = Some([Length::mm(5.0), Length(f64::NAN)]);
+    assert!(emit_otp_to_writer(vec![Ok(s5)], &params, &mut out).is_err());
+}
+

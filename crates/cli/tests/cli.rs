@@ -4294,3 +4294,80 @@ fn emit_opentoolpath_cli_flags_coverage() {
     let _ = std::fs::remove_file(&otp_out_1);
     let _ = std::fs::remove_file(&otp_out_2);
 }
+
+#[test]
+fn emit_opentoolpath_stdout_and_step_nc() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_stdout_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Emit OTP to stdout
+    let run_stdout = Command::new(bin())
+        .args(["emit", ir_file.to_str().unwrap(), "--format", "otp"])
+        .output()
+        .unwrap();
+    assert!(run_stdout.status.success());
+    assert!(run_stdout.stdout.starts_with(b"PK\x03\x04"));
+
+    // 2. Emit OTP with --step-nc and -o
+    let otp_step_out = temp_path("step_out.otp");
+    let step_nc_path = temp_path("toolpath.21");
+    let run_step = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_path.to_str().unwrap(),
+            "-o",
+            otp_step_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step.status.success());
+    assert!(otp_step_out.exists());
+    assert!(step_nc_path.exists());
+
+    // 3. Emit OTP with --step-nc without -o (stdout)
+    let step_nc_stdout = temp_path("toolpath_stdout.21");
+    let run_step_stdout = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_stdout.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step_stdout.status.success());
+    assert!(run_step_stdout.stdout.starts_with(b"PK\x03\x04"));
+    assert!(step_nc_stdout.exists());
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_step_out);
+    let _ = std::fs::remove_file(&step_nc_path);
+    let _ = std::fs::remove_file(&step_nc_stdout);
+}
+
