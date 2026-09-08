@@ -32,6 +32,8 @@ pub enum FirmwareFlavor {
     IrbcamCsv,
     /// ISO 4343 APT-CL dialect.
     Apt,
+    /// OpenToolpath (.otp) native package archive dialect.
+    Otp,
 }
 
 impl FirmwareFlavor {
@@ -60,9 +62,10 @@ impl FirmwareFlavor {
             "irbcam" | "irbcam-json" => Ok(FirmwareFlavor::Irbcam),
             "irbcam-csv" => Ok(FirmwareFlavor::IrbcamCsv),
             "apt" | "apt-cl" | "aptcl" => Ok(FirmwareFlavor::Apt),
+            "otp" | "opentoolpath" => Ok(FirmwareFlavor::Otp),
             other => Err(format!(
                 "unknown firmware flavor: {other} (expected one of: marlin, klipper, duet, rs274, \
-                 grbl, krl, siemens, heidenhain, haas, rapid, irbcam, irbcam-csv, apt)"
+                 grbl, krl, siemens, heidenhain, haas, rapid, irbcam, irbcam-csv, apt, otp)"
             )),
         }
     }
@@ -136,6 +139,9 @@ pub struct EmitParams {
     /// Frame configuration for APT-CL emission. Read only when `flavor` is Apt.
     #[serde(default)]
     pub apt_frame: super::apt::AptFrame,
+    /// Frame configuration for OpenToolpath package emission. Read only when `flavor` is Otp.
+    #[serde(default)]
+    pub otp_frame: super::otp::OtpFrame,
 }
 
 /// CNC work-coordinate/tool/spindle/coolant preamble, sourced from `MachineProfile::cnc`.
@@ -199,6 +205,7 @@ impl Default for EmitParams {
             krl_frame: super::KrlFrame::default(),
             irbcam_frame: super::irbcam::IrbcamFrame::default(),
             apt_frame: super::apt::AptFrame::default(),
+            otp_frame: super::otp::OtpFrame::default(),
         }
     }
 }
@@ -526,9 +533,10 @@ where
                     | FirmwareFlavor::Rapid
                     | FirmwareFlavor::Irbcam
                     | FirmwareFlavor::IrbcamCsv
-                    | FirmwareFlavor::Apt => {
+                    | FirmwareFlavor::Apt
+                    | FirmwareFlavor::Otp => {
                         return Err(crate::codec::CodecError::Other(
-                            "robot or apt dialect reached the g-code renderer: dwell has no g-code form here"
+                            "robot, apt, or otp dialect reached the g-code renderer: dwell has no g-code form here"
                                 .to_string(),
                         ))
                     }

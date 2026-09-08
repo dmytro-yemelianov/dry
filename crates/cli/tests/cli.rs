@@ -4086,3 +4086,86 @@ fn emit_irbcam_dwell_and_strict_mode() {
     let _ = std::fs::remove_file(&out_drop);
     let _ = std::fs::remove_file(&out_strict);
 }
+
+#[test]
+fn emit_opentoolpath_package_and_validate() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            },
+            {
+                "start": [10.0, 20.0, 0.0],
+                "end": [30.0, 20.0, 5.0],
+                "travel": false,
+                "speed": 1500.0,
+                "length": 20.6155,
+                "volume": 2.061,
+                "filament": 1.03,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 2,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+    let otp_out = temp_path("output.otp");
+
+    let run_emit = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "additive",
+            "--otp-sub-type",
+            "fff_multi_material",
+            "--otp-description",
+            "Integration test package",
+            "-o",
+            otp_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(
+        run_emit.status.success(),
+        "dry emit --format otp failed: {}",
+        String::from_utf8_lossy(&run_emit.stderr)
+    );
+    assert!(otp_out.exists());
+
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    let run_val = Command::new("python3")
+        .args([validator_path.to_str().unwrap(), otp_out.to_str().unwrap()])
+        .output()
+        .expect("validate_otp.py execution");
+
+    assert!(
+        run_val.status.success(),
+        "tools/validate_otp.py failed: {}\nstdout: {}",
+        String::from_utf8_lossy(&run_val.stderr),
+        String::from_utf8_lossy(&run_val.stdout)
+    );
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out);
+}

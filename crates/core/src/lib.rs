@@ -77,12 +77,13 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 pub use emit::emit;
 pub use emit::{
     emit_apt_to_writer, emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser,
-    emit_irbcam_to_writer, emit_plasma_waterjet, emit_step_nc, emit_stream, emit_stream_to_writer,
-    render_template, AngleUnit, AptFrame, CncFrame, CuttingParams, DhParam, DrillCycle,
-    DwellPolicy, EmitParams, ExtrusionCarry, FirmwareFlavor, GcodeTemplate, IrbcamEmitStats,
-    IrbcamFrame, IrbcamLayout, Kinematics, KrlFrame, KrlTransform, LaserError, LaserMode,
-    LaserParams, LeadInType, PeckDrillCycle, RapidEncoding, Robot6AxisModel, RobotJoints6,
-    TemplateContext, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
+    emit_irbcam_to_writer, emit_otp_to_writer, emit_plasma_waterjet, emit_step_nc, emit_stream,
+    emit_stream_to_writer, render_template, AngleUnit, AptFrame, CncFrame, CuttingParams, DhParam,
+    DrillCycle, DwellPolicy, EmitParams, ExtrusionCarry, FirmwareFlavor, GcodeTemplate,
+    IrbcamEmitStats, IrbcamFrame, IrbcamLayout, Kinematics, KrlFrame, KrlTransform, LaserError,
+    LaserMode, LaserParams, LeadInType, OtpEmitStats, OtpFrame, PeckDrillCycle, RapidEncoding,
+    Robot6AxisModel, RobotJoints6, TemplateContext, OTP_MIMETYPE, OTP_SCHEMA_URL, OTP_SPEC_VERSION,
+    REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};
 pub use explain::{build_explain_bundle, render_markdown, ExplainBundle, ExplainReports};
