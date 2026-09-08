@@ -7,9 +7,11 @@
 //! `E<filament>` (a travel carries none, unless `travel_g1_e0`). Numbers are `{:.6}` with trailing
 //! zeros and a trailing `.` stripped (so `1000.000000`→`1000`, `0.200000`→`0.2`, `0`→`0`).
 
+mod apt;
 mod canned;
 mod chunked_stream;
 mod gcode;
+mod irbcam;
 mod kinematics;
 mod krl;
 mod laser;
@@ -22,6 +24,7 @@ mod template;
 #[cfg(test)]
 mod tests;
 
+pub use self::apt::{emit_apt_to_writer, AptFrame};
 pub use self::canned::{emit_cycle_cancel, DrillCycle, PeckDrillCycle};
 pub use self::chunked_stream::emit_gcode_chunks;
 #[allow(deprecated)]
@@ -29,6 +32,10 @@ pub use self::gcode::emit;
 pub(crate) use self::gcode::num as format_number;
 pub(crate) use self::gcode::num_checked as format_number_checked;
 pub use self::gcode::{emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor};
+pub use self::irbcam::{
+    emit_irbcam_to_writer, AngleUnit, DwellPolicy, ExtrusionCarry, IrbcamEmitStats, IrbcamFrame,
+    IrbcamLayout, RapidEncoding,
+};
 pub use self::kinematics::{
     DhParam, Kinematics, Robot6AxisModel, RobotJoints6, REFERENCE_FIVE_AXIS_LIMITS,
     REFERENCE_FIVE_AXIS_MACHINE,

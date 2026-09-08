@@ -295,6 +295,12 @@ fn every_flavor_has_a_name_and_an_unknown_one_is_refused() {
         ("tnc", F::Heidenhain),
         ("haas", F::Haas),
         ("rapid", F::Rapid),
+        ("irbcam", F::Irbcam),
+        ("irbcam-json", F::Irbcam),
+        ("irbcam-csv", F::IrbcamCsv),
+        ("apt", F::Apt),
+        ("apt-cl", F::Apt),
+        ("aptcl", F::Apt),
     ] {
         assert_eq!(F::named(name).unwrap(), expected, "flavor {name}");
         // Case is not significant, so a caller passing "Siemens" or "GRBL" is not silently wrong.

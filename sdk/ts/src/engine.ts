@@ -212,7 +212,10 @@ export type FirmwareFlavor =
   | 'heidenhain'
   | 'tnc'
   | 'haas'
-  | 'rapid';
+  | 'rapid'
+  | 'irbcam'
+  | 'irbcam-csv'
+  | 'apt';
 
 /**
  * Machine preamble for the CNC dialects. Without it those flavors emit motion lines and no work

@@ -17,7 +17,7 @@
       "properties": {
         "flavor": {
           "type": "string",
-          "description": "Firmware output target: marlin, klipper, duet, rs274, grbl, robot-krl (or krl)"
+          "description": "Firmware output target: marlin, klipper, duet, rs274, grbl, robot-krl (or krl), siemens (or sinumerik), haas, heidenhain (or tnc), rapid, irbcam (or irbcam-json), irbcam-csv, apt (or apt-cl)"
         }
       }
     },

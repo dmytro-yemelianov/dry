@@ -108,6 +108,27 @@ source = "docs/21-mathematical-assurance-plan.md"
 section = "FM1.4 Floating-point and curve error budgets"
 normative_text = "S-curve 7-phase profile planning strictly bounds kinematic jerk and acceleration within configured limits."
 
+[[clause]]
+id = "DRY.GEOMETRY.ZYZ_EULER_V0"
+title = "Tool direction vector and ZYZ Euler angles roundtrip over Real"
+source = "docs/28-apt-irbcam-dialects.md"
+section = "§5.3 Direction vector <-> ZYZ Euler (R)"
+normative_text = "Tool direction vector converts to ZYZ Euler angles with spin independence and exact unit direction recovery."
+
+[[clause]]
+id = "DRY.IRBCAM.ARC_MIDPOINT_V0"
+title = "IRBCAM arc midpoint targets lie on the circular trajectory and bisect the sweep"
+source = "docs/28-apt-irbcam-dialects.md"
+section = "§5.4 Arcs"
+normative_text = "Planar arc lowering computes a midpoint target at half the signed sweep lying on the circular arc."
+
+[[clause]]
+id = "DRY.IRBCAM.EXPORT_V0"
+title = "IRBCAM target list emission produces structurally well-formed programs"
+source = "docs/28-apt-irbcam-dialects.md"
+section = "§5.2, §5.7-5.10, §6.5 Emission"
+normative_text = "IRBCAM lowering validates well-formed target streams with strictly increasing sparse indices and valid velocities."
+
 [[link]]
 claim_id = "FM1.TRANSFORM.COMPOSE_ACTION"
 clause_id = "DRY.FEATURE.EXPANSION_V0"
@@ -275,3 +296,19 @@ clause_id = "DRY.GEOMETRY.BREP_SURFACE_V0"
 [[link]]
 claim_id = "FM1.NUMERIC.SCURVE.BOUNDS"
 clause_id = "DRY.OPTIMIZATION.SCURVE_BOUNDS_V0"
+
+[[link]]
+claim_id = "FM1.IRBCAM.ZYZ.SPIN_INDEPENDENCE"
+clause_id = "DRY.GEOMETRY.ZYZ_EULER_V0"
+
+[[link]]
+claim_id = "FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP"
+clause_id = "DRY.GEOMETRY.ZYZ_EULER_V0"
+
+[[link]]
+claim_id = "FM1.IRBCAM.ARC.MIDPOINT"
+clause_id = "DRY.IRBCAM.ARC_MIDPOINT_V0"
+
+[[link]]
+claim_id = "FM1.IRBCAM.WELL_FORMED.REJECTION"
+clause_id = "DRY.IRBCAM.EXPORT_V0"

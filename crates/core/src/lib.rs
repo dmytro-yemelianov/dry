@@ -11,6 +11,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod apt;
 pub mod channel;
 pub mod clothoid;
 pub mod codec;
@@ -58,6 +59,13 @@ pub use codec::{
     JsonSegmentsIterator, SegmentStream, StreamingDecode, ThreeMfError, DRY2_MAGIC,
 };
 
+pub use apt::{
+    import_apt, import_apt_reader, import_apt_reader_with_limits, import_apt_reader_with_map,
+    import_apt_with_limits, import_apt_with_map, import_parsed_apt_with_map, parse_apt_statements,
+    AptAdvisory, AptErrorCode, AptImportError, AptImportLimits, AptImportParams, AptMotion,
+    AptParseError, AptParser, AptProcess, AptRecord, AptRefusalReason, AptState, AptUnits,
+    ImportedApt, ParsedAptStatement, UnknownMajorWordPolicy, UnmodeledApt,
+};
 pub use compare::{
     compare_layer_traces, compare_reports, render_markdown as render_compare_markdown,
     CompareDelta, FindingsDelta, LayerTraceDelta, ScalarDelta, SettingChange, StringChange,
@@ -68,10 +76,12 @@ pub use document::{Dialect, DocumentEnvelope, DocumentMetadata, DocumentValidati
 #[allow(deprecated)]
 pub use emit::emit;
 pub use emit::{
-    emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser, emit_plasma_waterjet, emit_step_nc,
-    emit_stream, emit_stream_to_writer, render_template, CncFrame, CuttingParams, DhParam,
-    DrillCycle, EmitParams, FirmwareFlavor, GcodeTemplate, Kinematics, KrlFrame, KrlTransform,
-    LaserError, LaserMode, LaserParams, LeadInType, PeckDrillCycle, Robot6AxisModel, RobotJoints6,
+    emit_apt_to_writer, emit_cycle_cancel, emit_gcode_chunks, emit_grbl_laser,
+    emit_irbcam_to_writer, emit_plasma_waterjet, emit_step_nc, emit_stream, emit_stream_to_writer,
+    render_template, AngleUnit, AptFrame, CncFrame, CuttingParams, DhParam, DrillCycle,
+    DwellPolicy, EmitParams, ExtrusionCarry, FirmwareFlavor, GcodeTemplate, IrbcamEmitStats,
+    IrbcamFrame, IrbcamLayout, Kinematics, KrlFrame, KrlTransform, LaserError, LaserMode,
+    LaserParams, LeadInType, PeckDrillCycle, RapidEncoding, Robot6AxisModel, RobotJoints6,
     TemplateContext, REFERENCE_FIVE_AXIS_LIMITS, REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use engine::{simulate, simulate_stream, Metrics};

@@ -1689,3 +1689,123 @@ refinement_evidence = []
 abstract = "proved"
 numeric = "not-applicable"
 refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.IRBCAM.ZYZ.SPIN_INDEPENDENCE"
+title = "Tool direction vector is independent of the free roll spin rz2"
+theorem = "Dry.Geometry.ZyzEuler.direction_spin_independent"
+proof_method = "kernel"
+spec_version = "v0"
+source_dialect = "L2 tool orientation"
+target_dialect = "IRBCAM ZYZ Euler angles"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Real"
+assumptions = [
+  "Tool axis corresponds to the frame Z axis."
+]
+exclusions = [
+  "Binary64 floating-point rounding and IEEE-754 approximations in libm acos/atan2.",
+  "Degrees-to-radians rendering."
+]
+lean_source = "formal/Dry/Geometry/ZyzEuler.lean"
+rust_sources = [
+  "crates/core/src/emit/irbcam.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+
+[[claim]]
+id = "FM1.IRBCAM.ZYZ.DIRECTION_ROUNDTRIP"
+title = "Unit tool direction vector roundtrips through ZYZ Euler decomposition"
+theorem = "Dry.Geometry.ZyzEuler.direction_euler_roundtrip"
+proof_method = "kernel"
+spec_version = "v0"
+source_dialect = "L2 unit tool direction"
+target_dialect = "IRBCAM ZYZ Euler angles"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Real"
+assumptions = [
+  "Direction vector has unit Euclidean norm."
+]
+exclusions = [
+  "Binary64 floating-point rounding in libm acos and atan2.",
+  "Singular gimbal lock joint handling at robot controller level."
+]
+lean_source = "formal/Dry/Geometry/ZyzEuler.lean"
+rust_sources = [
+  "crates/core/src/emit/irbcam.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "pending"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.IRBCAM.ARC.MIDPOINT"
+title = "Arc midpoint lies on circle of radius rho and bisects signed sweep"
+theorem = "Dry.Geometry.ArcMidpoint.midpoint_on_circle"
+proof_method = "kernel"
+spec_version = "v0"
+source_dialect = "L2 planar arc"
+target_dialect = "IRBCAM circular midpoint target"
+relation = "exact"
+scope = "abstract"
+numeric_domain = "Real"
+assumptions = [
+  "Planar XY arc with positive radius."
+]
+exclusions = [
+  "Binary64 floating-point rounding in libm trigonometric functions.",
+  "Helical arcs with non-zero Z travel."
+]
+lean_source = "formal/Dry/Geometry/ArcMidpoint.lean"
+rust_sources = [
+  "crates/core/src/emit/irbcam.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "pending"
+refinement = "pending"
+
+[[claim]]
+id = "FM1.IRBCAM.WELL_FORMED.REJECTION"
+title = "IRBCAM program validation succeeds if and only if target sequence is structurally well-formed"
+theorem = "Dry.Language.Irbcam.validate_success_iff"
+proof_method = "kernel"
+spec_version = "v0"
+source_dialect = "IRBCAM target sequence"
+target_dialect = "Validated IRBCAM program"
+relation = "rejection"
+scope = "abstract"
+numeric_domain = "Rational target representation"
+assumptions = [
+  "Target indices and velocities are finite rationals."
+]
+exclusions = [
+  "Physical robot kinematics and controller joint limits."
+]
+lean_source = "formal/Dry/Language/Irbcam.lean"
+rust_sources = [
+  "crates/core/src/emit/irbcam.rs"
+]
+numeric_evidence = []
+refinement_evidence = []
+
+[claim.status]
+abstract = "proved"
+numeric = "not-applicable"
+refinement = "not-applicable"
+

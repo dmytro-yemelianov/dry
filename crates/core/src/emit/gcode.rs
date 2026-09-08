@@ -25,6 +25,13 @@ pub enum FirmwareFlavor {
     Haas,
     /// ABB RAPID robot program output.
     Rapid,
+    /// IRBCAM robot toolpath (JSON format).
+    Irbcam,
+    /// IRBCAM robot toolpath (CSV format).
+    #[serde(rename = "irbcam-csv")]
+    IrbcamCsv,
+    /// ISO 4343 APT-CL dialect.
+    Apt,
 }
 
 impl FirmwareFlavor {
@@ -50,9 +57,12 @@ impl FirmwareFlavor {
             "heidenhain" | "tnc" => Ok(FirmwareFlavor::Heidenhain),
             "haas" => Ok(FirmwareFlavor::Haas),
             "rapid" | "robot-rapid" | "robotrapid" => Ok(FirmwareFlavor::Rapid),
+            "irbcam" | "irbcam-json" => Ok(FirmwareFlavor::Irbcam),
+            "irbcam-csv" => Ok(FirmwareFlavor::IrbcamCsv),
+            "apt" | "apt-cl" | "aptcl" => Ok(FirmwareFlavor::Apt),
             other => Err(format!(
                 "unknown firmware flavor: {other} (expected one of: marlin, klipper, duet, rs274, \
-                 grbl, krl, siemens, heidenhain, haas, rapid)"
+                 grbl, krl, siemens, heidenhain, haas, rapid, irbcam, irbcam-csv, apt)"
             )),
         }
     }
@@ -78,7 +88,13 @@ impl FirmwareFlavor {
 
     /// Whether this target is an articulated industrial robot dialect.
     pub fn is_robot(self) -> bool {
-        matches!(self, FirmwareFlavor::RobotKrl | FirmwareFlavor::Rapid)
+        matches!(
+            self,
+            FirmwareFlavor::RobotKrl
+                | FirmwareFlavor::Rapid
+                | FirmwareFlavor::Irbcam
+                | FirmwareFlavor::IrbcamCsv
+        )
     }
 }
 
@@ -114,6 +130,12 @@ pub struct EmitParams {
     /// field, or every spliced span gets its own preamble and the per-span line accounting desyncs.
     #[serde(default)]
     pub cnc_frame: Option<CncFrame>,
+    /// Frame configuration for IRBCAM emission. Read only when `flavor` is Irbcam or IrbcamCsv.
+    #[serde(default)]
+    pub irbcam_frame: super::irbcam::IrbcamFrame,
+    /// Frame configuration for APT-CL emission. Read only when `flavor` is Apt.
+    #[serde(default)]
+    pub apt_frame: super::apt::AptFrame,
 }
 
 /// CNC work-coordinate/tool/spindle/coolant preamble, sourced from `MachineProfile::cnc`.
@@ -175,6 +197,8 @@ impl Default for EmitParams {
             flavor: FirmwareFlavor::default(),
             cnc_frame: None,
             krl_frame: super::KrlFrame::default(),
+            irbcam_frame: super::irbcam::IrbcamFrame::default(),
+            apt_frame: super::apt::AptFrame::default(),
         }
     }
 }
@@ -248,6 +272,13 @@ where
     I: IntoIterator<Item = Result<crate::ir::Segment, crate::codec::CodecError>>,
     W: std::io::Write,
 {
+    if p.flavor == FirmwareFlavor::Irbcam || p.flavor == FirmwareFlavor::IrbcamCsv {
+        super::irbcam::emit_irbcam_to_writer(segments, p, writer)?;
+        return Ok(());
+    }
+    if p.flavor == FirmwareFlavor::Apt {
+        return super::apt::emit_apt_to_writer(segments, p, writer);
+    }
     if p.flavor == FirmwareFlavor::RobotKrl || p.flavor == FirmwareFlavor::Rapid {
         let mut checked = Vec::new();
         for segment in segments {
@@ -491,9 +522,13 @@ where
                         format!("CYCL DEF 9.0 DWELL TIME \\ CYCL DEF 9.1 DWELL {secs_text}")
                     }
                     FirmwareFlavor::Grbl => format!("G4 P{secs_text}"),
-                    FirmwareFlavor::RobotKrl | FirmwareFlavor::Rapid => {
+                    FirmwareFlavor::RobotKrl
+                    | FirmwareFlavor::Rapid
+                    | FirmwareFlavor::Irbcam
+                    | FirmwareFlavor::IrbcamCsv
+                    | FirmwareFlavor::Apt => {
                         return Err(crate::codec::CodecError::Other(
-                            "robot dialect reached the g-code renderer: dwell has no g-code form here"
+                            "robot or apt dialect reached the g-code renderer: dwell has no g-code form here"
                                 .to_string(),
                         ))
                     }
