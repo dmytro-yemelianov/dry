@@ -1268,7 +1268,7 @@ refinement = "checked"
 
 [[claim]]
 id = "FM1.RESOLVE_CHANNELS.MODEL.SEMANTICS"
-title = "Process channels (temperature, fan, flow, tool) deterministically propagate forward, omit default 1.0 flow, and attach to motion and dwell segments"
+title = "Process channels (temperature, fan, flow, tool, power) deterministically propagate forward, omit default 1.0 flow, and attach to motion and dwell segments"
 theorem = "Dry.Semantics.ResolveChannels.resolve_append"
 proof_method = "kernel"
 spec_version = "v0.4"
@@ -1283,8 +1283,7 @@ assumptions = [
   "Dwell segments inherit active process channel state."
 ]
 exclusions = [
-  "Invalid physical input bounds, which are checked by pre-resolution validation.",
-  "The spindle/laser power channel, which the engine propagates the same way but the Lean semantics does not model."
+  "Invalid physical input bounds, which are checked by pre-resolution validation."
 ]
 lean_source = "formal/Dry/Semantics/ResolveChannels.lean"
 rust_sources = [
@@ -1306,7 +1305,7 @@ theorem = "Dry.Tests.ResolveChannelsFixtures.resolveChannelsFixtureChecks_theore
 proof_method = "kernel"
 spec_version = "resolve-channels-refinement-v0"
 
-source_dialect = "Six Lean-generated exact rational channel operation sequence test cases"
+source_dialect = "Seven Lean-generated exact rational channel operation sequence test cases"
 target_dialect = "Native Rust resolve_checked channel state propagation and segment output"
 relation = "observational"
 scope = "implementation"
@@ -1316,8 +1315,7 @@ assumptions = [
   "Native binary64 parsing accurately mirrors exact rational channel inputs."
 ]
 exclusions = [
-  "Arbitrary operation sequences outside the committed 6-case fixture corpus.",
-  "The spindle/laser power channel, which no fixture in the corpus exercises."
+  "Arbitrary operation sequences outside the committed 7-case fixture corpus."
 ]
 lean_source = "formal/Dry/Tests/ResolveChannelsFixtures.lean"
 rust_sources = [

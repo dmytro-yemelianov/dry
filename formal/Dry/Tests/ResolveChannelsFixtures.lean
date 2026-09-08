@@ -45,6 +45,11 @@ def cases : List FixtureCase := [
       .move ⟨some (.finite 10), some (.finite 0), some (.finite 0)⟩ (.finite 30),
       .temperature (.finite 210),
       .move ⟨some (.finite 20), some (.finite 0), some (.finite 0)⟩ (.finite 30)
+    ] },
+  { id := "power-propagation",
+    ops := [
+      .power (.finite 1000),
+      .move ⟨some (.finite 10), some (.finite 0), some (.finite 0)⟩ (.finite 30)
     ] }
 ]
 
@@ -106,6 +111,11 @@ def opToJson (op : Op) : Json :=
         ("type", Json.str "tool"),
         ("index", Json.num (JsonNumber.fromNat idx))
       ]
+  | .power p =>
+      Json.mkObj [
+        ("type", Json.str "power"),
+        ("level", numberToJson p)
+      ]
 
 def kindToString (k : SegmentKind) : String :=
   match k with
@@ -125,6 +135,7 @@ def segmentToJson (seg : Segment) : Json :=
     ("fan", optionToJson numberToJson seg.fan),
     ("flow", optionToJson numberToJson seg.flow),
     ("tool", optionToJson (fun idx => Json.num (JsonNumber.fromNat idx)) seg.tool),
+    ("power", optionToJson numberToJson seg.power),
     ("dwell_seconds", optionToJson numberToJson seg.dwellSeconds)
   ]
 
@@ -140,7 +151,7 @@ def evaluateCase (c : FixtureCase) : Json :=
   ]
 
 def resolveChannelsFixtureChecks : Bool :=
-  decide (cases.length = 6)
+  decide (cases.length = 7)
 
 def document : Json :=
   Json.mkObj [

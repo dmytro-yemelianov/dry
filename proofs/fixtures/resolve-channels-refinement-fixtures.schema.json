@@ -16,8 +16,8 @@
     "model_checks": { "const": true },
     "cases": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 7,
+      "maxItems": 7,
       "items": { "$ref": "#/$defs/case" }
     }
   },
@@ -51,19 +51,20 @@
       "additionalProperties": false,
       "required": ["type"],
       "properties": {
-        "type": { "enum": ["move", "dwell", "temperature", "fan", "flow", "tool"] },
+        "type": { "enum": ["move", "dwell", "temperature", "fan", "flow", "tool", "power"] },
         "finish": { "$ref": "#/$defs/point" },
         "speed": { "$ref": "#/$defs/number" },
         "seconds": { "$ref": "#/$defs/number" },
         "nozzle": { "$ref": "#/$defs/number" },
         "ratio": { "$ref": "#/$defs/number" },
-        "index": { "type": "integer", "minimum": 0 }
+        "index": { "type": "integer", "minimum": 0 },
+        "level": { "$ref": "#/$defs/number" }
       }
     },
     "segment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "temperature", "fan", "flow", "tool", "dwell_seconds"],
+      "required": ["kind", "temperature", "fan", "flow", "tool", "power", "dwell_seconds"],
       "properties": {
         "kind": { "enum": ["line", "arc", "spline", "dwell", "retract", "unretract", "deposit", "manualGcode"] },
         "temperature": {
@@ -88,6 +89,12 @@
           "oneOf": [
             { "type": "null" },
             { "type": "integer", "minimum": 0 }
+          ]
+        },
+        "power": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/number" }
           ]
         },
         "dwell_seconds": {
@@ -122,7 +129,8 @@
             "non-default-flow-propagation",
             "default-flow-omitted",
             "dwell-inherits-channels",
-            "channel-overwrite"
+            "channel-overwrite",
+            "power-propagation"
           ]
         },
         "ops": {
