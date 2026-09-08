@@ -27,6 +27,8 @@ Commands:
   import-printer-cfg  Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume)
   import-gcode        Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation
   review-gcode        Review slicer G-code directly, reporting metrics and contract findings with source line numbers
+  import-apt          Import ISO 4343 APT-CL toolpath into Dry IR JSON for review, simulation, verification and optimisation
+  review-apt          Review ISO 4343 APT-CL directly, reporting metrics and contract findings with source line numbers
   trace-gcode         Summarize slicer G-code as fixed-window motion/time-series JSON
   review-batch        Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch`
   forensics-gcode     Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags
@@ -63,6 +65,8 @@ Options:
 | [`import-printer-cfg`](/reference/generated/cli/import-printer-cfg) | [Lower to the Dry IR](/guide/lower) | Import a Klipper printer.cfg into a dry machine/material profile (kinematics, retraction, build volume) |
 | [`import-gcode`](/reference/generated/cli/import-gcode) | [Lower to the Dry IR](/guide/lower) | Import slicer G-code into Dry IR JSON for review, simulation, verification and optimisation |
 | [`review-gcode`](/reference/generated/cli/review-gcode) | [Verify](/guide/verify) | Review slicer G-code directly, reporting metrics and contract findings with source line numbers |
+| [`import-apt`](/reference/generated/cli/import-apt) |  | Import ISO 4343 APT-CL toolpath into Dry IR JSON for review, simulation, verification and optimisation |
+| [`review-apt`](/reference/generated/cli/review-apt) |  | Review ISO 4343 APT-CL directly, reporting metrics and contract findings with source line numbers |
 | [`trace-gcode`](/reference/generated/cli/trace-gcode) | [Simulate](/guide/simulate) | Summarize slicer G-code as fixed-window motion/time-series JSON |
 | [`review-batch`](/reference/generated/cli/review-batch) | [Verify](/guide/verify) | Review a batch of slicer G-code files, emitting a per-file + aggregate `ReviewBatch` |
 | [`forensics-gcode`](/reference/generated/cli/forensics-gcode) | [Verify](/guide/verify) | Forensics: infer slicer behavior from G-code (slicer, features, layers, hotspots) with confidence tags |

@@ -16,7 +16,7 @@ def test_all_14_conformance_vectors():
         manifest = json.load(f)
 
     assert "vectors" in manifest
-    assert len(manifest["vectors"]) == 14, "Expected exactly 14 conformance vectors"
+    assert len(manifest["vectors"]) == 15, "Expected exactly 15 conformance vectors"
 
     for vec in manifest["vectors"]:
         vec_name = vec["name"]
