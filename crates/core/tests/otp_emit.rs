@@ -628,8 +628,7 @@ fn test_otp_default_tools_for_cnc_and_additive() {
         ..Default::default()
     };
     let mut out_cnc = Vec::new();
-    let stats_cnc =
-        emit_otp_to_writer(vec![Ok(seg.clone())], &params_cnc, &mut out_cnc).unwrap();
+    let stats_cnc = emit_otp_to_writer(vec![Ok(seg.clone())], &params_cnc, &mut out_cnc).unwrap();
     assert_eq!(stats_cnc.tools_count, 1);
 
     // 2. Additive default tool (fff_nozzle with thermal/filament)
@@ -638,8 +637,7 @@ fn test_otp_default_tools_for_cnc_and_additive() {
         ..Default::default()
     };
     let mut out_add = Vec::new();
-    let stats_add =
-        emit_otp_to_writer(vec![Ok(seg.clone())], &params_add, &mut out_add).unwrap();
+    let stats_add = emit_otp_to_writer(vec![Ok(seg.clone())], &params_add, &mut out_add).unwrap();
     assert_eq!(stats_add.tools_count, 1);
 
     // 3. Robot default tool (spindle)
@@ -733,4 +731,3 @@ fn test_otp_refuses_additional_non_finite_branches() {
     s5.centre = Some([Length::mm(5.0), Length(f64::NAN)]);
     assert!(emit_otp_to_writer(vec![Ok(s5)], &params, &mut out).is_err());
 }
-

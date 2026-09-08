@@ -4370,4 +4370,3 @@ fn emit_opentoolpath_stdout_and_step_nc() {
     let _ = std::fs::remove_file(&step_nc_path);
     let _ = std::fs::remove_file(&step_nc_stdout);
 }
-
