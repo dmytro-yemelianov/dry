@@ -173,9 +173,7 @@
         "speed",
         "length",
         "volume",
-        "filament",
-        "width",
-        "height"
+        "filament"
       ],
       "properties": {
         "start": { "$ref": "#/$defs/OptAxis3" },
