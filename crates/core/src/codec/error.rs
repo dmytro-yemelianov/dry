@@ -57,3 +57,9 @@ impl std::fmt::Display for CodecError {
 }
 
 impl std::error::Error for CodecError {}
+
+impl From<std::io::Error> for CodecError {
+    fn from(err: std::io::Error) -> Self {
+        CodecError::Other(err.to_string())
+    }
+}

@@ -3019,7 +3019,86 @@ fn emit_leaves_no_file_behind_when_the_program_is_refused() {
         "the temporary program was not cleaned up"
     );
 
+    // Test IRBCAM formats: refused on endpointless arc
+    for (fmt, ext) in [("irbcam", "json"), ("irbcam-csv", "csv")] {
+        let out_irb = temp_path(&format!("refused-out.{ext}"));
+        let run_irb = Command::new(bin())
+            .args([
+                "emit",
+                ir.to_str().unwrap(),
+                "--format",
+                fmt,
+                "--irbcam-extrusion",
+                "motion-only",
+                "-o",
+                out_irb.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(run_irb.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&run_irb.stderr).contains("full turn arc"));
+        assert!(
+            !out_irb.exists(),
+            "refused {fmt} must not leave a file at {out_irb:?}"
+        );
+        let partial_irb = PathBuf::from(format!("{}.dry-partial", out_irb.to_str().unwrap()));
+        assert!(
+            !partial_irb.exists(),
+            "temporary {fmt} program was not cleaned up"
+        );
+    }
+
+    // Test APT format: refused on degenerate orientation at last segment
+    let apt_refused_ir = temp_path("refused-apt-ir.json");
+    let good_seg = |from: [f64; 3], to: [f64; 3]| {
+        format!(
+            r#"{{"start":[{},{},{}],"end":[{},{},{}],"travel":false,"speed":1200.0,"length":1.0,
+                "volume":0.12,"filament":0.05,"width":0.4,"height":0.2,"kind":"line","centre":null,
+                "clockwise":false,"temperature":null,"fan":null,"flow":null,"tool":null,
+                "dwell_s":null,"orientation":null}}"#,
+            from[0], from[1], from[2], to[0], to[1], to[2]
+        )
+    };
+    let bad_seg = r#"{"start":[2.0,0.0,0.2],"end":[3.0,0.0,0.2],"travel":false,
+        "speed":1200.0,"length":1.0,"volume":0.12,"filament":0.05,"width":0.4,"height":0.2,
+        "kind":"line","centre":null,"clockwise":false,"temperature":null,"fan":null,
+        "flow":null,"tool":null,"dwell_s":null,"orientation":[0.0,0.0,0.0]}"#;
+    std::fs::write(
+        &apt_refused_ir,
+        format!(
+            r#"{{"version":0,"segments":[{},{},{}]}}"#,
+            good_seg([0.0, 0.0, 0.2], [1.0, 0.0, 0.2]),
+            good_seg([1.0, 0.0, 0.2], [2.0, 0.0, 0.2]),
+            bad_seg
+        ),
+    )
+    .unwrap();
+    let out_apt = temp_path("refused-out.apt");
+    let run_apt = Command::new(bin())
+        .args([
+            "emit",
+            apt_refused_ir.to_str().unwrap(),
+            "--format",
+            "apt",
+            "-o",
+            out_apt.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(run_apt.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&run_apt.stderr).contains("apt-orientation-degenerate"));
+    assert!(
+        !out_apt.exists(),
+        "refused apt must not leave a file at {out_apt:?}"
+    );
+    let partial_apt = PathBuf::from(format!("{}.dry-partial", out_apt.to_str().unwrap()));
+    assert!(
+        !partial_apt.exists(),
+        "temporary apt program was not cleaned up"
+    );
+
     let _ = std::fs::remove_file(&ir);
+    let _ = std::fs::remove_file(&apt_refused_ir);
 }
 
 /// The `.stpnc` sidecar is a machining program too: it must not be written before the g-code
@@ -3717,4 +3796,577 @@ mod generate_surfaces {
             "facing must not accept a turning-only flag"
         );
     }
+}
+
+#[test]
+fn import_apt_and_emit_irbcam_and_apt() {
+    let apt_src = r#"PARTNO / TURBINE_BLADE
+MACHIN / KUKA_KR16
+UNITS / MM
+LOADTL / 3
+SPINDL / RPM, 12000, CLW
+FEDRAT / MMPM, 2400.0
+MULTAX / ON
+RAPID
+GOTO / 10.0, 20.0, 30.0, 0.0, 0.0, 1.0
+GOTO / 15.0, 25.0, 35.0, 0.0, 0.707107, 0.707107
+FINI
+"#;
+    let apt_file = temp_path("test-blade.apt");
+    std::fs::write(&apt_file, apt_src).unwrap();
+    let ir_file = temp_path("test-blade.ir.json");
+
+    // 1. Test `dry import-apt`
+    let run_import = Command::new(bin())
+        .args([
+            "import-apt",
+            apt_file.to_str().unwrap(),
+            "-o",
+            ir_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        run_import.status.success(),
+        "import-apt failed: {}",
+        String::from_utf8_lossy(&run_import.stderr)
+    );
+    assert!(ir_file.exists());
+
+    let ir_content = std::fs::read_to_string(&ir_file).unwrap();
+    let tp: dry_core::Toolpath = serde_json::from_str(&ir_content).unwrap();
+    assert_eq!(tp.segments.len(), 2);
+    assert!(tp.segments[0].travel);
+    assert!(!tp.segments[1].travel);
+    assert_eq!(tp.segments[0].tool, Some(3));
+    assert_eq!(tp.segments[0].power, Some(12000.0));
+    assert_eq!(tp.segments[1].speed.value(), 2400.0);
+
+    // 2. Test `dry review-apt` human output
+    let run_review = Command::new(bin())
+        .args(["review-apt", apt_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(run_review.status.success());
+    let stdout_review = String::from_utf8_lossy(&run_review.stdout);
+    assert!(stdout_review.contains("review-apt:"));
+    assert!(stdout_review.contains("segments:  2"));
+
+    // 3. Test `dry review-apt --json`
+    let run_review_json = Command::new(bin())
+        .args(["review-apt", apt_file.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert!(run_review_json.status.success());
+    let report: dry_core::ReviewReport = serde_json::from_slice(&run_review_json.stdout).unwrap();
+    assert_eq!(report.error_count, 0);
+    assert_eq!(report.segments, 2);
+
+    // 4. Test `dry emit --format irbcam` (JSON)
+    let irb_json_file = temp_path("test-blade.irbcam.json");
+    let run_emit_irb = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "irbcam",
+            "--irbcam-spin-deg",
+            "15.0",
+            "--irbcam-rapid",
+            "minus-one",
+            "-o",
+            irb_json_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        run_emit_irb.status.success(),
+        "emit irbcam failed: {}",
+        String::from_utf8_lossy(&run_emit_irb.stderr)
+    );
+    let stderr_irb = String::from_utf8_lossy(&run_emit_irb.stderr);
+    assert!(stderr_irb.contains("irbcam: 2 target(s)"));
+    let irb_json_str = std::fs::read_to_string(&irb_json_file).unwrap();
+    assert!(irb_json_str.contains("\"targets\": ["));
+    assert!(irb_json_str.contains("\"toolNumber\":"));
+    assert!(irb_json_str.contains("\"spindleSpeed\":"));
+
+    // 5. Test `dry emit --format irbcam-csv`
+    let irb_csv_file = temp_path("test-blade.irbcam.csv");
+    let run_emit_csv = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "irbcam-csv",
+            "-o",
+            irb_csv_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_emit_csv.status.success());
+    let irb_csv_str = std::fs::read_to_string(&irb_csv_file).unwrap();
+    let lines: Vec<&str> = irb_csv_str.trim().lines().collect();
+    assert_eq!(lines[0], "x,y,z,rz1,ry,rz2,velocity,type");
+    assert_eq!(lines.len(), 3); // header + 2 targets
+
+    // 6. Test `dry emit --format apt`
+    let apt_out_file = temp_path("test-blade-out.apt");
+    let run_emit_apt = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "apt",
+            "--apt-partno",
+            "RE_EMITTED",
+            "--apt-machin",
+            "ROBOT_CELL",
+            "-o",
+            apt_out_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_emit_apt.status.success());
+    let apt_out_str = std::fs::read_to_string(&apt_out_file).unwrap();
+    assert!(apt_out_str.contains("PARTNO / RE_EMITTED"));
+    assert!(apt_out_str.contains("MACHIN / ROBOT_CELL"));
+    assert!(apt_out_str.contains("LOADTL / 3"));
+    assert!(apt_out_str.contains("SPINDL / RPM, 12000.000000, CLW"));
+    assert!(apt_out_str.contains("FEDRAT / MMPM, 2400.000000"));
+    assert!(apt_out_str.contains("GOTO /"));
+    assert!(apt_out_str.contains("FINI"));
+
+    let _ = std::fs::remove_file(&apt_file);
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&irb_json_file);
+    let _ = std::fs::remove_file(&irb_csv_file);
+    let _ = std::fs::remove_file(&apt_out_file);
+}
+
+#[test]
+fn import_apt_options_units_and_unknown_words() {
+    // 1. Missing UNITS/ without --assume-units fails
+    let no_units_apt = "GOTO / 10.0, 20.0, 30.0\nFINI\n";
+    let f1 = temp_path("no-units.apt");
+    std::fs::write(&f1, no_units_apt).unwrap();
+    let run1 = Command::new(bin())
+        .args(["import-apt", f1.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert_eq!(run1.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&run1.stderr).contains("motion statement requires UNITS"));
+
+    // 2. With --assume-units inches, coordinates scale by 25.4
+    let out_ir = temp_path("inch-ir.json");
+    let run2 = Command::new(bin())
+        .args([
+            "import-apt",
+            f1.to_str().unwrap(),
+            "--assume-units",
+            "inches",
+            "-o",
+            out_ir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run2.status.success());
+    let tp: dry_core::Toolpath =
+        serde_json::from_str(&std::fs::read_to_string(&out_ir).unwrap()).unwrap();
+    assert_eq!(tp.segments.len(), 1);
+    assert!((tp.segments[0].end[0].unwrap().value() - 254.0).abs() < 1e-4);
+
+    // 3. Unknown major words fail with major-word-unknown
+    let unknown_word_apt = "UNITS / MM\nCUSTOMOP / 1, 2, 3\nGOTO / 10.0, 20.0, 30.0\nFINI\n";
+    let f2 = temp_path("unknown-word.apt");
+    std::fs::write(&f2, unknown_word_apt).unwrap();
+    let run3 = Command::new(bin())
+        .args([
+            "import-apt",
+            f2.to_str().unwrap(),
+            "--unknown-major-words",
+            "refuse",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(run3.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&run3.stderr).contains("major-word-unknown"));
+
+    // Review report shows unmodeled-apt finding for inert statements (like COOLNT)
+    let unmodeled_apt = "UNITS / MM\nCOOLNT / ON\nGOTO / 10.0, 20.0, 30.0\nFINI\n";
+    let f3 = temp_path("unmodeled-coolnt.apt");
+    std::fs::write(&f3, unmodeled_apt).unwrap();
+    let run5 = Command::new(bin())
+        .args(["review-apt", f3.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert!(run5.status.success());
+    let report: dry_core::ReviewReport = serde_json::from_slice(&run5.stdout).unwrap();
+    assert!(report.findings.iter().any(|f| f.rule == "unmodeled-apt"));
+
+    let _ = std::fs::remove_file(&f1);
+    let _ = std::fs::remove_file(&out_ir);
+    let _ = std::fs::remove_file(&f2);
+    let _ = std::fs::remove_file(&f3);
+}
+
+#[test]
+fn emit_irbcam_dwell_and_strict_mode() {
+    let dwell_apt = "UNITS / MM\nFEDRAT / MMPM, 1000\nGOTO / 10.0, 10.0, 10.0\nDELAY / 2.0\nGOTO / 20.0, 20.0, 10.0\nFINI\n";
+    let apt_file = temp_path("dwell.apt");
+    std::fs::write(&apt_file, dwell_apt).unwrap();
+    let ir_file = temp_path("dwell.ir.json");
+    Command::new(bin())
+        .args([
+            "import-apt",
+            apt_file.to_str().unwrap(),
+            "-o",
+            ir_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    // Default: --irbcam-dwell refuse => exits 2
+    let out_fail = temp_path("dwell-fail.json");
+    let run_refuse = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "irbcam",
+            "-o",
+            out_fail.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(run_refuse.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&run_refuse.stderr).contains("irbcam-dwell-unrepresentable"));
+    assert!(!out_fail.exists());
+
+    // With --irbcam-dwell drop => succeeds with exit 0 and warning on stderr
+    let out_drop = temp_path("dwell-drop.json");
+    let run_drop = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "irbcam",
+            "--irbcam-dwell",
+            "drop",
+            "-o",
+            out_drop.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(run_drop.status.code(), Some(0));
+    assert!(out_drop.exists());
+    let stderr_drop = String::from_utf8_lossy(&run_drop.stderr);
+    assert!(stderr_drop.contains("warning [irbcam-declared-loss]: 1 dwell(s) dropped"));
+
+    // With --irbcam-dwell drop AND --irbcam-strict => exits 1 due to declared loss
+    let out_strict = temp_path("dwell-strict.json");
+    let run_strict = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "irbcam",
+            "--irbcam-dwell",
+            "drop",
+            "--irbcam-strict",
+            "-o",
+            out_strict.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(run_strict.status.code(), Some(1));
+
+    let _ = std::fs::remove_file(&apt_file);
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&out_drop);
+    let _ = std::fs::remove_file(&out_strict);
+}
+
+#[test]
+fn emit_opentoolpath_package_and_validate() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            },
+            {
+                "start": [10.0, 20.0, 0.0],
+                "end": [30.0, 20.0, 5.0],
+                "travel": false,
+                "speed": 1500.0,
+                "length": 20.6155,
+                "volume": 2.061,
+                "filament": 1.03,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 2,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+    let otp_out = temp_path("output.otp");
+
+    let run_emit = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "additive",
+            "--otp-sub-type",
+            "fff_multi_material",
+            "--otp-description",
+            "Integration test package",
+            "-o",
+            otp_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(
+        run_emit.status.success(),
+        "dry emit --format otp failed: {}",
+        String::from_utf8_lossy(&run_emit.stderr)
+    );
+    assert!(otp_out.exists());
+
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    let run_val = Command::new("python3")
+        .args([validator_path.to_str().unwrap(), otp_out.to_str().unwrap()])
+        .output()
+        .expect("validate_otp.py execution");
+
+    assert!(
+        run_val.status.success(),
+        "tools/validate_otp.py failed: {}\nstdout: {}",
+        String::from_utf8_lossy(&run_val.stderr),
+        String::from_utf8_lossy(&run_val.stdout)
+    );
+
+    // Test payload formats: dry0 and dry1
+    for fmt in ["dry0", "dry1"] {
+        let fmt_out = temp_path(&format!("output_{fmt}.otp"));
+        let run_fmt = Command::new(bin())
+            .args([
+                "emit",
+                ir_file.to_str().unwrap(),
+                "--format",
+                "otp",
+                "--otp-payload-format",
+                fmt,
+                "-o",
+                fmt_out.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+
+        assert!(
+            run_fmt.status.success(),
+            "dry emit --format otp --otp-payload-format {fmt} failed: {}",
+            String::from_utf8_lossy(&run_fmt.stderr)
+        );
+
+        let run_val_fmt = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), fmt_out.to_str().unwrap()])
+            .output()
+            .expect("validate_otp.py execution");
+
+        assert!(
+            run_val_fmt.status.success(),
+            "tools/validate_otp.py failed on {fmt}: {}\nstdout: {}",
+            String::from_utf8_lossy(&run_val_fmt.stderr),
+            String::from_utf8_lossy(&run_val_fmt.stdout)
+        );
+
+        let _ = std::fs::remove_file(&fmt_out);
+    }
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out);
+}
+
+#[test]
+fn emit_opentoolpath_cli_flags_coverage() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_flags_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Alias --format opentoolpath with --otp-conformance strict
+    let otp_out_1 = temp_path("flags_1.otp");
+    let run_1 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "opentoolpath",
+            "--otp-domain",
+            "subtractive",
+            "--otp-sub-type",
+            "milling_5axis",
+            "--otp-description",
+            "5-axis milling test",
+            "--otp-conformance",
+            "strict",
+            "-o",
+            otp_out_1.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_1.status.success());
+    assert!(otp_out_1.exists());
+
+    // 2. Conformance relaxed with robotics domain
+    let otp_out_2 = temp_path("flags_2.otp");
+    let run_2 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "robotics",
+            "--otp-sub-type",
+            "robot_machining",
+            "--otp-conformance",
+            "relaxed",
+            "-o",
+            otp_out_2.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_2.status.success());
+    assert!(otp_out_2.exists());
+
+    // Validate both with validate_otp.py
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    for path in [&otp_out_1, &otp_out_2] {
+        let run_val = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(run_val.status.success());
+    }
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out_1);
+    let _ = std::fs::remove_file(&otp_out_2);
+}
+
+#[test]
+fn emit_opentoolpath_stdout_and_step_nc() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_stdout_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Emit OTP to stdout
+    let run_stdout = Command::new(bin())
+        .args(["emit", ir_file.to_str().unwrap(), "--format", "otp"])
+        .output()
+        .unwrap();
+    assert!(run_stdout.status.success());
+    assert!(run_stdout.stdout.starts_with(b"PK\x03\x04"));
+
+    // 2. Emit OTP with --step-nc and -o
+    let otp_step_out = temp_path("step_out.otp");
+    let step_nc_path = temp_path("toolpath.21");
+    let run_step = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_path.to_str().unwrap(),
+            "-o",
+            otp_step_out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step.status.success());
+    assert!(otp_step_out.exists());
+    assert!(step_nc_path.exists());
+
+    // 3. Emit OTP with --step-nc without -o (stdout)
+    let step_nc_stdout = temp_path("toolpath_stdout.21");
+    let run_step_stdout = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--step-nc",
+            step_nc_stdout.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_step_stdout.status.success());
+    assert!(run_step_stdout.stdout.starts_with(b"PK\x03\x04"));
+    assert!(step_nc_stdout.exists());
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_step_out);
+    let _ = std::fs::remove_file(&step_nc_path);
+    let _ = std::fs::remove_file(&step_nc_stdout);
 }

@@ -7,12 +7,15 @@
 //! `E<filament>` (a travel carries none, unless `travel_g1_e0`). Numbers are `{:.6}` with trailing
 //! zeros and a trailing `.` stripped (so `1000.000000`→`1000`, `0.200000`→`0.2`, `0`→`0`).
 
+mod apt;
 mod canned;
 mod chunked_stream;
 mod gcode;
+mod irbcam;
 mod kinematics;
 mod krl;
 mod laser;
+mod otp;
 mod plasma;
 mod rapid;
 mod spline;
@@ -22,6 +25,7 @@ mod template;
 #[cfg(test)]
 mod tests;
 
+pub use self::apt::{emit_apt_to_writer, AptFrame};
 pub use self::canned::{emit_cycle_cancel, DrillCycle, PeckDrillCycle};
 pub use self::chunked_stream::emit_gcode_chunks;
 #[allow(deprecated)]
@@ -29,12 +33,23 @@ pub use self::gcode::emit;
 pub(crate) use self::gcode::num as format_number;
 pub(crate) use self::gcode::num_checked as format_number_checked;
 pub use self::gcode::{emit_stream, emit_stream_to_writer, CncFrame, EmitParams, FirmwareFlavor};
+pub use self::irbcam::{
+    emit_irbcam_to_writer, AngleUnit, DwellPolicy, ExtrusionCarry, IrbcamEmitStats, IrbcamFrame,
+    IrbcamLayout, RapidEncoding,
+};
 pub use self::kinematics::{
     DhParam, Kinematics, Robot6AxisModel, RobotJoints6, REFERENCE_FIVE_AXIS_LIMITS,
     REFERENCE_FIVE_AXIS_MACHINE,
 };
 pub use self::krl::{KrlFrame, KrlTransform};
 pub use self::laser::{emit_grbl_laser, LaserError, LaserMode, LaserParams};
+pub use self::otp::{
+    crc32, emit_otp_to_writer, OtpAxis, OtpConformance, OtpContextDescriptor, OtpEmitStats,
+    OtpEntrypoints, OtpFrame, OtpGenerator, OtpKinematics, OtpMachine, OtpManifest, OtpProcess,
+    OtpStock, OtpToolCapabilities, OtpToolDefinition, OtpToolGeometry, OtpToolOffsets,
+    OtpToolThermal, OtpToolsCatalog, OtpWorkCoordinates, ZipArchiveWriter, OTP_MIMETYPE,
+    OTP_SCHEMA_URL, OTP_SPEC_VERSION,
+};
 pub use self::plasma::{emit_plasma_waterjet, CuttingParams, LeadInType};
 pub use self::rapid::emit_rapid_to_writer;
 pub use self::template::{render_template, GcodeTemplate, TemplateContext};

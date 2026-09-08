@@ -1,9 +1,8 @@
 ---
 name: kernel-engineer
 description: Implementation agent for dry's correctness-critical surface — crates/core (resolve, emit, engine, gcode, units, ir, codec, verify, and related modules), proofs/, formal/, spec/, conformance/. Use for any change to engine numerics, IR semantics, or G-code emission. Not for CLI/web/SDK work (use routine-dev).
-tools: Glob, Grep, Read, Bash, Edit, Write, mcp__codebase_memory_mcp__search_graph, mcp__codebase_memory_mcp__trace_path, mcp__codebase_memory_mcp__get_code_snippet, mcp__codebase_memory_mcp__query_graph, mcp__codebase_memory_mcp__get_architecture
-model: claude-opus-5
-effort: xhigh
+tools: Glob, Grep, Read, Bash, Edit, Write, mcp__codebase-memory-mcp__search_graph, mcp__codebase-memory-mcp__trace_path, mcp__codebase-memory-mcp__get_code_snippet, mcp__codebase-memory-mcp__query_graph, mcp__codebase-memory-mcp__get_architecture
+model: opus
 ---
 
 You implement changes in the correctness-critical core of the dry repository: `crates/core`, `proofs/`, `formal/`, `spec/`, and `conformance/`.

@@ -6,14 +6,17 @@ mod printer_registry;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use dry_core::{
-    apply_gated, emit_step_nc, emit_stream_to_writer, import_gcode_reader,
+    apply_gated, emit_irbcam_to_writer, emit_otp_to_writer, emit_step_nc, emit_stream_to_writer,
+    import_apt_reader_with_limits, import_apt_reader_with_map, import_gcode_reader,
     import_gcode_reader_with_map, import_klipper, optimize_aggressive_pipeline, optimize_pipeline,
     parse_bounds_csv, parse_speed_range_csv, resolve_checked, simulate, simulate_stream,
     trace_summary_with_analytics, trace_summary_with_sources, try_pocket_design, try_tpms_ops,
-    verify, verify_stream, BatchFileResult, Contracts, CutMode, Design, EmitParams, FirmwareFlavor,
-    GcodeImportParams, Kinematics, KrlFrame, OptimizeMode, PocketOptions, PocketShape, Profile,
+    verify, verify_stream, AngleUnit, AptFrame, AptImportLimits, AptImportParams, AptUnits,
+    BatchFileResult, Contracts, CutMode, Design, DwellPolicy, EmitParams, ExtrusionCarry,
+    FirmwareFlavor, GcodeImportParams, IrbcamEmitStats, IrbcamFrame, IrbcamLayout, Kinematics,
+    KrlFrame, OptimizeMode, OtpEmitStats, PocketOptions, PocketShape, Profile, RapidEncoding,
     ReviewBatch, RewriteReport, RewriteSpanResult, Toolpath, TpmsOptions, TraceAnalyticsOptions,
-    REFERENCE_FIVE_AXIS_MACHINE,
+    UnknownMajorWordPolicy, REFERENCE_FIVE_AXIS_MACHINE,
 };
 use std::fs;
 use std::io::Write;
@@ -51,6 +54,17 @@ enum EmitOutputFormat {
     /// Emit ABB RAPID robot module format.
     #[value(alias = "rapid")]
     RobotRapid,
+    /// Emit IRBCAM target list in JSON format.
+    #[value(alias = "irbcam-json")]
+    Irbcam,
+    /// Emit IRBCAM target list in CSV format.
+    IrbcamCsv,
+    /// Emit ISO 4343 APT-CL format.
+    #[value(alias = "apt-cl")]
+    Apt,
+    /// Emit native OpenToolpath (.otp) package archive.
+    #[value(alias = "opentoolpath")]
+    Otp,
 }
 
 /// CLI surface for [`OptimizeMode`]: the gated optimisation mode selectable on `dry rewrite-gcode`.
@@ -490,6 +504,51 @@ enum Cmd {
         /// Write to a file instead of stdout.
         #[arg(short, long)]
         out: Option<String>,
+        /// Constant spin around tool axis (rz2) in degrees for IRBCAM targets.
+        #[arg(long, default_value = "0.0")]
+        irbcam_spin_deg: f64,
+        /// Rapid move encoding policy for IRBCAM (minus-one or explicit).
+        #[arg(long)]
+        irbcam_rapid: Option<String>,
+        /// Dwell handling policy for IRBCAM (refuse or drop).
+        #[arg(long)]
+        irbcam_dwell: Option<String>,
+        /// Extrusion handling policy for IRBCAM (refuse, motion-only, spindle-rate, or tool-toggle=E,T).
+        #[arg(long)]
+        irbcam_extrusion: Option<String>,
+        /// Decimals for numeric fields in IRBCAM targets (6..=17).
+        #[arg(long)]
+        irbcam_decimals: Option<u8>,
+        /// Angle unit for IRBCAM orientation (deg or rad).
+        #[arg(long)]
+        irbcam_angle_unit: Option<String>,
+        /// Strict mode for IRBCAM emission: fail on any dropped dwells or unhandled extrusion.
+        #[arg(long)]
+        irbcam_strict: bool,
+        /// Part number for APT-CL PARTNO statement.
+        #[arg(long)]
+        apt_partno: Option<String>,
+        /// Machine specification for APT-CL MACHIN statement.
+        #[arg(long)]
+        apt_machin: Option<String>,
+        /// Decimals for numeric fields in APT-CL output.
+        #[arg(long)]
+        apt_decimals: Option<u8>,
+        /// Process domain for OpenToolpath package (additive, subtractive, hybrid, laser, robotics).
+        #[arg(long)]
+        otp_domain: Option<String>,
+        /// Sub-type classification for OpenToolpath package (e.g. milling_5axis, fff).
+        #[arg(long)]
+        otp_sub_type: Option<String>,
+        /// Description of the OpenToolpath package process.
+        #[arg(long)]
+        otp_description: Option<String>,
+        /// Payload serialization format for OpenToolpath package (json, dry0, dry1).
+        #[arg(long)]
+        otp_payload_format: Option<String>,
+        /// Conformance level for OpenToolpath package (strict or relaxed).
+        #[arg(long)]
+        otp_conformance: Option<String>,
     },
     /// Encode a Dry IR (JSON) file to the chunked streaming binary form.
     Pack {
@@ -588,6 +647,35 @@ enum Cmd {
         /// Maximum junction (square-corner) velocity (mm/s) for the junction-velocity check.
         #[arg(long)]
         junction_velocity: Option<f64>,
+        /// Print metrics/findings as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Import ISO 4343 APT-CL toolpath into Dry IR JSON for review, simulation, verification and optimisation.
+    ImportApt {
+        file: String,
+        /// Machine/material profile JSON to supply import defaults.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Assume program units if UNITS/ is absent (mm or inches).
+        #[arg(long)]
+        assume_units: Option<String>,
+        /// Unknown major word handling policy (refuse or preserve).
+        #[arg(long)]
+        unknown_major_words: Option<String>,
+        /// Relative tolerance for planar arc reconstruction.
+        #[arg(long)]
+        arc_tolerance_rel: Option<f64>,
+        /// Write Dry IR JSON to a file instead of stdout.
+        #[arg(short, long)]
+        out: Option<String>,
+    },
+    /// Review ISO 4343 APT-CL directly, reporting metrics and contract findings with source line numbers.
+    ReviewApt {
+        file: String,
+        /// Machine/material profile JSON to supply import defaults and verifier contracts.
+        #[arg(long)]
+        profile: Option<String>,
         /// Print metrics/findings as JSON.
         #[arg(long)]
         json: bool,
@@ -1251,6 +1339,23 @@ fn write_program(
     }
 }
 
+/// Atomically write a binary file (e.g. OpenToolpath ZIP container) without an extra newline.
+fn write_binary_program(
+    path: &str,
+    emit: impl FnOnce(&mut std::io::BufWriter<fs::File>) -> Result<(), String>,
+) {
+    let tmp = match stage_atomic(path, |writer| {
+        emit(writer).map_err(|e| format!("cannot write {path}: {e}"))
+    }) {
+        Ok(tmp) => tmp,
+        Err(msg) => die(msg),
+    };
+    if let Err(msg) = commit_atomic(&tmp, path) {
+        cleanup_tmp(&tmp);
+        die(msg);
+    }
+}
+
 /// Unwrap a shape-dependent optional flag or exit with a clap-style missing-argument error.
 fn require(value: Option<f64>, flag: &str) -> f64 {
     value.unwrap_or_else(|| die(format!("{flag} is required for the selected --shape")))
@@ -1540,6 +1645,21 @@ fn run(cli: Cli) -> ExitCode {
             rotary_axes,
             step_nc,
             out,
+            irbcam_spin_deg,
+            irbcam_rapid,
+            irbcam_dwell,
+            irbcam_extrusion,
+            irbcam_decimals,
+            irbcam_angle_unit,
+            irbcam_strict,
+            apt_partno,
+            apt_machin,
+            apt_decimals,
+            otp_domain,
+            otp_sub_type,
+            otp_description,
+            otp_payload_format,
+            otp_conformance,
         } => {
             let stream =
                 load_streaming(&file).unwrap_or_else(|e| die(format!("cannot stream {file}: {e}")));
@@ -1569,8 +1689,128 @@ fn run(cli: Cli) -> ExitCode {
                 EmitOutputFormat::Heidenhain => flavor = FirmwareFlavor::Heidenhain,
                 EmitOutputFormat::Haas => flavor = FirmwareFlavor::Haas,
                 EmitOutputFormat::RobotRapid => flavor = FirmwareFlavor::Rapid,
+                EmitOutputFormat::Irbcam => flavor = FirmwareFlavor::Irbcam,
+                EmitOutputFormat::IrbcamCsv => flavor = FirmwareFlavor::IrbcamCsv,
+                EmitOutputFormat::Apt => flavor = FirmwareFlavor::Apt,
+                EmitOutputFormat::Otp => flavor = FirmwareFlavor::Otp,
                 EmitOutputFormat::Gcode => {}
             }
+
+            let mut irbcam_frame = profile
+                .as_ref()
+                .map(|p| p.emit_params().irbcam_frame)
+                .unwrap_or_default();
+            irbcam_frame.spin_deg = irbcam_spin_deg;
+            if let Some(ref unit) = irbcam_angle_unit {
+                irbcam_frame.angle_unit = match unit.to_ascii_lowercase().as_str() {
+                    "deg" | "degree" | "degrees" => AngleUnit::Deg,
+                    "rad" | "radian" | "radians" => AngleUnit::Rad,
+                    _ => die(format!(
+                        "invalid --irbcam-angle-unit: expected deg or rad, got {unit}"
+                    )),
+                };
+            }
+            if let Some(ref rapid) = irbcam_rapid {
+                irbcam_frame.rapid = match rapid.to_ascii_lowercase().as_str() {
+                    "minus-one" | "minus_one" | "-1" => RapidEncoding::MinusOne,
+                    "explicit" => RapidEncoding::Explicit,
+                    _ => die(format!(
+                        "invalid --irbcam-rapid: expected minus-one or explicit, got {rapid}"
+                    )),
+                };
+            }
+            if let Some(ref dwell) = irbcam_dwell {
+                irbcam_frame.dwell = match dwell.to_ascii_lowercase().as_str() {
+                    "refuse" => DwellPolicy::Refuse,
+                    "drop" => DwellPolicy::Drop,
+                    _ => die(format!(
+                        "invalid --irbcam-dwell: expected refuse or drop, got {dwell}"
+                    )),
+                };
+            }
+            if let Some(ref ext) = irbcam_extrusion {
+                let s = ext.to_ascii_lowercase();
+                irbcam_frame.extrusion = if s == "refuse" {
+                    ExtrusionCarry::Refuse
+                } else if s == "motion-only" || s == "motion_only" {
+                    ExtrusionCarry::MotionOnly
+                } else if s == "spindle-rate" || s == "spindle_rate" {
+                    ExtrusionCarry::SpindleRate
+                } else if s.starts_with("tool-toggle=") || s.starts_with("tool_toggle=") {
+                    let parts: Vec<&str> = s.split('=').nth(1).unwrap_or("").split(',').collect();
+                    if parts.len() == 2 {
+                        let e = parts[0].trim().parse::<u32>();
+                        let t = parts[1].trim().parse::<u32>();
+                        match (e, t) {
+                            (Ok(extrude_tool), Ok(travel_tool)) => {
+                                ExtrusionCarry::ToolToggle {
+                                    extrude_tool,
+                                    travel_tool,
+                                }
+                            }
+                            _ => die(format!(
+                                "invalid --irbcam-extrusion tool-toggle format: expected integers, got {ext}"
+                            )),
+                        }
+                    } else {
+                        die(format!(
+                            "invalid --irbcam-extrusion tool-toggle format: expected tool-toggle=E,T, got {ext}"
+                        ));
+                    }
+                } else {
+                    die(format!(
+                        "invalid --irbcam-extrusion: expected refuse, motion-only, spindle-rate, or tool-toggle=E,T, got {ext}"
+                    ));
+                };
+            }
+            if let Some(dec) = irbcam_decimals {
+                irbcam_frame.decimals = dec;
+            }
+            if flavor == FirmwareFlavor::IrbcamCsv {
+                irbcam_frame.layout = IrbcamLayout::Csv;
+            } else if flavor == FirmwareFlavor::Irbcam {
+                irbcam_frame.layout = IrbcamLayout::Json;
+            }
+            if flavor == FirmwareFlavor::Irbcam || flavor == FirmwareFlavor::IrbcamCsv {
+                irbcam_frame
+                    .validate()
+                    .unwrap_or_else(|e| die(format!("invalid IRBCAM frame: {e}")));
+            }
+
+            let mut apt_frame = profile
+                .as_ref()
+                .map(|p| p.emit_params().apt_frame)
+                .unwrap_or_default();
+            if let Some(pno) = apt_partno {
+                apt_frame.partno = Some(pno);
+            }
+            if let Some(mch) = apt_machin {
+                apt_frame.machin = Some(mch);
+            }
+            if let Some(dec) = apt_decimals {
+                apt_frame.decimals = dec;
+            }
+
+            let mut otp_frame = profile
+                .as_ref()
+                .map(|p| p.emit_params().otp_frame)
+                .unwrap_or_default();
+            if let Some(d) = otp_domain {
+                otp_frame.domain = Some(d);
+            }
+            if let Some(st) = otp_sub_type {
+                otp_frame.sub_type = Some(st);
+            }
+            if let Some(desc) = otp_description {
+                otp_frame.description = Some(desc);
+            }
+            if let Some(pf) = otp_payload_format {
+                otp_frame.payload_format = Some(pf);
+            }
+            if let Some(conf) = otp_conformance {
+                otp_frame.conformance_level = Some(conf);
+            }
+
             let params = EmitParams {
                 relative_e: !absolute_e,
                 travel_g1_e0: false,
@@ -1578,11 +1818,17 @@ fn run(cli: Cli) -> ExitCode {
                 kinematics,
                 flavor,
                 cnc_frame: profile.as_ref().and_then(|p| p.emit_params().cnc_frame),
-                // Not wired from `profile`: the profile schema has no KRL block yet, so the
-                // program name and $TOOL/$BASE stay at the emitter's documented defaults
-                // (see crates/core/src/emit/krl.rs).
                 krl_frame: KrlFrame::default(),
+                irbcam_frame,
+                apt_frame,
+                otp_frame,
             };
+
+            let is_otp = flavor == FirmwareFlavor::Otp;
+            let mut otp_stats: Option<OtpEmitStats> = None;
+            let is_irbcam = flavor == FirmwareFlavor::Irbcam || flavor == FirmwareFlavor::IrbcamCsv;
+            let mut irbcam_stats: Option<IrbcamEmitStats> = None;
+
             if let Some(step_nc_path) = step_nc {
                 let segments = stream
                     .collect::<Result<Vec<_>, _>>()
@@ -1592,13 +1838,6 @@ fn run(cli: Cli) -> ExitCode {
                     meta: None,
                     segments: segments.clone(),
                 };
-                // Render the sidecar before emitting, so a toolpath STEP-NC cannot represent is
-                // refused before anything is written — but stage it (to a temp path, not the real
-                // one) *before* the g-code emits, and commit both only at the end. A temp file at a
-                // temp path is not a machining program, so this does not reintroduce the hazard the
-                // ordering was chosen to avoid: the `.stpnc` still cannot appear at its real path
-                // before the g-code is known to be emittable, and disk-full on the sidecar is now
-                // caught before the g-code lands instead of after.
                 let step_nc_text = emit_step_nc(&toolpath, &params)
                     .unwrap_or_else(|e| die(format!("cannot emit {step_nc_path}: {e}")));
                 let step_nc_tmp = stage_atomic(&step_nc_path, |writer| {
@@ -1609,13 +1848,36 @@ fn run(cli: Cli) -> ExitCode {
                 .unwrap_or_else(|e| die(e));
                 match out {
                     Some(path) => {
+                        let mut stats_holder = None;
+                        let mut otp_holder = None;
                         let gcode_tmp = stage_atomic(&path, |writer| {
-                            emit_stream_to_writer(segments.into_iter().map(Ok), &params, writer)
-                                .map_err(|e| format!("cannot emit {file}: {e}"))
-                                .and_then(|()| {
-                                    writeln!(writer)
-                                        .map_err(|e| format!("cannot write {path}: {e}"))
-                                })
+                            if is_otp {
+                                let stats = emit_otp_to_writer(
+                                    segments.into_iter().map(Ok),
+                                    &params,
+                                    writer,
+                                )
+                                .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                otp_holder = Some(stats);
+                                Ok(())
+                            } else if is_irbcam {
+                                let stats = emit_irbcam_to_writer(
+                                    segments.into_iter().map(Ok),
+                                    &params,
+                                    writer,
+                                )
+                                .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                stats_holder = Some(stats);
+                                writeln!(writer).map_err(|e| format!("cannot write {path}: {e}"))
+                            } else {
+                                emit_stream_to_writer(
+                                    segments.into_iter().map(Ok),
+                                    &params,
+                                    writer,
+                                )
+                                .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                writeln!(writer).map_err(|e| format!("cannot write {path}: {e}"))
+                            }
                         })
                         .unwrap_or_else(|e| {
                             cleanup_tmp(&step_nc_tmp);
@@ -1626,9 +1888,8 @@ fn run(cli: Cli) -> ExitCode {
                             cleanup_tmp(&step_nc_tmp);
                             die(msg);
                         }
-                        // The g-code is now the only thing on disk that must survive: if the
-                        // sidecar's rename fails from here, `path` already holds a complete,
-                        // usable program, so exit 2 no longer means "nothing usable was written".
+                        irbcam_stats = stats_holder;
+                        otp_stats = otp_holder;
                         if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
                             cleanup_tmp(&step_nc_tmp);
                             die(format!(
@@ -1639,7 +1900,33 @@ fn run(cli: Cli) -> ExitCode {
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
-                        if let Err(e) = emit_stream_to_writer(
+                        if is_otp {
+                            let stats = emit_otp_to_writer(
+                                segments.into_iter().map(Ok),
+                                &params,
+                                &mut writer,
+                            )
+                            .unwrap_or_else(|e| {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot emit {file}: {e}"));
+                            });
+                            writer.flush().unwrap_or_else(|e| {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot write stdout: {e}"));
+                            });
+                            otp_stats = Some(stats);
+                        } else if is_irbcam {
+                            let stats = emit_irbcam_to_writer(
+                                segments.into_iter().map(Ok),
+                                &params,
+                                &mut writer,
+                            )
+                            .unwrap_or_else(|e| {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot emit {file}: {e}"));
+                            });
+                            irbcam_stats = Some(stats);
+                        } else if let Err(e) = emit_stream_to_writer(
                             segments.into_iter().map(Ok),
                             &params,
                             &mut writer,
@@ -1647,9 +1934,11 @@ fn run(cli: Cli) -> ExitCode {
                             cleanup_tmp(&step_nc_tmp);
                             die(format!("cannot emit {file}: {e}"));
                         }
-                        if let Err(e) = writeln!(writer) {
-                            cleanup_tmp(&step_nc_tmp);
-                            die(format!("cannot write stdout: {e}"));
+                        if !is_otp {
+                            if let Err(e) = writeln!(writer) {
+                                cleanup_tmp(&step_nc_tmp);
+                                die(format!("cannot write stdout: {e}"));
+                            }
                         }
                         if let Err(msg) = commit_atomic(&step_nc_tmp, &step_nc_path) {
                             cleanup_tmp(&step_nc_tmp);
@@ -1661,18 +1950,90 @@ fn run(cli: Cli) -> ExitCode {
                 }
             } else {
                 match out {
-                    Some(path) => write_program(&path, |writer| {
-                        emit_stream_to_writer(stream, &params, writer)
-                            .map_err(|e| format!("cannot emit {file}: {e}"))
-                    }),
+                    Some(path) => {
+                        if is_otp {
+                            let mut stats_holder = None;
+                            write_binary_program(&path, |writer| {
+                                let stats = emit_otp_to_writer(stream, &params, writer)
+                                    .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                stats_holder = Some(stats);
+                                Ok(())
+                            });
+                            otp_stats = stats_holder;
+                        } else {
+                            let mut stats_holder = None;
+                            write_program(&path, |writer| {
+                                if is_irbcam {
+                                    let stats = emit_irbcam_to_writer(stream, &params, writer)
+                                        .map_err(|e| format!("cannot emit {file}: {e}"))?;
+                                    stats_holder = Some(stats);
+                                    Ok(())
+                                } else {
+                                    emit_stream_to_writer(stream, &params, writer)
+                                        .map_err(|e| format!("cannot emit {file}: {e}"))
+                                }
+                            });
+                            irbcam_stats = stats_holder;
+                        }
+                    }
                     None => {
                         let stdout = std::io::stdout();
                         let mut writer = stdout.lock();
-                        emit_stream_to_writer(stream, &params, &mut writer)
-                            .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
-                        writeln!(writer)
-                            .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                        if is_otp {
+                            let stats = emit_otp_to_writer(stream, &params, &mut writer)
+                                .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                            writer
+                                .flush()
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                            otp_stats = Some(stats);
+                        } else if is_irbcam {
+                            let stats = emit_irbcam_to_writer(stream, &params, &mut writer)
+                                .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                            irbcam_stats = Some(stats);
+                            writeln!(writer)
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                        } else {
+                            emit_stream_to_writer(stream, &params, &mut writer)
+                                .unwrap_or_else(|e| die(format!("cannot emit {file}: {e}")));
+                            writeln!(writer)
+                                .unwrap_or_else(|e| die(format!("cannot write stdout: {e}")));
+                        }
                     }
+                }
+            }
+
+            if let Some(stats) = otp_stats {
+                eprintln!(
+                    "otp: {} segment(s), {} tool(s), {} bytes written",
+                    stats.segments_count, stats.tools_count, stats.total_bytes_written
+                );
+            }
+
+            if let Some(stats) = irbcam_stats {
+                eprintln!("irbcam: {} target(s), {} arc(s)", stats.targets, stats.arcs);
+                if stats.dropped_dwells > 0 {
+                    eprintln!(
+                        "warning [irbcam-declared-loss]: {} dwell(s) dropped under --irbcam-dwell drop",
+                        stats.dropped_dwells
+                    );
+                }
+                if stats.dropped_poseless > 0 {
+                    eprintln!(
+                        "warning [irbcam-declared-loss]: {} poseless segment(s) dropped",
+                        stats.dropped_poseless
+                    );
+                }
+                if stats.extrusion_segments_lowered_motion_only > 0 {
+                    eprintln!(
+                        "warning [irbcam-declared-loss]: {} extrusion segment(s) lowered motion-only",
+                        stats.extrusion_segments_lowered_motion_only
+                    );
+                }
+                let total_dropped = stats.dropped_dwells
+                    + stats.dropped_poseless
+                    + stats.extrusion_segments_lowered_motion_only;
+                if irbcam_strict && total_dropped > 0 {
+                    return ExitCode::from(1);
                 }
             }
             ExitCode::SUCCESS
@@ -2077,6 +2438,165 @@ fn run(cli: Cli) -> ExitCode {
                 // override flags only the always-on structural rules run, so "OK (no findings)"
                 // over a program with a 7653mm^3/s peak flow was true and useless. `dry verify`
                 // already states its coverage; these two commands did not.
+                println!(
+                    "  checked:   {} segment(s) against {} rule(s){}",
+                    review.segments_inspected,
+                    review.rules_evaluated.len(),
+                    if review.profile.is_some() {
+                        ""
+                    } else {
+                        " (no profile: structural rules only)"
+                    }
+                );
+                if review.findings.is_empty() {
+                    println!("  verify:    OK (no findings)");
+                } else {
+                    for finding in &review.findings {
+                        let seg = finding
+                            .segment
+                            .map(|i| format!(" seg {i}"))
+                            .unwrap_or_default();
+                        let line = finding
+                            .source_line
+                            .map(|line| format!(" line {line}"))
+                            .unwrap_or_default();
+                        println!(
+                            "  [{:?}] {}{line}{seg}: {}",
+                            finding.severity, finding.rule, finding.message
+                        );
+                    }
+                    println!(
+                        "  verify:    {} finding(s), {} error(s)",
+                        review.findings.len(),
+                        review.error_count
+                    );
+                }
+            }
+
+            if review.error_count == 0 {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            }
+        }
+        Cmd::ImportApt {
+            file,
+            profile,
+            assume_units,
+            unknown_major_words,
+            arc_tolerance_rel,
+            out,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let _profile = load_profile(profile.as_deref());
+            let assume_units = assume_units.map(|u| match u.to_ascii_lowercase().as_str() {
+                "mm" => AptUnits::Mm,
+                "inches" | "inch" | "in" => AptUnits::Inches,
+                _ => die(format!(
+                    "invalid --assume-units: expected mm or inches, got {u}"
+                )),
+            });
+            let unknown_major_words = match unknown_major_words.as_deref() {
+                Some(w) => match w.to_ascii_lowercase().as_str() {
+                    "refuse" => UnknownMajorWordPolicy::Refuse,
+                    "preserve" => UnknownMajorWordPolicy::Preserve,
+                    _ => die(format!(
+                        "invalid --unknown-major-words: expected refuse or preserve, got {w}"
+                    )),
+                },
+                None => UnknownMajorWordPolicy::Refuse,
+            };
+            let params = AptImportParams {
+                version: 0,
+                assume_units,
+                unknown_major_words,
+                arc_tolerance_rel: arc_tolerance_rel.unwrap_or(1e-6),
+            };
+            let tp = import_apt_reader_with_limits(input, &params, &AptImportLimits::default())
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")))
+                .toolpath;
+            let json = tp.to_json();
+            match out {
+                Some(path) => fs::write(&path, json + "\n")
+                    .unwrap_or_else(|e| die(format!("cannot write {path}: {e}"))),
+                None => println!("{json}"),
+            }
+            ExitCode::SUCCESS
+        }
+        Cmd::ReviewApt {
+            file,
+            profile,
+            json,
+        } => {
+            let input =
+                fs::File::open(&file).unwrap_or_else(|e| die(format!("cannot read {file}: {e}")));
+            let profile = load_profile(profile.as_deref());
+            let params = AptImportParams::default();
+            let imported = import_apt_reader_with_map(input, &params)
+                .unwrap_or_else(|e| die(format!("cannot import {file}: {e}")));
+            let metrics = simulate(&imported.toolpath);
+            let contracts = contracts_from_inputs(profile.as_ref(), ContractOverrides::default());
+            let report = verify(&imported.toolpath, &contracts);
+            let mut review = dry_core::ReviewReport::build(
+                Some(file.clone()),
+                profile_label(profile.as_ref()),
+                imported.toolpath.segments.len(),
+                metrics.clone(),
+                &report,
+                |segment| imported.segment_source_lines.get(segment).copied(),
+            );
+            // In APT-CL toolpaths, moves are cutting/milling feeds rather than plastic extrusion,
+            // so FFF structural bead rules (requiring positive width/height) do not apply.
+            review.findings.retain(|f| f.rule != "bead");
+            review.error_count = review
+                .findings
+                .iter()
+                .filter(|f| f.severity == dry_core::Severity::Error)
+                .count();
+            review.rules_evaluated.retain(|r| r != "bead");
+            for unmodeled in &imported.unmodeled_statements {
+                review.findings.push(dry_core::LocatedFinding {
+                    rule: "unmodeled-apt".to_string(),
+                    severity: dry_core::Severity::Warning,
+                    segment: None,
+                    source_line: Some(unmodeled.source_line),
+                    message: format!(
+                        "{} is preserved but not semantically verified: {}",
+                        unmodeled.major, unmodeled.raw
+                    ),
+                });
+            }
+            for adv in &imported.advisories {
+                review.findings.push(dry_core::LocatedFinding {
+                    rule: adv.code.clone(),
+                    severity: dry_core::Severity::Warning,
+                    segment: None,
+                    source_line: Some(adv.source_line),
+                    message: adv.message.clone(),
+                });
+            }
+            review.license = Some(license_stamp(&license));
+            license_notice(&license);
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&review).unwrap());
+            } else {
+                println!("review-apt: {file}");
+                if let Some(label) = profile_label(profile.as_ref()) {
+                    println!("  profile:   {label}");
+                }
+                println!(
+                    "  segments:  {} ({} moves with length)",
+                    imported.toolpath.segments.len(),
+                    metrics.segment_count
+                );
+                println!(
+                    "  time:      {:.1}s (print {:.1}s, travel {:.1}s)",
+                    metrics.total_time_s.value(),
+                    metrics.print_time_s.value(),
+                    metrics.travel_time_s.value()
+                );
                 println!(
                     "  checked:   {} segment(s) against {} rule(s){}",
                     review.segments_inspected,
@@ -2572,6 +3092,9 @@ fn run(cli: Cli) -> ExitCode {
                 // Unused on this path: `emit_source_preserving_spans` refuses a KRL flavor
                 // outright, because a DEF/END module is not a spliceable motion span.
                 krl_frame: KrlFrame::default(),
+                irbcam_frame: IrbcamFrame::default(),
+                apt_frame: AptFrame::default(),
+                otp_frame: Default::default(),
             };
 
             let span_tp = |range: std::ops::Range<usize>| Toolpath {
@@ -3712,6 +4235,9 @@ fn run_upload(args: UploadArgs, license: &LicenseResolution) -> std::process::Ex
             // Unused on this path: `emit_source_preserving_spans` refuses a KRL flavor outright,
             // because a DEF/END module is not a spliceable motion span.
             krl_frame: KrlFrame::default(),
+            irbcam_frame: IrbcamFrame::default(),
+            apt_frame: AptFrame::default(),
+            otp_frame: Default::default(),
         };
         let kinematics = profile.as_ref().and_then(|p| p.machine.kinematics.as_ref());
         let mut span_toolpaths = Vec::new();

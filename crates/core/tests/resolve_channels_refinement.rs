@@ -49,6 +49,7 @@ struct FixtureOp {
     nozzle: Option<NumberOrRational>,
     ratio: Option<NumberOrRational>,
     index: Option<u32>,
+    level: Option<NumberOrRational>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +72,7 @@ struct FixtureSegment {
     fan: Option<NumberOrRational>,
     flow: Option<NumberOrRational>,
     tool: Option<u32>,
+    power: Option<NumberOrRational>,
     dwell_seconds: Option<NumberOrRational>,
 }
 
@@ -114,6 +116,14 @@ fn build_design(ops: &[FixtureOp]) -> Design {
                 let index = op.index.expect("tool op must have index");
                 core_ops.push(Op::Tool { index });
             }
+            "power" => {
+                let level = op
+                    .level
+                    .as_ref()
+                    .expect("power op must have level")
+                    .to_f64();
+                core_ops.push(Op::Power { level });
+            }
             other => panic!("unknown op type in fixture: {other}"),
         }
     }
@@ -127,7 +137,7 @@ fn native_resolve_channels_refines_generated_lean_corpus() {
     assert_eq!(document.schema_version, 1);
     assert_eq!(document.model, "resolve-channels-refinement-v0");
     assert!(document.model_checks);
-    assert_eq!(document.cases.len(), 6);
+    assert_eq!(document.cases.len(), 7);
 
     for fixture in &document.cases {
         let design = build_design(&fixture.ops);
@@ -166,6 +176,12 @@ fn native_resolve_channels_refines_generated_lean_corpus() {
                 fixture.id
             );
             assert_eq!(seg.tool, exp.tool, "{} seg[{idx}] tool", fixture.id);
+            assert_eq!(
+                seg.power.map(|v| v.to_bits()),
+                exp.power.as_ref().map(|v| v.to_f64().to_bits()),
+                "{} seg[{idx}] power",
+                fixture.id
+            );
             assert_eq!(
                 seg.dwell_s.map(|v| v.to_bits()),
                 exp.dwell_seconds.as_ref().map(|v| v.to_f64().to_bits()),

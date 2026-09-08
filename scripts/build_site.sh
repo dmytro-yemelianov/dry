@@ -28,6 +28,17 @@ cp "$ROOT/index.html" "$OUT/index.html"
 cp "$ROOT/README.md" "$OUT/README.md"
 cp -r "$ROOT/docs/"* "$OUT/docs/"
 
+# docs/ contains docs/site, the separately-deployed dry-public-docs project. Its
+# git-ignored working directories (node_modules, .vitepress/dist, test-results, ...)
+# ride along on that copy: ~279 MB and ~11k files of dev dependencies published to a
+# public URL, and a needless march toward the 20,000-file Pages limit. Prune exactly
+# what git ignores rather than a hand-maintained list, which drifts.
+if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  while IFS= read -r -d '' ignored; do
+    rm -rf "${OUT:?}/$ignored"
+  done < <(git -C "$ROOT" ls-files --others --ignored --exclude-standard --directory -z -- docs/)
+fi
+
 # 4. Copy static HTML portals and data
 cp "$ROOT/web/machines.html" "$OUT/web/machines.html"
 cp "$ROOT/web/machines.json" "$OUT/web/machines.json"

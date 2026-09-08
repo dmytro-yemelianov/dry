@@ -1,22 +1,40 @@
-# Dry Mastercam / Siemens NX / CATIA APT-CL Converter
+# Dry Mastercam / Siemens NX / CATIA APT-CL Integration
 
-Converter and post-processing pipeline for enterprise CAM packages generating **ISO 4343 / ANSI X3.37 APT-CL** (Cutter Location Data) and Mastercam NCI files.
+> **Retired & Superseded:** The legacy Python converter (`dry_apt_cl_converter.py`) has been retired and superseded by first-class Dry CLI commands: `dry import-apt` and `dry emit --format irbcam` (or `--format apt`).
 
----
-
-## 1. Supported Input Commands
-
-- `MULTAX / ON` & `MULTAX / OFF` (Multi-axis tool orientation flag)
-- `FEDRAT / <feedrate>` (Feedrate in mm/min or in/min)
-- `SPINDL / <rpm>, CLW` (Spindle speed and rotation)
-- `GOTO / X, Y, Z [, I, J, K]` (Linear tool motion with optional 3D tool vector)
-- `DWELL / <seconds>` (Machine dwell pause)
+For enterprise CAM packages generating **ISO 4343 / ANSI X3.37 APT-CL** (Cutter Location Data) from Mastercam, Siemens NX, CATIA, and Autodesk Fusion 360, use the native Dry pipeline directly.
 
 ---
 
-## 2. Usage
+## Direct CLI Usage
+
+### 1. Ingress: Import APT-CL into Dry IR
 
 ```bash
-python3 dry_apt_cl_converter.py input.apt output.ngc
+dry import-apt input.apt -o part.ir.json
 ```
-Emits verified, safe RS-274 / LinuxCNC / KRL machine code after running Dry's pre-flight verification passes.
+
+Options:
+- `--profile <path>`: Supply machine/material profile defaults.
+- `--assume-units <mm|inches>`: Fallback units if `UNITS/` statement is missing.
+- `--unknown-major-words <refuse|preserve>`: Policy for unrecognized major words (default: refuse).
+- `--arc-tolerance-rel <f64>`: Relative tolerance for planar arc reconstruction.
+
+### 2. Review & Verification
+
+```bash
+dry review-apt input.apt [--profile <path>] [--json]
+```
+
+Evaluates machine safety contracts, kinematic limits, and reports source-located findings or unmodeled statements.
+
+### 3. Egress: Emit to IRBCAM or APT-CL
+
+```bash
+# Emit IRBCAM target list (JSON or CSV)
+dry emit part.ir.json --format irbcam -o part.irbcam.json
+dry emit part.ir.json --format irbcam-csv -o part.irbcam.csv
+
+# Emit standard ISO 4343 APT-CL
+dry emit part.ir.json --format apt -o output.apt
+```

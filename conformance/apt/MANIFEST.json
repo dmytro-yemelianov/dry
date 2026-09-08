@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "description": "Cryptographic checksum manifest for the APT conformance corpus and goldens",
+  "files": {
+    "fusion360-apt-cps/pocket_drill_arc.apt": "64f979f2c07fbfcfd18225ecbffd5f06be4171e646841eb6d04b1afee9e612d9",
+    "fusion360-apt-cps/pocket_drill_arc.ir.json": "698aa8231232ff877db94175f58c1a179a9c90402596270da46c5add6940422d",
+    "fusion360-apt-cps/pocket_drill_arc.irbcam.csv": "8cbdc257d5fc23c246a5d71983f5c972f09fad52cb1a38e62a877f260b029c78",
+    "fusion360-apt-cps/pocket_drill_arc.irbcam.json": "c4f8e8d31e58cc5232988e407dd6657a60458bdb8a8c3de7450d9f51fc0ae03c",
+    "fusion360-apt-cps/pocket_drill_arc.roundtrip.apt": "d75b7178b0b4942ecd3d24ec85e1a8a2beef5ee7995cd6c91a9ed61390fa5716"
+  }
+}

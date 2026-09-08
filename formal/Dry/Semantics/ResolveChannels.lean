@@ -33,6 +33,7 @@ inductive Op where
   | fan (speed : Number)
   | flow (ratio : Number)
   | tool (index : Nat)
+  | power (level : Number)
 deriving DecidableEq, Repr
 
 structure State where
@@ -41,6 +42,7 @@ structure State where
   fan : Option Number
   flow : Number
   tool : Option Nat
+  power : Option Number
 deriving DecidableEq, Repr
 
 def initialState (startPos : PartialVec3 := ⟨none, none, none⟩) : State :=
@@ -48,7 +50,8 @@ def initialState (startPos : PartialVec3 := ⟨none, none, none⟩) : State :=
     temperature := none,
     fan := none,
     flow := .finite 1,
-    tool := none }
+    tool := none,
+    power := none }
 
 def flowField (ratio : Number) : Option Number :=
   if ratio = .finite 1 then none else some ratio
@@ -59,6 +62,7 @@ def step (state : State) (op : Op) : State × Option Segment :=
   | .fan f => ({ state with fan := some f }, none)
   | .flow ratio => ({ state with flow := ratio }, none)
   | .tool index => ({ state with tool := some index }, none)
+  | .power p => ({ state with power := some p }, none)
   | .dwell s =>
       let seg : Segment := {
         start := state.position,
@@ -77,6 +81,7 @@ def step (state : State) (op : Op) : State × Option Segment :=
         fan := state.fan,
         flow := none,
         tool := state.tool,
+        power := state.power,
         dwellSeconds := some s,
         manualGcode := none,
         orientation := none,
@@ -101,6 +106,7 @@ def step (state : State) (op : Op) : State × Option Segment :=
         fan := state.fan,
         flow := flowField state.flow,
         tool := state.tool,
+        power := state.power,
         dwellSeconds := none,
         manualGcode := none,
         orientation := none,
@@ -133,7 +139,7 @@ theorem default_moves_carry_default_channels
     (pos : PartialVec3)
     (moves : List (PartialVec3 × Number)) :
     ∀ seg ∈ (resolve (initialState pos) (moves.map (fun (p, s) => Op.move p s))).2,
-      seg.temperature = none ∧ seg.fan = none ∧ seg.flow = none ∧ seg.tool = none := by
+      seg.temperature = none ∧ seg.fan = none ∧ seg.flow = none ∧ seg.tool = none ∧ seg.power = none := by
   induction moves generalizing pos with
   | nil =>
       intro seg h
@@ -144,7 +150,7 @@ theorem default_moves_carry_default_channels
       dsimp [resolve, step, initialState, flowField] at h
       cases h with
       | head =>
-          refine ⟨rfl, rfl, rfl, rfl⟩
+          refine ⟨rfl, rfl, rfl, rfl, rfl⟩
       | tail _ hTail =>
           exact ih p seg hTail
 
@@ -154,6 +160,26 @@ theorem explicit_temperature_propagates
     (moves : List (PartialVec3 × Number)) :
     ∀ seg ∈ (resolve (initialState pos) (Op.temperature tempVal :: moves.map (fun (p, s) => Op.move p s))).2,
       seg.temperature = some tempVal := by
+  induction moves generalizing pos with
+  | nil =>
+      intro seg h
+      cases h
+  | cons head tail ih =>
+      intro seg h
+      rcases head with ⟨p, s⟩
+      dsimp [resolve, step, initialState] at h
+      cases h with
+      | head =>
+          rfl
+      | tail _ hTail =>
+          exact ih p seg hTail
+
+theorem explicit_power_propagates
+    (pos : PartialVec3)
+    (powerVal : Number)
+    (moves : List (PartialVec3 × Number)) :
+    ∀ seg ∈ (resolve (initialState pos) (Op.power powerVal :: moves.map (fun (p, s) => Op.move p s))).2,
+      seg.power = some powerVal := by
   induction moves generalizing pos with
   | nil =>
       intro seg h
@@ -199,8 +225,8 @@ theorem later_channel_update_does_not_rewrite_earlier
     let (_, segs) := resolve (initialState pos) ops
     ∃ seg1 seg2, segs = [seg1, seg2] ∧ seg1.temperature = some t1 ∧ seg2.temperature = some t2 := by
   dsimp [resolve, step, initialState]
-  refine ⟨{ start := pos, finish := p1, travel := true, speed := s1, length := .finite 0, volume := .finite 0, filament := .finite 0, width := none, height := none, kind := .line, centre := none, clockwise := false, temperature := some t1, fan := none, flow := none, tool := none, dwellSeconds := none, manualGcode := none, orientation := none, controlPoints := none },
-          { start := p1, finish := p2, travel := true, speed := s2, length := .finite 0, volume := .finite 0, filament := .finite 0, width := none, height := none, kind := .line, centre := none, clockwise := false, temperature := some t2, fan := none, flow := none, tool := none, dwellSeconds := none, manualGcode := none, orientation := none, controlPoints := none },
+  refine ⟨{ start := pos, finish := p1, travel := true, speed := s1, length := .finite 0, volume := .finite 0, filament := .finite 0, width := none, height := none, kind := .line, centre := none, clockwise := false, temperature := some t1, fan := none, flow := none, tool := none, power := none, dwellSeconds := none, manualGcode := none, orientation := none, controlPoints := none },
+          { start := p1, finish := p2, travel := true, speed := s2, length := .finite 0, volume := .finite 0, filament := .finite 0, width := none, height := none, kind := .line, centre := none, clockwise := false, temperature := some t2, fan := none, flow := none, tool := none, power := none, dwellSeconds := none, manualGcode := none, orientation := none, controlPoints := none },
           rfl, rfl, rfl⟩
 
 end Dry.Semantics.ResolveChannels

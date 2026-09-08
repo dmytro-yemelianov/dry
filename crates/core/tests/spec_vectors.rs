@@ -615,6 +615,35 @@ fn specs() -> Vec<Spec> {
         ir: tp(vec![]),
     });
 
+    let apt_source =
+        include_str!("../../../conformance/apt/fusion360-apt-cps/pocket_drill_arc.apt");
+    let apt_ir = dry_core::apt::lift::import_apt(
+        apt_source,
+        &dry_core::apt::lift::AptImportParams::default(),
+    )
+    .expect("conformance apt program lifts cleanly");
+    out.push(Spec {
+        name: "apt_fusion_lift",
+        design: None,
+        description: "The lifted L2 of the reference Fusion 360 pocket_drill_arc.apt toolpath (Flow A). \
+                      Exercises the IR codec on a channel-rich, oriented toolpath with multiaxis orientations, \
+                      circular arcs, modal spindle power, tool numbers, cycle expansion, and dwells. \
+                      NOT oracle-backed: external oracle qualification is Layer D-adjacent (docs/28-apt-irbcam-dialects.md §10.4). \
+                      No expected.gcode is emitted since G-code is not the target dialect for this vector.",
+        feature_tags: &[
+            "apt",
+            "five-axis",
+            "arc",
+            "power",
+            "tool",
+            "dwell",
+            "no-oracle",
+        ],
+        frozen: false,
+        emit: None,
+        ir: apt_ir,
+    });
+
     out
 }
 

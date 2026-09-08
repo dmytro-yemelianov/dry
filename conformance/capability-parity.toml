@@ -139,6 +139,24 @@ python = { path = "py/src/lib.rs", symbol = "check_compatibility_json", status =
 wasm = { path = "crates/wasm/src/lib.rs", symbol = "check_machine_compatibility", status = "reachable" }
 ts = { path = "sdk/ts/src/engine.ts", symbol = "export function checkMachineCompatibility", status = "reachable" }
 
+[[capability]]
+id = "apt-import"
+title = "ISO 4343 APT-CL toolpath import to L2"
+core = { path = "crates/core/src/apt/lift.rs", symbol = "pub fn import_apt_with_map", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "Cmd::ImportApt", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "import_apt_json", status = "absent", note = "Python has no G-code import either; APT import lands with the import-binding parity slice, not before it" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "import_apt_to_ir", status = "absent", note = "IRBCAM is a desktop consumer; the browser inspection path has no APT user yet" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "importApt", status = "absent", note = "IRBCAM is a desktop consumer; the browser inspection path has no APT user yet" }
+
+[[capability]]
+id = "irbcam-emit"
+title = "IRBCAM robot target list emission (JSON / CSV)"
+core = { path = "crates/core/src/emit/irbcam.rs", symbol = "pub fn emit_irbcam_to_writer", status = "reachable" }
+cli = { path = "crates/cli/src/main.rs", symbol = "EmitOutputFormat::Irbcam", status = "reachable" }
+python = { path = "py/src/lib.rs", symbol = "FirmwareFlavor::named", status = "reachable" }
+wasm = { path = "crates/wasm/src/lib.rs", symbol = "FirmwareFlavor::named", status = "reachable" }
+ts = { path = "sdk/ts/src/engine.ts", symbol = "FirmwareFlavor", status = "reachable" }
+
 # Binding exports with no capability row yet — a visible, gated backlog, not a silent allowlist.
 #
 # The rows above cover 13 capabilities. The wasm binding exports 34 functions and the PyO3 module

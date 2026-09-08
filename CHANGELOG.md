@@ -9,6 +9,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+### Added
+- **First-class ISO 4343 APT-CL and IRBCAM dialect pipeline CLI integration.** Added `dry import-apt` to lift APT-CL programs into Dry IR JSON with multiaxis tool orientations and cycle expansion; added `dry review-apt` for contract verification and advisory reporting; and extended `dry emit --format` with `irbcam`, `irbcam-csv`, and `apt` targets with comprehensive frame and policy configuration flags (`--irbcam-spin-deg`, `--irbcam-rapid`, `--irbcam-dwell`, `--irbcam-extrusion`, `--irbcam-decimals`, `--irbcam-angle-unit`, `--irbcam-strict`, `--apt-partno`, `--apt-machin`, `--apt-decimals`).
+
+### Removed
+- **Retired legacy Python APT-CL converter.** Removed `integrations/mastercam_nx/dry_apt_cl_converter.py` and `integrations/mastercam_nx/test_apt_converter.py`, superseded by the first-class `dry import-apt` and `dry emit --format irbcam` commands.
+
 ### Security
 - **Repository and browser security now fail closed on known first-party findings.** The
   TypeScript decimal parser uses a linear scanner instead of a backtracking regular expression;

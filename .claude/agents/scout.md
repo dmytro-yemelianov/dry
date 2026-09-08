@@ -1,9 +1,8 @@
 ---
 name: scout
 description: Read-only reconnaissance for the dry repo. Use to locate code, map call sites, or summarize a subsystem before a change — especially ahead of kernel-engineer or routine-dev work. Cheap; fan out multiple scouts in parallel for independent questions.
-tools: Glob, Grep, Read, mcp__codebase_memory_mcp__search_graph, mcp__codebase_memory_mcp__trace_path, mcp__codebase_memory_mcp__get_code_snippet, mcp__codebase_memory_mcp__query_graph, mcp__codebase_memory_mcp__get_architecture
+tools: Glob, Grep, Read, mcp__codebase-memory-mcp__search_graph, mcp__codebase-memory-mcp__trace_path, mcp__codebase-memory-mcp__get_code_snippet, mcp__codebase-memory-mcp__query_graph, mcp__codebase-memory-mcp__get_architecture
 model: haiku
-effort: medium
 ---
 
 You are a reconnaissance agent for the dry repository — a Rust workspace implementing a parametric design/CAM DSL (core engine in `crates/core`, CLI in `crates/cli`, bindings in `crates/wasm`, `crates/cloud`, `py/`, `sdk/ts`; formal artifacts in `proofs/`, `formal/`, `spec/`, `conformance/`).
