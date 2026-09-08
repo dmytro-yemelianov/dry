@@ -4207,3 +4207,90 @@ fn emit_opentoolpath_package_and_validate() {
     let _ = std::fs::remove_file(&ir_file);
     let _ = std::fs::remove_file(&otp_out);
 }
+
+#[test]
+fn emit_opentoolpath_cli_flags_coverage() {
+    let ir_json = r#"{
+        "schema": "dry/toolpath/v0",
+        "meta": {"generator": "dry-test", "units": "mm"},
+        "segments": [
+            {
+                "start": [0.0, 0.0, 0.0],
+                "end": [10.0, 20.0, 0.0],
+                "travel": false,
+                "speed": 1200.0,
+                "length": 22.36068,
+                "volume": 2.236,
+                "filament": 1.118,
+                "width": 0.4,
+                "height": 0.2,
+                "kind": "line",
+                "tool": 1,
+                "orientation": [0.0, 0.0, 1.0]
+            }
+        ]
+    }"#;
+    let ir_file = temp_path("otp_flags_input.json");
+    std::fs::write(&ir_file, ir_json).unwrap();
+
+    // 1. Alias --format opentoolpath with --otp-conformance strict
+    let otp_out_1 = temp_path("flags_1.otp");
+    let run_1 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "opentoolpath",
+            "--otp-domain",
+            "subtractive",
+            "--otp-sub-type",
+            "milling_5axis",
+            "--otp-description",
+            "5-axis milling test",
+            "--otp-conformance",
+            "strict",
+            "-o",
+            otp_out_1.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_1.status.success());
+    assert!(otp_out_1.exists());
+
+    // 2. Conformance relaxed with robotics domain
+    let otp_out_2 = temp_path("flags_2.otp");
+    let run_2 = Command::new(bin())
+        .args([
+            "emit",
+            ir_file.to_str().unwrap(),
+            "--format",
+            "otp",
+            "--otp-domain",
+            "robotics",
+            "--otp-sub-type",
+            "robot_machining",
+            "--otp-conformance",
+            "relaxed",
+            "-o",
+            otp_out_2.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(run_2.status.success());
+    assert!(otp_out_2.exists());
+
+    // Validate both with validate_otp.py
+    let validator_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/validate_otp.py");
+    for path in [&otp_out_1, &otp_out_2] {
+        let run_val = Command::new("python3")
+            .args([validator_path.to_str().unwrap(), path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(run_val.status.success());
+    }
+
+    let _ = std::fs::remove_file(&ir_file);
+    let _ = std::fs::remove_file(&otp_out_1);
+    let _ = std::fs::remove_file(&otp_out_2);
+}

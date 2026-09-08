@@ -273,8 +273,38 @@ fn test_otp_refuses_non_finite_coordinates_and_speed() {
         ..Default::default()
     };
     let mut out = Vec::new();
-    let res = emit_otp_to_writer(vec![Ok(bad_seg)], &params, &mut out);
+    // 1. Non-finite feedrate
+    let res = emit_otp_to_writer(vec![Ok(bad_seg.clone())], &params, &mut out);
     assert!(res.is_err(), "non-finite feedrate must be refused");
+
+    // 2. Non-finite start coordinate
+    let mut bad_start = bad_seg.clone();
+    bad_start.speed = Feedrate(1000.0);
+    bad_start.start[0] = Some(Length(f64::INFINITY));
+    assert!(emit_otp_to_writer(vec![Ok(bad_start)], &params, &mut out).is_err());
+
+    // 3. Non-finite end coordinate
+    let mut bad_end = bad_seg.clone();
+    bad_end.speed = Feedrate(1000.0);
+    bad_end.end[1] = Some(Length(f64::NAN));
+    assert!(emit_otp_to_writer(vec![Ok(bad_end)], &params, &mut out).is_err());
+
+    // 4. Non-finite arc centre
+    let mut bad_centre = bad_seg.clone();
+    bad_centre.speed = Feedrate(1000.0);
+    bad_centre.centre = Some([Length(f64::NAN), Length(0.0)]);
+    assert!(emit_otp_to_writer(vec![Ok(bad_centre)], &params, &mut out).is_err());
+
+    // 5. Invalid power (negative or non-finite)
+    let mut bad_power = bad_seg.clone();
+    bad_power.speed = Feedrate(1000.0);
+    bad_power.power = Some(-10.0);
+    assert!(emit_otp_to_writer(vec![Ok(bad_power)], &params, &mut out).is_err());
+
+    let mut nan_power = bad_seg.clone();
+    nan_power.speed = Feedrate(1000.0);
+    nan_power.power = Some(f64::NAN);
+    assert!(emit_otp_to_writer(vec![Ok(nan_power)], &params, &mut out).is_err());
 }
 
 #[test]
@@ -535,4 +565,54 @@ fn test_otp_zip_archive_writer_and_crc() {
     zip.add_file("deflated.txt", data, true).unwrap();
     let written = zip.finish().unwrap();
     assert!(written > 0);
+}
+
+#[test]
+fn test_otp_bc_kinematics_and_robot_context() {
+    let segs = make_test_segments();
+    // 1. Bc kinematics (table_table_bc)
+    let params_bc = EmitParams {
+        flavor: FirmwareFlavor::Otp,
+        five_axis: true,
+        kinematics: dry_core::emit::REFERENCE_FIVE_AXIS_MACHINE,
+        ..Default::default()
+    };
+    let mut zip_bytes_bc = Vec::new();
+    emit_otp_to_writer(
+        segs.clone().into_iter().map(Ok),
+        &params_bc,
+        &mut zip_bytes_bc,
+    )
+    .unwrap();
+
+    let cursor = std::io::Cursor::new(&zip_bytes_bc);
+    let mut archive = zip::ZipArchive::new(cursor).unwrap();
+    let mut ctx_file = archive.by_name("context.json").unwrap();
+    let mut ctx_str = String::new();
+    std::io::Read::read_to_string(&mut ctx_file, &mut ctx_str).unwrap();
+    let ctx: serde_json::Value = serde_json::from_str(&ctx_str).unwrap();
+    assert_eq!(ctx["machine"]["kinematics"]["topology"], "table_table_bc");
+
+    // 2. Robot kinematics context (robot_6dof)
+    let params_robot = EmitParams {
+        flavor: FirmwareFlavor::RobotKrl,
+        ..Default::default()
+    };
+    let mut zip_bytes_robot = Vec::new();
+    emit_otp_to_writer(
+        segs.into_iter().map(Ok),
+        &params_robot,
+        &mut zip_bytes_robot,
+    )
+    .unwrap();
+
+    let cursor = std::io::Cursor::new(&zip_bytes_robot);
+    let mut archive = zip::ZipArchive::new(cursor).unwrap();
+    let mut ctx_file = archive.by_name("context.json").unwrap();
+    let mut ctx_str = String::new();
+    std::io::Read::read_to_string(&mut ctx_file, &mut ctx_str).unwrap();
+    let ctx: serde_json::Value = serde_json::from_str(&ctx_str).unwrap();
+    assert_eq!(ctx["machine"]["kinematics"]["topology"], "robot_6dof");
+    let axes = ctx["machine"]["kinematics"]["axes"].as_array().unwrap();
+    assert_eq!(axes.len(), 6);
 }

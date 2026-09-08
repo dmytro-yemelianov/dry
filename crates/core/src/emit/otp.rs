@@ -622,73 +622,87 @@ where
             "cartesian_3axis"
         };
 
-        let mut axes = vec![
-            OtpAxis {
-                name: "X".to_string(),
-                axis_type: "linear".to_string(),
-                min: Some(-500.0),
-                max: Some(500.0),
-                max_velocity: Some(30000.0),
-                axis_vector: Some([1.0, 0.0, 0.0]),
-            },
-            OtpAxis {
-                name: "Y".to_string(),
-                axis_type: "linear".to_string(),
-                min: Some(-500.0),
-                max: Some(500.0),
-                max_velocity: Some(30000.0),
-                axis_vector: Some([0.0, 1.0, 0.0]),
-            },
-            OtpAxis {
-                name: "Z".to_string(),
-                axis_type: "linear".to_string(),
-                min: Some(0.0),
-                max: Some(600.0),
-                max_velocity: Some(20000.0),
-                axis_vector: Some([0.0, 0.0, 1.0]),
-            },
-        ];
+        let axes = if params.flavor.is_robot() {
+            (1..=6)
+                .map(|i| OtpAxis {
+                    name: format!("A{i}"),
+                    axis_type: "rotary".to_string(),
+                    min: Some(-180.0),
+                    max: Some(180.0),
+                    max_velocity: Some(3600.0),
+                    axis_vector: None,
+                })
+                .collect()
+        } else {
+            let mut axes = vec![
+                OtpAxis {
+                    name: "X".to_string(),
+                    axis_type: "linear".to_string(),
+                    min: Some(-500.0),
+                    max: Some(500.0),
+                    max_velocity: Some(30000.0),
+                    axis_vector: Some([1.0, 0.0, 0.0]),
+                },
+                OtpAxis {
+                    name: "Y".to_string(),
+                    axis_type: "linear".to_string(),
+                    min: Some(-500.0),
+                    max: Some(500.0),
+                    max_velocity: Some(30000.0),
+                    axis_vector: Some([0.0, 1.0, 0.0]),
+                },
+                OtpAxis {
+                    name: "Z".to_string(),
+                    axis_type: "linear".to_string(),
+                    min: Some(0.0),
+                    max: Some(600.0),
+                    max_velocity: Some(20000.0),
+                    axis_vector: Some([0.0, 0.0, 1.0]),
+                },
+            ];
 
-        if params.five_axis {
-            match params.kinematics {
-                crate::emit::Kinematics::Bc { .. } => {
-                    axes.push(OtpAxis {
-                        name: "B".to_string(),
-                        axis_type: "rotary".to_string(),
-                        min: Some(-120.0),
-                        max: Some(120.0),
-                        max_velocity: Some(3600.0),
-                        axis_vector: Some([0.0, 1.0, 0.0]),
-                    });
-                    axes.push(OtpAxis {
-                        name: "C".to_string(),
-                        axis_type: "rotary".to_string(),
-                        min: Some(-360.0),
-                        max: Some(360.0),
-                        max_velocity: Some(7200.0),
-                        axis_vector: Some([0.0, 0.0, 1.0]),
-                    });
-                }
-                crate::emit::Kinematics::Ac { .. } | crate::emit::Kinematics::Ab { .. } => {
-                    axes.push(OtpAxis {
-                        name: "A".to_string(),
-                        axis_type: "rotary".to_string(),
-                        min: Some(-120.0),
-                        max: Some(120.0),
-                        max_velocity: Some(3600.0),
-                        axis_vector: Some([1.0, 0.0, 0.0]),
-                    });
-                    axes.push(OtpAxis {
-                        name: "C".to_string(),
-                        axis_type: "rotary".to_string(),
-                        min: Some(-360.0),
-                        max: Some(360.0),
-                        max_velocity: Some(7200.0),
-                        axis_vector: Some([0.0, 0.0, 1.0]),
-                    });
+            if params.five_axis {
+                match params.kinematics {
+                    crate::emit::Kinematics::Bc { .. } => {
+                        axes.push(OtpAxis {
+                            name: "B".to_string(),
+                            axis_type: "rotary".to_string(),
+                            min: Some(-120.0),
+                            max: Some(120.0),
+                            max_velocity: Some(3600.0),
+                            axis_vector: Some([0.0, 1.0, 0.0]),
+                        });
+                        axes.push(OtpAxis {
+                            name: "C".to_string(),
+                            axis_type: "rotary".to_string(),
+                            min: Some(-360.0),
+                            max: Some(360.0),
+                            max_velocity: Some(7200.0),
+                            axis_vector: Some([0.0, 0.0, 1.0]),
+                        });
+                    }
+                    crate::emit::Kinematics::Ac { .. } | crate::emit::Kinematics::Ab { .. } => {
+                        axes.push(OtpAxis {
+                            name: "A".to_string(),
+                            axis_type: "rotary".to_string(),
+                            min: Some(-120.0),
+                            max: Some(120.0),
+                            max_velocity: Some(3600.0),
+                            axis_vector: Some([1.0, 0.0, 0.0]),
+                        });
+                        axes.push(OtpAxis {
+                            name: "C".to_string(),
+                            axis_type: "rotary".to_string(),
+                            min: Some(-360.0),
+                            max: Some(360.0),
+                            max_velocity: Some(7200.0),
+                            axis_vector: Some([0.0, 0.0, 1.0]),
+                        });
+                    }
                 }
             }
-        }
+            axes
+        };
 
         let mut g54_offsets = BTreeMap::new();
         g54_offsets.insert("x".to_string(), 0.0);
