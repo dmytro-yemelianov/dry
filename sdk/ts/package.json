@@ -1,6 +1,6 @@
 {
   "name": "@dry/sdk",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Author algorithmic machine toolpaths in TypeScript — a thin front-end onto the DryMachina engine (Rust, via wasm).",
   "license": "BUSL-1.1",

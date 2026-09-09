@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "libm",
  "miniz_oxide",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "dry-py"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "dry-core",
  "pyo3",

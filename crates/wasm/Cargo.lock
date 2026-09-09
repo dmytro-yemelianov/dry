@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "dry-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "libm",
  "miniz_oxide",
@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "dry-wasm"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "dry-core",
  "serde_json",
