@@ -45,7 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # request body itself (streamed straight to a tempfile), so `RequestBodyLimitLayer` is what
 # actually enforces `MAX_BODY_BYTES` here: it wraps the body in a `Limited<Body>` unconditionally,
 # regardless of how the inner service consumes it.
-tower-http = { version = "0.6", default-features = false, features = ["limit", "request-id", "trace", "util"] }
+tower-http = { version = "0.7", default-features = false, features = ["limit", "request-id", "trace", "util"] }
 
 [dev-dependencies]
 tower = { version = "0.4", features = ["util"] }
