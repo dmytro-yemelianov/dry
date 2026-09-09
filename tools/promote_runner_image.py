@@ -176,6 +176,7 @@ def verify_attestation_payload(
     source_commit: str,
     workflow_path: str,
     workflow_ref: str | None = None,
+    allow_release_tags: bool = False,
 ) -> dict:
     """Return the attestation statement that names exactly this build, or fail."""
     require_digest(digest)
@@ -198,9 +199,19 @@ def verify_attestation_payload(
         if workflow.get("path") != workflow_path:
             reasons.append(f"attested builder workflow {workflow.get('path')!r} is not {workflow_path!r}")
             continue
-        if workflow_ref is not None and workflow.get("ref") != workflow_ref:
-            reasons.append(f"attested builder ref {workflow.get('ref')!r} is not {workflow_ref!r}")
-            continue
+        if workflow_ref is not None:
+            ref = str(workflow.get("ref") or "")
+            ref_ok = (ref == workflow_ref) or (
+                allow_release_tags and bool(RELEASE_TAG_PATTERN.match(ref))
+            )
+            if not ref_ok:
+                expected_desc = (
+                    f"{workflow_ref!r} or a release tag"
+                    if allow_release_tags
+                    else f"{workflow_ref!r}"
+                )
+                reasons.append(f"attested builder ref {ref!r} is not {expected_desc}")
+                continue
         if source_commit not in _source_commits(build_definition):
             reasons.append("attested source commit does not match the promoted commit")
             continue
@@ -480,6 +491,7 @@ def command_resolve(args: argparse.Namespace) -> int:
         source_commit=args.source_commit,
         workflow_path=args.workflow,
         workflow_ref=expected_workflow_ref(args.environment, args.release_ref),
+        allow_release_tags=(args.environment == "staging"),
     )
 
     if args.release_evidence:

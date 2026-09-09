@@ -195,6 +195,21 @@ class AttestationTests(unittest.TestCase):
     def test_accepts_the_expected_ref(self) -> None:
         self.verify(attestation(), workflow_ref="refs/tags/v0.11.0")
 
+    def test_accepts_release_tag_when_allow_release_tags_is_true(self) -> None:
+        self.verify(attestation(), workflow_ref="refs/heads/main", allow_release_tags=True)
+
+    def test_rejects_non_release_tag_even_when_allow_release_tags_is_true(self) -> None:
+        payload = attestation()
+        payload[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"][
+            "externalParameters"
+        ]["workflow"]["ref"] = "refs/heads/feature-branch"
+        with self.assertRaises(promote.PromotionError):
+            self.verify(payload, workflow_ref="refs/heads/main", allow_release_tags=True)
+
+    def test_rejects_release_tag_when_allow_release_tags_is_false(self) -> None:
+        with self.assertRaises(promote.PromotionError):
+            self.verify(attestation(), workflow_ref="refs/heads/main", allow_release_tags=False)
+
     def test_rejects_an_empty_payload(self) -> None:
         for payload in ([], {}, None, ""):
             with self.subTest(payload=payload):
