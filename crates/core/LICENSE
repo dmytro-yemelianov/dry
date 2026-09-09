@@ -4,7 +4,7 @@ Parameters
 
 Licensor: Dmytro Yemelianov
 
-Licensed Work: DryMachina version 0.11.0, including the software distributed
+Licensed Work: DryMachina version 0.12.0, including the software distributed
 from https://github.com/dmytro-yemelianov/dry under the `dry`, `dry-*`, and
 `@dry/*` package and binary names.
 
@@ -24,7 +24,7 @@ value proposition is parametric toolpath compilation, G-code verification, or
 CAM motion generation that competes with DryMachina or services offered by the
 Licensor.
 
-Change Date: 2030-09-06
+Change Date: 2030-09-09
 
 Change License: MIT License
 
