@@ -18,10 +18,10 @@ llm = ["dep:dry-llm"]
 moonraker = ["dep:dry-moonraker"]
 
 [dependencies]
-dry-core = { version = "0.11.0", path = "../core" }
-dry-license = { version = "0.11.0", path = "../license" }
-dry-llm = { version = "0.11.0", path = "../llm", optional = true }
-dry-moonraker = { version = "0.11.0", path = "../moonraker", optional = true }
+dry-core = { version = "0.12.0", path = "../core" }
+dry-license = { version = "0.12.0", path = "../license" }
+dry-llm = { version = "0.12.0", path = "../llm", optional = true }
+dry-moonraker = { version = "0.12.0", path = "../moonraker", optional = true }
 clap = { version = "4", features = ["derive"] }
 dirs = "5"
 serde_json = "1"

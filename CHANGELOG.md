@@ -9,8 +9,12 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-09
+
 ### Added
+- **Native OpenToolpath (.otp) container packaging and emission.** Added `--format otp` to `dry emit`, producing standardized PKZIP 2.04g archives carrying `mimetype` at byte offset 30, `manifest.json`, `tools.json`, `context.json`, SHA-256 cryptographic digests, and multi-format payload options (`toolpath.json`, `toolpath.dry0`, `toolpath.dry1`).
 - **First-class ISO 4343 APT-CL and IRBCAM dialect pipeline CLI integration.** Added `dry import-apt` to lift APT-CL programs into Dry IR JSON with multiaxis tool orientations and cycle expansion; added `dry review-apt` for contract verification and advisory reporting; and extended `dry emit --format` with `irbcam`, `irbcam-csv`, and `apt` targets with comprehensive frame and policy configuration flags (`--irbcam-spin-deg`, `--irbcam-rapid`, `--irbcam-dwell`, `--irbcam-extrusion`, `--irbcam-decimals`, `--irbcam-angle-unit`, `--irbcam-strict`, `--apt-partno`, `--apt-machin`, `--apt-decimals`).
+- **Lean 4 formal mathematical theorems for kinematic orientation and arc geometry.** Proved `Dry.Geometry.ZyzEuler` tool direction forward/inverse maps, spin independence theorem (I6), and round-trip theorem (I7); proved `Dry.Geometry.ArcMidpoint` circular arc midpoint construction and sweep preservation theorem (I8).
 
 ### Removed
 - **Retired legacy Python APT-CL converter.** Removed `integrations/mastercam_nx/dry_apt_cl_converter.py` and `integrations/mastercam_nx/test_apt_converter.py`, superseded by the first-class `dry import-apt` and `dry emit --format irbcam` commands.
