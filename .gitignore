@@ -26,6 +26,10 @@ dist/
 *.tsbuildinfo
 .wrangler/
 *.cpuprofile
+# Generated per deploy by tools/promote_runner_image.py: the digest-pinned Worker
+# config and the deployment evidence record. Both belong to a run, not the tree.
+services/cloud/wrangler.promotion*.jsonc
+deployment-evidence.json
 .lake/
 
 # wasm build artifacts (rebuilt by web/build.sh + CI; never committed — keeps the repo binary-free)

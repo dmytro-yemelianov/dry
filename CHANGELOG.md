@@ -32,6 +32,17 @@ profile/report contracts version independently (see `docs/10-dry-ir-v0-spec.md` 
 - **The Studio build no longer resolves the unsupported vulnerable UUID 10 release.** Until
   `vite-plugin-top-level-await` updates its exact transitive pin, the web root overrides UUID to
   11.1.1 and enforces a moderate-severity `npm audit` gate in CI.
+- **A deployment can no longer promote an unverified verify-runner image.** Every published runner
+  image now carries signed build provenance pushed to the registry, and version tags publish a
+  semver-named image. Before any deploy, `tools/promote_runner_image.py` resolves the release-named
+  tag to an immutable `sha256:` digest and requires the attestation to name the same digest, source
+  repository, source commit, builder workflow and builder ref; the deploy then runs from a generated
+  config pinned to that image and records release, source commit, image digest and environment
+  revision as deployment evidence. Mismatched, missing or tag-only references fail closed, and a CI
+  policy gate keeps the builder and deploy workflows bound to that path. Because Cloudflare
+  Containers cannot pull from GHCR, the verified image is pulled by digest and re-pushed to the
+  Cloudflare managed registry under a digest-derived tag. The Cloudflare-side push and the deployed
+  revision id remain unproved until an account-backed staging deploy runs.
 
 ## [0.11.0] - 2026-09-06
 

@@ -79,6 +79,24 @@ jobs:
         run: |
           npx wrangler deploy --dry-run --outdir /tmp/dry-cloud-production
           npx wrangler deploy --env staging --dry-run --outdir /tmp/dry-cloud-staging
+      # Issue #305. A real deploy never uses the committed Dockerfile image; it
+      # uses the config the promotion gate generates. Rendering that config from a
+      # placeholder digest and dry-running both environments keeps the generated
+      # shape deployable, without needing an account or a published image.
+      - name: validate the generated promotion config
+        run: |
+          for target in production staging; do
+            python3 tools/promote_runner_image.py render \
+              --environment "$target" \
+              --digest "sha256:$(printf '3f%.0s' $(seq 32))" \
+              --account-id 0123456789abcdef0123456789abcdef \
+              --out-config "services/cloud/wrangler.promotion-${target}.jsonc"
+          done
+          cd services/cloud
+          npx wrangler deploy -c wrangler.promotion-production.jsonc \
+            --dry-run --outdir /tmp/dry-cloud-promoted-production
+          npx wrangler deploy -c wrangler.promotion-staging.jsonc --env staging \
+            --dry-run --outdir /tmp/dry-cloud-promoted-staging
 
   deploy:
     name: deploy (${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }})
@@ -87,6 +105,17 @@ jobs:
     if: github.event_name != 'pull_request' && github.repository == 'dmytro-yemelianov/dry'
     environment:
       name: ${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
+    # `packages: read` and `attestations: read` are what let the promotion gate
+    # resolve the GHCR digest and verify its signed build provenance.
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    env:
+      TARGET: ${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
+      IMAGE: ghcr.io/${{ github.repository }}-verify-runner
+      PROMOTION_CONFIG: wrangler.promotion.jsonc
+      EVIDENCE: ${{ github.workspace }}/deployment-evidence.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -110,19 +139,86 @@ jobs:
         if: steps.configured.outputs.ready == 'true'
         working-directory: services/cloud
         run: npm ci
+      # Issue #305. Nothing is deployed until one immutable digest is resolved for
+      # the promoted release and its signed provenance names this repository, this
+      # commit and the verify-runner builder workflow. Any mismatch fails closed.
+      - name: resolve and verify the runner image digest
+        id: promotion
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          # The registry credential is read from the environment; a token passed
+          # as an argument would be visible to every process on the runner.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 tools/promote_runner_image.py resolve \
+            --repository "${{ github.repository }}" \
+            --image "$IMAGE" \
+            --environment "$TARGET" \
+            --release-ref "${{ github.ref }}" \
+            --source-commit "${{ github.sha }}" \
+            --account-id "$ACCOUNT_ID" \
+            --config services/cloud/wrangler.jsonc \
+            --out-config "services/cloud/${PROMOTION_CONFIG}" \
+            --evidence "$EVIDENCE" \
+            --github-output "$GITHUB_OUTPUT"
+      # Cloudflare Containers cannot pull from GHCR, so the verified image is
+      # copied into the Cloudflare managed registry under a tag derived from the
+      # source digest. Pulling by digest is what keeps the copy honest.
+      - name: copy the attested image into the Cloudflare registry
+        if: steps.configured.outputs.ready == 'true'
+        working-directory: services/cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SOURCE_REFERENCE: ${{ steps.promotion.outputs.source_reference }}
+          PROMOTED_IMAGE: ${{ steps.promotion.outputs.promoted_image }}
+        run: |
+          docker pull --platform linux/amd64 "$SOURCE_REFERENCE"
+          docker tag "$SOURCE_REFERENCE" "$PROMOTED_IMAGE"
+          npx wrangler containers push "$PROMOTED_IMAGE"
       - name: deploy
+        id: deploy
         if: steps.configured.outputs.ready == 'true'
         working-directory: services/cloud
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          target="${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}"
-          if [ "$target" = "production" ]; then
-            npx wrangler deploy
+          set -o pipefail
+          if [ "$TARGET" = "production" ]; then
+            npx wrangler deploy -c "$PROMOTION_CONFIG" | tee /tmp/deploy.log
           else
-            npx wrangler deploy --env staging
+            npx wrangler deploy -c "$PROMOTION_CONFIG" --env staging | tee /tmp/deploy.log
           fi
+          revision=$(sed -n 's/.*[Vv]ersion ID: *\([0-9a-f-]\{36\}\).*/\1/p' /tmp/deploy.log | tail -1)
+          if [ -z "$revision" ]; then
+            echo "::error::wrangler did not report a deployed version id"
+            exit 1
+          fi
+          echo "revision=${revision}" >> "$GITHUB_OUTPUT"
+      # Acceptance criterion: the record names release, source commit, image
+      # digest and environment revision, or the promotion is not evidenced.
+      - name: close the deployment evidence
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          python3 tools/promote_runner_image.py finalize \
+            --evidence "$EVIDENCE" \
+            --revision "${{ steps.deploy.outputs.revision }}"
+          {
+            echo "### deployment evidence"
+            echo
+            echo '```json'
+            cat "$EVIDENCE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: publish the deployment evidence
+        if: steps.configured.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: deployment-evidence-${{ github.ref_type == 'tag' && 'production' || inputs.environment || 'staging' }}
+          path: deployment-evidence.json
+          if-no-files-found: error
       # This proves Worker/control-plane liveness only. A separately authenticated
       # staging job smoke is still required before claiming end-to-end deployment.
       - name: smoke the deployed control plane
