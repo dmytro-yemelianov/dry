@@ -126,13 +126,13 @@
         {
           "binding": "DB",
           "database_name": "dry-cloud-staging",
-          "database_id": "00000000-0000-0000-0000-000000000000"
+          "database_id": "46922806-c39c-4332-94c0-99fa1f11a1d8"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "CODES",
-          "id": "0000000000000000000000000000000"
+          "id": "a6aa7e1bb4104b82a54d7cc65afb637b"
         }
       ],
       "r2_buckets": [
