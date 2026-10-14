@@ -12,11 +12,11 @@
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.22.0",
-    "@types/node": "^26.4.1",
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@types/node": "^26.6.5",
     "typescript": "5.9.3",
     "vitest": "4.1.11",
-    "wrangler": "4.128.0"
+    "wrangler": "4.149.0"
   },
   "overrides": {
     "sharp": "^0.35.4"
